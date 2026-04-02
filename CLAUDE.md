@@ -32,6 +32,44 @@
     └── common.css        ← Shared styles & CSS variables
 ```
 
+## Firebase Schema (`rundown/`)
+```
+rundown/
+├── settings          ← flat object { appName, familyName, timezone, weekendWeight, theme: {...} }
+├── people/
+│   └── {pushId}      ← { name, color }
+├── categories/
+│   └── {pushId}      ← { name, icon }
+├── tasks/
+│   └── {pushId}      ← { name, rotation, owners[], ownerAssignmentMode,
+│                         timeOfDay, dedicatedDay?, cooldownDays?, estMin,
+│                         difficulty, category, status, createdDate, exempt? }
+│                       rotation: 'daily' | 'weekly' | 'monthly' | 'once'
+│                       ownerAssignmentMode: 'rotate' | 'duplicate'
+│                       timeOfDay: 'am' | 'pm' | 'anytime' | 'both'
+├── schedule/
+│   └── {YYYY-MM-DD}/
+│       └── {entryKey} ← { taskId, ownerId, rotationType, ownerAssignmentMode, timeOfDay }
+│                       entryKey format: sched_{timestamp}_{counter}
+├── completions/
+│   └── {entryKey}     ← { completedAt: ServerValue.TIMESTAMP, completedBy: 'dashboard'|'calendar' }
+├── snapshots/
+│   └── {YYYY-MM-DD}/{personId}  ← (Phase 5+)
+├── streaks/
+│   └── {personId}               ← (Phase 5+)
+└── debug/eventLog/    ← { ...data, timestamp }
+```
+
+## Key Behavior Decisions
+- Scheduler generates 90 days of future entries (tomorrow onward, never today/past)
+- Completion allowed on any date (no future-date blocking)
+- Overdue: only non-daily tasks from past dates; daily tasks are excluded
+- Completed tasks render at the very bottom of any task list (below all frequency groups)
+- Task grouping order: Daily → Weekly → Monthly → One-Time, then owner within group
+- Scoring/points are Phase 5 — no point values on task cards until then
+- Calendar bottom sheet locks height on open so person filter changes don't resize it
+- Category emoji on cards will be a per-category toggle (Phase 8 admin setting)
+
 ## Gotchas (Critical)
 - Firebase RTDB compat SDK used (not modular) — all imports via `firebase.` global after CDN load
 - Timezone handling: always use `settings.timezone` for date calculations, never local device time
