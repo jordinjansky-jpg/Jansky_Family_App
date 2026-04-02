@@ -376,24 +376,22 @@
           </div>
           <p class="form-hint" id="assignModeHint">${assignMode === 'duplicate' ? 'Each selected owner gets their own task instance every period.' : 'Rotate between owners each period.'}</p>
         </div>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Dedicated Day</label>
-            <select id="tf_dedicatedDay">
-              <option value="">None</option>
-              <option value="0"${task.dedicatedDay === 0 ? ' selected' : ''}>Sunday</option>
-              <option value="1"${task.dedicatedDay === 1 ? ' selected' : ''}>Monday</option>
-              <option value="2"${task.dedicatedDay === 2 ? ' selected' : ''}>Tuesday</option>
-              <option value="3"${task.dedicatedDay === 3 ? ' selected' : ''}>Wednesday</option>
-              <option value="4"${task.dedicatedDay === 4 ? ' selected' : ''}>Thursday</option>
-              <option value="5"${task.dedicatedDay === 5 ? ' selected' : ''}>Friday</option>
-              <option value="6"${task.dedicatedDay === 6 ? ' selected' : ''}>Saturday</option>
-            </select>
+        <div class="form-group" id="dedicatedDayGroup" style="display:${task.rotation === 'daily' ? 'none' : ''}">
+          <label class="form-label" id="dedicatedDayLabel">${task.rotation === 'once' ? 'Scheduled Date' : 'Dedicated Day'}</label>
+          <div id="dayChips" style="display:${task.rotation === 'once' ? 'none' : 'flex'};flex-wrap:wrap;gap:6px;">
+            ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
+              const val = (i + 1) % 7; // Mon=1..Sat=6,Sun=0
+              return `<button type="button" class="btn btn--secondary btn--sm day-chip${task.dedicatedDay === val ? ' day-chip--active' : ''}" data-day="${val}">${d}</button>`;
+            }).join('')}
+            <button type="button" class="btn btn--secondary btn--sm day-chip${task.dedicatedDay == null ? ' day-chip--active' : ''}" data-day="" style="margin-left:auto">Any</button>
           </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Cooldown Days</label>
-            <input type="number" id="tf_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
+          <div id="dedicatedDateRow" style="display:${task.rotation === 'once' ? '' : 'none'}">
+            <input type="date" id="tf_dedicatedDate" value="${task.dedicatedDate || ''}" class="task-detail__date-input" style="width:100%">
           </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cooldown Days</label>
+          <input type="number" id="tf_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
         </div>
         <label class="admin-checkbox mt-sm"><input type="checkbox" id="tf_exempt"${task.exempt ? ' checked' : ''}> Exempt from scoring</label>
         <div class="admin-form__actions mt-md">
@@ -769,6 +767,20 @@
         <p class="form-hint mb-md">Download a JSON dump of all Firebase data under rundown/.</p>
         <button class="btn btn--secondary" id="exportDataBtn" type="button">Export JSON</button>
 
+        <h3 class="admin-form__title mt-lg">Reset Scoreboard</h3>
+        <p class="form-hint mb-md">Delete all snapshots, streaks, and completion records. Tasks and schedule are kept. Scores will rebuild from scratch.</p>
+        <div id="scoreResetSection">
+          <button class="btn btn--danger btn--sm" id="showScoreResetBtn" type="button">Reset Scoreboard...</button>
+        </div>
+        <div id="scoreResetConfirm" style="display:none;">
+          <p class="admin-msg admin-msg--danger mb-md">This will wipe all scoring history. Type <strong>RESET</strong> to confirm.</p>
+          <input type="text" id="scoreResetWord" placeholder="Type RESET" style="width:200px;">
+          <div class="admin-form__actions mt-md">
+            <button class="btn btn--secondary" id="scoreResetCancel" type="button">Cancel</button>
+            <button class="btn btn--danger" id="scoreResetConfirmBtn" type="button" disabled>Clear Scoreboard</button>
+          </div>
+        </div>
+
         <h3 class="admin-form__title mt-lg">Factory Reset</h3>
         <p class="form-hint mb-md">Permanently delete ALL data under rundown/ and return to the setup wizard. This cannot be undone.</p>
         <div id="resetSection">
@@ -995,6 +1007,37 @@
         });
       }
 
+      // Day chip toggle
+      for (const chip of main.querySelectorAll('.day-chip')) {
+        chip.addEventListener('click', () => {
+          main.querySelectorAll('.day-chip').forEach(c => c.classList.remove('day-chip--active'));
+          chip.classList.add('day-chip--active');
+        });
+      }
+
+      // Rotation change — show/hide dedicated day vs date picker
+      main.querySelector('#tf_rotation')?.addEventListener('change', (e) => {
+        const rot = e.target.value;
+        const group = main.querySelector('#dedicatedDayGroup');
+        const chips = main.querySelector('#dayChips');
+        const dateRow = main.querySelector('#dedicatedDateRow');
+        const label = main.querySelector('#dedicatedDayLabel');
+        if (rot === 'daily') {
+          group.style.display = 'none';
+        } else {
+          group.style.display = '';
+          if (rot === 'once') {
+            chips.style.display = 'none';
+            dateRow.style.display = '';
+            label.textContent = 'Scheduled Date';
+          } else {
+            chips.style.display = 'flex';
+            dateRow.style.display = 'none';
+            label.textContent = 'Dedicated Day';
+          }
+        }
+      });
+
       // Cancel
       main.querySelector('#taskFormCancel')?.addEventListener('click', () => {
         editingTaskId = null;
@@ -1009,8 +1052,14 @@
         const owners = Array.from(main.querySelectorAll('#tf_owners input:checked')).map(cb => cb.value);
         const activeMode = main.querySelector('.admin-mode-btn.admin-mode-btn--active');
         const assignMode = activeMode?.dataset.mode || 'rotate';
-        const dedicatedDay = main.querySelector('#tf_dedicatedDay')?.value;
         const cooldown = main.querySelector('#tf_cooldown')?.value;
+        const rotation = main.querySelector('#tf_rotation')?.value || 'daily';
+
+        // Read dedicated day from chips or date from picker
+        const activeChip = main.querySelector('.day-chip.day-chip--active');
+        const chipVal = activeChip?.dataset.day;
+        const dedicatedDay = (rotation !== 'once' && chipVal !== '' && chipVal != null) ? parseInt(chipVal, 10) : null;
+        const dedicatedDate = rotation === 'once' ? (main.querySelector('#tf_dedicatedDate')?.value || null) : null;
 
         const catKey = main.querySelector('#tf_category')?.value || '';
         const catIsEvent = catsObj[catKey]?.isEvent || false;
@@ -1018,14 +1067,15 @@
 
         const taskData = {
           name,
-          rotation: main.querySelector('#tf_rotation')?.value || 'daily',
+          rotation,
           difficulty: main.querySelector('#tf_difficulty')?.value || 'medium',
           timeOfDay: main.querySelector('#tf_timeOfDay')?.value || 'anytime',
           estMin: parseInt(main.querySelector('#tf_estMin')?.value, 10) || 10,
           category: catKey,
           owners,
           ownerAssignmentMode: effectiveMode,
-          dedicatedDay: dedicatedDay !== '' ? parseInt(dedicatedDay, 10) : null,
+          dedicatedDay,
+          dedicatedDate,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
           exempt: main.querySelector('#tf_exempt')?.checked || false,
           status: 'active'
@@ -1037,7 +1087,9 @@
           tasksObj[newId] = taskData;
 
           // Create schedule entry for today so the task appears immediately
-          if (owners.length > 0) {
+          // Skip if one-time task with a future dedicatedDate
+          const skipToday = taskData.rotation === 'once' && taskData.dedicatedDate && taskData.dedicatedDate !== today;
+          if (owners.length > 0 && !skipToday) {
             const schedUpdates = {};
             const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: effectiveMode };
             const tod = taskData.timeOfDay || 'anytime';
@@ -1417,6 +1469,38 @@
         URL.revokeObjectURL(url);
       });
 
+      // Scoreboard reset
+      main.querySelector('#showScoreResetBtn')?.addEventListener('click', () => {
+        main.querySelector('#scoreResetSection').style.display = 'none';
+        main.querySelector('#scoreResetConfirm').style.display = '';
+      });
+      main.querySelector('#scoreResetCancel')?.addEventListener('click', () => {
+        main.querySelector('#scoreResetConfirm').style.display = 'none';
+        main.querySelector('#scoreResetSection').style.display = '';
+      });
+      const scoreResetWord = main.querySelector('#scoreResetWord');
+      const scoreResetBtn = main.querySelector('#scoreResetConfirmBtn');
+      if (scoreResetWord && scoreResetBtn) {
+        scoreResetWord.addEventListener('input', () => {
+          scoreResetBtn.disabled = scoreResetWord.value.trim() !== 'RESET';
+        });
+        scoreResetBtn.addEventListener('click', async () => {
+          scoreResetBtn.disabled = true;
+          scoreResetBtn.textContent = 'Clearing...';
+          await multiUpdate({
+            'snapshots': null,
+            'streaks': null,
+            'completions': null
+          });
+          scoreResetBtn.textContent = 'Done!';
+          setTimeout(() => {
+            main.querySelector('#scoreResetConfirm').style.display = 'none';
+            main.querySelector('#scoreResetSection').style.display = '';
+          }, 1500);
+        });
+      }
+
+      // Factory reset
       main.querySelector('#showResetBtn')?.addEventListener('click', () => {
         main.querySelector('#resetSection').style.display = 'none';
         main.querySelector('#resetConfirm').style.display = '';

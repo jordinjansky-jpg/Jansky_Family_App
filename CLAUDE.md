@@ -42,7 +42,7 @@ rundown/
 │   └── {pushId}      ← { name, icon, isEvent?, eventColor?, weightPercent?, ... }
 ├── tasks/
 │   └── {pushId}      ← { name, rotation, owners[], ownerAssignmentMode,
-│                         timeOfDay, dedicatedDay?, cooldownDays?, estMin,
+│                         timeOfDay, dedicatedDay?, dedicatedDate?, cooldownDays?, estMin,
 │                         difficulty, category, status, createdDate, exempt? }
 │                       rotation: 'daily' | 'weekly' | 'monthly' | 'once'
 │                       ownerAssignmentMode: 'rotate' | 'duplicate' | 'fixed'
@@ -74,13 +74,15 @@ rundown/
 - **Admin-configurable:** pastDueCreditPct, weekendWeight, sliderMin/Max, category weightPercent — all Phase 8
 
 ## Key Behavior Decisions
-- Scheduler generates 90 days of future entries (tomorrow onward); new tasks also get today's entry at creation time
+- Scheduler generates 90 days of future entries (tomorrow onward); new tasks also get today's entry at creation time (skipped for one-time tasks with future dedicatedDate)
+- Task form: weekly/monthly show day-of-week chips (Mon-Sun); one-time shows date picker; daily hides dedicated day section
+- One-time tasks with `dedicatedDate` (YYYY-MM-DD) are placed on that exact date; without it, load-balanced to lightest day
 - Completion allowed on any date (no future-date blocking)
 - Overdue: only non-daily tasks from past dates; daily tasks are excluded
 - Completed tasks render at the very bottom of any task list (below all frequency groups)
 - Task grouping order: Daily → Weekly → Monthly → One-Time, then owner within group
 - Task cards show point values (e.g., "3pt") alongside time estimates
-- Long-press task card opens detail sheet with points slider, delegate, move, skip, and edit buttons
+- Long-press task card opens detail sheet with points slider, delegate, move (opens native date picker), skip, and edit buttons
 - Points slider stores `pointsOverride` as percentage (0–150) on completion record; 100% = null (no override)
 - Daily rollover creates snapshots for past days on dashboard load (fire-and-forget)
 - Calendar bottom sheet locks height on open so person filter changes don't resize it
@@ -100,6 +102,7 @@ rundown/
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
+2026-04-02 Dedicated day/date + move UX: Fixed one-time tasks appearing on multiple days (isOnceTaskHandled now checks all existing schedule entries, not just completed ones). Task form: weekly/monthly show day-of-week chip buttons (Mon-Sun + Any); one-time shows date picker (dedicatedDate field). One-time tasks with future dedicatedDate skip today entry creation. Move button in long-press sheet now directly opens native date picker (no toggle panel). Skip button promoted to main action bar alongside Move.
 2026-04-02 New themes + events + stats: Added Light Vivid and Dark Vivid theme presets with person-colored task card backgrounds (coloredCells flag). Event categories: isEvent toggle in admin categories with eventColor picker, events excluded from scoring, use 'fixed' ownerAssignmentMode (no rotate/dup), show with 📅 prefix and colored border style on task cards. Calendar day cells show colored event bars (multiple events = stacked thin bars). Dashboard stats: replaced points with score %, tasks done/total, total task time in date-header and fixed header — all filter by person. Theme per-device (localStorage source of truth).
 2026-04-02 Phase 8 polish round 2: Fixed admin blank screen on PIN session return (render called before main defined). Fixed edit sheet closing immediately (closeTaskSheet timeout racing with openEditTaskSheet). Added delegation/move indicators on task cards (↪ name / 📅 moved tags from entry key suffix). Redesigned + button as pill-shaped "Task" button. Categories: removed duplicate key display, added isDefault flag (pre-selects in quick-add), badges for weight/pin/icon-off. New tasks now create schedule entries for today (not just future). Debug tab: past-due test entry creator (pick task/date/owner to create overdue entry for testing).
 2026-04-02 Phase 8 polish: Category showIcon toggle (controls icon display on task cards). Reworked admin task list UI (two-row layout with name/badges top row, owners/actions bottom row). Reworked admin people list UI (horizontal with color dot, info column). PIN session caching (30min TTL in sessionStorage). Quick-add task button (+) in header on all main pages. Long-press detail sheet now has Delegate (person chips), Move (date picker), Skip, and Edit Task buttons on dashboard/calendar/tracker — no PIN required. Edit task opens inline bottom sheet. Debug mode shows scoring breakdown panel on dashboard with copy-to-clipboard.

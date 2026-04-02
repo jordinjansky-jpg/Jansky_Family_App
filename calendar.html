@@ -590,10 +590,10 @@
         });
       });
 
-      // Move
+      // Move — directly open date picker
       document.getElementById('sheetMove')?.addEventListener('click', () => {
-        const panel = document.getElementById('movePanel');
-        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+        const picker = document.getElementById('moveDatePicker');
+        if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
       });
 
       document.getElementById('moveDatePicker')?.addEventListener('change', async (e) => {

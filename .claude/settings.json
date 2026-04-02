@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(find /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App -type f \\\\\\( -name \"*.js\" -o -name \"*.html\" -o -name \"*.json\" \\\\\\) ! -path \"*/.claude/*\" -exec wc -c {} +)",
+      "Bash(xargs -I {} basename {})"
+    ]
+  }
+}

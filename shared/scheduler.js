@@ -297,7 +297,7 @@ function isScheduledThisMonth(taskId, dateKey, futureSchedule) {
  * Check if a once-task is already scheduled or completed anywhere.
  */
 function isOnceTaskHandled(taskId, futureSchedule, completions, scheduleData) {
-  // Check if already scheduled in future
+  // Check if already scheduled in future (being built)
   for (const dayEntries of Object.values(futureSchedule)) {
     if (dayEntries) {
       for (const entry of Object.values(dayEntries)) {
@@ -306,12 +306,12 @@ function isOnceTaskHandled(taskId, futureSchedule, completions, scheduleData) {
     }
   }
 
-  // Check if completed anywhere
-  if (completions && scheduleData) {
-    for (const [entryKey, completion] of Object.entries(completions)) {
-      for (const dayEntries of Object.values(scheduleData)) {
-        if (dayEntries && dayEntries[entryKey] && dayEntries[entryKey].taskId === taskId) {
-          return true;
+  // Check existing schedule (today + past) for any entry with this taskId
+  if (scheduleData) {
+    for (const dayEntries of Object.values(scheduleData)) {
+      if (dayEntries) {
+        for (const entry of Object.values(dayEntries)) {
+          if (entry.taskId === taskId) return true;
         }
       }
     }
@@ -617,9 +617,13 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, completions, exis
     ownerId = task.owners[0]; // Once tasks always use first owner
   }
 
-  // Find the lightest day
+  // Find the target day
   let targetDay;
-  if (task.dedicatedDay != null) {
+  if (task.dedicatedDate) {
+    // Specific date set — place on that exact date if it's in the future
+    targetDay = eligibleDates.find(dk => dk === task.dedicatedDate);
+    if (!targetDay) return; // date is in the past or out of range
+  } else if (task.dedicatedDay != null) {
     targetDay = eligibleDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
   }
   if (!targetDay && mode !== 'duplicate' && !task.exempt) {

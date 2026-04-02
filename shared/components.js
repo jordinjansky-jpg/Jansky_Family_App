@@ -334,6 +334,7 @@ export function renderTaskDetailSheet(options) {
     }
     if (showMove) {
       html += `<button class="btn btn--secondary btn--sm" id="sheetMove" type="button">📅 Move</button>`;
+      html += `<button class="btn btn--ghost btn--sm" id="moveSkip" type="button">⏭ Skip</button>`;
     }
     if (showEdit) {
       html += `<button class="btn btn--secondary btn--sm" id="sheetEdit" data-task-id="${entry.taskId}" type="button">✏️ Edit</button>`;
@@ -353,15 +354,9 @@ export function renderTaskDetailSheet(options) {
     </div>`;
   }
 
-  // Move panel (hidden by default, shown when Move clicked)
+  // Move date picker (hidden input, triggered by Move button)
   if (showMove) {
-    html += `<div class="task-detail__move-panel" id="movePanel" style="display:none;">
-      <span class="form-label">Move to:</span>
-      <div class="task-detail__move-options">
-        <input type="date" id="moveDatePicker" class="task-detail__date-input">
-        <button class="btn btn--ghost btn--sm" id="moveSkip" type="button">Skip Task</button>
-      </div>
-    </div>`;
+    html += `<input type="date" id="moveDatePicker" class="task-detail__date-input" style="position:absolute;opacity:0;pointer-events:none;">`;
   }
 
   // Points slider — always visible, preview-only label for incomplete tasks

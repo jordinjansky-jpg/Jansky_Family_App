@@ -2311,6 +2311,19 @@ img {
   font-weight: 700;
 }
 
+/* Day chip toggle */
+.day-chip {
+  min-width: 44px;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+}
+.day-chip--active {
+  background: var(--accent-light) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  font-weight: 700;
+}
+
 /* Admin Messages */
 .admin-msg {
   font-size: var(--font-size-sm);
