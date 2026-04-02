@@ -204,8 +204,14 @@
       main.innerHTML = html;
       bindEvents();
 
-      if (selectedDay) openSheet(selectedDay);
-      else closeSheet();
+      // If sheet is already open, update in place (no re-animation)
+      if (selectedDay && document.getElementById('calSheet')) {
+        updateSheet(selectedDay);
+      } else if (selectedDay) {
+        openSheet(selectedDay);
+      } else {
+        closeSheet();
+      }
     }
 
     // ══════════════════════════════════════════
@@ -342,8 +348,8 @@
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           activePerson = btn.dataset.personId || null;
+          // render() updates the grid and calls updateSheet() in place (no re-animation)
           render();
-          updateSheet(selectedDay);
         });
       });
 
@@ -436,9 +442,8 @@
         await writeCompletion(entryKey, record);
       }
 
-      // Refresh grid + sheet content (no re-animation)
+      // Refresh grid + sheet content (render handles updateSheet if sheet is open)
       render();
-      if (selectedDay) updateSheet(selectedDay);
     }
 
     // ══════════════════════════════════════════
@@ -448,7 +453,6 @@
     onValue('completions', (val) => {
       completions = val || {};
       render();
-      if (selectedDay) updateSheet(selectedDay);
     });
 
     // ══════════════════════════════════════════
