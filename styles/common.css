@@ -924,6 +924,117 @@ img {
   margin-top: 0;
 }
 
+/* ============ Calendar Grid ============ */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-top: var(--spacing-sm);
+}
+
+.cal-grid__dow {
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: var(--spacing-xs) 0;
+}
+
+.cal-grid__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-xs) 2px;
+  min-height: 56px;
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cal-grid__cell--empty {
+  background: transparent;
+  cursor: default;
+}
+
+.cal-grid__cell:active:not(.cal-grid__cell--empty) {
+  transform: scale(0.95);
+}
+
+.cal-grid__cell--today {
+  background: var(--accent-light);
+}
+
+.cal-grid__cell--today .cal-grid__day {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.cal-grid__cell--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.cal-grid__cell--alldone {
+  background: color-mix(in srgb, var(--success-text, #2e7d32) 8%, var(--bg-card));
+}
+
+.cal-grid__day {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.cal-grid__dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cal-grid__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cal-grid__count {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1;
+}
+
+/* ============ Calendar Day Detail ============ */
+.cal-detail {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-light);
+}
+
+.cal-detail__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.cal-detail__date {
+  font-weight: 700;
+  font-size: var(--font-size-base);
+}
+
+.cal-detail__summary {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
 /* ============ Overdue Banner ============ */
 .overdue-banner {
   display: flex;

@@ -22,21 +22,45 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, onValue } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort } from './shared/utils.js';
+    import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
 
+    // ── Cached theme ──
     const cached = loadCachedTheme();
     applyTheme(cached || defaultThemeConfig());
 
+    // ── Init Firebase ──
     initFirebase();
-
     const firstRun = await isFirstRun();
     if (firstRun) { window.location.href = 'setup.html'; }
 
-    const settings = await readSettings();
+    // ── Load core data ──
+    const [settings, peopleObj, tasksObj, catsObj] = await Promise.all([
+      readSettings(), readPeople(), readTasks(), readCategories()
+    ]);
+
     if (settings?.theme) applyTheme(settings.theme);
 
+    const tz = settings?.timezone || 'America/Chicago';
+    const today = todayKey(tz);
+    const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
+    const tasks = tasksObj || {};
+    const cats = catsObj || {};
+
+    const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+
+    // ── App state ──
+    let viewMonth = today.substring(0, 7); // YYYY-MM
+    let activePerson = null;
+    let selectedDay = null;
+    let completions = {};
+    let allSchedule = {};
+
+    // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
@@ -44,13 +68,311 @@
       showAdmin: true,
       showDebug: debugActive
     });
-
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
 
+    // ── Hide loading, show content ──
     document.getElementById('loadingState').style.display = 'none';
     const main = document.getElementById('mainContent');
     main.style.display = '';
-    main.innerHTML = renderEmptyState('📅', 'Calendar coming in Phase 4', 'Day, week, and month views with task management.');
+
+    // ══════════════════════════════════════════
+    // Data loading
+    // ══════════════════════════════════════════
+
+    async function loadData() {
+      const [comp, sched] = await Promise.all([
+        readCompletions(),
+        readAllSchedule()
+      ]);
+      completions = comp || {};
+      allSchedule = sched || {};
+    }
+
+    // ══════════════════════════════════════════
+    // Calendar grid helpers
+    // ══════════════════════════════════════════
+
+    function getDaySummary(dateKey) {
+      const dayEntries = allSchedule[dateKey] || {};
+      const filtered = filterByPerson(dayEntries, activePerson);
+      const keys = Object.keys(filtered);
+      const total = keys.length;
+      const done = keys.filter(k => isComplete(k, completions)).length;
+
+      // Collect unique owner colors for dot indicators
+      const ownerColors = [];
+      const seen = new Set();
+      for (const entry of Object.values(filtered)) {
+        if (!seen.has(entry.ownerId)) {
+          seen.add(entry.ownerId);
+          const person = people.find(p => p.id === entry.ownerId);
+          if (person) ownerColors.push(person.color);
+        }
+      }
+
+      return { total, done, ownerColors };
+    }
+
+    // ══════════════════════════════════════════
+    // Render
+    // ══════════════════════════════════════════
+
+    function render() {
+      const mStart = `${viewMonth}-01`;
+      const mEnd = monthEnd(mStart);
+      const firstDow = dayOfWeek(mStart); // 0=Sun
+      const days = dateRange(mStart, mEnd);
+      const mn = monthNumber(mStart);
+      const yr = yearNumber(mStart);
+
+      let html = '';
+
+      // Month nav
+      html += `<div class="date-header">
+        <div class="date-nav">
+          <button class="date-nav__btn" id="prevMonth" type="button" title="Previous month">&lsaquo;</button>
+          <div class="date-nav__center">
+            <span class="date-header__day">${MONTH_NAMES[mn - 1]} ${yr}</span>
+          </div>
+          <button class="date-nav__btn" id="nextMonth" type="button" title="Next month">&rsaquo;</button>
+        </div>
+        ${viewMonth !== today.substring(0, 7) ? `<button class="btn btn--ghost btn--sm mt-sm" id="goThisMonth" type="button">This Month</button>` : ''}
+      </div>`;
+
+      // Person filter
+      html += renderPersonFilter(people, activePerson);
+
+      // Calendar grid
+      html += `<div class="cal-grid">`;
+
+      // Day-of-week headers
+      for (const d of DAY_NAMES_SHORT) {
+        html += `<div class="cal-grid__dow">${d}</div>`;
+      }
+
+      // Empty cells before first day
+      for (let i = 0; i < firstDow; i++) {
+        html += `<div class="cal-grid__cell cal-grid__cell--empty"></div>`;
+      }
+
+      // Day cells
+      for (const dateKey of days) {
+        const summary = getDaySummary(dateKey);
+        const isToday = dateKey === today;
+        const isSelected = dateKey === selectedDay;
+        const allDone = summary.total > 0 && summary.done === summary.total;
+
+        let cls = 'cal-grid__cell';
+        if (isToday) cls += ' cal-grid__cell--today';
+        if (isSelected) cls += ' cal-grid__cell--selected';
+        if (allDone) cls += ' cal-grid__cell--alldone';
+
+        const dayNum = parseInt(dateKey.split('-')[2], 10);
+
+        let dots = '';
+        if (summary.total > 0 && !allDone) {
+          dots = `<div class="cal-grid__dots">`;
+          for (const color of summary.ownerColors.slice(0, 4)) {
+            dots += `<span class="cal-grid__dot" style="background:${color}"></span>`;
+          }
+          dots += `</div>`;
+        }
+
+        const countLabel = summary.total > 0
+          ? `<span class="cal-grid__count">${summary.done}/${summary.total}</span>`
+          : '';
+
+        html += `<button class="${cls}" data-date="${dateKey}" type="button">
+          <span class="cal-grid__day">${dayNum}</span>
+          ${dots}
+          ${countLabel}
+        </button>`;
+      }
+
+      html += `</div>`;
+
+      // Selected day detail
+      if (selectedDay) {
+        html += renderDayDetail(selectedDay);
+      }
+
+      main.innerHTML = html;
+      bindEvents();
+    }
+
+    // ══════════════════════════════════════════
+    // Day detail panel
+    // ══════════════════════════════════════════
+
+    function renderDayDetail(dateKey) {
+      const dayEntries = allSchedule[dateKey] || {};
+      const filtered = filterByPerson(dayEntries, activePerson);
+      const prog = dayProgress(filtered, completions);
+      const dateLabel = formatDateShort(dateKey);
+
+      let html = `<div class="cal-detail">`;
+      html += `<div class="cal-detail__header">
+        <span class="cal-detail__date">${dateLabel}</span>
+        <span class="cal-detail__summary">${prog.done}/${prog.total} done</span>
+      </div>`;
+
+      if (prog.total === 0) {
+        html += `<div class="empty-state" style="padding:var(--spacing-md) 0;">
+          <span class="empty-state__icon">📭</span>
+          <h3 class="empty-state__title">Nothing scheduled</h3>
+        </div>`;
+      } else {
+        // Split incomplete and completed
+        const incomplete = {};
+        const completedEntries = {};
+        for (const [key, entry] of Object.entries(filtered)) {
+          if (isComplete(key, completions)) completedEntries[key] = entry;
+          else incomplete[key] = entry;
+        }
+
+        // Incomplete grouped by frequency
+        const groups = groupByFrequency(incomplete);
+        const sections = [
+          { key: 'daily', label: 'Daily' },
+          { key: 'weekly', label: 'Weekly' },
+          { key: 'monthly', label: 'Monthly' },
+          { key: 'once', label: 'One-Time' }
+        ];
+
+        const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
+        const showHeaders = nonEmpty.length > 1;
+
+        for (const sec of sections) {
+          const entries = groups[sec.key];
+          const sorted = sortEntries(entries, completions);
+          if (sorted.length === 0) continue;
+
+          if (showHeaders) html += renderTimeHeader(sec.label);
+
+          for (const [entryKey, entry] of sorted) {
+            const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+            const person = people.find(p => p.id === entry.ownerId);
+            const cat = task.category ? cats[task.category] : null;
+            html += renderTaskCard({
+              entryKey,
+              entry: { ...entry, dateKey },
+              task,
+              person,
+              category: cat,
+              completed: false,
+              overdue: false
+            });
+          }
+        }
+
+        // Completed at bottom
+        const compArr = Object.entries(completedEntries);
+        if (compArr.length > 0) {
+          html += renderTimeHeader(`Completed (${compArr.length})`);
+          for (const [entryKey, entry] of compArr) {
+            const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+            const person = people.find(p => p.id === entry.ownerId);
+            const cat = task.category ? cats[task.category] : null;
+            html += renderTaskCard({
+              entryKey,
+              entry: { ...entry, dateKey },
+              task,
+              person,
+              category: cat,
+              completed: true,
+              overdue: false
+            });
+          }
+        }
+      }
+
+      html += `</div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════
+    // Events
+    // ══════════════════════════════════════════
+
+    function bindEvents() {
+      // Month nav
+      document.getElementById('prevMonth')?.addEventListener('click', () => changeMonth(-1));
+      document.getElementById('nextMonth')?.addEventListener('click', () => changeMonth(1));
+      document.getElementById('goThisMonth')?.addEventListener('click', () => {
+        viewMonth = today.substring(0, 7);
+        selectedDay = null;
+        render();
+      });
+
+      // Person filter
+      main.querySelectorAll('.person-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activePerson = btn.dataset.personId || null;
+          render();
+        });
+      });
+
+      // Day cell tap
+      main.querySelectorAll('.cal-grid__cell[data-date]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const dateKey = btn.dataset.date;
+          selectedDay = selectedDay === dateKey ? null : dateKey;
+          render();
+        });
+      });
+
+      // Task card toggle (completion)
+      main.querySelectorAll('.task-card').forEach(btn => {
+        btn.addEventListener('click', () => toggleTask(btn.dataset.entryKey, btn.dataset.dateKey));
+      });
+    }
+
+    function changeMonth(delta) {
+      const mStart = `${viewMonth}-01`;
+      const d = new Date(Date.UTC(yearNumber(mStart), monthNumber(mStart) - 1 + delta, 1));
+      viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      selectedDay = null;
+      render();
+    }
+
+    // ══════════════════════════════════════════
+    // Completion toggle
+    // ══════════════════════════════════════════
+
+    async function toggleTask(entryKey, dateKey) {
+      if (!entryKey) return;
+      const wasComplete = isComplete(entryKey, completions);
+
+      if (wasComplete) {
+        delete completions[entryKey];
+        await removeCompletion(entryKey);
+      } else {
+        const record = {
+          completedAt: firebase.database.ServerValue.TIMESTAMP,
+          completedBy: 'calendar'
+        };
+        completions[entryKey] = record;
+        await writeCompletion(entryKey, record);
+      }
+
+      render();
+    }
+
+    // ══════════════════════════════════════════
+    // Real-time listener
+    // ══════════════════════════════════════════
+
+    onValue('completions', (val) => {
+      completions = val || {};
+      render();
+    });
+
+    // ══════════════════════════════════════════
+    // Initial load
+    // ══════════════════════════════════════════
+
+    await loadData();
+    render();
   </script>
 </body>
 </html>
