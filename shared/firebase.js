@@ -207,10 +207,45 @@ export async function pushTask(data) {
 }
 
 /**
+ * Update an existing task.
+ */
+export async function writeTask(taskId, data) {
+  return writeData(`tasks/${taskId}`, data);
+}
+
+/**
+ * Remove a task.
+ */
+export async function removeTask(taskId) {
+  return removeData(`tasks/${taskId}`);
+}
+
+/**
  * Read schedule for a specific date.
  */
 export async function readSchedule(dateKey) {
   return readOnce(`schedule/${dateKey}`);
+}
+
+/**
+ * Read all schedule data (all dates).
+ */
+export async function readAllSchedule() {
+  return readOnce('schedule');
+}
+
+/**
+ * Write the full schedule for a specific date (replaces all entries for that day).
+ */
+export async function writeScheduleDay(dateKey, entries) {
+  return writeData(`schedule/${dateKey}`, entries);
+}
+
+/**
+ * Remove schedule for a specific date.
+ */
+export async function removeScheduleDay(dateKey) {
+  return removeData(`schedule/${dateKey}`);
 }
 
 /**

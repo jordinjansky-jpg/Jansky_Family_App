@@ -1,6 +1,6 @@
 # Daily Rundown Rebuild - Governance
-**Current Phase:** 1 | **Status:** In Progress  
-**Next Milestone:** Phase 1 validation — setup wizard, nav, theme, Firebase connection
+**Current Phase:** 2 | **Status:** In Progress  
+**Next Milestone:** Phase 2 — Task data model, scheduling engine (basic → rotation → cooldown → load balancing → duplicate)
 
 ## Architecture Decisions
 - Firebase root: `rundown/` — NEVER touch `cleaning/*`
@@ -39,10 +39,10 @@
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
-2026-04-02 Phase 1: Foundation — Firebase connection, utils, theme, common CSS, nav bar, setup wizard, empty page shells
+2026-04-02 Phase 1: Foundation — Firebase connection, utils, theme, common CSS, nav bar, setup wizard, empty page shells. Validated: setup writes to rundown/, nav works, theme persists, no cleaning/* writes.
 
 ## Backlog
-- Phase 2: Data model & scheduling engine
+- Temp reset button on dashboard (index.html) — remove in Phase 8 when admin gets factory reset
 - Phase 3: Dashboard with task cards and completion
 - Phase 4: Calendar views
 - Phase 5: Scoring & grading system

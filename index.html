@@ -22,10 +22,11 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, onConnectionChange, factoryReset } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCompletions, readAllSchedule, onConnectionChange, factoryReset, pushTask, multiUpdate, readCategories } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey } from './shared/utils.js';
+    import { buildScheduleUpdates } from './shared/scheduler.js';
 
     // Apply cached theme immediately
     const cached = loadCachedTheme();
@@ -83,18 +84,207 @@
       `Today is ${today}. Setup complete — your data is in Firebase.`
     );
 
-    // Temporary reset button — remove in Phase 8 when admin has factory reset
+    // --- Temporary Phase 2 testing tools (remove in Phase 3) ---
+    const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
+    const cats = await readCategories() || {};
+    const catKeys = Object.keys(cats);
+
     main.insertAdjacentHTML('beforeend', `
+      <div class="card mt-lg">
+        <h3 style="font-size:var(--font-size-lg);font-weight:700;margin-bottom:var(--spacing-md);">⚡ Quick Add Task (Phase 2 Testing)</h3>
+        <div class="form-group">
+          <label class="form-label" for="tName">Task Name</label>
+          <input type="text" id="tName" placeholder="e.g., Wash Dishes">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="tRotation">Rotation</label>
+            <select id="tRotation">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="once">Once</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="tDifficulty">Difficulty</label>
+            <select id="tDifficulty">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="tEstMin">Est. Minutes</label>
+            <input type="number" id="tEstMin" value="15" min="1" max="480">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="tTimeOfDay">Time of Day</label>
+            <select id="tTimeOfDay">
+              <option value="anytime">Anytime</option>
+              <option value="am">AM</option>
+              <option value="pm">PM</option>
+              <option value="both">Both (AM+PM)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="tCategory">Category</label>
+          <select id="tCategory">
+            ${catKeys.map(k => `<option value="${k}">${cats[k].icon} ${cats[k].label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Owners</label>
+          <div id="tOwners" style="display:flex;flex-wrap:wrap;gap:var(--spacing-sm);">
+            ${people.map(p => `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="checkbox" value="${p.id}" checked> <span style="color:${p.color};font-weight:600;">${p.name}</span>
+            </label>`).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="tMode">Assignment Mode</label>
+          <select id="tMode">
+            <option value="rotate">Rotate between owners</option>
+            <option value="duplicate">Assign to ALL owners</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="tCooldown">Cooldown Days</label>
+            <input type="number" id="tCooldown" value="0" min="0" max="90">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="tDedDay">Dedicated Day</label>
+            <select id="tDedDay">
+              <option value="">None</option>
+              <option value="0">Sunday</option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn--primary btn--full" id="addTaskBtn">Add Task &amp; Rebuild Schedule</button>
+        <p class="form-hint mt-sm" id="taskStatus"></p>
+      </div>
+
+      <div class="card mt-md">
+        <h3 style="font-size:var(--font-size-lg);font-weight:700;margin-bottom:var(--spacing-md);">📊 Schedule Status</h3>
+        <button class="btn btn--secondary btn--full mb-md" id="rebuildBtn">🔄 Rebuild Schedule</button>
+        <div id="scheduleStatus" style="font-size:var(--font-size-sm);color:var(--text-secondary);white-space:pre-wrap;"></div>
+      </div>
+
       <div style="text-align:center;margin-top:var(--spacing-xl);">
         <button class="btn btn--danger btn--sm" id="tempReset">🗑 Reset &amp; Re-run Setup</button>
       </div>
     `);
+
+    // Add task handler
+    document.getElementById('addTaskBtn').addEventListener('click', async () => {
+      const name = document.getElementById('tName').value.trim();
+      if (!name) { document.getElementById('tName').focus(); return; }
+
+      const owners = Array.from(document.querySelectorAll('#tOwners input:checked')).map(cb => cb.value);
+      if (owners.length === 0) { alert('Select at least one owner'); return; }
+
+      const cooldown = parseInt(document.getElementById('tCooldown').value) || 0;
+      const dedDay = document.getElementById('tDedDay').value;
+
+      const task = {
+        name,
+        rotation: document.getElementById('tRotation').value,
+        owners,
+        ownerAssignmentMode: document.getElementById('tMode').value,
+        estMin: parseInt(document.getElementById('tEstMin').value) || 15,
+        difficulty: document.getElementById('tDifficulty').value,
+        category: document.getElementById('tCategory').value || catKeys[0],
+        exempt: false,
+        dedicatedDay: dedDay !== '' ? parseInt(dedDay) : null,
+        timeOfDay: document.getElementById('tTimeOfDay').value,
+        cooldownDays: cooldown > 0 ? cooldown : null,
+        status: 'active',
+        createdDate: today
+      };
+
+      const status = document.getElementById('taskStatus');
+      status.textContent = 'Adding task...';
+
+      try {
+        const taskId = await pushTask(task);
+        status.textContent = `Task "${name}" added (${taskId}). Rebuilding schedule...`;
+        document.getElementById('tName').value = '';
+
+        await rebuildSchedule();
+        status.textContent = `Done! Task added and schedule rebuilt.`;
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+        console.error(err);
+      }
+    });
+
+    // Rebuild schedule handler
+    async function rebuildSchedule() {
+      const statusEl = document.getElementById('scheduleStatus');
+      statusEl.textContent = 'Loading data...';
+
+      const [allTasks, completions, existingSchedule] = await Promise.all([
+        readTasks(),
+        readCompletions(),
+        readAllSchedule()
+      ]);
+
+      statusEl.textContent = 'Generating schedule...';
+      const updates = buildScheduleUpdates(allTasks || {}, peopleObj || {}, settings, completions || {}, existingSchedule || {});
+
+      statusEl.textContent = `Writing ${Object.keys(updates).length} date updates...`;
+      await multiUpdate(updates);
+
+      // Show summary
+      let totalEntries = 0;
+      let daysWithEntries = 0;
+      const perPerson = {};
+      for (const [path, entries] of Object.entries(updates)) {
+        if (entries) {
+          daysWithEntries++;
+          for (const entry of Object.values(entries)) {
+            totalEntries++;
+            const pName = people.find(p => p.id === entry.ownerId)?.name || entry.ownerId;
+            perPerson[pName] = (perPerson[pName] || 0) + 1;
+          }
+        }
+      }
+
+      const taskCount = allTasks ? Object.keys(allTasks).length : 0;
+      let summary = `Schedule rebuilt!\n`;
+      summary += `Tasks: ${taskCount}\n`;
+      summary += `Days with entries: ${daysWithEntries}\n`;
+      summary += `Total entries: ${totalEntries}\n\n`;
+      summary += `Per person:\n`;
+      for (const [name, count] of Object.entries(perPerson).sort((a, b) => b[1] - a[1])) {
+        summary += `  ${name}: ${count} entries\n`;
+      }
+
+      statusEl.textContent = summary;
+    }
+
+    document.getElementById('rebuildBtn').addEventListener('click', rebuildSchedule);
+
+    // Reset handler
     document.getElementById('tempReset').addEventListener('click', async () => {
       if (!confirm('Delete ALL data under rundown/ and restart setup?')) return;
       await factoryReset();
       localStorage.removeItem('dr-theme');
       window.location.href = 'setup.html';
     });
+
+    // Auto-show schedule status on load
+    rebuildSchedule().catch(console.error);
   </script>
 </body>
 </html>
