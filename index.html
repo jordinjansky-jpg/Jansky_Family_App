@@ -663,8 +663,10 @@
       // Edit task
       document.getElementById('sheetEdit')?.addEventListener('click', () => {
         const taskId = document.getElementById('sheetEdit').dataset.taskId;
-        closeTaskSheet();
-        openEditTaskSheet(taskId);
+        // Close detail sheet then open edit sheet after animation completes
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.remove('active');
+        setTimeout(() => { openEditTaskSheet(taskId); }, 320);
       });
     }
 
@@ -721,7 +723,8 @@
 
     function openQuickAddSheet() {
       const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
-      const sheetContent = renderQuickAddSheet(people, catsArr);
+      const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
+      const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey);
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
 
       requestAnimationFrame(() => {
@@ -759,6 +762,36 @@
 
         const newId = await pushTask(taskData);
         tasks[newId] = taskData;
+
+        // Also create schedule entry for today so the task appears immediately
+        if (owners.length > 0) {
+          const schedUpdates = {};
+          const mode = taskData.ownerAssignmentMode || 'rotate';
+          const timeOfDay = taskData.timeOfDay || 'anytime';
+          const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: mode };
+
+          if (mode === 'duplicate') {
+            for (const oid of owners) {
+              if (timeOfDay === 'both') {
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+              } else {
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_${oid}`] = { ...baseEntry, ownerId: oid, timeOfDay };
+              }
+            }
+          } else {
+            const ownerId = owners[0];
+            if (timeOfDay === 'both') {
+              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+            } else {
+              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa`] = { ...baseEntry, ownerId, timeOfDay };
+            }
+          }
+          await multiUpdate(schedUpdates);
+          await loadData();
+        }
+
         closeTaskSheet();
         render();
       });

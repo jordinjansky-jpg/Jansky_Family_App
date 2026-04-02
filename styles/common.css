@@ -925,6 +925,27 @@ img {
   font-weight: 700;
 }
 
+/* Task card action tags (delegated/moved indicators) */
+.task-card__tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.task-card__tag--delegated {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+.task-card__tag--moved {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
 /* ============ Time of Day Section ============ */
 .time-header {
   font-size: var(--font-size-xs);
@@ -2376,16 +2397,17 @@ img {
 
 /* Header add-task button */
 .header__add-task {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-md, 8px);
   background: var(--accent);
   color: white;
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: var(--font-size-sm, 13px);
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   cursor: pointer;
   border: none;
   line-height: 1;

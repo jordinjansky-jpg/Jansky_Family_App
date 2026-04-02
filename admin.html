@@ -105,11 +105,10 @@
 
     // Check if PIN session is still valid
     const pinTs = parseInt(sessionStorage.getItem(PIN_SESSION_KEY) || '0', 10);
-    if (Date.now() - pinTs < PIN_SESSION_TTL) {
-      // Skip PIN gate
-      const main = document.getElementById('mainContent');
-      main.style.display = '';
-      render();
+    const pinSessionValid = Date.now() - pinTs < PIN_SESSION_TTL;
+    if (pinSessionValid) {
+      // Skip PIN gate — render() called after main is defined below
+      document.getElementById('mainContent').style.display = '';
     } else {
       document.getElementById('pinGate').style.display = '';
       const digits = document.querySelectorAll('.admin-pin-digit');
@@ -529,12 +528,15 @@
 
       html += `<div class="admin-list">`;
       for (const c of ca) {
-        const weight = c.weightPercent ? ` · ${c.weightPercent}%` : '';
-        const pin = c.pinProtected ? ' · 🔒' : '';
+        const badges = [];
+        if (c.isDefault) badges.push('<span class="admin-badge">Default</span>');
+        if (c.weightPercent) badges.push(`<span class="admin-badge admin-badge--muted">${c.weightPercent}%</span>`);
+        if (c.pinProtected) badges.push('<span class="admin-badge admin-badge--muted">🔒</span>');
+        if (c.showIcon === false) badges.push('<span class="admin-badge admin-badge--muted">Icon off</span>');
         html += `<div class="admin-list-item">
           <div class="admin-list-item__main">
             <span class="admin-list-item__name">${c.icon} ${c.label}</span>
-            <span class="admin-list-item__meta">${c.key}${weight}${pin}</span>
+            ${badges.length ? `<span class="admin-list-item__meta">${badges.join(' ')}</span>` : ''}
           </div>
           <div class="admin-list-item__actions">
             <button class="btn btn--ghost btn--sm admin-edit-cat" data-cat-key="${c.key}" type="button">Edit</button>
@@ -572,6 +574,7 @@
         </div>
         <label class="admin-checkbox"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}> Show icon on task cards</label>
         <label class="admin-checkbox"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}> PIN protected (requires PIN to complete)</label>
+        <label class="admin-checkbox"><input type="checkbox" id="cf_isDefault"${cat.isDefault ? ' checked' : ''}> Default category for new tasks</label>
         <div class="admin-form__actions mt-md">
           <button class="btn btn--secondary" id="catFormCancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="catFormSave" type="button">${isEdit ? 'Save' : 'Add Category'}</button>
@@ -785,6 +788,30 @@
         </div>
         <button class="btn btn--secondary mt-sm" id="copyEventLog" type="button">Copy to Clipboard</button>
 
+        <h3 class="admin-form__title mt-md">Test Past-Due Entry</h3>
+        <p class="form-hint">Create a schedule entry on a past date (no completion) so it appears as overdue on the dashboard.</p>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Task</label>
+            <select id="pastDueTask">
+              <option value="">Choose task...</option>
+              ${Object.entries(tasksObj).filter(([,t]) => t.rotation !== 'daily').map(([id, t]) => `<option value="${id}">${t.name} (${t.rotation})</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Date</label>
+            <input type="date" id="pastDueDate" value="${addDays(today, -3)}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Owner</label>
+          <select id="pastDueOwner">
+            ${peopleArray().map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn--primary btn--sm mt-sm" id="createPastDueBtn" type="button">Create Past-Due Entry</button>
+        <div id="pastDueMsg" class="admin-msg mt-sm"></div>
+
         <h3 class="admin-form__title mt-md">Schedule Inspector</h3>
         <div class="form-group">
           <label class="form-label">Select a task to inspect</label>
@@ -980,6 +1007,33 @@
           taskData.createdDate = today;
           const newId = await pushTask(taskData);
           tasksObj[newId] = taskData;
+
+          // Create schedule entry for today so the task appears immediately
+          if (owners.length > 0) {
+            const schedUpdates = {};
+            const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: assignMode };
+            const tod = taskData.timeOfDay || 'anytime';
+
+            if (assignMode === 'duplicate') {
+              for (const oid of owners) {
+                if (tod === 'both') {
+                  schedUpdates[`schedule/${today}/sched_${Date.now()}_new_${oid}_am`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+                  schedUpdates[`schedule/${today}/sched_${Date.now()}_new_${oid}_pm`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+                } else {
+                  schedUpdates[`schedule/${today}/sched_${Date.now()}_new_${oid}`] = { ...baseEntry, ownerId: oid, timeOfDay: tod };
+                }
+              }
+            } else {
+              const ownerId = owners[0];
+              if (tod === 'both') {
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_new_am`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_new_pm`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+              } else {
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_new`] = { ...baseEntry, ownerId, timeOfDay: tod };
+              }
+            }
+            await multiUpdate(schedUpdates);
+          }
         } else {
           // Preserve existing fields
           const existing = tasksObj[editingTaskId] || {};
@@ -1141,12 +1195,21 @@
         const weight = main.querySelector('#cf_weight')?.value;
         const showIcon = main.querySelector('#cf_showIcon')?.checked ?? true;
         const pinProtected = main.querySelector('#cf_pinProtected')?.checked || false;
+        const isDefault = main.querySelector('#cf_isDefault')?.checked || false;
+
+        // If setting as default, clear default from all other categories
+        if (isDefault) {
+          for (const [k, c] of Object.entries(catsObj)) {
+            if (c.isDefault) c.isDefault = false;
+          }
+        }
 
         const catData = {
           label,
           icon,
           showIcon,
           pinProtected,
+          isDefault,
           weightPercent: weight ? parseInt(weight, 10) : null
         };
 
@@ -1352,6 +1415,47 @@
         await navigator.clipboard.writeText(`== Schedule Inspector ==\n${text}`);
         alert('Copied to clipboard!');
       });
+
+      // Past-due test entry
+      main.querySelector('#createPastDueBtn')?.addEventListener('click', async () => {
+        const taskId = main.querySelector('#pastDueTask')?.value;
+        const dateKey = main.querySelector('#pastDueDate')?.value;
+        const ownerId = main.querySelector('#pastDueOwner')?.value;
+        const msgEl = main.querySelector('#pastDueMsg');
+
+        if (!taskId || !dateKey || !ownerId) {
+          if (msgEl) { msgEl.textContent = 'Select a task, date, and owner.'; msgEl.className = 'admin-msg admin-msg--danger mt-sm'; }
+          return;
+        }
+        if (dateKey >= today) {
+          if (msgEl) { msgEl.textContent = 'Date must be in the past.'; msgEl.className = 'admin-msg admin-msg--danger mt-sm'; }
+          return;
+        }
+
+        const task = tasksObj[taskId];
+        const entry = {
+          taskId,
+          ownerId,
+          rotationType: task.rotation,
+          ownerAssignmentMode: task.ownerAssignmentMode || 'rotate',
+          timeOfDay: task.timeOfDay || 'anytime'
+        };
+
+        const updates = {};
+        updates[`schedule/${dateKey}/sched_${Date.now()}_pastdue`] = entry;
+        await multiUpdate(updates);
+
+        if (msgEl) {
+          msgEl.textContent = `Created overdue entry for "${task.name}" on ${dateKey}`;
+          msgEl.className = 'admin-msg admin-msg--success mt-sm';
+          setTimeout(() => { msgEl.textContent = ''; }, 3000);
+        }
+      });
+    }
+
+    // ── Initial render if PIN session was cached ──
+    if (pinSessionValid) {
+      render();
     }
   </script>
 </body>

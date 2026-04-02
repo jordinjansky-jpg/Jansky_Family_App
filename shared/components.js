@@ -47,7 +47,7 @@ export function renderHeader(options = {}) {
 
   const debugIcon = showDebug ? '<span class="header__debug" title="Debug mode active">🐛</span>' : '';
   const adminLink = showAdmin ? '<a href="admin.html" class="header__admin" title="Admin">⚙️</a>' : '';
-  const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">+</button>' : '';
+  const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">+ Task</button>' : '';
 
   return `<header class="app-header">
     <div class="header__left">
@@ -226,13 +226,21 @@ export function renderTaskCard(options) {
     }
   }
 
+  // Delegation/move indicator based on entry key suffix
+  let actionTag = '';
+  if (entryKey && entryKey.includes('_delegate')) {
+    actionTag = `<span class="task-card__tag task-card__tag--delegated">↪ ${person?.name || '?'}</span>`;
+  } else if (entryKey && entryKey.includes('_moved')) {
+    actionTag = `<span class="task-card__tag task-card__tag--moved">📅 moved</span>`;
+  }
+
   const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const taskName = catIcon ? `${catIcon} ${task.name}` : task.name;
 
   return `<button class="task-card${doneClass}${overdueClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}">
     <span class="task-card__initial">${ownerInitial}</span>
-    <span class="task-card__name">${taskName}</span>
+    <span class="task-card__name">${taskName}${actionTag}</span>
     <div class="task-card__right">
       <span class="task-card__meta">${meta}</span>
       ${dateLine}
@@ -395,7 +403,7 @@ export function renderCelebration() {
  * people: array of { id, name, color }
  * categories: array of { key, label, icon }
  */
-export function renderQuickAddSheet(people, categories) {
+export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
   let html = `<div class="task-detail-sheet">
     <h3 class="admin-form__title">Quick Add Task</h3>
     <div class="form-group">
@@ -439,7 +447,7 @@ export function renderQuickAddSheet(people, categories) {
     <div class="form-group">
       <label class="form-label">Category</label>
       <select id="qa_category">
-        ${categories.map(c => `<option value="${c.key}">${c.icon} ${c.label}</option>`).join('')}
+        ${categories.map(c => `<option value="${c.key}"${(defaultCategoryKey && c.key === defaultCategoryKey) ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">

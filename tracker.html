@@ -630,8 +630,9 @@
       // Edit task
       document.getElementById('sheetEdit')?.addEventListener('click', () => {
         const taskId = document.getElementById('sheetEdit').dataset.taskId;
-        closeTaskSheet();
-        openEditTaskSheet(taskId);
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.remove('active');
+        setTimeout(() => { openEditTaskSheet(taskId); }, 320);
       });
     }
 
