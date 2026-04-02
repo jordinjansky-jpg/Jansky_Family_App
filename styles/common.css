@@ -888,6 +888,16 @@ img {
   white-space: nowrap;
 }
 
+.task-card__pts--up {
+  color: var(--success-text);
+  font-weight: 700;
+}
+
+.task-card__pts--down {
+  color: var(--danger-text);
+  font-weight: 700;
+}
+
 .task-card__check {
   width: 20px;
   height: 20px;

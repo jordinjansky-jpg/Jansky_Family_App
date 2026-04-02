@@ -199,7 +199,7 @@ export function renderProgressBar(done, total) {
 /**
  * Render a single task card.
  * options: { entryKey, entry, task, person, category, completed, overdue, dateLabel, points }
- * points: optional { earned, possible } — shown when scoring is active
+ * points: optional { possible, override } — override is the pointsOverride percentage (null = no override)
  */
 export function renderTaskCard(options) {
   const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points } = options;
@@ -209,7 +209,19 @@ export function renderTaskCard(options) {
   const ownerColor = person?.color || 'var(--text-secondary)';
   const ownerInitial = (person?.name || '?')[0].toUpperCase();
   const estLabel = task.estMin ? `${task.estMin}m` : '';
-  const ptsLabel = points ? `${points.possible}pt` : '';
+
+  // Points label: show override value with color if active, else base
+  let ptsLabel = '';
+  if (points) {
+    if (points.override != null && points.override !== 100) {
+      const overridePts = Math.round(points.possible * (points.override / 100));
+      const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
+      ptsLabel = `<span class="${colorClass}">${overridePts}pt</span>`;
+    } else {
+      ptsLabel = `${points.possible}pt`;
+    }
+  }
+
   const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const taskName = catIcon ? `${catIcon} ${task.name}` : task.name;
@@ -292,18 +304,21 @@ export function renderTaskDetailSheet(options) {
   const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
   html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
 
-  // Points slider (only for completed tasks)
-  if (completed && points) {
+  // Points slider — always visible, preview-only label for incomplete tasks
+  if (points) {
     const min = sliderMin ?? 0;
     const max = sliderMax ?? 150;
     const earnedPts = Math.round(points.possible * (sliderVal / 100));
+    const sliderLabel = completed ? 'Points Override' : 'Points Preview';
+    const previewNote = completed ? '' : '<div class="form-hint">Complete the task to save override</div>';
     html += `<div class="task-detail__slider mt-md">
       <div class="task-detail__slider-header">
-        <span class="form-label">Points Override</span>
+        <span class="form-label">${sliderLabel}</span>
         <span class="task-detail__slider-value" id="sliderValueLabel">${sliderVal}% (${earnedPts}pt)</span>
       </div>
       <input type="range" class="slider" id="pointsSlider" min="${min}" max="${max}" value="${sliderVal}" step="5" data-entry-key="${entryKey}" data-base-pts="${points.possible}">
       ${gradePreview ? `<div class="task-detail__grade-preview" id="gradePreview">Grade: ${gradePreview}</div>` : ''}
+      ${previewNote}
     </div>`;
   }
 

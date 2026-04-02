@@ -159,6 +159,7 @@
           const person = people.find(p => p.id === item.ownerId);
           const cat = task.category ? cats[task.category] : null;
           const pts = basePoints(task);
+          const ovr = completions[item.entryKey]?.pointsOverride ?? null;
           html += renderTaskCard({
             entryKey: item.entryKey,
             entry: { ...item, dateKey: item.dateKey },
@@ -168,7 +169,7 @@
             completed: isComplete(item.entryKey, completions),
             overdue: true,
             dateLabel: formatDateShort(item.dateKey),
-            points: { possible: pts }
+            points: { possible: pts, override: ovr }
           });
         }
         html += `</div>`;
@@ -211,6 +212,7 @@
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
             const pts = score.pointsMap[entryKey] || basePoints(task);
+            const ovr = completions[entryKey]?.pointsOverride ?? null;
             html += renderTaskCard({
               entryKey,
               entry: { ...entry, dateKey: viewDate },
@@ -219,7 +221,7 @@
               category: cat,
               completed: false,
               overdue: false,
-              points: { possible: pts }
+              points: { possible: pts, override: ovr }
             });
           }
         }
@@ -233,6 +235,7 @@
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
             const pts = score.pointsMap[entryKey] || basePoints(task);
+            const ovr = completions[entryKey]?.pointsOverride ?? null;
             html += renderTaskCard({
               entryKey,
               entry: { ...entry, dateKey: viewDate },
@@ -241,7 +244,7 @@
               category: cat,
               completed: true,
               overdue: false,
-              points: { possible: pts }
+              points: { possible: pts, override: ovr }
             });
           }
         }
@@ -476,9 +479,11 @@
         await toggleTask(entryKey, dateKey);
       });
 
-      // Points slider
+      // Points slider — preview for all tasks, save only for completed
       const slider = document.getElementById('pointsSlider');
       if (slider) {
+        const isCompleted = isComplete(entryKey, completions);
+
         slider.addEventListener('input', () => {
           const val = parseInt(slider.value, 10);
           const basePts = parseInt(slider.dataset.basePts, 10);
@@ -486,31 +491,31 @@
           const label = document.getElementById('sliderValueLabel');
           if (label) label.textContent = `${val}% (${earnedPts}pt)`;
 
-          // Live grade preview
+          // Live grade preview — temporarily inject override into completions
           const filtered = filterByPerson(viewEntries, activePerson);
-          // Temporarily set override in completions for preview
-          const origOverride = completions[entryKey]?.pointsOverride;
-          if (completions[entryKey]) {
-            completions[entryKey].pointsOverride = val === 100 ? null : val;
-          }
+          const hadRecord = !!completions[entryKey];
+          const origRecord = completions[entryKey];
+          // Simulate: treat as completed with this override for preview
+          completions[entryKey] = {
+            ...(origRecord || { completedAt: Date.now(), completedBy: 'preview' }),
+            pointsOverride: val === 100 ? null : val
+          };
           const previewScore = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
           const previewGd = gradeDisplay(previewScore.percentage);
           const previewEl = document.getElementById('gradePreview');
           if (previewEl) previewEl.textContent = `Grade: ${previewGd.grade} (${previewScore.percentage}%)`;
-          // Restore original
-          if (completions[entryKey]) {
-            completions[entryKey].pointsOverride = origOverride;
-          }
+          // Restore original state
+          if (hadRecord) completions[entryKey] = origRecord;
+          else delete completions[entryKey];
         });
 
         slider.addEventListener('change', async () => {
+          if (!isCompleted) return; // preview only for incomplete tasks
           const val = parseInt(slider.value, 10);
           const override = val === 100 ? null : val;
-          if (completions[entryKey]) {
-            completions[entryKey].pointsOverride = override;
-            await writeCompletion(entryKey, completions[entryKey]);
-            render();
-          }
+          completions[entryKey].pointsOverride = override;
+          await writeCompletion(entryKey, completions[entryKey]);
+          render();
         });
       }
     }
