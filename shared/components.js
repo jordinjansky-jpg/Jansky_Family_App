@@ -204,22 +204,22 @@ export function renderTaskCard(options) {
   const { entryKey, entry, task, person, category, completed, overdue, dateLabel } = options;
   const doneClass = completed ? ' task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
-  const checkIcon = completed ? '✅' : '⬜';
-  const catIcon = category?.icon || '📋';
+  const catIcon = category?.icon || '';
   const ownerColor = person?.color || 'var(--text-secondary)';
-  const ownerName = person?.name || '?';
-  const diffLabel = task.difficulty === 'hard' ? 'Hard' : task.difficulty === 'easy' ? 'Easy' : '';
+  const ownerInitial = (person?.name || '?')[0].toUpperCase();
   const estLabel = task.estMin ? `${task.estMin}m` : '';
-  const todLabel = entry.timeOfDay === 'am' ? 'AM' : entry.timeOfDay === 'pm' ? 'PM' : '';
-  const meta = [ownerName, estLabel, diffLabel, todLabel].filter(Boolean).join(' · ');
+  const diffPoints = task.difficulty === 'hard' ? '50p' : task.difficulty === 'easy' ? '7p' : '17p';
+  const meta = [estLabel, diffPoints].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
+  const taskName = catIcon ? `${catIcon} ${task.name}` : task.name;
 
-  return `<button class="task-card${doneClass}${overdueClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}">
-    <span class="task-card__check">${checkIcon}</span>
-    <div class="task-card__body">
-      <span class="task-card__name">${catIcon} ${task.name}</span>
-      <span class="task-card__meta" style="--owner-color:${ownerColor}">${meta}</span>
+  return `<button class="task-card${doneClass}${overdueClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}">
+    <span class="task-card__initial">${ownerInitial}</span>
+    <span class="task-card__name">${taskName}</span>
+    <div class="task-card__right">
+      <span class="task-card__meta">${meta}</span>
       ${dateLine}
+      <span class="task-card__check"></span>
     </div>
   </button>`;
 }

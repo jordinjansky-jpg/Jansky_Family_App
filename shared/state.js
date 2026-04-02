@@ -92,18 +92,36 @@ export function isAllDone(entries, completions) {
 }
 
 /**
- * Sort entries by: incomplete first, then by timeOfDay priority (am < pm < anytime).
+ * Group schedule entries by frequency bucket.
+ * Returns { daily: {}, weekly: {}, monthly: {}, once: {} }
+ */
+export function groupByFrequency(entries) {
+  const groups = { daily: {}, weekly: {}, monthly: {}, once: {} };
+  if (!entries) return groups;
+  for (const [key, entry] of Object.entries(entries)) {
+    const freq = entry.rotationType || 'daily';
+    const bucket = groups[freq] || groups.daily;
+    bucket[key] = entry;
+  }
+  return groups;
+}
+
+/**
+ * Sort entries by: incomplete first, then by owner, then by timeOfDay (am < anytime < pm).
  * Returns array of [entryKey, entry] pairs.
  */
 export function sortEntries(entries, completions) {
   if (!entries) return [];
-  const todPriority = { am: 0, pm: 1, anytime: 2 };
+  const todPriority = { am: 0, anytime: 1, pm: 2 };
   return Object.entries(entries).sort(([kA, a], [kB, b]) => {
     const doneA = isComplete(kA, completions) ? 1 : 0;
     const doneB = isComplete(kB, completions) ? 1 : 0;
     if (doneA !== doneB) return doneA - doneB;
-    const todA = todPriority[a.timeOfDay] ?? 2;
-    const todB = todPriority[b.timeOfDay] ?? 2;
+    // Sort by owner, then time-of-day
+    const ownerCmp = (a.ownerId || '').localeCompare(b.ownerId || '');
+    if (ownerCmp !== 0) return ownerCmp;
+    const todA = todPriority[a.timeOfDay] ?? 1;
+    const todB = todPriority[b.timeOfDay] ?? 1;
     return todA - todB;
   });
 }

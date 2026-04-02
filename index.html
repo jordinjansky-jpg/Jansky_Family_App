@@ -28,7 +28,7 @@
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES } from './shared/utils.js';
-    import { isComplete, filterByPerson, groupByTime, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
+    import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -165,15 +165,15 @@
         const emptyMsg = isToday ? 'Enjoy your free time!' : 'Nothing scheduled for this day.';
         html += renderEmptyState('📭', 'No tasks', emptyMsg);
       } else {
-        // Group by time
-        const groups = groupByTime(filtered);
+        // Group by frequency
+        const groups = groupByFrequency(filtered);
         const sections = [
-          { key: 'am', label: 'Morning' },
-          { key: 'pm', label: 'Afternoon' },
-          { key: 'anytime', label: 'Anytime' }
+          { key: 'daily', label: 'Daily' },
+          { key: 'weekly', label: 'Weekly' },
+          { key: 'monthly', label: 'Monthly' },
+          { key: 'once', label: 'One-Time' }
         ];
 
-        // Only show section headers if there are entries in multiple groups
         const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
         const showHeaders = nonEmpty.length > 1;
 
@@ -325,7 +325,7 @@
     }
 
     function checkCelebration() {
-      if (celebrationShown || viewDate !== today) return;
+      if (celebrationShown) return;
       const filtered = filterByPerson(viewEntries, activePerson);
       if (isAllDone(filtered, completions)) {
         celebrationShown = true;

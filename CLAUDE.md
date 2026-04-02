@@ -45,6 +45,7 @@
 
 ## Backlog
 - Phase 8 (Admin → Categories): Add a "default category" setting so new tasks don't default to an arbitrary category
+- Phase 8 (Admin → Categories): Add toggle to show/hide category emoji on task cards (per category)
 - Phase 8 (Admin): Move factory reset button here (removed from dashboard temp UI)
 - Phase 4: Calendar views
 - Phase 5: Scoring & grading system
