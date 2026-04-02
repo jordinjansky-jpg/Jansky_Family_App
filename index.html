@@ -22,7 +22,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, onConnectionChange } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, onConnectionChange, factoryReset } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey } from './shared/utils.js';
@@ -82,6 +82,19 @@
       'Dashboard coming in Phase 3',
       `Today is ${today}. Setup complete — your data is in Firebase.`
     );
+
+    // Temporary reset button — remove in Phase 8 when admin has factory reset
+    main.insertAdjacentHTML('beforeend', `
+      <div style="text-align:center;margin-top:var(--spacing-xl);">
+        <button class="btn btn--danger btn--sm" id="tempReset">🗑 Reset &amp; Re-run Setup</button>
+      </div>
+    `);
+    document.getElementById('tempReset').addEventListener('click', async () => {
+      if (!confirm('Delete ALL data under rundown/ and restart setup?')) return;
+      await factoryReset();
+      localStorage.removeItem('dr-theme');
+      window.location.href = 'setup.html';
+    });
   </script>
 </body>
 </html>
