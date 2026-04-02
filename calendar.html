@@ -300,12 +300,18 @@
         </div>
       </div>`;
 
-      // Animate in
+      // Animate in, then lock height so filter changes don't resize
       requestAnimationFrame(() => {
         const overlay = document.getElementById('calSheetOverlay');
         const sheet = document.getElementById('calSheet');
         if (overlay) overlay.classList.add('active');
-        if (sheet) sheet.classList.add('active');
+        if (sheet) {
+          sheet.classList.add('active');
+          // After transition completes, lock the sheet height
+          sheet.addEventListener('transitionend', () => {
+            sheet.style.minHeight = sheet.offsetHeight + 'px';
+          }, { once: true });
+        }
       });
 
       // Bind overlay click to close
