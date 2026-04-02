@@ -73,7 +73,7 @@ export function getOverdueEntries(schedule, completions, today) {
   for (const [dateKey, dayEntries] of Object.entries(schedule)) {
     if (dateKey >= today || !dayEntries) continue;
     for (const [entryKey, entry] of Object.entries(dayEntries)) {
-      if (!isComplete(entryKey, completions)) {
+      if (!isComplete(entryKey, completions) && entry.rotationType !== 'daily') {
         overdue.push({ dateKey, entryKey, ...entry });
       }
     }
