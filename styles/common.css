@@ -1011,28 +1011,92 @@ img {
   line-height: 1;
 }
 
-/* ============ Calendar Day Detail ============ */
-.cal-detail {
-  margin-top: var(--spacing-md);
-  padding-top: var(--spacing-md);
-  border-top: 1px solid var(--border-light);
+/* ============ Calendar Day Sheet ============ */
+.cal-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  z-index: 200;
+  transition: background 0.3s ease;
+  pointer-events: none;
 }
 
-.cal-detail__header {
+.cal-sheet-overlay.active {
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.cal-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 70vh;
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl, 20px) var(--radius-xl, 20px) 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--spacing-md) var(--spacing-xl);
+  padding-bottom: calc(var(--spacing-xl) + 70px); /* room for nav bar */
+}
+
+.cal-sheet.active {
+  transform: translateY(0);
+}
+
+.cal-sheet__handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border-light);
+  border-radius: 2px;
+  margin: var(--spacing-sm) auto var(--spacing-md);
+}
+
+.cal-sheet__header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
 }
 
-.cal-detail__date {
+.cal-sheet__title {
+  font-weight: 800;
+  font-size: var(--font-size-lg, 1.15rem);
+}
+
+.cal-sheet__today {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  font-size: var(--font-size-xs);
   font-weight: 700;
-  font-size: var(--font-size-base);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  margin-left: 4px;
 }
 
-.cal-detail__summary {
+.cal-sheet__summary {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
+}
+
+.cal-sheet__progress {
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  margin-bottom: var(--spacing-md);
+  overflow: hidden;
+}
+
+.cal-sheet__progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
 }
 
 /* ============ Overdue Banner ============ */

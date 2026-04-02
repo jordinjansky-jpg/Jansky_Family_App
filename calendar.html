@@ -16,6 +16,7 @@
     <div id="mainContent" style="display:none;"></div>
   </div>
   <div id="navMount"></div>
+  <div id="sheetMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -191,30 +192,26 @@
 
       html += `</div>`;
 
-      // Selected day detail
-      if (selectedDay) {
-        html += renderDayDetail(selectedDay);
-      }
-
       main.innerHTML = html;
       bindEvents();
+
+      // Open sheet if day is selected
+      if (selectedDay) openSheet(selectedDay);
+      else closeSheet();
     }
 
     // ══════════════════════════════════════════
-    // Day detail panel
+    // Bottom sheet for day detail
     // ══════════════════════════════════════════
 
-    function renderDayDetail(dateKey) {
+    const sheetMount = document.getElementById('sheetMount');
+
+    function buildDayContent(dateKey) {
       const dayEntries = allSchedule[dateKey] || {};
       const filtered = filterByPerson(dayEntries, activePerson);
       const prog = dayProgress(filtered, completions);
-      const dateLabel = formatDateShort(dateKey);
 
-      let html = `<div class="cal-detail">`;
-      html += `<div class="cal-detail__header">
-        <span class="cal-detail__date">${dateLabel}</span>
-        <span class="cal-detail__summary">${prog.done}/${prog.total} done</span>
-      </div>`;
+      let html = '';
 
       if (prog.total === 0) {
         html += `<div class="empty-state" style="padding:var(--spacing-md) 0;">
@@ -222,7 +219,6 @@
           <h3 class="empty-state__title">Nothing scheduled</h3>
         </div>`;
       } else {
-        // Split incomplete and completed
         const incomplete = {};
         const completedEntries = {};
         for (const [key, entry] of Object.entries(filtered)) {
@@ -230,7 +226,6 @@
           else incomplete[key] = entry;
         }
 
-        // Incomplete grouped by frequency
         const groups = groupByFrequency(incomplete);
         const sections = [
           { key: 'daily', label: 'Daily' },
@@ -246,26 +241,15 @@
           const entries = groups[sec.key];
           const sorted = sortEntries(entries, completions);
           if (sorted.length === 0) continue;
-
           if (showHeaders) html += renderTimeHeader(sec.label);
-
           for (const [entryKey, entry] of sorted) {
             const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
-            html += renderTaskCard({
-              entryKey,
-              entry: { ...entry, dateKey },
-              task,
-              person,
-              category: cat,
-              completed: false,
-              overdue: false
-            });
+            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: false, overdue: false });
           }
         }
 
-        // Completed at bottom
         const compArr = Object.entries(completedEntries);
         if (compArr.length > 0) {
           html += renderTimeHeader(`Completed (${compArr.length})`);
@@ -273,21 +257,70 @@
             const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
-            html += renderTaskCard({
-              entryKey,
-              entry: { ...entry, dateKey },
-              task,
-              person,
-              category: cat,
-              completed: true,
-              overdue: false
-            });
+            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: true, overdue: false });
           }
         }
       }
 
-      html += `</div>`;
-      return html;
+      return { html, prog };
+    }
+
+    function openSheet(dateKey) {
+      const { html, prog } = buildDayContent(dateKey);
+      const dateLabel = formatDateShort(dateKey);
+      const isToday = dateKey === today;
+      const dayTag = isToday ? ' <span class="cal-sheet__today">Today</span>' : '';
+
+      sheetMount.innerHTML = `<div class="cal-sheet-overlay" id="calSheetOverlay">
+        <div class="cal-sheet" id="calSheet">
+          <div class="cal-sheet__handle"></div>
+          <div class="cal-sheet__header">
+            <div class="cal-sheet__title">${dateLabel}${dayTag}</div>
+            <div class="cal-sheet__summary">${prog.done}/${prog.total} done</div>
+          </div>
+          <div class="cal-sheet__progress">
+            <div class="cal-sheet__progress-fill" style="width:${prog.pct}%"></div>
+          </div>
+          <div class="cal-sheet__body">${html}</div>
+        </div>
+      </div>`;
+
+      // Animate in
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('calSheetOverlay');
+        const sheet = document.getElementById('calSheet');
+        if (overlay) overlay.classList.add('active');
+        if (sheet) sheet.classList.add('active');
+      });
+
+      // Bind overlay click to close
+      document.getElementById('calSheetOverlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'calSheetOverlay') {
+          selectedDay = null;
+          closeSheet();
+          render();
+        }
+      });
+
+      // Bind task cards in sheet
+      sheetMount.querySelectorAll('.task-card').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
+        });
+      });
+    }
+
+    function closeSheet() {
+      const overlay = document.getElementById('calSheetOverlay');
+      const sheet = document.getElementById('calSheet');
+      if (overlay) {
+        overlay.classList.remove('active');
+        sheet?.classList.remove('active');
+        setTimeout(() => { sheetMount.innerHTML = ''; }, 300);
+      } else {
+        sheetMount.innerHTML = '';
+      }
     }
 
     // ══════════════════════════════════════════
@@ -316,14 +349,17 @@
       main.querySelectorAll('.cal-grid__cell[data-date]').forEach(btn => {
         btn.addEventListener('click', () => {
           const dateKey = btn.dataset.date;
-          selectedDay = selectedDay === dateKey ? null : dateKey;
-          render();
+          // Update selected styling
+          main.querySelectorAll('.cal-grid__cell--selected').forEach(el => el.classList.remove('cal-grid__cell--selected'));
+          if (selectedDay === dateKey) {
+            selectedDay = null;
+            closeSheet();
+          } else {
+            selectedDay = dateKey;
+            btn.classList.add('cal-grid__cell--selected');
+            openSheet(dateKey);
+          }
         });
-      });
-
-      // Task card toggle (completion)
-      main.querySelectorAll('.task-card').forEach(btn => {
-        btn.addEventListener('click', () => toggleTask(btn.dataset.entryKey, btn.dataset.dateKey));
       });
     }
 
@@ -355,7 +391,9 @@
         await writeCompletion(entryKey, record);
       }
 
+      // Refresh grid + sheet
       render();
+      if (selectedDay) openSheet(selectedDay);
     }
 
     // ══════════════════════════════════════════
@@ -365,6 +403,7 @@
     onValue('completions', (val) => {
       completions = val || {};
       render();
+      if (selectedDay) openSheet(selectedDay);
     });
 
     // ══════════════════════════════════════════
