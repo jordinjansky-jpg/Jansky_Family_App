@@ -947,7 +947,7 @@ img {
   flex-direction: column;
   align-items: center;
   padding: var(--spacing-xs) 2px;
-  min-height: 56px;
+  min-height: 62px;
   background: var(--bg-card);
   border: 2px solid transparent;
   border-radius: var(--radius-sm);
@@ -989,27 +989,42 @@ img {
   line-height: 1;
 }
 
-.cal-grid__dots {
+/* Month section */
+.cal-month {
+  margin-bottom: var(--spacing-lg);
+}
+
+.cal-month__title {
+  font-weight: 800;
+  font-size: var(--font-size-base);
+  text-align: center;
+  padding: var(--spacing-sm) 0;
+  color: var(--text-secondary);
+}
+
+.cal-month--current .cal-month__title {
+  color: var(--accent);
+}
+
+/* Frequency breakdown in cells */
+.cal-grid__freq {
   display: flex;
-  gap: 2px;
-  margin-top: 3px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.cal-grid__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.cal-grid__count {
-  font-size: 9px;
-  color: var(--text-muted);
+  flex-direction: column;
+  gap: 1px;
   margin-top: 2px;
-  line-height: 1;
+  align-items: center;
 }
+
+.cal-freq {
+  font-size: 7px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.cal-freq--d { color: var(--text-secondary); }
+.cal-freq--w { color: var(--accent); }
+.cal-freq--m { color: var(--warning-text, #b86e00); }
 
 /* ============ Calendar Day Sheet ============ */
 .cal-sheet-overlay {

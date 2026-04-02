@@ -100,63 +100,48 @@
       const total = keys.length;
       const done = keys.filter(k => isComplete(k, completions)).length;
 
-      // Collect unique owner colors for dot indicators
-      const ownerColors = [];
-      const seen = new Set();
-      for (const entry of Object.values(filtered)) {
-        if (!seen.has(entry.ownerId)) {
-          seen.add(entry.ownerId);
-          const person = people.find(p => p.id === entry.ownerId);
-          if (person) ownerColors.push(person.color);
-        }
+      // Count by frequency
+      const freq = { daily: { total: 0, done: 0 }, weekly: { total: 0, done: 0 }, monthly: { total: 0, done: 0 } };
+      for (const [key, entry] of Object.entries(filtered)) {
+        const rt = entry.rotationType || 'daily';
+        const bucket = freq[rt] || freq.daily;
+        bucket.total++;
+        if (isComplete(key, completions)) bucket.done++;
       }
 
-      return { total, done, ownerColors };
+      return { total, done, freq };
     }
 
     // ══════════════════════════════════════════
     // Render
     // ══════════════════════════════════════════
 
-    function render() {
-      const mStart = `${viewMonth}-01`;
+    function getMonthKey(baseMonth, delta) {
+      const d = new Date(Date.UTC(yearNumber(baseMonth + '-01'), monthNumber(baseMonth + '-01') - 1 + delta, 1));
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function renderMonthGrid(month) {
+      const mStart = `${month}-01`;
       const mEnd = monthEnd(mStart);
-      const firstDow = dayOfWeek(mStart); // 0=Sun
+      const firstDow = dayOfWeek(mStart);
       const days = dateRange(mStart, mEnd);
       const mn = monthNumber(mStart);
       const yr = yearNumber(mStart);
+      const isCurrent = month === today.substring(0, 7);
 
-      let html = '';
-
-      // Month nav
-      html += `<div class="date-header">
-        <div class="date-nav">
-          <button class="date-nav__btn" id="prevMonth" type="button" title="Previous month">&lsaquo;</button>
-          <div class="date-nav__center">
-            <span class="date-header__day">${MONTH_NAMES[mn - 1]} ${yr}</span>
-          </div>
-          <button class="date-nav__btn" id="nextMonth" type="button" title="Next month">&rsaquo;</button>
-        </div>
-        ${viewMonth !== today.substring(0, 7) ? `<button class="btn btn--ghost btn--sm mt-sm" id="goThisMonth" type="button">This Month</button>` : ''}
-      </div>`;
-
-      // Person filter
-      html += renderPersonFilter(people, activePerson);
-
-      // Calendar grid
+      let html = `<div class="cal-month${isCurrent ? ' cal-month--current' : ''}">`;
+      html += `<div class="cal-month__title">${MONTH_NAMES[mn - 1]} ${yr}</div>`;
       html += `<div class="cal-grid">`;
 
-      // Day-of-week headers
       for (const d of DAY_NAMES_SHORT) {
         html += `<div class="cal-grid__dow">${d}</div>`;
       }
 
-      // Empty cells before first day
       for (let i = 0; i < firstDow; i++) {
         html += `<div class="cal-grid__cell cal-grid__cell--empty"></div>`;
       }
 
-      // Day cells
       for (const dateKey of days) {
         const summary = getDaySummary(dateKey);
         const isToday = dateKey === today;
@@ -170,32 +155,59 @@
 
         const dayNum = parseInt(dateKey.split('-')[2], 10);
 
-        let dots = '';
-        if (summary.total > 0 && !allDone) {
-          dots = `<div class="cal-grid__dots">`;
-          for (const color of summary.ownerColors.slice(0, 4)) {
-            dots += `<span class="cal-grid__dot" style="background:${color}"></span>`;
-          }
-          dots += `</div>`;
+        // Frequency breakdown labels
+        let freqHtml = '';
+        if (summary.total > 0) {
+          const parts = [];
+          if (summary.freq.daily.total > 0) parts.push(`<span class="cal-freq cal-freq--d">D${summary.freq.daily.done}/${summary.freq.daily.total}</span>`);
+          if (summary.freq.weekly.total > 0) parts.push(`<span class="cal-freq cal-freq--w">W${summary.freq.weekly.done}/${summary.freq.weekly.total}</span>`);
+          if (summary.freq.monthly.total > 0) parts.push(`<span class="cal-freq cal-freq--m">M${summary.freq.monthly.done}/${summary.freq.monthly.total}</span>`);
+          freqHtml = `<div class="cal-grid__freq">${parts.join('')}</div>`;
         }
-
-        const countLabel = summary.total > 0
-          ? `<span class="cal-grid__count">${summary.done}/${summary.total}</span>`
-          : '';
 
         html += `<button class="${cls}" data-date="${dateKey}" type="button">
           <span class="cal-grid__day">${dayNum}</span>
-          ${dots}
-          ${countLabel}
+          ${freqHtml}
         </button>`;
       }
 
-      html += `</div>`;
+      html += `</div></div>`;
+      return html;
+    }
+
+    function render() {
+      let html = '';
+
+      // Nav
+      html += `<div class="date-header">
+        <div class="date-nav">
+          <button class="date-nav__btn" id="prevMonth" type="button" title="Previous 3 months">&lsaquo;</button>
+          <div class="date-nav__center">
+            <span class="date-header__day">${MONTH_NAMES[monthNumber(viewMonth + '-01') - 1]} ${yearNumber(viewMonth + '-01')}</span>
+          </div>
+          <button class="date-nav__btn" id="nextMonth" type="button" title="Next 3 months">&rsaquo;</button>
+        </div>
+        ${viewMonth !== today.substring(0, 7) ? `<button class="btn btn--ghost btn--sm mt-sm" id="goThisMonth" type="button">This Month</button>` : ''}
+      </div>`;
+
+      // Person filter
+      html += renderPersonFilter(people, activePerson);
+
+      // 3 months: previous, current, next
+      const prevMonth = getMonthKey(viewMonth, -1);
+      const nextMonth = getMonthKey(viewMonth, 1);
+
+      html += renderMonthGrid(prevMonth);
+      html += renderMonthGrid(viewMonth);
+      html += renderMonthGrid(nextMonth);
 
       main.innerHTML = html;
       bindEvents();
 
-      // Open sheet if day is selected
+      // Scroll current month into view
+      const currentEl = main.querySelector('.cal-month--current') || main.querySelectorAll('.cal-month')[1];
+      if (currentEl) currentEl.scrollIntoView({ behavior: 'instant', block: 'start' });
+
       if (selectedDay) openSheet(selectedDay);
       else closeSheet();
     }
@@ -281,6 +293,7 @@
           <div class="cal-sheet__progress">
             <div class="cal-sheet__progress-fill" style="width:${prog.pct}%"></div>
           </div>
+          ${renderPersonFilter(people, activePerson)}
           <div class="cal-sheet__body">${html}</div>
         </div>
       </div>`;
@@ -300,6 +313,16 @@
           closeSheet();
           render();
         }
+      });
+
+      // Bind person filter in sheet
+      sheetMount.querySelectorAll('.person-pill').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          activePerson = btn.dataset.personId || null;
+          render();
+          openSheet(selectedDay);
+        });
       });
 
       // Bind task cards in sheet
