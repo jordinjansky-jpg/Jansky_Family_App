@@ -168,8 +168,8 @@ img {
 
 .header__left {
   display: flex;
-  align-items: baseline;
-  gap: var(--spacing-sm);
+  flex-direction: column;
+  gap: 0;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -194,6 +194,13 @@ img {
   font-weight: 500;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+}
+
+.header__date {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-weight: 500;
 }
 
 .header__right {
@@ -231,9 +238,9 @@ img {
 }
 
 @media (max-width: 400px) {
-  .header__left { gap: var(--spacing-xs); }
   .header__title { font-size: var(--font-size-base); }
   .header__subtitle { display: none; }
+  .header__date { font-size: 10px; }
   .header__stats { font-size: 10px; }
 }
 
@@ -2270,6 +2277,7 @@ img {
   gap: 2px;
   min-width: 0;
   flex: 1;
+  overflow: hidden;
 }
 .admin-list-item__name {
   font-weight: 500;
@@ -2283,8 +2291,9 @@ img {
   color: var(--text-muted);
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
   align-items: center;
+  overflow: hidden;
 }
 .admin-list-item__actions {
   display: flex;
@@ -2496,13 +2505,16 @@ img {
 }
 .admin-badge {
   display: inline-block;
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: var(--radius-pill, 9999px);
   font-size: 10px;
   background: var(--bg-secondary);
   color: var(--text-secondary);
   white-space: nowrap;
   line-height: 1.3;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .admin-badge--muted {
   background: var(--danger-bg);

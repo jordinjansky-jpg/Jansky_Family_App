@@ -26,7 +26,7 @@
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, onConnectionChange } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderGradeBadge, renderBottomSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes } from './shared/utils.js';
+    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong } from './shared/utils.js';
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
     import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints } from './shared/scoring.js';
 
@@ -69,6 +69,7 @@
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
       subtitle: 'Scoreboard',
+      dateLine: formatDateLong(today),
       showAdmin: true,
       showDebug: debugActive
     });

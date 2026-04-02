@@ -69,6 +69,7 @@
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
       subtitle: settings?.familyName || '',
+      dateLine: formatDateLong(todayKey(settings?.timezone || 'America/Chicago')),
       showAdmin: true,
       showDebug: debugActive,
       showAddTask: true,
@@ -774,7 +775,55 @@
         const isEvent = opt?.dataset.event === '1';
         const dateGroup = document.getElementById('qa_eventDateGroup');
         if (dateGroup) dateGroup.style.display = isEvent ? '' : 'none';
+        if (isEvent) {
+          const rotSelect = document.getElementById('qa_rotation');
+          if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
+        }
       });
+
+      // Rotation change — show/hide dedicated day vs date
+      document.getElementById('qa_rotation')?.addEventListener('change', (e) => {
+        const rot = e.target.value;
+        const group = document.getElementById('qa_dedicatedDayGroup');
+        const chips = document.getElementById('qa_dayChips');
+        const dateRow = document.getElementById('qa_dedicatedDateRow');
+        const label = document.getElementById('qa_dedicatedDayLabel');
+        if (rot === 'daily') {
+          group.style.display = 'none';
+        } else {
+          group.style.display = '';
+          if (rot === 'once') {
+            chips.style.display = 'none';
+            dateRow.style.display = '';
+            label.textContent = 'Scheduled Date';
+          } else {
+            chips.style.display = 'flex';
+            dateRow.style.display = 'none';
+            label.textContent = 'Dedicated Day';
+          }
+        }
+      });
+
+      // Day chip toggle
+      for (const chip of document.querySelectorAll('#qa_dayChips .day-chip')) {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('#qa_dayChips .day-chip').forEach(c => c.classList.remove('day-chip--active'));
+          chip.classList.add('day-chip--active');
+        });
+      }
+
+      // Assignment mode toggle
+      const modeGroup = document.getElementById('qa_assignModeHint')?.parentElement;
+      if (modeGroup) {
+        for (const btn of modeGroup.querySelectorAll('.admin-mode-btn')) {
+          btn.addEventListener('click', () => {
+            modeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
+            btn.classList.add('admin-mode-btn--active');
+            const hint = document.getElementById('qa_assignModeHint');
+            if (hint) hint.textContent = btn.dataset.mode === 'duplicate' ? 'Each selected owner gets their own task instance every period.' : 'Rotate between owners each period.';
+          });
+        }
+      }
 
       document.getElementById('qaCancel')?.addEventListener('click', closeTaskSheet);
 
@@ -786,18 +835,29 @@
         const catKey = document.getElementById('qa_category')?.value || '';
         const isEvent = !!cats[catKey]?.isEvent;
         const eventDate = document.getElementById('qa_eventDate')?.value || '';
+        const rotation = isEvent && eventDate ? 'once' : (document.getElementById('qa_rotation')?.value || 'daily');
+
+        // Read assignment mode
+        const activeModeBtn = document.getElementById('qa_assignModeHint')?.parentElement?.querySelector('.admin-mode-btn--active');
+        const assignMode = isEvent ? 'fixed' : (activeModeBtn?.dataset.mode || 'rotate');
+
+        // Read dedicated day/date
+        const activeChip = document.querySelector('#qa_dayChips .day-chip.day-chip--active');
+        const chipVal = activeChip?.dataset.day;
+        const dedicatedDay = (rotation !== 'once' && chipVal !== '' && chipVal != null) ? parseInt(chipVal, 10) : null;
+        const dedicatedDate = isEvent && eventDate ? eventDate : (rotation === 'once' ? (document.getElementById('qa_dedicatedDate')?.value || null) : null);
 
         const taskData = {
           name,
-          rotation: isEvent && eventDate ? 'once' : (document.getElementById('qa_rotation')?.value || 'daily'),
+          rotation,
           difficulty: document.getElementById('qa_difficulty')?.value || 'medium',
           timeOfDay: document.getElementById('qa_timeOfDay')?.value || 'anytime',
           estMin: parseInt(document.getElementById('qa_estMin')?.value, 10) || 10,
           category: catKey,
           owners,
-          ownerAssignmentMode: isEvent ? 'fixed' : 'rotate',
-          dedicatedDay: null,
-          dedicatedDate: isEvent && eventDate ? eventDate : null,
+          ownerAssignmentMode: assignMode,
+          dedicatedDay,
+          dedicatedDate,
           cooldownDays: null,
           exempt: false,
           status: 'active',
@@ -807,8 +867,8 @@
         const newId = await pushTask(taskData);
         tasks[newId] = taskData;
 
-        // Create schedule entry: event with date goes on that date, otherwise today
-        const schedDate = (isEvent && eventDate) ? eventDate : today;
+        // Create schedule entry: event/once with date goes on that date, otherwise today
+        const schedDate = dedicatedDate || today;
         if (owners.length > 0) {
           const schedUpdates = {};
           const mode = taskData.ownerAssignmentMode || 'rotate';

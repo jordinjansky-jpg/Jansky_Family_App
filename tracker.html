@@ -27,7 +27,7 @@
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet } from './shared/components.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber } from './shared/utils.js';
+    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong } from './shared/utils.js';
     import { isComplete } from './shared/state.js';
 
     // ── Cached theme ──
@@ -72,6 +72,7 @@
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
       subtitle: 'Tracker',
+      dateLine: formatDateLong(today),
       showAdmin: true,
       showDebug: debugActive
     });

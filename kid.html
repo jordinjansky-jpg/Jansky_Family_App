@@ -204,6 +204,64 @@
     .kid-tasks {
       padding: 0 var(--spacing-md) var(--spacing-lg);
     }
+
+    /* ── All-done victory screen ── */
+    .kid-victory {
+      text-align: center;
+      padding: var(--spacing-xl) var(--spacing-md);
+      animation: kidVictoryFadeIn 0.6s ease-out;
+    }
+    .kid-victory__scene {
+      font-size: 4rem;
+      line-height: 1.3;
+      margin-bottom: var(--spacing-md);
+      animation: kidVictoryBounce 2s ease-in-out infinite;
+    }
+    .kid-victory__title {
+      font-size: var(--font-size-xl);
+      font-weight: 800;
+      margin-bottom: var(--spacing-sm);
+      background: linear-gradient(135deg, var(--accent), #e85d75, #ff9800);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .kid-victory__subtitle {
+      color: var(--text-secondary);
+      font-size: var(--font-size-base);
+      margin-bottom: var(--spacing-lg);
+    }
+    .kid-victory__completed-label {
+      font-size: var(--font-size-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    @keyframes kidVictoryFadeIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes kidVictoryBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* ── Confetti rain (all-done celebration) ── */
+    .kid-confetti {
+      position: fixed;
+      top: -20px;
+      pointer-events: none;
+      z-index: 9999;
+      font-size: 1.5rem;
+      animation: kidConfettiFall linear forwards;
+    }
+    @keyframes kidConfettiFall {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      80% { opacity: 1; }
+      100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -424,48 +482,23 @@
               else incomplete[key] = entry;
             }
 
-            // Incomplete grouped by frequency
-            const groups = groupByFrequency(incomplete, tasks, cats);
-            const sections = [
-              { key: 'events', label: 'Events' },
-              { key: 'daily', label: 'Daily' },
-              { key: 'weekly', label: 'Weekly' },
-              { key: 'monthly', label: 'Monthly' },
-              { key: 'once', label: 'One-Time' }
-            ];
-            const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
-            const showHeaders = nonEmpty.length > 1;
+            const allDone = Object.keys(incomplete).length === 0 && Object.keys(completed_).length > 0;
 
-            for (const sec of sections) {
-              const entries = groups[sec.key];
-              const sorted = sortEntries(entries, completions);
-              if (sorted.length === 0) continue;
-              if (showHeaders) html += renderTimeHeader(sec.label);
+            if (allDone) {
+              // ── Victory screen! ──
+              const v = pickVictoryScene();
+              const personalTitle = v.title;
+              const personalSub = v.subtitle.replace(/\{name\}/g, kid.name);
+              html += `<div class="kid-victory">
+                <div class="kid-victory__scene">${v.scene}</div>
+                <div class="kid-victory__title">${personalTitle}</div>
+                <div class="kid-victory__subtitle">${personalSub}</div>
+                <div class="kid-victory__completed-label">${prog.done} tasks crushed today</div>
+              </div>`;
 
-              for (const [entryKey, entry] of sorted) {
-                const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-                const cat = task.category ? cats[task.category] : null;
-                const pts = score.pointsMap[entryKey] || basePoints(task);
-                const ovr = completions[entryKey]?.pointsOverride ?? null;
-                html += renderTaskCard({
-                  entryKey,
-                  entry: { ...entry, dateKey: viewDate },
-                  task,
-                  person: kid,
-                  category: cat,
-                  completed: false,
-                  overdue: false,
-                  points: { possible: pts, override: ovr },
-                  isEvent: !!cat?.isEvent
-                });
-              }
-            }
-
-            // Completed at bottom
-            const completedEntries = Object.entries(completed_);
-            if (completedEntries.length > 0) {
-              html += renderTimeHeader(`Completed (${completedEntries.length})`);
-              for (const [entryKey, entry] of completedEntries) {
+              // Still show completed tasks collapsed below
+              html += renderTimeHeader(`Completed (${Object.keys(completed_).length})`);
+              for (const [entryKey, entry] of Object.entries(completed_)) {
                 const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
                 const cat = task.category ? cats[task.category] : null;
                 const pts = score.pointsMap[entryKey] || basePoints(task);
@@ -481,6 +514,66 @@
                   points: { possible: pts, override: ovr },
                   isEvent: !!cat?.isEvent
                 });
+              }
+            } else {
+              // Incomplete grouped by frequency
+              const groups = groupByFrequency(incomplete, tasks, cats);
+              const sections = [
+                { key: 'events', label: 'Events' },
+                { key: 'daily', label: 'Daily' },
+                { key: 'weekly', label: 'Weekly' },
+                { key: 'monthly', label: 'Monthly' },
+                { key: 'once', label: 'One-Time' }
+              ];
+              const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
+              const showHeaders = nonEmpty.length > 1;
+
+              for (const sec of sections) {
+                const entries = groups[sec.key];
+                const sorted = sortEntries(entries, completions);
+                if (sorted.length === 0) continue;
+                if (showHeaders) html += renderTimeHeader(sec.label);
+
+                for (const [entryKey, entry] of sorted) {
+                  const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+                  const cat = task.category ? cats[task.category] : null;
+                  const pts = score.pointsMap[entryKey] || basePoints(task);
+                  const ovr = completions[entryKey]?.pointsOverride ?? null;
+                  html += renderTaskCard({
+                    entryKey,
+                    entry: { ...entry, dateKey: viewDate },
+                    task,
+                    person: kid,
+                    category: cat,
+                    completed: false,
+                    overdue: false,
+                    points: { possible: pts, override: ovr },
+                    isEvent: !!cat?.isEvent
+                  });
+                }
+              }
+
+              // Completed at bottom
+              const completedEntries = Object.entries(completed_);
+              if (completedEntries.length > 0) {
+                html += renderTimeHeader(`Completed (${completedEntries.length})`);
+                for (const [entryKey, entry] of completedEntries) {
+                  const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+                  const cat = task.category ? cats[task.category] : null;
+                  const pts = score.pointsMap[entryKey] || basePoints(task);
+                  const ovr = completions[entryKey]?.pointsOverride ?? null;
+                  html += renderTaskCard({
+                    entryKey,
+                    entry: { ...entry, dateKey: viewDate },
+                    task,
+                    person: kid,
+                    category: cat,
+                    completed: true,
+                    overdue: false,
+                    points: { possible: pts, override: ovr },
+                    isEvent: !!cat?.isEvent
+                  });
+                }
               }
             }
           }
@@ -618,7 +711,50 @@
         // Celebration system
         // ══════════════════════════════════════════
 
-        const CELEBRATION_EMOJI = ['🌟', '⭐', '✨', '🎉', '🎊', '🏆', '💪', '🔥', '🚀', '💫', '🎯', '👏'];
+        const CELEBRATION_EMOJI = [
+          '🌟', '⭐', '✨', '🎉', '🎊', '🏆', '💪', '🔥', '🚀', '💫', '🎯', '👏',
+          '🦄', '🌈', '⚡', '🍕', '🎸', '🎮', '🧁', '🍩', '🎈', '🎶', '💎', '👑',
+          '🦋', '🐬', '🐙', '🦀', '🍦', '🎪', '🛸', '🌸', '🍭', '🎵', '💜', '💚'
+        ];
+
+        const CONFETTI_EMOJI = ['🎉', '🎊', '✨', '🌟', '💫', '🎈', '🎵', '💎', '🦄', '🌈', '⭐', '🍭'];
+
+        const VICTORY_SCENES = [
+          { scene: '🐱🎉🎈🐱\n🎶💃🕺🎶', title: 'Cat Party!', subtitle: 'Even the cats are celebrating, {name}!' },
+          { scene: '🐕🕺💃🐕\n🎵🎶🎵🎶', title: 'Dogs Got Moves!', subtitle: 'The dogs are doing a happy dance for {name}!' },
+          { scene: '🦄✨🌈✨🦄\n⭐💫🌟💫⭐', title: 'Unicorn Magic!', subtitle: '{name} unlocked the unicorn dimension!' },
+          { scene: '🐙🎸🥁🐙\n🎵🔥🔥🎵', title: 'Octopus Rock Band!', subtitle: 'They wrote a song about how awesome {name} is!' },
+          { scene: '🚀🌟🪐⭐🛸\n👽🎉👾🎉👽', title: 'Space Party!', subtitle: 'Aliens traveled here just to high-five {name}!' },
+          { scene: '🐧❄️🎿🏂🐧\n⛷️🏔️🏔️⛷️', title: 'Penguin Ski Trip!', subtitle: 'The penguins are doing tricks in {name}\'s honor!' },
+          { scene: '🍕🎉🍔🌮🍕\n🧁🍩🎂🍦🧁', title: 'Food Festival!', subtitle: 'All of {name}\'s favorite foods are here to party!' },
+          { scene: '🦊🎩🐰🎩🦊\n✨🪄🎭🪄✨', title: 'Magic Show!', subtitle: '{name} made all the tasks disappear! Abracadabra!' },
+          { scene: '🐋💦🐬🐳💦\n🌊🎉🏄🎉🌊', title: 'Ocean Bash!', subtitle: 'The whales are throwing a splash party for {name}!' },
+          { scene: '🦁👑🐯🏆🦁\n🎺🥇🏅🥇🎺', title: 'Champion of the Jungle!', subtitle: 'King {name}, ruler of getting stuff done!' },
+          { scene: '🤖🎮👾🕹️🤖\n💥⚡🔥⚡💥', title: 'Level Complete!', subtitle: '{name} beat the final boss — all tasks destroyed!' },
+          { scene: '🐸🎤🎵🐸🎤\n🎶🎼🎹🎼🎶', title: 'Frog Choir!', subtitle: 'The frogs are singing {name}\'s victory song!' },
+          { scene: '🦈🎉🐠🐡🦈\n🫧🎊🫧🎊🫧', title: 'Under the Sea Party!', subtitle: 'Even the sharks are smiling for {name}!' },
+          { scene: '🐒🍌🐒🍌🐒\n🌴🎉🌴🎉🌴', title: 'Monkey Business!', subtitle: 'The monkeys are going bananas for {name}!' },
+          { scene: '🦕🌋🦖🌋🦕\n🎉🥚🎊🥚🎉', title: 'Dino Dance!', subtitle: 'The dinosaurs came back just to celebrate {name}!' },
+        ];
+
+        function pickVictoryScene() {
+          return VICTORY_SCENES[Math.floor(Math.random() * VICTORY_SCENES.length)];
+        }
+
+        function showConfettiRain() {
+          const count = 25;
+          for (let i = 0; i < count; i++) {
+            const el = document.createElement('span');
+            el.className = 'kid-confetti';
+            el.textContent = CONFETTI_EMOJI[Math.floor(Math.random() * CONFETTI_EMOJI.length)];
+            el.style.left = (Math.random() * 100) + 'vw';
+            el.style.animationDuration = (2 + Math.random() * 2) + 's';
+            el.style.animationDelay = (Math.random() * 1.5) + 's';
+            el.style.fontSize = (1 + Math.random() * 1.2) + 'rem';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+          }
+        }
 
         function triggerCelebration(entryKey, type) {
           if (!ks.celebrationsEnabled && ks.celebrationsEnabled !== undefined) return;
@@ -633,6 +769,16 @@
           }
         }
 
+        // Themed emoji sets for per-task bursts — picks a random theme each time
+        const BURST_THEMES = [
+          ['🌟', '⭐', '✨', '💫', '🌟', '⭐', '✨', '💫'],
+          ['🎉', '🎊', '🎈', '🎵', '🎶', '🎉', '🎊', '🎈'],
+          ['🦄', '🌈', '💜', '💖', '💎', '🦋', '🌸', '✨'],
+          ['🍕', '🍩', '🧁', '🍦', '🍭', '🍫', '🎂', '🍪'],
+          ['🚀', '⚡', '🔥', '💥', '🛸', '☄️', '🌟', '⭐'],
+          ['🐱', '🐶', '🐰', '🐸', '🦊', '🐼', '🐨', '🐵'],
+        ];
+
         function showFullTaskCelebration(entryKey) {
           const card = main.querySelector(`.task-card[data-entry-key="${entryKey}"]`);
           if (!card) return;
@@ -645,22 +791,28 @@
           container.style.left = cx + 'px';
           container.style.top = cy + 'px';
 
-          const count = 8 + Math.floor(Math.random() * 3);
+          // Pick a random theme or mix
+          const useMix = Math.random() > 0.5;
+          const theme = useMix ? CELEBRATION_EMOJI : BURST_THEMES[Math.floor(Math.random() * BURST_THEMES.length)];
+
+          const count = 10 + Math.floor(Math.random() * 5);
           for (let i = 0; i < count; i++) {
             const span = document.createElement('span');
             span.className = 'kid-emoji-burst__particle';
-            span.textContent = CELEBRATION_EMOJI[Math.floor(Math.random() * CELEBRATION_EMOJI.length)];
+            span.textContent = theme[Math.floor(Math.random() * theme.length)];
             const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.4 - 0.2);
-            const dist = 60 + Math.random() * 50;
+            const dist = 70 + Math.random() * 60;
             span.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
             span.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
-            span.style.animationDelay = (Math.random() * 0.1) + 's';
+            span.style.animationDelay = (Math.random() * 0.15) + 's';
             container.appendChild(span);
           }
 
           document.body.appendChild(container);
-          setTimeout(() => container.remove(), 1000);
+          setTimeout(() => container.remove(), 1200);
         }
+
+        const SPARKLE_EMOJI = ['⭐', '🌟', '✨', '💫', '🦄', '💎', '🔥', '⚡'];
 
         function showSubtleTaskCelebration(entryKey) {
           const card = main.querySelector(`.task-card[data-entry-key="${entryKey}"]`);
@@ -669,7 +821,7 @@
 
           const sparkle = document.createElement('span');
           sparkle.className = 'kid-sparkle';
-          sparkle.textContent = '⭐';
+          sparkle.textContent = SPARKLE_EMOJI[Math.floor(Math.random() * SPARKLE_EMOJI.length)];
           sparkle.style.left = (rect.left + 12) + 'px';
           sparkle.style.top = (rect.top + rect.height / 2 - 10) + 'px';
           sparkle.style.position = 'fixed';
@@ -678,21 +830,32 @@
           setTimeout(() => sparkle.remove(), 700);
         }
 
+        const ALL_DONE_MESSAGES = [
+          `Amazing job, ${kid.name}! You're a superstar!`,
+          `${kid.name} absolutely CRUSHED it today!`,
+          `Boom! ${kid.name} wins the day!`,
+          `${kid.name} is officially a legend!`,
+          `Nothing can stop ${kid.name}!`,
+          `${kid.name} just unlocked: Day Complete Achievement!`,
+        ];
+
         function showFullAllDoneCelebration() {
           const cel = document.getElementById('celebration');
           if (!cel) return;
-          // Personalize subtitle
           const subtitle = cel.querySelector('.celebration__subtitle');
-          if (subtitle) subtitle.textContent = `Amazing job, ${kid.name}!`;
+          if (subtitle) subtitle.textContent = ALL_DONE_MESSAGES[Math.floor(Math.random() * ALL_DONE_MESSAGES.length)];
           cel.classList.add('active');
+          showConfettiRain();
           setTimeout(() => cel.classList.remove('active'), 3000);
         }
 
         function showSubtleAllDoneCelebration() {
+          const msg = ALL_DONE_MESSAGES[Math.floor(Math.random() * ALL_DONE_MESSAGES.length)];
           const toast = document.createElement('div');
           toast.className = 'kid-celebration-toast';
-          toast.textContent = `🎉 All done! Great job, ${kid.name}!`;
+          toast.textContent = `🎉 ${msg}`;
           document.body.appendChild(toast);
+          showConfettiRain();
           setTimeout(() => toast.remove(), 3200);
         }
 

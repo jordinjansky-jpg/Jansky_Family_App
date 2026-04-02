@@ -39,6 +39,7 @@ export function renderHeader(options = {}) {
   const {
     appName = 'Daily Rundown',
     subtitle = '',
+    dateLine = '',
     showAdmin = true,
     showDebug = false,
     showAddTask = false,
@@ -47,12 +48,13 @@ export function renderHeader(options = {}) {
 
   const debugIcon = showDebug ? '<span class="header__debug" title="Debug mode active">🐛</span>' : '';
   const adminLink = showAdmin ? '<a href="admin.html" class="header__admin" title="Admin">⚙️</a>' : '';
-  const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">＋</button>' : '';
+  const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">📝</button>' : '';
 
   return `<header class="app-header">
     <div class="header__left">
       <h1 class="header__title">${appName}</h1>
       ${subtitle ? `<span class="header__subtitle">${subtitle}</span>` : ''}
+      ${dateLine ? `<span class="header__date">${dateLine}</span>` : ''}
     </div>
     <div class="header__right">
       ${rightContent}
@@ -460,6 +462,27 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
       <label class="form-label">Owners</label>
       <div class="admin-checkboxes" id="qa_owners">
         ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"> ${p.name}</label>`).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Assignment Mode</label>
+      <div class="form-row">
+        <button class="btn btn--secondary btn--sm admin-mode-btn admin-mode-btn--active" data-mode="rotate" type="button">Rotate</button>
+        <button class="btn btn--secondary btn--sm admin-mode-btn" data-mode="duplicate" type="button">Duplicate</button>
+      </div>
+      <p class="form-hint" id="qa_assignModeHint">Rotate between owners each period.</p>
+    </div>
+    <div class="form-group" id="qa_dedicatedDayGroup" style="display:none">
+      <label class="form-label" id="qa_dedicatedDayLabel">Dedicated Day</label>
+      <div id="qa_dayChips" style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
+          const val = (i + 1) % 7;
+          return `<button type="button" class="btn btn--secondary btn--sm day-chip" data-day="${val}">${d}</button>`;
+        }).join('')}
+        <button type="button" class="btn btn--secondary btn--sm day-chip day-chip--active" data-day="" style="margin-left:auto">Any</button>
+      </div>
+      <div id="qa_dedicatedDateRow" style="display:none">
+        <input type="date" id="qa_dedicatedDate" class="task-detail__date-input" style="width:100%">
       </div>
     </div>
     <div class="admin-form__actions mt-md">

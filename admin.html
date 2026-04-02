@@ -359,7 +359,7 @@
         <div class="form-group">
           <label class="form-label">Category</label>
           <select id="tf_category">
-            ${ca.map(c => `<option value="${c.key}"${task.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+            ${ca.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
@@ -388,6 +388,10 @@
           <div id="dedicatedDateRow" style="display:${task.rotation === 'once' ? '' : 'none'}">
             <input type="date" id="tf_dedicatedDate" value="${task.dedicatedDate || ''}" class="task-detail__date-input" style="width:100%">
           </div>
+        </div>
+        <div class="form-group" id="tf_eventDateGroup" style="display:${catsObj[task.category]?.isEvent ? '' : 'none'}">
+          <label class="form-label">📅 Event Date</label>
+          <input type="date" id="tf_eventDate" value="${task.dedicatedDate || ''}" class="task-detail__date-input" style="width:100%">
         </div>
         <div class="form-group">
           <label class="form-label">Cooldown Days</label>
@@ -437,7 +441,7 @@
               </div>
             </div>
             <div class="admin-list-item__actions">
-              ${p.role === 'child' ? `<a href="kid.html?kid=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--sm" title="Open kid page" target="_blank">👶</a>` : ''}
+              ${p.role === 'child' ? `<a href="kid.html?kid=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--sm" title="Open kid page" target="_blank" onclick="event.stopPropagation()">Link</a>` : ''}
               <button class="btn btn--ghost btn--sm admin-edit-person" data-person-id="${p.id}" type="button">Edit</button>
               <button class="btn btn--ghost btn--sm admin-delete-person" data-person-id="${p.id}" type="button">✕</button>
             </div>
@@ -1016,6 +1020,19 @@
         });
       }
 
+      // Category change — show/hide event date picker
+      main.querySelector('#tf_category')?.addEventListener('change', (e) => {
+        const opt = e.target.selectedOptions[0];
+        const isEvent = opt?.dataset.event === '1';
+        const eventDateGroup = main.querySelector('#tf_eventDateGroup');
+        if (eventDateGroup) eventDateGroup.style.display = isEvent ? '' : 'none';
+        // If event, force rotation to once
+        if (isEvent) {
+          const rotSelect = main.querySelector('#tf_rotation');
+          if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
+        }
+      });
+
       // Rotation change — show/hide dedicated day vs date picker
       main.querySelector('#tf_rotation')?.addEventListener('change', (e) => {
         const rot = e.target.value;
@@ -1066,9 +1083,14 @@
         const catIsEvent = catsObj[catKey]?.isEvent || false;
         const effectiveMode = catIsEvent ? 'fixed' : assignMode;
 
+        // Event date overrides dedicatedDate & rotation
+        const eventDate = catIsEvent ? (main.querySelector('#tf_eventDate')?.value || null) : null;
+        const effectiveRotation = catIsEvent && eventDate ? 'once' : rotation;
+        const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
+
         const taskData = {
           name,
-          rotation,
+          rotation: effectiveRotation,
           difficulty: main.querySelector('#tf_difficulty')?.value || 'medium',
           timeOfDay: main.querySelector('#tf_timeOfDay')?.value || 'anytime',
           estMin: parseInt(main.querySelector('#tf_estMin')?.value, 10) || 10,
@@ -1076,7 +1098,7 @@
           owners,
           ownerAssignmentMode: effectiveMode,
           dedicatedDay,
-          dedicatedDate,
+          dedicatedDate: effectiveDedicatedDate,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
           exempt: main.querySelector('#tf_exempt')?.checked || false,
           status: 'active'
