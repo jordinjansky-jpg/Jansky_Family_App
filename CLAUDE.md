@@ -39,10 +39,12 @@
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
+2026-04-02 Phase 2: Scheduling engine — all 5 steps (basic, rotation, cooldown, load balancing, duplicate). Validated: schedule generates correctly, deterministic rebuilds, no past/today entries.
 2026-04-02 Phase 1: Foundation — Firebase connection, utils, theme, common CSS, nav bar, setup wizard, empty page shells. Validated: setup writes to rundown/, nav works, theme persists, no cleaning/* writes.
 
 ## Backlog
-- Temp reset button on dashboard (index.html) — remove in Phase 8 when admin gets factory reset
+- **CLEANUP: Remove temp testing UI from index.html** — task creation form, rebuild button, schedule diagnostic, reset button. Remove when Phase 3 dashboard replaces them (reset moves to Phase 8 admin).
+- Phase 8 (Admin → Categories): Add a "default category" setting so new tasks don't default to an arbitrary category
 - Phase 3: Dashboard with task cards and completion
 - Phase 4: Calendar views
 - Phase 5: Scoring & grading system
