@@ -165,8 +165,16 @@
         const emptyMsg = isToday ? 'Enjoy your free time!' : 'Nothing scheduled for this day.';
         html += renderEmptyState('📭', 'No tasks', emptyMsg);
       } else {
-        // Group by frequency
-        const groups = groupByFrequency(filtered);
+        // Split into incomplete and completed
+        const incomplete = {};
+        const completed_ = {};
+        for (const [key, entry] of Object.entries(filtered)) {
+          if (isComplete(key, completions)) completed_[key] = entry;
+          else incomplete[key] = entry;
+        }
+
+        // Render incomplete tasks grouped by frequency
+        const groups = groupByFrequency(incomplete);
         const sections = [
           { key: 'daily', label: 'Daily' },
           { key: 'weekly', label: 'Weekly' },
@@ -194,7 +202,27 @@
               task,
               person,
               category: cat,
-              completed: isComplete(entryKey, completions),
+              completed: false,
+              overdue: false
+            });
+          }
+        }
+
+        // Render completed tasks at the very bottom
+        const completedEntries = Object.entries(completed_);
+        if (completedEntries.length > 0) {
+          html += renderTimeHeader(`Completed (${completedEntries.length})`);
+          for (const [entryKey, entry] of completedEntries) {
+            const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+            const person = people.find(p => p.id === entry.ownerId);
+            const cat = task.category ? cats[task.category] : null;
+            html += renderTaskCard({
+              entryKey,
+              entry: { ...entry, dateKey: viewDate },
+              task,
+              person,
+              category: cat,
+              completed: true,
               overdue: false
             });
           }

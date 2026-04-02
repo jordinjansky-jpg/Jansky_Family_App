@@ -208,8 +208,7 @@ export function renderTaskCard(options) {
   const ownerColor = person?.color || 'var(--text-secondary)';
   const ownerInitial = (person?.name || '?')[0].toUpperCase();
   const estLabel = task.estMin ? `${task.estMin}m` : '';
-  const diffPoints = task.difficulty === 'hard' ? '50p' : task.difficulty === 'easy' ? '7p' : '17p';
-  const meta = [estLabel, diffPoints].filter(Boolean).join(' · ');
+  const meta = estLabel;
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const taskName = catIcon ? `${catIcon} ${task.name}` : task.name;
 
