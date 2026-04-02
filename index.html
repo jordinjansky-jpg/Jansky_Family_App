@@ -794,6 +794,9 @@
         const chips = document.getElementById('qa_dayChips');
         const dateRow = document.getElementById('qa_dedicatedDateRow');
         const label = document.getElementById('qa_dedicatedDayLabel');
+        // Check if current category is an event
+        const catOpt = document.getElementById('qa_category')?.selectedOptions[0];
+        const isEvent = catOpt?.dataset.event === '1';
         if (rot === 'daily') {
           group.style.display = 'none';
         } else {
@@ -802,8 +805,9 @@
           const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
             chips.style.display = 'none';
-            dateRow.style.display = '';
-            label.innerHTML = 'Scheduled Date ' + btnHtml;
+            // Events: only show 📅 icon, no date input row
+            dateRow.style.display = isEvent ? 'none' : '';
+            label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
           } else {
             chips.style.display = 'flex';
             dateRow.style.display = 'none';

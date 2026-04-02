@@ -219,14 +219,19 @@ img {
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
-  transition: background var(--transition-fast);
+  background: var(--accent);
+  box-shadow: 0 2px 6px var(--accent-light);
+  text-decoration: none;
+  transition: all var(--transition-fast);
 }
 
 .header__admin:hover,
 .header__debug:hover {
-  background: var(--bg-card);
-  box-shadow: var(--shadow-sm);
+  background: var(--accent-hover);
+  transform: scale(1.05);
 }
+.header__admin:active,
+.header__debug:active { transform: scale(0.95); }
 
 .header__stats {
   display: flex;

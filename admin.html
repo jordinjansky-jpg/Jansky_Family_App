@@ -376,7 +376,7 @@
           </div>
           <p class="form-hint" id="assignModeHint">${assignMode === 'duplicate' ? 'Each selected owner gets their own task instance every period.' : 'Rotate between owners each period.'}</p>
         </div>
-        <div class="form-group" id="dedicatedDayGroup" style="display:${task.rotation === 'daily' ? 'none' : ''}">
+        <div class="form-group" id="dedicatedDayGroup" style="display:${(!task.rotation || task.rotation === 'daily') ? 'none' : ''}">
           <label class="form-label" id="dedicatedDayLabel">${task.rotation === 'once' ? 'Scheduled Date' : 'Dedicated Day'} <button type="button" id="tf_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${catsObj[task.category]?.isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
           <input type="date" id="tf_eventDate" style="position:absolute;opacity:0;pointer-events:none;" value="${task.dedicatedDate || ''}">
           <div id="dayChips" style="display:${task.rotation === 'once' ? 'none' : 'flex'};flex-wrap:wrap;gap:6px;">
@@ -1043,6 +1043,8 @@
         const chips = main.querySelector('#dayChips');
         const dateRow = main.querySelector('#dedicatedDateRow');
         const label = main.querySelector('#dedicatedDayLabel');
+        const catOpt = main.querySelector('#tf_category')?.selectedOptions[0];
+        const isEvent = catOpt?.dataset.event === '1';
         if (rot === 'daily') {
           group.style.display = 'none';
         } else {
@@ -1051,8 +1053,8 @@
           const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
             chips.style.display = 'none';
-            dateRow.style.display = '';
-            label.innerHTML = 'Scheduled Date ' + btnHtml;
+            dateRow.style.display = isEvent ? 'none' : '';
+            label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
           } else {
             chips.style.display = 'flex';
             dateRow.style.display = 'none';

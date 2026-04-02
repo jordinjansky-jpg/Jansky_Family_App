@@ -444,7 +444,7 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
         </select>
       </div>
       <div class="form-group" style="flex:1">
-        <label class="form-label">Est. Min</label>
+        <label class="form-label">Est. Minutes</label>
         <input type="number" id="qa_estMin" value="10" min="1" max="120">
       </div>
     </div>
@@ -537,7 +537,7 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
         </select>
       </div>
       <div class="form-group" style="flex:1">
-        <label class="form-label">Est. Min</label>
+        <label class="form-label">Est. Minutes</label>
         <input type="number" id="et_estMin" value="${task.estMin || 10}" min="1" max="120">
       </div>
     </div>
