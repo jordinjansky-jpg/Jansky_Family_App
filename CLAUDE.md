@@ -1,6 +1,6 @@
 # Daily Rundown Rebuild - Governance
-**Current Phase:** 5 | **Status:** Complete  
-**Next Milestone:** Phase 6 — Scoreboard page
+**Current Phase:** 6 | **Status:** Complete  
+**Next Milestone:** Phase 7 — Task Tracker page
 
 ## Architecture Decisions
 - Firebase root: `rundown/` — NEVER touch `cleaning/*`
@@ -85,6 +85,10 @@ rundown/
 - Daily rollover creates snapshots for past days on dashboard load (fire-and-forget)
 - Calendar bottom sheet locks height on open so person filter changes don't resize it
 - Category emoji on cards will be a per-category toggle (Phase 8 admin setting)
+- Scoreboard period tabs: Today/Week/Month/12Mo — leaderboard sorts by selected period
+- Scoreboard weekly grades blend snapshots (past days) + live daily score (today) for accuracy
+- Scoreboard drill-down: tap person card → bottom sheet with task-level detail (Done/Late/Missed/Pending)
+- Scoreboard trends: 4-week bar sparklines per person with grade-colored fills
 
 ## Gotchas (Critical)
 - Firebase RTDB compat SDK used (not modular) — all imports via `firebase.` global after CDN load
@@ -93,6 +97,7 @@ rundown/
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
+2026-04-02 Phase 6: Scoreboard — period-selectable leaderboard (today/week/month/12-month), all-grades table, 4-week trend sparklines, per-category breakdown bars, streak display. Tap person card for drill-down bottom sheet with task-level detail (Done/Late/Missed/Pending status, earned/possible points). No new shared modules needed — uses existing scoring.js aggregation helpers.
 2026-04-02 Phase 5: Scoring — points formula (difficulty × (1 + estMin/30)), letter grades (A+ through F), weighted category math, past-due credit, daily snapshots, streak tracking. Points shown on task cards. Grade badge in dashboard header and calendar sheet. Long-press detail sheet with points slider (0–150%, live grade preview). Daily rollover creates snapshots + updates streaks on load. Aggregate helpers for weekly/monthly/12-month.
 2026-04-02 Phase 4: Calendar — 3-month grid view with frequency breakdown labels (D/W/M), animated bottom sheet for day detail, completion toggling, person filter in sheet with locked height, smooth in-place updates. Reuses compact task cards from Phase 3.
 2026-04-02 Phase 3: Dashboard — task cards, completion toggling (write/remove to rundown/completions), person filter pills, progress bar, overdue banner (collapsible), time-of-day grouping, undo toast, day-complete celebration. state.js built with pure query helpers. Temp Phase 2 testing UI removed.
@@ -103,7 +108,6 @@ rundown/
 - Phase 8 (Admin → Categories): Add a "default category" setting so new tasks don't default to an arbitrary category
 - Phase 8 (Admin → Categories): Add toggle to show/hide category emoji on task cards (per category)
 - Phase 8 (Admin): Move factory reset button here (removed from dashboard temp UI)
-- Phase 6: Scoreboard page
 - Phase 7: Task tracker page
 - Phase 8: Admin panel
 - Phase 9: Kid mode
