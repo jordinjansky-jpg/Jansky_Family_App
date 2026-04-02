@@ -5,42 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Daily Rundown — Admin</title>
   <link rel="stylesheet" href="styles/common.css">
-  <style>
-    .pin-gate {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 60vh;
-      gap: var(--spacing-md);
-    }
-    .pin-gate__title {
-      font-size: var(--font-size-lg);
-      font-weight: 700;
-    }
-    .pin-gate__desc {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
-    }
-    .pin-gate__inputs {
-      display: flex;
-      gap: var(--spacing-sm);
-      margin: var(--spacing-md) 0;
-    }
-    .pin-gate__digit {
-      width: 48px;
-      height: 56px;
-      text-align: center;
-      font-size: var(--font-size-xl);
-      font-weight: 700;
-      border-radius: var(--radius-md);
-    }
-    .pin-gate__error {
-      color: var(--danger-text);
-      font-size: var(--font-size-sm);
-      min-height: 1.5em;
-    }
-  </style>
 </head>
 <body>
   <div id="headerMount"></div>
@@ -52,17 +16,17 @@
 
     <!-- PIN Gate -->
     <div id="pinGate" style="display:none;">
-      <div class="pin-gate">
+      <div class="admin-pin-gate">
         <div>🔒</div>
-        <h2 class="pin-gate__title">Admin Access</h2>
-        <p class="pin-gate__desc">Enter your 4-digit PIN</p>
-        <div class="pin-gate__inputs">
-          <input type="tel" class="pin-gate__digit" maxlength="1" data-pin="0" inputmode="numeric">
-          <input type="tel" class="pin-gate__digit" maxlength="1" data-pin="1" inputmode="numeric">
-          <input type="tel" class="pin-gate__digit" maxlength="1" data-pin="2" inputmode="numeric">
-          <input type="tel" class="pin-gate__digit" maxlength="1" data-pin="3" inputmode="numeric">
+        <h2 class="admin-pin-gate__title">Admin Access</h2>
+        <p class="admin-pin-gate__desc">Enter your 4-digit PIN</p>
+        <div class="admin-pin-gate__inputs">
+          <input type="tel" class="admin-pin-digit" maxlength="1" data-pin="0" inputmode="numeric">
+          <input type="tel" class="admin-pin-digit" maxlength="1" data-pin="1" inputmode="numeric">
+          <input type="tel" class="admin-pin-digit" maxlength="1" data-pin="2" inputmode="numeric">
+          <input type="tel" class="admin-pin-digit" maxlength="1" data-pin="3" inputmode="numeric">
         </div>
-        <p class="pin-gate__error" id="pinError"></p>
+        <p class="admin-pin-gate__error" id="pinError"></p>
       </div>
     </div>
 
@@ -76,21 +40,41 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import {
+      initFirebase, isFirstRun, readSettings, writeSettings,
+      readPeople, writePerson, pushPerson, removeData,
+      readTasks, pushTask, writeTask, removeTask,
+      readCategories, writeCategories,
+      readCompletions, readAllSchedule, readOnce,
+      multiUpdate, pushDebugEvent, factoryReset, onConnectionChange
+    } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
+    import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone } from './shared/utils.js';
+    import { generateSchedule, buildScheduleUpdates } from './shared/scheduler.js';
+    import { basePoints } from './shared/scoring.js';
 
+    // ── Cached theme ──
     const cached = loadCachedTheme();
     applyTheme(cached || defaultThemeConfig());
 
+    // ── Init Firebase ──
     initFirebase();
-
     const firstRun = await isFirstRun();
     if (firstRun) { window.location.href = 'setup.html'; }
 
-    const settings = await readSettings();
+    // ── Load data ──
+    let settings = await readSettings();
     if (settings?.theme) applyTheme(settings.theme);
 
+    let peopleObj = await readPeople() || {};
+    let tasksObj = await readTasks() || {};
+    let catsObj = await readCategories() || {};
+
+    const tz = settings?.timezone || 'America/Chicago';
+    const today = todayKey(tz);
+
+    // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
@@ -98,33 +82,38 @@
       showAdmin: false,
       showDebug: debugActive
     });
-
     document.getElementById('navMount').innerHTML = renderNavBar(null);
 
-    // Show PIN gate
+    // ── Connection status ──
+    onConnectionChange(connected => {
+      const existing = document.querySelector('.connection-dot');
+      const html = renderConnectionStatus(connected);
+      if (existing) existing.outerHTML = html;
+      else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', html);
+    });
+
+    // ══════════════════════════════════════════
+    // PIN Gate
+    // ══════════════════════════════════════════
+
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('pinGate').style.display = '';
 
     const adminPin = settings?.adminPin || '';
     const recoveryPin = settings?.recoveryPin || '9999';
-    const digits = document.querySelectorAll('.pin-gate__digit');
+    const digits = document.querySelectorAll('.admin-pin-digit');
 
     digits.forEach((input, i) => {
       input.addEventListener('input', (e) => {
         const val = e.target.value.replace(/\D/g, '');
         e.target.value = val.slice(0, 1);
-        if (val && i < digits.length - 1) {
-          digits[i + 1].focus();
-        }
+        if (val && i < digits.length - 1) digits[i + 1].focus();
         checkPin();
       });
       input.addEventListener('keydown', (e) => {
-        if (e.key === 'Backspace' && !e.target.value && i > 0) {
-          digits[i - 1].focus();
-        }
+        if (e.key === 'Backspace' && !e.target.value && i > 0) digits[i - 1].focus();
       });
     });
-
     digits[0].focus();
 
     function checkPin() {
@@ -135,15 +124,1207 @@
         document.getElementById('pinGate').style.display = 'none';
         const main = document.getElementById('mainContent');
         main.style.display = '';
-        main.innerHTML = renderEmptyState('⚙️', 'Admin Panel coming in Phase 8', 'Task management, people, categories, settings, debug tools.');
+        render();
       } else {
         document.getElementById('pinError').textContent = 'Incorrect PIN';
         digits.forEach(d => d.value = '');
         digits[0].focus();
-        setTimeout(() => {
-          document.getElementById('pinError').textContent = '';
-        }, 2000);
+        setTimeout(() => { document.getElementById('pinError').textContent = ''; }, 2000);
       }
+    }
+
+    // ══════════════════════════════════════════
+    // Admin panel — tab-based layout
+    // ══════════════════════════════════════════
+
+    const TABS = [
+      { id: 'tasks', icon: '✅', label: 'Tasks' },
+      { id: 'people', icon: '👥', label: 'People' },
+      { id: 'categories', icon: '📂', label: 'Categories' },
+      { id: 'settings', icon: '⚙️', label: 'Settings' },
+      { id: 'theme', icon: '🎨', label: 'Theme' },
+      { id: 'schedule', icon: '📅', label: 'Schedule' },
+      { id: 'data', icon: '💾', label: 'Data' },
+      { id: 'debug', icon: '🐛', label: 'Debug' }
+    ];
+
+    let activeTab = 'tasks';
+
+    // ── Helpers ──
+    function peopleArray() {
+      return Object.entries(peopleObj).map(([id, p]) => ({ id, ...p }));
+    }
+    function catsArray() {
+      return Object.entries(catsObj).map(([key, c]) => ({ key, ...c }));
+    }
+
+    const main = document.getElementById('mainContent');
+
+    // ══════════════════════════════════════════
+    // Main render
+    // ══════════════════════════════════════════
+
+    function render() {
+      let html = `<div class="admin-tabs">`;
+      for (const tab of TABS) {
+        const active = tab.id === activeTab ? ' admin-tab--active' : '';
+        html += `<button class="admin-tab${active}" data-tab="${tab.id}" type="button">
+          <span class="admin-tab__icon">${tab.icon}</span>
+          <span class="admin-tab__label">${tab.label}</span>
+        </button>`;
+      }
+      html += `</div><div class="admin-content">`;
+
+      switch (activeTab) {
+        case 'tasks': html += renderTasksTab(); break;
+        case 'people': html += renderPeopleTab(); break;
+        case 'categories': html += renderCategoriesTab(); break;
+        case 'settings': html += renderSettingsTab(); break;
+        case 'theme': html += renderThemeTab(); break;
+        case 'schedule': html += renderScheduleTab(); break;
+        case 'data': html += renderDataTab(); break;
+        case 'debug': html += renderDebugTab(); break;
+      }
+
+      html += `</div>`;
+      main.innerHTML = html;
+      bindTabEvents();
+      bindTabContent();
+    }
+
+    function bindTabEvents() {
+      for (const tab of main.querySelectorAll('.admin-tab')) {
+        tab.addEventListener('click', () => {
+          activeTab = tab.dataset.tab;
+          render();
+        });
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // Tasks Tab
+    // ══════════════════════════════════════════
+
+    let taskFilter = { rotation: '', owner: '', category: '', status: '' };
+    let editingTaskId = null;
+
+    function renderTasksTab() {
+      const pa = peopleArray();
+      const ca = catsArray();
+      const taskEntries = Object.entries(tasksObj);
+
+      // Filters
+      let html = `<div class="admin-section">
+        <div class="admin-filters">
+          <select class="admin-select" id="taskFilterRotation">
+            <option value="">All Rotations</option>
+            <option value="daily"${taskFilter.rotation === 'daily' ? ' selected' : ''}>Daily</option>
+            <option value="weekly"${taskFilter.rotation === 'weekly' ? ' selected' : ''}>Weekly</option>
+            <option value="monthly"${taskFilter.rotation === 'monthly' ? ' selected' : ''}>Monthly</option>
+            <option value="once"${taskFilter.rotation === 'once' ? ' selected' : ''}>One-Time</option>
+          </select>
+          <select class="admin-select" id="taskFilterOwner">
+            <option value="">All Owners</option>
+            ${pa.map(p => `<option value="${p.id}"${taskFilter.owner === p.id ? ' selected' : ''}>${p.name}</option>`).join('')}
+          </select>
+          <select class="admin-select" id="taskFilterCategory">
+            <option value="">All Categories</option>
+            ${ca.map(c => `<option value="${c.key}"${taskFilter.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+          </select>
+          <select class="admin-select" id="taskFilterStatus">
+            <option value="">All Statuses</option>
+            <option value="active"${taskFilter.status === 'active' ? ' selected' : ''}>Active</option>
+            <option value="paused"${taskFilter.status === 'paused' ? ' selected' : ''}>Paused</option>
+          </select>
+        </div>
+      </div>`;
+
+      // Filtered tasks
+      let filtered = taskEntries.filter(([id, t]) => {
+        if (taskFilter.rotation && t.rotation !== taskFilter.rotation) return false;
+        if (taskFilter.owner && !(t.owners || []).includes(taskFilter.owner)) return false;
+        if (taskFilter.category && t.category !== taskFilter.category) return false;
+        if (taskFilter.status && t.status !== taskFilter.status) return false;
+        return true;
+      });
+
+      html += `<div class="admin-section-header">
+        <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
+        <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
+      </div>`;
+
+      // Task form (add/edit)
+      if (editingTaskId !== null) {
+        html += renderTaskForm(editingTaskId === 'new' ? null : editingTaskId);
+      }
+
+      // Task list
+      if (filtered.length === 0 && editingTaskId === null) {
+        html += renderEmptyState('✅', 'No tasks', 'Add your first task to get started.');
+      } else {
+        html += `<div class="admin-list">`;
+        for (const [id, task] of filtered) {
+          const cat = catsObj[task.category];
+          const owners = (task.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
+          const pts = basePoints(task);
+          const pausedClass = task.status === 'paused' ? ' admin-list-item--paused' : '';
+          html += `<div class="admin-list-item${pausedClass}" data-task-id="${id}">
+            <div class="admin-list-item__main">
+              <span class="admin-list-item__name">${cat?.icon || ''} ${task.name}</span>
+              <span class="admin-list-item__meta">${task.rotation} · ${owners || 'Unassigned'} · ${pts}pt${task.status === 'paused' ? ' · ⏸ Paused' : ''}</span>
+            </div>
+            <div class="admin-list-item__actions">
+              <button class="btn btn--ghost btn--sm admin-edit-task" data-task-id="${id}" type="button">Edit</button>
+              <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '▶' : '⏸'}</button>
+              <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button">✕</button>
+            </div>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      return html;
+    }
+
+    function renderTaskForm(taskId) {
+      const task = taskId ? tasksObj[taskId] : {};
+      const pa = peopleArray();
+      const ca = catsArray();
+      const isEdit = !!taskId;
+      const title = isEdit ? 'Edit Task' : 'New Task';
+
+      const selectedOwners = task.owners || [];
+      const assignMode = task.ownerAssignmentMode || 'rotate';
+
+      let html = `<div class="admin-form" id="taskForm">
+        <h3 class="admin-form__title">${title}</h3>
+        <div class="form-group">
+          <label class="form-label">Task Name</label>
+          <input type="text" id="tf_name" value="${task.name || ''}" placeholder="e.g., Take out trash">
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Rotation</label>
+            <select id="tf_rotation">
+              <option value="daily"${task.rotation === 'daily' ? ' selected' : ''}>Daily</option>
+              <option value="weekly"${task.rotation === 'weekly' ? ' selected' : ''}>Weekly</option>
+              <option value="monthly"${task.rotation === 'monthly' ? ' selected' : ''}>Monthly</option>
+              <option value="once"${task.rotation === 'once' ? ' selected' : ''}>One-Time</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Difficulty</label>
+            <select id="tf_difficulty">
+              <option value="easy"${task.difficulty === 'easy' ? ' selected' : ''}>Easy</option>
+              <option value="medium"${(task.difficulty || 'medium') === 'medium' ? ' selected' : ''}>Medium</option>
+              <option value="hard"${task.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Time of Day</label>
+            <select id="tf_timeOfDay">
+              <option value="anytime"${(task.timeOfDay || 'anytime') === 'anytime' ? ' selected' : ''}>Anytime</option>
+              <option value="am"${task.timeOfDay === 'am' ? ' selected' : ''}>Morning</option>
+              <option value="pm"${task.timeOfDay === 'pm' ? ' selected' : ''}>Afternoon</option>
+              <option value="both"${task.timeOfDay === 'both' ? ' selected' : ''}>Both</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Est. Minutes</label>
+            <input type="number" id="tf_estMin" value="${task.estMin || 10}" min="1" max="120">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select id="tf_category">
+            ${ca.map(c => `<option value="${c.key}"${task.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Owners</label>
+          <div class="admin-checkboxes" id="tf_owners">
+            ${pa.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${p.name}</label>`).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assignment Mode</label>
+          <div class="form-row">
+            <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'rotate' ? ' admin-mode-btn--active' : ''}" data-mode="rotate" type="button">Rotate</button>
+            <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
+          </div>
+          <p class="form-hint" id="assignModeHint">${assignMode === 'duplicate' ? 'Each selected owner gets their own task instance every period.' : 'Rotate between owners each period.'}</p>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Dedicated Day</label>
+            <select id="tf_dedicatedDay">
+              <option value="">None</option>
+              <option value="0"${task.dedicatedDay === 0 ? ' selected' : ''}>Sunday</option>
+              <option value="1"${task.dedicatedDay === 1 ? ' selected' : ''}>Monday</option>
+              <option value="2"${task.dedicatedDay === 2 ? ' selected' : ''}>Tuesday</option>
+              <option value="3"${task.dedicatedDay === 3 ? ' selected' : ''}>Wednesday</option>
+              <option value="4"${task.dedicatedDay === 4 ? ' selected' : ''}>Thursday</option>
+              <option value="5"${task.dedicatedDay === 5 ? ' selected' : ''}>Friday</option>
+              <option value="6"${task.dedicatedDay === 6 ? ' selected' : ''}>Saturday</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Cooldown Days</label>
+            <input type="number" id="tf_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
+          </div>
+        </div>
+        <label class="admin-checkbox mt-sm"><input type="checkbox" id="tf_exempt"${task.exempt ? ' checked' : ''}> Exempt from scoring</label>
+        <div class="admin-form__actions mt-md">
+          <button class="btn btn--secondary" id="taskFormCancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="taskFormSave" type="button">${isEdit ? 'Save Changes' : 'Create Task'}</button>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════
+    // People Tab
+    // ══════════════════════════════════════════
+
+    let editingPersonId = null;
+
+    function renderPeopleTab() {
+      const pa = peopleArray();
+      let html = `<div class="admin-section-header">
+        <span>${pa.length} people</span>
+        <button class="btn btn--primary btn--sm" id="addPersonBtn" type="button">+ Add Person</button>
+      </div>`;
+
+      if (editingPersonId !== null) {
+        html += renderPersonForm(editingPersonId === 'new' ? null : editingPersonId);
+      }
+
+      if (pa.length === 0 && editingPersonId === null) {
+        html += renderEmptyState('👥', 'No people', 'Add family members to get started.');
+      } else {
+        html += `<div class="admin-list">`;
+        for (const p of pa) {
+          const roleLabel = p.role === 'child' ? '👦 Child' : '👤 Adult';
+          html += `<div class="admin-list-item">
+            <div class="admin-list-item__main" style="display:flex;align-items:center;gap:var(--spacing-sm)">
+              <div style="width:32px;height:32px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
+              <div>
+                <span class="admin-list-item__name">${p.name}</span>
+                <span class="admin-list-item__meta">${roleLabel}</span>
+              </div>
+            </div>
+            <div class="admin-list-item__actions">
+              <button class="btn btn--ghost btn--sm admin-edit-person" data-person-id="${p.id}" type="button">Edit</button>
+              <button class="btn btn--ghost btn--sm admin-delete-person" data-person-id="${p.id}" type="button">✕</button>
+            </div>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      return html;
+    }
+
+    function renderPersonForm(personId) {
+      const person = personId ? peopleObj[personId] : {};
+      const isEdit = !!personId;
+      const title = isEdit ? 'Edit Person' : 'New Person';
+      const colors = getColorPalette();
+      const usedColors = peopleArray().filter(p => p.id !== personId).map(p => p.color);
+      const selColor = person.color || colors.find(c => !usedColors.includes(c)) || colors[0];
+      const role = person.role || 'adult';
+      const ks = person.kidSettings || {};
+
+      let html = `<div class="admin-form" id="personForm">
+        <h3 class="admin-form__title">${title}</h3>
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" id="pf_name" value="${person.name || ''}" placeholder="e.g., Jordin">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <div class="color-grid" id="pf_colorGrid">
+            ${colors.map(c => {
+              const used = usedColors.includes(c);
+              const sel = selColor === c ? ' selected' : '';
+              const usedCls = used ? ' color-swatch--used' : '';
+              return `<div class="color-swatch${sel}${usedCls}" data-color="${c}" style="background:${c};position:relative;"></div>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <div class="form-row">
+            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'adult' ? ' admin-mode-btn--active' : ''}" data-role="adult" type="button">👤 Adult</button>
+            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'child' ? ' admin-mode-btn--active' : ''}" data-role="child" type="button">👦 Child</button>
+          </div>
+        </div>
+        <div id="kidSettingsSection" style="display:${role === 'child' ? '' : 'none'}">
+          <h4 class="form-label mt-md">Kid Mode Settings</h4>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_showWeekView"${ks.showWeekView ? ' checked' : ''}> Show week view</label>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_showCalendar"${ks.showCalendar ? ' checked' : ''}> Show calendar</label>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_canDelegate"${ks.canDelegate ? ' checked' : ''}> Can delegate tasks</label>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_canMoveTasks"${ks.canMoveTasks ? ' checked' : ''}> Can move tasks</label>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_showSlider"${ks.showSlider ? ' checked' : ''}> Show points slider</label>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_celebrationsEnabled"${ks.celebrationsEnabled !== false ? ' checked' : ''}> Celebrations enabled</label>
+          <div class="form-group mt-sm">
+            <label class="form-label">Celebration Style</label>
+            <select id="pf_celebrationStyle">
+              <option value="full"${(ks.celebrationStyle || 'full') === 'full' ? ' selected' : ''}>Full</option>
+              <option value="subtle"${ks.celebrationStyle === 'subtle' ? ' selected' : ''}>Subtle</option>
+              <option value="off"${ks.celebrationStyle === 'off' ? ' selected' : ''}>Off</option>
+            </select>
+          </div>
+        </div>
+        <div class="admin-form__actions mt-md">
+          <button class="btn btn--secondary" id="personFormCancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="personFormSave" type="button">${isEdit ? 'Save Changes' : 'Add Person'}</button>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════
+    // Categories Tab
+    // ══════════════════════════════════════════
+
+    let editingCatKey = null;
+
+    function renderCategoriesTab() {
+      const ca = catsArray();
+      let html = `<div class="admin-section-header">
+        <span>${ca.length} categories</span>
+        <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
+      </div>`;
+
+      if (editingCatKey !== null) {
+        html += renderCategoryForm(editingCatKey === 'new' ? null : editingCatKey);
+      }
+
+      html += `<div class="admin-list">`;
+      for (const c of ca) {
+        const weight = c.weightPercent ? ` · ${c.weightPercent}%` : '';
+        const pin = c.pinProtected ? ' · 🔒' : '';
+        html += `<div class="admin-list-item">
+          <div class="admin-list-item__main">
+            <span class="admin-list-item__name">${c.icon} ${c.label}</span>
+            <span class="admin-list-item__meta">${c.key}${weight}${pin}</span>
+          </div>
+          <div class="admin-list-item__actions">
+            <button class="btn btn--ghost btn--sm admin-edit-cat" data-cat-key="${c.key}" type="button">Edit</button>
+            <button class="btn btn--ghost btn--sm admin-delete-cat" data-cat-key="${c.key}" type="button">✕</button>
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+      return html;
+    }
+
+    function renderCategoryForm(catKey) {
+      const cat = catKey ? catsObj[catKey] : {};
+      const isEdit = !!catKey;
+      const title = isEdit ? 'Edit Category' : 'New Category';
+
+      let html = `<div class="admin-form" id="catForm">
+        <h3 class="admin-form__title">${title}</h3>
+        <div class="form-row">
+          <div class="form-group" style="width:80px">
+            <label class="form-label">Icon</label>
+            <input type="text" id="cf_icon" value="${cat.icon || ''}" placeholder="🧹" maxlength="4">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Label</label>
+            <input type="text" id="cf_label" value="${cat.label || ''}" placeholder="e.g., Music Practice">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Weight %</label>
+            <input type="number" id="cf_weight" value="${cat.weightPercent || ''}" min="0" max="100" placeholder="None">
+            <p class="form-hint">Leave empty for no weighting</p>
+          </div>
+        </div>
+        <label class="admin-checkbox"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}> PIN protected (requires PIN to complete)</label>
+        <div class="admin-form__actions mt-md">
+          <button class="btn btn--secondary" id="catFormCancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="catFormSave" type="button">${isEdit ? 'Save' : 'Add Category'}</button>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════
+    // Settings Tab
+    // ══════════════════════════════════════════
+
+    function renderSettingsTab() {
+      const tzOptions = getTimezoneOptions();
+      let html = `<div class="admin-form" id="settingsForm">
+        <h3 class="admin-form__title">App Settings</h3>
+        <div class="form-group">
+          <label class="form-label">App Name</label>
+          <input type="text" id="sf_appName" value="${settings?.appName || 'Daily Rundown'}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Family Name</label>
+          <input type="text" id="sf_familyName" value="${settings?.familyName || ''}" placeholder="The Jansky Family">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Timezone</label>
+          <select id="sf_timezone">
+            ${tzOptions.map(tz => `<option value="${tz.value}"${settings?.timezone === tz.value ? ' selected' : ''}>${tz.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Weekend Weight</label>
+            <input type="number" id="sf_weekendWeight" value="${settings?.weekendWeight ?? 1.5}" min="0.1" max="5" step="0.1">
+            <p class="form-hint">Multiplier for weekend tasks</p>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Past-Due Credit %</label>
+            <input type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100">
+            <p class="form-hint">% credit for late tasks</p>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Slider Min %</label>
+            <input type="number" id="sf_sliderMin" value="${settings?.sliderMin ?? 0}" min="0" max="100">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Slider Max %</label>
+            <input type="number" id="sf_sliderMax" value="${settings?.sliderMax ?? 150}" min="100" max="300">
+          </div>
+        </div>
+        <h3 class="admin-form__title mt-md">Change Admin PIN</h3>
+        <div class="form-group">
+          <label class="form-label">New 4-digit PIN</label>
+          <input type="tel" id="sf_newPin" maxlength="4" inputmode="numeric" placeholder="••••" style="width:120px;text-align:center;font-size:var(--font-size-lg);letter-spacing:0.5em;">
+        </div>
+        <div class="admin-form__actions mt-md">
+          <button class="btn btn--primary" id="settingsSave" type="button">Save Settings</button>
+        </div>
+        <div id="settingsMsg" class="admin-msg mt-sm"></div>
+      </div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════
+    // Theme Tab
+    // ══════════════════════════════════════════
+
+    function renderThemeTab() {
+      const presets = getPresets();
+      const currentTheme = settings?.theme || defaultThemeConfig();
+      const accentColors = ['#5b7fd6', '#e85d75', '#43a047', '#ff9800', '#8e24aa', '#00acc1', '#ef5350', '#ffa726'];
+
+      let html = `<div class="admin-form">
+        <h3 class="admin-form__title">Theme Preset</h3>
+        <div class="admin-theme-grid" id="themePresetGrid">
+          ${presets.map(p => {
+            const sel = currentTheme.preset === p.key ? ' admin-theme-option--active' : '';
+            const bg = p.mode === 'dark' ? '#1a1a2e' : '#faf8f5';
+            const fg = p.mode === 'dark' ? '#e8e8e8' : '#2c2c2c';
+            return `<button class="admin-theme-option${sel}" data-preset="${p.key}" type="button">
+              <div class="admin-theme-option__preview" style="background:${bg};color:${fg}">${p.label}</div>
+              <span>${p.label}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        <h3 class="admin-form__title mt-md">Accent Color</h3>
+        <div class="admin-accent-grid" id="accentColorGrid">
+          ${accentColors.map(c => {
+            const sel = currentTheme.accentColor === c ? ' admin-accent--active' : '';
+            return `<button class="admin-accent${sel}" data-color="${c}" style="background:${c}" type="button"></button>`;
+          }).join('')}
+        </div>
+        <div id="themeMsg" class="admin-msg mt-sm"></div>
+      </div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════
+    // Schedule Tab
+    // ══════════════════════════════════════════
+
+    function renderScheduleTab() {
+      let html = `<div class="admin-form">
+        <h3 class="admin-form__title">Schedule Overview</h3>
+        <p class="form-hint mb-md">The scheduler generates 90 days of future entries from tomorrow onward.</p>
+        <div id="scheduleStats" class="admin-schedule-stats">
+          <div class="loading-inline"><div class="loading-spinner loading-spinner--small"></div><span>Loading schedule...</span></div>
+        </div>
+        <div class="admin-form__actions mt-md">
+          <button class="btn btn--primary" id="rebuildScheduleBtn" type="button">Rebuild Future Schedule</button>
+        </div>
+        <div id="scheduleMsg" class="admin-msg mt-sm"></div>
+      </div>`;
+      return html;
+    }
+
+    async function loadScheduleStats() {
+      const el = document.getElementById('scheduleStats');
+      if (!el) return;
+
+      const allSchedule = await readAllSchedule() || {};
+      const tomorrow = addDays(today, 1);
+      const futureDates = Object.keys(allSchedule).filter(d => d >= tomorrow).sort();
+      const pa = peopleArray();
+
+      let totalEntries = 0;
+      const perPerson = {};
+      for (const p of pa) perPerson[p.id] = 0;
+
+      for (const dateKey of futureDates) {
+        const dayEntries = allSchedule[dateKey] || {};
+        const entries = Object.values(dayEntries);
+        totalEntries += entries.length;
+        for (const e of entries) {
+          if (perPerson[e.ownerId] !== undefined) perPerson[e.ownerId]++;
+        }
+      }
+
+      let html = `<div class="admin-stat-cards">
+        <div class="admin-stat-card">
+          <span class="admin-stat-card__value">${futureDates.length}</span>
+          <span class="admin-stat-card__label">Days Scheduled</span>
+        </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-card__value">${totalEntries}</span>
+          <span class="admin-stat-card__label">Total Entries</span>
+        </div>
+      </div>
+      <h4 class="form-label mt-md">Load per Person</h4>
+      <div class="admin-list">`;
+      for (const p of pa) {
+        const count = perPerson[p.id] || 0;
+        const avg = futureDates.length > 0 ? (count / futureDates.length).toFixed(1) : '0';
+        html += `<div class="admin-list-item">
+          <div class="admin-list-item__main" style="display:flex;align-items:center;gap:var(--spacing-sm)">
+            <div style="width:24px;height:24px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
+            <span class="admin-list-item__name">${p.name}</span>
+          </div>
+          <span class="admin-list-item__meta">${count} tasks · ${avg}/day avg</span>
+        </div>`;
+      }
+      html += `</div>`;
+      el.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Data Tab
+    // ══════════════════════════════════════════
+
+    function renderDataTab() {
+      let html = `<div class="admin-form">
+        <h3 class="admin-form__title">Export Data</h3>
+        <p class="form-hint mb-md">Download a JSON dump of all Firebase data under rundown/.</p>
+        <button class="btn btn--secondary" id="exportDataBtn" type="button">Export JSON</button>
+
+        <h3 class="admin-form__title mt-lg">Factory Reset</h3>
+        <p class="form-hint mb-md">Permanently delete ALL data under rundown/ and return to the setup wizard. This cannot be undone.</p>
+        <div id="resetSection">
+          <button class="btn btn--danger" id="showResetBtn" type="button">Factory Reset...</button>
+        </div>
+        <div id="resetConfirm" style="display:none;">
+          <p class="admin-msg admin-msg--danger mb-md">Type <strong>RESET</strong> below to confirm.</p>
+          <input type="text" id="resetWord" placeholder="Type RESET" style="width:200px;">
+          <div class="admin-form__actions mt-md">
+            <button class="btn btn--secondary" id="resetCancel" type="button">Cancel</button>
+            <button class="btn btn--danger" id="resetConfirmBtn" type="button" disabled>Delete Everything</button>
+          </div>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════
+    // Debug Tab
+    // ══════════════════════════════════════════
+
+    function renderDebugTab() {
+      const isDebug = localStorage.getItem('dr-debug') === 'true';
+      let html = `<div class="admin-form">
+        <h3 class="admin-form__title">Debug Mode</h3>
+        <div class="form-group">
+          <label class="admin-checkbox"><input type="checkbox" id="debugToggle"${isDebug ? ' checked' : ''}> Enable debug mode</label>
+          <p class="form-hint">Shows 🐛 icon on all pages and enables contextual debug overlays.</p>
+        </div>
+
+        <h3 class="admin-form__title mt-md">Event Log</h3>
+        <div id="eventLog" class="admin-event-log">
+          <div class="loading-inline"><div class="loading-spinner loading-spinner--small"></div><span>Loading events...</span></div>
+        </div>
+        <button class="btn btn--secondary mt-sm" id="copyEventLog" type="button">Copy to Clipboard</button>
+
+        <h3 class="admin-form__title mt-md">Schedule Inspector</h3>
+        <div class="form-group">
+          <label class="form-label">Select a task to inspect</label>
+          <select id="inspectTaskSelect">
+            <option value="">Choose task...</option>
+            ${Object.entries(tasksObj).map(([id, t]) => `<option value="${id}">${t.name}</option>`).join('')}
+          </select>
+        </div>
+        <div id="inspectResult"></div>
+        <button class="btn btn--secondary mt-sm" id="copyInspect" type="button">Copy to Clipboard</button>
+      </div>`;
+      return html;
+    }
+
+    async function loadEventLog() {
+      const el = document.getElementById('eventLog');
+      if (!el) return;
+
+      const events = await readOnce('debug/eventLog') || {};
+      const entries = Object.entries(events)
+        .map(([key, val]) => ({ key, ...val }))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 50);
+
+      if (entries.length === 0) {
+        el.innerHTML = '<p class="text-muted">No events logged yet.</p>';
+        return;
+      }
+
+      let html = `<div class="admin-list admin-list--compact">`;
+      for (const e of entries) {
+        const time = e.timestamp ? new Date(e.timestamp).toLocaleString() : '—';
+        const payload = e.payload ? JSON.stringify(e.payload).slice(0, 100) : '';
+        html += `<div class="admin-list-item admin-list-item--compact">
+          <div class="admin-list-item__main">
+            <span class="admin-list-item__name">${e.type || 'unknown'}</span>
+            <span class="admin-list-item__meta">${time}${payload ? ' · ' + payload : ''}</span>
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+      el.innerHTML = html;
+    }
+
+    function inspectTask(taskId) {
+      const el = document.getElementById('inspectResult');
+      if (!el || !taskId) { if (el) el.innerHTML = ''; return; }
+
+      const task = tasksObj[taskId];
+      if (!task) { el.innerHTML = '<p class="text-muted">Task not found.</p>'; return; }
+
+      const pa = peopleArray();
+      const owners = (task.owners || []).map(oid => ({ id: oid, name: peopleObj[oid]?.name || '?' }));
+      const pts = basePoints(task);
+
+      let info = `Task: ${task.name}\n`;
+      info += `Rotation: ${task.rotation}\n`;
+      info += `Difficulty: ${task.difficulty} · Est: ${task.estMin}m · Points: ${pts}\n`;
+      info += `Time of Day: ${task.timeOfDay}\n`;
+      info += `Assignment Mode: ${task.ownerAssignmentMode || 'rotate'}\n`;
+      info += `Owners: ${owners.map(o => o.name).join(', ')}\n`;
+      info += `Status: ${task.status || 'active'}\n`;
+      if (task.dedicatedDay != null) info += `Dedicated Day: ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][task.dedicatedDay]}\n`;
+      if (task.cooldownDays) info += `Cooldown: ${task.cooldownDays} days\n`;
+      if (task.exempt) info += `Exempt from scoring: Yes\n`;
+      info += `Category: ${catsObj[task.category]?.label || task.category || 'None'}\n`;
+      info += `Created: ${task.createdDate || '?'}\n`;
+
+      el.innerHTML = `<pre class="admin-pre">${info}</pre>`;
+    }
+
+    // ══════════════════════════════════════════
+    // Tab-specific event binding
+    // ══════════════════════════════════════════
+
+    function bindTabContent() {
+      switch (activeTab) {
+        case 'tasks': bindTasksTab(); break;
+        case 'people': bindPeopleTab(); break;
+        case 'categories': bindCategoriesTab(); break;
+        case 'settings': bindSettingsTab(); break;
+        case 'theme': bindThemeTab(); break;
+        case 'schedule': bindScheduleTab(); break;
+        case 'data': bindDataTab(); break;
+        case 'debug': bindDebugTab(); break;
+      }
+    }
+
+    // ── Tasks tab events ──
+
+    function bindTasksTab() {
+      // Filters
+      for (const id of ['taskFilterRotation', 'taskFilterOwner', 'taskFilterCategory', 'taskFilterStatus']) {
+        const el = main.querySelector(`#${id}`);
+        if (el) el.addEventListener('change', () => {
+          taskFilter.rotation = main.querySelector('#taskFilterRotation')?.value || '';
+          taskFilter.owner = main.querySelector('#taskFilterOwner')?.value || '';
+          taskFilter.category = main.querySelector('#taskFilterCategory')?.value || '';
+          taskFilter.status = main.querySelector('#taskFilterStatus')?.value || '';
+          render();
+        });
+      }
+
+      // Add task
+      main.querySelector('#addTaskBtn')?.addEventListener('click', () => {
+        editingTaskId = 'new';
+        render();
+      });
+
+      // Edit task
+      for (const btn of main.querySelectorAll('.admin-edit-task')) {
+        btn.addEventListener('click', () => {
+          editingTaskId = btn.dataset.taskId;
+          render();
+        });
+      }
+
+      // Pause/unpause
+      for (const btn of main.querySelectorAll('.admin-pause-task')) {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.taskId;
+          const task = tasksObj[id];
+          if (!task) return;
+          task.status = task.status === 'paused' ? 'active' : 'paused';
+          await writeTask(id, task);
+          render();
+        });
+      }
+
+      // Delete task
+      for (const btn of main.querySelectorAll('.admin-delete-task')) {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.taskId;
+          if (!confirm(`Delete task "${tasksObj[id]?.name}"? This cannot be undone.`)) return;
+          await removeTask(id);
+          delete tasksObj[id];
+          render();
+        });
+      }
+
+      // Task form events
+      if (editingTaskId !== null) {
+        bindTaskForm();
+      }
+    }
+
+    function bindTaskForm() {
+      // Assignment mode toggle
+      for (const btn of main.querySelectorAll('.admin-mode-btn')) {
+        btn.addEventListener('click', () => {
+          main.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
+          btn.classList.add('admin-mode-btn--active');
+          const hint = main.querySelector('#assignModeHint');
+          if (hint) hint.textContent = btn.dataset.mode === 'duplicate'
+            ? 'Each selected owner gets their own task instance every period.'
+            : 'Rotate between owners each period.';
+        });
+      }
+
+      // Cancel
+      main.querySelector('#taskFormCancel')?.addEventListener('click', () => {
+        editingTaskId = null;
+        render();
+      });
+
+      // Save
+      main.querySelector('#taskFormSave')?.addEventListener('click', async () => {
+        const name = main.querySelector('#tf_name')?.value.trim();
+        if (!name) { main.querySelector('#tf_name')?.focus(); return; }
+
+        const owners = Array.from(main.querySelectorAll('#tf_owners input:checked')).map(cb => cb.value);
+        const activeMode = main.querySelector('.admin-mode-btn.admin-mode-btn--active');
+        const assignMode = activeMode?.dataset.mode || 'rotate';
+        const dedicatedDay = main.querySelector('#tf_dedicatedDay')?.value;
+        const cooldown = main.querySelector('#tf_cooldown')?.value;
+
+        const taskData = {
+          name,
+          rotation: main.querySelector('#tf_rotation')?.value || 'daily',
+          difficulty: main.querySelector('#tf_difficulty')?.value || 'medium',
+          timeOfDay: main.querySelector('#tf_timeOfDay')?.value || 'anytime',
+          estMin: parseInt(main.querySelector('#tf_estMin')?.value, 10) || 10,
+          category: main.querySelector('#tf_category')?.value || '',
+          owners,
+          ownerAssignmentMode: assignMode,
+          dedicatedDay: dedicatedDay !== '' ? parseInt(dedicatedDay, 10) : null,
+          cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
+          exempt: main.querySelector('#tf_exempt')?.checked || false,
+          status: 'active'
+        };
+
+        if (editingTaskId === 'new') {
+          taskData.createdDate = today;
+          const newId = await pushTask(taskData);
+          tasksObj[newId] = taskData;
+        } else {
+          // Preserve existing fields
+          const existing = tasksObj[editingTaskId] || {};
+          taskData.createdDate = existing.createdDate || today;
+          taskData.status = existing.status || 'active';
+          await writeTask(editingTaskId, taskData);
+          tasksObj[editingTaskId] = taskData;
+        }
+
+        editingTaskId = null;
+        render();
+      });
+    }
+
+    // ── People tab events ──
+
+    function bindPeopleTab() {
+      main.querySelector('#addPersonBtn')?.addEventListener('click', () => {
+        editingPersonId = 'new';
+        render();
+      });
+
+      for (const btn of main.querySelectorAll('.admin-edit-person')) {
+        btn.addEventListener('click', () => {
+          editingPersonId = btn.dataset.personId;
+          render();
+        });
+      }
+
+      for (const btn of main.querySelectorAll('.admin-delete-person')) {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.personId;
+          const name = peopleObj[id]?.name || 'this person';
+          if (!confirm(`Remove ${name}? Tasks assigned to them will keep their assignment.`)) return;
+          await removeData(`people/${id}`);
+          delete peopleObj[id];
+          render();
+        });
+      }
+
+      if (editingPersonId !== null) {
+        bindPersonForm();
+      }
+    }
+
+    function bindPersonForm() {
+      // Color selection
+      for (const swatch of main.querySelectorAll('#pf_colorGrid .color-swatch:not(.color-swatch--used)')) {
+        swatch.addEventListener('click', () => {
+          main.querySelectorAll('#pf_colorGrid .color-swatch').forEach(s => s.classList.remove('selected'));
+          swatch.classList.add('selected');
+        });
+      }
+
+      // Role toggle
+      for (const btn of main.querySelectorAll('.admin-role-btn')) {
+        btn.addEventListener('click', () => {
+          main.querySelectorAll('.admin-role-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
+          btn.classList.add('admin-mode-btn--active');
+          const section = main.querySelector('#kidSettingsSection');
+          if (section) section.style.display = btn.dataset.role === 'child' ? '' : 'none';
+        });
+      }
+
+      main.querySelector('#personFormCancel')?.addEventListener('click', () => {
+        editingPersonId = null;
+        render();
+      });
+
+      main.querySelector('#personFormSave')?.addEventListener('click', async () => {
+        const name = main.querySelector('#pf_name')?.value.trim();
+        if (!name) { main.querySelector('#pf_name')?.focus(); return; }
+
+        const selectedSwatch = main.querySelector('#pf_colorGrid .color-swatch.selected');
+        const color = selectedSwatch?.dataset.color || '#5b7fd6';
+        const activeRole = main.querySelector('.admin-role-btn.admin-mode-btn--active');
+        const role = activeRole?.dataset.role || 'adult';
+
+        const personData = { name, color, role };
+
+        if (role === 'child') {
+          personData.kidSettings = {
+            showWeekView: main.querySelector('#pf_showWeekView')?.checked || false,
+            showCalendar: main.querySelector('#pf_showCalendar')?.checked || false,
+            canDelegate: main.querySelector('#pf_canDelegate')?.checked || false,
+            canMoveTasks: main.querySelector('#pf_canMoveTasks')?.checked || false,
+            showSlider: main.querySelector('#pf_showSlider')?.checked || false,
+            celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
+            celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full'
+          };
+        }
+
+        if (editingPersonId === 'new') {
+          const newId = await pushPerson(personData);
+          peopleObj[newId] = personData;
+        } else {
+          await writePerson(editingPersonId, personData);
+          peopleObj[editingPersonId] = personData;
+        }
+
+        editingPersonId = null;
+        render();
+      });
+    }
+
+    // ── Categories tab events ──
+
+    function bindCategoriesTab() {
+      main.querySelector('#addCatBtn')?.addEventListener('click', () => {
+        editingCatKey = 'new';
+        render();
+      });
+
+      for (const btn of main.querySelectorAll('.admin-edit-cat')) {
+        btn.addEventListener('click', () => {
+          editingCatKey = btn.dataset.catKey;
+          render();
+        });
+      }
+
+      for (const btn of main.querySelectorAll('.admin-delete-cat')) {
+        btn.addEventListener('click', async () => {
+          const key = btn.dataset.catKey;
+          const ca = catsArray();
+          if (ca.length <= 1) { alert('Cannot delete the last category.'); return; }
+          if (!confirm(`Delete category "${catsObj[key]?.label}"? Tasks will be reassigned to Chores.`)) return;
+
+          // Reassign tasks to chores
+          const choresKey = Object.keys(catsObj).find(k => k !== key) || 'chores';
+          for (const [taskId, task] of Object.entries(tasksObj)) {
+            if (task.category === key) {
+              task.category = choresKey;
+              await writeTask(taskId, task);
+            }
+          }
+
+          delete catsObj[key];
+          await writeCategories(catsObj);
+          render();
+        });
+      }
+
+      if (editingCatKey !== null) {
+        bindCategoryForm();
+      }
+    }
+
+    function bindCategoryForm() {
+      main.querySelector('#catFormCancel')?.addEventListener('click', () => {
+        editingCatKey = null;
+        render();
+      });
+
+      main.querySelector('#catFormSave')?.addEventListener('click', async () => {
+        const icon = main.querySelector('#cf_icon')?.value.trim() || '📌';
+        const label = main.querySelector('#cf_label')?.value.trim();
+        if (!label) { main.querySelector('#cf_label')?.focus(); return; }
+
+        const weight = main.querySelector('#cf_weight')?.value;
+        const pinProtected = main.querySelector('#cf_pinProtected')?.checked || false;
+
+        const catData = {
+          label,
+          icon,
+          pinProtected,
+          weightPercent: weight ? parseInt(weight, 10) : null
+        };
+
+        if (editingCatKey === 'new') {
+          const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
+          if (catsObj[key]) { alert('A category with this key already exists.'); return; }
+          catsObj[key] = catData;
+        } else {
+          catsObj[editingCatKey] = catData;
+        }
+
+        await writeCategories(catsObj);
+        editingCatKey = null;
+        render();
+      });
+    }
+
+    // ── Settings tab events ──
+
+    function bindSettingsTab() {
+      main.querySelector('#settingsSave')?.addEventListener('click', async () => {
+        const msgEl = main.querySelector('#settingsMsg');
+        const newPin = main.querySelector('#sf_newPin')?.value.trim();
+
+        const updated = {
+          ...settings,
+          appName: main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
+          familyName: main.querySelector('#sf_familyName')?.value.trim() || '',
+          timezone: main.querySelector('#sf_timezone')?.value || settings?.timezone,
+          weekendWeight: parseFloat(main.querySelector('#sf_weekendWeight')?.value) || 1.5,
+          pastDueCreditPct: parseInt(main.querySelector('#sf_pastDueCredit')?.value, 10) || 75,
+          sliderMin: parseInt(main.querySelector('#sf_sliderMin')?.value, 10) || 0,
+          sliderMax: parseInt(main.querySelector('#sf_sliderMax')?.value, 10) || 150
+        };
+
+        if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {
+          updated.adminPin = newPin;
+        }
+
+        await writeSettings(updated);
+        settings = updated;
+
+        // Update header
+        document.getElementById('headerMount').innerHTML = renderHeader({
+          appName: settings.appName,
+          subtitle: 'Admin',
+          showAdmin: false,
+          showDebug: localStorage.getItem('dr-debug') === 'true'
+        });
+
+        if (msgEl) {
+          msgEl.textContent = 'Settings saved!';
+          msgEl.className = 'admin-msg admin-msg--success mt-sm';
+          setTimeout(() => { msgEl.textContent = ''; }, 2000);
+        }
+      });
+    }
+
+    // ── Theme tab events ──
+
+    function bindThemeTab() {
+      const currentTheme = settings?.theme || defaultThemeConfig();
+
+      for (const btn of main.querySelectorAll('.admin-theme-option')) {
+        btn.addEventListener('click', async () => {
+          const preset = btn.dataset.preset;
+          const presets = getPresets();
+          const info = presets.find(p => p.key === preset);
+          const newTheme = { mode: info.mode, preset, accentColor: currentTheme.accentColor || '#5b7fd6' };
+
+          applyTheme(newTheme);
+          settings = { ...settings, theme: newTheme };
+          await writeSettings(settings);
+          render();
+        });
+      }
+
+      for (const btn of main.querySelectorAll('.admin-accent')) {
+        btn.addEventListener('click', async () => {
+          const color = btn.dataset.color;
+          const newTheme = { ...currentTheme, accentColor: color };
+
+          applyTheme(newTheme);
+          settings = { ...settings, theme: newTheme };
+          await writeSettings(settings);
+          render();
+        });
+      }
+    }
+
+    // ── Schedule tab events ──
+
+    function bindScheduleTab() {
+      loadScheduleStats();
+
+      main.querySelector('#rebuildScheduleBtn')?.addEventListener('click', async () => {
+        const msgEl = main.querySelector('#scheduleMsg');
+        const btn = main.querySelector('#rebuildScheduleBtn');
+        btn.disabled = true;
+        btn.textContent = 'Rebuilding...';
+
+        try {
+          const completions = await readCompletions() || {};
+          const existingSchedule = await readAllSchedule() || {};
+          const updates = buildScheduleUpdates(tasksObj, peopleArray(), settings, completions, existingSchedule);
+          await multiUpdate(updates);
+
+          await pushDebugEvent({ type: 'schedule_rebuilt', payload: { initiator: 'admin' }, timestamp: Date.now() });
+
+          if (msgEl) {
+            msgEl.textContent = 'Schedule rebuilt successfully!';
+            msgEl.className = 'admin-msg admin-msg--success mt-sm';
+          }
+          await loadScheduleStats();
+        } catch (err) {
+          console.error('Rebuild failed:', err);
+          if (msgEl) {
+            msgEl.textContent = 'Rebuild failed: ' + err.message;
+            msgEl.className = 'admin-msg admin-msg--danger mt-sm';
+          }
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Rebuild Future Schedule';
+      });
+    }
+
+    // ── Data tab events ──
+
+    function bindDataTab() {
+      main.querySelector('#exportDataBtn')?.addEventListener('click', async () => {
+        const allData = await readOnce('');
+        const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `daily-rundown-export-${today}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      main.querySelector('#showResetBtn')?.addEventListener('click', () => {
+        main.querySelector('#resetSection').style.display = 'none';
+        main.querySelector('#resetConfirm').style.display = '';
+      });
+
+      main.querySelector('#resetCancel')?.addEventListener('click', () => {
+        main.querySelector('#resetConfirm').style.display = 'none';
+        main.querySelector('#resetSection').style.display = '';
+      });
+
+      const resetWord = main.querySelector('#resetWord');
+      const resetBtn = main.querySelector('#resetConfirmBtn');
+      if (resetWord && resetBtn) {
+        resetWord.addEventListener('input', () => {
+          resetBtn.disabled = resetWord.value.trim() !== 'RESET';
+        });
+
+        resetBtn.addEventListener('click', async () => {
+          resetBtn.disabled = true;
+          resetBtn.textContent = 'Deleting...';
+          await factoryReset();
+          localStorage.removeItem('dr-theme');
+          localStorage.removeItem('dr-debug');
+          window.location.href = 'setup.html';
+        });
+      }
+    }
+
+    // ── Debug tab events ──
+
+    function bindDebugTab() {
+      loadEventLog();
+
+      main.querySelector('#debugToggle')?.addEventListener('change', (e) => {
+        localStorage.setItem('dr-debug', e.target.checked ? 'true' : 'false');
+        // Update header icon
+        document.getElementById('headerMount').innerHTML = renderHeader({
+          appName: settings?.appName || 'Daily Rundown',
+          subtitle: 'Admin',
+          showAdmin: false,
+          showDebug: e.target.checked
+        });
+      });
+
+      main.querySelector('#copyEventLog')?.addEventListener('click', async () => {
+        const el = main.querySelector('#eventLog');
+        const text = el ? el.innerText : 'No events.';
+        await navigator.clipboard.writeText(`== Event Log ==\n${text}`);
+        alert('Copied to clipboard!');
+      });
+
+      const inspectSelect = main.querySelector('#inspectTaskSelect');
+      if (inspectSelect) {
+        inspectSelect.addEventListener('change', () => {
+          inspectTask(inspectSelect.value);
+        });
+      }
+
+      main.querySelector('#copyInspect')?.addEventListener('click', async () => {
+        const el = main.querySelector('#inspectResult pre');
+        const text = el ? el.textContent : 'No task selected.';
+        await navigator.clipboard.writeText(`== Schedule Inspector ==\n${text}`);
+        alert('Copied to clipboard!');
+      });
     }
   </script>
 </body>

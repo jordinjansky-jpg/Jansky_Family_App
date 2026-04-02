@@ -16,14 +16,16 @@
     <div id="mainContent" style="display:none;"></div>
   </div>
   <div id="navMount"></div>
+  <div id="taskSheetMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, onConnectionChange } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, onConnectionChange } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet } from './shared/components.js';
+    import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber } from './shared/utils.js';
     import { isComplete } from './shared/state.js';
@@ -222,7 +224,7 @@
       const overdueClass = row.status === 'overdue' ? ' tracker-row--overdue' : '';
       const doneClass = (row.status === 'done' || row.status === 'late') ? ' tracker-row--done' : '';
 
-      return `<div class="tracker-row${overdueClass}${doneClass}">
+      return `<div class="tracker-row${overdueClass}${doneClass}" data-entry-key="${row.entryKey || ''}" data-date-key="${row.dateKey || ''}">
         <span class="tracker-row__initial" style="--owner-color:${ownerColor}">${ownerInitial}</span>
         <div class="tracker-row__info">
           <span class="tracker-row__name">${taskName}</span>
@@ -438,6 +440,143 @@
           render();
         });
       }
+
+      // Long-press on tracker rows to open detail sheet
+      for (const row of main.querySelectorAll('.tracker-row[data-entry-key]')) {
+        if (!row.dataset.entryKey) continue; // skip skipped tasks (no entry)
+        let pressTimer = null;
+        let didLongPress = false;
+
+        row.addEventListener('pointerdown', () => {
+          didLongPress = false;
+          pressTimer = setTimeout(() => {
+            didLongPress = true;
+            openTaskSheet(row.dataset.entryKey, row.dataset.dateKey);
+          }, 500);
+        });
+
+        row.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
+        row.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
+        row.addEventListener('contextmenu', (e) => e.preventDefault());
+      }
+    }
+
+    // ── Task detail bottom sheet (long-press) ──
+
+    const taskSheetMount = document.getElementById('taskSheetMount');
+
+    function openTaskSheet(entryKey, dateKey) {
+      if (!entryKey) return;
+
+      // Find the entry in schedule
+      const dayEntries = schedule[dateKey];
+      const entry = dayEntries?.[entryKey];
+      if (!entry) return;
+
+      const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+      const person = people.find(p => p.id === entry.ownerId);
+      const cat = task.category ? cats[task.category] : null;
+      const completed = !!comps[entryKey];
+      const pts = basePoints(task);
+      const completion = comps[entryKey];
+      const currentOverride = completion?.pointsOverride ?? null;
+
+      const sheetContent = renderTaskDetailSheet({
+        entryKey,
+        entry: { ...entry, dateKey },
+        task,
+        person,
+        category: cat,
+        completed,
+        points: { possible: pts },
+        sliderMin: settings?.sliderMin ?? 0,
+        sliderMax: settings?.sliderMax ?? 150,
+        currentOverride: currentOverride != null ? currentOverride : 100,
+        gradePreview: null
+      });
+
+      taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.add('active');
+      });
+
+      bindTaskSheetEvents(entryKey, dateKey);
+    }
+
+    function closeTaskSheet() {
+      const overlay = document.getElementById('bottomSheet');
+      if (overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
+      }
+    }
+
+    function bindTaskSheetEvents(entryKey, dateKey) {
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeTaskSheet();
+      });
+
+      // Toggle complete from sheet
+      document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
+        closeTaskSheet();
+        await toggleCompletion(entryKey, dateKey);
+      });
+
+      // Points slider
+      const slider = document.getElementById('pointsSlider');
+      if (slider) {
+        const completed = !!comps[entryKey];
+
+        slider.addEventListener('input', () => {
+          const val = parseInt(slider.value, 10);
+          const basePts = parseInt(slider.dataset.basePts, 10);
+          const earnedPts = Math.round(basePts * (val / 100));
+          const label = document.getElementById('sliderValueLabel');
+          if (label) label.textContent = `${val}% (${earnedPts}pt)`;
+        });
+
+        slider.addEventListener('change', async () => {
+          if (!completed) return;
+          const val = parseInt(slider.value, 10);
+          const override = val === 100 ? null : val;
+          comps[entryKey].pointsOverride = override;
+          await writeCompletion(entryKey, comps[entryKey]);
+          render();
+        });
+
+        const resetBtn = document.getElementById('sliderReset');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            slider.value = 100;
+            slider.dispatchEvent(new Event('input'));
+            slider.dispatchEvent(new Event('change'));
+          });
+        }
+      }
+    }
+
+    // ── Completion toggle (from sheet) ──
+
+    async function toggleCompletion(entryKey, dateKey) {
+      if (!entryKey) return;
+      const wasComplete = !!comps[entryKey];
+
+      if (wasComplete) {
+        delete comps[entryKey];
+        await removeCompletion(entryKey);
+      } else {
+        const record = {
+          completedAt: firebase.database.ServerValue.TIMESTAMP,
+          completedBy: 'tracker'
+        };
+        comps[entryKey] = record;
+        await writeCompletion(entryKey, record);
+      }
+
+      render();
     }
 
     // ── Show content ──
