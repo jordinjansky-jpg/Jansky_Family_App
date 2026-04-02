@@ -27,7 +27,7 @@
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, onConnectionChange, onValue } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, formatDateLong, formatDateShort, DAY_NAMES } from './shared/utils.js';
+    import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByTime, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
 
     // ── Cached theme ──
@@ -53,9 +53,10 @@
     const cats = catsObj || {};
 
     // ── App state ──
+    let viewDate = today;     // currently viewed date
     let activePerson = null;  // null = "All"
     let completions = {};
-    let todayEntries = {};
+    let viewEntries = {};     // entries for viewDate
     let overdueItems = [];
     let overdueExpanded = false;
     let celebrationShown = false;
@@ -93,32 +94,42 @@
     async function loadData() {
       const [comp, sched, allSched] = await Promise.all([
         readCompletions(),
-        readSchedule(today),
+        readSchedule(viewDate),
         readAllSchedule()
       ]);
       completions = comp || {};
-      todayEntries = sched || {};
+      viewEntries = sched || {};
       overdueItems = getOverdueEntries(allSched || {}, completions, today);
     }
 
     function render() {
-      const filtered = filterByPerson(todayEntries, activePerson);
+      const filtered = filterByPerson(viewEntries, activePerson);
       const prog = dayProgress(filtered, completions);
-      const overdueFiltered = activePerson
-        ? overdueItems.filter(e => e.ownerId === activePerson)
-        : overdueItems;
+      const isToday = viewDate === today;
+      const isFuture = viewDate > today;
+      const overdueFiltered = isToday
+        ? (activePerson ? overdueItems.filter(e => e.ownerId === activePerson) : overdueItems)
+        : [];
 
       // Date header
-      const dateObj = new Date(today + 'T12:00:00Z');
+      const dateObj = new Date(viewDate + 'T12:00:00Z');
       const dayName = DAY_NAMES[dateObj.getUTCDay()];
-      const longDate = formatDateLong(today);
+      const longDate = formatDateLong(viewDate);
+      const dayLabel = isToday ? 'Today' : dayName;
 
       let html = '';
 
-      // Date
+      // Date with nav arrows
       html += `<div class="date-header">
-        <span class="date-header__day">${dayName}</span>
-        <span class="date-header__full">${longDate}</span>
+        <div class="date-nav">
+          <button class="date-nav__btn" id="prevDay" type="button" title="Previous day">&lsaquo;</button>
+          <div class="date-nav__center">
+            <span class="date-header__day">${dayLabel}</span>
+            <span class="date-header__full">${longDate}</span>
+          </div>
+          <button class="date-nav__btn" id="nextDay" type="button" title="Next day">&rsaquo;</button>
+        </div>
+        ${!isToday ? `<button class="btn btn--ghost btn--sm mt-sm" id="goToday" type="button">Back to Today</button>` : ''}
       </div>`;
 
       // Person filter
@@ -149,9 +160,15 @@
         html += `</div>`;
       }
 
-      // Today's tasks
+      // Viewing hint for future dates
+      if (isFuture) {
+        html += `<div class="chip" style="margin-bottom:var(--spacing-sm);">Preview — completing tasks is disabled for future dates</div>`;
+      }
+
+      // Day's tasks
       if (prog.total === 0) {
-        html += renderEmptyState('📭', 'No tasks today', 'Enjoy your free time!');
+        const emptyMsg = isToday ? 'Enjoy your free time!' : 'Nothing scheduled for this day.';
+        html += renderEmptyState('📭', 'No tasks', emptyMsg);
       } else {
         // Group by time
         const groups = groupByTime(filtered);
@@ -178,7 +195,7 @@
             const cat = task.category ? cats[task.category] : null;
             html += renderTaskCard({
               entryKey,
-              entry: { ...entry, dateKey: today },
+              entry: { ...entry, dateKey: viewDate },
               task,
               person,
               category: cat,
@@ -198,6 +215,15 @@
     // ══════════════════════════════════════════
 
     function bindEvents() {
+      // Day navigation
+      document.getElementById('prevDay')?.addEventListener('click', () => changeDay(-1));
+      document.getElementById('nextDay')?.addEventListener('click', () => changeDay(1));
+      document.getElementById('goToday')?.addEventListener('click', () => {
+        viewDate = today;
+        celebrationShown = false;
+        loadData().then(render);
+      });
+
       // Person filter
       main.querySelectorAll('.person-pill').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -207,10 +233,13 @@
         });
       });
 
-      // Task card toggle
-      main.querySelectorAll('.task-card').forEach(btn => {
-        btn.addEventListener('click', () => toggleTask(btn.dataset.entryKey, btn.dataset.dateKey));
-      });
+      // Task card toggle (only for today and past)
+      const canComplete = viewDate <= today;
+      if (canComplete) {
+        main.querySelectorAll('.task-card').forEach(btn => {
+          btn.addEventListener('click', () => toggleTask(btn.dataset.entryKey, btn.dataset.dateKey));
+        });
+      }
 
       // Overdue toggle
       const overdueBtn = document.getElementById('overdueToggle');
@@ -223,6 +252,14 @@
           if (arrow) arrow.classList.toggle('expanded', overdueExpanded);
         });
       }
+    }
+
+    async function changeDay(delta) {
+      viewDate = addDays(viewDate, delta);
+      celebrationShown = false;
+      overdueExpanded = false;
+      await loadData();
+      render();
     }
 
     // ══════════════════════════════════════════
@@ -296,8 +333,8 @@
     }
 
     function checkCelebration() {
-      if (celebrationShown) return;
-      const filtered = filterByPerson(todayEntries, activePerson);
+      if (celebrationShown || viewDate !== today) return;
+      const filtered = filterByPerson(viewEntries, activePerson);
       if (isAllDone(filtered, completions)) {
         celebrationShown = true;
         const cel = document.getElementById('celebration');

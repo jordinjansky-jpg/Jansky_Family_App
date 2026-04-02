@@ -721,6 +721,37 @@ img {
   margin-bottom: var(--spacing-sm);
 }
 
+.date-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+.date-nav__btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.date-nav__btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.date-nav__center {
+  min-width: 180px;
+}
+
 .date-header__day {
   font-size: var(--font-size-xl);
   font-weight: 700;
