@@ -198,17 +198,19 @@ export function renderProgressBar(done, total) {
 
 /**
  * Render a single task card.
- * options: { entryKey, entry, task, person, category, completed, overdue, dateLabel }
+ * options: { entryKey, entry, task, person, category, completed, overdue, dateLabel, points }
+ * points: optional { earned, possible } — shown when scoring is active
  */
 export function renderTaskCard(options) {
-  const { entryKey, entry, task, person, category, completed, overdue, dateLabel } = options;
+  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points } = options;
   const doneClass = completed ? ' task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
   const catIcon = category?.icon || '';
   const ownerColor = person?.color || 'var(--text-secondary)';
   const ownerInitial = (person?.name || '?')[0].toUpperCase();
   const estLabel = task.estMin ? `${task.estMin}m` : '';
-  const meta = estLabel;
+  const ptsLabel = points ? `${points.possible}pt` : '';
+  const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const taskName = catIcon ? `${catIcon} ${task.name}` : task.name;
 
@@ -243,6 +245,70 @@ export function renderOverdueBanner(count) {
     <span class="overdue-banner__text">${count} overdue ${s}</span>
     <span class="overdue-banner__arrow" id="overdueArrow">▸</span>
   </button>`;
+}
+
+/**
+ * Render a grade badge.
+ * grade: letter string (e.g., 'A+', 'B-'), tier: 'a'|'b'|'c'|'d'|'f'
+ */
+export function renderGradeBadge(grade, tier) {
+  if (!grade || grade === '--') return `<span class="grade-badge grade-badge--none">--</span>`;
+  return `<span class="grade-badge grade-badge--${tier}">${grade}</span>`;
+}
+
+/**
+ * Render a task detail bottom sheet (long-press actions).
+ * options: { entryKey, entry, task, person, category, completed, points, sliderMin, sliderMax, currentOverride, gradePreview }
+ */
+export function renderTaskDetailSheet(options) {
+  const { entryKey, entry, task, person, category, completed, points, sliderMin, sliderMax, currentOverride, gradePreview } = options;
+  const catIcon = category?.icon || '';
+  const ownerColor = person?.color || 'var(--text-secondary)';
+  const diffLabel = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[task.difficulty] || 'Medium';
+  const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-Time' }[entry.rotationType] || '';
+  const todLabel = { am: 'Morning', pm: 'Afternoon', anytime: 'Anytime' }[entry.timeOfDay] || '';
+  const sliderVal = currentOverride ?? 100;
+
+  let html = `<div class="task-detail-sheet">`;
+
+  // Task info
+  html += `<div class="task-detail__info">
+    <div class="task-detail__name" style="--owner-color:${ownerColor}">
+      <span class="task-card__initial">${(person?.name || '?')[0].toUpperCase()}</span>
+      <span>${catIcon ? catIcon + ' ' : ''}${task.name}</span>
+    </div>
+    <div class="task-detail__meta">
+      ${person ? `<span class="chip" style="--person-color:${person.color}">${person.name}</span>` : ''}
+      <span class="chip">${rotLabel}</span>
+      <span class="chip">${diffLabel}</span>
+      ${todLabel ? `<span class="chip">${todLabel}</span>` : ''}
+      ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
+      ${points ? `<span class="chip">${points.possible}pt</span>` : ''}
+    </div>
+  </div>`;
+
+  // Complete/uncomplete button
+  const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
+  const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
+  html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+
+  // Points slider (only for completed tasks)
+  if (completed && points) {
+    const min = sliderMin ?? 0;
+    const max = sliderMax ?? 150;
+    const earnedPts = Math.round(points.possible * (sliderVal / 100));
+    html += `<div class="task-detail__slider mt-md">
+      <div class="task-detail__slider-header">
+        <span class="form-label">Points Override</span>
+        <span class="task-detail__slider-value" id="sliderValueLabel">${sliderVal}% (${earnedPts}pt)</span>
+      </div>
+      <input type="range" class="slider" id="pointsSlider" min="${min}" max="${max}" value="${sliderVal}" step="5" data-entry-key="${entryKey}" data-base-pts="${points.possible}">
+      ${gradePreview ? `<div class="task-detail__grade-preview" id="gradePreview">Grade: ${gradePreview}</div>` : ''}
+    </div>`;
+  }
+
+  html += `</div>`;
+  return html;
 }
 
 /**

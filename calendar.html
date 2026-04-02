@@ -24,10 +24,11 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, onValue } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
+    import { basePoints, dailyScore, gradeDisplay } from './shared/scoring.js';
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -224,6 +225,8 @@
       const dayEntries = allSchedule[dateKey] || {};
       const filtered = filterByPerson(dayEntries, activePerson);
       const prog = dayProgress(filtered, completions);
+      const score = dailyScore(filtered, completions, tasks, cats, settings, dateKey, today);
+      const gd = gradeDisplay(score.percentage);
 
       let html = '';
 
@@ -260,7 +263,8 @@
             const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
-            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: false, overdue: false });
+            const pts = score.pointsMap[entryKey] || basePoints(task);
+            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: false, overdue: false, points: { possible: pts } });
           }
         }
 
@@ -271,26 +275,28 @@
             const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
-            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: true, overdue: false });
+            const pts = score.pointsMap[entryKey] || basePoints(task);
+            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: true, overdue: false, points: { possible: pts } });
           }
         }
       }
 
-      return { html, prog };
+      return { html, prog, score, gd };
     }
 
     function openSheet(dateKey) {
-      const { html, prog } = buildDayContent(dateKey);
+      const { html, prog, score, gd } = buildDayContent(dateKey);
       const dateLabel = formatDateShort(dateKey);
       const isToday = dateKey === today;
       const dayTag = isToday ? ' <span class="cal-sheet__today">Today</span>' : '';
+      const gradeHtml = score.possible > 0 ? ` ${renderGradeBadge(gd.grade, gd.tier)}` : '';
 
       sheetMount.innerHTML = `<div class="cal-sheet-overlay" id="calSheetOverlay">
         <div class="cal-sheet" id="calSheet">
           <div class="cal-sheet__handle"></div>
           <div class="cal-sheet__header">
-            <div class="cal-sheet__title">${dateLabel}${dayTag}</div>
-            <div class="cal-sheet__summary">${prog.done}/${prog.total} done</div>
+            <div class="cal-sheet__title">${dateLabel}${dayTag}${gradeHtml}</div>
+            <div class="cal-sheet__summary">${prog.done}/${prog.total} done · ${score.earned}/${score.possible} pts</div>
           </div>
           <div class="cal-sheet__progress">
             <div class="cal-sheet__progress-fill" style="width:${prog.pct}%"></div>
@@ -327,7 +333,7 @@
     }
 
     function updateSheet(dateKey) {
-      const { html, prog } = buildDayContent(dateKey);
+      const { html, prog, score, gd } = buildDayContent(dateKey);
       const sheet = document.getElementById('calSheet');
       if (!sheet) return;
 
@@ -335,7 +341,16 @@
       const progFill = sheet.querySelector('.cal-sheet__progress-fill');
       if (progFill) progFill.style.width = `${prog.pct}%`;
       const summary = sheet.querySelector('.cal-sheet__summary');
-      if (summary) summary.textContent = `${prog.done}/${prog.total} done`;
+      if (summary) summary.textContent = `${prog.done}/${prog.total} done · ${score.earned}/${score.possible} pts`;
+
+      // Update grade badge in title
+      const titleEl = sheet.querySelector('.cal-sheet__title');
+      if (titleEl) {
+        const existingBadge = titleEl.querySelector('.grade-badge');
+        const newBadgeHtml = score.possible > 0 ? ` ${renderGradeBadge(gd.grade, gd.tier)}` : '';
+        if (existingBadge) existingBadge.outerHTML = newBadgeHtml;
+        else if (newBadgeHtml) titleEl.insertAdjacentHTML('beforeend', newBadgeHtml);
+      }
 
       // Update filter pills
       const filterContainer = sheet.querySelector('.person-filter');

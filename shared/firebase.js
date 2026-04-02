@@ -284,6 +284,20 @@ export async function writeSnapshot(dateKey, personId, data) {
 }
 
 /**
+ * Read all snapshots.
+ */
+export async function readAllSnapshots() {
+  return readOnce('snapshots');
+}
+
+/**
+ * Read all streaks.
+ */
+export async function readAllStreaks() {
+  return readOnce('streaks');
+}
+
+/**
  * Read streaks for a person.
  */
 export async function readStreaks(personId) {

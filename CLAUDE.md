@@ -1,6 +1,6 @@
 # Daily Rundown Rebuild - Governance
-**Current Phase:** 4 | **Status:** Complete  
-**Next Milestone:** Phase 5 — Scoring & grading system
+**Current Phase:** 5 | **Status:** Complete  
+**Next Milestone:** Phase 6 — Scoreboard page
 
 ## Architecture Decisions
 - Firebase root: `rundown/` — NEVER touch `cleaning/*`
@@ -52,13 +52,26 @@ rundown/
 │       └── {entryKey} ← { taskId, ownerId, rotationType, ownerAssignmentMode, timeOfDay }
 │                       entryKey format: sched_{timestamp}_{counter}
 ├── completions/
-│   └── {entryKey}     ← { completedAt: ServerValue.TIMESTAMP, completedBy: 'dashboard'|'calendar' }
+│   └── {entryKey}     ← { completedAt: ServerValue.TIMESTAMP, completedBy: 'dashboard'|'calendar',
+│                          pointsOverride?: number (percentage, null = use base) }
 ├── snapshots/
-│   └── {YYYY-MM-DD}/{personId}  ← (Phase 5+)
+│   └── {YYYY-MM-DD}/{personId}  ← { earned, possible, percentage, grade, missedKeys[] }
 ├── streaks/
-│   └── {personId}               ← (Phase 5+)
+│   └── {personId}               ← { current, best, lastCompleteDate }
 └── debug/eventLog/    ← { ...data, timestamp }
 ```
+
+## Scoring System (Phase 5)
+- **Points formula:** `difficultyMultiplier × (1 + estMin / 30)`, rounded to nearest integer
+  - Difficulty multipliers: Easy = 1, Medium = 2, Hard = 3
+- **Grade bands:** A+ (97-100), A (93-96), A- (90-92), B+ (87-89), B (83-86), B- (80-82), C+ (77-79), C (73-76), C- (70-72), D+ (67-69), D (63-66), D- (60-62), F (0-59)
+- **Daily score:** `(earnedPoints / possiblePoints) × 100` — per person
+- **Weighted categories:** `regularTaskPts × (W / (100 - W))` when category has `weightPercent`
+- **Past-due credit:** `basePoints × (pastDueCreditPct / 100)` — default 75%
+- **Streaks:** consecutive all-complete days per person (current + best)
+- **Snapshots:** immutable daily records (earned, possible, percentage, grade, missedKeys) — created at rollover
+- **Aggregation:** weekly/monthly/12-month grades derived from daily snapshots at render time (not stored)
+- **Admin-configurable:** pastDueCreditPct, weekendWeight, sliderMin/Max, category weightPercent — all Phase 8
 
 ## Key Behavior Decisions
 - Scheduler generates 90 days of future entries (tomorrow onward, never today/past)
@@ -66,7 +79,10 @@ rundown/
 - Overdue: only non-daily tasks from past dates; daily tasks are excluded
 - Completed tasks render at the very bottom of any task list (below all frequency groups)
 - Task grouping order: Daily → Weekly → Monthly → One-Time, then owner within group
-- Scoring/points are Phase 5 — no point values on task cards until then
+- Task cards show point values (e.g., "3pt") alongside time estimates
+- Long-press task card opens detail sheet with points slider (completed tasks only)
+- Points slider stores `pointsOverride` as percentage (0–150) on completion record; 100% = null (no override)
+- Daily rollover creates snapshots for past days on dashboard load (fire-and-forget)
 - Calendar bottom sheet locks height on open so person filter changes don't resize it
 - Category emoji on cards will be a per-category toggle (Phase 8 admin setting)
 
@@ -77,6 +93,7 @@ rundown/
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
+2026-04-02 Phase 5: Scoring — points formula (difficulty × (1 + estMin/30)), letter grades (A+ through F), weighted category math, past-due credit, daily snapshots, streak tracking. Points shown on task cards. Grade badge in dashboard header and calendar sheet. Long-press detail sheet with points slider (0–150%, live grade preview). Daily rollover creates snapshots + updates streaks on load. Aggregate helpers for weekly/monthly/12-month.
 2026-04-02 Phase 4: Calendar — 3-month grid view with frequency breakdown labels (D/W/M), animated bottom sheet for day detail, completion toggling, person filter in sheet with locked height, smooth in-place updates. Reuses compact task cards from Phase 3.
 2026-04-02 Phase 3: Dashboard — task cards, completion toggling (write/remove to rundown/completions), person filter pills, progress bar, overdue banner (collapsible), time-of-day grouping, undo toast, day-complete celebration. state.js built with pure query helpers. Temp Phase 2 testing UI removed.
 2026-04-02 Phase 2: Scheduling engine — all 5 steps (basic, rotation, cooldown, load balancing, duplicate). Validated: schedule generates correctly, deterministic rebuilds, no past/today entries.
@@ -86,7 +103,6 @@ rundown/
 - Phase 8 (Admin → Categories): Add a "default category" setting so new tasks don't default to an arbitrary category
 - Phase 8 (Admin → Categories): Add toggle to show/hide category emoji on task cards (per category)
 - Phase 8 (Admin): Move factory reset button here (removed from dashboard temp UI)
-- Phase 5: Scoring & grading system
 - Phase 6: Scoreboard page
 - Phase 7: Task tracker page
 - Phase 8: Admin panel

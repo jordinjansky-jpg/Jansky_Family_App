@@ -18,17 +18,19 @@
   <div id="navMount"></div>
   <div id="toastMount"></div>
   <div id="celebrationMount"></div>
+  <div id="taskSheetMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, onConnectionChange, onValue } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, onConnectionChange, onValue, readOnce, multiUpdate } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
+    import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -111,6 +113,10 @@
         ? overdueItems.filter(e => e.ownerId === activePerson)
         : overdueItems;
 
+      // Compute daily score for filtered entries
+      const score = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
+      const gd = gradeDisplay(score.percentage);
+
       // Date header
       const dateObj = new Date(viewDate + 'T12:00:00Z');
       const dayName = DAY_NAMES[dateObj.getUTCDay()];
@@ -119,7 +125,7 @@
 
       let html = '';
 
-      // Date with nav arrows
+      // Date with nav arrows + grade
       html += `<div class="date-header">
         <div class="date-nav">
           <button class="date-nav__btn" id="prevDay" type="button" title="Previous day">&lsaquo;</button>
@@ -129,6 +135,7 @@
           </div>
           <button class="date-nav__btn" id="nextDay" type="button" title="Next day">&rsaquo;</button>
         </div>
+        ${score.possible > 0 ? `<div class="date-header__grade mt-sm">${renderGradeBadge(gd.grade, gd.tier)} <span class="text-sm text-muted">${score.earned}/${score.possible} pts</span></div>` : ''}
         ${!isToday ? `<button class="btn btn--ghost btn--sm mt-sm" id="goToday" type="button">Back to Today</button>` : ''}
       </div>`;
 
@@ -151,6 +158,7 @@
           const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
           const person = people.find(p => p.id === item.ownerId);
           const cat = task.category ? cats[task.category] : null;
+          const pts = basePoints(task);
           html += renderTaskCard({
             entryKey: item.entryKey,
             entry: { ...item, dateKey: item.dateKey },
@@ -159,7 +167,8 @@
             category: cat,
             completed: isComplete(item.entryKey, completions),
             overdue: true,
-            dateLabel: formatDateShort(item.dateKey)
+            dateLabel: formatDateShort(item.dateKey),
+            points: { possible: pts }
           });
         }
         html += `</div>`;
@@ -201,6 +210,7 @@
             const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
+            const pts = score.pointsMap[entryKey] || basePoints(task);
             html += renderTaskCard({
               entryKey,
               entry: { ...entry, dateKey: viewDate },
@@ -208,7 +218,8 @@
               person,
               category: cat,
               completed: false,
-              overdue: false
+              overdue: false,
+              points: { possible: pts }
             });
           }
         }
@@ -221,6 +232,7 @@
             const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
+            const pts = score.pointsMap[entryKey] || basePoints(task);
             html += renderTaskCard({
               entryKey,
               entry: { ...entry, dateKey: viewDate },
@@ -228,7 +240,8 @@
               person,
               category: cat,
               completed: true,
-              overdue: false
+              overdue: false,
+              points: { possible: pts }
             });
           }
         }
@@ -261,9 +274,32 @@
         });
       });
 
-      // Task card toggle
+      // Task card: tap to toggle, long-press to open detail sheet
       main.querySelectorAll('.task-card').forEach(btn => {
-        btn.addEventListener('click', () => toggleTask(btn.dataset.entryKey, btn.dataset.dateKey));
+        let pressTimer = null;
+        let didLongPress = false;
+
+        const startPress = (e) => {
+          didLongPress = false;
+          pressTimer = setTimeout(() => {
+            didLongPress = true;
+            openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
+          }, 500);
+        };
+
+        const endPress = (e) => {
+          clearTimeout(pressTimer);
+          if (!didLongPress) {
+            toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
+          }
+        };
+
+        const cancelPress = () => { clearTimeout(pressTimer); };
+
+        btn.addEventListener('pointerdown', startPress);
+        btn.addEventListener('pointerup', endPress);
+        btn.addEventListener('pointerleave', cancelPress);
+        btn.addEventListener('contextmenu', (e) => e.preventDefault());
       });
 
       // Overdue toggle
@@ -369,6 +405,117 @@
     }
 
     // ══════════════════════════════════════════
+    // Task detail bottom sheet (long-press)
+    // ══════════════════════════════════════════
+
+    const taskSheetMount = document.getElementById('taskSheetMount');
+
+    function openTaskSheet(entryKey, dateKey) {
+      // Find entry in current view or overdue
+      const entry = viewEntries[entryKey]
+        || overdueItems.find(o => o.entryKey === entryKey);
+      if (!entry) return;
+
+      const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+      const person = people.find(p => p.id === entry.ownerId);
+      const cat = task.category ? cats[task.category] : null;
+      const completed = isComplete(entryKey, completions);
+      const pts = basePoints(task);
+      const completion = completions[entryKey];
+      const currentOverride = completion?.pointsOverride ?? null;
+
+      // Grade preview
+      const filtered = filterByPerson(viewEntries, activePerson);
+      const score = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
+      const gd = gradeDisplay(score.percentage);
+      const gradePreview = score.possible > 0 ? `${gd.grade} (${score.percentage}%)` : null;
+
+      const sheetContent = renderTaskDetailSheet({
+        entryKey,
+        entry: { ...entry, dateKey: dateKey || viewDate },
+        task,
+        person,
+        category: cat,
+        completed,
+        points: { possible: pts },
+        sliderMin: settings?.sliderMin ?? 0,
+        sliderMax: settings?.sliderMax ?? 150,
+        currentOverride: currentOverride != null ? currentOverride : 100,
+        gradePreview
+      });
+
+      taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.add('active');
+      });
+
+      // Bind sheet events
+      bindTaskSheetEvents(entryKey, dateKey);
+    }
+
+    function closeTaskSheet() {
+      const overlay = document.getElementById('bottomSheet');
+      if (overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
+      }
+    }
+
+    function bindTaskSheetEvents(entryKey, dateKey) {
+      // Close on overlay click
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeTaskSheet();
+      });
+
+      // Toggle complete
+      document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
+        closeTaskSheet();
+        await toggleTask(entryKey, dateKey);
+      });
+
+      // Points slider
+      const slider = document.getElementById('pointsSlider');
+      if (slider) {
+        slider.addEventListener('input', () => {
+          const val = parseInt(slider.value, 10);
+          const basePts = parseInt(slider.dataset.basePts, 10);
+          const earnedPts = Math.round(basePts * (val / 100));
+          const label = document.getElementById('sliderValueLabel');
+          if (label) label.textContent = `${val}% (${earnedPts}pt)`;
+
+          // Live grade preview
+          const filtered = filterByPerson(viewEntries, activePerson);
+          // Temporarily set override in completions for preview
+          const origOverride = completions[entryKey]?.pointsOverride;
+          if (completions[entryKey]) {
+            completions[entryKey].pointsOverride = val === 100 ? null : val;
+          }
+          const previewScore = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
+          const previewGd = gradeDisplay(previewScore.percentage);
+          const previewEl = document.getElementById('gradePreview');
+          if (previewEl) previewEl.textContent = `Grade: ${previewGd.grade} (${previewScore.percentage}%)`;
+          // Restore original
+          if (completions[entryKey]) {
+            completions[entryKey].pointsOverride = origOverride;
+          }
+        });
+
+        slider.addEventListener('change', async () => {
+          const val = parseInt(slider.value, 10);
+          const override = val === 100 ? null : val;
+          if (completions[entryKey]) {
+            completions[entryKey].pointsOverride = override;
+            await writeCompletion(entryKey, completions[entryKey]);
+            render();
+          }
+        });
+      }
+    }
+
+    // ══════════════════════════════════════════
     // Real-time listener for completions
     // ══════════════════════════════════════════
 
@@ -378,11 +525,33 @@
     });
 
     // ══════════════════════════════════════════
+    // Daily rollover — create snapshots for past days
+    // ══════════════════════════════════════════
+
+    async function runRollover() {
+      const [allSched, existingSnapshots, existingStreaks] = await Promise.all([
+        readAllSchedule(),
+        readOnce('snapshots'),
+        readOnce('streaks')
+      ]);
+
+      const { updates, snapshotCount } = computeRollover(
+        today, allSched || {}, completions, tasks, cats, settings,
+        people, existingSnapshots || {}, existingStreaks || {}
+      );
+
+      if (snapshotCount > 0) {
+        await multiUpdate(updates);
+      }
+    }
+
+    // ══════════════════════════════════════════
     // Initial load
     // ══════════════════════════════════════════
 
     await loadData();
     render();
+    runRollover(); // fire-and-forget, don't block UI
   </script>
 </body>
 </html>
