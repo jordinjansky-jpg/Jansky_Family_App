@@ -122,6 +122,38 @@
       padding: var(--spacing-xs);
     }
 
+    /* Role toggle buttons */
+    .role-btn {
+      border: 2px solid var(--border-color) !important;
+      transition: all var(--transition-fast);
+    }
+
+    .role-btn.selected {
+      background: var(--accent-light) !important;
+      border-color: var(--accent) !important;
+      color: var(--accent) !important;
+      font-weight: 700;
+    }
+
+    /* Color swatches — used state */
+    .color-swatch--used {
+      opacity: 0.25;
+      pointer-events: none;
+      position: relative;
+    }
+
+    .color-swatch--used::after {
+      content: '✓';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: white;
+      font-weight: 700;
+    }
+
     /* Category list */
     .category-list {
       display: flex;
@@ -531,7 +563,8 @@
       grid.innerHTML = colorPalette.map(c => {
         const used = usedColors.includes(c);
         const sel = selectedColor === c ? ' selected' : '';
-        return `<div class="color-swatch${sel}" style="background:${c};${used ? 'opacity:0.3;pointer-events:none;' : ''}" onclick="selectColor('${c}')"></div>`;
+        const usedCls = used ? ' color-swatch--used' : '';
+        return `<div class="color-swatch${sel}${usedCls}" style="background:${c};position:relative;" ${used ? '' : `onclick="selectColor('${c}')"`}></div>`;
       }).join('');
     }
 
