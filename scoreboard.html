@@ -45,7 +45,7 @@
       readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks()
     ]);
 
-    if (settings?.theme) applyTheme(settings.theme);
+    if (!cached && settings?.theme) applyTheme(settings.theme);
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);

@@ -65,7 +65,7 @@
 
     // ── Load data ──
     let settings = await readSettings();
-    if (settings?.theme) applyTheme(settings.theme);
+    if (!cached && settings?.theme) applyTheme(settings.theme);
 
     let peopleObj = await readPeople() || {};
     let tasksObj = await readTasks() || {};
@@ -281,7 +281,7 @@
           const pts = basePoints(task);
           const pausedClass = task.status === 'paused' ? ' admin-list-item--paused' : '';
           const pausedBadge = task.status === 'paused' ? '<span class="admin-badge admin-badge--muted">⏸ Paused</span>' : '';
-          html += `<div class="admin-list-item${pausedClass}" data-task-id="${id}">
+          html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}" data-task-id="${id}">
             <div class="admin-list-item__row">
               <span class="admin-list-item__name">${cat?.icon || ''} ${task.name}</span>
               <span class="admin-list-item__tags">
@@ -430,7 +430,7 @@
           const kidFlags = p.role === 'child' && p.kidSettings
             ? [p.kidSettings.canDelegate && 'delegate', p.kidSettings.canMoveTasks && 'move', p.kidSettings.showSlider && 'slider'].filter(Boolean).join(', ')
             : '';
-          html += `<div class="admin-list-item">
+          html += `<div class="admin-list-item admin-list-item--clickable" data-person-id="${p.id}">
             <div class="admin-person-row">
               <div class="admin-person-dot" style="background:${p.color}"></div>
               <div class="admin-person-info">
@@ -533,7 +533,7 @@
         if (c.weightPercent) badges.push(`<span class="admin-badge admin-badge--muted">${c.weightPercent}%</span>`);
         if (c.pinProtected) badges.push('<span class="admin-badge admin-badge--muted">🔒</span>');
         if (c.showIcon === false) badges.push('<span class="admin-badge admin-badge--muted">Icon off</span>');
-        html += `<div class="admin-list-item">
+        html += `<div class="admin-list-item admin-list-item--clickable" data-cat-key="${c.key}">
           <div class="admin-list-item__main">
             <span class="admin-list-item__name">${c.icon} ${c.label}</span>
             ${badges.length ? `<span class="admin-list-item__meta">${badges.join(' ')}</span>` : ''}
@@ -646,7 +646,7 @@
 
     function renderThemeTab() {
       const presets = getPresets();
-      const currentTheme = settings?.theme || defaultThemeConfig();
+      const currentTheme = loadCachedTheme() || settings?.theme || defaultThemeConfig();
       const accentColors = ['#5b7fd6', '#e85d75', '#43a047', '#ff9800', '#8e24aa', '#00acc1', '#ef5350', '#ffa726'];
 
       let html = `<div class="admin-form">
@@ -921,7 +921,14 @@
         render();
       });
 
-      // Edit task
+      // Edit task — click row or edit button
+      for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.admin-list-item__actions')) return;
+          editingTaskId = item.dataset.taskId;
+          render();
+        });
+      }
       for (const btn of main.querySelectorAll('.admin-edit-task')) {
         btn.addEventListener('click', () => {
           editingTaskId = btn.dataset.taskId;
@@ -1034,6 +1041,12 @@
             }
             await multiUpdate(schedUpdates);
           }
+
+          // Rebuild future schedule so the new task appears on upcoming days
+          const allSched = await readAllSchedule() || {};
+          const allComp = await readCompletions() || {};
+          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched);
+          await multiUpdate(futureUpdates);
         } else {
           // Preserve existing fields
           const existing = tasksObj[editingTaskId] || {};
@@ -1056,6 +1069,14 @@
         render();
       });
 
+      // Edit person — click row or edit button
+      for (const item of main.querySelectorAll('.admin-list-item[data-person-id]')) {
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.admin-list-item__actions')) return;
+          editingPersonId = item.dataset.personId;
+          render();
+        });
+      }
       for (const btn of main.querySelectorAll('.admin-edit-person')) {
         btn.addEventListener('click', () => {
           editingPersonId = btn.dataset.personId;
@@ -1147,6 +1168,14 @@
         render();
       });
 
+      // Edit category — click row or edit button
+      for (const item of main.querySelectorAll('.admin-list-item[data-cat-key]')) {
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.admin-list-item__actions')) return;
+          editingCatKey = item.dataset.catKey;
+          render();
+        });
+      }
       for (const btn of main.querySelectorAll('.admin-edit-cat')) {
         btn.addEventListener('click', () => {
           editingCatKey = btn.dataset.catKey;
@@ -1271,30 +1300,26 @@
     // ── Theme tab events ──
 
     function bindThemeTab() {
-      const currentTheme = settings?.theme || defaultThemeConfig();
+      const currentTheme = loadCachedTheme() || settings?.theme || defaultThemeConfig();
 
       for (const btn of main.querySelectorAll('.admin-theme-option')) {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
           const preset = btn.dataset.preset;
           const presets = getPresets();
           const info = presets.find(p => p.key === preset);
           const newTheme = { mode: info.mode, preset, accentColor: currentTheme.accentColor || '#5b7fd6' };
 
-          applyTheme(newTheme);
-          settings = { ...settings, theme: newTheme };
-          await writeSettings(settings);
+          applyTheme(newTheme); // saves to localStorage per device
           render();
         });
       }
 
       for (const btn of main.querySelectorAll('.admin-accent')) {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
           const color = btn.dataset.color;
           const newTheme = { ...currentTheme, accentColor: color };
 
-          applyTheme(newTheme);
-          settings = { ...settings, theme: newTheme };
-          await writeSettings(settings);
+          applyTheme(newTheme); // saves to localStorage per device
           render();
         });
       }

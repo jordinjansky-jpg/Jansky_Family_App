@@ -2154,6 +2154,12 @@ img {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-light);
 }
+.admin-list-item--clickable {
+  cursor: pointer;
+}
+.admin-list-item--clickable:active {
+  background: var(--bg-hover, var(--border-light));
+}
 .admin-list-item--paused {
   opacity: 0.6;
 }

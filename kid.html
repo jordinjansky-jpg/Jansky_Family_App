@@ -51,7 +51,7 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     const settings = await readSettings();
-    if (settings?.theme) applyTheme(settings.theme);
+    if (!cached && settings?.theme) applyTheme(settings.theme);
 
     // Check for kid parameter
     const params = new URLSearchParams(window.location.search);

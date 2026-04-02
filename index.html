@@ -31,6 +31,7 @@
     import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
+    import { buildScheduleUpdates } from './shared/scheduler.js';
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -46,7 +47,7 @@
       readSettings(), readPeople(), readTasks(), readCategories()
     ]);
 
-    if (settings?.theme) applyTheme(settings.theme);
+    if (!cached && settings?.theme) applyTheme(settings.theme);
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -110,9 +111,10 @@
       const prog = dayProgress(filtered, completions);
       const isToday = viewDate === today;
       const isFuture = viewDate > today;
+      const overdueActive = overdueItems.filter(e => !isComplete(e.entryKey, completions));
       const overdueFiltered = activePerson
-        ? overdueItems.filter(e => e.ownerId === activePerson)
-        : overdueItems;
+        ? overdueActive.filter(e => e.ownerId === activePerson)
+        : overdueActive;
 
       // Compute daily score for filtered entries
       const score = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
@@ -789,9 +791,15 @@
             }
           }
           await multiUpdate(schedUpdates);
-          await loadData();
         }
 
+        // Rebuild future schedule so the new task appears on upcoming days
+        const allSched = await readAllSchedule() || {};
+        const allComp = await readCompletions() || {};
+        const futureUpdates = buildScheduleUpdates(tasks, people, settings, allComp, allSched);
+        await multiUpdate(futureUpdates);
+
+        await loadData();
         closeTaskSheet();
         render();
       });

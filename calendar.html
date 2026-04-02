@@ -24,12 +24,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, multiUpdate, onValue } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, multiUpdate, onValue } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
+    import { buildScheduleUpdates } from './shared/scheduler.js';
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -45,7 +46,7 @@
       readSettings(), readPeople(), readTasks(), readCategories()
     ]);
 
-    if (settings?.theme) applyTheme(settings.theme);
+    if (!cached && settings?.theme) applyTheme(settings.theme);
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -69,7 +70,8 @@
       appName: settings?.appName || 'Daily Rundown',
       subtitle: 'Calendar',
       showAdmin: true,
-      showDebug: debugActive
+      showDebug: debugActive,
+      showAddTask: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
 
@@ -714,6 +716,94 @@
       // Refresh grid + sheet content (render handles updateSheet if sheet is open)
       render();
     }
+
+    // ══════════════════════════════════════════
+    // Quick-add task
+    // ══════════════════════════════════════════
+
+    function openQuickAddSheet() {
+      const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
+      const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
+      const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey);
+      taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.add('active');
+        document.getElementById('qa_name')?.focus();
+      });
+
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
+
+      document.getElementById('qaCancel')?.addEventListener('click', closeTaskSheet);
+
+      document.getElementById('qaSave')?.addEventListener('click', async () => {
+        const name = document.getElementById('qa_name')?.value.trim();
+        if (!name) { document.getElementById('qa_name')?.focus(); return; }
+
+        const owners = Array.from(document.querySelectorAll('#qa_owners input:checked')).map(cb => cb.value);
+
+        const taskData = {
+          name,
+          rotation: document.getElementById('qa_rotation')?.value || 'daily',
+          difficulty: document.getElementById('qa_difficulty')?.value || 'medium',
+          timeOfDay: document.getElementById('qa_timeOfDay')?.value || 'anytime',
+          estMin: parseInt(document.getElementById('qa_estMin')?.value, 10) || 10,
+          category: document.getElementById('qa_category')?.value || '',
+          owners,
+          ownerAssignmentMode: 'rotate',
+          dedicatedDay: null,
+          cooldownDays: null,
+          exempt: false,
+          status: 'active',
+          createdDate: today
+        };
+
+        const newId = await pushTask(taskData);
+        tasks[newId] = taskData;
+
+        // Create schedule entry for today so the task appears immediately
+        if (owners.length > 0) {
+          const schedUpdates = {};
+          const mode = taskData.ownerAssignmentMode || 'rotate';
+          const timeOfDay = taskData.timeOfDay || 'anytime';
+          const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: mode };
+
+          if (mode === 'duplicate') {
+            for (const oid of owners) {
+              if (timeOfDay === 'both') {
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+              } else {
+                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_${oid}`] = { ...baseEntry, ownerId: oid, timeOfDay };
+              }
+            }
+          } else {
+            const ownerId = owners[0];
+            if (timeOfDay === 'both') {
+              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+            } else {
+              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa`] = { ...baseEntry, ownerId, timeOfDay };
+            }
+          }
+          await multiUpdate(schedUpdates);
+        }
+
+        // Rebuild future schedule so the new task appears on upcoming days
+        const existingSched = await readAllSchedule() || {};
+        const allComp = await readCompletions() || {};
+        const futureUpdates = buildScheduleUpdates(tasks, people, settings, allComp, existingSched);
+        await multiUpdate(futureUpdates);
+
+        await loadData();
+        closeTaskSheet();
+        render();
+      });
+    }
+
+    document.getElementById('headerAddTask')?.addEventListener('click', openQuickAddSheet);
 
     // ══════════════════════════════════════════
     // Real-time listener
