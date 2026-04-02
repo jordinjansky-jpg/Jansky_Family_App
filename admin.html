@@ -377,7 +377,8 @@
           <p class="form-hint" id="assignModeHint">${assignMode === 'duplicate' ? 'Each selected owner gets their own task instance every period.' : 'Rotate between owners each period.'}</p>
         </div>
         <div class="form-group" id="dedicatedDayGroup" style="display:${task.rotation === 'daily' ? 'none' : ''}">
-          <label class="form-label" id="dedicatedDayLabel">${task.rotation === 'once' ? 'Scheduled Date' : 'Dedicated Day'}</label>
+          <label class="form-label" id="dedicatedDayLabel">${task.rotation === 'once' ? 'Scheduled Date' : 'Dedicated Day'} <button type="button" id="tf_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${catsObj[task.category]?.isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
+          <input type="date" id="tf_eventDate" style="position:absolute;opacity:0;pointer-events:none;" value="${task.dedicatedDate || ''}">
           <div id="dayChips" style="display:${task.rotation === 'once' ? 'none' : 'flex'};flex-wrap:wrap;gap:6px;">
             ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
               const val = (i + 1) % 7; // Mon=1..Sat=6,Sun=0
@@ -388,10 +389,6 @@
           <div id="dedicatedDateRow" style="display:${task.rotation === 'once' ? '' : 'none'}">
             <input type="date" id="tf_dedicatedDate" value="${task.dedicatedDate || ''}" class="task-detail__date-input" style="width:100%">
           </div>
-        </div>
-        <div class="form-group" id="tf_eventDateGroup" style="display:${catsObj[task.category]?.isEvent ? '' : 'none'}">
-          <label class="form-label">📅 Event Date</label>
-          <input type="date" id="tf_eventDate" value="${task.dedicatedDate || ''}" class="task-detail__date-input" style="width:100%">
         </div>
         <div class="form-group">
           <label class="form-label">Cooldown Days</label>
@@ -1020,17 +1017,23 @@
         });
       }
 
-      // Category change — show/hide event date picker
+      // Category change — show/hide event date icon
       main.querySelector('#tf_category')?.addEventListener('change', (e) => {
         const opt = e.target.selectedOptions[0];
         const isEvent = opt?.dataset.event === '1';
-        const eventDateGroup = main.querySelector('#tf_eventDateGroup');
-        if (eventDateGroup) eventDateGroup.style.display = isEvent ? '' : 'none';
+        const eventBtn = main.querySelector('#tf_eventDateBtn');
+        if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
         // If event, force rotation to once
         if (isEvent) {
           const rotSelect = main.querySelector('#tf_rotation');
           if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
         }
+      });
+
+      // Event date icon — open native date picker
+      main.querySelector('#tf_eventDateBtn')?.addEventListener('click', () => {
+        const picker = main.querySelector('#tf_eventDate');
+        if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
       });
 
       // Rotation change — show/hide dedicated day vs date picker
@@ -1044,15 +1047,22 @@
           group.style.display = 'none';
         } else {
           group.style.display = '';
+          const eventBtn = label?.querySelector('#tf_eventDateBtn');
+          const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
             chips.style.display = 'none';
             dateRow.style.display = '';
-            label.textContent = 'Scheduled Date';
+            label.innerHTML = 'Scheduled Date ' + btnHtml;
           } else {
             chips.style.display = 'flex';
             dateRow.style.display = 'none';
-            label.textContent = 'Dedicated Day';
+            label.innerHTML = 'Dedicated Day ' + btnHtml;
           }
+          // Re-bind event date button after innerHTML replace
+          label?.querySelector('#tf_eventDateBtn')?.addEventListener('click', () => {
+            const picker = main.querySelector('#tf_eventDate');
+            if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
+          });
         }
       });
 

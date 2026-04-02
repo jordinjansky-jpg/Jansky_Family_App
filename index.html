@@ -769,16 +769,22 @@
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
 
-      // Show/hide event date picker when category changes
+      // Show/hide event date icon when category changes
       document.getElementById('qa_category')?.addEventListener('change', (e) => {
         const opt = e.target.selectedOptions[0];
         const isEvent = opt?.dataset.event === '1';
-        const dateGroup = document.getElementById('qa_eventDateGroup');
-        if (dateGroup) dateGroup.style.display = isEvent ? '' : 'none';
+        const eventBtn = document.getElementById('qa_eventDateBtn');
+        if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
         if (isEvent) {
           const rotSelect = document.getElementById('qa_rotation');
           if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
         }
+      });
+
+      // Event date icon — open native date picker
+      document.getElementById('qa_eventDateBtn')?.addEventListener('click', () => {
+        const picker = document.getElementById('qa_eventDate');
+        if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
       });
 
       // Rotation change — show/hide dedicated day vs date
@@ -792,15 +798,22 @@
           group.style.display = 'none';
         } else {
           group.style.display = '';
+          const eventBtn = label?.querySelector('#qa_eventDateBtn');
+          const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
             chips.style.display = 'none';
             dateRow.style.display = '';
-            label.textContent = 'Scheduled Date';
+            label.innerHTML = 'Scheduled Date ' + btnHtml;
           } else {
             chips.style.display = 'flex';
             dateRow.style.display = 'none';
-            label.textContent = 'Dedicated Day';
+            label.innerHTML = 'Dedicated Day ' + btnHtml;
           }
+          // Re-bind event date button after innerHTML replace
+          label?.querySelector('#qa_eventDateBtn')?.addEventListener('click', () => {
+            const picker = document.getElementById('qa_eventDate');
+            if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
+          });
         }
       });
 
@@ -858,8 +871,8 @@
           ownerAssignmentMode: assignMode,
           dedicatedDay,
           dedicatedDate,
-          cooldownDays: null,
-          exempt: false,
+          cooldownDays: parseInt(document.getElementById('qa_cooldown')?.value, 10) || null,
+          exempt: !!document.getElementById('qa_exempt')?.checked,
           status: 'active',
           createdDate: today
         };

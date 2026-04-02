@@ -454,10 +454,6 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
         ${categories.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${(defaultCategoryKey && c.key === defaultCategoryKey) ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
       </select>
     </div>
-    <div class="form-group" id="qa_eventDateGroup" style="display:${defaultIsEvent ? '' : 'none'}">
-      <label class="form-label">📅 Event Date</label>
-      <input type="date" id="qa_eventDate" class="task-detail__date-input" style="width:100%">
-    </div>
     <div class="form-group">
       <label class="form-label">Owners</label>
       <div class="admin-checkboxes" id="qa_owners">
@@ -473,7 +469,8 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
       <p class="form-hint" id="qa_assignModeHint">Rotate between owners each period.</p>
     </div>
     <div class="form-group" id="qa_dedicatedDayGroup" style="display:none">
-      <label class="form-label" id="qa_dedicatedDayLabel">Dedicated Day</label>
+      <label class="form-label" id="qa_dedicatedDayLabel">Dedicated Day <button type="button" id="qa_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${defaultIsEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
+      <input type="date" id="qa_eventDate" style="position:absolute;opacity:0;pointer-events:none;">
       <div id="qa_dayChips" style="display:flex;flex-wrap:wrap;gap:6px;">
         ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
           const val = (i + 1) % 7;
@@ -485,6 +482,11 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
         <input type="date" id="qa_dedicatedDate" class="task-detail__date-input" style="width:100%">
       </div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Cooldown Days</label>
+      <input type="number" id="qa_cooldown" value="" min="0" max="30" placeholder="0">
+    </div>
+    <label class="admin-checkbox mt-sm"><input type="checkbox" id="qa_exempt"> Exempt from scoring</label>
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="qaCancel" type="button">Cancel</button>
       <button class="btn btn--primary" id="qaSave" type="button">Create Task</button>
