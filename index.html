@@ -245,29 +245,72 @@
       statusEl.textContent = `Writing ${Object.keys(updates).length} date updates...`;
       await multiUpdate(updates);
 
-      // Show summary
+      // Read back what's actually in Firebase (not just what we wrote)
+      const liveSchedule = await readAllSchedule() || {};
+
+      // Show detailed summary
+      const taskCount = allTasks ? Object.keys(allTasks).length : 0;
       let totalEntries = 0;
       let daysWithEntries = 0;
       const perPerson = {};
-      for (const [path, entries] of Object.entries(updates)) {
-        if (entries) {
-          daysWithEntries++;
-          for (const entry of Object.values(entries)) {
-            totalEntries++;
-            const pName = people.find(p => p.id === entry.ownerId)?.name || entry.ownerId;
-            perPerson[pName] = (perPerson[pName] || 0) + 1;
-          }
+      let pastOrTodayEntries = 0;
+      const pastDates = [];
+
+      // Check ALL dates in Firebase, including past/today
+      for (const [dateKey, dayEntries] of Object.entries(liveSchedule).sort((a, b) => a[0].localeCompare(b[0]))) {
+        if (!dayEntries) continue;
+        const count = Object.keys(dayEntries).length;
+        if (dateKey <= today) {
+          pastOrTodayEntries += count;
+          if (count > 0) pastDates.push(dateKey);
+        }
+        if (count > 0) daysWithEntries++;
+        for (const entry of Object.values(dayEntries)) {
+          totalEntries++;
+          const pName = people.find(p => p.id === entry.ownerId)?.name || entry.ownerId;
+          perPerson[pName] = (perPerson[pName] || 0) + 1;
         }
       }
 
-      const taskCount = allTasks ? Object.keys(allTasks).length : 0;
-      let summary = `Schedule rebuilt!\n`;
+      let summary = `✅ Schedule rebuilt!\n`;
+      summary += `─────────────────────\n`;
       summary += `Tasks: ${taskCount}\n`;
       summary += `Days with entries: ${daysWithEntries}\n`;
       summary += `Total entries: ${totalEntries}\n\n`;
+
+      // Past/today check (#7 validation)
+      if (pastOrTodayEntries > 0) {
+        summary += `⚠️ PAST/TODAY ENTRIES: ${pastOrTodayEntries} (dates: ${pastDates.join(', ')})\n`;
+        summary += `   This should be 0 — scheduler should only write future dates.\n\n`;
+      } else {
+        summary += `✅ No past/today entries — immutability verified\n\n`;
+      }
+
       summary += `Per person:\n`;
       for (const [name, count] of Object.entries(perPerson).sort((a, b) => b[1] - a[1])) {
         summary += `  ${name}: ${count} entries\n`;
+      }
+
+      // Show first 7 days preview
+      const allDates = Object.keys(liveSchedule).sort();
+      const previewDates = allDates.filter(d => d > today).slice(0, 7);
+      if (previewDates.length > 0) {
+        summary += `\n─────────────────────\n`;
+        summary += `📅 Next 7 days preview:\n`;
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        for (const dk of previewDates) {
+          const dayEntries = liveSchedule[dk];
+          if (!dayEntries) continue;
+          const dow = new Date(dk + 'T00:00:00Z').getUTCDay();
+          summary += `\n${dayNames[dow]} ${dk}:\n`;
+          for (const entry of Object.values(dayEntries)) {
+            const taskName = allTasks[entry.taskId]?.name || entry.taskId;
+            const ownerName = people.find(p => p.id === entry.ownerId)?.name || '?';
+            const tod = entry.timeOfDay !== 'anytime' ? ` [${entry.timeOfDay.toUpperCase()}]` : '';
+            const mode = entry.ownerAssignmentMode === 'duplicate' ? ' (dup)' : '';
+            summary += `  • ${taskName} → ${ownerName}${tod}${mode}\n`;
+          }
+        }
       }
 
       statusEl.textContent = summary;
