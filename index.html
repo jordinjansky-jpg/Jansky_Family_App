@@ -107,9 +107,9 @@
       const prog = dayProgress(filtered, completions);
       const isToday = viewDate === today;
       const isFuture = viewDate > today;
-      const overdueFiltered = isToday
-        ? (activePerson ? overdueItems.filter(e => e.ownerId === activePerson) : overdueItems)
-        : [];
+      const overdueFiltered = activePerson
+        ? overdueItems.filter(e => e.ownerId === activePerson)
+        : overdueItems;
 
       // Date header
       const dateObj = new Date(viewDate + 'T12:00:00Z');
@@ -141,8 +141,13 @@
       // Overdue banner
       if (overdueFiltered.length > 0) {
         html += renderOverdueBanner(overdueFiltered.length);
+        const sortedOverdue = [...overdueFiltered].sort((a, b) => {
+          const ownerCmp = (a.ownerId || '').localeCompare(b.ownerId || '');
+          if (ownerCmp !== 0) return ownerCmp;
+          return a.dateKey.localeCompare(b.dateKey);
+        });
         html += `<div class="overdue-list" id="overdueList" style="display:${overdueExpanded ? 'block' : 'none'};">`;
-        for (const item of overdueFiltered) {
+        for (const item of sortedOverdue) {
           const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
           const person = people.find(p => p.id === item.ownerId);
           const cat = task.category ? cats[task.category] : null;
