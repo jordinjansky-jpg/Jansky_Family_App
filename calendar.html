@@ -311,13 +311,39 @@
         }
       });
 
+      bindSheetEvents();
+    }
+
+    function updateSheet(dateKey) {
+      const { html, prog } = buildDayContent(dateKey);
+      const sheet = document.getElementById('calSheet');
+      if (!sheet) return;
+
+      // Update progress
+      const progFill = sheet.querySelector('.cal-sheet__progress-fill');
+      if (progFill) progFill.style.width = `${prog.pct}%`;
+      const summary = sheet.querySelector('.cal-sheet__summary');
+      if (summary) summary.textContent = `${prog.done}/${prog.total} done`;
+
+      // Update filter pills
+      const filterContainer = sheet.querySelector('.person-filter');
+      if (filterContainer) filterContainer.outerHTML = renderPersonFilter(people, activePerson);
+
+      // Update body
+      const body = sheet.querySelector('.cal-sheet__body');
+      if (body) body.innerHTML = html;
+
+      bindSheetEvents();
+    }
+
+    function bindSheetEvents() {
       // Bind person filter in sheet
       sheetMount.querySelectorAll('.person-pill').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           activePerson = btn.dataset.personId || null;
           render();
-          openSheet(selectedDay);
+          updateSheet(selectedDay);
         });
       });
 
@@ -410,9 +436,9 @@
         await writeCompletion(entryKey, record);
       }
 
-      // Refresh grid + sheet
+      // Refresh grid + sheet content (no re-animation)
       render();
-      if (selectedDay) openSheet(selectedDay);
+      if (selectedDay) updateSheet(selectedDay);
     }
 
     // ══════════════════════════════════════════
@@ -422,7 +448,7 @@
     onValue('completions', (val) => {
       completions = val || {};
       render();
-      if (selectedDay) openSheet(selectedDay);
+      if (selectedDay) updateSheet(selectedDay);
     });
 
     // ══════════════════════════════════════════
