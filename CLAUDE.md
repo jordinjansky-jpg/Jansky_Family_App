@@ -1,6 +1,6 @@
 # Daily Rundown Rebuild - Governance
-**Current Phase:** 8 | **Status:** Complete  
-**Next Milestone:** Phase 9 — Kid mode
+**Current Phase:** 9 | **Status:** Complete  
+**All phases complete**
 
 ## Architecture Decisions
 - Firebase root: `rundown/` — NEVER touch `cleaning/*`
@@ -102,6 +102,7 @@ rundown/
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
+2026-04-02 Phase 9: Kid Mode — Personalized child dashboard at kid.html?kid=Name. Kid-friendly header with greeting and color. Stats bar (grade badge, score %, tasks done/total, streak). Tap-to-complete task cards (reuses renderTaskCard). Celebration system: per-task emoji burst (full) or star sparkle (subtle), all-done overlay (full) or toast banner (subtle), controlled by kidSettings.celebrationsEnabled and celebrationStyle. Optional week view tabs (Mon-Sun) when showWeekView enabled. Long-press bottom sheet with conditional features: points slider (showSlider), delegate (canDelegate), move (canMoveTasks) — no edit/skip. Overdue banner on today view. Undo toast on completion toggle. Real-time completions sync. Fully isolated — no nav bar, no admin access, no task editing. completedBy: 'kid-mode' distinguishes source.
 2026-04-02 Dedicated day/date + move UX: Fixed one-time tasks appearing on multiple days (isOnceTaskHandled now checks all existing schedule entries, not just completed ones). Task form: weekly/monthly show day-of-week chip buttons (Mon-Sun + Any); one-time shows date picker (dedicatedDate field). One-time tasks with future dedicatedDate skip today entry creation. Move button in long-press sheet now directly opens native date picker (no toggle panel). Skip button promoted to main action bar alongside Move.
 2026-04-02 New themes + events + stats: Added Light Vivid and Dark Vivid theme presets with person-colored task card backgrounds (coloredCells flag). Event categories: isEvent toggle in admin categories with eventColor picker, events excluded from scoring, use 'fixed' ownerAssignmentMode (no rotate/dup), show with 📅 prefix and colored border style on task cards. Calendar day cells show colored event bars (multiple events = stacked thin bars). Dashboard stats: replaced points with score %, tasks done/total, total task time in date-header and fixed header — all filter by person. Theme per-device (localStorage source of truth).
 2026-04-02 Phase 8 polish round 2: Fixed admin blank screen on PIN session return (render called before main defined). Fixed edit sheet closing immediately (closeTaskSheet timeout racing with openEditTaskSheet). Added delegation/move indicators on task cards (↪ name / 📅 moved tags from entry key suffix). Redesigned + button as pill-shaped "Task" button. Categories: removed duplicate key display, added isDefault flag (pre-selects in quick-add), badges for weight/pin/icon-off. New tasks now create schedule entries for today (not just future). Debug tab: past-due test entry creator (pick task/date/owner to create overdue entry for testing).
@@ -116,4 +117,4 @@ rundown/
 2026-04-02 Phase 1: Foundation — Firebase connection, utils, theme, common CSS, nav bar, setup wizard, empty page shells. Validated: setup writes to rundown/, nav works, theme persists, no cleaning/* writes.
 
 ## Backlog
-- Phase 9: Kid mode
+(empty — all phases complete)

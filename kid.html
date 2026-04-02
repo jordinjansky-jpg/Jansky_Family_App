@@ -9,6 +9,8 @@
     body {
       padding-bottom: 0;
     }
+
+    /* ── Error states ── */
     .kid-error {
       display: flex;
       flex-direction: column;
@@ -21,6 +23,187 @@
     .kid-error__emoji { font-size: 3rem; margin-bottom: var(--spacing-md); }
     .kid-error__title { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--spacing-sm); }
     .kid-error__desc { color: var(--text-secondary); font-size: var(--font-size-sm); }
+
+    /* ── Kid header ── */
+    .kid-header {
+      text-align: center;
+      padding: var(--spacing-lg) var(--spacing-md) var(--spacing-sm);
+    }
+    .kid-header__greeting {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+    }
+    .kid-header__wave {
+      font-size: 2rem;
+      animation: kidWave 1s ease-in-out;
+    }
+    .kid-header__name {
+      font-size: var(--font-size-xl);
+      font-weight: 800;
+      margin: 0;
+    }
+    .kid-header__date {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      margin-top: var(--spacing-xs);
+    }
+
+    @keyframes kidWave {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(20deg); }
+      50% { transform: rotate(-10deg); }
+      75% { transform: rotate(15deg); }
+    }
+
+    /* ── Stats bar ── */
+    .kid-stats {
+      display: flex;
+      justify-content: center;
+      gap: var(--spacing-lg);
+      padding: var(--spacing-sm) var(--spacing-md);
+      margin: var(--spacing-xs) var(--spacing-md);
+      background: var(--bg-card);
+      border-radius: 12px;
+      border: 1px solid var(--border-light);
+    }
+    .kid-stats__item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .kid-stats__value {
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+    }
+    .kid-stats__label {
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Week tabs ── */
+    .kid-week-tabs {
+      display: flex;
+      gap: var(--spacing-xs);
+      padding: var(--spacing-sm) var(--spacing-md);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .kid-week-tabs::-webkit-scrollbar { display: none; }
+    .kid-week-tab {
+      flex: 1;
+      min-width: 44px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-radius: 10px;
+      border: 1px solid var(--border-light);
+      background: var(--bg-card);
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .kid-week-tab:active { transform: scale(0.95); }
+    .kid-week-tab--active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .kid-week-tab--active .kid-week-tab__day { color: rgba(255,255,255,0.85); }
+    .kid-week-tab--today::after {
+      content: '';
+      position: absolute;
+      bottom: 3px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .kid-week-tab--active.kid-week-tab--today::after {
+      background: rgba(255,255,255,0.8);
+    }
+    .kid-week-tab__day {
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .kid-week-tab__num {
+      font-size: var(--font-size-base);
+      font-weight: 700;
+    }
+
+    /* ── Celebration: emoji burst (full) ── */
+    .kid-emoji-burst {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .kid-emoji-burst__particle {
+      position: absolute;
+      font-size: 1.5rem;
+      animation: kidBurst 0.8s ease-out forwards;
+    }
+
+    @keyframes kidBurst {
+      0% {
+        transform: translate(0, 0) scale(0.5);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--dx), var(--dy)) scale(1.2);
+        opacity: 0;
+      }
+    }
+
+    /* ── Celebration: sparkle (subtle) ── */
+    .kid-sparkle {
+      position: absolute;
+      font-size: 1.2rem;
+      pointer-events: none;
+      z-index: 100;
+      animation: kidSparkle 0.6s ease-out forwards;
+    }
+
+    @keyframes kidSparkle {
+      0% { transform: scale(0) translateY(0); opacity: 1; }
+      50% { transform: scale(1.3) translateY(-12px); opacity: 1; }
+      100% { transform: scale(0.8) translateY(-24px); opacity: 0; }
+    }
+
+    /* ── Celebration: subtle all-done toast ── */
+    .kid-celebration-toast {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9000;
+      text-align: center;
+      padding: var(--spacing-md) var(--spacing-lg);
+      background: var(--success-bg, #d4edda);
+      color: var(--success-text, #155724);
+      font-weight: 700;
+      font-size: var(--font-size-base);
+      animation: kidToastSlide 3s ease-in-out forwards;
+    }
+
+    @keyframes kidToastSlide {
+      0% { transform: translateY(-100%); opacity: 0; }
+      10% { transform: translateY(0); opacity: 1; }
+      80% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(-100%); opacity: 0; }
+    }
+
+    /* ── Task list spacing ── */
+    .kid-tasks {
+      padding: 0 var(--spacing-md) var(--spacing-lg);
+    }
   </style>
 </head>
 <body>
@@ -33,27 +216,35 @@
   </div>
 
   <!-- No navigation bar in kid mode -->
+  <div id="toastMount"></div>
+  <div id="celebrationMount"></div>
+  <div id="taskSheetMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, multiUpdate, onValue, readOnce, readStreaks } from './shared/firebase.js';
+    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, renderConnectionStatus } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange } from './shared/utils.js';
+    import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
+    import { basePoints, dailyScore, gradeDisplay } from './shared/scoring.js';
 
+    // ── Cached theme ──
     const cached = loadCachedTheme();
     applyTheme(cached || defaultThemeConfig());
 
+    // ── Init Firebase ──
     initFirebase();
-
     const firstRun = await isFirstRun();
     if (firstRun) { window.location.href = 'setup.html'; }
 
     const settings = await readSettings();
     if (!cached && settings?.theme) applyTheme(settings.theme);
 
-    // Check for kid parameter
+    // ── Check for kid parameter ──
     const params = new URLSearchParams(window.location.search);
     const kidName = params.get('kid');
 
@@ -82,14 +273,699 @@
             <p class="kid-error__desc">We couldn't find a kid with that name.<br>Check with a parent to make sure the name is right.</p>
           </div>`;
       } else {
+        // ══════════════════════════════════════════
+        // KID MODE — Main App
+        // ══════════════════════════════════════════
+
         document.title = `${kid.name}'s Daily Rundown`;
-        main.innerHTML = `
-          <div style="text-align:center;padding:var(--spacing-xl) 0;">
-            <div style="font-size:3rem;margin-bottom:var(--spacing-md);">👋</div>
-            <h2 style="font-size:var(--font-size-xl);font-weight:700;color:${kid.color};">Hey, ${kid.name}!</h2>
-            <p style="color:var(--text-secondary);margin-top:var(--spacing-sm);">Kid Mode coming in Phase 9</p>
-            <p style="color:var(--text-muted);font-size:var(--font-size-sm);margin-top:var(--spacing-xs);">Your tasks, celebrations, and fun stuff are on the way!</p>
+
+        const [tasksObj, catsObj] = await Promise.all([readTasks(), readCategories()]);
+        const tasks = tasksObj || {};
+        const cats = catsObj || {};
+        const tz = settings?.timezone || 'America/Chicago';
+        const today = todayKey(tz);
+        const ks = kid.kidSettings || {};
+
+        // ── App state ──
+        let viewDate = today;
+        let completions = {};
+        let viewEntries = {};
+        let overdueItems = [];
+        let overdueExpanded = false;
+        let celebrationShown = false;
+        let streakData = { current: 0, best: 0 };
+
+        // ── Celebration mount ──
+        document.getElementById('celebrationMount').innerHTML = renderCelebration();
+
+        // No connection status indicator in kid mode (no header bar)
+
+        // ══════════════════════════════════════════
+        // Data loading
+        // ══════════════════════════════════════════
+
+        async function loadData() {
+          const [comp, sched, allSched, streaks] = await Promise.all([
+            readCompletions(),
+            readSchedule(viewDate),
+            readAllSchedule(),
+            readStreaks(kid.id)
+          ]);
+          completions = comp || {};
+          const daySched = sched || {};
+          viewEntries = filterByPerson(daySched, kid.id);
+          const allOverdue = getOverdueEntries(allSched || {}, completions, today);
+          overdueItems = allOverdue.filter(e => e.ownerId === kid.id);
+          streakData = streaks || { current: 0, best: 0 };
+        }
+
+        // ══════════════════════════════════════════
+        // Render
+        // ══════════════════════════════════════════
+
+        function render() {
+          const prog = dayProgress(viewEntries, completions);
+          const isToday = viewDate === today;
+          const score = dailyScore(viewEntries, completions, tasks, cats, settings, viewDate, today);
+          const gd = gradeDisplay(score.percentage);
+
+          let html = '';
+
+          // ── Kid header ──
+          const dateLabel = formatDateLong(viewDate);
+          const dayPrefix = isToday ? 'Today' : DAY_NAMES[new Date(viewDate + 'T12:00:00Z').getUTCDay()];
+          html += `<div class="kid-header">
+            <div class="kid-header__greeting">
+              <span class="kid-header__wave">👋</span>
+              <h1 class="kid-header__name" style="color:${kid.color}">Hey, ${kid.name}!</h1>
+            </div>
+            <div class="kid-header__date">${dayPrefix} &mdash; ${dateLabel}</div>
           </div>`;
+
+          // ── Stats bar ──
+          html += `<div class="kid-stats">
+            <div class="kid-stats__item">
+              ${score.possible > 0 ? renderGradeBadge(gd.grade, gd.tier) : '<span class="kid-stats__value">--</span>'}
+              <span class="kid-stats__label">${score.possible > 0 ? score.percentage + '%' : 'Grade'}</span>
+            </div>
+            <div class="kid-stats__item">
+              <span class="kid-stats__value">${prog.done}/${prog.total}</span>
+              <span class="kid-stats__label">Tasks</span>
+            </div>
+            <div class="kid-stats__item">
+              <span class="kid-stats__value">🔥 ${streakData.current || 0}</span>
+              <span class="kid-stats__label">Streak</span>
+            </div>
+          </div>`;
+
+          // ── Week tabs (conditional) ──
+          if (ks.showWeekView) {
+            const monday = weekStart(today);
+            const sunday = weekEnd(today);
+            const weekDays = dateRange(monday, sunday);
+            html += `<div class="kid-week-tabs">`;
+            for (const day of weekDays) {
+              const d = new Date(day + 'T12:00:00Z');
+              const dayNum = d.getUTCDate();
+              const dayShort = DAY_NAMES_SHORT[d.getUTCDay()];
+              const isActive = day === viewDate;
+              const isTodayTab = day === today;
+              let cls = 'kid-week-tab';
+              if (isActive) cls += ' kid-week-tab--active';
+              if (isTodayTab) cls += ' kid-week-tab--today';
+              html += `<button class="${cls}" data-date="${day}" type="button">
+                <span class="kid-week-tab__day">${dayShort}</span>
+                <span class="kid-week-tab__num">${dayNum}</span>
+              </button>`;
+            }
+            html += `</div>`;
+          }
+
+          // ── Progress bar ──
+          html += renderProgressBar(prog.done, prog.total);
+
+          // ── Overdue banner (only on today view) ──
+          const overdueActive = overdueItems.filter(e => !isComplete(e.entryKey, completions));
+          if (isToday && overdueActive.length > 0) {
+            html += renderOverdueBanner(overdueActive.length);
+            html += `<div class="overdue-list" id="overdueList" style="display:${overdueExpanded ? 'block' : 'none'};">`;
+            for (const item of overdueActive) {
+              const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+              const cat = task.category ? cats[task.category] : null;
+              const pts = basePoints(task);
+              const ovr = completions[item.entryKey]?.pointsOverride ?? null;
+              html += renderTaskCard({
+                entryKey: item.entryKey,
+                entry: { ...item, dateKey: item.dateKey },
+                task,
+                person: kid,
+                category: cat,
+                completed: isComplete(item.entryKey, completions),
+                overdue: true,
+                dateLabel: `Overdue`,
+                points: { possible: pts, override: ovr },
+                isEvent: !!cat?.isEvent
+              });
+            }
+            html += `</div>`;
+          }
+
+          // ── Day's tasks ──
+          html += `<div class="kid-tasks">`;
+          if (prog.total === 0) {
+            const emptyMsg = isToday ? 'No tasks today — enjoy your free time!' : 'Nothing scheduled for this day.';
+            html += renderEmptyState('🎉', 'All clear!', emptyMsg);
+          } else {
+            // Split incomplete / completed
+            const incomplete = {};
+            const completed_ = {};
+            for (const [key, entry] of Object.entries(viewEntries)) {
+              if (isComplete(key, completions)) completed_[key] = entry;
+              else incomplete[key] = entry;
+            }
+
+            // Incomplete grouped by frequency
+            const groups = groupByFrequency(incomplete);
+            const sections = [
+              { key: 'daily', label: 'Daily' },
+              { key: 'weekly', label: 'Weekly' },
+              { key: 'monthly', label: 'Monthly' },
+              { key: 'once', label: 'One-Time' }
+            ];
+            const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
+            const showHeaders = nonEmpty.length > 1;
+
+            for (const sec of sections) {
+              const entries = groups[sec.key];
+              const sorted = sortEntries(entries, completions);
+              if (sorted.length === 0) continue;
+              if (showHeaders) html += renderTimeHeader(sec.label);
+
+              for (const [entryKey, entry] of sorted) {
+                const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+                const cat = task.category ? cats[task.category] : null;
+                const pts = score.pointsMap[entryKey] || basePoints(task);
+                const ovr = completions[entryKey]?.pointsOverride ?? null;
+                html += renderTaskCard({
+                  entryKey,
+                  entry: { ...entry, dateKey: viewDate },
+                  task,
+                  person: kid,
+                  category: cat,
+                  completed: false,
+                  overdue: false,
+                  points: { possible: pts, override: ovr },
+                  isEvent: !!cat?.isEvent
+                });
+              }
+            }
+
+            // Completed at bottom
+            const completedEntries = Object.entries(completed_);
+            if (completedEntries.length > 0) {
+              html += renderTimeHeader(`Completed (${completedEntries.length})`);
+              for (const [entryKey, entry] of completedEntries) {
+                const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+                const cat = task.category ? cats[task.category] : null;
+                const pts = score.pointsMap[entryKey] || basePoints(task);
+                const ovr = completions[entryKey]?.pointsOverride ?? null;
+                html += renderTaskCard({
+                  entryKey,
+                  entry: { ...entry, dateKey: viewDate },
+                  task,
+                  person: kid,
+                  category: cat,
+                  completed: true,
+                  overdue: false,
+                  points: { possible: pts, override: ovr },
+                  isEvent: !!cat?.isEvent
+                });
+              }
+            }
+          }
+          html += `</div>`;
+
+          main.innerHTML = html;
+          bindEvents();
+        }
+
+        // ══════════════════════════════════════════
+        // Event binding
+        // ══════════════════════════════════════════
+
+        function bindEvents() {
+          // Week tabs
+          main.querySelectorAll('.kid-week-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+              viewDate = btn.dataset.date;
+              celebrationShown = false;
+              overdueExpanded = false;
+              loadData().then(render);
+            });
+          });
+
+          // Task cards: tap to toggle, long-press for detail
+          main.querySelectorAll('.task-card').forEach(btn => {
+            let pressTimer = null;
+            let didLongPress = false;
+
+            const startPress = () => {
+              didLongPress = false;
+              pressTimer = setTimeout(() => {
+                didLongPress = true;
+                openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
+              }, 500);
+            };
+
+            const endPress = () => {
+              clearTimeout(pressTimer);
+              if (!didLongPress) {
+                toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
+              }
+            };
+
+            const cancelPress = () => { clearTimeout(pressTimer); };
+
+            btn.addEventListener('pointerdown', startPress);
+            btn.addEventListener('pointerup', endPress);
+            btn.addEventListener('pointerleave', cancelPress);
+            btn.addEventListener('contextmenu', e => e.preventDefault());
+          });
+
+          // Overdue toggle
+          const overdueBtn = document.getElementById('overdueToggle');
+          if (overdueBtn) {
+            overdueBtn.addEventListener('click', () => {
+              overdueExpanded = !overdueExpanded;
+              const list = document.getElementById('overdueList');
+              const arrow = document.getElementById('overdueArrow');
+              if (list) list.style.display = overdueExpanded ? 'block' : 'none';
+              if (arrow) arrow.classList.toggle('expanded', overdueExpanded);
+            });
+          }
+        }
+
+        // ══════════════════════════════════════════
+        // Completion toggle
+        // ══════════════════════════════════════════
+
+        let undoTimer = null;
+
+        async function toggleTask(entryKey, dateKey) {
+          if (!entryKey) return;
+          const wasComplete = isComplete(entryKey, completions);
+
+          if (wasComplete) {
+            delete completions[entryKey];
+            await removeCompletion(entryKey);
+            celebrationShown = false;
+          } else {
+            const record = {
+              completedAt: firebase.database.ServerValue.TIMESTAMP,
+              completedBy: 'kid-mode'
+            };
+            completions[entryKey] = record;
+            await writeCompletion(entryKey, record);
+
+            // Per-task celebration
+            triggerCelebration(entryKey, 'task');
+          }
+
+          render();
+          showUndoToast(
+            wasComplete ? 'Task marked incomplete' : 'Task completed!',
+            async () => {
+              if (wasComplete) {
+                const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'kid-mode' };
+                completions[entryKey] = record;
+                await writeCompletion(entryKey, record);
+              } else {
+                delete completions[entryKey];
+                await removeCompletion(entryKey);
+              }
+              celebrationShown = false;
+              render();
+            }
+          );
+
+          // Check all-done
+          checkCelebration();
+        }
+
+        function showUndoToast(message, undoCallback) {
+          const mount = document.getElementById('toastMount');
+          mount.innerHTML = renderUndoToast(message);
+          const toast = mount.querySelector('.undo-toast');
+
+          if (undoTimer) clearTimeout(undoTimer);
+
+          toast.querySelector('.undo-toast__btn').addEventListener('click', () => {
+            mount.innerHTML = '';
+            if (undoTimer) clearTimeout(undoTimer);
+            undoCallback();
+          });
+
+          undoTimer = setTimeout(() => {
+            if (toast.parentNode) {
+              toast.style.opacity = '0';
+              setTimeout(() => { mount.innerHTML = ''; }, 300);
+            }
+          }, 4000);
+        }
+
+        // ══════════════════════════════════════════
+        // Celebration system
+        // ══════════════════════════════════════════
+
+        const CELEBRATION_EMOJI = ['🌟', '⭐', '✨', '🎉', '🎊', '🏆', '💪', '🔥', '🚀', '💫', '🎯', '👏'];
+
+        function triggerCelebration(entryKey, type) {
+          if (!ks.celebrationsEnabled && ks.celebrationsEnabled !== undefined) return;
+          if (ks.celebrationStyle === 'off') return;
+
+          if (type === 'task') {
+            if (ks.celebrationStyle === 'subtle') showSubtleTaskCelebration(entryKey);
+            else showFullTaskCelebration(entryKey);
+          } else if (type === 'allDone') {
+            if (ks.celebrationStyle === 'subtle') showSubtleAllDoneCelebration();
+            else showFullAllDoneCelebration();
+          }
+        }
+
+        function showFullTaskCelebration(entryKey) {
+          const card = main.querySelector(`.task-card[data-entry-key="${entryKey}"]`);
+          if (!card) return;
+          const rect = card.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+
+          const container = document.createElement('div');
+          container.className = 'kid-emoji-burst';
+          container.style.left = cx + 'px';
+          container.style.top = cy + 'px';
+
+          const count = 8 + Math.floor(Math.random() * 3);
+          for (let i = 0; i < count; i++) {
+            const span = document.createElement('span');
+            span.className = 'kid-emoji-burst__particle';
+            span.textContent = CELEBRATION_EMOJI[Math.floor(Math.random() * CELEBRATION_EMOJI.length)];
+            const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.4 - 0.2);
+            const dist = 60 + Math.random() * 50;
+            span.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+            span.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+            span.style.animationDelay = (Math.random() * 0.1) + 's';
+            container.appendChild(span);
+          }
+
+          document.body.appendChild(container);
+          setTimeout(() => container.remove(), 1000);
+        }
+
+        function showSubtleTaskCelebration(entryKey) {
+          const card = main.querySelector(`.task-card[data-entry-key="${entryKey}"]`);
+          if (!card) return;
+          const rect = card.getBoundingClientRect();
+
+          const sparkle = document.createElement('span');
+          sparkle.className = 'kid-sparkle';
+          sparkle.textContent = '⭐';
+          sparkle.style.left = (rect.left + 12) + 'px';
+          sparkle.style.top = (rect.top + rect.height / 2 - 10) + 'px';
+          sparkle.style.position = 'fixed';
+
+          document.body.appendChild(sparkle);
+          setTimeout(() => sparkle.remove(), 700);
+        }
+
+        function showFullAllDoneCelebration() {
+          const cel = document.getElementById('celebration');
+          if (!cel) return;
+          // Personalize subtitle
+          const subtitle = cel.querySelector('.celebration__subtitle');
+          if (subtitle) subtitle.textContent = `Amazing job, ${kid.name}!`;
+          cel.classList.add('active');
+          setTimeout(() => cel.classList.remove('active'), 3000);
+        }
+
+        function showSubtleAllDoneCelebration() {
+          const toast = document.createElement('div');
+          toast.className = 'kid-celebration-toast';
+          toast.textContent = `🎉 All done! Great job, ${kid.name}!`;
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 3200);
+        }
+
+        function checkCelebration() {
+          if (celebrationShown) return;
+          if (isAllDone(viewEntries, completions)) {
+            celebrationShown = true;
+            triggerCelebration(null, 'allDone');
+          }
+        }
+
+        // ══════════════════════════════════════════
+        // Task detail bottom sheet (long-press)
+        // ══════════════════════════════════════════
+
+        const taskSheetMount = document.getElementById('taskSheetMount');
+
+        function openTaskSheet(entryKey, dateKey) {
+          const entry = viewEntries[entryKey]
+            || overdueItems.find(o => o.entryKey === entryKey);
+          if (!entry) return;
+
+          const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+          const cat = task.category ? cats[task.category] : null;
+          const completed = isComplete(entryKey, completions);
+          const pts = basePoints(task);
+          const completion = completions[entryKey];
+          const currentOverride = completion?.pointsOverride ?? null;
+
+          // Build kid-specific sheet content
+          const sheetContent = renderKidTaskSheet({
+            entryKey,
+            entry: { ...entry, dateKey: dateKey || viewDate },
+            task,
+            cat,
+            completed,
+            pts,
+            currentOverride,
+            people
+          });
+
+          taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+          requestAnimationFrame(() => {
+            const overlay = document.getElementById('bottomSheet');
+            if (overlay) overlay.classList.add('active');
+          });
+
+          bindTaskSheetEvents(entryKey, dateKey);
+        }
+
+        function renderKidTaskSheet({ entryKey, entry, task, cat, completed, pts, currentOverride, people }) {
+          const catIcon = cat?.icon || '';
+          const diffLabel = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[task.difficulty] || 'Medium';
+          const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-Time' }[entry.rotationType] || '';
+          const todLabel = { am: 'Morning', pm: 'Afternoon', anytime: 'Anytime' }[entry.timeOfDay] || '';
+          const sliderVal = currentOverride ?? 100;
+
+          let html = `<div class="task-detail-sheet">`;
+
+          // Task info
+          html += `<div class="task-detail__info">
+            <div class="task-detail__name" style="--owner-color:${kid.color}">
+              <span class="task-card__initial">${kid.name[0].toUpperCase()}</span>
+              <span>${catIcon ? catIcon + ' ' : ''}${task.name}</span>
+            </div>
+            <div class="task-detail__meta">
+              <span class="chip">${rotLabel}</span>
+              <span class="chip">${diffLabel}</span>
+              ${todLabel ? `<span class="chip">${todLabel}</span>` : ''}
+              ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
+              <span class="chip">${pts}pt</span>
+            </div>
+          </div>`;
+
+          // Complete/uncomplete button
+          const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
+          const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
+          html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+
+          // Action buttons row (conditional)
+          const showDelegate = ks.canDelegate;
+          const showMove = ks.canMoveTasks;
+          if (showDelegate || showMove) {
+            html += `<div class="task-detail__actions mt-md">`;
+            if (showDelegate) {
+              html += `<button class="btn btn--secondary btn--sm" id="sheetDelegate" type="button">👤 Delegate</button>`;
+            }
+            if (showMove) {
+              html += `<button class="btn btn--secondary btn--sm" id="sheetMove" type="button">📅 Move</button>`;
+            }
+            html += `</div>`;
+          }
+
+          // Delegate panel
+          if (showDelegate) {
+            const otherPeople = people.filter(p => p.id !== entry.ownerId);
+            html += `<div class="task-detail__delegate-panel" id="delegatePanel" style="display:none;">
+              <span class="form-label">Reassign to:</span>
+              <div class="task-detail__person-chips">
+                ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${p.name}</button>`).join('')}
+              </div>
+            </div>`;
+          }
+
+          // Move date picker
+          if (showMove) {
+            html += `<input type="date" id="moveDatePicker" class="task-detail__date-input" style="position:absolute;opacity:0;pointer-events:none;">`;
+          }
+
+          // Points slider (conditional)
+          if (ks.showSlider) {
+            const min = settings?.sliderMin ?? 0;
+            const max = settings?.sliderMax ?? 150;
+            const earnedPts = Math.round(pts * (sliderVal / 100));
+            const sliderLabel = completed ? 'Points Override' : 'Points Preview';
+            const previewNote = completed ? '' : '<div class="form-hint">Complete the task to save override</div>';
+            html += `<div class="task-detail__slider mt-md">
+              <div class="task-detail__slider-header">
+                <span class="form-label">${sliderLabel}</span>
+                <span class="task-detail__slider-value" id="sliderValueLabel">${sliderVal}% (${earnedPts}pt)</span>
+              </div>
+              <div class="task-detail__slider-row">
+                <input type="range" class="slider" id="pointsSlider" min="${min}" max="${max}" value="${sliderVal}" step="5" data-entry-key="${entryKey}" data-base-pts="${pts}">
+                ${sliderVal !== 100 ? `<button class="btn btn--secondary btn--sm" id="sliderReset" type="button">Reset</button>` : ''}
+              </div>
+              ${previewNote}
+            </div>`;
+          }
+
+          html += `</div>`;
+          return html;
+        }
+
+        function closeTaskSheet() {
+          const overlay = document.getElementById('bottomSheet');
+          if (overlay) {
+            overlay.classList.remove('active');
+            setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
+          }
+        }
+
+        function bindTaskSheetEvents(entryKey, dateKey) {
+          const overlay = document.getElementById('bottomSheet');
+          overlay?.addEventListener('click', e => {
+            if (e.target === overlay) closeTaskSheet();
+          });
+
+          // Toggle complete
+          document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
+            closeTaskSheet();
+            await toggleTask(entryKey, dateKey);
+          });
+
+          // Points slider
+          if (ks.showSlider) {
+            const slider = document.getElementById('pointsSlider');
+            if (slider) {
+              const isCompleted = isComplete(entryKey, completions);
+
+              slider.addEventListener('input', () => {
+                const val = parseInt(slider.value, 10);
+                const basePts = parseInt(slider.dataset.basePts, 10);
+                const earnedPts = Math.round(basePts * (val / 100));
+                const label = document.getElementById('sliderValueLabel');
+                if (label) label.textContent = `${val}% (${earnedPts}pt)`;
+              });
+
+              slider.addEventListener('change', async () => {
+                if (!isCompleted) return;
+                const val = parseInt(slider.value, 10);
+                const override = val === 100 ? null : val;
+                completions[entryKey].pointsOverride = override;
+                await writeCompletion(entryKey, completions[entryKey]);
+                render();
+              });
+
+              document.getElementById('sliderReset')?.addEventListener('click', () => {
+                slider.value = 100;
+                slider.dispatchEvent(new Event('input'));
+                slider.dispatchEvent(new Event('change'));
+              });
+            }
+          }
+
+          // Delegate
+          if (ks.canDelegate) {
+            document.getElementById('sheetDelegate')?.addEventListener('click', () => {
+              const panel = document.getElementById('delegatePanel');
+              if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+            });
+
+            document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
+              chip.addEventListener('click', async () => {
+                const newOwnerId = chip.dataset.personId;
+                if (!newOwnerId) return;
+
+                const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+                if (!entry) return;
+
+                const targetDate = dateKey || viewDate;
+                const newEntry = { ...entry };
+                delete newEntry.entryKey;
+                newEntry.ownerId = newOwnerId;
+
+                const updates = {};
+                updates[`schedule/${targetDate}/${entryKey}`] = null;
+                const newKey = `sched_${Date.now()}_delegate`;
+                updates[`schedule/${targetDate}/${newKey}`] = newEntry;
+
+                if (completions[entryKey]) {
+                  updates[`completions/${entryKey}`] = null;
+                  updates[`completions/${newKey}`] = completions[entryKey];
+                }
+
+                await multiUpdate(updates);
+                closeTaskSheet();
+                await loadData();
+                render();
+              });
+            });
+          }
+
+          // Move
+          if (ks.canMoveTasks) {
+            document.getElementById('sheetMove')?.addEventListener('click', () => {
+              const picker = document.getElementById('moveDatePicker');
+              if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+            });
+
+            document.getElementById('moveDatePicker')?.addEventListener('change', async (e) => {
+              const newDate = e.target.value;
+              if (!newDate) return;
+
+              const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+              if (!entry) return;
+
+              const sourceDate = dateKey || viewDate;
+              const newEntry = { ...entry };
+              delete newEntry.entryKey;
+
+              const updates = {};
+              updates[`schedule/${sourceDate}/${entryKey}`] = null;
+              const newKey = `sched_${Date.now()}_moved`;
+              updates[`schedule/${newDate}/${newKey}`] = newEntry;
+
+              if (completions[entryKey]) {
+                updates[`completions/${entryKey}`] = null;
+                updates[`completions/${newKey}`] = completions[entryKey];
+              }
+
+              await multiUpdate(updates);
+              closeTaskSheet();
+              await loadData();
+              render();
+            });
+          }
+        }
+
+        // ══════════════════════════════════════════
+        // Real-time sync
+        // ══════════════════════════════════════════
+
+        onValue('completions', (val) => {
+          completions = val || {};
+          render();
+        });
+
+        // ══════════════════════════════════════════
+        // Initial load
+        // ══════════════════════════════════════════
+
+        await loadData();
+        render();
       }
     }
   </script>
