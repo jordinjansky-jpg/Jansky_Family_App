@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Daily Rundown</title>
+  <link rel="stylesheet" href="styles/common.css">
+</head>
+<body>
+  <div id="headerMount"></div>
+  <div class="page-content" id="app">
+    <div class="loading-inline" id="loadingState">
+      <div class="loading-spinner loading-spinner--small"></div>
+      <span>Loading...</span>
+    </div>
+    <div id="mainContent" style="display:none;"></div>
+  </div>
+  <div id="navMount"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script type="module">
+    import { initFirebase, isFirstRun, readSettings, readPeople, onConnectionChange } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { todayKey } from './shared/utils.js';
+
+    // Apply cached theme immediately
+    const cached = loadCachedTheme();
+    applyTheme(cached || defaultThemeConfig());
+
+    // Init Firebase
+    initFirebase();
+
+    // Check first run
+    const firstRun = await isFirstRun();
+    if (firstRun) {
+      window.location.href = 'setup.html';
+    }
+
+    // Load settings and people
+    const [settings, peopleObj] = await Promise.all([readSettings(), readPeople()]);
+
+    // Apply theme from Firebase
+    if (settings?.theme) {
+      applyTheme(settings.theme);
+    }
+
+    // Render header
+    const debugActive = localStorage.getItem('dr-debug') === 'true';
+    document.getElementById('headerMount').innerHTML = renderHeader({
+      appName: settings?.appName || 'Daily Rundown',
+      subtitle: settings?.familyName || '',
+      showAdmin: true,
+      showDebug: debugActive
+    });
+
+    // Render nav
+    document.getElementById('navMount').innerHTML = renderNavBar('home');
+
+    // Connection status
+    onConnectionChange(connected => {
+      const existing = document.querySelector('.connection-dot');
+      const html = renderConnectionStatus(connected);
+      if (existing) {
+        existing.outerHTML = html;
+      } else {
+        document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', html);
+      }
+    });
+
+    // Show main content
+    document.getElementById('loadingState').style.display = 'none';
+    const main = document.getElementById('mainContent');
+    main.style.display = '';
+
+    const today = todayKey(settings?.timezone || 'America/Chicago');
+    main.innerHTML = renderEmptyState(
+      '📋',
+      'Dashboard coming in Phase 3',
+      `Today is ${today}. Setup complete — your data is in Firebase.`
+    );
+  </script>
+</body>
+</html>

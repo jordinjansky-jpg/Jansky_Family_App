@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Daily Rundown — Tracker</title>
+  <link rel="stylesheet" href="styles/common.css">
+</head>
+<body>
+  <div id="headerMount"></div>
+  <div class="page-content" id="app">
+    <div class="loading-inline" id="loadingState">
+      <div class="loading-spinner loading-spinner--small"></div>
+      <span>Loading...</span>
+    </div>
+    <div id="mainContent" style="display:none;"></div>
+  </div>
+  <div id="navMount"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script type="module">
+    import { initFirebase, isFirstRun, readSettings } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+
+    const cached = loadCachedTheme();
+    applyTheme(cached || defaultThemeConfig());
+
+    initFirebase();
+
+    const firstRun = await isFirstRun();
+    if (firstRun) { window.location.href = 'setup.html'; }
+
+    const settings = await readSettings();
+    if (settings?.theme) applyTheme(settings.theme);
+
+    const debugActive = localStorage.getItem('dr-debug') === 'true';
+    document.getElementById('headerMount').innerHTML = renderHeader({
+      appName: settings?.appName || 'Daily Rundown',
+      subtitle: 'Tracker',
+      showAdmin: true,
+      showDebug: debugActive
+    });
+
+    document.getElementById('navMount').innerHTML = renderNavBar('tracker');
+
+    document.getElementById('loadingState').style.display = 'none';
+    const main = document.getElementById('mainContent');
+    main.style.display = '';
+    main.innerHTML = renderEmptyState('✅', 'Task Tracker coming in Phase 7', 'Weekly and monthly task completion status.');
+  </script>
+</body>
+</html>

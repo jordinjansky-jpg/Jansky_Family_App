@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Daily Rundown — Admin</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    .pin-gate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: var(--spacing-md);
+    }
+    .pin-gate__title {
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+    }
+    .pin-gate__desc {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+    }
+    .pin-gate__inputs {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin: var(--spacing-md) 0;
+    }
+    .pin-gate__digit {
+      width: 48px;
+      height: 56px;
+      text-align: center;
+      font-size: var(--font-size-xl);
+      font-weight: 700;
+      border-radius: var(--radius-md);
+    }
+    .pin-gate__error {
+      color: var(--danger-text);
+      font-size: var(--font-size-sm);
+      min-height: 1.5em;
+    }
+  </style>
+</head>
+<body>
+  <div id="headerMount"></div>
+  <div class="page-content" id="app">
+    <div class="loading-inline" id="loadingState">
+      <div class="loading-spinner loading-spinner--small"></div>
+      <span>Loading...</span>
+    </div>
+
+    <!-- PIN Gate -->
+    <div id="pinGate" style="display:none;">
+      <div class="pin-gate">
+        <div>🔒</div>
+        <h2 class="pin-gate__title">Admin Access</h2>
+        <p class="pin-gate__desc">Enter your 4-digit PIN</p>
+        <div class="pin-gate__inputs">
+          <input type="tel" class="pin-gate__digit" maxlength="1" data-pin="0" inputmode="numeric">
+          <input type="tel" class="pin-gate__digit" maxlength="1" data-pin="1" inputmode="numeric">
+          <input type="tel" class="pin-gate__digit" maxlength="1" data-pin="2" inputmode="numeric">
+          <input type="tel" class="pin-gate__digit" maxlength="1" data-pin="3" inputmode="numeric">
+        </div>
+        <p class="pin-gate__error" id="pinError"></p>
+      </div>
+    </div>
+
+    <!-- Admin Content (after PIN) -->
+    <div id="mainContent" style="display:none;"></div>
+  </div>
+  <div id="navMount"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script type="module">
+    import { initFirebase, isFirstRun, readSettings } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+
+    const cached = loadCachedTheme();
+    applyTheme(cached || defaultThemeConfig());
+
+    initFirebase();
+
+    const firstRun = await isFirstRun();
+    if (firstRun) { window.location.href = 'setup.html'; }
+
+    const settings = await readSettings();
+    if (settings?.theme) applyTheme(settings.theme);
+
+    const debugActive = localStorage.getItem('dr-debug') === 'true';
+    document.getElementById('headerMount').innerHTML = renderHeader({
+      appName: settings?.appName || 'Daily Rundown',
+      subtitle: 'Admin',
+      showAdmin: false,
+      showDebug: debugActive
+    });
+
+    document.getElementById('navMount').innerHTML = renderNavBar(null);
+
+    // Show PIN gate
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('pinGate').style.display = '';
+
+    const adminPin = settings?.adminPin || '';
+    const recoveryPin = settings?.recoveryPin || '9999';
+    const digits = document.querySelectorAll('.pin-gate__digit');
+
+    digits.forEach((input, i) => {
+      input.addEventListener('input', (e) => {
+        const val = e.target.value.replace(/\D/g, '');
+        e.target.value = val.slice(0, 1);
+        if (val && i < digits.length - 1) {
+          digits[i + 1].focus();
+        }
+        checkPin();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && i > 0) {
+          digits[i - 1].focus();
+        }
+      });
+    });
+
+    digits[0].focus();
+
+    function checkPin() {
+      const entered = Array.from(digits).map(d => d.value).join('');
+      if (entered.length !== 4) return;
+
+      if (entered === adminPin || entered === recoveryPin) {
+        document.getElementById('pinGate').style.display = 'none';
+        const main = document.getElementById('mainContent');
+        main.style.display = '';
+        main.innerHTML = renderEmptyState('⚙️', 'Admin Panel coming in Phase 8', 'Task management, people, categories, settings, debug tools.');
+      } else {
+        document.getElementById('pinError').textContent = 'Incorrect PIN';
+        digits.forEach(d => d.value = '');
+        digits[0].focus();
+        setTimeout(() => {
+          document.getElementById('pinError').textContent = '';
+        }, 2000);
+      }
+    }
+  </script>
+</body>
+</html>

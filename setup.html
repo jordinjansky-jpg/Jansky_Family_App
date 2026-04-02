@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Daily Rundown — Setup</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    body {
+      padding-bottom: 0;
+    }
+
+    .setup-container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: var(--spacing-md);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .setup-header {
+      text-align: center;
+      padding: var(--spacing-xl) 0 var(--spacing-md);
+    }
+
+    .setup-header__emoji {
+      font-size: 3rem;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .setup-header__title {
+      font-size: var(--font-size-xl);
+      font-weight: 700;
+    }
+
+    .setup-header__subtitle {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      margin-top: var(--spacing-xs);
+    }
+
+    .setup-step {
+      display: none;
+      flex: 1;
+    }
+
+    .setup-step.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .setup-step__title {
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .setup-step__desc {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .setup-step__body {
+      flex: 1;
+    }
+
+    .setup-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-md) 0;
+      margin-top: auto;
+    }
+
+    .setup-actions .btn {
+      flex: 1;
+    }
+
+    /* People list */
+    .people-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .person-card {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      padding: var(--spacing-md);
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-light);
+    }
+
+    .person-card__color {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .person-card__info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .person-card__name {
+      font-weight: 600;
+    }
+
+    .person-card__role {
+      font-size: var(--font-size-xs);
+      color: var(--text-secondary);
+      text-transform: capitalize;
+    }
+
+    .person-card__remove {
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      padding: var(--spacing-xs);
+    }
+
+    /* Category list */
+    .category-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .category-card {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      padding: var(--spacing-sm) var(--spacing-md);
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-light);
+      min-height: 48px;
+    }
+
+    .category-card__icon {
+      font-size: 1.3rem;
+    }
+
+    .category-card__label {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .category-card__actions {
+      display: flex;
+      gap: var(--spacing-xs);
+    }
+
+    .category-card__btn {
+      padding: var(--spacing-xs);
+      color: var(--text-muted);
+      font-size: var(--font-size-sm);
+    }
+
+    /* Theme preview */
+    .theme-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-md);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .theme-option {
+      padding: var(--spacing-md);
+      border-radius: var(--radius-md);
+      border: 2px solid var(--border-color);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-align: center;
+    }
+
+    .theme-option.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-light);
+    }
+
+    .theme-option__preview {
+      height: 48px;
+      border-radius: var(--radius-sm);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .theme-option__label {
+      font-size: var(--font-size-sm);
+      font-weight: 500;
+    }
+
+    /* Add person form */
+    .add-person-form {
+      padding: var(--spacing-md);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      margin-top: var(--spacing-sm);
+    }
+
+    /* Accent color grid */
+    .accent-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-sm);
+    }
+
+    .accent-swatch {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .accent-swatch.selected {
+      border-color: var(--text-primary);
+      transform: scale(1.15);
+    }
+
+    /* PIN input */
+    .pin-input-group {
+      display: flex;
+      gap: var(--spacing-sm);
+      justify-content: center;
+      margin: var(--spacing-lg) 0;
+    }
+
+    .pin-digit {
+      width: 48px;
+      height: 56px;
+      text-align: center;
+      font-size: var(--font-size-xl);
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      letter-spacing: 0;
+    }
+
+    /* Finish screen */
+    .finish-screen {
+      text-align: center;
+      padding: var(--spacing-xl) 0;
+    }
+
+    .finish-screen__emoji {
+      font-size: 4rem;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .finish-screen__summary {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      margin: var(--spacing-md) 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="setup-container" id="app">
+    <div class="setup-header">
+      <div class="setup-header__emoji">📋</div>
+      <h1 class="setup-header__title">Daily Rundown</h1>
+      <p class="setup-header__subtitle">Let's set up your family task manager</p>
+    </div>
+
+    <div class="step-indicator" id="stepIndicator"></div>
+
+    <!-- Step 1: App Name & Family -->
+    <div class="setup-step" id="step-1" data-step="1">
+      <h2 class="setup-step__title">Name your app</h2>
+      <p class="setup-step__desc">What should we call your daily rundown?</p>
+      <div class="setup-step__body">
+        <div class="form-group">
+          <label class="form-label" for="appName">App Name</label>
+          <input type="text" id="appName" value="Daily Rundown" placeholder="Daily Rundown">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="familyName">Family / Group Name</label>
+          <input type="text" id="familyName" placeholder="The Jansky Family">
+          <p class="form-hint">Shown as a subtitle under the app name</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="timezone">Timezone</label>
+          <select id="timezone"></select>
+          <p class="form-hint">Used for daily rollover and scheduling</p>
+        </div>
+      </div>
+      <div class="setup-actions">
+        <button class="btn btn--primary btn--full" onclick="nextStep()">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 2: People -->
+    <div class="setup-step" id="step-2" data-step="2">
+      <h2 class="setup-step__title">Add your family</h2>
+      <p class="setup-step__desc">Who will be using Daily Rundown?</p>
+      <div class="setup-step__body">
+        <div class="people-list" id="peopleList"></div>
+        <div class="add-person-form" id="addPersonForm">
+          <div class="form-group">
+            <label class="form-label" for="personName">Name</label>
+            <input type="text" id="personName" placeholder="e.g., Jordin">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Color</label>
+            <div class="color-grid" id="personColorGrid"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <div class="form-row">
+              <button class="btn btn--secondary role-btn selected" data-role="adult" onclick="selectRole('adult')">👤 Adult</button>
+              <button class="btn btn--secondary role-btn" data-role="child" onclick="selectRole('child')">👦 Child</button>
+            </div>
+          </div>
+          <button class="btn btn--primary btn--full" onclick="addPerson()">Add Person</button>
+        </div>
+      </div>
+      <div class="setup-actions">
+        <button class="btn btn--secondary" onclick="prevStep()">Back</button>
+        <button class="btn btn--primary" onclick="nextStep()" id="peopleNext" disabled>Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Categories -->
+    <div class="setup-step" id="step-3" data-step="3">
+      <h2 class="setup-step__title">Task categories</h2>
+      <p class="setup-step__desc">Organize tasks into groups. Defaults are provided — customize as needed.</p>
+      <div class="setup-step__body">
+        <div class="category-list" id="categoryList"></div>
+        <div class="add-person-form mt-md" id="addCategoryForm" style="display:none;">
+          <div class="form-group">
+            <label class="form-label" for="catIcon">Emoji Icon</label>
+            <input type="text" id="catIcon" placeholder="🧹" maxlength="4" style="width:80px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catLabel">Label</label>
+            <input type="text" id="catLabel" placeholder="e.g., Music Practice">
+          </div>
+          <div class="form-row">
+            <button class="btn btn--secondary" onclick="cancelAddCategory()">Cancel</button>
+            <button class="btn btn--primary" onclick="saveCategory()">Add</button>
+          </div>
+        </div>
+        <button class="btn btn--ghost btn--full mt-md" id="addCategoryBtn" onclick="showAddCategory()">+ Add Category</button>
+      </div>
+      <div class="setup-actions">
+        <button class="btn btn--secondary" onclick="prevStep()">Back</button>
+        <button class="btn btn--primary" onclick="nextStep()">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Theme -->
+    <div class="setup-step" id="step-4" data-step="4">
+      <h2 class="setup-step__title">Pick a theme</h2>
+      <p class="setup-step__desc">Choose how your app looks. You can change this anytime.</p>
+      <div class="setup-step__body">
+        <div class="theme-grid" id="themeGrid"></div>
+        <div class="form-group">
+          <label class="form-label">Accent Color</label>
+          <div class="accent-grid" id="accentGrid"></div>
+        </div>
+      </div>
+      <div class="setup-actions">
+        <button class="btn btn--secondary" onclick="prevStep()">Back</button>
+        <button class="btn btn--primary" onclick="nextStep()">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Admin PIN -->
+    <div class="setup-step" id="step-5" data-step="5">
+      <h2 class="setup-step__title">Set an admin PIN</h2>
+      <p class="setup-step__desc">This PIN protects admin settings and PIN-locked categories. Remember it!</p>
+      <div class="setup-step__body">
+        <div class="pin-input-group" id="pinGroup">
+          <input type="tel" class="pin-digit" maxlength="1" data-pin="0" inputmode="numeric">
+          <input type="tel" class="pin-digit" maxlength="1" data-pin="1" inputmode="numeric">
+          <input type="tel" class="pin-digit" maxlength="1" data-pin="2" inputmode="numeric">
+          <input type="tel" class="pin-digit" maxlength="1" data-pin="3" inputmode="numeric">
+        </div>
+        <p class="text-center text-sm text-muted">Enter a 4-digit PIN</p>
+      </div>
+      <div class="setup-actions">
+        <button class="btn btn--secondary" onclick="prevStep()">Back</button>
+        <button class="btn btn--primary" onclick="nextStep()" id="pinNext" disabled>Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 6: Finish -->
+    <div class="setup-step" id="step-6" data-step="6">
+      <div class="finish-screen">
+        <div class="finish-screen__emoji">🎉</div>
+        <h2 class="setup-step__title">You're all set!</h2>
+        <div class="finish-screen__summary" id="finishSummary"></div>
+        <button class="btn btn--primary btn--full" onclick="finishSetup()" id="finishBtn">Launch Daily Rundown</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script type="module">
+    import { initFirebase, writeSettings, writeCategories, pushPerson, readSettings } from './shared/firebase.js';
+    import { getTimezoneOptions, detectTimezone } from './shared/utils.js';
+    import { getPresets, getColorPalette, applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+
+    // --- State ---
+    let currentStep = 1;
+    const TOTAL_STEPS = 6;
+
+    let people = [];
+    let categories = [
+      { key: 'chores', icon: '🧹', label: 'Chores', pinProtected: false, weightPercent: null },
+      { key: 'wellness', icon: '💆', label: 'Wellness', pinProtected: false, weightPercent: null },
+      { key: 'fitness', icon: '💪', label: 'Fitness', pinProtected: false, weightPercent: null },
+      { key: 'education', icon: '📚', label: 'Education', pinProtected: false, weightPercent: null },
+      { key: 'behavior', icon: '⭐', label: 'Behavior', pinProtected: false, weightPercent: null }
+    ];
+    let selectedColor = null;
+    let selectedRole = 'adult';
+    let selectedPreset = 'light-warm';
+    let selectedAccent = '#5b7fd6';
+    let adminPin = '';
+
+    const colorPalette = getColorPalette();
+
+    // --- Init ---
+    initFirebase();
+
+    // Apply cached theme immediately
+    const cached = loadCachedTheme();
+    if (cached) applyTheme(cached);
+    else applyTheme(defaultThemeConfig());
+
+    // Check if setup already completed — redirect to dashboard
+    readSettings().then(settings => {
+      if (settings) {
+        window.location.href = 'index.html';
+      }
+    });
+
+    // --- Timezone setup ---
+    const tzSelect = document.getElementById('timezone');
+    const detected = detectTimezone();
+    const tzOptions = getTimezoneOptions();
+
+    // Add detected timezone if not in list
+    let foundDetected = tzOptions.some(tz => tz.value === detected);
+    if (!foundDetected) {
+      tzOptions.unshift({ value: detected, label: detected });
+    }
+
+    tzOptions.forEach(tz => {
+      const opt = document.createElement('option');
+      opt.value = tz.value;
+      opt.textContent = tz.label;
+      if (tz.value === detected) opt.selected = true;
+      tzSelect.appendChild(opt);
+    });
+
+    // --- Step indicator ---
+    function renderStepIndicator() {
+      const el = document.getElementById('stepIndicator');
+      let html = '';
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
+        let cls = 'step-dot';
+        if (i === currentStep) cls += ' step-dot--active';
+        else if (i < currentStep) cls += ' step-dot--done';
+        html += `<div class="${cls}"></div>`;
+      }
+      el.innerHTML = html;
+    }
+
+    function showStep(n) {
+      currentStep = n;
+      document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
+      const step = document.getElementById(`step-${n}`);
+      if (step) step.classList.add('active');
+      renderStepIndicator();
+
+      // Step-specific rendering
+      if (n === 2) renderPeopleList();
+      if (n === 3) renderCategories();
+      if (n === 4) renderThemeOptions();
+      if (n === 6) renderFinishSummary();
+    }
+
+    window.nextStep = function() {
+      // Validate current step
+      if (currentStep === 1) {
+        const appName = document.getElementById('appName').value.trim();
+        if (!appName) { document.getElementById('appName').focus(); return; }
+      }
+      if (currentStep === 2 && people.length === 0) return;
+      if (currentStep === 5) {
+        if (adminPin.length !== 4) return;
+      }
+      showStep(currentStep + 1);
+    };
+
+    window.prevStep = function() {
+      if (currentStep > 1) showStep(currentStep - 1);
+    };
+
+    // --- People ---
+    function renderPeopleList() {
+      const list = document.getElementById('peopleList');
+      list.innerHTML = people.map((p, i) => `
+        <div class="person-card">
+          <div class="person-card__color" style="background:${p.color}"></div>
+          <div class="person-card__info">
+            <div class="person-card__name">${p.name}</div>
+            <div class="person-card__role">${p.role}</div>
+          </div>
+          <button class="person-card__remove" onclick="removePerson(${i})">✕</button>
+        </div>
+      `).join('');
+
+      document.getElementById('peopleNext').disabled = people.length === 0;
+      renderPersonColorGrid();
+    }
+
+    function renderPersonColorGrid() {
+      const grid = document.getElementById('personColorGrid');
+      const usedColors = people.map(p => p.color);
+      grid.innerHTML = colorPalette.map(c => {
+        const used = usedColors.includes(c);
+        const sel = selectedColor === c ? ' selected' : '';
+        return `<div class="color-swatch${sel}" style="background:${c};${used ? 'opacity:0.3;pointer-events:none;' : ''}" onclick="selectColor('${c}')"></div>`;
+      }).join('');
+    }
+
+    window.selectColor = function(color) {
+      selectedColor = color;
+      renderPersonColorGrid();
+    };
+
+    window.selectRole = function(role) {
+      selectedRole = role;
+      document.querySelectorAll('.role-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.role === role);
+      });
+    };
+
+    window.addPerson = function() {
+      const nameInput = document.getElementById('personName');
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.focus(); return; }
+      if (!selectedColor) {
+        // Auto-select first available color
+        const usedColors = people.map(p => p.color);
+        selectedColor = colorPalette.find(c => !usedColors.includes(c)) || colorPalette[0];
+      }
+
+      const person = {
+        name,
+        color: selectedColor,
+        role: selectedRole
+      };
+
+      if (selectedRole === 'child') {
+        person.kidSettings = {
+          showWeekView: false,
+          showCalendar: false,
+          canDelegate: false,
+          canMoveTasks: false,
+          showSlider: false,
+          celebrationsEnabled: true,
+          celebrationStyle: 'full'
+        };
+      }
+
+      people.push(person);
+      nameInput.value = '';
+      selectedColor = null;
+      selectedRole = 'adult';
+      document.querySelectorAll('.role-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.role === 'adult');
+      });
+      renderPeopleList();
+      nameInput.focus();
+    };
+
+    window.removePerson = function(index) {
+      people.splice(index, 1);
+      renderPeopleList();
+    };
+
+    // --- Categories ---
+    function renderCategories() {
+      const list = document.getElementById('categoryList');
+      list.innerHTML = categories.map((c, i) => `
+        <div class="category-card">
+          <span class="category-card__icon">${c.icon}</span>
+          <span class="category-card__label">${c.label}</span>
+          <div class="category-card__actions">
+            <button class="category-card__btn" onclick="removeCategory(${i})">✕</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    window.showAddCategory = function() {
+      document.getElementById('addCategoryForm').style.display = '';
+      document.getElementById('addCategoryBtn').style.display = 'none';
+      document.getElementById('catIcon').focus();
+    };
+
+    window.cancelAddCategory = function() {
+      document.getElementById('addCategoryForm').style.display = 'none';
+      document.getElementById('addCategoryBtn').style.display = '';
+      document.getElementById('catIcon').value = '';
+      document.getElementById('catLabel').value = '';
+    };
+
+    window.saveCategory = function() {
+      const icon = document.getElementById('catIcon').value.trim() || '📌';
+      const label = document.getElementById('catLabel').value.trim();
+      if (!label) { document.getElementById('catLabel').focus(); return; }
+
+      const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
+      if (categories.some(c => c.key === key)) {
+        document.getElementById('catLabel').focus();
+        return;
+      }
+
+      categories.push({ key, icon, label, pinProtected: false, weightPercent: null });
+      cancelAddCategory();
+      renderCategories();
+    };
+
+    window.removeCategory = function(index) {
+      if (categories.length <= 1) return; // Keep at least one
+      categories.splice(index, 1);
+      renderCategories();
+    };
+
+    // --- Theme ---
+    function renderThemeOptions() {
+      const presets = getPresets();
+      const grid = document.getElementById('themeGrid');
+      grid.innerHTML = presets.map(p => {
+        const sel = selectedPreset === p.key ? ' selected' : '';
+        const bgColor = p.mode === 'dark' ? '#1a1a2e' : '#faf8f5';
+        const fgColor = p.mode === 'dark' ? '#e8e8e8' : '#2c2c2c';
+        return `<div class="theme-option${sel}" onclick="selectTheme('${p.key}')">
+          <div class="theme-option__preview" style="background:${bgColor};border:1px solid ${fgColor}20;display:flex;align-items:center;justify-content:center;color:${fgColor};font-size:0.8rem;">${p.label}</div>
+          <div class="theme-option__label">${p.label}</div>
+        </div>`;
+      }).join('');
+
+      const accentColors = ['#5b7fd6', '#e85d75', '#43a047', '#ff9800', '#8e24aa', '#00acc1', '#ef5350', '#ffa726'];
+      const accentGrid = document.getElementById('accentGrid');
+      accentGrid.innerHTML = accentColors.map(c => {
+        const sel = selectedAccent === c ? ' selected' : '';
+        return `<div class="accent-swatch${sel}" style="background:${c}" onclick="selectAccent('${c}')"></div>`;
+      }).join('');
+    }
+
+    window.selectTheme = function(preset) {
+      selectedPreset = preset;
+      const presets = getPresets();
+      const info = presets.find(p => p.key === preset);
+      applyTheme({ mode: info.mode, preset, accentColor: selectedAccent });
+      renderThemeOptions();
+    };
+
+    window.selectAccent = function(color) {
+      selectedAccent = color;
+      const presets = getPresets();
+      const info = presets.find(p => p.key === selectedPreset);
+      applyTheme({ mode: info.mode, preset: selectedPreset, accentColor: color });
+      renderThemeOptions();
+    };
+
+    // --- PIN ---
+    const pinDigits = document.querySelectorAll('.pin-digit');
+    pinDigits.forEach((input, i) => {
+      input.addEventListener('input', (e) => {
+        const val = e.target.value.replace(/\D/g, '');
+        e.target.value = val.slice(0, 1);
+        if (val && i < pinDigits.length - 1) {
+          pinDigits[i + 1].focus();
+        }
+        updatePin();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && i > 0) {
+          pinDigits[i - 1].focus();
+        }
+      });
+    });
+
+    function updatePin() {
+      adminPin = Array.from(pinDigits).map(d => d.value).join('');
+      document.getElementById('pinNext').disabled = adminPin.length !== 4;
+    }
+
+    // --- Finish ---
+    function renderFinishSummary() {
+      const appName = document.getElementById('appName').value.trim() || 'Daily Rundown';
+      const familyName = document.getElementById('familyName').value.trim();
+      const adults = people.filter(p => p.role === 'adult').length;
+      const kids = people.filter(p => p.role === 'child').length;
+
+      let summary = `<strong>${appName}</strong>`;
+      if (familyName) summary += ` — ${familyName}`;
+      summary += `<br>${people.length} family member${people.length !== 1 ? 's' : ''} (${adults} adult${adults !== 1 ? 's' : ''}, ${kids} kid${kids !== 1 ? 's' : ''})`;
+      summary += `<br>${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}`;
+
+      document.getElementById('finishSummary').innerHTML = summary;
+    }
+
+    window.finishSetup = async function() {
+      const btn = document.getElementById('finishBtn');
+      btn.disabled = true;
+      btn.textContent = 'Setting up...';
+
+      try {
+        const appName = document.getElementById('appName').value.trim() || 'Daily Rundown';
+        const familyName = document.getElementById('familyName').value.trim();
+        const timezone = document.getElementById('timezone').value;
+
+        const presets = getPresets();
+        const presetInfo = presets.find(p => p.key === selectedPreset);
+
+        // Write settings
+        await writeSettings({
+          appName,
+          familyName,
+          timezone,
+          adminPin,
+          recoveryPin: '9999',
+          weekendWeight: 1.5,
+          pastDueCreditPct: 75,
+          sliderMin: 0,
+          sliderMax: 150,
+          theme: {
+            mode: presetInfo.mode,
+            preset: selectedPreset,
+            accentColor: selectedAccent
+          }
+        });
+
+        // Write categories
+        const catObj = {};
+        categories.forEach(c => {
+          catObj[c.key] = {
+            label: c.label,
+            icon: c.icon,
+            pinProtected: c.pinProtected,
+            weightPercent: c.weightPercent
+          };
+        });
+        await writeCategories(catObj);
+
+        // Write people
+        for (const p of people) {
+          await pushPerson(p);
+        }
+
+        // Redirect to dashboard
+        window.location.href = 'index.html';
+      } catch (err) {
+        console.error('Setup failed:', err);
+        btn.disabled = false;
+        btn.textContent = 'Try Again';
+        alert('Setup failed. Check your connection and try again.');
+      }
+    };
+
+    // --- Boot ---
+    showStep(1);
+  </script>
+</body>
+</html>

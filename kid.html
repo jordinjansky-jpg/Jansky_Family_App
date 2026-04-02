@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Daily Rundown — Kid Mode</title>
+  <link rel="stylesheet" href="styles/common.css">
+  <style>
+    body {
+      padding-bottom: 0;
+    }
+    .kid-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+      text-align: center;
+      padding: var(--spacing-lg);
+    }
+    .kid-error__emoji { font-size: 3rem; margin-bottom: var(--spacing-md); }
+    .kid-error__title { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--spacing-sm); }
+    .kid-error__desc { color: var(--text-secondary); font-size: var(--font-size-sm); }
+  </style>
+</head>
+<body>
+  <div class="page-content" id="app">
+    <div class="loading-inline" id="loadingState">
+      <div class="loading-spinner loading-spinner--small"></div>
+      <span>Loading...</span>
+    </div>
+    <div id="mainContent" style="display:none;"></div>
+  </div>
+
+  <!-- No navigation bar in kid mode -->
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script type="module">
+    import { initFirebase, isFirstRun, readSettings, readPeople } from './shared/firebase.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+
+    const cached = loadCachedTheme();
+    applyTheme(cached || defaultThemeConfig());
+
+    initFirebase();
+
+    const firstRun = await isFirstRun();
+    if (firstRun) { window.location.href = 'setup.html'; }
+
+    const settings = await readSettings();
+    if (settings?.theme) applyTheme(settings.theme);
+
+    // Check for kid parameter
+    const params = new URLSearchParams(window.location.search);
+    const kidName = params.get('kid');
+
+    document.getElementById('loadingState').style.display = 'none';
+    const main = document.getElementById('mainContent');
+    main.style.display = '';
+
+    if (!kidName) {
+      main.innerHTML = `
+        <div class="kid-error">
+          <div class="kid-error__emoji">🔒</div>
+          <h2 class="kid-error__title">Kid Mode</h2>
+          <p class="kid-error__desc">This page requires a kid name parameter.<br>Ask a parent for your link!</p>
+        </div>`;
+    } else {
+      // Verify the kid exists
+      const peopleObj = await readPeople();
+      const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
+      const kid = people.find(p => p.name.toLowerCase() === kidName.toLowerCase() && p.role === 'child');
+
+      if (!kid) {
+        main.innerHTML = `
+          <div class="kid-error">
+            <div class="kid-error__emoji">🤔</div>
+            <h2 class="kid-error__title">Who's ${kidName}?</h2>
+            <p class="kid-error__desc">We couldn't find a kid with that name.<br>Check with a parent to make sure the name is right.</p>
+          </div>`;
+      } else {
+        document.title = `${kid.name}'s Daily Rundown`;
+        main.innerHTML = `
+          <div style="text-align:center;padding:var(--spacing-xl) 0;">
+            <div style="font-size:3rem;margin-bottom:var(--spacing-md);">👋</div>
+            <h2 style="font-size:var(--font-size-xl);font-weight:700;color:${kid.color};">Hey, ${kid.name}!</h2>
+            <p style="color:var(--text-secondary);margin-top:var(--spacing-sm);">Kid Mode coming in Phase 9</p>
+            <p style="color:var(--text-muted);font-size:var(--font-size-sm);margin-top:var(--spacing-xs);">Your tasks, celebrations, and fun stuff are on the way!</p>
+          </div>`;
+      }
+    }
+  </script>
+</body>
+</html>
