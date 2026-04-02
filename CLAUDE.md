@@ -1,6 +1,6 @@
 # Daily Rundown Rebuild - Governance
-**Current Phase:** 4 | **Status:** In Progress  
-**Next Milestone:** Phase 4 — Calendar with month grid, day detail, completion toggling
+**Current Phase:** 4 | **Status:** Complete  
+**Next Milestone:** Phase 5 — Scoring & grading system
 
 ## Architecture Decisions
 - Firebase root: `rundown/` — NEVER touch `cleaning/*`
@@ -39,7 +39,7 @@
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
-2026-04-02 Phase 4: Calendar — month grid with owner-colored dots, day selection with task detail panel, completion toggling from calendar, person filter, month navigation. Reuses compact task cards from Phase 3.
+2026-04-02 Phase 4: Calendar — 3-month grid view with frequency breakdown labels (D/W/M), animated bottom sheet for day detail, completion toggling, person filter in sheet with locked height, smooth in-place updates. Reuses compact task cards from Phase 3.
 2026-04-02 Phase 3: Dashboard — task cards, completion toggling (write/remove to rundown/completions), person filter pills, progress bar, overdue banner (collapsible), time-of-day grouping, undo toast, day-complete celebration. state.js built with pure query helpers. Temp Phase 2 testing UI removed.
 2026-04-02 Phase 2: Scheduling engine — all 5 steps (basic, rotation, cooldown, load balancing, duplicate). Validated: schedule generates correctly, deterministic rebuilds, no past/today entries.
 2026-04-02 Phase 1: Foundation — Firebase connection, utils, theme, common CSS, nav bar, setup wizard, empty page shells. Validated: setup writes to rundown/, nav works, theme persists, no cleaning/* writes.
