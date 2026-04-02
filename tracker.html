@@ -22,21 +22,50 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, onConnectionChange } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber } from './shared/utils.js';
+    import { isComplete } from './shared/state.js';
 
+    // ── Cached theme ──
     const cached = loadCachedTheme();
     applyTheme(cached || defaultThemeConfig());
 
+    // ── Init Firebase ──
     initFirebase();
-
     const firstRun = await isFirstRun();
     if (firstRun) { window.location.href = 'setup.html'; }
 
-    const settings = await readSettings();
+    // ── Load all data ──
+    const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule] = await Promise.all([
+      readSettings(), readPeople(), readTasks(), readCategories(),
+      readCompletions(), readAllSchedule()
+    ]);
+
     if (settings?.theme) applyTheme(settings.theme);
 
+    const tz = settings?.timezone || 'America/Chicago';
+    const today = todayKey(tz);
+    const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
+    const tasks = tasksObj || {};
+    const cats = catsObj || {};
+    const comps = completions || {};
+    const schedule = allSchedule || {};
+
+    // ── Date ranges ──
+    const wStart = weekStart(today);
+    const wEnd = weekEnd(today);
+    const mStart = monthStart(today);
+    const mEnd = monthEnd(today);
+
+    // ── State ──
+    let activeView = 'weekly';  // 'weekly' | 'monthly'
+    let activePerson = null;
+    let activeCategory = null;
+    let activeStatus = null;    // null = all, or 'done'|'late'|'overdue'|'upcoming'|'skipped'
+
+    // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
@@ -44,13 +73,378 @@
       showAdmin: true,
       showDebug: debugActive
     });
-
     document.getElementById('navMount').innerHTML = renderNavBar('tracker');
 
+    // ── Connection status ──
+    onConnectionChange(connected => {
+      const existing = document.querySelector('.connection-dot');
+      const html = renderConnectionStatus(connected);
+      if (existing) existing.outerHTML = html;
+      else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', html);
+    });
+
+    // ── Helpers ──
+
+    /**
+     * Determine the status of a schedule entry.
+     * Returns: 'done' | 'late' | 'overdue' | 'upcoming'
+     */
+    function entryStatus(entryKey, dateKey) {
+      const completion = comps[entryKey];
+      if (completion) {
+        // Done: completed. "Late" if completed after the scheduled date.
+        const completedDate = new Date(completion.completedAt);
+        const scheduledEnd = new Date(dateKey + 'T23:59:59Z');
+        return completedDate > scheduledEnd ? 'late' : 'done';
+      }
+      // Not completed
+      return dateKey < today ? 'overdue' : 'upcoming';
+    }
+
+    /**
+     * Format a completion date for display.
+     */
+    function formatCompletionDate(completedAt) {
+      if (!completedAt) return '';
+      const d = new Date(completedAt);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    /**
+     * Collect tracker rows for a rotation type within a date range.
+     * Returns array of { entryKey, dateKey, entry, task, person, category, status, completionDate }
+     */
+    function collectRows(rotationType, startDate, endDate) {
+      const dates = dateRange(startDate, endDate);
+      const rows = [];
+
+      for (const dateKey of dates) {
+        const dayEntries = schedule[dateKey];
+        if (!dayEntries) continue;
+
+        for (const [entryKey, entry] of Object.entries(dayEntries)) {
+          if (entry.rotationType !== rotationType) continue;
+
+          const task = tasks[entry.taskId];
+          if (!task) continue;
+
+          const person = people.find(p => p.id === entry.ownerId);
+          const cat = task.category ? cats[task.category] : null;
+          const status = entryStatus(entryKey, dateKey);
+          const completion = comps[entryKey];
+
+          rows.push({
+            entryKey,
+            dateKey,
+            entry,
+            task,
+            person,
+            category: cat,
+            status,
+            completionDate: completion ? formatCompletionDate(completion.completedAt) : null
+          });
+        }
+      }
+
+      return rows;
+    }
+
+    /**
+     * Find active tasks of a rotation type that have NO schedule entry in the period.
+     * These are "skipped" — e.g., due to cooldown or paused status during scheduling.
+     */
+    function findSkippedTasks(rotationType, startDate, endDate, existingRows) {
+      const scheduledTaskIds = new Set(existingRows.map(r => r.entry.taskId));
+      const skipped = [];
+
+      for (const [taskId, task] of Object.entries(tasks)) {
+        if (task.rotation !== rotationType || task.status === 'paused') continue;
+        if (scheduledTaskIds.has(taskId)) continue;
+        // Task is active but wasn't scheduled in this period
+        if (task.createdDate && task.createdDate > endDate) continue; // Created after period
+
+        for (const ownerId of (task.owners || [])) {
+          const person = people.find(p => p.id === ownerId);
+          const cat = task.category ? cats[task.category] : null;
+          skipped.push({
+            entryKey: null,
+            dateKey: null,
+            entry: { taskId, ownerId, rotationType, timeOfDay: task.timeOfDay },
+            task,
+            person,
+            category: cat,
+            status: 'skipped',
+            completionDate: null
+          });
+        }
+      }
+
+      return skipped;
+    }
+
+    /**
+     * Apply filters to rows.
+     */
+    function filterRows(rows) {
+      return rows.filter(row => {
+        if (activePerson && row.entry.ownerId !== activePerson) return false;
+        if (activeCategory && row.task.category !== activeCategory) return false;
+        if (activeStatus && row.status !== activeStatus) return false;
+        return true;
+      });
+    }
+
+    // ── Status badge rendering ──
+
+    const STATUS_CONFIG = {
+      done:     { label: 'Done',     class: 'tracker-status--done' },
+      late:     { label: 'Done Late', class: 'tracker-status--late' },
+      overdue:  { label: 'Overdue',  class: 'tracker-status--overdue' },
+      upcoming: { label: 'Upcoming', class: 'tracker-status--upcoming' },
+      skipped:  { label: 'Skipped',  class: 'tracker-status--skipped' }
+    };
+
+    function renderStatusBadge(status) {
+      const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.upcoming;
+      return `<span class="tracker-status ${cfg.class}">${cfg.label}</span>`;
+    }
+
+    // ── Row rendering ──
+
+    function renderRow(row) {
+      const catIcon = row.category?.icon || '';
+      const ownerColor = row.person?.color || 'var(--text-secondary)';
+      const ownerInitial = (row.person?.name || '?')[0].toUpperCase();
+      const ownerName = row.person?.name || 'Unknown';
+      const taskName = catIcon ? `${catIcon} ${row.task.name}` : row.task.name;
+      const dateLabel = row.dateKey ? formatDateShort(row.dateKey) : '—';
+      const completionInfo = row.completionDate ? `<span class="tracker-row__completed">${row.completionDate}</span>` : '';
+      const overdueClass = row.status === 'overdue' ? ' tracker-row--overdue' : '';
+      const doneClass = (row.status === 'done' || row.status === 'late') ? ' tracker-row--done' : '';
+
+      return `<div class="tracker-row${overdueClass}${doneClass}">
+        <span class="tracker-row__initial" style="--owner-color:${ownerColor}">${ownerInitial}</span>
+        <div class="tracker-row__info">
+          <span class="tracker-row__name">${taskName}</span>
+          <span class="tracker-row__meta">${ownerName} · ${dateLabel}</span>
+        </div>
+        <div class="tracker-row__right">
+          ${renderStatusBadge(row.status)}
+          ${completionInfo}
+        </div>
+      </div>`;
+    }
+
+    // ── Summary bar ──
+
+    function renderSummary(rows) {
+      const counts = { done: 0, late: 0, overdue: 0, upcoming: 0, skipped: 0 };
+      for (const r of rows) counts[r.status] = (counts[r.status] || 0) + 1;
+      const total = rows.length;
+      const completed = counts.done + counts.late;
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      return `<div class="tracker-summary">
+        <div class="tracker-summary__bar">
+          <div class="tracker-summary__fill" style="width:${pct}%"></div>
+        </div>
+        <div class="tracker-summary__counts">
+          <span class="tracker-summary__count tracker-summary__count--done">${counts.done} Done</span>
+          ${counts.late > 0 ? `<span class="tracker-summary__count tracker-summary__count--late">${counts.late} Late</span>` : ''}
+          <span class="tracker-summary__count tracker-summary__count--overdue">${counts.overdue} Overdue</span>
+          <span class="tracker-summary__count tracker-summary__count--upcoming">${counts.upcoming} Upcoming</span>
+          ${counts.skipped > 0 ? `<span class="tracker-summary__count tracker-summary__count--skipped">${counts.skipped} Skipped</span>` : ''}
+        </div>
+      </div>`;
+    }
+
+    // ── Category filter dropdown ──
+
+    function renderCategoryFilter() {
+      const catEntries = Object.entries(cats);
+      if (catEntries.length === 0) return '';
+      let html = `<select class="tracker-select" id="categoryFilter">
+        <option value="">All Categories</option>`;
+      for (const [key, cat] of catEntries) {
+        const sel = activeCategory === key ? ' selected' : '';
+        html += `<option value="${key}"${sel}>${cat.icon || ''} ${cat.label || cat.name}</option>`;
+      }
+      html += `</select>`;
+      return html;
+    }
+
+    // ── Status filter dropdown ──
+
+    function renderStatusFilter() {
+      const options = [
+        { value: '', label: 'All Statuses' },
+        { value: 'done', label: 'Done' },
+        { value: 'late', label: 'Done Late' },
+        { value: 'overdue', label: 'Overdue' },
+        { value: 'upcoming', label: 'Upcoming' },
+        { value: 'skipped', label: 'Skipped' }
+      ];
+      let html = `<select class="tracker-select" id="statusFilter">`;
+      for (const opt of options) {
+        const sel = activeStatus === (opt.value || null) ? ' selected' : '';
+        html += `<option value="${opt.value}"${sel}>${opt.label}</option>`;
+      }
+      html += `</select>`;
+      return html;
+    }
+
+    // ── Weekly view ──
+
+    function renderWeeklyView() {
+      const rows = collectRows('weekly', wStart, wEnd);
+      const skipped = findSkippedTasks('weekly', wStart, wEnd, rows);
+      const allRows = [...rows, ...skipped];
+      const filtered = filterRows(allRows);
+
+      // Sort: overdue first, then upcoming, then done/late, then skipped
+      const statusOrder = { overdue: 0, upcoming: 1, late: 2, done: 3, skipped: 4 };
+      filtered.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
+
+      let html = renderSummary(filtered);
+
+      if (filtered.length === 0) {
+        html += renderEmptyState('📋', 'No weekly tasks', 'No weekly tasks match the current filters.');
+        return html;
+      }
+
+      html += `<div class="tracker-rows">`;
+      for (const row of filtered) {
+        html += renderRow(row);
+      }
+      html += `</div>`;
+      return html;
+    }
+
+    // ── Monthly view ──
+
+    function renderMonthlyView() {
+      const rows = collectRows('monthly', mStart, mEnd);
+      const skipped = findSkippedTasks('monthly', mStart, mEnd, rows);
+      const allRows = [...rows, ...skipped];
+      const filtered = filterRows(allRows);
+
+      if (filtered.length === 0) {
+        let html = renderSummary(filtered);
+        html += renderEmptyState('📋', 'No monthly tasks', 'No monthly tasks match the current filters.');
+        return html;
+      }
+
+      // Group by ISO week
+      const weekGroups = {};
+      for (const row of filtered) {
+        const wk = row.dateKey ? isoWeekNumber(row.dateKey) : 0;
+        const wkLabel = row.dateKey
+          ? `Week of ${formatDateShort(weekStart(row.dateKey))}`
+          : 'Unscheduled';
+        if (!weekGroups[wk]) weekGroups[wk] = { label: wkLabel, rows: [] };
+        weekGroups[wk].rows.push(row);
+      }
+
+      // Sort week groups
+      const sortedWeeks = Object.keys(weekGroups).sort((a, b) => Number(a) - Number(b));
+
+      let html = renderSummary(filtered);
+
+      for (const wk of sortedWeeks) {
+        const group = weekGroups[wk];
+        const statusOrder = { overdue: 0, upcoming: 1, late: 2, done: 3, skipped: 4 };
+        group.rows.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
+
+        html += `<div class="tracker-week-group">
+          <div class="tracker-week-label">${group.label}</div>
+          <div class="tracker-rows">`;
+        for (const row of group.rows) {
+          html += renderRow(row);
+        }
+        html += `</div></div>`;
+      }
+
+      return html;
+    }
+
+    // ── Period navigation label ──
+
+    function renderPeriodLabel() {
+      if (activeView === 'weekly') {
+        return `${formatDateShort(wStart)} – ${formatDateShort(wEnd)}`;
+      }
+      const monthName = new Date(mStart + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      return monthName;
+    }
+
+    // ── Full render ──
+
+    function render() {
+      const weeklyActive = activeView === 'weekly' ? ' tracker-tab--active' : '';
+      const monthlyActive = activeView === 'monthly' ? ' tracker-tab--active' : '';
+
+      let html = `
+        <div class="tracker-tabs">
+          <button class="tracker-tab${weeklyActive}" data-view="weekly" type="button">Weekly</button>
+          <button class="tracker-tab${monthlyActive}" data-view="monthly" type="button">Monthly</button>
+        </div>
+        <div class="tracker-period">${renderPeriodLabel()}</div>
+        ${renderPersonFilter(people, activePerson)}
+        <div class="tracker-filters">
+          ${renderCategoryFilter()}
+          ${renderStatusFilter()}
+        </div>
+        <div class="tracker-content">
+          ${activeView === 'weekly' ? renderWeeklyView() : renderMonthlyView()}
+        </div>`;
+
+      main.innerHTML = html;
+      bindEvents();
+    }
+
+    // ── Event binding ──
+
+    function bindEvents() {
+      // View tabs
+      for (const tab of main.querySelectorAll('.tracker-tab')) {
+        tab.addEventListener('click', () => {
+          activeView = tab.dataset.view;
+          render();
+        });
+      }
+
+      // Person filter
+      for (const pill of main.querySelectorAll('.person-pill')) {
+        pill.addEventListener('click', () => {
+          activePerson = pill.dataset.personId || null;
+          render();
+        });
+      }
+
+      // Category filter
+      const catSelect = main.querySelector('#categoryFilter');
+      if (catSelect) {
+        catSelect.addEventListener('change', () => {
+          activeCategory = catSelect.value || null;
+          render();
+        });
+      }
+
+      // Status filter
+      const statusSelect = main.querySelector('#statusFilter');
+      if (statusSelect) {
+        statusSelect.addEventListener('change', () => {
+          activeStatus = statusSelect.value || null;
+          render();
+        });
+      }
+    }
+
+    // ── Show content ──
     document.getElementById('loadingState').style.display = 'none';
     const main = document.getElementById('mainContent');
     main.style.display = '';
-    main.innerHTML = renderEmptyState('✅', 'Task Tracker coming in Phase 7', 'Weekly and monthly task completion status.');
+    render();
   </script>
 </body>
 </html>

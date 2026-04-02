@@ -1,6 +1,6 @@
 # Daily Rundown Rebuild - Governance
-**Current Phase:** 6 | **Status:** Complete  
-**Next Milestone:** Phase 7 — Task Tracker page
+**Current Phase:** 7 | **Status:** Complete  
+**Next Milestone:** Phase 8 — Admin panel
 
 ## Architecture Decisions
 - Firebase root: `rundown/` — NEVER touch `cleaning/*`
@@ -97,6 +97,7 @@ rundown/
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
+2026-04-02 Phase 7: Task Tracker — weekly and monthly recurring task status views with completion checklist. Tab toggle between weekly/monthly. Person pills, category dropdown, and status dropdown filters. Status badges (Done/Done Late/Overdue/Upcoming/Skipped). Summary progress bar with status counts. Monthly view groups tasks by ISO week. Overdue rows highlighted with red left border. Skipped task detection for active tasks missing schedule entries.
 2026-04-02 Phase 6: Scoreboard — period-selectable leaderboard (today/week/month/12-month), all-grades table, 4-week trend sparklines, per-category breakdown bars, streak display. Tap person card for drill-down bottom sheet with task-level detail (Done/Late/Missed/Pending status, earned/possible points). No new shared modules needed — uses existing scoring.js aggregation helpers.
 2026-04-02 Phase 5: Scoring — points formula (difficulty × (1 + estMin/30)), letter grades (A+ through F), weighted category math, past-due credit, daily snapshots, streak tracking. Points shown on task cards. Grade badge in dashboard header and calendar sheet. Long-press detail sheet with points slider (0–150%, live grade preview). Daily rollover creates snapshots + updates streaks on load. Aggregate helpers for weekly/monthly/12-month.
 2026-04-02 Phase 4: Calendar — 3-month grid view with frequency breakdown labels (D/W/M), animated bottom sheet for day detail, completion toggling, person filter in sheet with locked height, smooth in-place updates. Reuses compact task cards from Phase 3.
@@ -108,6 +109,5 @@ rundown/
 - Phase 8 (Admin → Categories): Add a "default category" setting so new tasks don't default to an arbitrary category
 - Phase 8 (Admin → Categories): Add toggle to show/hide category emoji on task cards (per category)
 - Phase 8 (Admin): Move factory reset button here (removed from dashboard temp UI)
-- Phase 7: Task tracker page
 - Phase 8: Admin panel
 - Phase 9: Kid mode
