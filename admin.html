@@ -97,39 +97,52 @@
     // ══════════════════════════════════════════
 
     document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('pinGate').style.display = '';
 
+    const PIN_SESSION_KEY = 'dr-admin-pin-ts';
+    const PIN_SESSION_TTL = 30 * 60 * 1000; // 30 minutes
     const adminPin = settings?.adminPin || '';
     const recoveryPin = settings?.recoveryPin || '9999';
-    const digits = document.querySelectorAll('.admin-pin-digit');
 
-    digits.forEach((input, i) => {
-      input.addEventListener('input', (e) => {
-        const val = e.target.value.replace(/\D/g, '');
-        e.target.value = val.slice(0, 1);
-        if (val && i < digits.length - 1) digits[i + 1].focus();
-        checkPin();
+    // Check if PIN session is still valid
+    const pinTs = parseInt(sessionStorage.getItem(PIN_SESSION_KEY) || '0', 10);
+    if (Date.now() - pinTs < PIN_SESSION_TTL) {
+      // Skip PIN gate
+      const main = document.getElementById('mainContent');
+      main.style.display = '';
+      render();
+    } else {
+      document.getElementById('pinGate').style.display = '';
+      const digits = document.querySelectorAll('.admin-pin-digit');
+
+      digits.forEach((input, i) => {
+        input.addEventListener('input', (e) => {
+          const val = e.target.value.replace(/\D/g, '');
+          e.target.value = val.slice(0, 1);
+          if (val && i < digits.length - 1) digits[i + 1].focus();
+          checkPin();
+        });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Backspace' && !e.target.value && i > 0) digits[i - 1].focus();
+        });
       });
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Backspace' && !e.target.value && i > 0) digits[i - 1].focus();
-      });
-    });
-    digits[0].focus();
+      digits[0].focus();
 
-    function checkPin() {
-      const entered = Array.from(digits).map(d => d.value).join('');
-      if (entered.length !== 4) return;
+      function checkPin() {
+        const entered = Array.from(digits).map(d => d.value).join('');
+        if (entered.length !== 4) return;
 
-      if (entered === adminPin || entered === recoveryPin) {
-        document.getElementById('pinGate').style.display = 'none';
-        const main = document.getElementById('mainContent');
-        main.style.display = '';
-        render();
-      } else {
-        document.getElementById('pinError').textContent = 'Incorrect PIN';
-        digits.forEach(d => d.value = '');
-        digits[0].focus();
-        setTimeout(() => { document.getElementById('pinError').textContent = ''; }, 2000);
+        if (entered === adminPin || entered === recoveryPin) {
+          sessionStorage.setItem(PIN_SESSION_KEY, String(Date.now()));
+          document.getElementById('pinGate').style.display = 'none';
+          const main = document.getElementById('mainContent');
+          main.style.display = '';
+          render();
+        } else {
+          document.getElementById('pinError').textContent = 'Incorrect PIN';
+          digits.forEach(d => d.value = '');
+          digits[0].focus();
+          setTimeout(() => { document.getElementById('pinError').textContent = ''; }, 2000);
+        }
       }
     }
 
@@ -268,15 +281,23 @@
           const owners = (task.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
           const pts = basePoints(task);
           const pausedClass = task.status === 'paused' ? ' admin-list-item--paused' : '';
+          const pausedBadge = task.status === 'paused' ? '<span class="admin-badge admin-badge--muted">⏸ Paused</span>' : '';
           html += `<div class="admin-list-item${pausedClass}" data-task-id="${id}">
-            <div class="admin-list-item__main">
+            <div class="admin-list-item__row">
               <span class="admin-list-item__name">${cat?.icon || ''} ${task.name}</span>
-              <span class="admin-list-item__meta">${task.rotation} · ${owners || 'Unassigned'} · ${pts}pt${task.status === 'paused' ? ' · ⏸ Paused' : ''}</span>
+              <span class="admin-list-item__tags">
+                <span class="admin-badge">${task.rotation}</span>
+                <span class="admin-badge">${pts}pt</span>
+                ${pausedBadge}
+              </span>
             </div>
-            <div class="admin-list-item__actions">
-              <button class="btn btn--ghost btn--sm admin-edit-task" data-task-id="${id}" type="button">Edit</button>
-              <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '▶' : '⏸'}</button>
-              <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button">✕</button>
+            <div class="admin-list-item__row">
+              <span class="admin-list-item__meta">${owners || 'Unassigned'}${cat ? ' · ' + cat.label : ''}</span>
+              <div class="admin-list-item__actions">
+                <button class="btn btn--ghost btn--sm admin-edit-task" data-task-id="${id}" type="button">Edit</button>
+                <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '▶' : '⏸'}</button>
+                <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button">✕</button>
+              </div>
             </div>
           </div>`;
         }
@@ -407,12 +428,15 @@
         html += `<div class="admin-list">`;
         for (const p of pa) {
           const roleLabel = p.role === 'child' ? '👦 Child' : '👤 Adult';
+          const kidFlags = p.role === 'child' && p.kidSettings
+            ? [p.kidSettings.canDelegate && 'delegate', p.kidSettings.canMoveTasks && 'move', p.kidSettings.showSlider && 'slider'].filter(Boolean).join(', ')
+            : '';
           html += `<div class="admin-list-item">
-            <div class="admin-list-item__main" style="display:flex;align-items:center;gap:var(--spacing-sm)">
-              <div style="width:32px;height:32px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
-              <div>
+            <div class="admin-person-row">
+              <div class="admin-person-dot" style="background:${p.color}"></div>
+              <div class="admin-person-info">
                 <span class="admin-list-item__name">${p.name}</span>
-                <span class="admin-list-item__meta">${roleLabel}</span>
+                <span class="admin-list-item__meta">${roleLabel}${kidFlags ? ' · ' + kidFlags : ''}</span>
               </div>
             </div>
             <div class="admin-list-item__actions">
@@ -546,6 +570,7 @@
             <p class="form-hint">Leave empty for no weighting</p>
           </div>
         </div>
+        <label class="admin-checkbox"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}> Show icon on task cards</label>
         <label class="admin-checkbox"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}> PIN protected (requires PIN to complete)</label>
         <div class="admin-form__actions mt-md">
           <button class="btn btn--secondary" id="catFormCancel" type="button">Cancel</button>
@@ -703,8 +728,8 @@
         const count = perPerson[p.id] || 0;
         const avg = futureDates.length > 0 ? (count / futureDates.length).toFixed(1) : '0';
         html += `<div class="admin-list-item">
-          <div class="admin-list-item__main" style="display:flex;align-items:center;gap:var(--spacing-sm)">
-            <div style="width:24px;height:24px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
+          <div class="admin-person-row">
+            <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color}"></div>
             <span class="admin-list-item__name">${p.name}</span>
           </div>
           <span class="admin-list-item__meta">${count} tasks · ${avg}/day avg</span>
@@ -1114,11 +1139,13 @@
         if (!label) { main.querySelector('#cf_label')?.focus(); return; }
 
         const weight = main.querySelector('#cf_weight')?.value;
+        const showIcon = main.querySelector('#cf_showIcon')?.checked ?? true;
         const pinProtected = main.querySelector('#cf_pinProtected')?.checked || false;
 
         const catData = {
           label,
           icon,
+          showIcon,
           pinProtected,
           weightPercent: weight ? parseInt(weight, 10) : null
         };

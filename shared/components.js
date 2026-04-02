@@ -41,11 +41,13 @@ export function renderHeader(options = {}) {
     subtitle = '',
     showAdmin = true,
     showDebug = false,
+    showAddTask = false,
     rightContent = ''
   } = options;
 
   const debugIcon = showDebug ? '<span class="header__debug" title="Debug mode active">🐛</span>' : '';
   const adminLink = showAdmin ? '<a href="admin.html" class="header__admin" title="Admin">⚙️</a>' : '';
+  const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">+</button>' : '';
 
   return `<header class="app-header">
     <div class="header__left">
@@ -54,6 +56,7 @@ export function renderHeader(options = {}) {
     </div>
     <div class="header__right">
       ${rightContent}
+      ${addTaskBtn}
       ${debugIcon}
       ${adminLink}
     </div>
@@ -205,7 +208,8 @@ export function renderTaskCard(options) {
   const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points } = options;
   const doneClass = completed ? ' task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
-  const catIcon = category?.icon || '';
+  const showIcon = category?.showIcon !== false;
+  const catIcon = showIcon ? (category?.icon || '') : '';
   const ownerColor = person?.color || 'var(--text-secondary)';
   const ownerInitial = (person?.name || '?')[0].toUpperCase();
   const estLabel = task.estMin ? `${task.estMin}m` : '';
@@ -273,7 +277,11 @@ export function renderGradeBadge(grade, tier) {
  * options: { entryKey, entry, task, person, category, completed, points, sliderMin, sliderMax, currentOverride, gradePreview }
  */
 export function renderTaskDetailSheet(options) {
-  const { entryKey, entry, task, person, category, completed, points, sliderMin, sliderMax, currentOverride, gradePreview } = options;
+  const {
+    entryKey, entry, task, person, category, completed, points,
+    sliderMin, sliderMax, currentOverride, gradePreview,
+    people, showDelegate, showMove, showEdit, dateKey
+  } = options;
   const catIcon = category?.icon || '';
   const ownerColor = person?.color || 'var(--text-secondary)';
   const diffLabel = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[task.difficulty] || 'Medium';
@@ -303,6 +311,46 @@ export function renderTaskDetailSheet(options) {
   const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
   const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
   html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+
+  // Action buttons row: Delegate, Move, Edit
+  const hasActions = showDelegate || showMove || showEdit;
+  if (hasActions) {
+    html += `<div class="task-detail__actions mt-md">`;
+
+    if (showDelegate) {
+      html += `<button class="btn btn--secondary btn--sm" id="sheetDelegate" type="button">👤 Delegate</button>`;
+    }
+    if (showMove) {
+      html += `<button class="btn btn--secondary btn--sm" id="sheetMove" type="button">📅 Move</button>`;
+    }
+    if (showEdit) {
+      html += `<button class="btn btn--secondary btn--sm" id="sheetEdit" data-task-id="${entry.taskId}" type="button">✏️ Edit</button>`;
+    }
+
+    html += `</div>`;
+  }
+
+  // Delegate panel (hidden by default, shown when Delegate clicked)
+  if (showDelegate && people) {
+    const otherPeople = people.filter(p => p.id !== entry.ownerId);
+    html += `<div class="task-detail__delegate-panel" id="delegatePanel" style="display:none;">
+      <span class="form-label">Reassign to:</span>
+      <div class="task-detail__person-chips">
+        ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${p.name}</button>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Move panel (hidden by default, shown when Move clicked)
+  if (showMove) {
+    html += `<div class="task-detail__move-panel" id="movePanel" style="display:none;">
+      <span class="form-label">Move to:</span>
+      <div class="task-detail__move-options">
+        <input type="date" id="moveDatePicker" class="task-detail__date-input">
+        <button class="btn btn--ghost btn--sm" id="moveSkip" type="button">Skip Task</button>
+      </div>
+    </div>`;
+  }
 
   // Points slider — always visible, preview-only label for incomplete tasks
   if (points) {
@@ -340,4 +388,136 @@ export function renderCelebration() {
       <p class="celebration__subtitle">Great job finishing today's tasks!</p>
     </div>
   </div>`;
+}
+
+/**
+ * Render the quick-add task bottom sheet.
+ * people: array of { id, name, color }
+ * categories: array of { key, label, icon }
+ */
+export function renderQuickAddSheet(people, categories) {
+  let html = `<div class="task-detail-sheet">
+    <h3 class="admin-form__title">Quick Add Task</h3>
+    <div class="form-group">
+      <label class="form-label">Task Name</label>
+      <input type="text" id="qa_name" placeholder="e.g., Take out trash" autofocus>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Rotation</label>
+        <select id="qa_rotation">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="once">One-Time</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Difficulty</label>
+        <select id="qa_difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Time of Day</label>
+        <select id="qa_timeOfDay">
+          <option value="anytime">Anytime</option>
+          <option value="am">Morning</option>
+          <option value="pm">Afternoon</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Est. Min</label>
+        <input type="number" id="qa_estMin" value="10" min="1" max="120">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select id="qa_category">
+        ${categories.map(c => `<option value="${c.key}">${c.icon} ${c.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Owners</label>
+      <div class="admin-checkboxes" id="qa_owners">
+        ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"> ${p.name}</label>`).join('')}
+      </div>
+    </div>
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="qaCancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="qaSave" type="button">Create Task</button>
+    </div>
+  </div>`;
+  return html;
+}
+
+/**
+ * Render an inline edit task form inside a bottom sheet.
+ * task: the task object, categories: [{key, label, icon}], people: [{id, name, color}]
+ */
+export function renderEditTaskSheet(taskId, task, categories, people) {
+  const selectedOwners = task.owners || [];
+  let html = `<div class="task-detail-sheet">
+    <h3 class="admin-form__title">Edit Task</h3>
+    <div class="form-group">
+      <label class="form-label">Task Name</label>
+      <input type="text" id="et_name" value="${task.name || ''}">
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Rotation</label>
+        <select id="et_rotation">
+          <option value="daily"${task.rotation === 'daily' ? ' selected' : ''}>Daily</option>
+          <option value="weekly"${task.rotation === 'weekly' ? ' selected' : ''}>Weekly</option>
+          <option value="monthly"${task.rotation === 'monthly' ? ' selected' : ''}>Monthly</option>
+          <option value="once"${task.rotation === 'once' ? ' selected' : ''}>One-Time</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Difficulty</label>
+        <select id="et_difficulty">
+          <option value="easy"${task.difficulty === 'easy' ? ' selected' : ''}>Easy</option>
+          <option value="medium"${(task.difficulty || 'medium') === 'medium' ? ' selected' : ''}>Medium</option>
+          <option value="hard"${task.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Time of Day</label>
+        <select id="et_timeOfDay">
+          <option value="anytime"${(task.timeOfDay || 'anytime') === 'anytime' ? ' selected' : ''}>Anytime</option>
+          <option value="am"${task.timeOfDay === 'am' ? ' selected' : ''}>Morning</option>
+          <option value="pm"${task.timeOfDay === 'pm' ? ' selected' : ''}>Afternoon</option>
+          <option value="both"${task.timeOfDay === 'both' ? ' selected' : ''}>Both</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Est. Min</label>
+        <input type="number" id="et_estMin" value="${task.estMin || 10}" min="1" max="120">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select id="et_category">
+        ${categories.map(c => `<option value="${c.key}"${task.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Owners</label>
+      <div class="admin-checkboxes" id="et_owners">
+        ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${p.name}</label>`).join('')}
+      </div>
+    </div>
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="etCancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="etSave" data-task-id="${taskId}" type="button">Save Changes</button>
+    </div>
+  </div>`;
+  return html;
 }

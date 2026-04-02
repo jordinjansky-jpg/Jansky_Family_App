@@ -80,7 +80,7 @@ rundown/
 - Completed tasks render at the very bottom of any task list (below all frequency groups)
 - Task grouping order: Daily → Weekly → Monthly → One-Time, then owner within group
 - Task cards show point values (e.g., "3pt") alongside time estimates
-- Long-press task card opens detail sheet with points slider (completed tasks only)
+- Long-press task card opens detail sheet with points slider, delegate, move, skip, and edit buttons
 - Points slider stores `pointsOverride` as percentage (0–150) on completion record; 100% = null (no override)
 - Daily rollover creates snapshots for past days on dashboard load (fire-and-forget)
 - Calendar bottom sheet locks height on open so person filter changes don't resize it
@@ -97,6 +97,7 @@ rundown/
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
+2026-04-02 Phase 8 polish: Category showIcon toggle (controls icon display on task cards). Reworked admin task list UI (two-row layout with name/badges top row, owners/actions bottom row). Reworked admin people list UI (horizontal with color dot, info column). PIN session caching (30min TTL in sessionStorage). Quick-add task button (+) in header on all main pages. Long-press detail sheet now has Delegate (person chips), Move (date picker), Skip, and Edit Task buttons on dashboard/calendar/tracker — no PIN required. Edit task opens inline bottom sheet. Debug mode shows scoring breakdown panel on dashboard with copy-to-clipboard.
 2026-04-02 Phase 8: Admin Panel — PIN-gated admin page with 8 tab sections. Tasks: filterable list (rotation/owner/category/status), full CRUD with ownerAssignmentMode toggle, pause/unpause, delete with confirmation. People: add/edit/remove with color picker, role toggle (adult/child), kid mode settings (showWeekView, showCalendar, canDelegate, canMoveTasks, showSlider, celebrations). Categories: CRUD with icon/label/pinProtected/weightPercent, delete reassigns tasks to fallback category. Settings: appName, familyName, timezone, weekendWeight, pastDueCreditPct, sliderMin/Max, PIN change. Theme: preset grid + accent color picker, live preview, syncs to Firebase. Schedule: 90-day summary stats (days/entries/per-person load), rebuild future schedule button. Data: JSON export, factory reset (PIN + type RESET confirmation). Debug: toggle debug mode, event log viewer (last 50), schedule inspector per task, copy-to-clipboard. Tracker also got long-press detail sheet support.
 2026-04-02 Phase 7: Task Tracker — weekly and monthly recurring task status views with completion checklist. Tab toggle between weekly/monthly. Person pills, category dropdown, and status dropdown filters. Status badges (Done/Done Late/Overdue/Upcoming/Skipped). Summary progress bar with status counts. Monthly view groups tasks by ISO week. Overdue rows highlighted with red left border. Skipped task detection for active tasks missing schedule entries.
 2026-04-02 Phase 6: Scoreboard — period-selectable leaderboard (today/week/month/12-month), all-grades table, 4-week trend sparklines, per-category breakdown bars, streak display. Tap person card for drill-down bottom sheet with task-level detail (Done/Late/Missed/Pending status, earned/possible points). No new shared modules needed — uses existing scoring.js aggregation helpers.

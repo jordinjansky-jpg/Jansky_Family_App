@@ -25,8 +25,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, onConnectionChange, onValue, readOnce, multiUpdate } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, onConnectionChange, onValue, readOnce, multiUpdate } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
@@ -69,7 +69,8 @@
       appName: settings?.appName || 'Daily Rundown',
       subtitle: settings?.familyName || '',
       showAdmin: true,
-      showDebug: debugActive
+      showDebug: debugActive,
+      showAddTask: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('home');
 
@@ -250,8 +251,39 @@
         }
       }
 
+      // Debug overlay
+      if (localStorage.getItem('dr-debug') === 'true') {
+        html += renderDebugPanel(filtered, score);
+      }
+
       main.innerHTML = html;
       bindEvents();
+    }
+
+    function renderDebugPanel(filtered, score) {
+      let dbg = `<div class="debug-panel">`;
+      dbg += `<div class="debug-panel__title">🐛 Debug — Day Score</div>`;
+      dbg += `<pre class="debug-panel__pre">`;
+      dbg += `Date: ${viewDate} | Person filter: ${activePerson || 'All'}\n`;
+      dbg += `Score: ${score.earned}/${score.possible} = ${score.percentage}%\n`;
+      dbg += `Grade: ${gradeDisplay(score.percentage).grade}\n\n`;
+      dbg += `Entry Key | Task | Base Pts | Earned | Override | Status\n`;
+      dbg += `${'—'.repeat(70)}\n`;
+
+      for (const [entryKey, entry] of Object.entries(filtered)) {
+        const task = tasks[entry.taskId] || { name: '?', difficulty: 'medium', estMin: 0 };
+        const bp = basePoints(task);
+        const comp = completions[entryKey];
+        const earned = score.pointsMap?.[entryKey] || 0;
+        const ovr = comp?.pointsOverride ?? '—';
+        const status = comp ? 'done' : 'pending';
+        dbg += `${entryKey.slice(0, 16)} | ${task.name.slice(0, 20).padEnd(20)} | ${String(bp).padStart(4)} | ${String(earned).padStart(6)} | ${String(ovr).padStart(8)} | ${status}\n`;
+      }
+
+      dbg += `</pre>`;
+      dbg += `<button class="btn btn--ghost btn--sm" id="copyDebug" type="button">Copy to Clipboard</button>`;
+      dbg += `</div>`;
+      return dbg;
     }
 
     // ══════════════════════════════════════════
@@ -316,6 +348,15 @@
           if (arrow) arrow.classList.toggle('expanded', overdueExpanded);
         });
       }
+
+      // Debug copy button
+      document.getElementById('copyDebug')?.addEventListener('click', async () => {
+        const pre = main.querySelector('.debug-panel__pre');
+        if (pre) {
+          await navigator.clipboard.writeText(pre.textContent);
+          alert('Copied to clipboard!');
+        }
+      });
     }
 
     async function changeDay(delta) {
@@ -444,7 +485,11 @@
         sliderMin: settings?.sliderMin ?? 0,
         sliderMax: settings?.sliderMax ?? 150,
         currentOverride: currentOverride != null ? currentOverride : 100,
-        gradePreview
+        gradePreview,
+        people,
+        showDelegate: true,
+        showMove: true,
+        showEdit: true
       });
 
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
@@ -528,7 +573,199 @@
           });
         }
       }
+
+      // Delegate
+      document.getElementById('sheetDelegate')?.addEventListener('click', () => {
+        const panel = document.getElementById('delegatePanel');
+        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+      });
+
+      // Delegate person chips
+      document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
+        chip.addEventListener('click', async () => {
+          const newOwnerId = chip.dataset.personId;
+          if (!newOwnerId) return;
+
+          // Write a new schedule entry for today with the new owner, remove the old one
+          const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+          if (!entry) return;
+
+          const targetDate = dateKey || viewDate;
+          const newEntry = { ...entry, ownerId: newOwnerId };
+          delete newEntry.entryKey; // clean up any extra field
+
+          // Atomic update: remove old entry, add new one
+          const updates = {};
+          updates[`schedule/${targetDate}/${entryKey}`] = null;
+          const newKey = `sched_${Date.now()}_delegate`;
+          updates[`schedule/${targetDate}/${newKey}`] = newEntry;
+
+          // If there was a completion, move it too
+          if (completions[entryKey]) {
+            updates[`completions/${entryKey}`] = null;
+            updates[`completions/${newKey}`] = completions[entryKey];
+          }
+
+          await multiUpdate(updates);
+          closeTaskSheet();
+          await loadData();
+          render();
+        });
+      });
+
+      // Move
+      document.getElementById('sheetMove')?.addEventListener('click', () => {
+        const panel = document.getElementById('movePanel');
+        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+      });
+
+      document.getElementById('moveDatePicker')?.addEventListener('change', async (e) => {
+        const newDate = e.target.value;
+        if (!newDate) return;
+
+        const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+        if (!entry) return;
+
+        const sourceDate = dateKey || viewDate;
+        const newEntry = { ...entry };
+        delete newEntry.entryKey;
+
+        const updates = {};
+        updates[`schedule/${sourceDate}/${entryKey}`] = null;
+        const newKey = `sched_${Date.now()}_moved`;
+        updates[`schedule/${newDate}/${newKey}`] = newEntry;
+
+        if (completions[entryKey]) {
+          updates[`completions/${entryKey}`] = null;
+          updates[`completions/${newKey}`] = completions[entryKey];
+        }
+
+        await multiUpdate(updates);
+        closeTaskSheet();
+        await loadData();
+        render();
+      });
+
+      // Skip (mark as missed — remove from schedule)
+      document.getElementById('moveSkip')?.addEventListener('click', async () => {
+        const sourceDate = dateKey || viewDate;
+        const updates = {};
+        updates[`schedule/${sourceDate}/${entryKey}`] = null;
+        if (completions[entryKey]) {
+          updates[`completions/${entryKey}`] = null;
+        }
+        await multiUpdate(updates);
+        closeTaskSheet();
+        await loadData();
+        render();
+      });
+
+      // Edit task
+      document.getElementById('sheetEdit')?.addEventListener('click', () => {
+        const taskId = document.getElementById('sheetEdit').dataset.taskId;
+        closeTaskSheet();
+        openEditTaskSheet(taskId);
+      });
     }
+
+    // ══════════════════════════════════════════
+    // Edit task sheet (no PIN)
+    // ══════════════════════════════════════════
+
+    function openEditTaskSheet(taskId) {
+      const task = tasks[taskId];
+      if (!task) return;
+
+      const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
+      const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people);
+      taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.add('active');
+      });
+
+      // Bind edit form events
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
+
+      document.getElementById('etCancel')?.addEventListener('click', closeTaskSheet);
+
+      document.getElementById('etSave')?.addEventListener('click', async () => {
+        const name = document.getElementById('et_name')?.value.trim();
+        if (!name) { document.getElementById('et_name')?.focus(); return; }
+
+        const owners = Array.from(document.querySelectorAll('#et_owners input:checked')).map(cb => cb.value);
+
+        const updated = {
+          ...task,
+          name,
+          rotation: document.getElementById('et_rotation')?.value || task.rotation,
+          difficulty: document.getElementById('et_difficulty')?.value || task.difficulty,
+          timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay,
+          estMin: parseInt(document.getElementById('et_estMin')?.value, 10) || 10,
+          category: document.getElementById('et_category')?.value || task.category,
+          owners
+        };
+
+        await writeTask(taskId, updated);
+        tasks[taskId] = updated;
+        closeTaskSheet();
+        render();
+      });
+    }
+
+    // ══════════════════════════════════════════
+    // Quick-add task (header + button)
+    // ══════════════════════════════════════════
+
+    function openQuickAddSheet() {
+      const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
+      const sheetContent = renderQuickAddSheet(people, catsArr);
+      taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.add('active');
+        document.getElementById('qa_name')?.focus();
+      });
+
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
+
+      document.getElementById('qaCancel')?.addEventListener('click', closeTaskSheet);
+
+      document.getElementById('qaSave')?.addEventListener('click', async () => {
+        const name = document.getElementById('qa_name')?.value.trim();
+        if (!name) { document.getElementById('qa_name')?.focus(); return; }
+
+        const owners = Array.from(document.querySelectorAll('#qa_owners input:checked')).map(cb => cb.value);
+
+        const taskData = {
+          name,
+          rotation: document.getElementById('qa_rotation')?.value || 'daily',
+          difficulty: document.getElementById('qa_difficulty')?.value || 'medium',
+          timeOfDay: document.getElementById('qa_timeOfDay')?.value || 'anytime',
+          estMin: parseInt(document.getElementById('qa_estMin')?.value, 10) || 10,
+          category: document.getElementById('qa_category')?.value || '',
+          owners,
+          ownerAssignmentMode: 'rotate',
+          dedicatedDay: null,
+          cooldownDays: null,
+          exempt: false,
+          status: 'active',
+          createdDate: today
+        };
+
+        const newId = await pushTask(taskData);
+        tasks[newId] = taskData;
+        closeTaskSheet();
+        render();
+      });
+    }
+
+    // Bind the header + button
+    document.getElementById('headerAddTask')?.addEventListener('click', openQuickAddSheet);
 
     // ══════════════════════════════════════════
     // Real-time listener for completions

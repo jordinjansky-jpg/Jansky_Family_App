@@ -24,8 +24,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, onValue } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, multiUpdate, onValue } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
@@ -456,7 +456,11 @@
         sliderMin: settings?.sliderMin ?? 0,
         sliderMax: settings?.sliderMax ?? 150,
         currentOverride: currentOverride != null ? currentOverride : 100,
-        gradePreview
+        gradePreview,
+        people,
+        showDelegate: true,
+        showMove: true,
+        showEdit: true
       });
 
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
@@ -539,6 +543,103 @@
           });
         }
       }
+
+      // Delegate
+      document.getElementById('sheetDelegate')?.addEventListener('click', () => {
+        const panel = document.getElementById('delegatePanel');
+        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+      });
+
+      document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
+        chip.addEventListener('click', async () => {
+          const newOwnerId = chip.dataset.personId;
+          if (!newOwnerId) return;
+          const dayEntries = allSchedule[dateKey] || {};
+          const entry = dayEntries[entryKey];
+          if (!entry) return;
+          const newEntry = { ...entry, ownerId: newOwnerId };
+          const updates = {};
+          updates[`schedule/${dateKey}/${entryKey}`] = null;
+          const newKey = `sched_${Date.now()}_delegate`;
+          updates[`schedule/${dateKey}/${newKey}`] = newEntry;
+          if (completions[entryKey]) {
+            updates[`completions/${entryKey}`] = null;
+            updates[`completions/${newKey}`] = completions[entryKey];
+          }
+          await multiUpdate(updates);
+          closeTaskSheet();
+          location.reload();
+        });
+      });
+
+      // Move
+      document.getElementById('sheetMove')?.addEventListener('click', () => {
+        const panel = document.getElementById('movePanel');
+        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+      });
+
+      document.getElementById('moveDatePicker')?.addEventListener('change', async (e) => {
+        const newDate = e.target.value;
+        if (!newDate) return;
+        const dayEntries = allSchedule[dateKey] || {};
+        const entry = dayEntries[entryKey];
+        if (!entry) return;
+        const newEntry = { ...entry };
+        const updates = {};
+        updates[`schedule/${dateKey}/${entryKey}`] = null;
+        const newKey = `sched_${Date.now()}_moved`;
+        updates[`schedule/${newDate}/${newKey}`] = newEntry;
+        if (completions[entryKey]) {
+          updates[`completions/${entryKey}`] = null;
+          updates[`completions/${newKey}`] = completions[entryKey];
+        }
+        await multiUpdate(updates);
+        closeTaskSheet();
+        location.reload();
+      });
+
+      document.getElementById('moveSkip')?.addEventListener('click', async () => {
+        const updates = {};
+        updates[`schedule/${dateKey}/${entryKey}`] = null;
+        if (completions[entryKey]) updates[`completions/${entryKey}`] = null;
+        await multiUpdate(updates);
+        closeTaskSheet();
+        location.reload();
+      });
+
+      // Edit task
+      document.getElementById('sheetEdit')?.addEventListener('click', () => {
+        const taskId = document.getElementById('sheetEdit').dataset.taskId;
+        closeTaskSheet();
+        openEditTaskSheet(taskId);
+      });
+    }
+
+    // ── Edit task sheet ──
+
+    function openEditTaskSheet(taskId) {
+      const task = tasks[taskId];
+      if (!task) return;
+      const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
+      const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people);
+      taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.add('active');
+      });
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
+      document.getElementById('etCancel')?.addEventListener('click', closeTaskSheet);
+      document.getElementById('etSave')?.addEventListener('click', async () => {
+        const name = document.getElementById('et_name')?.value.trim();
+        if (!name) { document.getElementById('et_name')?.focus(); return; }
+        const owners = Array.from(document.querySelectorAll('#et_owners input:checked')).map(cb => cb.value);
+        const updated = { ...task, name, rotation: document.getElementById('et_rotation')?.value || task.rotation, difficulty: document.getElementById('et_difficulty')?.value || task.difficulty, timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay, estMin: parseInt(document.getElementById('et_estMin')?.value, 10) || 10, category: document.getElementById('et_category')?.value || task.category, owners };
+        await writeTask(taskId, updated);
+        tasks[taskId] = updated;
+        closeTaskSheet();
+        if (selectedDay) updateSheet(selectedDay);
+      });
     }
 
     // ══════════════════════════════════════════
