@@ -160,11 +160,6 @@
         html += `</div>`;
       }
 
-      // Viewing hint for future dates
-      if (isFuture) {
-        html += `<div class="chip" style="margin-bottom:var(--spacing-sm);">Preview — completing tasks is disabled for future dates</div>`;
-      }
-
       // Day's tasks
       if (prog.total === 0) {
         const emptyMsg = isToday ? 'Enjoy your free time!' : 'Nothing scheduled for this day.';
@@ -233,13 +228,10 @@
         });
       });
 
-      // Task card toggle (only for today and past)
-      const canComplete = viewDate <= today;
-      if (canComplete) {
-        main.querySelectorAll('.task-card').forEach(btn => {
-          btn.addEventListener('click', () => toggleTask(btn.dataset.entryKey, btn.dataset.dateKey));
-        });
-      }
+      // Task card toggle
+      main.querySelectorAll('.task-card').forEach(btn => {
+        btn.addEventListener('click', () => toggleTask(btn.dataset.entryKey, btn.dataset.dateKey));
+      });
 
       // Overdue toggle
       const overdueBtn = document.getElementById('overdueToggle');
