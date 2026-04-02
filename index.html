@@ -517,6 +517,16 @@
           await writeCompletion(entryKey, completions[entryKey]);
           render();
         });
+
+        // Reset to 100% button
+        const resetBtn = document.getElementById('sliderReset');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            slider.value = 100;
+            slider.dispatchEvent(new Event('input'));
+            slider.dispatchEvent(new Event('change'));
+          });
+        }
       }
     }
 

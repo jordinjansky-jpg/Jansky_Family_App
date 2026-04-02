@@ -316,7 +316,10 @@ export function renderTaskDetailSheet(options) {
         <span class="form-label">${sliderLabel}</span>
         <span class="task-detail__slider-value" id="sliderValueLabel">${sliderVal}% (${earnedPts}pt)</span>
       </div>
-      <input type="range" class="slider" id="pointsSlider" min="${min}" max="${max}" value="${sliderVal}" step="5" data-entry-key="${entryKey}" data-base-pts="${points.possible}">
+      <div class="task-detail__slider-row">
+        <input type="range" class="slider" id="pointsSlider" min="${min}" max="${max}" value="${sliderVal}" step="5" data-entry-key="${entryKey}" data-base-pts="${points.possible}">
+        ${sliderVal !== 100 ? `<button class="btn btn--secondary btn--sm" id="sliderReset" type="button">Reset</button>` : ''}
+      </div>
       ${gradePreview ? `<div class="task-detail__grade-preview" id="gradePreview">Grade: ${gradePreview}</div>` : ''}
       ${previewNote}
     </div>`;

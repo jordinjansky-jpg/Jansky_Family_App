@@ -17,6 +17,7 @@
   </div>
   <div id="navMount"></div>
   <div id="sheetMount"></div>
+  <div id="taskSheetMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -24,11 +25,11 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, onValue } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
-    import { basePoints, dailyScore, gradeDisplay } from './shared/scoring.js';
+    import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -376,12 +377,34 @@
         });
       });
 
-      // Bind task cards in sheet
+      // Bind task cards in sheet: tap to toggle, long-press for detail sheet
       sheetMount.querySelectorAll('.task-card').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        let pressTimer = null;
+        let didLongPress = false;
+
+        const startPress = (e) => {
           e.stopPropagation();
-          toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
-        });
+          didLongPress = false;
+          pressTimer = setTimeout(() => {
+            didLongPress = true;
+            openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
+          }, 500);
+        };
+
+        const endPress = (e) => {
+          e.stopPropagation();
+          clearTimeout(pressTimer);
+          if (!didLongPress) {
+            toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
+          }
+        };
+
+        const cancelPress = () => { clearTimeout(pressTimer); };
+
+        btn.addEventListener('pointerdown', startPress);
+        btn.addEventListener('pointerup', endPress);
+        btn.addEventListener('pointerleave', cancelPress);
+        btn.addEventListener('contextmenu', (e) => e.preventDefault());
       });
     }
 
@@ -394,6 +417,127 @@
         setTimeout(() => { sheetMount.innerHTML = ''; }, 300);
       } else {
         sheetMount.innerHTML = '';
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // Task detail bottom sheet (long-press)
+    // ══════════════════════════════════════════
+
+    const taskSheetMount = document.getElementById('taskSheetMount');
+
+    function openTaskSheet(entryKey, dateKey) {
+      const dayEntries = allSchedule[dateKey] || {};
+      const entry = dayEntries[entryKey];
+      if (!entry) return;
+
+      const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+      const person = people.find(p => p.id === entry.ownerId);
+      const cat = task.category ? cats[task.category] : null;
+      const completed = isComplete(entryKey, completions);
+      const pts = basePoints(task);
+      const completion = completions[entryKey];
+      const currentOverride = completion?.pointsOverride ?? null;
+
+      // Grade preview
+      const filtered = filterByPerson(dayEntries, activePerson);
+      const score = dailyScore(filtered, completions, tasks, cats, settings, dateKey, today);
+      const gd = gradeDisplay(score.percentage);
+      const gradePreview = score.possible > 0 ? `${gd.grade} (${score.percentage}%)` : null;
+
+      const sheetContent = renderTaskDetailSheet({
+        entryKey,
+        entry: { ...entry, dateKey },
+        task,
+        person,
+        category: cat,
+        completed,
+        points: { possible: pts },
+        sliderMin: settings?.sliderMin ?? 0,
+        sliderMax: settings?.sliderMax ?? 150,
+        currentOverride: currentOverride != null ? currentOverride : 100,
+        gradePreview
+      });
+
+      taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.add('active');
+      });
+
+      bindTaskSheetEvents(entryKey, dateKey);
+    }
+
+    function closeTaskSheet() {
+      const overlay = document.getElementById('bottomSheet');
+      if (overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
+      }
+    }
+
+    function bindTaskSheetEvents(entryKey, dateKey) {
+      // Close on overlay click
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeTaskSheet();
+      });
+
+      // Toggle complete
+      document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
+        closeTaskSheet();
+        await toggleTask(entryKey, dateKey);
+      });
+
+      // Points slider — preview for all tasks, save only for completed
+      const slider = document.getElementById('pointsSlider');
+      if (slider) {
+        const isCompleted = isComplete(entryKey, completions);
+        const dayEntries = allSchedule[dateKey] || {};
+
+        slider.addEventListener('input', () => {
+          const val = parseInt(slider.value, 10);
+          const basePts = parseInt(slider.dataset.basePts, 10);
+          const earnedPts = Math.round(basePts * (val / 100));
+          const label = document.getElementById('sliderValueLabel');
+          if (label) label.textContent = `${val}% (${earnedPts}pt)`;
+
+          // Live grade preview — temporarily inject override into completions
+          const filtered = filterByPerson(dayEntries, activePerson);
+          const hadRecord = !!completions[entryKey];
+          const origRecord = completions[entryKey];
+          completions[entryKey] = {
+            ...(origRecord || { completedAt: Date.now(), completedBy: 'preview' }),
+            pointsOverride: val === 100 ? null : val
+          };
+          const previewScore = dailyScore(filtered, completions, tasks, cats, settings, dateKey, today);
+          const previewGd = gradeDisplay(previewScore.percentage);
+          const previewEl = document.getElementById('gradePreview');
+          if (previewEl) previewEl.textContent = `Grade: ${previewGd.grade} (${previewScore.percentage}%)`;
+          // Restore original state
+          if (hadRecord) completions[entryKey] = origRecord;
+          else delete completions[entryKey];
+        });
+
+        slider.addEventListener('change', async () => {
+          if (!isCompleted) return; // preview only for incomplete tasks
+          const val = parseInt(slider.value, 10);
+          const override = val === 100 ? null : val;
+          completions[entryKey].pointsOverride = override;
+          await writeCompletion(entryKey, completions[entryKey]);
+          if (selectedDay) updateSheet(selectedDay);
+        });
+
+        // Reset to 100% button
+        const resetBtn = document.getElementById('sliderReset');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            slider.value = 100;
+            slider.dispatchEvent(new Event('input'));
+            slider.dispatchEvent(new Event('change'));
+          });
+        }
       }
     }
 

@@ -1227,6 +1227,23 @@ img {
   color: var(--accent);
 }
 
+.task-detail__slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.task-detail__slider-row .slider {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn--sm {
+  padding: 4px 10px;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
 .task-detail__grade-preview {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
