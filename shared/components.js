@@ -177,3 +177,84 @@ export function renderPersonFilter(people, activePerson) {
   html += `</div>`;
   return html;
 }
+
+/**
+ * Render a progress bar with label.
+ * done: number completed, total: number total
+ */
+export function renderProgressBar(done, total) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const label = total === 0 ? 'No tasks today' : `${done} of ${total} done`;
+  return `<div class="progress-section">
+    <div class="progress-label">
+      <span>${label}</span>
+      <span class="progress-pct">${pct}%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-bar__fill" style="width:${pct}%"></div>
+    </div>
+  </div>`;
+}
+
+/**
+ * Render a single task card.
+ * options: { entryKey, entry, task, person, category, completed, overdue, dateLabel }
+ */
+export function renderTaskCard(options) {
+  const { entryKey, entry, task, person, category, completed, overdue, dateLabel } = options;
+  const doneClass = completed ? ' task-card--done' : '';
+  const overdueClass = overdue ? ' task-card--overdue' : '';
+  const checkIcon = completed ? '✅' : '⬜';
+  const catIcon = category?.icon || '📋';
+  const ownerColor = person?.color || 'var(--text-secondary)';
+  const ownerName = person?.name || '?';
+  const diffLabel = task.difficulty === 'hard' ? 'Hard' : task.difficulty === 'easy' ? 'Easy' : '';
+  const estLabel = task.estMin ? `${task.estMin}m` : '';
+  const todLabel = entry.timeOfDay === 'am' ? 'AM' : entry.timeOfDay === 'pm' ? 'PM' : '';
+  const meta = [ownerName, estLabel, diffLabel, todLabel].filter(Boolean).join(' · ');
+  const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
+
+  return `<button class="task-card${doneClass}${overdueClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}">
+    <span class="task-card__check">${checkIcon}</span>
+    <div class="task-card__body">
+      <span class="task-card__name">${catIcon} ${task.name}</span>
+      <span class="task-card__meta" style="--owner-color:${ownerColor}">${meta}</span>
+      ${dateLine}
+    </div>
+  </button>`;
+}
+
+/**
+ * Render a time-of-day section header.
+ * label: 'Morning', 'Afternoon', 'Anytime'
+ */
+export function renderTimeHeader(label) {
+  return `<div class="time-header">${label}</div>`;
+}
+
+/**
+ * Render the overdue summary card.
+ * count: number of overdue entries
+ */
+export function renderOverdueBanner(count) {
+  if (count === 0) return '';
+  const s = count === 1 ? 'task' : 'tasks';
+  return `<button class="overdue-banner" id="overdueToggle" type="button">
+    <span class="overdue-banner__icon">⚠️</span>
+    <span class="overdue-banner__text">${count} overdue ${s}</span>
+    <span class="overdue-banner__arrow" id="overdueArrow">▸</span>
+  </button>`;
+}
+
+/**
+ * Render the day-complete celebration overlay.
+ */
+export function renderCelebration() {
+  return `<div class="celebration" id="celebration">
+    <div class="celebration__content">
+      <span class="celebration__icon">🎉</span>
+      <h3 class="celebration__title">All Done!</h3>
+      <p class="celebration__subtitle">Great job finishing today's tasks!</p>
+    </div>
+  </div>`;
+}

@@ -16,40 +16,51 @@
     <div id="mainContent" style="display:none;"></div>
   </div>
   <div id="navMount"></div>
+  <div id="toastMount"></div>
+  <div id="celebrationMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCompletions, readAllSchedule, onConnectionChange, factoryReset, pushTask, multiUpdate, readCategories } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, onConnectionChange, onValue } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey } from './shared/utils.js';
-    import { buildScheduleUpdates } from './shared/scheduler.js';
+    import { todayKey, formatDateLong, formatDateShort, DAY_NAMES } from './shared/utils.js';
+    import { isComplete, filterByPerson, groupByTime, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
 
-    // Apply cached theme immediately
+    // ── Cached theme ──
     const cached = loadCachedTheme();
     applyTheme(cached || defaultThemeConfig());
 
-    // Init Firebase
+    // ── Init Firebase ──
     initFirebase();
-
-    // Check first run
     const firstRun = await isFirstRun();
-    if (firstRun) {
-      window.location.href = 'setup.html';
-    }
+    if (firstRun) { window.location.href = 'setup.html'; }
 
-    // Load settings and people
-    const [settings, peopleObj] = await Promise.all([readSettings(), readPeople()]);
+    // ── Load core data ──
+    const [settings, peopleObj, tasksObj, catsObj] = await Promise.all([
+      readSettings(), readPeople(), readTasks(), readCategories()
+    ]);
 
-    // Apply theme from Firebase
-    if (settings?.theme) {
-      applyTheme(settings.theme);
-    }
+    if (settings?.theme) applyTheme(settings.theme);
 
-    // Render header
+    const tz = settings?.timezone || 'America/Chicago';
+    const today = todayKey(tz);
+    const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
+    const tasks = tasksObj || {};
+    const cats = catsObj || {};
+
+    // ── App state ──
+    let activePerson = null;  // null = "All"
+    let completions = {};
+    let todayEntries = {};
+    let overdueItems = [];
+    let overdueExpanded = false;
+    let celebrationShown = false;
+
+    // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
@@ -57,277 +68,259 @@
       showAdmin: true,
       showDebug: debugActive
     });
-
-    // Render nav
     document.getElementById('navMount').innerHTML = renderNavBar('home');
 
-    // Connection status
+    // ── Connection status ──
     onConnectionChange(connected => {
       const existing = document.querySelector('.connection-dot');
       const html = renderConnectionStatus(connected);
-      if (existing) {
-        existing.outerHTML = html;
-      } else {
-        document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', html);
-      }
+      if (existing) existing.outerHTML = html;
+      else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', html);
     });
 
-    // Show main content
+    // ── Hide loading, show content ──
     document.getElementById('loadingState').style.display = 'none';
     const main = document.getElementById('mainContent');
     main.style.display = '';
 
-    const today = todayKey(settings?.timezone || 'America/Chicago');
-    main.innerHTML = renderEmptyState(
-      '📋',
-      'Dashboard coming in Phase 3',
-      `Today is ${today}. Setup complete — your data is in Firebase.`
-    );
+    // ── Celebration mount ──
+    document.getElementById('celebrationMount').innerHTML = renderCelebration();
 
-    // --- Temporary Phase 2 testing tools (remove in Phase 3) ---
-    const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
-    const cats = await readCategories() || {};
-    const catKeys = Object.keys(cats);
+    // ══════════════════════════════════════════
+    // Render the dashboard
+    // ══════════════════════════════════════════
 
-    main.insertAdjacentHTML('beforeend', `
-      <div class="card mt-lg">
-        <h3 style="font-size:var(--font-size-lg);font-weight:700;margin-bottom:var(--spacing-md);">⚡ Quick Add Task (Phase 2 Testing)</h3>
-        <div class="form-group">
-          <label class="form-label" for="tName">Task Name</label>
-          <input type="text" id="tName" placeholder="e.g., Wash Dishes">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="tRotation">Rotation</label>
-            <select id="tRotation">
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="once">Once</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="tDifficulty">Difficulty</label>
-            <select id="tDifficulty">
-              <option value="easy">Easy</option>
-              <option value="medium" selected>Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="tEstMin">Est. Minutes</label>
-            <input type="number" id="tEstMin" value="15" min="1" max="480">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="tTimeOfDay">Time of Day</label>
-            <select id="tTimeOfDay">
-              <option value="anytime">Anytime</option>
-              <option value="am">AM</option>
-              <option value="pm">PM</option>
-              <option value="both">Both (AM+PM)</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="tCategory">Category</label>
-          <select id="tCategory">
-            ${catKeys.map(k => `<option value="${k}">${cats[k].icon} ${cats[k].label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Owners</label>
-          <div id="tOwners" style="display:flex;flex-wrap:wrap;gap:var(--spacing-sm);">
-            ${people.map(p => `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-              <input type="checkbox" value="${p.id}" checked> <span style="color:${p.color};font-weight:600;">${p.name}</span>
-            </label>`).join('')}
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="tMode">Assignment Mode</label>
-          <select id="tMode">
-            <option value="rotate">Rotate between owners</option>
-            <option value="duplicate">Assign to ALL owners</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="tCooldown">Cooldown Days</label>
-            <input type="number" id="tCooldown" value="0" min="0" max="90">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="tDedDay">Dedicated Day</label>
-            <select id="tDedDay">
-              <option value="">None</option>
-              <option value="0">Sunday</option>
-              <option value="1">Monday</option>
-              <option value="2">Tuesday</option>
-              <option value="3">Wednesday</option>
-              <option value="4">Thursday</option>
-              <option value="5">Friday</option>
-              <option value="6">Saturday</option>
-            </select>
-          </div>
-        </div>
-        <button class="btn btn--primary btn--full" id="addTaskBtn">Add Task &amp; Rebuild Schedule</button>
-        <p class="form-hint mt-sm" id="taskStatus"></p>
-      </div>
-
-      <div class="card mt-md">
-        <h3 style="font-size:var(--font-size-lg);font-weight:700;margin-bottom:var(--spacing-md);">📊 Schedule Status</h3>
-        <button class="btn btn--secondary btn--full mb-md" id="rebuildBtn">🔄 Rebuild Schedule</button>
-        <div id="scheduleStatus" style="font-size:var(--font-size-sm);color:var(--text-secondary);white-space:pre-wrap;"></div>
-      </div>
-
-      <div style="text-align:center;margin-top:var(--spacing-xl);">
-        <button class="btn btn--danger btn--sm" id="tempReset">🗑 Reset &amp; Re-run Setup</button>
-      </div>
-    `);
-
-    // Add task handler
-    document.getElementById('addTaskBtn').addEventListener('click', async () => {
-      const name = document.getElementById('tName').value.trim();
-      if (!name) { document.getElementById('tName').focus(); return; }
-
-      const owners = Array.from(document.querySelectorAll('#tOwners input:checked')).map(cb => cb.value);
-      if (owners.length === 0) { alert('Select at least one owner'); return; }
-
-      const cooldown = parseInt(document.getElementById('tCooldown').value) || 0;
-      const dedDay = document.getElementById('tDedDay').value;
-
-      const task = {
-        name,
-        rotation: document.getElementById('tRotation').value,
-        owners,
-        ownerAssignmentMode: document.getElementById('tMode').value,
-        estMin: parseInt(document.getElementById('tEstMin').value) || 15,
-        difficulty: document.getElementById('tDifficulty').value,
-        category: document.getElementById('tCategory').value || catKeys[0],
-        exempt: false,
-        dedicatedDay: dedDay !== '' ? parseInt(dedDay) : null,
-        timeOfDay: document.getElementById('tTimeOfDay').value,
-        cooldownDays: cooldown > 0 ? cooldown : null,
-        status: 'active',
-        createdDate: today
-      };
-
-      const status = document.getElementById('taskStatus');
-      status.textContent = 'Adding task...';
-
-      try {
-        const taskId = await pushTask(task);
-        status.textContent = `Task "${name}" added (${taskId}). Rebuilding schedule...`;
-        document.getElementById('tName').value = '';
-
-        await rebuildSchedule();
-        status.textContent = `Done! Task added and schedule rebuilt.`;
-      } catch (err) {
-        status.textContent = `Error: ${err.message}`;
-        console.error(err);
-      }
-    });
-
-    // Rebuild schedule handler
-    async function rebuildSchedule() {
-      const statusEl = document.getElementById('scheduleStatus');
-      statusEl.textContent = 'Loading data...';
-
-      const [allTasks, completions, existingSchedule] = await Promise.all([
-        readTasks(),
+    async function loadData() {
+      const [comp, sched, allSched] = await Promise.all([
         readCompletions(),
+        readSchedule(today),
         readAllSchedule()
       ]);
+      completions = comp || {};
+      todayEntries = sched || {};
+      overdueItems = getOverdueEntries(allSched || {}, completions, today);
+    }
 
-      statusEl.textContent = 'Generating schedule...';
-      const updates = buildScheduleUpdates(allTasks || {}, peopleObj || {}, settings, completions || {}, existingSchedule || {});
+    function render() {
+      const filtered = filterByPerson(todayEntries, activePerson);
+      const prog = dayProgress(filtered, completions);
+      const overdueFiltered = activePerson
+        ? overdueItems.filter(e => e.ownerId === activePerson)
+        : overdueItems;
 
-      statusEl.textContent = `Writing ${Object.keys(updates).length} date updates...`;
-      await multiUpdate(updates);
+      // Date header
+      const dateObj = new Date(today + 'T12:00:00Z');
+      const dayName = DAY_NAMES[dateObj.getUTCDay()];
+      const longDate = formatDateLong(today);
 
-      // Read back what's actually in Firebase (not just what we wrote)
-      const liveSchedule = await readAllSchedule() || {};
+      let html = '';
 
-      // Show detailed summary
-      const taskCount = allTasks ? Object.keys(allTasks).length : 0;
-      let totalEntries = 0;
-      let daysWithEntries = 0;
-      const perPerson = {};
-      let pastOrTodayEntries = 0;
-      const pastDates = [];
+      // Date
+      html += `<div class="date-header">
+        <span class="date-header__day">${dayName}</span>
+        <span class="date-header__full">${longDate}</span>
+      </div>`;
 
-      // Check ALL dates in Firebase, including past/today
-      for (const [dateKey, dayEntries] of Object.entries(liveSchedule).sort((a, b) => a[0].localeCompare(b[0]))) {
-        if (!dayEntries) continue;
-        const count = Object.keys(dayEntries).length;
-        if (dateKey <= today) {
-          pastOrTodayEntries += count;
-          if (count > 0) pastDates.push(dateKey);
+      // Person filter
+      html += renderPersonFilter(people, activePerson);
+
+      // Progress
+      html += renderProgressBar(prog.done, prog.total);
+
+      // Overdue banner
+      if (overdueFiltered.length > 0) {
+        html += renderOverdueBanner(overdueFiltered.length);
+        html += `<div class="overdue-list" id="overdueList" style="display:${overdueExpanded ? 'block' : 'none'};">`;
+        for (const item of overdueFiltered) {
+          const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+          const person = people.find(p => p.id === item.ownerId);
+          const cat = task.category ? cats[task.category] : null;
+          html += renderTaskCard({
+            entryKey: item.entryKey,
+            entry: { ...item, dateKey: item.dateKey },
+            task,
+            person,
+            category: cat,
+            completed: isComplete(item.entryKey, completions),
+            overdue: true,
+            dateLabel: formatDateShort(item.dateKey)
+          });
         }
-        if (count > 0) daysWithEntries++;
-        for (const entry of Object.values(dayEntries)) {
-          totalEntries++;
-          const pName = people.find(p => p.id === entry.ownerId)?.name || entry.ownerId;
-          perPerson[pName] = (perPerson[pName] || 0) + 1;
-        }
+        html += `</div>`;
       }
 
-      let summary = `✅ Schedule rebuilt!\n`;
-      summary += `─────────────────────\n`;
-      summary += `Tasks: ${taskCount}\n`;
-      summary += `Days with entries: ${daysWithEntries}\n`;
-      summary += `Total entries: ${totalEntries}\n\n`;
-
-      // Past/today check (#7 validation)
-      if (pastOrTodayEntries > 0) {
-        summary += `⚠️ PAST/TODAY ENTRIES: ${pastOrTodayEntries} (dates: ${pastDates.join(', ')})\n`;
-        summary += `   This should be 0 — scheduler should only write future dates.\n\n`;
+      // Today's tasks
+      if (prog.total === 0) {
+        html += renderEmptyState('📭', 'No tasks today', 'Enjoy your free time!');
       } else {
-        summary += `✅ No past/today entries — immutability verified\n\n`;
-      }
+        // Group by time
+        const groups = groupByTime(filtered);
+        const sections = [
+          { key: 'am', label: 'Morning' },
+          { key: 'pm', label: 'Afternoon' },
+          { key: 'anytime', label: 'Anytime' }
+        ];
 
-      summary += `Per person:\n`;
-      for (const [name, count] of Object.entries(perPerson).sort((a, b) => b[1] - a[1])) {
-        summary += `  ${name}: ${count} entries\n`;
-      }
+        // Only show section headers if there are entries in multiple groups
+        const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
+        const showHeaders = nonEmpty.length > 1;
 
-      // Show first 7 days preview
-      const allDates = Object.keys(liveSchedule).sort();
-      const previewDates = allDates.filter(d => d > today).slice(0, 7);
-      if (previewDates.length > 0) {
-        summary += `\n─────────────────────\n`;
-        summary += `📅 Next 7 days preview:\n`;
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        for (const dk of previewDates) {
-          const dayEntries = liveSchedule[dk];
-          if (!dayEntries) continue;
-          const dow = new Date(dk + 'T00:00:00Z').getUTCDay();
-          summary += `\n${dayNames[dow]} ${dk}:\n`;
-          for (const entry of Object.values(dayEntries)) {
-            const taskName = allTasks[entry.taskId]?.name || entry.taskId;
-            const ownerName = people.find(p => p.id === entry.ownerId)?.name || '?';
-            const tod = entry.timeOfDay !== 'anytime' ? ` [${entry.timeOfDay.toUpperCase()}]` : '';
-            const mode = entry.ownerAssignmentMode === 'duplicate' ? ' (dup)' : '';
-            summary += `  • ${taskName} → ${ownerName}${tod}${mode}\n`;
+        for (const sec of sections) {
+          const entries = groups[sec.key];
+          const sorted = sortEntries(entries, completions);
+          if (sorted.length === 0) continue;
+
+          if (showHeaders) html += renderTimeHeader(sec.label);
+
+          for (const [entryKey, entry] of sorted) {
+            const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+            const person = people.find(p => p.id === entry.ownerId);
+            const cat = task.category ? cats[task.category] : null;
+            html += renderTaskCard({
+              entryKey,
+              entry: { ...entry, dateKey: today },
+              task,
+              person,
+              category: cat,
+              completed: isComplete(entryKey, completions),
+              overdue: false
+            });
           }
         }
       }
 
-      statusEl.textContent = summary;
+      main.innerHTML = html;
+      bindEvents();
     }
 
-    document.getElementById('rebuildBtn').addEventListener('click', rebuildSchedule);
+    // ══════════════════════════════════════════
+    // Event binding
+    // ══════════════════════════════════════════
 
-    // Reset handler
-    document.getElementById('tempReset').addEventListener('click', async () => {
-      if (!confirm('Delete ALL data under rundown/ and restart setup?')) return;
-      await factoryReset();
-      localStorage.removeItem('dr-theme');
-      window.location.href = 'setup.html';
+    function bindEvents() {
+      // Person filter
+      main.querySelectorAll('.person-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activePerson = btn.dataset.personId || null;
+          celebrationShown = false;
+          render();
+        });
+      });
+
+      // Task card toggle
+      main.querySelectorAll('.task-card').forEach(btn => {
+        btn.addEventListener('click', () => toggleTask(btn.dataset.entryKey, btn.dataset.dateKey));
+      });
+
+      // Overdue toggle
+      const overdueBtn = document.getElementById('overdueToggle');
+      if (overdueBtn) {
+        overdueBtn.addEventListener('click', () => {
+          overdueExpanded = !overdueExpanded;
+          const list = document.getElementById('overdueList');
+          const arrow = document.getElementById('overdueArrow');
+          if (list) list.style.display = overdueExpanded ? 'block' : 'none';
+          if (arrow) arrow.classList.toggle('expanded', overdueExpanded);
+        });
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // Completion toggle
+    // ══════════════════════════════════════════
+
+    let undoTimer = null;
+
+    async function toggleTask(entryKey, dateKey) {
+      if (!entryKey) return;
+      const wasComplete = isComplete(entryKey, completions);
+
+      if (wasComplete) {
+        // Uncomplete
+        delete completions[entryKey];
+        await removeCompletion(entryKey);
+        celebrationShown = false;
+      } else {
+        // Complete
+        const record = {
+          completedAt: firebase.database.ServerValue.TIMESTAMP,
+          completedBy: 'dashboard'
+        };
+        completions[entryKey] = record;
+        await writeCompletion(entryKey, record);
+      }
+
+      render();
+
+      // Undo toast
+      showUndoToast(
+        wasComplete ? 'Task marked incomplete' : 'Task completed',
+        async () => {
+          if (wasComplete) {
+            const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'dashboard' };
+            completions[entryKey] = record;
+            await writeCompletion(entryKey, record);
+          } else {
+            delete completions[entryKey];
+            await removeCompletion(entryKey);
+          }
+          celebrationShown = false;
+          render();
+        }
+      );
+
+      // Check for celebration
+      checkCelebration();
+    }
+
+    function showUndoToast(message, undoCallback) {
+      const mount = document.getElementById('toastMount');
+      mount.innerHTML = renderUndoToast(message);
+      const toast = mount.querySelector('.undo-toast');
+
+      if (undoTimer) clearTimeout(undoTimer);
+
+      toast.querySelector('.undo-toast__btn').addEventListener('click', () => {
+        mount.innerHTML = '';
+        if (undoTimer) clearTimeout(undoTimer);
+        undoCallback();
+      });
+
+      // Auto-dismiss after 4s
+      undoTimer = setTimeout(() => {
+        if (toast.parentNode) {
+          toast.style.opacity = '0';
+          setTimeout(() => { mount.innerHTML = ''; }, 300);
+        }
+      }, 4000);
+    }
+
+    function checkCelebration() {
+      if (celebrationShown) return;
+      const filtered = filterByPerson(todayEntries, activePerson);
+      if (isAllDone(filtered, completions)) {
+        celebrationShown = true;
+        const cel = document.getElementById('celebration');
+        cel.classList.add('active');
+        setTimeout(() => cel.classList.remove('active'), 2500);
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // Real-time listener for completions
+    // ══════════════════════════════════════════
+
+    onValue('completions', (val) => {
+      completions = val || {};
+      render();
     });
 
-    // Auto-show schedule status on load
-    rebuildSchedule().catch(console.error);
+    // ══════════════════════════════════════════
+    // Initial load
+    // ══════════════════════════════════════════
+
+    await loadData();
+    render();
   </script>
 </body>
 </html>
