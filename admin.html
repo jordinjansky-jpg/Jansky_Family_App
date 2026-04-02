@@ -529,6 +529,7 @@
       html += `<div class="admin-list">`;
       for (const c of ca) {
         const badges = [];
+        if (c.isEvent) badges.push(`<span class="admin-badge admin-badge--event" style="background:${c.eventColor || '#5b7fd6'}22;color:${c.eventColor || '#5b7fd6'}">Event</span>`);
         if (c.isDefault) badges.push('<span class="admin-badge">Default</span>');
         if (c.weightPercent) badges.push(`<span class="admin-badge admin-badge--muted">${c.weightPercent}%</span>`);
         if (c.pinProtected) badges.push('<span class="admin-badge admin-badge--muted">🔒</span>');
@@ -570,6 +571,15 @@
             <label class="form-label">Weight %</label>
             <input type="number" id="cf_weight" value="${cat.weightPercent || ''}" min="0" max="100" placeholder="None">
             <p class="form-hint">Leave empty for no weighting</p>
+          </div>
+        </div>
+        <label class="admin-checkbox"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}> Event category (no scoring, calendar highlight)</label>
+        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'}">
+          <span class="form-label" style="margin-bottom:0;">Event Color</span>
+          <div class="admin-color-grid admin-color-grid--sm" id="eventColorGrid">
+            ${['#5b7fd6','#e85d75','#43a047','#ff9800','#8e24aa','#00acc1','#ef5350','#ffa726','#26a69a','#ec407a'].map(c =>
+              `<button class="admin-color-dot${(cat.eventColor || '#5b7fd6') === c ? ' admin-color-dot--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`
+            ).join('')}
           </div>
         </div>
         <label class="admin-checkbox"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}> Show icon on task cards</label>
@@ -654,10 +664,17 @@
         <div class="admin-theme-grid" id="themePresetGrid">
           ${presets.map(p => {
             const sel = currentTheme.preset === p.key ? ' admin-theme-option--active' : '';
-            const bg = p.mode === 'dark' ? '#1a1a2e' : '#faf8f5';
-            const fg = p.mode === 'dark' ? '#e8e8e8' : '#2c2c2c';
+            const previewColors = {
+              'light-warm': { bg: '#faf8f5', fg: '#2c2c2c' },
+              'dark': { bg: '#1a1a2e', fg: '#e8e8e8' },
+              'dark-warm': { bg: '#1e1a17', fg: '#e8e0d8' },
+              'light-vivid': { bg: '#faf7f2', fg: '#2c2c2c' },
+              'dark-vivid': { bg: '#1e1a17', fg: '#e8e0d8' }
+            };
+            const { bg, fg } = previewColors[p.key] || { bg: p.mode === 'dark' ? '#1a1a2e' : '#faf8f5', fg: p.mode === 'dark' ? '#e8e8e8' : '#2c2c2c' };
+            const coloredLabel = p.coloredCells ? ' ✦' : '';
             return `<button class="admin-theme-option${sel}" data-preset="${p.key}" type="button">
-              <div class="admin-theme-option__preview" style="background:${bg};color:${fg}">${p.label}</div>
+              <div class="admin-theme-option__preview" style="background:${bg};color:${fg}">${p.label}${coloredLabel}</div>
               <span>${p.label}</span>
             </button>`;
           }).join('')}
@@ -995,15 +1012,19 @@
         const dedicatedDay = main.querySelector('#tf_dedicatedDay')?.value;
         const cooldown = main.querySelector('#tf_cooldown')?.value;
 
+        const catKey = main.querySelector('#tf_category')?.value || '';
+        const catIsEvent = catsObj[catKey]?.isEvent || false;
+        const effectiveMode = catIsEvent ? 'fixed' : assignMode;
+
         const taskData = {
           name,
           rotation: main.querySelector('#tf_rotation')?.value || 'daily',
           difficulty: main.querySelector('#tf_difficulty')?.value || 'medium',
           timeOfDay: main.querySelector('#tf_timeOfDay')?.value || 'anytime',
           estMin: parseInt(main.querySelector('#tf_estMin')?.value, 10) || 10,
-          category: main.querySelector('#tf_category')?.value || '',
+          category: catKey,
           owners,
-          ownerAssignmentMode: assignMode,
+          ownerAssignmentMode: effectiveMode,
           dedicatedDay: dedicatedDay !== '' ? parseInt(dedicatedDay, 10) : null,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
           exempt: main.querySelector('#tf_exempt')?.checked || false,
@@ -1018,10 +1039,10 @@
           // Create schedule entry for today so the task appears immediately
           if (owners.length > 0) {
             const schedUpdates = {};
-            const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: assignMode };
+            const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: effectiveMode };
             const tod = taskData.timeOfDay || 'anytime';
 
-            if (assignMode === 'duplicate') {
+            if (effectiveMode === 'duplicate') {
               for (const oid of owners) {
                 if (tod === 'both') {
                   schedUpdates[`schedule/${today}/sched_${Date.now()}_new_${oid}_am`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
@@ -1216,6 +1237,23 @@
         render();
       });
 
+      // Event toggle shows/hides color picker
+      const eventCheckbox = main.querySelector('#cf_isEvent');
+      const eventColorRow = main.querySelector('#eventColorRow');
+      eventCheckbox?.addEventListener('change', () => {
+        if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? 'flex' : 'none';
+      });
+
+      // Event color dot selection
+      let selectedEventColor = main.querySelector('#eventColorGrid .admin-color-dot--active')?.dataset.color || '#5b7fd6';
+      for (const dot of main.querySelectorAll('#eventColorGrid .admin-color-dot')) {
+        dot.addEventListener('click', () => {
+          main.querySelectorAll('#eventColorGrid .admin-color-dot').forEach(d => d.classList.remove('admin-color-dot--active'));
+          dot.classList.add('admin-color-dot--active');
+          selectedEventColor = dot.dataset.color;
+        });
+      }
+
       main.querySelector('#catFormSave')?.addEventListener('click', async () => {
         const icon = main.querySelector('#cf_icon')?.value.trim() || '📌';
         const label = main.querySelector('#cf_label')?.value.trim();
@@ -1225,6 +1263,7 @@
         const showIcon = main.querySelector('#cf_showIcon')?.checked ?? true;
         const pinProtected = main.querySelector('#cf_pinProtected')?.checked || false;
         const isDefault = main.querySelector('#cf_isDefault')?.checked || false;
+        const isEvent = main.querySelector('#cf_isEvent')?.checked || false;
 
         // If setting as default, clear default from all other categories
         if (isDefault) {
@@ -1239,7 +1278,9 @@
           showIcon,
           pinProtected,
           isDefault,
-          weightPercent: weight ? parseInt(weight, 10) : null
+          isEvent,
+          eventColor: isEvent ? selectedEventColor : null,
+          weightPercent: isEvent ? null : (weight ? parseInt(weight, 10) : null)
         };
 
         if (editingCatKey === 'new') {

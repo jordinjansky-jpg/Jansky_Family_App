@@ -205,18 +205,20 @@ export function renderProgressBar(done, total) {
  * points: optional { possible, override } — override is the pointsOverride percentage (null = no override)
  */
 export function renderTaskCard(options) {
-  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points } = options;
+  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent } = options;
   const doneClass = completed ? ' task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
+  const eventClass = isEvent ? ' task-card--event' : '';
   const showIcon = category?.showIcon !== false;
   const catIcon = showIcon ? (category?.icon || '') : '';
   const ownerColor = person?.color || 'var(--text-secondary)';
   const ownerInitial = (person?.name || '?')[0].toUpperCase();
   const estLabel = task.estMin ? `${task.estMin}m` : '';
+  const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
 
-  // Points label: show override value with color if active, else base
+  // Points label: show override value with color if active, else base (skip for events)
   let ptsLabel = '';
-  if (points) {
+  if (points && !isEvent) {
     if (points.override != null && points.override !== 100) {
       const overridePts = Math.round(points.possible * (points.override / 100));
       const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
@@ -236,9 +238,11 @@ export function renderTaskCard(options) {
 
   const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
-  const taskName = catIcon ? `${catIcon} ${task.name}` : task.name;
+  const eventPrefix = isEvent ? '📅 ' : '';
+  const taskName = catIcon ? `${catIcon} ${task.name}` : `${eventPrefix}${task.name}`;
+  const eventStyle = eventColor ? `;--event-color:${eventColor}` : '';
 
-  return `<button class="task-card${doneClass}${overdueClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}">
+  return `<button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}${eventStyle}">
     <span class="task-card__initial">${ownerInitial}</span>
     <span class="task-card__name">${taskName}${actionTag}</span>
     <div class="task-card__right">

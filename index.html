@@ -71,7 +71,8 @@
       subtitle: settings?.familyName || '',
       showAdmin: true,
       showDebug: debugActive,
-      showAddTask: true
+      showAddTask: true,
+      rightContent: '<span class="header__stats" id="headerStats"></span>'
     });
     document.getElementById('navMount').innerHTML = renderNavBar('home');
 
@@ -120,6 +121,16 @@
       const score = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
       const gd = gradeDisplay(score.percentage);
 
+      // Compute total task time for filtered entries
+      let totalMinutes = 0;
+      for (const [key, entry] of Object.entries(filtered)) {
+        const task = tasks[entry.taskId];
+        if (task?.estMin) totalMinutes += task.estMin;
+      }
+      const timeH = Math.floor(totalMinutes / 60);
+      const timeM = totalMinutes % 60;
+      const timeLabel = timeH > 0 ? `${timeH}h${timeM > 0 ? String(timeM).padStart(2, '0') + 'm' : ''}` : `${timeM}m`;
+
       // Date header
       const dateObj = new Date(viewDate + 'T12:00:00Z');
       const dayName = DAY_NAMES[dateObj.getUTCDay()];
@@ -128,7 +139,13 @@
 
       let html = '';
 
-      // Date with nav arrows + grade
+      // Date with nav arrows + stats
+      const statsItems = [];
+      if (score.possible > 0) statsItems.push(`${renderGradeBadge(gd.grade, gd.tier)} ${score.percentage}%`);
+      statsItems.push(`${prog.done}/${prog.total} tasks`);
+      if (totalMinutes > 0) statsItems.push(timeLabel);
+      const statsHtml = `<div class="date-header__stats mt-sm">${statsItems.join('<span class="date-header__sep">·</span>')}</div>`;
+
       html += `<div class="date-header">
         <div class="date-nav">
           <button class="date-nav__btn" id="prevDay" type="button" title="Previous day">&lsaquo;</button>
@@ -138,7 +155,7 @@
           </div>
           <button class="date-nav__btn" id="nextDay" type="button" title="Next day">&rsaquo;</button>
         </div>
-        ${score.possible > 0 ? `<div class="date-header__grade mt-sm">${renderGradeBadge(gd.grade, gd.tier)} <span class="text-sm text-muted">${score.earned}/${score.possible} pts</span></div>` : ''}
+        ${statsHtml}
         ${!isToday ? `<button class="btn btn--ghost btn--sm mt-sm" id="goToday" type="button">Back to Today</button>` : ''}
       </div>`;
 
@@ -172,7 +189,8 @@
             completed: isComplete(item.entryKey, completions),
             overdue: true,
             dateLabel: formatDateShort(item.dateKey),
-            points: { possible: pts, override: ovr }
+            points: { possible: pts, override: ovr },
+            isEvent: !!cat?.isEvent
           });
         }
         html += `</div>`;
@@ -224,7 +242,8 @@
               category: cat,
               completed: false,
               overdue: false,
-              points: { possible: pts, override: ovr }
+              points: { possible: pts, override: ovr },
+              isEvent: !!cat?.isEvent
             });
           }
         }
@@ -247,7 +266,8 @@
               category: cat,
               completed: true,
               overdue: false,
-              points: { possible: pts, override: ovr }
+              points: { possible: pts, override: ovr },
+              isEvent: !!cat?.isEvent
             });
           }
         }
@@ -260,6 +280,15 @@
 
       main.innerHTML = html;
       bindEvents();
+
+      // Update header stats
+      const headerStats = document.getElementById('headerStats');
+      if (headerStats) {
+        const hParts = [];
+        if (score.possible > 0) hParts.push(`${renderGradeBadge(gd.grade, gd.tier)} ${score.percentage}%`);
+        if (totalMinutes > 0) hParts.push(timeLabel);
+        headerStats.innerHTML = hParts.join(' <span class="date-header__sep">·</span> ');
+      }
     }
 
     function renderDebugPanel(filtered, score) {
@@ -754,7 +783,7 @@
           estMin: parseInt(document.getElementById('qa_estMin')?.value, 10) || 10,
           category: document.getElementById('qa_category')?.value || '',
           owners,
-          ownerAssignmentMode: 'rotate',
+          ownerAssignmentMode: cats[document.getElementById('qa_category')?.value]?.isEvent ? 'fixed' : 'rotate',
           dedicatedDay: null,
           cooldownDays: null,
           exempt: false,

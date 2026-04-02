@@ -205,6 +205,15 @@ img {
   background: var(--bg-secondary);
 }
 
+.header__stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 /* ============ Bottom Navigation ============ */
 .bottom-nav {
   position: fixed;
@@ -770,6 +779,21 @@ img {
   gap: var(--spacing-sm);
 }
 
+.date-header__stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.date-header__sep {
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
 /* ============ Progress Bar ============ */
 .progress-section {
   margin-bottom: var(--spacing-md);
@@ -925,6 +949,38 @@ img {
   font-weight: 700;
 }
 
+/* ── Colored cells (vivid themes) ── */
+[data-colored-cells="true"] .task-card {
+  background: color-mix(in srgb, var(--owner-color) 12%, var(--bg-card));
+  border-left-color: color-mix(in srgb, var(--owner-color) 40%, var(--bg-card));
+}
+[data-colored-cells="true"][data-theme="dark"] .task-card {
+  background: color-mix(in srgb, var(--owner-color) 18%, var(--bg-card));
+  border-left-color: color-mix(in srgb, var(--owner-color) 50%, var(--bg-card));
+}
+[data-colored-cells="true"] .task-card--done {
+  background: color-mix(in srgb, var(--owner-color) 6%, var(--bg-secondary));
+}
+[data-colored-cells="true"][data-theme="dark"] .task-card--done {
+  background: color-mix(in srgb, var(--owner-color) 10%, var(--bg-secondary));
+}
+[data-colored-cells="true"] .task-card--overdue {
+  background: color-mix(in srgb, var(--warning-text) 8%, color-mix(in srgb, var(--owner-color) 10%, var(--bg-card)));
+}
+
+/* ── Event task cards ── */
+.task-card--event {
+  border-left-color: var(--event-color, var(--accent));
+  background: color-mix(in srgb, var(--event-color, var(--accent)) 6%, var(--bg-card));
+  border-style: solid;
+}
+.task-card--event.task-card--done {
+  background: color-mix(in srgb, var(--event-color, var(--accent)) 4%, var(--bg-secondary));
+}
+[data-colored-cells="true"] .task-card--event {
+  background: color-mix(in srgb, var(--event-color, var(--accent)) 10%, var(--bg-card));
+}
+
 /* Task card action tags (delegated/moved indicators) */
 .task-card__tag {
   display: inline-flex;
@@ -1061,6 +1117,22 @@ img {
 
 .cal-freq--d { color: var(--text-secondary); }
 .cal-freq--w { color: var(--accent); }
+
+/* Event color bars at bottom of calendar cells */
+.cal-event-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  margin-top: auto;
+  border-radius: 0 0 3px 3px;
+  overflow: hidden;
+}
+.cal-event-bar {
+  display: block;
+  width: 100%;
+  border-radius: 1px;
+}
 .cal-freq--m { color: var(--warning-text, #b86e00); }
 
 /* ============ Calendar Day Sheet ============ */
@@ -2374,6 +2446,31 @@ img {
 .admin-badge--muted {
   background: var(--danger-bg);
   color: var(--danger-text);
+}
+
+/* Admin event color picker */
+.admin-event-color-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+.admin-color-grid--sm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.admin-color-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.admin-color-dot--active {
+  border-color: var(--text-primary);
+  transform: scale(1.2);
 }
 
 /* Admin person row */

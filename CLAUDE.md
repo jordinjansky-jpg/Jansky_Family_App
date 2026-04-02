@@ -39,13 +39,13 @@ rundown/
 ├── people/
 │   └── {pushId}      ← { name, color }
 ├── categories/
-│   └── {pushId}      ← { name, icon }
+│   └── {pushId}      ← { name, icon, isEvent?, eventColor?, weightPercent?, ... }
 ├── tasks/
 │   └── {pushId}      ← { name, rotation, owners[], ownerAssignmentMode,
 │                         timeOfDay, dedicatedDay?, cooldownDays?, estMin,
 │                         difficulty, category, status, createdDate, exempt? }
 │                       rotation: 'daily' | 'weekly' | 'monthly' | 'once'
-│                       ownerAssignmentMode: 'rotate' | 'duplicate'
+│                       ownerAssignmentMode: 'rotate' | 'duplicate' | 'fixed'
 │                       timeOfDay: 'am' | 'pm' | 'anytime' | 'both'
 ├── schedule/
 │   └── {YYYY-MM-DD}/
@@ -89,6 +89,9 @@ rundown/
 - Scoreboard weekly grades blend snapshots (past days) + live daily score (today) for accuracy
 - Scoreboard drill-down: tap person card → bottom sheet with task-level detail (Done/Late/Missed/Pending)
 - Scoreboard trends: 4-week bar sparklines per person with grade-colored fills
+- Event categories: isEvent toggle enables eventColor picker, hides weight%. Events excluded from scoring (dailyPossible, dailyScore, buildSnapshot). Scheduler uses 'fixed' mode (first owner, no rotation). Cards show 📅 prefix and event-colored border. Calendar cells show stacked color bars for days with events.
+- Theme coloredCells: Light Vivid and Dark Vivid presets set data-colored-cells attribute; CSS applies person-colored task card backgrounds (light/dark tints).
+- Dashboard stats: grade badge + score % + tasks done/total + total time; updates in both date-header section and fixed header, filters by active person.
 
 ## Gotchas (Critical)
 - Firebase RTDB compat SDK used (not modular) — all imports via `firebase.` global after CDN load
@@ -97,6 +100,7 @@ rundown/
 - `rundown/settings` is a flat object, not nested under a push ID
 
 ## Changelog
+2026-04-02 New themes + events + stats: Added Light Vivid and Dark Vivid theme presets with person-colored task card backgrounds (coloredCells flag). Event categories: isEvent toggle in admin categories with eventColor picker, events excluded from scoring, use 'fixed' ownerAssignmentMode (no rotate/dup), show with 📅 prefix and colored border style on task cards. Calendar day cells show colored event bars (multiple events = stacked thin bars). Dashboard stats: replaced points with score %, tasks done/total, total task time in date-header and fixed header — all filter by person. Theme per-device (localStorage source of truth).
 2026-04-02 Phase 8 polish round 2: Fixed admin blank screen on PIN session return (render called before main defined). Fixed edit sheet closing immediately (closeTaskSheet timeout racing with openEditTaskSheet). Added delegation/move indicators on task cards (↪ name / 📅 moved tags from entry key suffix). Redesigned + button as pill-shaped "Task" button. Categories: removed duplicate key display, added isDefault flag (pre-selects in quick-add), badges for weight/pin/icon-off. New tasks now create schedule entries for today (not just future). Debug tab: past-due test entry creator (pick task/date/owner to create overdue entry for testing).
 2026-04-02 Phase 8 polish: Category showIcon toggle (controls icon display on task cards). Reworked admin task list UI (two-row layout with name/badges top row, owners/actions bottom row). Reworked admin people list UI (horizontal with color dot, info column). PIN session caching (30min TTL in sessionStorage). Quick-add task button (+) in header on all main pages. Long-press detail sheet now has Delegate (person chips), Move (date picker), Skip, and Edit Task buttons on dashboard/calendar/tracker — no PIN required. Edit task opens inline bottom sheet. Debug mode shows scoring breakdown panel on dashboard with copy-to-clipboard.
 2026-04-02 Phase 8: Admin Panel — PIN-gated admin page with 8 tab sections. Tasks: filterable list (rotation/owner/category/status), full CRUD with ownerAssignmentMode toggle, pause/unpause, delete with confirmation. People: add/edit/remove with color picker, role toggle (adult/child), kid mode settings (showWeekView, showCalendar, canDelegate, canMoveTasks, showSlider, celebrations). Categories: CRUD with icon/label/pinProtected/weightPercent, delete reassigns tasks to fallback category. Settings: appName, familyName, timezone, weekendWeight, pastDueCreditPct, sliderMin/Max, PIN change. Theme: preset grid + accent color picker, live preview, syncs to Firebase. Schedule: 90-day summary stats (days/entries/per-person load), rebuild future schedule button. Data: JSON export, factory reset (PIN + type RESET confirmation). Debug: toggle debug mode, event log viewer (last 50), schedule inspector per task, copy-to-clipboard. Tracker also got long-press detail sheet support.

@@ -103,7 +103,7 @@ export function dailyPossible(entries, tasks, categories) {
     return { possible: 0, pointsMap: {} };
   }
 
-  // Split entries into regular and weighted
+  // Split entries into regular and weighted (exclude event categories)
   const regular = {};
   const weighted = {};
 
@@ -111,6 +111,8 @@ export function dailyPossible(entries, tasks, categories) {
     const task = tasks[entry.taskId];
     if (!task) continue;
     const cat = task.category ? categories[task.category] : null;
+    // Skip event categories — they don't count for scoring
+    if (cat?.isEvent) continue;
     if (cat && cat.weightPercent > 0) {
       weighted[key] = { entry, task, cat };
     } else {
@@ -163,6 +165,9 @@ export function dailyScore(personEntries, completions, tasks, categories, settin
   for (const [key, entry] of Object.entries(personEntries)) {
     const task = tasks[entry.taskId];
     if (!task) continue;
+    // Skip event categories — they don't count for scoring
+    const cat = task.category ? categories[task.category] : null;
+    if (cat?.isEvent) continue;
     const completion = completions?.[key] || null;
     const pts = earnedPoints(task, completion, {
       isOverdue: isOverdueDate,
@@ -202,6 +207,9 @@ export function buildSnapshot(personEntries, completions, tasks, categories, set
   for (const [key, entry] of Object.entries(personEntries)) {
     const task = tasks[entry.taskId];
     if (!task) continue;
+    // Skip event categories — they don't count for scoring/snapshots
+    const cat = task.category ? categories[task.category] : null;
+    if (cat?.isEvent) continue;
     const completion = completions?.[key] || null;
     if (completion) {
       earned += earnedPoints(task, completion, { isOverdue: false, pastDueCreditPct });

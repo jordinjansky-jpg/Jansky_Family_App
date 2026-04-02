@@ -82,6 +82,62 @@ const PRESETS = {
       '--info-bg': '#1b2a33',
       '--info-text': '#64b5f6'
     }
+  },
+  'light-vivid': {
+    mode: 'light',
+    label: 'Light Vivid',
+    coloredCells: true,
+    vars: {
+      '--bg-primary': '#faf7f2',
+      '--bg-secondary': '#f3ede4',
+      '--bg-card': '#ffffff',
+      '--bg-nav': '#ffffff',
+      '--text-primary': '#2c2c2c',
+      '--text-secondary': '#6b6b6b',
+      '--text-muted': '#999999',
+      '--border-color': '#e8e4de',
+      '--border-light': '#f0ece6',
+      '--shadow-sm': '0 1px 3px rgba(0,0,0,0.06)',
+      '--shadow-md': '0 4px 12px rgba(0,0,0,0.08)',
+      '--shadow-lg': '0 8px 24px rgba(0,0,0,0.12)',
+      '--overlay-bg': 'rgba(0,0,0,0.4)',
+      '--success-bg': '#e8f5e9',
+      '--success-text': '#2e7d32',
+      '--warning-bg': '#fff3e0',
+      '--warning-text': '#e65100',
+      '--danger-bg': '#ffebee',
+      '--danger-text': '#c62828',
+      '--info-bg': '#e3f2fd',
+      '--info-text': '#1565c0'
+    }
+  },
+  'dark-vivid': {
+    mode: 'dark',
+    label: 'Dark Vivid',
+    coloredCells: true,
+    vars: {
+      '--bg-primary': '#1e1a17',
+      '--bg-secondary': '#2a2420',
+      '--bg-card': '#332d28',
+      '--bg-nav': '#2a2420',
+      '--text-primary': '#e8e0d8',
+      '--text-secondary': '#b0a898',
+      '--text-muted': '#807868',
+      '--border-color': '#3d3530',
+      '--border-light': '#332d28',
+      '--shadow-sm': '0 1px 3px rgba(0,0,0,0.3)',
+      '--shadow-md': '0 4px 12px rgba(0,0,0,0.4)',
+      '--shadow-lg': '0 8px 24px rgba(0,0,0,0.5)',
+      '--overlay-bg': 'rgba(0,0,0,0.6)',
+      '--success-bg': '#1b2e1b',
+      '--success-text': '#81c784',
+      '--warning-bg': '#2e2a1b',
+      '--warning-text': '#ffb74d',
+      '--danger-bg': '#2e1b1b',
+      '--danger-text': '#e57373',
+      '--info-bg': '#1b2a33',
+      '--info-text': '#64b5f6'
+    }
   }
 };
 
@@ -92,7 +148,8 @@ export function getPresets() {
   return Object.entries(PRESETS).map(([key, preset]) => ({
     key,
     label: preset.label,
-    mode: preset.mode
+    mode: preset.mode,
+    coloredCells: !!preset.coloredCells
   }));
 }
 
@@ -147,6 +204,14 @@ export function applyTheme(themeConfig) {
 
   // Set data attribute for CSS selectors
   root.setAttribute('data-theme', themeConfig.mode || 'light');
+
+  // Set colored cells attribute based on preset
+  const preset = PRESETS[themeConfig.preset];
+  if (preset?.coloredCells) {
+    root.setAttribute('data-colored-cells', 'true');
+  } else {
+    root.removeAttribute('data-colored-cells');
+  }
 
   // Persist to localStorage for immediate load on next page
   localStorage.setItem('dr-theme', JSON.stringify(themeConfig));

@@ -155,6 +155,19 @@ function generateRotatedEntries(task, taskId, dateKey) {
     return generateDuplicateEntries(task, taskId, dateKey);
   }
 
+  if (mode === 'fixed') {
+    // Fixed mode (events): always first owner, no rotation
+    const ownerId = task.owners[0];
+    const entries = [];
+    if (task.timeOfDay === 'both') {
+      entries.push({ ...baseEntry, ownerId, timeOfDay: 'am' });
+      entries.push({ ...baseEntry, ownerId, timeOfDay: 'pm' });
+    } else {
+      entries.push({ ...baseEntry, ownerId, timeOfDay: task.timeOfDay || 'anytime' });
+    }
+    return entries;
+  }
+
   // Rotate mode: one owner per period
   const ownerId = getRotationOwner(task, dateKey);
 
