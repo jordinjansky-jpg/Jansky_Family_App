@@ -94,11 +94,21 @@ export function isAllDone(entries, completions) {
 /**
  * Group schedule entries by frequency bucket.
  * Returns { daily: {}, weekly: {}, monthly: {}, once: {} }
+ * If cats is provided, entries belonging to event categories are grouped into 'events' instead.
  */
-export function groupByFrequency(entries) {
-  const groups = { daily: {}, weekly: {}, monthly: {}, once: {} };
+export function groupByFrequency(entries, tasks, cats) {
+  const groups = { events: {}, daily: {}, weekly: {}, monthly: {}, once: {} };
   if (!entries) return groups;
   for (const [key, entry] of Object.entries(entries)) {
+    // Check if this entry belongs to an event category
+    if (tasks && cats) {
+      const task = tasks[entry.taskId];
+      const cat = task?.category ? cats[task.category] : null;
+      if (cat?.isEvent) {
+        groups.events[key] = entry;
+        continue;
+      }
+    }
     const freq = entry.rotationType || 'daily';
     const bucket = groups[freq] || groups.daily;
     bucket[key] = entry;

@@ -47,7 +47,7 @@ export function renderHeader(options = {}) {
 
   const debugIcon = showDebug ? '<span class="header__debug" title="Debug mode active">🐛</span>' : '';
   const adminLink = showAdmin ? '<a href="admin.html" class="header__admin" title="Admin">⚙️</a>' : '';
-  const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">+ Task</button>' : '';
+  const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">＋</button>' : '';
 
   return `<header class="app-header">
     <div class="header__left">
@@ -403,6 +403,9 @@ export function renderCelebration() {
  * categories: array of { key, label, icon }
  */
 export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
+  // Check if default category is an event
+  const defaultCat = defaultCategoryKey ? categories.find(c => c.key === defaultCategoryKey) : null;
+  const defaultIsEvent = !!defaultCat?.isEvent;
   let html = `<div class="task-detail-sheet">
     <h3 class="admin-form__title">Quick Add Task</h3>
     <div class="form-group">
@@ -446,8 +449,12 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
     <div class="form-group">
       <label class="form-label">Category</label>
       <select id="qa_category">
-        ${categories.map(c => `<option value="${c.key}"${(defaultCategoryKey && c.key === defaultCategoryKey) ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+        ${categories.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${(defaultCategoryKey && c.key === defaultCategoryKey) ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
       </select>
+    </div>
+    <div class="form-group" id="qa_eventDateGroup" style="display:${defaultIsEvent ? '' : 'none'}">
+      <label class="form-label">📅 Event Date</label>
+      <input type="date" id="qa_eventDate" class="task-detail__date-input" style="width:100%">
     </div>
     <div class="form-group">
       <label class="form-label">Owners</label>

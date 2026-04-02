@@ -209,9 +209,10 @@
           else incomplete[key] = entry;
         }
 
-        // Render incomplete tasks grouped by frequency
-        const groups = groupByFrequency(incomplete);
+        // Render incomplete tasks grouped by frequency (events first)
+        const groups = groupByFrequency(incomplete, tasks, cats);
         const sections = [
+          { key: 'events', label: 'Events' },
           { key: 'daily', label: 'Daily' },
           { key: 'weekly', label: 'Weekly' },
           { key: 'monthly', label: 'Monthly' },
@@ -767,6 +768,14 @@
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
 
+      // Show/hide event date picker when category changes
+      document.getElementById('qa_category')?.addEventListener('change', (e) => {
+        const opt = e.target.selectedOptions[0];
+        const isEvent = opt?.dataset.event === '1';
+        const dateGroup = document.getElementById('qa_eventDateGroup');
+        if (dateGroup) dateGroup.style.display = isEvent ? '' : 'none';
+      });
+
       document.getElementById('qaCancel')?.addEventListener('click', closeTaskSheet);
 
       document.getElementById('qaSave')?.addEventListener('click', async () => {
@@ -774,17 +783,21 @@
         if (!name) { document.getElementById('qa_name')?.focus(); return; }
 
         const owners = Array.from(document.querySelectorAll('#qa_owners input:checked')).map(cb => cb.value);
+        const catKey = document.getElementById('qa_category')?.value || '';
+        const isEvent = !!cats[catKey]?.isEvent;
+        const eventDate = document.getElementById('qa_eventDate')?.value || '';
 
         const taskData = {
           name,
-          rotation: document.getElementById('qa_rotation')?.value || 'daily',
+          rotation: isEvent && eventDate ? 'once' : (document.getElementById('qa_rotation')?.value || 'daily'),
           difficulty: document.getElementById('qa_difficulty')?.value || 'medium',
           timeOfDay: document.getElementById('qa_timeOfDay')?.value || 'anytime',
           estMin: parseInt(document.getElementById('qa_estMin')?.value, 10) || 10,
-          category: document.getElementById('qa_category')?.value || '',
+          category: catKey,
           owners,
-          ownerAssignmentMode: cats[document.getElementById('qa_category')?.value]?.isEvent ? 'fixed' : 'rotate',
+          ownerAssignmentMode: isEvent ? 'fixed' : 'rotate',
           dedicatedDay: null,
+          dedicatedDate: isEvent && eventDate ? eventDate : null,
           cooldownDays: null,
           exempt: false,
           status: 'active',
@@ -794,7 +807,8 @@
         const newId = await pushTask(taskData);
         tasks[newId] = taskData;
 
-        // Also create schedule entry for today so the task appears immediately
+        // Create schedule entry: event with date goes on that date, otherwise today
+        const schedDate = (isEvent && eventDate) ? eventDate : today;
         if (owners.length > 0) {
           const schedUpdates = {};
           const mode = taskData.ownerAssignmentMode || 'rotate';
@@ -804,19 +818,19 @@
           if (mode === 'duplicate') {
             for (const oid of owners) {
               if (timeOfDay === 'both') {
-                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
-                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+                schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+                schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
               } else {
-                schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_${oid}`] = { ...baseEntry, ownerId: oid, timeOfDay };
+                schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_${oid}`] = { ...baseEntry, ownerId: oid, timeOfDay };
               }
             }
           } else {
             const ownerId = owners[0];
             if (timeOfDay === 'both') {
-              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
-              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+              schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+              schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
             } else {
-              schedUpdates[`schedule/${today}/sched_${Date.now()}_qa`] = { ...baseEntry, ownerId, timeOfDay };
+              schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa`] = { ...baseEntry, ownerId, timeOfDay };
             }
           }
           await multiUpdate(schedUpdates);

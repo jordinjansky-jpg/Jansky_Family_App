@@ -425,8 +425,9 @@
             }
 
             // Incomplete grouped by frequency
-            const groups = groupByFrequency(incomplete);
+            const groups = groupByFrequency(incomplete, tasks, cats);
             const sections = [
+              { key: 'events', label: 'Events' },
               { key: 'daily', label: 'Daily' },
               { key: 'weekly', label: 'Weekly' },
               { key: 'monthly', label: 'Monthly' },

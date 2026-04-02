@@ -437,6 +437,7 @@
               </div>
             </div>
             <div class="admin-list-item__actions">
+              ${p.role === 'child' ? `<a href="kid.html?kid=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--sm" title="Open kid page" target="_blank">👶</a>` : ''}
               <button class="btn btn--ghost btn--sm admin-edit-person" data-person-id="${p.id}" type="button">Edit</button>
               <button class="btn btn--ghost btn--sm admin-delete-person" data-person-id="${p.id}" type="button">✕</button>
             </div>
