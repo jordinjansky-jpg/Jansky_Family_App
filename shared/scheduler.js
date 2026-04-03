@@ -196,7 +196,7 @@ function generateRotatedEntries(task, taskId, dateKey) {
  * Returns true if the task is in cooldown (should NOT be scheduled).
  */
 export function isInCooldown(task, taskId, dateKey, completions, scheduleData) {
-  if (!task.cooldownDays || task.rotation === 'daily') return false;
+  if (!task.cooldownDays) return false;
   if (!completions || !scheduleData) return false;
 
   const cooldownStart = addDays(dateKey, -task.cooldownDays);
@@ -549,19 +549,39 @@ export function generateSchedule(tasks, people, settings, completions, existingS
 
 /**
  * Place a daily task across all future dates.
+ * If cooldownDays is set, space entries at fixed intervals (every cooldownDays+1 days).
  */
 function placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey) {
+  let lastPlacedDate = null;
+
+  // If cooldown is set, check existing schedule for the most recent entry of this task
+  // so we continue the correct cadence from where we left off
+  if (task.cooldownDays) {
+    for (const [dateKey, dayEntries] of Object.entries(existingSchedule || {})) {
+      if (!dayEntries) continue;
+      for (const entry of Object.values(dayEntries)) {
+        if (entry.taskId === taskId) {
+          if (!lastPlacedDate || dateKey > lastPlacedDate) lastPlacedDate = dateKey;
+        }
+      }
+    }
+  }
+
   for (const dk of futureDates) {
     if (task.createdDate && dk < task.createdDate) continue;
 
-    // Cooldown check (doesn't apply to daily per spec, but guard anyway)
-    if (isInCooldown(task, taskId, dk, completions, existingSchedule)) continue;
+    // Fixed-interval spacing: skip if within cooldown window of last placed entry
+    if (task.cooldownDays && lastPlacedDate) {
+      const minNextDate = addDays(lastPlacedDate, task.cooldownDays);
+      if (dk < minNextDate) continue;
+    }
 
     const entries = generateRotatedEntries(task, taskId, dk);
     for (const entry of entries) {
       const key = nextKey();
       newSchedule[dk][key] = entry;
     }
+    if (task.cooldownDays) lastPlacedDate = dk;
   }
 }
 
