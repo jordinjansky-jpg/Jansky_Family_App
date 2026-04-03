@@ -417,21 +417,8 @@ function findLightestDay(personId, dateKeys, futureSchedule, existingSchedule, t
   const minLoad = Math.min(...candidates.map(c => c.effectiveLoad));
   const tied = candidates.filter(c => Math.abs(c.effectiveLoad - minLoad) < 0.001);
 
-  // Spread tied days evenly using a hash of first date + personId for variety
-  const seed = tied[0].dk + (personId || '');
-  const pick = tied[Math.abs(hashDateKey(seed)) % tied.length];
-  return pick.dk;
-}
-
-/**
- * Simple numeric hash from a date key for deterministic but varied tie-breaking.
- */
-function hashDateKey(dk) {
-  let h = 0;
-  for (let i = 0; i < dk.length; i++) {
-    h = ((h << 5) - h + dk.charCodeAt(i)) | 0;
-  }
-  return h;
+  // Pick randomly among tied days so tasks spread across all equal options
+  return tied[Math.floor(Math.random() * tied.length)].dk;
 }
 
 // ============================================================
@@ -493,6 +480,29 @@ export function generateSchedule(tasks, people, settings, completions, existingS
   const startDate = includeToday ? today : addDays(today, 1);
   const endDate = addDays(today, SCHEDULE_DAYS);
   const futureDates = dateRange(startDate, endDate);
+
+  // When rebuilding (includeToday), strip uncompleted entries from existingSchedule
+  // for dates being rebuilt. This lets isScheduledThisWeek/Month re-place tasks
+  // that were on old dates (e.g. weekdays) onto better ones (e.g. weekends).
+  if (includeToday && existingSchedule) {
+    existingSchedule = { ...existingSchedule };
+    const completedKeys = new Set(Object.keys(completions || {}));
+    for (const dk of futureDates) {
+      if (!existingSchedule[dk]) continue;
+      const cleaned = {};
+      for (const [ek, entry] of Object.entries(existingSchedule[dk])) {
+        if (completedKeys.has(ek)) {
+          cleaned[ek] = entry; // keep completed entries
+        }
+        // drop uncompleted entries — they'll be regenerated
+      }
+      if (Object.keys(cleaned).length > 0) {
+        existingSchedule[dk] = cleaned;
+      } else {
+        delete existingSchedule[dk];
+      }
+    }
+  }
 
   // The new schedule we're building (future dates only)
   const newSchedule = {};
@@ -866,16 +876,20 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
     }
   }
 
-  // 5. Rebuild full future schedule so everything stays consistent
+  // 5. Rebuild full future schedule (after the reset period) so everything stays consistent.
+  //    Merge cleanSchedule + period placements so the rebuild sees correct load state.
   const mergedSchedule = { ...cleanSchedule };
   for (const [dk, dayEntries] of Object.entries(allPlaced)) {
     mergedSchedule[dk] = { ...(mergedSchedule[dk] || {}), ...dayEntries };
   }
 
+  // Rebuild from tomorrow onward (default). The period dates are already handled above,
+  // so we only take entries AFTER the period from the rebuild output.
   const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, mergedSchedule);
   for (const [path, value] of Object.entries(futureUpdates)) {
-    const futureDateKey = path.replace('schedule/', '');
-    if (futureDateKey >= today && futureDateKey <= maxPeriodEnd) continue;
+    // Path format: "schedule/YYYY-MM-DD"
+    const futureDateKey = path.substring(9); // strip "schedule/"
+    if (futureDateKey <= maxPeriodEnd) continue;
     updates[path] = value;
   }
 
