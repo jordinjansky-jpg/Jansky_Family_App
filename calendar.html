@@ -314,7 +314,7 @@
       }
       const rH = Math.floor(remainMin / 60);
       const rM = remainMin % 60;
-      const timeLeft = rH > 0 ? `${rH}h${rM > 0 ? String(rM).padStart(2, '0') + 'm' : ''}` : `${rM}m`;
+      const timeLeft = rH > 0 ? `${rH}h${rM > 0 ? ' ' + String(rM).padStart(2, '0') + 'm' : ''}` : `${rM}m`;
 
       return { html, prog, score, gd, timeLeft, remainMin };
     }

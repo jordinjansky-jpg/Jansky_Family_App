@@ -130,7 +130,7 @@
       }
       const timeH = Math.floor(totalMinutes / 60);
       const timeM = totalMinutes % 60;
-      const timeLabel = timeH > 0 ? `${timeH}h${timeM > 0 ? String(timeM).padStart(2, '0') + 'm' : ''}` : `${timeM}m`;
+      const timeLabel = timeH > 0 ? `${timeH}h${timeM > 0 ? ' ' + String(timeM).padStart(2, '0') + 'm' : ''}` : `${timeM}m`;
 
       // Date header
       const dateObj = new Date(viewDate + 'T12:00:00Z');
