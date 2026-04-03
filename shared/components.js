@@ -27,10 +27,10 @@ function formatMovedDate(dateStr) {
  * Adding a page = adding one entry here + creating the HTML file.
  */
 const NAV_ITEMS = [
-  { icon: '🏠', label: 'Home', href: 'index.html', id: 'home' },
-  { icon: '📅', label: 'Calendar', href: 'calendar.html', id: 'calendar' },
-  { icon: '🏆', label: 'Scoreboard', href: 'scoreboard.html', id: 'scoreboard' },
-  { icon: '✅', label: 'Tracker', href: 'tracker.html', id: 'tracker' }
+  { icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>', label: 'Home', href: 'index.html', id: 'home' },
+  { icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', label: 'Calendar', href: 'calendar.html', id: 'calendar' },
+  { icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15l-2 5l9-11h-5l2-5l-9 11z"/></svg>', label: 'Scores', href: 'scoreboard.html', id: 'scoreboard' },
+  { icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', label: 'Tracker', href: 'tracker.html', id: 'tracker' }
 ];
 
 /**
@@ -44,6 +44,7 @@ export function renderNavBar(activePage) {
     return `<a href="${item.href}" class="nav-item${active}" data-page="${item.id}" aria-label="${item.label}"${active ? ' aria-current="page"' : ''}>
       <span class="nav-item__icon" aria-hidden="true">${item.icon}</span>
       <span class="nav-item__label">${item.label}</span>
+      ${active ? '<span class="nav-item__dot"></span>' : ''}
     </a>`;
   }).join('');
 
@@ -227,7 +228,7 @@ export function renderTaskCard(options) {
   const tagsRow = actionTags ? `<div class="task-card__tags">${actionTags}</div>` : '';
 
   return `<button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}${eventStyle}">
-    <span class="task-card__initial">${ownerInitial}</span>
+    <span class="task-card__avatar">${ownerInitial}</span>
     <div class="task-card__body">
       <span class="task-card__name">${taskName}</span>
       ${tagsRow}
@@ -293,7 +294,7 @@ export function renderTaskDetailSheet(options) {
   // Task info
   html += `<div class="task-detail__info">
     <div class="task-detail__name" style="--owner-color:${ownerColor}">
-      <span class="task-card__initial">${(person?.name || '?')[0].toUpperCase()}</span>
+      <span class="task-card__avatar">${(person?.name || '?')[0].toUpperCase()}</span>
       <span>${esc(task.name)}${catIcon ? ' ' + catIcon : ''}</span>
     </div>
     <div class="task-detail__meta">

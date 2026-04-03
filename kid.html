@@ -344,6 +344,30 @@
       padding: 0 var(--spacing-md) var(--spacing-lg);
     }
 
+    /* ── Kid mode: larger touch targets ── */
+    .kid-tasks .task-card {
+      min-height: 56px;
+      padding: 12px var(--spacing-md);
+    }
+    .kid-tasks .task-card__name {
+      font-size: var(--font-size-md);
+    }
+    .kid-tasks .task-card__avatar {
+      width: 32px;
+      height: 32px;
+      font-size: var(--font-size-sm);
+    }
+    .kid-tasks .task-card__check {
+      width: 26px;
+      height: 26px;
+    }
+    .kid-tasks .task-card--done .task-card__check::after {
+      left: 7px;
+      top: 3px;
+      width: 7px;
+      height: 11px;
+    }
+
     /* ── All-done victory screen ── */
     .kid-victory {
       text-align: center;
@@ -1302,7 +1326,7 @@
           // Task info
           html += `<div class="task-detail__info">
             <div class="task-detail__name" style="--owner-color:${kid.color}">
-              <span class="task-card__initial">${kid.name[0].toUpperCase()}</span>
+              <span class="task-card__avatar">${kid.name[0].toUpperCase()}</span>
               <span>${catIcon ? catIcon + ' ' : ''}${taskNameWithEmoji(task.name)}</span>
             </div>
             <div class="task-detail__meta">
