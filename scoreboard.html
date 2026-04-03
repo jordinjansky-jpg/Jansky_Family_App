@@ -159,15 +159,17 @@
           if (e.ownerId !== personId) continue;
           const task = tasks[e.taskId];
           if (!task) continue;
+          const cat = task.category ? cats[task.category] : null;
+          // Skip event categories and exempt tasks (consistent with scoring)
+          if (cat?.isEvent) continue;
+          if (task.exempt) continue;
           const catKey = task.category || '_none';
           if (!catTotals[catKey]) {
-            const cat = cats[catKey];
             catTotals[catKey] = { earned: 0, possible: 0, label: cat?.label || cat?.name || 'Uncategorized', icon: cat?.icon || '' };
           }
           const pts = basePoints(task);
           catTotals[catKey].possible += pts;
           const completion = comps[k] || null;
-          // For past days, use snapshot data approach; for live, use earnedPoints
           if (completion) {
             const isOverdue = current < today;
             catTotals[catKey].earned += earnedPoints(task, completion, {

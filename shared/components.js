@@ -214,9 +214,11 @@ export function renderTaskCard(options) {
   }
 
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
-  const isBothTask = task.timeOfDay === 'both';
-  const showTod = isBothTask ? options.showTodIconBoth : (entry.timeOfDay === 'am' || entry.timeOfDay === 'pm') ? options.showTodIconSingle : false;
-  const todLabel = showTod ? (entry.timeOfDay === 'am' ? '🌅 AM' : entry.timeOfDay === 'pm' ? '🌙 PM' : '') : '';
+  const entryTod = entry.timeOfDay;
+  const taskTod = task.timeOfDay;
+  const isAmOrPm = entryTod === 'am' || entryTod === 'pm';
+  const showTod = isAmOrPm && ((taskTod === 'both' && options.showTodIconBoth) || (taskTod !== 'both' && options.showTodIconSingle));
+  const todLabel = showTod ? (entryTod === 'am' ? '🌅 AM' : '🌙 PM') : '';
   const meta = [todLabel, eventTimeLabel, estLabel, ptsLabel].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const eventPrefix = isEvent ? '📅 ' : '';

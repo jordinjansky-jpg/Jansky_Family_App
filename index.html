@@ -461,7 +461,7 @@
       // Auto-archive one-time tasks on completion
       let archivedTaskId = null;
       if (!wasComplete) {
-        const entry = viewEntries[entryKey] || overdueItems.find(([k]) => k === entryKey)?.[1];
+        const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
         if (entry) {
           const task = tasks[entry.taskId];
           if (task && task.rotation === 'once') {

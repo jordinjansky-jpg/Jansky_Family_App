@@ -1790,15 +1790,20 @@
     function bindThemeTab() {
       const currentTheme = loadCachedTheme() || settings?.theme || defaultThemeConfig();
 
+      async function saveTheme(newTheme) {
+        applyTheme(newTheme);
+        settings.theme = newTheme;
+        await writeSettings(settings);
+        render();
+      }
+
       for (const btn of main.querySelectorAll('.admin-theme-option')) {
         btn.addEventListener('click', () => {
           const preset = btn.dataset.preset;
           const presets = getPresets();
           const info = presets.find(p => p.key === preset);
           const newTheme = { mode: info.mode, preset, accentColor: currentTheme.accentColor || '#5b7fd6' };
-
-          applyTheme(newTheme); // saves to localStorage per device
-          render();
+          saveTheme(newTheme);
         });
       }
 
@@ -1806,9 +1811,7 @@
         btn.addEventListener('click', () => {
           const color = btn.dataset.color;
           const newTheme = { ...currentTheme, accentColor: color };
-
-          applyTheme(newTheme); // saves to localStorage per device
-          render();
+          saveTheme(newTheme);
         });
       }
     }

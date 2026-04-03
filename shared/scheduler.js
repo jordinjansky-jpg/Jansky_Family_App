@@ -491,8 +491,9 @@ function placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule
     if (task.createdDate && dk < task.createdDate) continue;
 
     // Fixed-interval spacing: skip if within cooldown window of last placed entry
+    // cooldownDays + 1 days apart (e.g., cooldownDays=1 → every other day)
     if (task.cooldownDays && lastPlacedDate) {
-      const minNextDate = addDays(lastPlacedDate, task.cooldownDays);
+      const minNextDate = addDays(lastPlacedDate, task.cooldownDays + 1);
       if (dk < minNextDate) continue;
     }
 

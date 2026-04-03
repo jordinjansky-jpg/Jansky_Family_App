@@ -1104,6 +1104,7 @@ img {
 
 .cal-freq--d { color: var(--text-secondary); }
 .cal-freq--w { color: var(--accent); }
+.cal-freq--m { color: var(--warning-text, #b86e00); }
 
 /* Event color bars at bottom of calendar cells */
 .cal-event-bars {
@@ -1120,7 +1121,6 @@ img {
   width: 100%;
   border-radius: 1px;
 }
-.cal-freq--m { color: var(--warning-text, #b86e00); }
 
 /* ============ Calendar Day Sheet ============ */
 .cal-sheet-overlay {

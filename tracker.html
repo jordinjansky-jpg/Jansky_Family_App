@@ -111,9 +111,14 @@
       const completion = comps[entryKey];
       if (completion) {
         // Done: completed. "Late" if completed after the scheduled date.
-        const completedDate = new Date(completion.completedAt);
-        const scheduledEnd = new Date(dateKey + 'T23:59:59Z');
-        return completedDate > scheduledEnd ? 'late' : 'done';
+        // Compare using timezone-aware date to avoid UTC offset misclassification.
+        if (completion.completedAt) {
+          const completedDateKey = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+          }).format(new Date(completion.completedAt));
+          return completedDateKey > dateKey ? 'late' : 'done';
+        }
+        return 'done';
       }
       // Not completed
       return dateKey < today ? 'overdue' : 'upcoming';
