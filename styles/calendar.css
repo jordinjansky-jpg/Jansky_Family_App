@@ -369,17 +369,24 @@
   font-size: var(--font-size-lg);
 }
 
-/* "Today" link — sits between month name and next arrow */
+/* Center stacks month name + optional Today link */
+.cal-page .date-nav__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* "Today" pill — centered under month name */
 .cal-today-link {
   background: var(--accent-light);
   border: none;
   color: var(--accent);
   font-size: 10px;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 1px 8px;
   border-radius: var(--radius-full);
   cursor: pointer;
-  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 /* Combined toolbar: person pills + legend stacked tight */
@@ -420,12 +427,13 @@
   font-size: 9px;
 }
 
-/* Grid: DOW row auto-sized, day rows fill remaining space (capped) */
+/* Grid: no flex stretch — natural height, cells capped */
 .cal-page .cal-grid {
   gap: 2px;
   margin-top: 0;
   padding: 0 1px;
+  flex: 0 1 auto;
   grid-template-rows: auto;
-  grid-auto-rows: minmax(0, 80px);
+  grid-auto-rows: minmax(40px, 72px);
 }
 
