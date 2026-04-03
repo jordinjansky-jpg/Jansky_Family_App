@@ -485,8 +485,8 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
     </div>
     <div class="form-group">
       <label class="form-label">Owners</label>
-      <div class="admin-checkboxes" id="qa_owners">
-        ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"> ${esc(p.name)}</label>`).join('')}
+      <div class="owner-chips" id="qa_owners">
+        ${people.map(p => `<button type="button" class="owner-chip" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
       </div>
     </div>
     <div class="form-group">
@@ -587,8 +587,8 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
     </div>
     <div class="form-group">
       <label class="form-label">Owners</label>
-      <div class="admin-checkboxes" id="et_owners">
-        ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${esc(p.name)}</label>`).join('')}
+      <div class="owner-chips" id="et_owners">
+        ${people.map(p => `<button type="button" class="owner-chip${selectedOwners.includes(p.id) ? ' owner-chip--selected' : ''}" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
       </div>
     </div>
     <div class="form-group">
@@ -638,4 +638,19 @@ export function renderOfflineBanner(message) {
     <span class="offline-banner__dot"></span>
     <span class="offline-banner__text">${esc(message)}</span>
   </div>`;
+}
+
+/** Attach click-to-toggle on owner chip buttons inside a container. */
+export function initOwnerChips(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.addEventListener('click', (e) => {
+    const chip = e.target.closest('.owner-chip');
+    if (chip) chip.classList.toggle('owner-chip--selected');
+  });
+}
+
+/** Read selected owner IDs from an owner-chips container. */
+export function getSelectedOwners(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} .owner-chip--selected`)).map(b => b.dataset.id);
 }

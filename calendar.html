@@ -39,7 +39,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, multiUpdate, onCompletions, onConnectionChange } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderOfflineBanner } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
@@ -376,7 +376,6 @@
           <div class="cal-sheet__progress">
             <div class="cal-sheet__progress-fill" style="width:${prog.pct}%"></div>
           </div>
-          ${renderPersonFilter(people, activePerson)}
           <div class="cal-sheet__body">${html}</div>
         </div>
       </div>`;
@@ -479,10 +478,6 @@
         else if (newBadgeHtml) titleEl.insertAdjacentHTML('beforeend', newBadgeHtml);
       }
 
-      // Update filter pills
-      const filterContainer = sheet.querySelector('.person-filter');
-      if (filterContainer) filterContainer.outerHTML = renderPersonFilter(people, activePerson);
-
       // Update body
       const body = sheet.querySelector('.cal-sheet__body');
       if (body) body.innerHTML = html;
@@ -491,16 +486,6 @@
     }
 
     function bindSheetEvents() {
-      // Bind person filter in sheet
-      sheetMount.querySelectorAll('.person-pill').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          activePerson = btn.dataset.personId || null;
-          // render() updates the grid and calls updateSheet() in place (no re-animation)
-          render();
-        });
-      });
-
       // Bind task cards in sheet: tap to toggle, long-press for detail sheet
       sheetMount.querySelectorAll('.task-card').forEach(btn => {
         let pressTimer = null;
@@ -785,6 +770,7 @@
       const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
       const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people);
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+      initOwnerChips('et_owners');
       requestAnimationFrame(() => {
         const overlay = document.getElementById('bottomSheet');
         if (overlay) overlay.classList.add('active');
@@ -858,7 +844,7 @@
       document.getElementById('etSave')?.addEventListener('click', async () => {
         const name = document.getElementById('et_name')?.value.trim();
         if (!name) { document.getElementById('et_name')?.focus(); return; }
-        const owners = Array.from(document.querySelectorAll('#et_owners input:checked')).map(cb => cb.value);
+        const owners = getSelectedOwners('et_owners');
         const rotation = document.getElementById('et_rotation')?.value || task.rotation;
         const activeMode = modeGroup?.querySelector('.admin-mode-btn--active')?.dataset.mode || 'rotate';
         const dayVal = document.getElementById('et_daySelect')?.value;
@@ -999,6 +985,7 @@
       const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
       const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey);
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+      initOwnerChips('qa_owners');
 
       requestAnimationFrame(() => {
         const overlay = document.getElementById('bottomSheet');
@@ -1080,7 +1067,7 @@
         const name = document.getElementById('qa_name')?.value.trim();
         if (!name) { document.getElementById('qa_name')?.focus(); return; }
 
-        const owners = Array.from(document.querySelectorAll('#qa_owners input:checked')).map(cb => cb.value);
+        const owners = getSelectedOwners('qa_owners');
         const catKey = document.getElementById('qa_category')?.value || '';
         const isEvent = !!cats[catKey]?.isEvent;
         const eventDate = document.getElementById('qa_eventDate')?.value || '';

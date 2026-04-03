@@ -39,7 +39,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, onConnectionChange, onValue, onCompletions, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderOfflineBanner } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -861,6 +861,7 @@
       const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
       const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people);
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+      initOwnerChips('et_owners');
 
       requestAnimationFrame(() => {
         const overlay = document.getElementById('bottomSheet');
@@ -937,7 +938,7 @@
         const name = document.getElementById('et_name')?.value.trim();
         if (!name) { document.getElementById('et_name')?.focus(); return; }
 
-        const owners = Array.from(document.querySelectorAll('#et_owners input:checked')).map(cb => cb.value);
+        const owners = getSelectedOwners('et_owners');
         const rotation = document.getElementById('et_rotation')?.value || task.rotation;
         const activeMode = modeGroup?.querySelector('.admin-mode-btn--active')?.dataset.mode || 'rotate';
         const dayVal = document.getElementById('et_daySelect')?.value;
@@ -983,6 +984,7 @@
       const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
       const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey);
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+      initOwnerChips('qa_owners');
 
       requestAnimationFrame(() => {
         const overlay = document.getElementById('bottomSheet');
@@ -1066,7 +1068,7 @@
         const name = document.getElementById('qa_name')?.value.trim();
         if (!name) { document.getElementById('qa_name')?.focus(); return; }
 
-        const owners = Array.from(document.querySelectorAll('#qa_owners input:checked')).map(cb => cb.value);
+        const owners = getSelectedOwners('qa_owners');
         const catKey = document.getElementById('qa_category')?.value || '';
         const isEvent = !!cats[catKey]?.isEvent;
         const eventDate = document.getElementById('qa_eventDate')?.value || '';

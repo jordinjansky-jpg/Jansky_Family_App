@@ -85,6 +85,29 @@
   font-size: var(--font-size-xs);
 }
 
+/* ============ Owner Chips ============ */
+.owner-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+.owner-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.owner-chip--selected {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 /* ============ Loading ============ */
 .loading-inline {
   display: flex;

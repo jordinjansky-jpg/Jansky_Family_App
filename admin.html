@@ -62,7 +62,7 @@
       readCompletions, readAllSchedule, readOnce,
       multiUpdate, pushDebugEvent, factoryReset, onConnectionChange
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState, renderUndoToast, renderOfflineBanner } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState, renderUndoToast, renderOfflineBanner, initOwnerChips, getSelectedOwners } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -557,8 +557,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">Owners</label>
-          <div class="admin-checkboxes" id="tf_owners">
-            ${pa.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${esc(p.name)}</label>`).join('')}
+          <div class="owner-chips" id="tf_owners">
+            ${pa.map(p => `<button type="button" class="owner-chip${selectedOwners.includes(p.id) ? ' owner-chip--selected' : ''}" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
           </div>
         </div>
         <div class="form-group">
@@ -1347,6 +1347,7 @@
     }
 
     function bindTaskForm() {
+      initOwnerChips('tf_owners');
       // Assignment mode toggle
       for (const btn of main.querySelectorAll('.admin-mode-btn')) {
         btn.addEventListener('click', () => {
@@ -1425,7 +1426,7 @@
         const name = main.querySelector('#tf_name')?.value.trim();
         if (!name) { main.querySelector('#tf_name')?.focus(); return; }
 
-        const owners = Array.from(main.querySelectorAll('#tf_owners input:checked')).map(cb => cb.value);
+        const owners = getSelectedOwners('tf_owners');
         const activeMode = main.querySelector('.admin-mode-btn.admin-mode-btn--active');
         const assignMode = activeMode?.dataset.mode || 'rotate';
         const cooldown = main.querySelector('#tf_cooldown')?.value;
