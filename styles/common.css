@@ -2275,6 +2275,10 @@ img {
 .admin-list-item--clickable:active {
   background: var(--bg-hover, var(--border-light));
 }
+.admin-list-item--editing {
+  border-color: var(--accent, #4a90d9);
+  background: var(--bg-hover, var(--border-light));
+}
 .admin-list-item--paused {
   opacity: 0.6;
 }

@@ -408,8 +408,9 @@ function findLightestDay(personId, dateKeys, futureSchedule, existingSchedule, t
   for (const dk of dateKeys) {
     const existingDay = existingSchedule ? existingSchedule[dk] : null;
     const rawLoad = personDayLoad(personId, dk, futureSchedule[dk], existingDay, tasks);
-    // Weekend days have higher capacity, so their effective load is lower
-    const effectiveLoad = isWeekend(dk) ? rawLoad / weekendWeight : rawLoad;
+    // Baseline of 1 ensures weekend weight has effect even on empty days
+    // (without it, 0/weight = 0 for all weights, so ties always go to first weekday)
+    const effectiveLoad = isWeekend(dk) ? (rawLoad + 1) / weekendWeight : rawLoad + 1;
 
     if (effectiveLoad < bestLoad) {
       bestLoad = effectiveLoad;

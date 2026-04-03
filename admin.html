@@ -265,12 +265,12 @@
         <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
       </div>`;
 
-      // Task form (add/edit)
-      if (editingTaskId !== null) {
-        html += renderTaskForm(editingTaskId === 'new' ? null : editingTaskId);
+      // New task form at top
+      if (editingTaskId === 'new') {
+        html += renderTaskForm(null);
       }
 
-      // Task list
+      // Task list with inline edit form
       if (filtered.length === 0 && editingTaskId === null) {
         html += renderEmptyState('✅', 'No tasks', 'Add your first task to get started.');
       } else {
@@ -281,7 +281,8 @@
           const pts = basePoints(task);
           const pausedClass = task.status === 'paused' ? ' admin-list-item--paused' : '';
           const pausedBadge = task.status === 'paused' ? '<span class="admin-badge admin-badge--muted">⏸ Paused</span>' : '';
-          html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}" data-task-id="${id}">
+          const editingThis = editingTaskId === id;
+          html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}${editingThis ? ' admin-list-item--editing' : ''}" data-task-id="${id}">
             <div class="admin-list-item__row">
               <span class="admin-list-item__name">${cat?.icon || ''} ${task.name}</span>
               <span class="admin-list-item__tags">
@@ -299,6 +300,10 @@
               </div>
             </div>
           </div>`;
+          // Inline edit form right after this task row
+          if (editingThis) {
+            html += renderTaskForm(id);
+          }
         }
         html += `</div>`;
       }
