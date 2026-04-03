@@ -26,7 +26,8 @@
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, onConnectionChange } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderGradeBadge, renderBottomSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong } from './shared/utils.js';
+    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
+    const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
     import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints } from './shared/scoring.js';
 
@@ -255,7 +256,7 @@
           <div class="sb-card__left">
             <span class="sb-card__initial" style="background: ${b.person.color}">${b.person.name[0].toUpperCase()}</span>
             <div class="sb-card__info">
-              <span class="sb-card__name">${b.person.name}</span>
+              <span class="sb-card__name">${esc(b.person.name)}</span>
               <div class="sb-card__meta">
                 ${b.streak.current > 0 ? `<span class="sb-streak">🔥 ${b.streak.current}d</span>` : ''}
                 ${trendIcon ? `<span class="sb-trend ${trendClass}">${trendIcon}</span>` : ''}
@@ -287,7 +288,7 @@
         const moG = gradeDisplay(b.month.percentage);
         const yrG = gradeDisplay(b.year.percentage);
         html += `<div class="sb-grades-row">
-          <span class="sb-grades-cell sb-grades-cell--name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${b.person.name}</span>
+          <span class="sb-grades-cell sb-grades-cell--name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
           <span class="sb-grades-cell">${renderGradeBadge(tdG.grade, tdG.tier)}</span>
           <span class="sb-grades-cell">${renderGradeBadge(wkG.grade, wkG.tier)}</span>
           <span class="sb-grades-cell">${renderGradeBadge(moG.grade, moG.tier)}</span>
@@ -302,7 +303,7 @@
       for (const b of board) {
         const history = weeklyHistory(b.person.id);
         html += `<div class="sb-trend-row">
-          <span class="sb-trend-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${b.person.name}</span>
+          <span class="sb-trend-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
           <div class="sb-sparkline">`;
         for (let i = 0; i < history.length; i++) {
           const h = history[i];
@@ -334,7 +335,7 @@
         if (catKeys.length === 0) continue;
 
         html += `<div class="sb-cat-person">
-          <span class="sb-cat-person-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${b.person.name}</span>
+          <span class="sb-cat-person-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
           <div class="sb-cat-bars">`;
         for (const ck of catKeys) {
           const c = breakdown[ck];
@@ -357,7 +358,7 @@
       html += `<div class="sb-streaks">`;
       for (const b of board) {
         html += `<div class="sb-streak-row">
-          <span class="sb-streak-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${b.person.name}</span>
+          <span class="sb-streak-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
           <div class="sb-streak-vals">
             <span class="sb-streak-current">🔥 ${b.streak.current}d current</span>
             <span class="sb-streak-best">⭐ ${b.streak.best}d best</span>
@@ -464,7 +465,7 @@
       let html = `<div class="sb-drilldown">`;
       html += `<div class="sb-drilldown__header" style="--person-color: ${person.color}">
         <span class="sb-card__initial" style="background: ${person.color}">${person.name[0].toUpperCase()}</span>
-        <span class="sb-drilldown__name">${person.name}</span>
+        <span class="sb-drilldown__name">${esc(person.name)}</span>
         <span class="sb-drilldown__period">${periodLabels[selectedPeriod]}</span>
       </div>`;
 
@@ -496,7 +497,7 @@
           <div class="sb-drilldown__group-label ${statusClass}">${status} (${items.length})</div>`;
         for (const item of items) {
           html += `<div class="sb-drilldown__task">
-            <span class="sb-drilldown__task-name">${item.category ? item.category + ' ' : ''}${item.name}</span>
+            <span class="sb-drilldown__task-name">${item.category ? esc(item.category) + ' ' : ''}${esc(item.name)}</span>
             <span class="sb-drilldown__task-date">${formatDateShort(item.date)}</span>
             ${settings?.showPoints !== false ? `<span class="sb-drilldown__task-pts">${item.earned}/${item.pts}</span>` : ''}
           </div>`;

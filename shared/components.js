@@ -2,6 +2,10 @@
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 
+import { escapeHtml } from './utils.js';
+
+const esc = (s) => escapeHtml(String(s ?? ''));
+
 function formatMovedDate(dateStr) {
   if (!dateStr) return 'moved';
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -60,9 +64,9 @@ export function renderHeader(options = {}) {
 
   return `<header class="app-header">
     <div class="header__left">
-      <h1 class="header__title">${appName}</h1>
-      ${subtitle ? `<span class="header__subtitle">${subtitle}</span>` : ''}
-      ${dateLine ? `<span class="header__date">${dateLine}</span>` : ''}
+      <h1 class="header__title">${esc(appName)}</h1>
+      ${subtitle ? `<span class="header__subtitle">${esc(subtitle)}</span>` : ''}
+      ${dateLine ? `<span class="header__date">${esc(dateLine)}</span>` : ''}
     </div>
     <div class="header__right">
       ${rightContent}
@@ -71,27 +75,6 @@ export function renderHeader(options = {}) {
       ${adminLink}
     </div>
   </header>`;
-}
-
-/**
- * Render a loading spinner overlay.
- * message: optional loading text
- */
-export function renderLoading(message = 'Loading...') {
-  return `<div class="loading-overlay">
-    <div class="loading-spinner"></div>
-    <p class="loading-text">${message}</p>
-  </div>`;
-}
-
-/**
- * Render an inline loading indicator (not full-page).
- */
-export function renderLoadingInline(message = 'Loading...') {
-  return `<div class="loading-inline">
-    <div class="loading-spinner loading-spinner--small"></div>
-    <span>${message}</span>
-  </div>`;
 }
 
 /**
@@ -128,34 +111,6 @@ export function renderEmptyState(icon, title, subtitle = '') {
 }
 
 /**
- * Render a confirmation modal.
- * options: { title, message, confirmText, cancelText, danger }
- * Returns an HTML string. Page handles show/hide and button clicks.
- */
-export function renderConfirmModal(options = {}) {
-  const {
-    title = 'Confirm',
-    message = 'Are you sure?',
-    confirmText = 'Confirm',
-    cancelText = 'Cancel',
-    danger = false
-  } = options;
-
-  const btnClass = danger ? 'btn btn--danger' : 'btn btn--primary';
-
-  return `<div class="modal-overlay" id="confirmModal">
-    <div class="modal">
-      <h3 class="modal__title">${title}</h3>
-      <p class="modal__message">${message}</p>
-      <div class="modal__actions">
-        <button class="btn btn--secondary modal__cancel" type="button">${cancelText}</button>
-        <button class="${btnClass} modal__confirm" type="button">${confirmText}</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-/**
  * Render a bottom sheet shell.
  * content: HTML string for the sheet body
  * Returns an HTML string.
@@ -184,7 +139,7 @@ export function renderPersonFilter(people, activePerson) {
 
   for (const p of people) {
     const active = activePerson === p.id ? ' person-pill--active' : '';
-    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}">${p.name}</button>`;
+    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}">${esc(p.name)}</button>`;
   }
 
   html += `</div>`;
@@ -242,7 +197,7 @@ export function renderTaskCard(options) {
   let actionTags = '';
   if (entryKey && entryKey.includes('_delegate')) {
     const fromName = entry.delegatedFromName || '?';
-    actionTags += `<span class="task-card__tag task-card__tag--delegated">↪ ${fromName}</span>`;
+    actionTags += `<span class="task-card__tag task-card__tag--delegated">↪ ${esc(fromName)}</span>`;
   }
   if (entryKey && entryKey.includes('_moved')) {
     const fromDate = entry.movedFromDate || '';
@@ -253,7 +208,7 @@ export function renderTaskCard(options) {
   const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const eventPrefix = isEvent ? '📅 ' : '';
-  const taskName = catIcon ? `${task.name} ${catIcon}` : `${eventPrefix}${task.name}`;
+  const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
   const eventStyle = eventColor ? `;--event-color:${eventColor}` : '';
   const tagsRow = actionTags ? `<div class="task-card__tags">${actionTags}</div>` : '';
 
@@ -325,17 +280,17 @@ export function renderTaskDetailSheet(options) {
   html += `<div class="task-detail__info">
     <div class="task-detail__name" style="--owner-color:${ownerColor}">
       <span class="task-card__initial">${(person?.name || '?')[0].toUpperCase()}</span>
-      <span>${task.name}${catIcon ? ' ' + catIcon : ''}</span>
+      <span>${esc(task.name)}${catIcon ? ' ' + catIcon : ''}</span>
     </div>
     <div class="task-detail__meta">
-      ${person ? `<span class="chip" style="--person-color:${person.color}">${person.name}</span>` : ''}
+      ${person ? `<span class="chip" style="--person-color:${person.color}">${esc(person.name)}</span>` : ''}
       <span class="chip">${rotLabel}</span>
       <span class="chip">${diffLabel}</span>
       ${todLabel ? `<span class="chip">${todLabel}</span>` : ''}
       ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
       ${points && !task.exempt && showPoints ? `<span class="chip">${points.possible}pt</span>` : ''}
     </div>
-    ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${entry.delegatedFromName}</strong></div>` : ''}
+    ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></div>` : ''}
     ${entry.movedFromDate ? `<div class="task-detail__source-info">📅 Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
   </div>`;
 
@@ -372,7 +327,7 @@ export function renderTaskDetailSheet(options) {
         ${showMove ? `<label class="task-detail__move-toggle"><input type="checkbox" id="delegateMoveToggle"> 📅 Move too</label>` : ''}
       </div>
       <div class="task-detail__person-chips">
-        ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${p.name}</button>`).join('')}
+        ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`).join('')}
       </div>
       <input type="date" id="delegateMoveDatePicker" class="task-detail__date-input" style="position:absolute;opacity:0;pointer-events:none;">
     </div>`;
@@ -473,13 +428,13 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
     <div class="form-group">
       <label class="form-label">Category</label>
       <select id="qa_category">
-        ${categories.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${(defaultCategoryKey && c.key === defaultCategoryKey) ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+        ${categories.map(c => `<option value="${esc(c.key)}" data-event="${c.isEvent ? '1' : ''}"${(defaultCategoryKey && c.key === defaultCategoryKey) ? ' selected' : ''}>${esc(c.icon)} ${esc(c.label)}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">Owners</label>
       <div class="admin-checkboxes" id="qa_owners">
-        ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"> ${p.name}</label>`).join('')}
+        ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"> ${esc(p.name)}</label>`).join('')}
       </div>
     </div>
     <div class="form-group">
@@ -531,7 +486,7 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
     <h3 class="admin-form__title">Edit Task</h3>
     <div class="form-group">
       <label class="form-label">Task Name</label>
-      <input type="text" id="et_name" value="${task.name || ''}">
+      <input type="text" id="et_name" value="${esc(task.name || '')}">
     </div>
     <div class="form-row">
       <div class="form-group" style="flex:1">
@@ -570,13 +525,13 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
     <div class="form-group">
       <label class="form-label">Category</label>
       <select id="et_category">
-        ${categories.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+        ${categories.map(c => `<option value="${esc(c.key)}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key ? ' selected' : ''}>${esc(c.icon)} ${esc(c.label)}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">Owners</label>
       <div class="admin-checkboxes" id="et_owners">
-        ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${p.name}</label>`).join('')}
+        ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${esc(p.name)}</label>`).join('')}
       </div>
     </div>
     <div class="form-group">

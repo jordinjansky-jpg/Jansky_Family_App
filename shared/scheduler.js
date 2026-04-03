@@ -1,12 +1,5 @@
 // scheduler.js — Schedule generation, owner rotation, load balancing, cooldown
 // Pure functions. No DOM access. No side effects beyond returned data.
-//
-// Implementation order (mandatory per spec):
-// 1. Basic schedule generation — daily rotation, single owner, no balancing
-// 2. Owner rotation — deterministic by period
-// 3. Cooldown checks — skip if completed within cooldownDays
-// 4. Load balancing — prefer lighter days for non-exempt tasks
-// 5. Duplicate-to-all-owners mode — one entry per owner
 
 import {
   todayKey, addDays, dateRange, dayOfWeek, isoWeekNumber,
@@ -16,80 +9,7 @@ import {
 const SCHEDULE_DAYS = 90;
 
 // ============================================================
-// Step 1: Basic schedule generation
-// ============================================================
-
-/**
- * Determine if a task should appear on a given date based on its rotation.
- * Does NOT handle cooldown or completion checks — those come later.
- *
- * Returns true if the task should be scheduled on this date.
- */
-export function shouldTaskAppearOnDate(task, dateKey) {
-  // Task must be active
-  if (task.status !== 'active') return false;
-
-  // Task cannot appear before its creation date
-  if (task.createdDate && dateKey < task.createdDate) return false;
-
-  // No owners means nothing to schedule
-  if (!task.owners || task.owners.length === 0) return false;
-
-  const dow = dayOfWeek(dateKey);
-
-  switch (task.rotation) {
-    case 'daily':
-      return true;
-
-    case 'weekly':
-      // If dedicatedDay is set, only appear on that day
-      if (task.dedicatedDay != null) {
-        return dow === task.dedicatedDay;
-      }
-      // Default: appears once per week — placement handled by scheduler
-      return true;
-
-    case 'monthly':
-      // Placement handled by scheduler — appears once per month
-      return true;
-
-    case 'once':
-      // Placement handled by scheduler — appears once total
-      return true;
-
-    default:
-      return false;
-  }
-}
-
-/**
- * Generate schedule entries for a single task on a single date.
- * Step 1: basic — assigns first owner, no rotation or balancing.
- *
- * Returns an array of entry objects (without keys — keys assigned at write time).
- */
-function generateBasicEntries(task, taskId, dateKey) {
-  const baseEntry = {
-    taskId,
-    rotationType: task.rotation,
-    ownerAssignmentMode: task.ownerAssignmentMode || 'rotate'
-  };
-
-  const ownerId = task.owners[0];
-  const entries = [];
-
-  if (task.timeOfDay === 'both') {
-    entries.push({ ...baseEntry, ownerId, timeOfDay: 'am' });
-    entries.push({ ...baseEntry, ownerId, timeOfDay: 'pm' });
-  } else {
-    entries.push({ ...baseEntry, ownerId, timeOfDay: task.timeOfDay || 'anytime' });
-  }
-
-  return entries;
-}
-
-// ============================================================
-// Step 2: Owner rotation (deterministic by period)
+// Owner rotation (deterministic by period)
 // ============================================================
 
 /**
@@ -401,7 +321,7 @@ function totalDayLoad(dateKey, newDayEntries, existingDayEntries, tasks) {
  *
  * Returns the dateKey of the lightest day.
  */
-function findLightestDay(_unused, dateKeys, futureSchedule, existingSchedule, tasks, weekendWeight) {
+function findLightestDay(dateKeys, futureSchedule, existingSchedule, tasks, weekendWeight) {
   const candidates = [];
   for (const dk of dateKeys) {
     const existingDay = existingSchedule ? existingSchedule[dk] : null;
@@ -609,7 +529,7 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
       targetDay = weekDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
       if (!targetDay) targetDay = weekDates[0];
     } else {
-      targetDay = findLightestDay(null, weekDates, newSchedule, existingSchedule, allTasks, weekendWeight);
+      targetDay = findLightestDay(weekDates, newSchedule, existingSchedule, allTasks, weekendWeight);
     }
 
     if (task.createdDate && targetDay < task.createdDate) continue;
@@ -647,7 +567,7 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
       targetDay = monthDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
     }
     if (!targetDay) {
-      targetDay = findLightestDay(null, monthDates, newSchedule, existingSchedule, allTasks, weekendWeight);
+      targetDay = findLightestDay(monthDates, newSchedule, existingSchedule, allTasks, weekendWeight);
     }
 
     if (task.createdDate && targetDay < task.createdDate) continue;
@@ -680,7 +600,7 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
     targetDay = eligibleDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
   }
   if (!targetDay) {
-    targetDay = findLightestDay(null, eligibleDates.slice(0, 14), newSchedule, existingSchedule, allTasks, weekendWeight);
+    targetDay = findLightestDay(eligibleDates.slice(0, 14), newSchedule, existingSchedule, allTasks, weekendWeight);
   }
 
   const entries = generateRotatedEntries(task, taskId, targetDay);
@@ -811,7 +731,7 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
       }
       if (!targetDay) {
         const ww = r.rotation === 'monthly' ? weekendWeightMonthly : weekendWeightWeekly;
-        targetDay = findLightestDay(null, r.remainingDates, periodSchedule, cleanSchedule, tasks, ww);
+        targetDay = findLightestDay(r.remainingDates, periodSchedule, cleanSchedule, tasks, ww);
       }
 
       if (task.createdDate && targetDay < task.createdDate) continue;

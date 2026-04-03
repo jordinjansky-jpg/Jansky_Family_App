@@ -12,13 +12,6 @@ export function isComplete(entryKey, completions) {
 }
 
 /**
- * Get the completion record for an entry, or null.
- */
-export function getCompletionRecord(entryKey, completions) {
-  return (completions && completions[entryKey]) || null;
-}
-
-/**
  * Filter schedule entries to a single person. Pass null/undefined for all.
  * @param {object} entries - { entryKey: entry }
  * @param {string|null} personId
@@ -31,21 +24,6 @@ export function filterByPerson(entries, personId) {
     if (entry.ownerId === personId) result[key] = entry;
   }
   return result;
-}
-
-/**
- * Group schedule entries by timeOfDay bucket.
- * Returns { am: {}, pm: {}, anytime: {} }
- */
-export function groupByTime(entries) {
-  const groups = { am: {}, pm: {}, anytime: {} };
-  if (!entries) return groups;
-  for (const [key, entry] of Object.entries(entries)) {
-    const tod = entry.timeOfDay || 'anytime';
-    const bucket = groups[tod] || groups.anytime;
-    bucket[key] = entry;
-  }
-  return groups;
 }
 
 /**

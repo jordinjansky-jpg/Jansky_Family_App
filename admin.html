@@ -50,7 +50,8 @@
     } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
-    import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek } from './shared/utils.js';
+    import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml } from './shared/utils.js';
+    const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, buildPeriodResetUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints } from './shared/scoring.js';
 
@@ -238,11 +239,11 @@
           </select>
           <select class="admin-select" id="taskFilterOwner">
             <option value="">All Owners</option>
-            ${pa.map(p => `<option value="${p.id}"${taskFilter.owner === p.id ? ' selected' : ''}>${p.name}</option>`).join('')}
+            ${pa.map(p => `<option value="${p.id}"${taskFilter.owner === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}
           </select>
           <select class="admin-select" id="taskFilterCategory">
             <option value="">All Categories</option>
-            ${ca.map(c => `<option value="${c.key}"${taskFilter.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+            ${ca.map(c => `<option value="${esc(c.key)}"${taskFilter.category === c.key ? ' selected' : ''}>${esc(c.icon)} ${esc(c.label)}</option>`).join('')}
           </select>
           <select class="admin-select" id="taskFilterStatus">
             <option value="">All Statuses</option>
@@ -323,7 +324,7 @@
           if (task.exempt) detailBadges += `<span class="admin-badge admin-badge--muted">Exempt</span>`;
           html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}${editingThis ? ' admin-list-item--editing' : ''}" data-task-id="${id}">
             <div class="admin-list-item__row">
-              <span class="admin-list-item__name">${task.name}${cat?.icon ? ' ' + cat.icon : ''}</span>
+              <span class="admin-list-item__name">${esc(task.name)}${cat?.icon ? ' ' + cat.icon : ''}</span>
               <span class="admin-list-item__tags">
                 <span class="admin-badge">${task.rotation}</span>
                 <span class="admin-badge">${diffLabel}</span>
@@ -404,13 +405,13 @@
         <div class="form-group">
           <label class="form-label">Category</label>
           <select id="tf_category">
-            ${ca.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key || (!task.category && c.isDefault) ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+            ${ca.map(c => `<option value="${esc(c.key)}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key || (!task.category && c.isDefault) ? ' selected' : ''}>${esc(c.icon)} ${esc(c.label)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Owners</label>
           <div class="admin-checkboxes" id="tf_owners">
-            ${pa.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${p.name}</label>`).join('')}
+            ${pa.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${esc(p.name)}</label>`).join('')}
           </div>
         </div>
         <div class="form-group">
@@ -478,7 +479,7 @@
             <div class="admin-person-row">
               <div class="admin-person-dot" style="background:${p.color}"></div>
               <div class="admin-person-info">
-                <span class="admin-list-item__name">${p.name}</span>
+                <span class="admin-list-item__name">${esc(p.name)}</span>
                 <span class="admin-list-item__meta">${roleLabel}${kidFlags ? ' · ' + kidFlags : ''}</span>
               </div>
             </div>
@@ -582,7 +583,7 @@
         if (c.showIcon === false) badges.push('<span class="admin-badge admin-badge--muted">Icon off</span>');
         html += `<div class="admin-list-item admin-list-item--clickable" data-cat-key="${c.key}">
           <div class="admin-list-item__main">
-            <span class="admin-list-item__name">${c.icon} ${c.label}</span>
+            <span class="admin-list-item__name">${esc(c.icon)} ${esc(c.label)}</span>
             ${badges.length ? `<span class="admin-list-item__meta">${badges.join(' ')}</span>` : ''}
           </div>
           <div class="admin-list-item__actions">
@@ -819,7 +820,7 @@
         html += `<div class="admin-list-item">
           <div class="admin-person-row">
             <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color}"></div>
-            <span class="admin-list-item__name">${p.name}</span>
+            <span class="admin-list-item__name">${esc(p.name)}</span>
           </div>
           <span class="admin-list-item__meta">${count} tasks · ${avg}/day avg</span>
         </div>`;
@@ -895,7 +896,7 @@
             <label class="form-label">Task</label>
             <select id="pastDueTask">
               <option value="">Choose task...</option>
-              ${Object.entries(tasksObj).filter(([,t]) => t.rotation !== 'daily').map(([id, t]) => `<option value="${id}">${t.name} (${t.rotation})</option>`).join('')}
+              ${Object.entries(tasksObj).filter(([,t]) => t.rotation !== 'daily').map(([id, t]) => `<option value="${id}">${esc(t.name)} (${t.rotation})</option>`).join('')}
             </select>
           </div>
           <div class="form-group" style="flex:1">
@@ -906,7 +907,7 @@
         <div class="form-group">
           <label class="form-label">Owner</label>
           <select id="pastDueOwner">
-            ${peopleArray().map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+            ${peopleArray().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
           </select>
         </div>
         <button class="btn btn--primary btn--sm mt-sm" id="createPastDueBtn" type="button">Create Past-Due Entry</button>
@@ -917,7 +918,7 @@
           <label class="form-label">Select a task to inspect</label>
           <select id="inspectTaskSelect">
             <option value="">Choose task...</option>
-            ${Object.entries(tasksObj).map(([id, t]) => `<option value="${id}">${t.name}</option>`).join('')}
+            ${Object.entries(tasksObj).map(([id, t]) => `<option value="${id}">${esc(t.name)}</option>`).join('')}
           </select>
         </div>
         <div id="inspectResult"></div>

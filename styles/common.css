@@ -56,6 +56,7 @@
   --font-size-base: 0.9375rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.5rem;
+  --font-size-md: 1rem;
   --font-size-2xl: 2rem;
 
   /* Border radius */
@@ -377,18 +378,6 @@ img {
 }
 
 /* ============ Loading ============ */
-.loading-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg-primary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-md);
-  z-index: 200;
-}
-
 .loading-inline {
   display: flex;
   align-items: center;
@@ -411,11 +400,6 @@ img {
   width: 20px;
   height: 20px;
   border-width: 2px;
-}
-
-.loading-text {
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
 }
 
 @keyframes spin {
@@ -547,52 +531,6 @@ img {
   }
 }
 
-/* ============ Modal ============ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 300;
-  padding: var(--spacing-md);
-  opacity: 0;
-  visibility: hidden;
-  transition: all var(--transition-normal);
-}
-
-.modal-overlay.active {
-  opacity: 1;
-  visibility: visible;
-}
-
-.modal {
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  width: 100%;
-  max-width: 360px;
-  box-shadow: var(--shadow-lg);
-}
-
-.modal__title {
-  font-size: var(--font-size-lg);
-  margin-bottom: var(--spacing-sm);
-}
-
-.modal__message {
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--spacing-lg);
-}
-
-.modal__actions {
-  display: flex;
-  gap: var(--spacing-sm);
-  justify-content: flex-end;
-}
-
 /* ============ Bottom Sheet ============ */
 .bottom-sheet-overlay {
   position: fixed;
@@ -656,12 +594,6 @@ img {
 .form-hint {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
-  margin-top: var(--spacing-xs);
-}
-
-.form-error {
-  font-size: var(--font-size-xs);
-  color: var(--danger-text);
   margin-top: var(--spacing-xs);
 }
 
@@ -736,6 +668,11 @@ img {
 .color-swatch.selected {
   border-color: var(--text-primary);
   box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-primary);
+}
+
+.color-swatch--used {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* ============ Step Indicator (for setup wizard) ============ */
@@ -1375,12 +1312,6 @@ img {
 .task-detail__slider-row .slider {
   flex: 1;
   min-width: 0;
-}
-
-.btn--sm {
-  padding: 4px 10px;
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
 }
 
 .task-detail__grade-preview {
@@ -2225,7 +2156,7 @@ img {
   background: var(--accent);
   color: white;
   border-color: var(--accent);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Admin Content */

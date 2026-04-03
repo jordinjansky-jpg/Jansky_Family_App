@@ -288,7 +288,8 @@
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, multiUpdate, onValue, readOnce, readStreaks } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, renderConnectionStatus } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange } from './shared/utils.js';
+    import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange, escapeHtml } from './shared/utils.js';
+    const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, gradeDisplay } from './shared/scoring.js';
 
@@ -608,7 +609,7 @@
           html += `<div class="kid-header">
             <div class="kid-header__greeting">
               <span class="kid-header__wave">👋</span>
-              <h1 class="kid-header__name" style="color:${kid.color}">Hey, ${kid.name}!</h1>
+              <h1 class="kid-header__name" style="color:${kid.color}">Hey, ${esc(kid.name)}!</h1>
             </div>
             <div class="kid-header__date">${dayPrefix} &mdash; ${dateLabel}</div>
           </div>`;
@@ -1048,12 +1049,12 @@
         }
 
         const ALL_DONE_MESSAGES = [
-          `Amazing job, ${kid.name}! You're a superstar!`,
-          `${kid.name} absolutely CRUSHED it today!`,
-          `Boom! ${kid.name} wins the day!`,
-          `${kid.name} is officially a legend!`,
-          `Nothing can stop ${kid.name}!`,
-          `${kid.name} just unlocked: Day Complete Achievement!`,
+          `Amazing job, ${esc(kid.name)}! You're a superstar!`,
+          `${esc(kid.name)} absolutely CRUSHED it today!`,
+          `Boom! ${esc(kid.name)} wins the day!`,
+          `${esc(kid.name)} is officially a legend!`,
+          `Nothing can stop ${esc(kid.name)}!`,
+          `${esc(kid.name)} just unlocked: Day Complete Achievement!`,
         ];
 
         function showFullAllDoneCelebration() {
@@ -1178,7 +1179,7 @@
                 ${showMove ? `<label class="task-detail__move-toggle"><input type="checkbox" id="delegateMoveToggle"> 📅 Move too</label>` : ''}
               </div>
               <div class="task-detail__person-chips">
-                ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${p.name}</button>`).join('')}
+                ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`).join('')}
               </div>
               <input type="date" id="delegateMoveDatePicker" class="task-detail__date-input" style="position:absolute;opacity:0;pointer-events:none;">
             </div>`;

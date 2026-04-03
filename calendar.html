@@ -681,7 +681,7 @@
         await multiUpdate(updates);
         pendingDelegateOwnerId = null;
         closeTaskSheet();
-        location.reload();
+        await loadData(); render();
       });
 
       // Move — directly open date picker
@@ -707,7 +707,7 @@
         }
         await multiUpdate(updates);
         closeTaskSheet();
-        location.reload();
+        await loadData(); render();
       });
 
       document.getElementById('moveSkip')?.addEventListener('click', async () => {
@@ -716,7 +716,7 @@
         if (completions[entryKey]) updates[`completions/${entryKey}`] = null;
         await multiUpdate(updates);
         closeTaskSheet();
-        location.reload();
+        await loadData(); render();
       });
 
       // Edit task

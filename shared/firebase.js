@@ -65,39 +65,6 @@ export function onValue(path, callback) {
   return () => r.off('value', handler);
 }
 
-/**
- * Subscribe to child_added events at a path.
- * Returns an unsubscribe function.
- */
-export function onChildAdded(path, callback) {
-  const r = ref(path);
-  const handler = (snapshot) => callback(snapshot.key, snapshot.val());
-  r.on('child_added', handler);
-  return () => r.off('child_added', handler);
-}
-
-/**
- * Subscribe to child_changed events at a path.
- * Returns an unsubscribe function.
- */
-export function onChildChanged(path, callback) {
-  const r = ref(path);
-  const handler = (snapshot) => callback(snapshot.key, snapshot.val());
-  r.on('child_changed', handler);
-  return () => r.off('child_changed', handler);
-}
-
-/**
- * Subscribe to child_removed events at a path.
- * Returns an unsubscribe function.
- */
-export function onChildRemoved(path, callback) {
-  const r = ref(path);
-  const handler = (snapshot) => callback(snapshot.key, snapshot.val());
-  r.on('child_removed', handler);
-  return () => r.off('child_removed', handler);
-}
-
 // --- Write operations ---
 
 /**
@@ -267,13 +234,6 @@ export async function writeCompletion(entryKey, data) {
  */
 export async function removeCompletion(entryKey) {
   return removeData(`completions/${entryKey}`);
-}
-
-/**
- * Read a daily snapshot.
- */
-export async function readSnapshot(dateKey, personId) {
-  return readOnce(`snapshots/${dateKey}/${personId}`);
 }
 
 /**

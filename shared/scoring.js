@@ -400,21 +400,6 @@ export function computeRollover(today, schedule, completions, tasks, categories,
 // ── Exports for display ──
 
 /**
- * Get the grade table (for reference/display).
- */
-export function getGradeTable() {
-  return GRADE_TABLE;
-}
-
-/**
- * Format points for display (e.g., "3 pts" or "3/5").
- */
-export function formatPoints(earned, possible) {
-  if (possible === 0) return '--';
-  return `${earned}/${possible}`;
-}
-
-/**
  * Format grade with color class for display.
  * Returns { grade, tier } where tier is 'a'|'b'|'c'|'d'|'f'.
  */

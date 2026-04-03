@@ -27,7 +27,8 @@
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet } from './shared/components.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong } from './shared/utils.js';
+    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong, escapeHtml } from './shared/utils.js';
+    const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete } from './shared/state.js';
 
     // ── Cached theme ──
@@ -52,8 +53,14 @@
     const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
     const tasks = tasksObj || {};
     const cats = catsObj || {};
-    const comps = completions || {};
-    const schedule = allSchedule || {};
+    let comps = completions || {};
+    let schedule = allSchedule || {};
+
+    async function loadData() {
+      const [c, s] = await Promise.all([readCompletions(), readAllSchedule()]);
+      comps = c || {};
+      schedule = s || {};
+    }
 
     // ── Date ranges ──
     const wStart = weekStart(today);
@@ -220,7 +227,7 @@
       const ownerColor = row.person?.color || 'var(--text-secondary)';
       const ownerInitial = (row.person?.name || '?')[0].toUpperCase();
       const ownerName = row.person?.name || 'Unknown';
-      const taskName = catIcon ? `${catIcon} ${row.task.name}` : row.task.name;
+      const taskName = catIcon ? `${catIcon} ${esc(row.task.name)}` : esc(row.task.name);
       const dateLabel = row.dateKey ? formatDateShort(row.dateKey) : '—';
       const completionInfo = row.completionDate ? `<span class="tracker-row__completed">${row.completionDate}</span>` : '';
       const overdueClass = row.status === 'overdue' ? ' tracker-row--overdue' : '';
@@ -230,7 +237,7 @@
         <span class="tracker-row__initial" style="--owner-color:${ownerColor}">${ownerInitial}</span>
         <div class="tracker-row__info">
           <span class="tracker-row__name">${taskName}</span>
-          <span class="tracker-row__meta">${ownerName} · ${dateLabel}</span>
+          <span class="tracker-row__meta">${esc(ownerName)} · ${dateLabel}</span>
         </div>
         <div class="tracker-row__right">
           ${renderStatusBadge(row.status)}
@@ -271,7 +278,7 @@
         <option value="">All Categories</option>`;
       for (const [key, cat] of catEntries) {
         const sel = activeCategory === key ? ' selected' : '';
-        html += `<option value="${key}"${sel}>${cat.icon || ''} ${cat.label || cat.name}</option>`;
+        html += `<option value="${esc(key)}"${sel}>${esc(cat.icon || '')} ${esc(cat.label || cat.name)}</option>`;
       }
       html += `</select>`;
       return html;
@@ -625,7 +632,7 @@
         await multiUpdate(updates);
         pendingDelegateOwnerId = null;
         closeTaskSheet();
-        location.reload();
+        await loadData(); render();
       });
 
       // Move — directly open date picker
@@ -652,7 +659,7 @@
         }
         await multiUpdate(updates);
         closeTaskSheet();
-        location.reload();
+        await loadData(); render();
       });
 
       document.getElementById('moveSkip')?.addEventListener('click', async () => {
@@ -661,7 +668,7 @@
         if (comps[entryKey]) updates[`completions/${entryKey}`] = null;
         await multiUpdate(updates);
         closeTaskSheet();
-        location.reload();
+        await loadData(); render();
       });
 
       // Edit task

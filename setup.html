@@ -438,7 +438,8 @@
 
   <script type="module">
     import { initFirebase, writeSettings, writeCategories, pushPerson, readSettings } from './shared/firebase.js';
-    import { getTimezoneOptions, detectTimezone } from './shared/utils.js';
+    import { getTimezoneOptions, detectTimezone, escapeHtml } from './shared/utils.js';
+    const esc = (s) => escapeHtml(String(s ?? ''));
     import { getPresets, getColorPalette, applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
 
     // --- State ---
@@ -546,8 +547,8 @@
         <div class="person-card">
           <div class="person-card__color" style="background:${p.color}"></div>
           <div class="person-card__info">
-            <div class="person-card__name">${p.name}</div>
-            <div class="person-card__role">${p.role}</div>
+            <div class="person-card__name">${esc(p.name)}</div>
+            <div class="person-card__role">${esc(p.role)}</div>
           </div>
           <button class="person-card__remove" onclick="removePerson(${i})">✕</button>
         </div>
@@ -629,8 +630,8 @@
       const list = document.getElementById('categoryList');
       list.innerHTML = categories.map((c, i) => `
         <div class="category-card">
-          <span class="category-card__icon">${c.icon}</span>
-          <span class="category-card__label">${c.label}</span>
+          <span class="category-card__icon">${esc(c.icon)}</span>
+          <span class="category-card__label">${esc(c.label)}</span>
           <div class="category-card__actions">
             <button class="category-card__btn" onclick="removeCategory(${i})">✕</button>
           </div>
