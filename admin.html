@@ -617,15 +617,23 @@
         </div>
         <div class="form-row">
           <div class="form-group" style="flex:1">
-            <label class="form-label">Weekend Weight</label>
-            <input type="number" id="sf_weekendWeight" value="${settings?.weekendWeight ?? 1.5}" min="0.1" max="5" step="0.1">
-            <p class="form-hint">Multiplier for weekend tasks</p>
+            <label class="form-label">Weekend Weight (Weekly)</label>
+            <input type="number" id="sf_weekendWeightWeekly" value="${settings?.weekendWeightWeekly ?? settings?.weekendWeight ?? 1.5}" min="0.1" max="5" step="0.1">
+            <p class="form-hint">Weekend favor for weekly tasks</p>
           </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Weekend Weight (Monthly)</label>
+            <input type="number" id="sf_weekendWeightMonthly" value="${settings?.weekendWeightMonthly ?? settings?.weekendWeight ?? 3}" min="0.1" max="5" step="0.1">
+            <p class="form-hint">Weekend favor for monthly tasks</p>
+          </div>
+        </div>
+        <div class="form-row">
           <div class="form-group" style="flex:1">
             <label class="form-label">Past-Due Credit %</label>
             <input type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100">
             <p class="form-hint">% credit for late tasks</p>
           </div>
+          <div class="form-group" style="flex:1"></div>
         </div>
         <div class="form-row">
           <div class="form-group" style="flex:1">
@@ -1433,7 +1441,8 @@
           appName: main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
           familyName: main.querySelector('#sf_familyName')?.value.trim() || '',
           timezone: main.querySelector('#sf_timezone')?.value || settings?.timezone,
-          weekendWeight: parseFloat(main.querySelector('#sf_weekendWeight')?.value) || 1.5,
+          weekendWeightWeekly: parseFloat(main.querySelector('#sf_weekendWeightWeekly')?.value) || 1.5,
+          weekendWeightMonthly: parseFloat(main.querySelector('#sf_weekendWeightMonthly')?.value) || 3,
           pastDueCreditPct: parseInt(main.querySelector('#sf_pastDueCredit')?.value, 10) || 75,
           sliderMin: parseInt(main.querySelector('#sf_sliderMin')?.value, 10) || 0,
           sliderMax: parseInt(main.querySelector('#sf_sliderMax')?.value, 10) || 150

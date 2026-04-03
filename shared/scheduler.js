@@ -473,7 +473,8 @@ export function generateSchedule(tasks, people, settings, completions, existingS
 
   const { includeToday = false } = options || {};
   const timezone = settings.timezone || 'America/Chicago';
-  const weekendWeight = settings.weekendWeight || 1.5;
+  const weekendWeightWeekly = settings.weekendWeightWeekly ?? settings.weekendWeight ?? 1.5;
+  const weekendWeightMonthly = settings.weekendWeightMonthly ?? settings.weekendWeight ?? 3;
   const today = todayKey(timezone);
   const startDate = includeToday ? today : addDays(today, 1);
   const endDate = addDays(today, SCHEDULE_DAYS);
@@ -504,19 +505,19 @@ export function generateSchedule(tasks, people, settings, completions, existingS
 
     switch (task.rotation) {
       case 'daily':
-        placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, tasks, nextKey);
+        placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeightWeekly, tasks, nextKey);
         break;
 
       case 'weekly':
-        placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, tasks, nextKey);
+        placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeightWeekly, tasks, nextKey);
         break;
 
       case 'monthly':
-        placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, tasks, nextKey);
+        placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeightMonthly, tasks, nextKey);
         break;
 
       case 'once':
-        placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, tasks, nextKey);
+        placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeightWeekly, tasks, nextKey);
         break;
     }
   }
@@ -730,7 +731,8 @@ export function buildScheduleUpdates(tasks, people, settings, completions, exist
  */
 export function buildPeriodResetUpdates(period, tasks, people, settings, completions, existingSchedule) {
   const timezone = settings.timezone || 'America/Chicago';
-  const weekendWeight = settings.weekendWeight || 1.5;
+  const weekendWeightWeekly = settings.weekendWeightWeekly ?? settings.weekendWeight ?? 1.5;
+  const weekendWeightMonthly = settings.weekendWeightMonthly ?? settings.weekendWeight ?? 3;
   const today = todayKey(timezone);
 
   // Which rotation types to reset, and their date windows
@@ -821,7 +823,8 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
         targetDay = r.remainingDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
       }
       if (!targetDay && mode !== 'duplicate' && !task.exempt) {
-        targetDay = findLightestDay(ownerId, r.remainingDates, periodSchedule, cleanSchedule, tasks, weekendWeight);
+        const ww = r.rotation === 'monthly' ? weekendWeightMonthly : weekendWeightWeekly;
+        targetDay = findLightestDay(ownerId, r.remainingDates, periodSchedule, cleanSchedule, tasks, ww);
       }
       if (!targetDay) {
         targetDay = r.remainingDates[0];
