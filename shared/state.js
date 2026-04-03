@@ -1,4 +1,4 @@
-// state.js — Completion state management, query helpers
+// state.js — Completion state management, query helpers (v2)
 // Pure functions. No DOM. No Firebase writes (pages handle persistence).
 
 /**

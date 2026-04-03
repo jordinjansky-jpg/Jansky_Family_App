@@ -1,4 +1,4 @@
-// swipe.js — Card swipe gesture handler
+// swipe.js — Card swipe gesture handler (v2)
 // Handles swipe-to-complete (right) and swipe-to-details (left) on task cards.
 // No DOM rendering — only attaches touch event listeners.
 

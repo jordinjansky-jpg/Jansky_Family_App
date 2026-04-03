@@ -1,4 +1,4 @@
-// theme.js — Theme application, dark mode, admin-configured styles
+// theme.js — Theme application, dark mode, admin-configured styles (v2)
 // No DOM access. Returns CSS variable maps. Pages apply them.
 
 const PRESETS = {

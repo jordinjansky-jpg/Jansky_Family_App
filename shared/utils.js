@@ -1,4 +1,4 @@
-// utils.js — Date/time helpers, formatting, timezone handling
+// utils.js — Date/time helpers, formatting, timezone handling (v2)
 // All functions are pure. No DOM access. No side effects.
 
 /**

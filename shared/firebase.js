@@ -1,4 +1,4 @@
-// firebase.js — Firebase init, connection status, typed read/write helpers
+// firebase.js — Firebase init, connection status, typed read/write helpers (v2)
 // No DOM access. Pure data layer.
 
 const FIREBASE_CONFIG = {

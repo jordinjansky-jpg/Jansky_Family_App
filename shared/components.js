@@ -1,4 +1,4 @@
-// components.js — Reusable UI rendering functions
+// components.js — Reusable UI rendering functions (v2)
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 

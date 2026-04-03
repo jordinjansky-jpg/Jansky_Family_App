@@ -1,4 +1,4 @@
-// scheduler.js — Schedule generation, owner rotation, load balancing, cooldown
+// scheduler.js — Schedule generation, owner rotation, load balancing, cooldown (v2)
 // Pure functions. No DOM access. No side effects beyond returned data.
 
 import {

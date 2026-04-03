@@ -1,4 +1,4 @@
-// scoring.js — Points formula, grade calculation, snapshot creation, aggregation
+// scoring.js — Points formula, grade calculation, snapshot creation, aggregation (v2)
 // Pure functions. No DOM. No Firebase writes (pages handle persistence).
 
 // ── Difficulty multipliers ──
