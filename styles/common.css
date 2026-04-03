@@ -2183,11 +2183,6 @@ img {
   min-height: 1.5em;
 }
 
-#mainContent {
-  overflow-x: hidden;
-  max-width: 100%;
-}
-
 /* Admin Tabs */
 .admin-tabs {
   display: flex;
@@ -2197,8 +2192,7 @@ img {
   padding-bottom: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
   scrollbar-width: none;
-  width: 100%;
-  box-sizing: border-box;
+  max-width: calc(100vw - var(--spacing-md) * 2);
 }
 .admin-tabs::-webkit-scrollbar { display: none; }
 .admin-tab {
