@@ -144,6 +144,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
   margin-bottom: var(--spacing-md);
   font-weight: 600;
 }
@@ -213,6 +215,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 .admin-list-item__meta {
   font-size: var(--font-size-xs);
@@ -221,6 +225,8 @@
   flex-wrap: wrap;
   gap: 3px;
   align-items: center;
+  min-width: 0;
+  flex: 1;
 }
 .admin-list-item__actions {
   display: flex;
@@ -248,6 +254,7 @@
 
 /* Admin Form */
 .admin-form {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
@@ -255,7 +262,6 @@
   margin-bottom: var(--spacing-md);
   overflow: hidden;
   max-width: 100%;
-  box-sizing: border-box;
 }
 .admin-form__title {
   font-size: var(--font-size-md);
@@ -264,6 +270,7 @@
 }
 .admin-form__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-sm);
   justify-content: flex-end;
 }
@@ -423,6 +430,8 @@
   justify-content: space-between;
   gap: var(--spacing-sm);
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 .admin-list-item__tags {
   display: flex;

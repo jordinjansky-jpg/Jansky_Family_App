@@ -43,7 +43,7 @@
     </div>
 
     <!-- Admin Content (after PIN) -->
-    <div id="mainContent" style="display:none;"></div>
+    <div id="mainContent" style="display:none;overflow-x:hidden;"></div>
   </div>
   <div id="navMount"></div>
   <div id="toastMount"></div>
@@ -585,7 +585,7 @@
         </div>
         <div class="form-group" id="dedicatedDayGroup" style="display:${(!task.rotation || task.rotation === 'daily') ? 'none' : ''}">
           <label class="form-label" id="dedicatedDayLabel">${task.rotation === 'once' ? 'Scheduled Date' : 'Dedicated Day'} <button type="button" id="tf_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${catsObj[task.category]?.isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
-          <input type="date" id="tf_eventDate" style="position:absolute;opacity:0;pointer-events:none;" value="${task.dedicatedDate || ''}">
+          <input type="date" id="tf_eventDate" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);" value="${task.dedicatedDate || ''}">
           <select id="daySelect" class="dedicated-day-select" style="display:${task.rotation === 'once' ? 'none' : ''}">
             <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
             ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
