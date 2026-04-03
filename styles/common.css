@@ -2200,19 +2200,21 @@ img {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: var(--spacing-xs) 6px;
+  padding: var(--spacing-xs) 4px;
   border-radius: var(--radius-md);
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  white-space: nowrap;
-  min-width: 44px;
+  min-width: 0;
+  flex: 1 1 0;
   cursor: pointer;
   transition: all var(--transition-fast);
+  text-align: center;
+  overflow: hidden;
 }
 .admin-tab__icon { font-size: 1.1rem; }
-.admin-tab__label { font-weight: 500; }
+.admin-tab__label { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .admin-tab--active {
   background: var(--accent);
   color: white;
