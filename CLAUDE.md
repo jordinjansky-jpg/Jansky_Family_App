@@ -95,17 +95,25 @@ rundown/
 - Theme coloredCells: Light Vivid and Dark Vivid presets set data-colored-cells attribute; CSS applies person-colored task card backgrounds (light/dark tints).
 - Dashboard stats: grade badge + score % + tasks done/total + total time; updates in both date-header section and fixed header, filters by active person.
 - Header: full date shown on all pages (formatDateLong), subtitle shows page name/family name, add-task button uses 📝 emoji.
-- Quick-add form matches admin: includes assignment mode (rotate/duplicate), dedicated day chips (Mon-Sun + Any), scheduled date picker for one-time tasks, event date picker.
+- Quick-add form matches admin: includes assignment mode (rotate/duplicate), dedicated day chips (Mon-Sun + Any), scheduled date picker for one-time tasks, event date picker (📅 icon with hidden date input + showPicker()), cooldown days, exempt checkbox.
 - Kid mode celebrations: 15 random victory scenes (cats, dogs, dinos, space, etc.) replace task area when all done. Confetti rain animation. 6 themed emoji burst sets for per-task celebrations. Varied all-done messages.
 - Admin people: child accounts show "Link" button to their kid.html page.
+- Admin tabs: responsive — scroll horizontally on mobile (min-width 56px per tab), flex-fill equally on desktop (768px+).
+- Color palettes: expanded to 24 colors (people, accent, event) with smaller swatches, includes yellow and pink.
+- Task deletion: cleans up all orphaned schedule entries and completions.
+- Schedule key generation: counter-based (`sched_{timestamp}_qa_{counter}`) to avoid collisions in duplicate+both loops.
 
 ## Gotchas (Critical)
 - Firebase RTDB compat SDK used (not modular) — all imports via `firebase.` global after CDN load
 - Timezone handling: always use `settings.timezone` for date calculations, never local device time
 - ES module imports MUST have `.js` extension — bare imports break without bundler
 - `rundown/settings` is a flat object, not nested under a push ID
+- Schedule key collisions: `Date.now()` returns same value in tight loops — always use a counter for unique keys
+- Streak float comparison: DST can make day diff != exactly 1 — use `Math.abs(diff - 1) < 0.01`
+- Rotation change handlers that modify label innerHTML must save/restore child elements (e.g., 📅 button) and re-bind listeners
 
 ## Changelog
+2026-04-02 Bug fixes + mobile polish: Fixed duplicate+both AM/PM key collisions (counter-based keys). Task deletion now cleans up orphaned schedule entries and completions. Fixed streak float comparison for DST. Expanded color palettes to 24 colors (people, accent, event) with smaller swatches. Admin tabs responsive: scroll on mobile, flex-fill on desktop. Quick-add form parity: cooldown days, exempt checkbox, event date as 📅 icon (hidden input + showPicker). People names truncate on overflow. Gear/debug icons styled with accent background. Kid stats alignment fix.
 2026-04-02 Kid celebrations + quick-add parity + header date: Kid mode victory scenes (15 random fun scenes — cats partying, dogs dancing, dinos, space aliens, etc.) replace task area when all tasks done. Confetti rain on all-done. 6 themed emoji burst sets for per-task celebrations (animals, food, space, etc.), 36 celebration emoji. Quick-add form now matches admin form: assignment mode toggle, dedicated day chips (Mon-Sun + Any), scheduled date picker. Admin task form gets event date picker (📅 icon, auto-sets rotation to once). Header shows full date on all pages. Add-task button changed to 📝 emoji. Admin category overflow fix. Kid page "Link" button in admin people.
 2026-04-02 UI polish: event sorting + header redesign + mobile fixes: Event-toggled categories sort to top of task lists (new 'events' group in groupByFrequency). Header redesign with gradient background, gradient title text, rounded icon buttons. Mobile responsive fixes (flex-wrap, tighter admin padding). Admin category/badge overflow fixes. Quick-add event date picker for event categories.
 2026-04-02 Phase 9: Kid Mode — Personalized child dashboard at kid.html?kid=Name. Kid-friendly header with greeting and color. Stats bar (grade badge, score %, tasks done/total, streak). Tap-to-complete task cards (reuses renderTaskCard). Celebration system: per-task emoji burst (full) or star sparkle (subtle), all-done overlay (full) or toast banner (subtle), controlled by kidSettings.celebrationsEnabled and celebrationStyle. Optional week view tabs (Mon-Sun) when showWeekView enabled. Long-press bottom sheet with conditional features: points slider (showSlider), delegate (canDelegate), move (canMoveTasks) — no edit/skip. Overdue banner on today view. Undo toast on completion toggle. Real-time completions sync. Fully isolated — no nav bar, no admin access, no task editing. completedBy: 'kid-mode' distinguishes source.
