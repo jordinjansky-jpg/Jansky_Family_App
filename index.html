@@ -780,27 +780,100 @@
         if (overlay) overlay.classList.add('active');
       });
 
-      // Bind edit form events
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
-
       document.getElementById('etCancel')?.addEventListener('click', closeTaskSheet);
+
+      // Assignment mode toggle
+      const modeGroup = document.getElementById('et_assignModeHint')?.parentElement;
+      if (modeGroup) {
+        for (const btn of modeGroup.querySelectorAll('.admin-mode-btn')) {
+          btn.addEventListener('click', () => {
+            modeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
+            btn.classList.add('admin-mode-btn--active');
+            document.getElementById('et_assignModeHint').textContent = btn.dataset.mode === 'duplicate' ? 'Each owner gets their own entry.' : 'Rotate between owners each period.';
+          });
+        }
+      }
+
+      // Rotation change — show/hide dedicated day vs date
+      document.getElementById('et_rotation')?.addEventListener('change', (e) => {
+        const rot = e.target.value;
+        const group = document.getElementById('et_dedicatedDayGroup');
+        const daySelect = document.getElementById('et_daySelect');
+        const dateRow = document.getElementById('et_dedicatedDateRow');
+        const label = document.getElementById('et_dedicatedDayLabel');
+        const catOpt = document.getElementById('et_category')?.selectedOptions[0];
+        const isEvent = catOpt?.dataset.event === '1';
+        if (rot === 'daily') {
+          group.style.display = 'none';
+        } else {
+          group.style.display = '';
+          const eventBtn = label?.querySelector('#et_eventDateBtn');
+          const btnHtml = eventBtn ? eventBtn.outerHTML : '';
+          if (rot === 'once') {
+            daySelect.style.display = 'none';
+            dateRow.style.display = isEvent ? 'none' : '';
+            label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
+          } else {
+            daySelect.style.display = '';
+            dateRow.style.display = 'none';
+            label.innerHTML = 'Dedicated Day ' + btnHtml;
+          }
+          label?.querySelector('#et_eventDateBtn')?.addEventListener('click', () => {
+            const picker = document.getElementById('et_eventDate');
+            if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
+          });
+        }
+      });
+
+      // Category change — show/hide event date button
+      document.getElementById('et_category')?.addEventListener('change', (e) => {
+        const isEvent = e.target.selectedOptions[0]?.dataset.event === '1';
+        const eventBtn = document.getElementById('et_eventDateBtn');
+        if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+        if (isEvent) {
+          const rotSelect = document.getElementById('et_rotation');
+          if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
+        }
+      });
+
+      // Event date icon
+      document.getElementById('et_eventDateBtn')?.addEventListener('click', () => {
+        const picker = document.getElementById('et_eventDate');
+        if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+      });
 
       document.getElementById('etSave')?.addEventListener('click', async () => {
         const name = document.getElementById('et_name')?.value.trim();
         if (!name) { document.getElementById('et_name')?.focus(); return; }
 
         const owners = Array.from(document.querySelectorAll('#et_owners input:checked')).map(cb => cb.value);
+        const rotation = document.getElementById('et_rotation')?.value || task.rotation;
+        const activeMode = modeGroup?.querySelector('.admin-mode-btn--active')?.dataset.mode || 'rotate';
+        const dayVal = document.getElementById('et_daySelect')?.value;
+        const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
+        const dedicatedDate = rotation === 'once' ? (document.getElementById('et_dedicatedDate')?.value || null) : null;
+        const cooldown = document.getElementById('et_cooldown')?.value;
+        const catOpt = document.getElementById('et_category')?.selectedOptions[0];
+        const catIsEvent = catOpt?.dataset.event === '1';
+        const eventDate = document.getElementById('et_eventDate')?.value;
+        const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
 
         const updated = {
           ...task,
           name,
-          rotation: document.getElementById('et_rotation')?.value || task.rotation,
+          rotation,
           difficulty: document.getElementById('et_difficulty')?.value || task.difficulty,
           timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay,
           estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('et_estMin')?.value, 10)),
           category: document.getElementById('et_category')?.value || task.category,
-          owners
+          owners,
+          ownerAssignmentMode: activeMode,
+          dedicatedDay,
+          dedicatedDate: effectiveDedicatedDate,
+          cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
+          exempt: document.getElementById('et_exempt')?.checked || false
         };
 
         await writeTask(taskId, updated);

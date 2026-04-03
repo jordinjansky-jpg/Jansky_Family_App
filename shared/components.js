@@ -523,6 +523,10 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
  */
 export function renderEditTaskSheet(taskId, task, categories, people) {
   const selectedOwners = task.owners || [];
+  const assignMode = task.ownerAssignmentMode || 'rotate';
+  const catObj = categories.find(c => c.key === task.category);
+  const isEvent = !!catObj?.isEvent;
+  const showDedicated = task.rotation && task.rotation !== 'daily';
   let html = `<div class="task-detail-sheet">
     <h3 class="admin-form__title">Edit Task</h3>
     <div class="form-group">
@@ -566,7 +570,7 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
     <div class="form-group">
       <label class="form-label">Category</label>
       <select id="et_category">
-        ${categories.map(c => `<option value="${c.key}"${task.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+        ${categories.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">
@@ -575,6 +579,35 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
         ${people.map(p => `<label class="admin-checkbox"><input type="checkbox" value="${p.id}"${selectedOwners.includes(p.id) ? ' checked' : ''}> ${p.name}</label>`).join('')}
       </div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Assignment Mode</label>
+      <div class="form-row">
+        <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'rotate' ? ' admin-mode-btn--active' : ''}" data-mode="rotate" type="button">Rotate</button>
+        <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
+      </div>
+      <p class="form-hint" id="et_assignModeHint">${assignMode === 'duplicate' ? 'Each owner gets their own entry.' : 'Rotate between owners each period.'}</p>
+    </div>
+    <div class="form-group" id="et_dedicatedDayGroup" style="display:${showDedicated ? '' : 'none'}">
+      <label class="form-label" id="et_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Scheduled Date') : 'Dedicated Day'} <button type="button" id="et_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
+      <input type="date" id="et_eventDate" style="position:absolute;opacity:0;pointer-events:none;" value="${task.dedicatedDate || ''}">
+      <select id="et_daySelect" class="dedicated-day-select" style="display:${task.rotation === 'once' ? 'none' : ''}">
+        <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
+        ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
+          const val = (i + 1) % 7;
+          return `<option value="${val}"${task.dedicatedDay === val ? ' selected' : ''}>${d}</option>`;
+        }).join('')}
+      </select>
+      <div id="et_dedicatedDateRow" style="display:${task.rotation === 'once' && !isEvent ? '' : 'none'}">
+        <input type="date" id="et_dedicatedDate" class="task-detail__date-input" style="width:100%" value="${task.dedicatedDate || ''}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Cooldown Days</label>
+        <input type="number" id="et_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
+      </div>
+    </div>
+    <label class="admin-checkbox mt-sm"><input type="checkbox" id="et_exempt"${task.exempt ? ' checked' : ''}> Exempt from scoring</label>
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="etCancel" type="button">Cancel</button>
       <button class="btn btn--primary" id="etSave" data-task-id="${taskId}" type="button">Save Changes</button>
