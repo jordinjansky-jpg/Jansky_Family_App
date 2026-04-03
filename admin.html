@@ -577,7 +577,7 @@
         <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'}">
           <span class="form-label" style="margin-bottom:0;">Event Color</span>
           <div class="admin-color-grid admin-color-grid--sm" id="eventColorGrid">
-            ${['#5b7fd6','#e85d75','#43a047','#ff9800','#8e24aa','#00acc1','#ef5350','#ffa726','#26a69a','#ec407a'].map(c =>
+            ${['#ef5350','#e85d75','#ec407a','#f06292','#ab47bc','#8e24aa','#7e57c2','#5b7fd6','#42a5f5','#00acc1','#26a69a','#43a047','#66bb6a','#ffca28','#ffa726','#ff9800','#ff7043','#8d6e63','#78909c','#546e7a'].map(c =>
               `<button class="admin-color-dot${(cat.eventColor || '#5b7fd6') === c ? ' admin-color-dot--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`
             ).join('')}
           </div>
@@ -657,7 +657,13 @@
     function renderThemeTab() {
       const presets = getPresets();
       const currentTheme = loadCachedTheme() || settings?.theme || defaultThemeConfig();
-      const accentColors = ['#5b7fd6', '#e85d75', '#43a047', '#ff9800', '#8e24aa', '#00acc1', '#ef5350', '#ffa726'];
+      const accentColors = [
+        '#ef5350', '#e85d75', '#ec407a', '#f06292',
+        '#ab47bc', '#8e24aa', '#7e57c2', '#5b7fd6',
+        '#42a5f5', '#00acc1', '#26a69a', '#43a047',
+        '#66bb6a', '#ffca28', '#ffa726', '#ff9800',
+        '#ff7043', '#8d6e63', '#78909c', '#546e7a'
+      ];
 
       let html = `<div class="admin-form">
         <h3 class="admin-form__title">Theme Preset</h3>

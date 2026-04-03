@@ -251,9 +251,11 @@ export function gradeColor(grade) {
  */
 export function getColorPalette() {
   return [
-    '#5b7fd6', '#e85d75', '#43a047', '#ff9800',
-    '#8e24aa', '#00acc1', '#6d4c41', '#ec407a',
-    '#26a69a', '#7e57c2', '#ef5350', '#66bb6a',
-    '#ffa726', '#42a5f5', '#ab47bc', '#78909c'
+    '#ef5350', '#e85d75', '#ec407a', '#f06292',
+    '#ab47bc', '#8e24aa', '#7e57c2', '#5b7fd6',
+    '#42a5f5', '#00acc1', '#26a69a', '#43a047',
+    '#66bb6a', '#ffca28', '#ffa726', '#ff9800',
+    '#ff7043', '#8d6e63', '#78909c', '#546e7a',
+    '#d4e157', '#aed581', '#4dd0e1', '#ba68c8'
   ];
 }
