@@ -21,7 +21,7 @@ git push origin main
 ```
 /                         ← Served as-is by Cloudflare Pages
 ├── index.html            ← Dashboard — daily task list, completion toggling, progress, overdue banner
-├── calendar.html         ← 3-month grid, day detail bottom sheet, event color bars
+├── calendar.html         ← Single-month grid with swipe nav, day detail bottom sheet, event color bars
 ├── scoreboard.html       ← Leaderboard, grades table, trend sparklines, category breakdown
 ├── tracker.html          ← Weekly/monthly task status rows, filters, skipped task detection
 ├── admin.html            ← PIN-gated admin (tasks, people, categories, settings, theme, schedule, data, debug)
@@ -58,7 +58,7 @@ git push origin main
 - **Imports:** All ES module imports use relative paths with `.js` extensions — bare imports break without bundler.
 - **Schema:** Changes require a migration plan since data is live in production Firebase.
 - **CSS split:** Styles are split into 10 files by responsibility. Each page loads only the CSS it needs via multiple `<link>` tags. Order matters: base → layout → components → page-specific → responsive.
-- **Offline support:** Service worker caches the full app shell (cache-first strategy). Firebase API calls are network-only. The app loads and functions offline; writes queue and sync on reconnect.
+- **Offline support:** Service worker caches the full app shell (network-first strategy). Firebase API calls are network-only. The app loads and functions offline; writes queue and sync on reconnect.
 - **Real-time updates:** Dashboard, calendar, and kid mode use Firebase `onValue` listeners for completions and schedule. Renders are debounced at 100ms. Scoreboard and tracker use one-shot reads (historical data).
 - **Swipe gestures:** Card swipes (complete/details) coexist with day-navigation swipes via touch target detection. Implemented in `shared/swipe.js`.
 
@@ -113,7 +113,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **One-time tasks:** With `dedicatedDate`, placed on that exact date. Without it, load-balanced to lightest day.
 - **Completion:** Allowed on any date (no future-date blocking). Completed tasks render at the bottom of all task lists.
 - **Task grouping order:** Events → Daily → Weekly → Monthly → One-Time, then by owner within each group.
-- **Long-press:** 500ms timer opens detail sheet. Tap toggles completion. Swipe navigates days (dashboard/calendar).
+- **Long-press:** 500ms timer opens detail sheet. Tap toggles completion. Swipe navigates days (dashboard) or months (calendar).
 - **Duplicate mode:** Creates one schedule entry per owner. Fixed mode always uses first owner (used for events).
 - **Daily cooldown:** Tasks with `cooldownDays` are spaced at fixed intervals (`cooldownDays + 1` days apart).
 - **Scoreboard blending:** Weekly grades blend snapshots (past days) + live daily score (today) for accuracy.
@@ -140,11 +140,11 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - `swipe.js` touchmove uses `passive: false` to call `preventDefault()` during horizontal swipes
 
 ## Changelog (last 5)
+- `e841314` 7 bug fixes (scheduler shadowing, scoring exempt tasks, tracker skipped filter, duplicate listeners, calendar perf), calendar single-month view with swipe nav, SW v5
 - Add meta tags, manifest.json, favicon, PWA support, event time field, auto-rebuild on task edit
 - `17df628` Pre-release audit: remove dead code, fix bugs, harden XSS, clean CSS
 - `8fc247b` Reset schedule ignores prior completions and cooldowns, re-places all tasks
 - `b9fe3b4` Fix reset schedule using includeToday to match rebuild entry count
-- `8c433f8` Fix weighted categories to use per-person regular totals instead of family-wide
 
 ## Backlog
 - **Push notifications** — Daily reminders, task delegation alerts. Requires FCM + server-side trigger (Cloud Function or Cloudflare Worker). High effort (~2-3 sessions). See notifications uplift assessment from 2026-04-03.
