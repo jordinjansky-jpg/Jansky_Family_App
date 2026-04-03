@@ -266,10 +266,10 @@
         const groups = groupByFrequency(incomplete, tasks, cats);
         const sections = [
           { key: 'events', label: 'Events' },
-          { key: 'daily', label: 'Daily' },
-          { key: 'weekly', label: 'Weekly' },
           { key: 'monthly', label: 'Monthly' },
-          { key: 'once', label: 'One-Time' }
+          { key: 'weekly', label: 'Weekly' },
+          { key: 'once', label: 'One-Time' },
+          { key: 'daily', label: 'Daily' }
         ];
 
         const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
@@ -304,22 +304,36 @@
         }
       }
 
-      return { html, prog, score, gd };
+      // Compute time remaining (incomplete tasks only)
+      let remainMin = 0;
+      for (const [key, entry] of Object.entries(filtered)) {
+        if (!isComplete(key, completions)) {
+          const task = tasks[entry.taskId];
+          if (task?.estMin) remainMin += task.estMin;
+        }
+      }
+      const rH = Math.floor(remainMin / 60);
+      const rM = remainMin % 60;
+      const timeLeft = rH > 0 ? `${rH}h${rM > 0 ? String(rM).padStart(2, '0') + 'm' : ''}` : `${rM}m`;
+
+      return { html, prog, score, gd, timeLeft, remainMin };
     }
 
     function openSheet(dateKey) {
-      const { html, prog, score, gd } = buildDayContent(dateKey);
+      const { html, prog, score, gd, timeLeft, remainMin } = buildDayContent(dateKey);
       const dateLabel = formatDateShort(dateKey);
       const isToday = dateKey === today;
       const dayTag = isToday ? ' <span class="cal-sheet__today">Today</span>' : '';
       const gradeHtml = score.possible > 0 ? ` ${renderGradeBadge(gd.grade, gd.tier)}` : '';
+      const summaryParts = [`${prog.done}/${prog.total} done`];
+      if (remainMin > 0) summaryParts.push(`${timeLeft} left`);
 
       sheetMount.innerHTML = `<div class="cal-sheet-overlay" id="calSheetOverlay">
         <div class="cal-sheet" id="calSheet">
           <div class="cal-sheet__handle"></div>
           <div class="cal-sheet__header">
             <div class="cal-sheet__title">${dateLabel}${dayTag}${gradeHtml}</div>
-            <div class="cal-sheet__summary">${prog.done}/${prog.total} done · ${score.earned}/${score.possible} pts</div>
+            <div class="cal-sheet__summary">${summaryParts.join(' · ')}</div>
           </div>
           <div class="cal-sheet__progress">
             <div class="cal-sheet__progress-fill" style="width:${prog.pct}%"></div>
@@ -353,10 +367,49 @@
       });
 
       bindSheetEvents();
+      bindSheetSwipe();
+    }
+
+    function changeSheetDay(delta) {
+      if (!selectedDay) return;
+      selectedDay = addDays(selectedDay, delta);
+      // Update grid selection
+      main.querySelectorAll('.cal-grid__cell--selected').forEach(el => el.classList.remove('cal-grid__cell--selected'));
+      const newCell = main.querySelector(`.cal-grid__cell[data-date="${selectedDay}"]`);
+      if (newCell) newCell.classList.add('cal-grid__cell--selected');
+      // Update sheet title + content
+      const sheet = document.getElementById('calSheet');
+      if (sheet) {
+        const { html, prog, score, gd } = buildDayContent(selectedDay);
+        const dateLabel = formatDateShort(selectedDay);
+        const isToday = selectedDay === today;
+        const dayTag = isToday ? ' <span class="cal-sheet__today">Today</span>' : '';
+        const gradeHtml = score.possible > 0 ? ` ${renderGradeBadge(gd.grade, gd.tier)}` : '';
+        const titleEl = sheet.querySelector('.cal-sheet__title');
+        if (titleEl) titleEl.innerHTML = `${dateLabel}${dayTag}${gradeHtml}`;
+        updateSheet(selectedDay);
+      }
+    }
+
+    function bindSheetSwipe() {
+      const sheet = document.getElementById('calSheet');
+      if (!sheet) return;
+      let sx = 0, sy = 0;
+      sheet.addEventListener('touchstart', (e) => {
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+      }, { passive: true });
+      sheet.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].clientX - sx;
+        const dy = e.changedTouches[0].clientY - sy;
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+          changeSheetDay(dx < 0 ? 1 : -1);
+        }
+      }, { passive: true });
     }
 
     function updateSheet(dateKey) {
-      const { html, prog, score, gd } = buildDayContent(dateKey);
+      const { html, prog, score, gd, timeLeft, remainMin } = buildDayContent(dateKey);
       const sheet = document.getElementById('calSheet');
       if (!sheet) return;
 
@@ -364,7 +417,9 @@
       const progFill = sheet.querySelector('.cal-sheet__progress-fill');
       if (progFill) progFill.style.width = `${prog.pct}%`;
       const summary = sheet.querySelector('.cal-sheet__summary');
-      if (summary) summary.textContent = `${prog.done}/${prog.total} done · ${score.earned}/${score.possible} pts`;
+      const sumParts = [`${prog.done}/${prog.total} done`];
+      if (remainMin > 0) sumParts.push(`${timeLeft} left`);
+      if (summary) summary.textContent = sumParts.join(' · ');
 
       // Update grade badge in title
       const titleEl = sheet.querySelector('.cal-sheet__title');
