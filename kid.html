@@ -346,6 +346,107 @@
         const today = todayKey(tz);
         const ks = kid.kidSettings || {};
 
+        // ── Emoji helper for pre-readers ──
+        const TASK_EMOJI_MAP = [
+          // Hygiene & self-care
+          [/\b(brush|teeth|tooth|floss)\b/i, '🪥'],
+          [/\b(shower|bath|bathe|wash)\b/i, '🛁'],
+          [/\b(hair|comb|braid)\b/i, '💇'],
+          [/\b(hand|soap)\b/i, '🧼'],
+          [/\b(potty|toilet|bathroom)\b/i, '🚽'],
+          [/\b(face|skincare|lotion|sunscreen)\b/i, '🧴'],
+          [/\b(nail|clip)\b/i, '💅'],
+          // Getting dressed & laundry
+          [/\b(dress|cloth|outfit|wear|change)\b/i, '👕'],
+          [/\b(shoe|sneaker|boot)\b/i, '👟'],
+          [/\b(sock)\b/i, '🧦'],
+          [/\b(coat|jacket)\b/i, '🧥'],
+          [/\b(pajama|pjs|jammie)\b/i, '🌙'],
+          [/\b(laundry|fold|hamper)\b/i, '🧺'],
+          // Food & kitchen
+          [/\b(breakfast|cereal|pancake|waffle|oatmeal)\b/i, '🥣'],
+          [/\b(lunch|sandwich)\b/i, '🥪'],
+          [/\b(dinner|supper)\b/i, '🍽️'],
+          [/\b(snack|treat)\b/i, '🍎'],
+          [/\b(cook|bake)\b/i, '👨‍🍳'],
+          [/\b(dish|plate|cup|rinse|unload|load)\b/i, '🍽️'],
+          [/\b(eat|food|meal)\b/i, '🍴'],
+          [/\b(drink|water|juice|milk)\b/i, '🥤'],
+          [/\b(table|set the)\b/i, '🍽️'],
+          // Cleaning & chores
+          [/\b(clean|tidy|wipe|scrub|mop)\b/i, '🧹'],
+          [/\b(vacuum|hoover)\b/i, '🧹'],
+          [/\b(sweep)\b/i, '🧹'],
+          [/\b(trash|garbage|recycle|bin)\b/i, '🗑️'],
+          [/\b(dust)\b/i, '✨'],
+          [/\b(bed|make bed|blanket|sheet|pillow)\b/i, '🛏️'],
+          [/\b(room|organize|pick ?up|put ?away|toys)\b/i, '🧸'],
+          [/\b(bag|backpack|pack)\b/i, '🎒'],
+          // School & learning
+          [/\b(homework|study|test|quiz|exam)\b/i, '📚'],
+          [/\b(read|book|story|library)\b/i, '📖'],
+          [/\b(write|journal|diary|spell)\b/i, '✏️'],
+          [/\b(math|count|number|add|subtract)\b/i, '🔢'],
+          [/\b(school|class|lesson|learn)\b/i, '🏫'],
+          [/\b(art|draw|color|paint|craft)\b/i, '🎨'],
+          [/\b(music|piano|guitar|sing|instrument|practice)\b/i, '🎵'],
+          [/\b(science|experiment)\b/i, '🔬'],
+          // Outdoors & exercise
+          [/\b(walk|hike|step)\b/i, '🚶'],
+          [/\b(run|jog|sprint)\b/i, '🏃'],
+          [/\b(bike|ride|cycle)\b/i, '🚲'],
+          [/\b(swim|pool)\b/i, '🏊'],
+          [/\b(play|recess|outside|park|playground)\b/i, '⚽'],
+          [/\b(sport|soccer|basketball|baseball|tennis)\b/i, '🏅'],
+          [/\b(dance)\b/i, '💃'],
+          [/\b(stretch|yoga|exercise|workout)\b/i, '🤸'],
+          [/\b(garden|plant|flower|seed|water)\b/i, '🌱'],
+          // Pets
+          [/\b(dog|puppy|pup)\b/i, '🐕'],
+          [/\b(cat|kitten|kitty)\b/i, '🐱'],
+          [/\b(fish|aquarium)\b/i, '🐟'],
+          [/\b(pet|feed|animal|hamster)\b/i, '🐾'],
+          [/\b(litter|cage)\b/i, '🐾'],
+          // Screen & tech
+          [/\b(screen|tablet|ipad|tv|game|video|device)\b/i, '📱'],
+          [/\b(computer|laptop)\b/i, '💻'],
+          // Sleep & routine
+          [/\b(sleep|nap|rest|bedtime|bed ?time|night)\b/i, '😴'],
+          [/\b(wake|alarm|morning|get ?up)\b/i, '⏰'],
+          [/\b(pray|prayer|gratitude|thankful|devotion)\b/i, '🙏'],
+          [/\b(meditat|calm|breath)\b/i, '🧘'],
+          // Social & family
+          [/\b(share|kind|help|chore)\b/i, '🤝'],
+          [/\b(call|phone|facetime|text)\b/i, '📞'],
+          [/\b(friend|playdate|visit)\b/i, '👫'],
+          [/\b(family)\b/i, '👨‍👩‍👧‍👦'],
+          [/\b(mail|letter|card)\b/i, '📬'],
+          // Misc
+          [/\b(medicine|vitamin|pill)\b/i, '💊'],
+          [/\b(check|list|todo)\b/i, '✅'],
+          [/\b(timer|time|clock|minute)\b/i, '⏱️'],
+          [/\b(money|save|earn|allowance|coin)\b/i, '💰'],
+          [/\b(car|drive|ride|bus|seat)\b/i, '🚗'],
+        ];
+
+        function taskNameWithEmoji(name) {
+          if (!ks.showTaskEmoji) return name;
+          const matched = new Set();
+          for (const [regex, emoji] of TASK_EMOJI_MAP) {
+            if (regex.test(name) && !matched.has(emoji)) {
+              matched.add(emoji);
+              if (matched.size >= 2) break;
+            }
+          }
+          if (matched.size === 0) return name;
+          return [...matched].join('') + ' ' + name;
+        }
+
+        // Helper to wrap task for kid emoji display
+        function kidTask(task) {
+          return { ...task, name: taskNameWithEmoji(task.name) };
+        }
+
         // ── App state ──
         let viewDate = today;
         let completions = {};
@@ -457,7 +558,7 @@
               html += renderTaskCard({
                 entryKey: item.entryKey,
                 entry: { ...item, dateKey: item.dateKey },
-                task,
+                task: kidTask(task),
                 person: kid,
                 category: cat,
                 completed: isComplete(item.entryKey, completions),
@@ -508,7 +609,7 @@
                 html += renderTaskCard({
                   entryKey,
                   entry: { ...entry, dateKey: viewDate },
-                  task,
+                  task: kidTask(task),
                   person: kid,
                   category: cat,
                   completed: true,
@@ -544,7 +645,7 @@
                   html += renderTaskCard({
                     entryKey,
                     entry: { ...entry, dateKey: viewDate },
-                    task,
+                    task: kidTask(task),
                     person: kid,
                     category: cat,
                     completed: false,
@@ -567,7 +668,7 @@
                   html += renderTaskCard({
                     entryKey,
                     entry: { ...entry, dateKey: viewDate },
-                    task,
+                    task: kidTask(task),
                     person: kid,
                     category: cat,
                     completed: true,
@@ -922,7 +1023,7 @@
           html += `<div class="task-detail__info">
             <div class="task-detail__name" style="--owner-color:${kid.color}">
               <span class="task-card__initial">${kid.name[0].toUpperCase()}</span>
-              <span>${catIcon ? catIcon + ' ' : ''}${task.name}</span>
+              <span>${catIcon ? catIcon + ' ' : ''}${taskNameWithEmoji(task.name)}</span>
             </div>
             <div class="task-detail__meta">
               <span class="chip">${rotLabel}</span>
