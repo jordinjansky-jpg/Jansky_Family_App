@@ -802,11 +802,7 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
       if (task.rotation !== r.rotation) continue;
       if (!task.owners || task.owners.length === 0) continue;
 
-      // Skip if already completed this period
-      if (r.rotation === 'weekly' && isCompletedThisWeek(taskId, today, completions, existingSchedule)) continue;
-      if (r.rotation === 'monthly' && isCompletedThisMonth(taskId, today, completions, existingSchedule)) continue;
-
-      if (isInCooldown(task, taskId, today, completions, existingSchedule)) continue;
+      // Reset ignores prior completions — re-place all tasks into remaining days
 
       // Pick DAY first (global load + weekend weight), then owner assigned in generateRotatedEntries
       let targetDay;
