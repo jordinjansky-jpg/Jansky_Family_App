@@ -849,7 +849,7 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
 
   // Rebuild from tomorrow onward (default). The period dates are already handled above,
   // so we only take entries AFTER the period from the rebuild output.
-  const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, mergedSchedule);
+  const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, mergedSchedule, { includeToday: true });
   for (const [path, value] of Object.entries(futureUpdates)) {
     // Path format: "schedule/YYYY-MM-DD"
     const futureDateKey = path.substring(9); // strip "schedule/"
