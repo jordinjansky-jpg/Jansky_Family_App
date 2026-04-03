@@ -65,6 +65,18 @@ export function onValue(path, callback) {
   return () => r.off('value', handler);
 }
 
+export function onCompletions(callback) {
+  return onValue('completions', callback);
+}
+
+export function onScheduleDay(dateKey, callback) {
+  return onValue(`schedule/${dateKey}`, callback);
+}
+
+export function onSettings(callback) {
+  return onValue('settings', callback);
+}
+
 // --- Write operations ---
 
 /**

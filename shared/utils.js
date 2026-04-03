@@ -234,3 +234,17 @@ export function detectTimezone() {
  */
 export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * Debounce a function — delays invocation until `ms` milliseconds after the
+ * last call. Returns a wrapper function with a .cancel() method.
+ */
+export function debounce(fn, ms) {
+  let timer = null;
+  const debounced = (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn(...args); }, ms);
+  };
+  debounced.cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  return debounced;
+}

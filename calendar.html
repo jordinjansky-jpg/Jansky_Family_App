@@ -37,10 +37,10 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, multiUpdate, onValue, onConnectionChange } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, multiUpdate, onCompletions, onConnectionChange } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderOfflineBanner } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong } from './shared/utils.js';
+    import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
@@ -120,12 +120,9 @@
     // Data loading
     // ══════════════════════════════════════════
 
+    // loadData only loads schedule (completions comes from listener)
     async function loadData() {
-      const [comp, sched] = await Promise.all([
-        readCompletions(),
-        readAllSchedule()
-      ]);
-      completions = comp || {};
+      const sched = await readAllSchedule();
       allSchedule = sched || {};
     }
 
@@ -1144,8 +1141,7 @@
 
         // Rebuild future schedule so the new task appears on upcoming days
         const existingSched = await readAllSchedule() || {};
-        const allComp = await readCompletions() || {};
-        const futureUpdates = buildScheduleUpdates(tasks, people, settings, allComp, existingSched);
+        const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, existingSched);
         await multiUpdate(futureUpdates);
 
         await loadData();
@@ -1160,9 +1156,11 @@
     // Real-time listener
     // ══════════════════════════════════════════
 
-    onValue('completions', (val) => {
+    const debouncedRender = debounce(() => render(), 100);
+
+    onCompletions((val) => {
       completions = val || {};
-      render();
+      debouncedRender();
     });
 
     // ══════════════════════════════════════════
