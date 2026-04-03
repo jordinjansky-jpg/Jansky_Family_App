@@ -6,6 +6,14 @@ import { escapeHtml } from './utils.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
+function formatEventTime(time24) {
+  if (!time24) return '';
+  const [h, m] = time24.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return m === 0 ? `${h12} ${suffix}` : `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
 function formatMovedDate(dateStr) {
   if (!dateStr) return 'moved';
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -205,7 +213,8 @@ export function renderTaskCard(options) {
     actionTags += `<span class="task-card__tag task-card__tag--moved">${movedLabel}</span>`;
   }
 
-  const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
+  const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
+  const meta = [eventTimeLabel, estLabel, ptsLabel].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const eventPrefix = isEvent ? '📅 ' : '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
@@ -287,6 +296,7 @@ export function renderTaskDetailSheet(options) {
       <span class="chip">${rotLabel}</span>
       <span class="chip">${diffLabel}</span>
       ${todLabel ? `<span class="chip">${todLabel}</span>` : ''}
+      ${task.eventTime ? `<span class="chip">🕐 ${formatEventTime(task.eventTime)}</span>` : ''}
       ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
       ${points && !task.exempt && showPoints ? `<span class="chip">${points.possible}pt</span>` : ''}
     </div>
@@ -459,6 +469,11 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
         <input type="date" id="qa_dedicatedDate" class="task-detail__date-input" style="width:100%">
       </div>
     </div>
+    <div class="form-group" id="qa_eventTimeGroup" style="display:${defaultIsEvent ? '' : 'none'}">
+      <label class="form-label">Event Time</label>
+      <input type="time" id="qa_eventTime" value="">
+      <p class="form-hint">Leave blank for all-day events</p>
+    </div>
     <div class="form-group">
       <label class="form-label">Cooldown Days</label>
       <input type="number" id="qa_cooldown" value="" min="0" max="30" placeholder="0">
@@ -555,6 +570,11 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
       <div id="et_dedicatedDateRow" style="display:${task.rotation === 'once' && !isEvent ? '' : 'none'}">
         <input type="date" id="et_dedicatedDate" class="task-detail__date-input" style="width:100%" value="${task.dedicatedDate || ''}">
       </div>
+    </div>
+    <div class="form-group" id="et_eventTimeGroup" style="display:${isEvent ? '' : 'none'}">
+      <label class="form-label">Event Time</label>
+      <input type="time" id="et_eventTime" value="${task.eventTime || ''}">
+      <p class="form-hint">Leave blank for all-day events</p>
     </div>
     <div class="form-row">
       <div class="form-group" style="flex:1">

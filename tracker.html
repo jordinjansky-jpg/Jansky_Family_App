@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
+  <meta name="theme-color" content="#6c63ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="manifest" href="manifest.json">
   <title>Daily Rundown — Tracker</title>
   <link rel="stylesheet" href="styles/common.css">
 </head>
@@ -746,6 +752,8 @@
         const isEvent = e.target.selectedOptions[0]?.dataset.event === '1';
         const eventBtn = document.getElementById('et_eventDateBtn');
         if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+        const eventTimeGroup = document.getElementById('et_eventTimeGroup');
+        if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
         if (isEvent) {
           const rotSelect = document.getElementById('et_rotation');
           if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -773,6 +781,7 @@
         const eventDate = document.getElementById('et_eventDate')?.value;
         const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
 
+        const eventTime = catIsEvent ? (document.getElementById('et_eventTime')?.value || null) : null;
         const updated = {
           ...task, name, rotation,
           difficulty: document.getElementById('et_difficulty')?.value || task.difficulty,
@@ -781,6 +790,7 @@
           category: document.getElementById('et_category')?.value || task.category,
           owners, ownerAssignmentMode: activeMode, dedicatedDay,
           dedicatedDate: effectiveDedicatedDate,
+          eventTime,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
           exempt: document.getElementById('et_exempt')?.checked || false
         };

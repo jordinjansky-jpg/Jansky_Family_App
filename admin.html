@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
+  <meta name="theme-color" content="#6c63ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="manifest" href="manifest.json">
   <title>Daily Rundown — Admin</title>
   <link rel="stylesheet" href="styles/common.css">
 </head>
@@ -435,6 +441,11 @@
           <div id="dedicatedDateRow" style="display:${task.rotation === 'once' ? '' : 'none'}">
             <input type="date" id="tf_dedicatedDate" value="${task.dedicatedDate || ''}" class="task-detail__date-input" style="width:100%">
           </div>
+        </div>
+        <div class="form-group" id="tf_eventTimeGroup" style="display:${catsObj[task.category]?.isEvent ? '' : 'none'}">
+          <label class="form-label">Event Time</label>
+          <input type="time" id="tf_eventTime" value="${task.eventTime || ''}" placeholder="Optional">
+          <p class="form-hint">Leave blank for all-day events</p>
         </div>
         <div class="form-group">
           <label class="form-label">Cooldown Days</label>
@@ -1108,6 +1119,8 @@
         const isEvent = opt?.dataset.event === '1';
         const eventBtn = main.querySelector('#tf_eventDateBtn');
         if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+        const eventTimeGroup = main.querySelector('#tf_eventTimeGroup');
+        if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
         // If event, force rotation to once
         if (isEvent) {
           const rotSelect = main.querySelector('#tf_rotation');
@@ -1183,6 +1196,7 @@
         const eventDate = catIsEvent ? (main.querySelector('#tf_eventDate')?.value || null) : null;
         const effectiveRotation = catIsEvent && eventDate ? 'once' : rotation;
         const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
+        const eventTime = catIsEvent ? (main.querySelector('#tf_eventTime')?.value || null) : null;
 
         const taskData = {
           name,
@@ -1195,6 +1209,7 @@
           ownerAssignmentMode: effectiveMode,
           dedicatedDay,
           dedicatedDate: effectiveDedicatedDate,
+          eventTime,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
           exempt: main.querySelector('#tf_exempt')?.checked || false,
           status: 'active'
@@ -1251,6 +1266,12 @@
           taskData.status = existing.status || 'active';
           await writeTask(editingTaskId, taskData);
           tasksObj[editingTaskId] = taskData;
+
+          // Auto-rebuild future schedule so edits take effect immediately
+          const allSched = await readAllSchedule() || {};
+          const allComp = await readCompletions() || {};
+          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true });
+          await multiUpdate(futureUpdates);
         }
 
         editingTaskId = null;

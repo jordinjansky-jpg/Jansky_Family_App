@@ -954,6 +954,10 @@ img {
   background: color-mix(in srgb, var(--event-color, var(--accent)) 6%, var(--bg-card));
   border-style: solid;
 }
+.task-card--event .task-card__meta {
+  color: var(--event-color, var(--accent));
+  font-weight: 600;
+}
 .task-card--event.task-card--done {
   background: color-mix(in srgb, var(--event-color, var(--accent)) 4%, var(--bg-secondary));
 }

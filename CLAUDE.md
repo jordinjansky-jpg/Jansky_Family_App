@@ -27,6 +27,7 @@ git push origin main
 ├── admin.html            ← PIN-gated admin (tasks, people, categories, settings, theme, schedule, data, debug)
 ├── kid.html              ← Kid-friendly view (?kid=Name), emoji hints, celebrations, simplified UI
 ├── setup.html            ← First-run wizard (6 steps: info, people, categories, theme, PIN, finish)
+├── manifest.json         ← PWA manifest for home screen installability
 ├── shared/
 │   ├── firebase.js       ← Firebase init + CRUD helpers (~25 exports). Only module that touches DB.
 │   ├── scheduler.js      ← Schedule generation: rotation, cooldown, load balancing, duplicate mode (~850 lines)
@@ -58,10 +59,11 @@ rundown/
 ├── tasks/
 │   └── {pushId}      ← { name, rotation, owners[], ownerAssignmentMode,
 │                         timeOfDay, dedicatedDay?, dedicatedDate?, cooldownDays?, estMin,
-│                         difficulty, category, status, createdDate, exempt? }
+│                         difficulty, category, status, createdDate, exempt?, eventTime? }
 │                       rotation: 'daily' | 'weekly' | 'monthly' | 'once'
 │                       ownerAssignmentMode: 'rotate' | 'duplicate' | 'fixed'
 │                       timeOfDay: 'am' | 'pm' | 'anytime' | 'both'
+│                       eventTime: 'HH:MM' (24h) | null — appointment time for event tasks
 ├── schedule/
 │   └── {YYYY-MM-DD}/
 │       └── {entryKey} ← { taskId, ownerId, rotationType, ownerAssignmentMode, timeOfDay }
@@ -116,16 +118,16 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - Task deletion must clean up orphaned schedule entries AND completions
 - Weekend weight uses global load balancing across all owners (not per-owner)
 - Category key auto-slugified from label (lowercase, hyphens, trim trailing)
-- Editing an existing task in admin does NOT auto-rebuild the schedule — user must manually click "Rebuild Future Schedule" in the Schedule tab
+- Editing an existing task in admin now auto-rebuilds the future schedule (no manual "Rebuild" click needed)
 - All pages use `loadData(); render()` pattern for in-place refresh after mutations (NOT `location.reload()`)
 - CSS has `--font-size-md: 1rem` between `sm` (0.8125rem) and `base` (0.9375rem) — used by scoreboard cards
 
 ## Changelog (last 5)
-- Pre-release audit: removed ~15 dead exports across shared modules, fixed tracker.html crash, eliminated 6 location.reload() calls, fixed CSS bugs
+- Add meta tags, manifest.json, favicon, PWA support, event time field, auto-rebuild on task edit
+- `17df628` Pre-release audit: remove dead code, fix bugs, harden XSS, clean CSS
 - `8fc247b` Reset schedule ignores prior completions and cooldowns, re-places all tasks
 - `b9fe3b4` Fix reset schedule using includeToday to match rebuild entry count
 - `8c433f8` Fix weighted categories to use per-person regular totals instead of family-wide
-- `02cc83a` Edit task sheet now shows all fields: assignment mode, dedicated day/date, cooldown, exempt
 
 ## Backlog
 (empty — all phases complete)
