@@ -44,6 +44,7 @@
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
+    import { initSwipe } from './shared/swipe.js';
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -411,21 +412,32 @@
       }
     }
 
+    let sheetSwipeCleanup = null;
+
     function bindSheetSwipe() {
       const sheet = document.getElementById('calSheet');
       if (!sheet) return;
       let sx = 0, sy = 0;
       sheet.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.task-card')) return;
         sx = e.touches[0].clientX;
         sy = e.touches[0].clientY;
       }, { passive: true });
       sheet.addEventListener('touchend', (e) => {
+        if (e.target.closest('.task-card')) return;
         const dx = e.changedTouches[0].clientX - sx;
         const dy = e.changedTouches[0].clientY - sy;
         if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
           changeSheetDay(dx < 0 ? 1 : -1);
         }
       }, { passive: true });
+
+      // ── Swipe to complete / details on task cards in sheet ──
+      if (sheetSwipeCleanup) sheetSwipeCleanup();
+      sheetSwipeCleanup = initSwipe(sheet, {
+        onComplete: (entryKey, dateKey) => toggleTask(entryKey, dateKey),
+        onDetails: (entryKey, dateKey) => openTaskSheet(entryKey, dateKey)
+      });
     }
 
     function updateSheet(dateKey) {

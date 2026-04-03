@@ -244,18 +244,27 @@ export function renderTaskCard(options) {
   const eventStyle = eventColor ? `;--event-color:${eventColor}` : '';
   const tagsRow = actionTags ? `<div class="task-card__tags">${actionTags}</div>` : '';
 
-  return `<button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}${eventStyle}">
-    <span class="task-card__avatar">${ownerInitial}</span>
-    <div class="task-card__body">
-      <span class="task-card__name">${taskName}</span>
-      ${tagsRow}
-    </div>
-    <div class="task-card__right">
-      <span class="task-card__meta">${meta}</span>
-      ${dateLine}
-      <span class="task-card__check"></span>
-    </div>
-  </button>`;
+  const stripRight = completed
+    ? `<div class="swipe-strip swipe-strip--right swipe-strip--undo">↩ Undo</div>`
+    : `<div class="swipe-strip swipe-strip--right">✓ Done</div>`;
+  const stripLeft = `<div class="swipe-strip swipe-strip--left">ℹ Details</div>`;
+
+  return `<div class="swipe-container">
+    ${stripRight}
+    ${stripLeft}
+    <button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}${eventStyle}">
+      <span class="task-card__avatar">${ownerInitial}</span>
+      <div class="task-card__body">
+        <span class="task-card__name">${taskName}</span>
+        ${tagsRow}
+      </div>
+      <div class="task-card__right">
+        <span class="task-card__meta">${meta}</span>
+        ${dateLine}
+        <span class="task-card__check"></span>
+      </div>
+    </button>
+  </div>`;
 }
 
 /**
