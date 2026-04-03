@@ -2206,15 +2206,14 @@ img {
   border: 1px solid var(--border-light);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  min-width: 0;
-  flex: 1 1 0;
+  min-width: 56px;
+  flex: 0 0 auto;
   cursor: pointer;
   transition: all var(--transition-fast);
   text-align: center;
-  overflow: hidden;
 }
 .admin-tab__icon { font-size: 1.1rem; }
-.admin-tab__label { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.admin-tab__label { font-weight: 500; white-space: nowrap; }
 .admin-tab--active {
   background: var(--accent);
   color: white;
@@ -2676,6 +2675,10 @@ img {
 @media (min-width: 768px) {
   :root {
     --max-width: 700px;
+  }
+  .admin-tab {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 
