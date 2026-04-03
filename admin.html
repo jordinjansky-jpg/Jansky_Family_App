@@ -820,6 +820,10 @@
             <label class="admin-checkbox" style="margin-top:24px"><input type="checkbox" id="sf_showPoints"${settings?.showPoints !== false ? ' checked' : ''}> Show points on tasks</label>
           </div>
         </div>
+        <div class="form-group">
+          <label class="admin-checkbox"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}> Show AM/PM icons on "Both" tasks</label>
+          <label class="admin-checkbox"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}> Show AM/PM icons on dedicated AM or PM tasks</label>
+        </div>
         <div class="form-row">
           <div class="form-group" style="flex:1">
             <label class="form-label">Slider Min %</label>
@@ -1753,7 +1757,9 @@
           pastDueCreditPct: parseInt(main.querySelector('#sf_pastDueCredit')?.value, 10) || 75,
           sliderMin: parseInt(main.querySelector('#sf_sliderMin')?.value, 10) || 0,
           sliderMax: parseInt(main.querySelector('#sf_sliderMax')?.value, 10) || 150,
-          showPoints: main.querySelector('#sf_showPoints')?.checked !== false
+          showPoints: main.querySelector('#sf_showPoints')?.checked !== false,
+          showTodIconBoth: !!main.querySelector('#sf_showTodIconBoth')?.checked,
+          showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked
         };
 
         if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {

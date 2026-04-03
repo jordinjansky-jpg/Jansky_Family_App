@@ -822,7 +822,9 @@
                 dateLabel: `Overdue`,
                 points: { possible: pts, override: ovr },
                 isEvent: !!cat?.isEvent,
-                showPoints: settings?.showPoints !== false
+                showPoints: settings?.showPoints !== false,
+                showTodIconBoth: !!settings?.showTodIconBoth,
+                showTodIconSingle: !!settings?.showTodIconSingle
               });
             }
             html += `</div>`;
