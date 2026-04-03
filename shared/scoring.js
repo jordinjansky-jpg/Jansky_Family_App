@@ -103,8 +103,10 @@ export function dailyPossible(entries, tasks, categories) {
     return { possible: 0, pointsMap: {} };
   }
 
-  // Split entries into regular and weighted (exclude event categories)
-  const regular = {};
+  // Split entries into regular and weighted per owner (exclude event categories)
+  // regularByOwner: { ownerId: { key: { entry, task } } }
+  // weighted: { key: { entry, task, cat } }
+  const regularByOwner = {};
   const weighted = {};
 
   for (const [key, entry] of Object.entries(entries)) {
@@ -117,24 +119,31 @@ export function dailyPossible(entries, tasks, categories) {
     if (cat && cat.weightPercent > 0) {
       weighted[key] = { entry, task, cat };
     } else {
-      regular[key] = { entry, task };
+      const oid = entry.ownerId;
+      if (!regularByOwner[oid]) regularByOwner[oid] = {};
+      regularByOwner[oid][key] = { entry, task };
     }
   }
 
-  // Sum regular base points
-  let regularTotal = 0;
+  // Sum regular base points per owner
+  const regularTotalByOwner = {};
   const pointsMap = {};
-  for (const [key, { task }] of Object.entries(regular)) {
-    const pts = basePoints(task);
-    pointsMap[key] = pts;
-    regularTotal += pts;
+  for (const [oid, entries_] of Object.entries(regularByOwner)) {
+    let total = 0;
+    for (const [key, { task }] of Object.entries(entries_)) {
+      const pts = basePoints(task);
+      pointsMap[key] = pts;
+      total += pts;
+    }
+    regularTotalByOwner[oid] = total;
   }
 
-  // Calculate weighted base points: regularTotal × (W / (100 - W))
-  for (const [key, { task, cat }] of Object.entries(weighted)) {
+  // Calculate weighted base points per entry using only the owner's regular total
+  for (const [key, { entry, task, cat }] of Object.entries(weighted)) {
     const w = cat.weightPercent;
-    const weightedPts = regularTotal > 0
-      ? Math.round(regularTotal * (w / (100 - w)))
+    const ownerRegular = regularTotalByOwner[entry.ownerId] || 0;
+    const weightedPts = ownerRegular > 0
+      ? Math.round(ownerRegular * (w / (100 - w)))
       : basePoints(task);
     pointsMap[key] = weightedPts;
   }
