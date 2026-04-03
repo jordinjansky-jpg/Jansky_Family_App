@@ -476,32 +476,46 @@
         }
       }
 
-      render();
+      const doRenderAndToast = () => {
+        render();
 
-      // Undo toast
-      showUndoToast(
-        wasComplete ? 'Task marked incomplete' : (archivedTaskId ? 'One-time task completed & archived' : 'Task completed'),
-        async () => {
-          if (wasComplete) {
-            const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'dashboard' };
-            completions[entryKey] = record;
-            await writeCompletion(entryKey, record);
-          } else {
-            delete completions[entryKey];
-            await removeCompletion(entryKey);
-            // Restore archived one-time task
-            if (archivedTaskId && tasks[archivedTaskId]) {
-              tasks[archivedTaskId].status = 'active';
-              await writeTask(archivedTaskId, tasks[archivedTaskId]);
+        // Undo toast
+        showUndoToast(
+          wasComplete ? 'Task marked incomplete' : (archivedTaskId ? 'One-time task completed & archived' : 'Task completed'),
+          async () => {
+            if (wasComplete) {
+              const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'dashboard' };
+              completions[entryKey] = record;
+              await writeCompletion(entryKey, record);
+            } else {
+              delete completions[entryKey];
+              await removeCompletion(entryKey);
+              // Restore archived one-time task
+              if (archivedTaskId && tasks[archivedTaskId]) {
+                tasks[archivedTaskId].status = 'active';
+                await writeTask(archivedTaskId, tasks[archivedTaskId]);
+              }
             }
+            celebrationShown = false;
+            render();
           }
-          celebrationShown = false;
-          render();
-        }
-      );
+        );
 
-      // Check for celebration
-      checkCelebration();
+        // Check for celebration
+        checkCelebration();
+      };
+
+      if (!wasComplete) {
+        // Add press animation, then render after delay
+        const cardEl = document.querySelector(`[data-entry-key="${entryKey}"]`);
+        if (cardEl) {
+          cardEl.classList.add('task-card--completing');
+          cardEl.style.pointerEvents = 'none';
+        }
+        setTimeout(doRenderAndToast, 400);
+      } else {
+        doRenderAndToast();
+      }
     }
 
     function showUndoToast(message, undoCallback) {
@@ -533,7 +547,12 @@
         celebrationShown = true;
         const cel = document.getElementById('celebration');
         cel.classList.add('active');
-        setTimeout(() => cel.classList.remove('active'), 2500);
+        setTimeout(() => {
+          cel.classList.add('celebration--dismiss');
+          setTimeout(() => {
+            cel.classList.remove('active', 'celebration--dismiss');
+          }, 400);
+        }, 2500);
       }
     }
 

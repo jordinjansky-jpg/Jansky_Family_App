@@ -382,7 +382,17 @@ export function renderTaskDetailSheet(options) {
  * Render the day-complete celebration overlay.
  */
 export function renderCelebration() {
+  const colors = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff922b','#cc5de8','#20c997','#ff6b6b'];
+  let confetti = '';
+  for (let i = 0; i < 15; i++) {
+    const color = colors[i % colors.length];
+    const left = 5 + Math.round((i * 6.5) % 90);
+    const delay = (i * 0.12).toFixed(2);
+    const size = 8 + (i % 3) * 4;
+    confetti += `<span class="celebration__confetti" style="left:${left}%;background:${color};animation-delay:${delay}s;width:${size}px;height:${size}px;"></span>`;
+  }
   return `<div class="celebration" id="celebration">
+    ${confetti}
     <div class="celebration__content">
       <span class="celebration__icon">🎉</span>
       <h3 class="celebration__title">All Done!</h3>

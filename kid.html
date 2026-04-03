@@ -1071,34 +1071,48 @@
             triggerCelebration(entryKey, 'task');
           }
 
-          render();
-          showUndoToast(
-            wasComplete ? 'Task marked incomplete' : 'Task completed!',
-            async () => {
-              if (wasComplete) {
-                const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'kid-mode' };
-                completions[entryKey] = record;
-                await writeCompletion(entryKey, record);
-              } else {
-                delete completions[entryKey];
-                await removeCompletion(entryKey);
-                // Restore archived one-time task
-                const entry = viewEntries[entryKey];
-                if (entry) {
-                  const task = tasks[entry.taskId];
-                  if (task && task.status === 'completed' && task.rotation === 'once') {
-                    task.status = 'active';
-                    await writeTask(entry.taskId, task);
+          const doRenderAndToast = () => {
+            render();
+            showUndoToast(
+              wasComplete ? 'Task marked incomplete' : 'Task completed!',
+              async () => {
+                if (wasComplete) {
+                  const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'kid-mode' };
+                  completions[entryKey] = record;
+                  await writeCompletion(entryKey, record);
+                } else {
+                  delete completions[entryKey];
+                  await removeCompletion(entryKey);
+                  // Restore archived one-time task
+                  const entry = viewEntries[entryKey];
+                  if (entry) {
+                    const task = tasks[entry.taskId];
+                    if (task && task.status === 'completed' && task.rotation === 'once') {
+                      task.status = 'active';
+                      await writeTask(entry.taskId, task);
+                    }
                   }
                 }
+                celebrationShown = false;
+                render();
               }
-              celebrationShown = false;
-              render();
-            }
-          );
+            );
 
-          // Check all-done
-          checkCelebration();
+            // Check all-done
+            checkCelebration();
+          };
+
+          if (!wasComplete) {
+            // Add press animation, then render after delay
+            const cardEl = document.querySelector(`[data-entry-key="${entryKey}"]`);
+            if (cardEl) {
+              cardEl.classList.add('task-card--completing');
+              cardEl.style.pointerEvents = 'none';
+            }
+            setTimeout(doRenderAndToast, 400);
+          } else {
+            doRenderAndToast();
+          }
         }
 
         function showUndoToast(message, undoCallback) {

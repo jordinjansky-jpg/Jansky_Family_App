@@ -238,4 +238,30 @@
   60% { transform: scale(1.1); }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* ── Celebration confetti ── */
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+}
+
+.celebration__confetti {
+  position: fixed;
+  top: -10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  animation: confettiFall 2.5s ease-in forwards;
+  pointer-events: none;
+  z-index: 251;
+}
+
+.celebration--dismiss {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebration__confetti { display: none; }
+}
 

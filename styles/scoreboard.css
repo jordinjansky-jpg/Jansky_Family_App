@@ -450,4 +450,17 @@
   padding: var(--spacing-lg);
   font-size: var(--font-size-sm);
 }
+
+@keyframes flipUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.streak-value--animate {
+  animation: flipUp 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streak-value--animate { animation: none; }
+}
 
