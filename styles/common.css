@@ -919,9 +919,14 @@ img {
   text-align: center;
 }
 
-.task-card__name {
+.task-card__body {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.task-card__name {
   font-weight: 600;
   font-size: var(--font-size-base);
   line-height: 1.3;
@@ -1019,6 +1024,11 @@ img {
 }
 
 /* Task card action tags (delegated/moved indicators) */
+.task-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
 .task-card__tag {
   display: inline-flex;
   align-items: center;
@@ -1026,7 +1036,6 @@ img {
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 8px;
-  flex-shrink: 0;
   white-space: nowrap;
 }
 .task-card__tag--delegated {

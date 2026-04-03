@@ -7,7 +7,7 @@ function formatMovedDate(dateStr) {
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const d = new Date(dateStr + 'T12:00:00');
   if (isNaN(d)) return 'moved';
-  return `from ${days[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`;
+  return `${days[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`;
 }
 
 /**
@@ -239,15 +239,15 @@ export function renderTaskCard(options) {
   }
 
   // Delegation/move indicator based on entry key suffix
-  let actionTag = '';
+  let actionTags = '';
   if (entryKey && entryKey.includes('_delegate')) {
     const fromName = entry.delegatedFromName || '?';
-    actionTag = `<span class="task-card__tag task-card__tag--delegated">↪ from ${fromName}</span>`;
+    actionTags += `<span class="task-card__tag task-card__tag--delegated">↪ ${fromName}</span>`;
   }
   if (entryKey && entryKey.includes('_moved')) {
     const fromDate = entry.movedFromDate || '';
     const movedLabel = fromDate ? formatMovedDate(fromDate) : 'moved';
-    actionTag += `<span class="task-card__tag task-card__tag--moved">📅 ${movedLabel}</span>`;
+    actionTags += `<span class="task-card__tag task-card__tag--moved">${movedLabel}</span>`;
   }
 
   const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
@@ -255,11 +255,14 @@ export function renderTaskCard(options) {
   const eventPrefix = isEvent ? '📅 ' : '';
   const taskName = catIcon ? `${catIcon} ${task.name}` : `${eventPrefix}${task.name}`;
   const eventStyle = eventColor ? `;--event-color:${eventColor}` : '';
+  const tagsRow = actionTags ? `<div class="task-card__tags">${actionTags}</div>` : '';
 
   return `<button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}${eventStyle}">
     <span class="task-card__initial">${ownerInitial}</span>
-    <span class="task-card__name">${taskName}</span>
-    ${actionTag}
+    <div class="task-card__body">
+      <span class="task-card__name">${taskName}</span>
+      ${tagsRow}
+    </div>
     <div class="task-card__right">
       <span class="task-card__meta">${meta}</span>
       ${dateLine}
