@@ -1,0 +1,241 @@
+/* dashboard.css — Dashboard date header, time sections, task detail sheet, celebration */
+/* ============ Dashboard — Date Header ============ */
+.date-header {
+  text-align: center;
+  margin-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.date-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+.date-nav__btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.date-nav__btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.date-nav__btn:active {
+  transform: scale(0.92);
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.date-nav__center {
+  min-width: 180px;
+}
+
+.date-header__day {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  display: block;
+  letter-spacing: -0.02em;
+}
+
+.date-header__full {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.date-header__grade {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.date-header__stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.date-header__sep {
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+/* ============ Time of Day Section ============ */
+.time-header {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-sm);
+  padding-left: var(--spacing-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.time-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-light);
+}
+
+.time-header:first-child {
+  margin-top: 0;
+}
+
+/* ============ Task Detail Sheet ============ */
+.task-detail__info {
+  margin-bottom: var(--spacing-sm);
+}
+
+.task-detail__name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+
+.task-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.task-detail__slider {
+  padding: var(--spacing-sm) 0;
+}
+
+.task-detail__slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+
+.task-detail__slider-value {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.task-detail__slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.task-detail__slider-row .slider {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-detail__grade-preview {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+  text-align: right;
+}
+
+/* Range slider */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  outline: none;
+  border: none;
+  padding: 0;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============ Celebration ============ */
+.celebration {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 250;
+  background: var(--overlay-bg);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.celebration.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.celebration__content {
+  text-align: center;
+  animation: celebrationPop 0.5s ease;
+}
+
+.celebration__icon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: var(--spacing-md);
+}
+
+.celebration__title {
+  font-size: var(--font-size-xl);
+  color: var(--bg-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.celebration__subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--bg-secondary);
+}
+
+@keyframes celebrationPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+

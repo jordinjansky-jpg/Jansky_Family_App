@@ -1,0 +1,17 @@
+/* responsive.css — Responsive breakpoints */
+/* ============ Responsive ============ */
+@media (min-width: 768px) {
+  :root {
+    --max-width: 700px;
+  }
+  .admin-tab {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --max-width: 800px;
+  }
+}

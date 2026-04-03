@@ -1,0 +1,294 @@
+/* calendar.css — Calendar grid and day sheet */
+/* ============ Calendar Grid ============ */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  margin-top: var(--spacing-xs);
+  padding: 0 2px;
+}
+
+.cal-grid__dow {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 6px 0 4px;
+}
+
+.cal-grid__cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 2px 4px;
+  min-height: 68px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-subtle, var(--border-light));
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.cal-grid__cell--empty {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  cursor: default;
+}
+
+.cal-grid__cell:active:not(.cal-grid__cell--empty) {
+  transform: scale(0.96);
+  box-shadow: none;
+}
+
+/* Today — soft accent border, gentle tint */
+.cal-grid__cell--today {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-card));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.cal-grid__cell--today .cal-grid__day {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.cal-grid__cell--selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+/* All done — green tint + checkmark */
+.cal-grid__cell--alldone {
+  background: color-mix(in srgb, var(--success-text, #2e7d32) 8%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--success-text, #2e7d32) 20%, var(--border-subtle, var(--border-light)));
+}
+
+.cal-grid__cell--alldone::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--success-text, #2e7d32);
+  opacity: 0.7;
+  /* CSS checkmark inside the dot */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2.5 5.5L4.5 7.5L7.5 3.5' stroke='white' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 10px 10px;
+}
+
+/* Past days with no tasks — dimmed */
+.cal-grid__cell--past {
+  opacity: 0.5;
+}
+
+/* Past days WITH tasks but not all done — slightly dimmed */
+.cal-grid__cell--past-incomplete {
+  opacity: 0.75;
+}
+
+/* Progress bar inside cells */
+.cal-grid__progress {
+  width: 80%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-color);
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.cal-grid__progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.cal-grid__cell--alldone .cal-grid__progress-fill {
+  background: var(--success-text, #2e7d32);
+}
+
+.cal-grid__day {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Month section */
+.cal-month {
+  margin-bottom: var(--spacing-xl);
+}
+
+.cal-month__title {
+  font-weight: 800;
+  font-size: var(--font-size-lg);
+  text-align: center;
+  letter-spacing: 0.02em;
+  padding: var(--spacing-sm) 0 var(--spacing-xs);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: var(--spacing-xs);
+}
+
+.cal-month--current .cal-month__title {
+  color: var(--accent);
+  border-bottom-color: color-mix(in srgb, var(--accent) 30%, var(--border-light));
+}
+
+/* Weekly/Monthly count pills in calendar cells */
+.cal-grid__pills {
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  margin-top: 3px;
+  justify-content: center;
+}
+
+.cal-pill {
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+.cal-pill--w {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.cal-pill--m {
+  background: color-mix(in srgb, var(--warning-text, #b86e00) 15%, transparent);
+  color: var(--warning-text, #b86e00);
+}
+
+/* Event color dots at bottom of calendar cells */
+.cal-event-dots {
+  display: flex;
+  flex-direction: row;
+  gap: 3px;
+  justify-content: center;
+  margin-top: auto;
+  padding-bottom: 2px;
+}
+
+.cal-event-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Legacy bar support (remove after migration) */
+.cal-event-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  margin-top: auto;
+  border-radius: 0 0 3px 3px;
+  overflow: hidden;
+}
+.cal-event-bar {
+  display: block;
+  width: 100%;
+  border-radius: 1px;
+}
+
+/* ============ Calendar Day Sheet ============ */
+.cal-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  z-index: 200;
+  transition: background 0.3s ease;
+  pointer-events: none;
+}
+
+.cal-sheet-overlay.active {
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.cal-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 70vh;
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl, 20px) var(--radius-xl, 20px) 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--spacing-md) var(--spacing-xl);
+  padding-bottom: calc(var(--spacing-xl) + 70px); /* room for nav bar */
+}
+
+.cal-sheet.active {
+  transform: translateY(0);
+}
+
+.cal-sheet__handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border-light);
+  border-radius: 2px;
+  margin: var(--spacing-sm) auto var(--spacing-md);
+}
+
+.cal-sheet__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xs);
+}
+
+.cal-sheet__title {
+  font-weight: 800;
+  font-size: var(--font-size-lg, 1.15rem);
+}
+
+.cal-sheet__today {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.cal-sheet__summary {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.cal-sheet__progress {
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  margin-bottom: var(--spacing-md);
+  overflow: hidden;
+}
+
+.cal-sheet__progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
