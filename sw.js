@@ -1,15 +1,81 @@
-// Minimal service worker — network-only, required for PWA installability
+// Service Worker — cache-first for app shell, network-only for Firebase API
+const CACHE_NAME = 'family-hub-v1';
+
+const APP_SHELL = [
+  '/',
+  '/index.html',
+  '/calendar.html',
+  '/scoreboard.html',
+  '/tracker.html',
+  '/kid.html',
+  '/admin.html',
+  '/setup.html',
+  '/manifest.json',
+  '/App Icon.png',
+  // CSS (modular)
+  '/styles/base.css',
+  '/styles/layout.css',
+  '/styles/components.css',
+  '/styles/dashboard.css',
+  '/styles/calendar.css',
+  '/styles/scoreboard.css',
+  '/styles/tracker.css',
+  '/styles/admin.css',
+  '/styles/kid.css',
+  '/styles/responsive.css',
+  // JS modules
+  '/shared/firebase.js',
+  '/shared/scheduler.js',
+  '/shared/scoring.js',
+  '/shared/state.js',
+  '/shared/components.js',
+  '/shared/theme.js',
+  '/shared/utils.js',
+  '/shared/swipe.js',
+  // Firebase SDK (CDN — cached cross-origin with CORS)
+  'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js'
+];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
+  );
 });
 
-self.addEventListener('fetch', () => {
-  // Network-only — let the browser handle all requests normally
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Network-only for Firebase API calls
+  if (url.hostname.includes('firebaseio.com') ||
+      url.hostname.includes('googleapis.com')) {
+    return;
+  }
+
+  // Cache-first with stale-while-revalidate for everything else
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const fetchPromise = fetch(event.request).then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => cached);
+
+      return cached || fetchPromise;
+    })
+  );
 });

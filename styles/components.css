@@ -794,3 +794,43 @@
 @media (prefers-reduced-motion: reduce) {
   .swipe-container .task-card { transition: none; }
 }
+
+/* ── Offline banner ── */
+@keyframes bannerSlideIn {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.offline-banner {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  z-index: 99;
+  animation: bannerSlideIn 0.3s ease-out;
+}
+
+.offline-banner--online {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.offline-banner__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning-text);
+}
+
+.offline-banner--online .offline-banner__dot {
+  background: var(--success-text);
+}

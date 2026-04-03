@@ -632,3 +632,10 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
   </div>`;
   return html;
 }
+
+export function renderOfflineBanner(message) {
+  return `<div class="offline-banner" role="status" aria-live="polite">
+    <span class="offline-banner__dot"></span>
+    <span class="offline-banner__text">${esc(message)}</span>
+  </div>`;
+}

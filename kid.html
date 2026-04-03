@@ -452,8 +452,8 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onValue, readOnce, readStreaks } from './shared/firebase.js';
-    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onValue, readOnce, readStreaks, onConnectionChange } from './shared/firebase.js';
+    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, renderOfflineBanner } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -512,6 +512,27 @@
         }
 
         document.title = `${kid.name}'s Daily Rundown`;
+
+        // ── Offline/Online banner ──
+        const bannerMount = document.createElement('div');
+        bannerMount.id = 'offlineBannerMount';
+        document.body.appendChild(bannerMount);
+
+        let bannerTimer = null;
+        let wasOffline = false;
+
+        onConnectionChange((connected) => {
+          if (bannerTimer) clearTimeout(bannerTimer);
+          if (!connected) {
+            wasOffline = true;
+            bannerMount.innerHTML = renderOfflineBanner('Working offline — changes will sync');
+            bannerTimer = setTimeout(() => { bannerMount.innerHTML = ''; }, 3000);
+          } else if (wasOffline) {
+            bannerMount.innerHTML = renderOfflineBanner('Back online');
+            bannerMount.querySelector('.offline-banner')?.classList.add('offline-banner--online');
+            bannerTimer = setTimeout(() => { bannerMount.innerHTML = ''; }, 2000);
+          }
+        });
 
         const [tasksObj, catsObj] = await Promise.all([readTasks(), readCategories()]);
         const tasks = tasksObj || {};

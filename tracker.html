@@ -36,7 +36,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, multiUpdate, onConnectionChange } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderOfflineBanner } from './shared/components.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong, escapeHtml } from './shared/utils.js';
@@ -103,6 +103,27 @@
       const html = renderConnectionStatus(connected);
       if (existing) existing.outerHTML = html;
       else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', html);
+    });
+
+    // ── Offline/Online banner ──
+    const bannerMount = document.createElement('div');
+    bannerMount.id = 'offlineBannerMount';
+    document.body.appendChild(bannerMount);
+
+    let bannerTimer = null;
+    let wasOffline = false;
+
+    onConnectionChange((connected) => {
+      if (bannerTimer) clearTimeout(bannerTimer);
+      if (!connected) {
+        wasOffline = true;
+        bannerMount.innerHTML = renderOfflineBanner('Working offline — changes will sync');
+        bannerTimer = setTimeout(() => { bannerMount.innerHTML = ''; }, 3000);
+      } else if (wasOffline) {
+        bannerMount.innerHTML = renderOfflineBanner('Back online');
+        bannerMount.querySelector('.offline-banner')?.classList.add('offline-banner--online');
+        bannerTimer = setTimeout(() => { bannerMount.innerHTML = ''; }, 2000);
+      }
     });
 
     // ── Helpers ──
