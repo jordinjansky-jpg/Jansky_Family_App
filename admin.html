@@ -50,8 +50,8 @@
     } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
-    import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone } from './shared/utils.js';
-    import { generateSchedule, buildScheduleUpdates } from './shared/scheduler.js';
+    import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek } from './shared/utils.js';
+    import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints } from './shared/scoring.js';
 
     // ── Cached theme ──
@@ -1148,28 +1148,33 @@
 
           // Create schedule entry for today so the task appears immediately
           // Skip if one-time task with a future dedicatedDate
-          const skipToday = taskData.rotation === 'once' && taskData.dedicatedDate && taskData.dedicatedDate !== today;
+          // Skip weekly/monthly if they have a dedicatedDay that isn't today
+          const skipToday = (taskData.rotation === 'once' && taskData.dedicatedDate && taskData.dedicatedDate !== today)
+            || ((taskData.rotation === 'weekly' || taskData.rotation === 'monthly') && taskData.dedicatedDay != null && dayOfWeek(today) !== taskData.dedicatedDay);
           if (owners.length > 0 && !skipToday) {
             const schedUpdates = {};
             const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: effectiveMode };
             const tod = taskData.timeOfDay || 'anytime';
+            let newCounter = 0;
+            const newKey = () => `sched_${Date.now()}_new_${String(newCounter++).padStart(3, '0')}`;
 
             if (effectiveMode === 'duplicate') {
               for (const oid of owners) {
                 if (tod === 'both') {
-                  schedUpdates[`schedule/${today}/sched_${Date.now()}_new_${oid}_am`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
-                  schedUpdates[`schedule/${today}/sched_${Date.now()}_new_${oid}_pm`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
                 } else {
-                  schedUpdates[`schedule/${today}/sched_${Date.now()}_new_${oid}`] = { ...baseEntry, ownerId: oid, timeOfDay: tod };
+                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: tod };
                 }
               }
             } else {
-              const ownerId = owners[0];
+              // Use proper rotation owner instead of always first owner
+              const ownerId = effectiveMode === 'fixed' ? owners[0] : getRotationOwner(taskData, today);
               if (tod === 'both') {
-                schedUpdates[`schedule/${today}/sched_${Date.now()}_new_am`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
-                schedUpdates[`schedule/${today}/sched_${Date.now()}_new_pm`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
               } else {
-                schedUpdates[`schedule/${today}/sched_${Date.now()}_new`] = { ...baseEntry, ownerId, timeOfDay: tod };
+                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: tod };
               }
             }
             await multiUpdate(schedUpdates);
@@ -1492,7 +1497,7 @@
         try {
           const completions = await readCompletions() || {};
           const existingSchedule = await readAllSchedule() || {};
-          const updates = buildScheduleUpdates(tasksObj, peopleArray(), settings, completions, existingSchedule);
+          const updates = buildScheduleUpdates(tasksObj, peopleArray(), settings, completions, existingSchedule, { includeToday: true });
           await multiUpdate(updates);
 
           await pushDebugEvent({ type: 'schedule_rebuilt', payload: { initiator: 'admin' }, timestamp: Date.now() });

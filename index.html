@@ -28,10 +28,10 @@
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, onConnectionChange, onValue, readOnce, multiUpdate } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES } from './shared/utils.js';
+    import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
-    import { buildScheduleUpdates } from './shared/scheduler.js';
+    import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -885,8 +885,11 @@
         tasks[newId] = taskData;
 
         // Create schedule entry: event/once with date goes on that date, otherwise today
+        // Skip today for weekly/monthly with dedicatedDay that isn't today
+        const skipToday = (taskData.rotation === 'once' && dedicatedDate && dedicatedDate !== today)
+          || ((taskData.rotation === 'weekly' || taskData.rotation === 'monthly') && taskData.dedicatedDay != null && dayOfWeek(today) !== taskData.dedicatedDay);
         const schedDate = dedicatedDate || today;
-        if (owners.length > 0) {
+        if (owners.length > 0 && !skipToday) {
           const schedUpdates = {};
           const mode = taskData.ownerAssignmentMode || 'rotate';
           const timeOfDay = taskData.timeOfDay || 'anytime';
@@ -904,7 +907,8 @@
               }
             }
           } else {
-            const ownerId = owners[0];
+            // Use proper rotation owner instead of always first owner
+            const ownerId = mode === 'fixed' ? owners[0] : getRotationOwner(taskData, today);
             if (timeOfDay === 'both') {
               schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
               schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };

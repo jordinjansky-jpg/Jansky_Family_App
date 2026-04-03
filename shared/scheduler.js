@@ -259,11 +259,13 @@ export function isCompletedThisMonth(taskId, dateKey, completions, scheduleData)
 
 /**
  * Check if a weekly task is already scheduled this week (to avoid duplicates).
+ * Checks both the new schedule being built AND existing schedule (includes today).
  */
-function isScheduledThisWeek(taskId, dateKey, futureSchedule) {
+function isScheduledThisWeek(taskId, dateKey, futureSchedule, existingSchedule) {
   const wStart = weekStart(dateKey);
   const wEnd = weekEnd(dateKey);
 
+  // Check the new schedule being built
   for (const [schedDate, dayEntries] of Object.entries(futureSchedule)) {
     if (schedDate < wStart || schedDate > wEnd) continue;
     if (dayEntries) {
@@ -272,16 +274,33 @@ function isScheduledThisWeek(taskId, dateKey, futureSchedule) {
       }
     }
   }
+
+  // Check existing schedule (today + past entries not in newSchedule)
+  if (existingSchedule) {
+    for (const [schedDate, dayEntries] of Object.entries(existingSchedule)) {
+      if (schedDate < wStart || schedDate > wEnd) continue;
+      // Skip dates that are in futureSchedule (those are being rebuilt)
+      if (futureSchedule[schedDate] !== undefined) continue;
+      if (dayEntries) {
+        for (const entry of Object.values(dayEntries)) {
+          if (entry.taskId === taskId) return true;
+        }
+      }
+    }
+  }
+
   return false;
 }
 
 /**
  * Check if a monthly task is already scheduled this month.
+ * Checks both the new schedule being built AND existing schedule (includes today).
  */
-function isScheduledThisMonth(taskId, dateKey, futureSchedule) {
+function isScheduledThisMonth(taskId, dateKey, futureSchedule, existingSchedule) {
   const mStart = monthStart(dateKey);
   const mEnd = monthEnd(dateKey);
 
+  // Check the new schedule being built
   for (const [schedDate, dayEntries] of Object.entries(futureSchedule)) {
     if (schedDate < mStart || schedDate > mEnd) continue;
     if (dayEntries) {
@@ -290,6 +309,20 @@ function isScheduledThisMonth(taskId, dateKey, futureSchedule) {
       }
     }
   }
+
+  // Check existing schedule (today + past entries not in newSchedule)
+  if (existingSchedule) {
+    for (const [schedDate, dayEntries] of Object.entries(existingSchedule)) {
+      if (schedDate < mStart || schedDate > mEnd) continue;
+      if (futureSchedule[schedDate] !== undefined) continue;
+      if (dayEntries) {
+        for (const entry of Object.values(dayEntries)) {
+          if (entry.taskId === taskId) return true;
+        }
+      }
+    }
+  }
+
   return false;
 }
 
@@ -326,36 +359,55 @@ function isOnceTaskHandled(taskId, futureSchedule, completions, scheduleData) {
 
 /**
  * Calculate the total estimated minutes for a person on a given day.
- * Uses existing schedule entries plus any new entries being placed.
+ * Merges new schedule entries (being built) with existing schedule entries.
  */
-function personDayLoad(personId, dateKey, scheduleForDay, tasks) {
+function personDayLoad(personId, dateKey, newDayEntries, existingDayEntries, tasks) {
   let totalMin = 0;
-  if (!scheduleForDay) return 0;
+  const counted = new Set();
 
-  for (const entry of Object.values(scheduleForDay)) {
-    if (entry.ownerId !== personId) continue;
-    const task = tasks[entry.taskId];
-    if (task) {
-      // For AM/PM split, count half the estimate per entry
-      const est = task.timeOfDay === 'both' ? Math.ceil(task.estMin / 2) : task.estMin;
-      totalMin += est || 0;
+  // Count from new schedule being built
+  if (newDayEntries) {
+    for (const [key, entry] of Object.entries(newDayEntries)) {
+      if (entry.ownerId !== personId) continue;
+      counted.add(key);
+      const task = tasks[entry.taskId];
+      if (task) {
+        const est = task.timeOfDay === 'both' ? Math.ceil(task.estMin / 2) : task.estMin;
+        totalMin += est || 0;
+      }
     }
   }
+
+  // Count from existing schedule (entries not already in new schedule)
+  if (existingDayEntries) {
+    for (const [key, entry] of Object.entries(existingDayEntries)) {
+      if (entry.ownerId !== personId) continue;
+      if (counted.has(key)) continue;
+      const task = tasks[entry.taskId];
+      if (task) {
+        const est = task.timeOfDay === 'both' ? Math.ceil(task.estMin / 2) : task.estMin;
+        totalMin += est || 0;
+      }
+    }
+  }
+
   return totalMin;
 }
 
 /**
  * Find the lightest day for a person within a date range.
  * weekendWeight: multiplier for weekend capacity (higher = more available).
+ * Considers both the new schedule being built and the existing schedule.
  *
  * Returns the dateKey of the lightest day.
  */
-function findLightestDay(personId, dateKeys, futureSchedule, tasks, weekendWeight) {
+function findLightestDay(personId, dateKeys, futureSchedule, existingSchedule, tasks, weekendWeight) {
   let bestDay = dateKeys[0];
   let bestLoad = Infinity;
 
   for (const dk of dateKeys) {
-    const rawLoad = personDayLoad(personId, dk, futureSchedule[dk], tasks);
+    const existingDay = existingSchedule ? existingSchedule[dk] : null;
+    const rawLoad = personDayLoad(personId, dk, futureSchedule[dk], existingDay, tasks);
     // Weekend days have higher capacity, so their effective load is lower
     const effectiveLoad = isWeekend(dk) ? rawLoad / weekendWeight : rawLoad;
 
@@ -409,17 +461,21 @@ function generateDuplicateEntries(task, taskId, dateKey) {
  *   completions: { entryKey: completionRecord } — existing completions
  *   existingSchedule: { dateKey: { entryKey: entry } } — current full schedule
  *
+ * Options:
+ *   includeToday: if true, includes today in the generated schedule (for forced rebuild).
+ *                 Default false — today is excluded to preserve existing entry keys & completions.
+ *
  * Returns:
- *   { dateKey: { generatedKey: entry } } — new schedule for future dates only.
- *   Does NOT include today or past dates.
+ *   { dateKey: { generatedKey: entry } } — new schedule for future dates (and optionally today).
  */
-export function generateSchedule(tasks, people, settings, completions, existingSchedule) {
+export function generateSchedule(tasks, people, settings, completions, existingSchedule, options) {
   if (!tasks || !people || !settings) return {};
 
+  const { includeToday = false } = options || {};
   const timezone = settings.timezone || 'America/Chicago';
   const weekendWeight = settings.weekendWeight || 1.5;
   const today = todayKey(timezone);
-  const startDate = addDays(today, 1); // Tomorrow
+  const startDate = includeToday ? today : addDays(today, 1);
   const endDate = addDays(today, SCHEDULE_DAYS);
   const futureDates = dateRange(startDate, endDate);
 
@@ -448,19 +504,19 @@ export function generateSchedule(tasks, people, settings, completions, existingS
 
     switch (task.rotation) {
       case 'daily':
-        placeDailyTask(taskId, task, futureDates, newSchedule, completions, existingSchedule, weekendWeight, tasks, nextKey);
+        placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, tasks, nextKey);
         break;
 
       case 'weekly':
-        placeWeeklyTask(taskId, task, futureDates, newSchedule, completions, existingSchedule, weekendWeight, tasks, nextKey);
+        placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, tasks, nextKey);
         break;
 
       case 'monthly':
-        placeMonthlyTask(taskId, task, futureDates, newSchedule, completions, existingSchedule, weekendWeight, tasks, nextKey);
+        placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, tasks, nextKey);
         break;
 
       case 'once':
-        placeOnceTask(taskId, task, futureDates, newSchedule, completions, existingSchedule, weekendWeight, tasks, nextKey);
+        placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, tasks, nextKey);
         break;
     }
   }
@@ -471,7 +527,7 @@ export function generateSchedule(tasks, people, settings, completions, existingS
 /**
  * Place a daily task across all future dates.
  */
-function placeDailyTask(taskId, task, futureDates, newSchedule, completions, existingSchedule, weekendWeight, allTasks, nextKey) {
+function placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey) {
   for (const dk of futureDates) {
     if (task.createdDate && dk < task.createdDate) continue;
 
@@ -480,9 +536,6 @@ function placeDailyTask(taskId, task, futureDates, newSchedule, completions, exi
 
     const entries = generateRotatedEntries(task, taskId, dk);
     for (const entry of entries) {
-      // Step 4: Load balancing for rotate mode, non-exempt daily tasks
-      // For daily tasks, the day is fixed — balancing only affects owner selection
-      // (owner is already determined by rotation for daily tasks)
       const key = nextKey();
       newSchedule[dk][key] = entry;
     }
@@ -492,7 +545,7 @@ function placeDailyTask(taskId, task, futureDates, newSchedule, completions, exi
 /**
  * Place a weekly task — once per week on the best day.
  */
-function placeWeeklyTask(taskId, task, futureDates, newSchedule, completions, existingSchedule, weekendWeight, allTasks, nextKey) {
+function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey) {
   // Group future dates by ISO week
   const weekGroups = {};
   for (const dk of futureDates) {
@@ -508,8 +561,8 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, completions, ex
     // Check if already completed this week
     if (isCompletedThisWeek(taskId, weekDates[0], completions, existingSchedule)) continue;
 
-    // Check if already scheduled this week in our new schedule
-    if (isScheduledThisWeek(taskId, weekDates[0], newSchedule)) continue;
+    // Check if already scheduled this week (new schedule + existing schedule including today)
+    if (isScheduledThisWeek(taskId, weekDates[0], newSchedule, existingSchedule)) continue;
 
     // Cooldown check
     if (isInCooldown(task, taskId, weekDates[0], completions, existingSchedule)) continue;
@@ -530,7 +583,7 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, completions, ex
       if (!targetDay) targetDay = weekDates[0]; // fallback if dedicated day not in range
     } else if (mode !== 'duplicate' && !task.exempt) {
       // Load balanced: find lightest day for this person
-      targetDay = findLightestDay(ownerId, weekDates, newSchedule, allTasks, weekendWeight);
+      targetDay = findLightestDay(ownerId, weekDates, newSchedule, existingSchedule, allTasks, weekendWeight);
     } else {
       targetDay = weekDates[0];
     }
@@ -549,7 +602,7 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, completions, ex
 /**
  * Place a monthly task — once per month, distributed across weeks.
  */
-function placeMonthlyTask(taskId, task, futureDates, newSchedule, completions, existingSchedule, weekendWeight, allTasks, nextKey) {
+function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey) {
   // Group future dates by month
   const monthGroups = {};
   for (const dk of futureDates) {
@@ -565,8 +618,8 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, completions, e
     // Check if already completed this month
     if (isCompletedThisMonth(taskId, monthDates[0], completions, existingSchedule)) continue;
 
-    // Check if already scheduled this month
-    if (isScheduledThisMonth(taskId, monthDates[0], newSchedule)) continue;
+    // Check if already scheduled this month (new schedule + existing schedule including today)
+    if (isScheduledThisMonth(taskId, monthDates[0], newSchedule, existingSchedule)) continue;
 
     // Cooldown check
     if (isInCooldown(task, taskId, monthDates[0], completions, existingSchedule)) continue;
@@ -584,7 +637,7 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, completions, e
       targetDay = monthDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
     }
     if (!targetDay && mode !== 'duplicate' && !task.exempt) {
-      targetDay = findLightestDay(ownerId, monthDates, newSchedule, allTasks, weekendWeight);
+      targetDay = findLightestDay(ownerId, monthDates, newSchedule, existingSchedule, allTasks, weekendWeight);
     }
     if (!targetDay) {
       // Default: place in the middle of the month's available days
@@ -604,7 +657,7 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, completions, e
 /**
  * Place a once task on the best available future day.
  */
-function placeOnceTask(taskId, task, futureDates, newSchedule, completions, existingSchedule, weekendWeight, allTasks, nextKey) {
+function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey) {
   // Check if already handled
   if (isOnceTaskHandled(taskId, newSchedule, completions, existingSchedule)) return;
 
@@ -627,7 +680,7 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, completions, exis
     targetDay = eligibleDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
   }
   if (!targetDay && mode !== 'duplicate' && !task.exempt) {
-    targetDay = findLightestDay(ownerId, eligibleDates.slice(0, 14), newSchedule, allTasks, weekendWeight);
+    targetDay = findLightestDay(ownerId, eligibleDates.slice(0, 14), newSchedule, existingSchedule, allTasks, weekendWeight);
   }
   if (!targetDay) {
     targetDay = eligibleDates[0];
@@ -651,8 +704,8 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, completions, exis
  * Returns an object of { 'schedule/YYYY-MM-DD': { entries } | null }
  * for all future dates. null values clear dates with no entries.
  */
-export function buildScheduleUpdates(tasks, people, settings, completions, existingSchedule) {
-  const newSchedule = generateSchedule(tasks, people, settings, completions, existingSchedule);
+export function buildScheduleUpdates(tasks, people, settings, completions, existingSchedule, options) {
+  const newSchedule = generateSchedule(tasks, people, settings, completions, existingSchedule, options);
   const updates = {};
 
   for (const [dateKey, entries] of Object.entries(newSchedule)) {
