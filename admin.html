@@ -1332,23 +1332,29 @@
           let cancelled = false;
           const deleteTimer = setTimeout(async () => {
             if (cancelled) return;
-            const allSched = await readAllSchedule() || {};
-            const allComp = await readCompletions() || {};
-            const cleanupUpdates = {};
-            for (const [dateKey, dayEntries] of Object.entries(allSched)) {
-              for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
-                if (entry.taskId === id) {
-                  cleanupUpdates[`schedule/${dateKey}/${entryKey}`] = null;
-                  if (allComp[entryKey]) {
-                    cleanupUpdates[`completions/${entryKey}`] = null;
+            // Delete the task first — this is the critical operation
+            await removeTask(id);
+            // Clean up orphaned schedule entries and completions (best-effort)
+            try {
+              const allSched = await readAllSchedule() || {};
+              const allComp = await readCompletions() || {};
+              const cleanupUpdates = {};
+              for (const [dateKey, dayEntries] of Object.entries(allSched)) {
+                for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
+                  if (entry.taskId === id) {
+                    cleanupUpdates[`schedule/${dateKey}/${entryKey}`] = null;
+                    if (allComp[entryKey]) {
+                      cleanupUpdates[`completions/${entryKey}`] = null;
+                    }
                   }
                 }
               }
+              if (Object.keys(cleanupUpdates).length > 0) {
+                await multiUpdate(cleanupUpdates);
+              }
+            } catch (e) {
+              console.warn('Task deleted but schedule cleanup failed:', e);
             }
-            if (Object.keys(cleanupUpdates).length > 0) {
-              await multiUpdate(cleanupUpdates);
-            }
-            await removeTask(id);
           }, 5500);
 
           showUndoToast(`Deleted "${taskName}"`, () => {
