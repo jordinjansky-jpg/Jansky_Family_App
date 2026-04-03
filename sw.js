@@ -1,5 +1,5 @@
 // Service Worker — network-first for app shell, network-only for Firebase API
-const CACHE_NAME = 'family-hub-v9';
+const CACHE_NAME = 'family-hub-v10';
 
 const APP_SHELL = [
   '/',

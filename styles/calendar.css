@@ -8,7 +8,7 @@
 }
 
 .cal-page .page-content {
-  height: calc(100dvh - 36px - var(--nav-height) - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - var(--header-height) - var(--nav-height) - env(safe-area-inset-bottom, 0px));
   padding-bottom: 0;
   overflow: hidden;
   display: flex;
@@ -336,41 +336,23 @@
   transition: width 0.4s ease;
 }
 
-/* ============ Calendar Page — Compact Chrome ============ */
-/* Shrink all chrome to maximize grid space on mobile */
+/* ============ Calendar Page — Compact Controls ============ */
+/* Compact controls between header and grid to maximize grid space */
 
-/* Compact header */
-.cal-page .app-header {
-  min-height: 36px;
-  padding: 2px var(--spacing-md);
-}
-.cal-page .header__title { font-size: var(--font-size-sm); }
-.cal-page .header__subtitle,
-.cal-page .header__date { font-size: 9px; }
-.cal-page .header__admin,
-.cal-page .header__debug { width: 28px; height: 28px; font-size: 1rem; }
-
-/* Content area accounts for compact header */
+/* Tighter side padding on calendar */
 .cal-page .page-content {
-  padding-top: calc(36px + 4px);
   padding-left: var(--spacing-sm);
   padding-right: var(--spacing-sm);
 }
 
 /* PWA standalone: account for status bar safe area */
 @media (display-mode: standalone) {
-  .cal-page .app-header {
-    padding-top: calc(2px + env(safe-area-inset-top, 0px));
-  }
   .cal-page .page-content {
-    padding-top: calc(36px + env(safe-area-inset-top, 0px) + 4px);
-  }
-  .cal-page .page-content {
-    height: calc(100dvh - 36px - var(--nav-height) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - var(--header-height) - var(--nav-height) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
 }
 
-/* Month nav — tight single row */
+/* Month nav — compact */
 .cal-page .date-header {
   margin-top: 2px;
   margin-bottom: 0;
@@ -379,13 +361,12 @@
   gap: var(--spacing-xs);
 }
 .cal-page .date-nav__btn {
-  width: 28px;
-  height: 28px;
-  font-size: 1.1rem;
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
 }
 .cal-page .date-header__day {
-  font-size: var(--font-size-base);
-  font-weight: 700;
+  font-size: var(--font-size-lg);
 }
 
 /* "Today" link — inline under month name, no extra row */
@@ -401,25 +382,25 @@
   cursor: pointer;
 }
 
-/* Combined toolbar: person pills + legend in one band */
+/* Combined toolbar: person pills + legend stacked tight */
 .cal-toolbar {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 .cal-toolbar .person-filter {
-  padding: 3px 0;
+  padding: 4px 0 3px;
   gap: 5px;
   margin-bottom: 0;
   border-bottom: none;
 }
 .cal-toolbar .person-pill {
-  padding: 2px 8px;
-  font-size: 10px;
-  min-height: 24px;
+  padding: 2px 10px;
+  font-size: var(--font-size-xs);
+  min-height: 26px;
 }
 .cal-toolbar .cal-legend {
-  padding: 0;
+  padding: 0 0 2px;
   margin-bottom: 0;
   gap: var(--spacing-sm);
   justify-content: center;
@@ -433,24 +414,17 @@
   height: 6px;
 }
 
-/* Day-of-week headers */
+/* DOW headers compact */
 .cal-page .cal-grid__dow {
-  padding: 2px 0 1px;
+  padding: 3px 0 2px;
   font-size: 9px;
 }
 
-/* Grid tighter gaps */
+/* Grid: tighter gaps, cap cell height so 5-row months don't stretch */
 .cal-page .cal-grid {
   gap: 2px;
   margin-top: 2px;
   padding: 0 1px;
-}
-
-/* Cell padding tighter */
-.cal-page .cal-grid__cell {
-  padding: 3px 1px 2px;
-}
-.cal-page .cal-grid__day {
-  font-size: 12px;
+  grid-auto-rows: minmax(0, 80px);
 }
 
