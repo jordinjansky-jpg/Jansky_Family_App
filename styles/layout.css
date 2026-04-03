@@ -69,34 +69,41 @@
 .header__right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   flex-shrink: 0;
 }
 
 .header__admin,
 .header__debug,
-.header__theme {
+.header__theme,
+.header__add-task {
   font-size: 1.2rem;
   width: 34px;
   height: 34px;
+  padding: 0;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
   background: transparent;
   text-decoration: none;
+  cursor: pointer;
+  line-height: 1;
   transition: all var(--transition-fast);
 }
 
 .header__admin:hover,
 .header__debug:hover,
-.header__theme:hover {
+.header__theme:hover,
+.header__add-task:hover {
   background: var(--bg-secondary);
   transform: scale(1.05);
 }
 .header__admin:active,
 .header__debug:active,
-.header__theme:active { transform: scale(0.9); background: var(--bg-tertiary, var(--bg-secondary)); }
+.header__theme:active,
+.header__add-task:active { transform: scale(0.9); background: var(--bg-tertiary, var(--bg-secondary)); }
 
 .header__stats {
   display: flex;

@@ -491,27 +491,6 @@
 }
 
 /* Header add-task button */
-.header__add-task {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border-radius: var(--radius-full);
-  background: transparent;
-  font-size: 1.1rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: none;
-  line-height: 1;
-  transition: all var(--transition-fast);
-}
-.header__add-task:hover {
-  background: var(--bg-secondary);
-  transform: scale(1.05);
-}
-.header__add-task:active { transform: scale(0.95); }
 
 /* Task detail action buttons */
 .task-detail__actions {
