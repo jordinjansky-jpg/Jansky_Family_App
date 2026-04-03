@@ -236,14 +236,14 @@
       let html = '';
       const isCurrentMonth = viewMonth === today.substring(0, 7);
 
-      // Month nav — compact single row with optional "Today" link inline
+      // Month nav — compact single row
       html += `<div class="date-header">
         <div class="date-nav">
           <button class="date-nav__btn" id="prevMonth" type="button" title="Previous month">&lsaquo;</button>
           <div class="date-nav__center">
             <span class="date-header__day">${MONTH_NAMES[monthNumber(viewMonth + '-01') - 1]} ${yearNumber(viewMonth + '-01')}</span>
-            ${!isCurrentMonth ? `<button class="cal-today-link" id="goThisMonth" type="button">Today</button>` : ''}
           </div>
+          ${!isCurrentMonth ? `<button class="cal-today-link" id="goThisMonth" type="button">Today</button>` : ''}
           <button class="date-nav__btn" id="nextMonth" type="button" title="Next month">&rsaquo;</button>
         </div>
       </div>`;
