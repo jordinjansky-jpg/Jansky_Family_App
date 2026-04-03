@@ -598,7 +598,7 @@
         for (const p of pa) {
           const roleLabel = p.role === 'child' ? '👦 Child' : '👤 Adult';
           const kidFlags = p.role === 'child' && p.kidSettings
-            ? [p.kidSettings.canDelegate && 'delegate', p.kidSettings.canMoveTasks && 'move', p.kidSettings.showSlider && 'slider', p.kidSettings.showTaskEmoji && 'emoji'].filter(Boolean).join(', ')
+            ? [p.kidSettings.canDelegate && 'delegate', p.kidSettings.canMoveTasks && 'move', p.kidSettings.showSlider && 'slider', p.kidSettings.showTaskEmoji && 'emoji', p.kidSettings.showGearIcon && 'gear', p.kidSettings.canSwipeDays && 'swipe'].filter(Boolean).join(', ')
             : '';
           html += `<div class="admin-list-item admin-list-item--clickable" data-person-id="${p.id}">
             <div class="admin-person-row">
@@ -663,6 +663,8 @@
           <label class="admin-checkbox"><input type="checkbox" id="pf_canMoveTasks"${ks.canMoveTasks ? ' checked' : ''}> Can move tasks</label>
           <label class="admin-checkbox"><input type="checkbox" id="pf_showSlider"${ks.showSlider ? ' checked' : ''}> Show points slider</label>
           <label class="admin-checkbox"><input type="checkbox" id="pf_showTaskEmoji"${ks.showTaskEmoji ? ' checked' : ''}> Show task emoji (picture hints)</label>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_showGearIcon"${ks.showGearIcon ? ' checked' : ''}> Show settings gear icon</label>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_canSwipeDays"${ks.canSwipeDays ? ' checked' : ''}> Can swipe between days</label>
           <label class="admin-checkbox"><input type="checkbox" id="pf_celebrationsEnabled"${ks.celebrationsEnabled !== false ? ' checked' : ''}> Celebrations enabled</label>
           <div class="form-group mt-sm">
             <label class="form-label">Celebration Style</label>
@@ -1591,6 +1593,8 @@
             canMoveTasks: main.querySelector('#pf_canMoveTasks')?.checked || false,
             showSlider: main.querySelector('#pf_showSlider')?.checked || false,
             showTaskEmoji: main.querySelector('#pf_showTaskEmoji')?.checked || false,
+            showGearIcon: main.querySelector('#pf_showGearIcon')?.checked || false,
+            canSwipeDays: main.querySelector('#pf_canSwipeDays')?.checked || false,
             celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
             celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full'
           };

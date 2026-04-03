@@ -15,6 +15,10 @@
     body {
       padding-bottom: 0;
     }
+    /* Kid mode has no nav bar, lower the undo toast */
+    .undo-toast {
+      bottom: var(--spacing-md);
+    }
 
     /* ── Error states ── */
     .kid-error {
@@ -33,13 +37,117 @@
     /* ── Kid header ── */
     .kid-header {
       text-align: center;
-      padding: var(--spacing-lg) var(--spacing-md) var(--spacing-sm);
+      padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
+      position: relative;
     }
     .kid-header__greeting {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: var(--spacing-sm);
+    }
+    .kid-header__gear {
+      position: absolute;
+      top: var(--spacing-xs);
+      right: var(--spacing-md);
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 50%;
+      transition: background 0.15s;
+      color: var(--text-secondary);
+    }
+    .kid-header__gear:active { background: var(--bg-hover); }
+
+    /* ── Kid settings panel ── */
+    .kid-settings-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: var(--overlay-bg);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s ease;
+    }
+    .kid-settings-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .kid-settings-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 301;
+      background: var(--bg-primary);
+      border-radius: 16px 16px 0 0;
+      padding: var(--spacing-lg) var(--spacing-md) calc(var(--spacing-lg) + env(safe-area-inset-bottom, 0px));
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .kid-settings-overlay.active .kid-settings-panel {
+      transform: translateY(0);
+    }
+    .kid-settings__title {
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+      margin-bottom: var(--spacing-md);
+      text-align: center;
+    }
+    .kid-settings__section {
+      margin-bottom: var(--spacing-md);
+    }
+    .kid-settings__label {
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: var(--spacing-xs);
+    }
+    .kid-settings__themes {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: var(--spacing-xs);
+    }
+    .kid-settings__theme-btn {
+      padding: 10px 8px;
+      border-radius: var(--radius-md);
+      border: 2px solid var(--border-light);
+      background: var(--bg-card);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .kid-settings__theme-btn:active { transform: scale(0.95); }
+    .kid-settings__theme-btn--active {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+    }
+    .kid-settings__colors {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .kid-settings__color-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .kid-settings__color-btn:active { transform: scale(0.9); }
+    .kid-settings__color-btn--active {
+      border-color: var(--text-primary);
+      box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-primary);
     }
     .kid-header__wave {
       font-size: 2rem;
@@ -155,17 +263,20 @@
     }
     .kid-emoji-burst__particle {
       position: absolute;
-      font-size: 1.5rem;
-      animation: kidBurst 0.8s ease-out forwards;
+      font-size: 2rem;
+      animation: kidBurst 1s ease-out forwards;
     }
 
     @keyframes kidBurst {
       0% {
-        transform: translate(0, 0) scale(0.5);
+        transform: translate(0, 0) scale(0.6);
+        opacity: 1;
+      }
+      70% {
         opacity: 1;
       }
       100% {
-        transform: translate(var(--dx), var(--dy)) scale(1.2);
+        transform: translate(var(--dx), var(--dy)) scale(1.4);
         opacity: 0;
       }
     }
@@ -173,16 +284,16 @@
     /* ── Celebration: sparkle (subtle) ── */
     .kid-sparkle {
       position: absolute;
-      font-size: 1.2rem;
+      font-size: 1.5rem;
       pointer-events: none;
       z-index: 100;
-      animation: kidSparkle 0.6s ease-out forwards;
+      animation: kidSparkle 0.8s ease-out forwards;
     }
 
     @keyframes kidSparkle {
       0% { transform: scale(0) translateY(0); opacity: 1; }
-      50% { transform: scale(1.3) translateY(-12px); opacity: 1; }
-      100% { transform: scale(0.8) translateY(-24px); opacity: 0; }
+      50% { transform: scale(1.5) translateY(-16px); opacity: 1; }
+      100% { transform: scale(1) translateY(-30px); opacity: 0; }
     }
 
     /* ── Celebration: subtle all-done toast ── */
@@ -191,13 +302,13 @@
       top: 0;
       left: 0;
       right: 0;
-      z-index: 9000;
+      z-index: 10000;
       text-align: center;
       padding: var(--spacing-md) var(--spacing-lg);
       background: var(--success-bg, #d4edda);
       color: var(--success-text, #155724);
       font-weight: 700;
-      font-size: var(--font-size-base);
+      font-size: var(--font-size-lg);
       animation: kidToastSlide 3s ease-in-out forwards;
     }
 
@@ -259,16 +370,16 @@
     /* ── Confetti rain (all-done celebration) ── */
     .kid-confetti {
       position: fixed;
-      top: -20px;
+      top: -30px;
       pointer-events: none;
-      z-index: 9999;
-      font-size: 1.5rem;
+      z-index: 10001;
+      font-size: 2rem;
       animation: kidConfettiFall linear forwards;
     }
     @keyframes kidConfettiFall {
-      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-      80% { opacity: 1; }
-      100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+      0% { transform: translateY(0) rotate(0deg) scale(1.2); opacity: 1; }
+      85% { opacity: 1; }
+      100% { transform: translateY(105vh) rotate(720deg) scale(0.8); opacity: 0; }
     }
   </style>
 </head>
@@ -285,6 +396,7 @@
   <div id="toastMount"></div>
   <div id="celebrationMount"></div>
   <div id="taskSheetMount"></div>
+  <div id="kidSettingsMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -292,9 +404,9 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, writeTask, multiUpdate, onValue, readOnce, readStreaks } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onValue, readOnce, readStreaks } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, renderConnectionStatus } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
@@ -619,6 +731,7 @@
           const dateLabel = formatDateLong(viewDate);
           const dayPrefix = isToday ? 'Today' : DAY_NAMES[new Date(viewDate + 'T12:00:00Z').getUTCDay()];
           html += `<div class="kid-header">
+            ${ks.showGearIcon ? `<button class="kid-header__gear" id="kidGearBtn" type="button" aria-label="Settings">⚙️</button>` : ''}
             <div class="kid-header__greeting">
               <span class="kid-header__wave">👋</span>
               <h1 class="kid-header__name" style="color:${kid.color}">Hey, ${esc(kid.name)}!</h1>
@@ -856,6 +969,9 @@
             btn.addEventListener('contextmenu', e => e.preventDefault());
           });
 
+          // Gear icon opens settings
+          document.getElementById('kidGearBtn')?.addEventListener('click', openKidSettings);
+
           // Overdue toggle
           const overdueBtn = document.getElementById('overdueToggle');
           if (overdueBtn) {
@@ -991,17 +1107,17 @@
         }
 
         function showConfettiRain() {
-          const count = 25;
+          const count = 40;
           for (let i = 0; i < count; i++) {
             const el = document.createElement('span');
             el.className = 'kid-confetti';
             el.textContent = CONFETTI_EMOJI[Math.floor(Math.random() * CONFETTI_EMOJI.length)];
             el.style.left = (Math.random() * 100) + 'vw';
-            el.style.animationDuration = (2 + Math.random() * 2) + 's';
-            el.style.animationDelay = (Math.random() * 1.5) + 's';
-            el.style.fontSize = (1 + Math.random() * 1.2) + 'rem';
+            el.style.animationDuration = (2.5 + Math.random() * 2.5) + 's';
+            el.style.animationDelay = (Math.random() * 2) + 's';
+            el.style.fontSize = (1.5 + Math.random() * 1.5) + 'rem';
             document.body.appendChild(el);
-            setTimeout(() => el.remove(), 5000);
+            setTimeout(() => el.remove(), 6000);
           }
         }
 
@@ -1044,13 +1160,13 @@
           const useMix = Math.random() > 0.5;
           const theme = useMix ? CELEBRATION_EMOJI : BURST_THEMES[Math.floor(Math.random() * BURST_THEMES.length)];
 
-          const count = 10 + Math.floor(Math.random() * 5);
+          const count = 14 + Math.floor(Math.random() * 6);
           for (let i = 0; i < count; i++) {
             const span = document.createElement('span');
             span.className = 'kid-emoji-burst__particle';
             span.textContent = theme[Math.floor(Math.random() * theme.length)];
             const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.4 - 0.2);
-            const dist = 70 + Math.random() * 60;
+            const dist = 90 + Math.random() * 80;
             span.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
             span.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
             span.style.animationDelay = (Math.random() * 0.15) + 's';
@@ -1409,6 +1525,114 @@
               render();
             });
           }
+        }
+
+        // ══════════════════════════════════════════
+        // Kid settings panel (gear icon)
+        // ══════════════════════════════════════════
+
+        const kidSettingsMount = document.getElementById('kidSettingsMount');
+        const presets = getPresets();
+        const colorPalette = getColorPalette();
+
+        function openKidSettings() {
+          const currentThemePreset = kid.theme?.preset || '';
+          const currentColor = kid.color;
+
+          let html = `<div class="kid-settings-overlay" id="kidSettingsOverlay">
+            <div class="kid-settings-panel">
+              <div class="kid-settings__title">⚙️ My Settings</div>
+
+              <div class="kid-settings__section">
+                <div class="kid-settings__label">Theme</div>
+                <div class="kid-settings__themes">
+                  <button class="kid-settings__theme-btn${!currentThemePreset ? ' kid-settings__theme-btn--active' : ''}" data-preset="" type="button">Family Default</button>
+                  ${presets.map(p => `<button class="kid-settings__theme-btn${currentThemePreset === p.key ? ' kid-settings__theme-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
+                </div>
+              </div>
+
+              <div class="kid-settings__section">
+                <div class="kid-settings__label">My Color</div>
+                <div class="kid-settings__colors">
+                  ${colorPalette.map(c => `<button class="kid-settings__color-btn${c === currentColor ? ' kid-settings__color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button" aria-label="${c}"></button>`).join('')}
+                </div>
+              </div>
+
+              <button class="btn btn--secondary btn--full mt-md" id="kidSettingsClose" type="button">Done</button>
+            </div>
+          </div>`;
+
+          kidSettingsMount.innerHTML = html;
+
+          requestAnimationFrame(() => {
+            document.getElementById('kidSettingsOverlay')?.classList.add('active');
+          });
+
+          // Theme buttons
+          kidSettingsMount.querySelectorAll('.kid-settings__theme-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const preset = btn.dataset.preset;
+              kidSettingsMount.querySelectorAll('.kid-settings__theme-btn').forEach(b => b.classList.remove('kid-settings__theme-btn--active'));
+              btn.classList.add('kid-settings__theme-btn--active');
+
+              if (preset) {
+                kid.theme = { preset, accentColor: settings?.theme?.accentColor || '#5b7fd6' };
+                applyTheme(kid.theme);
+              } else {
+                kid.theme = null;
+                applyTheme(settings?.theme || defaultThemeConfig());
+              }
+              await writePerson(kid.id, { ...kid });
+            });
+          });
+
+          // Color buttons
+          kidSettingsMount.querySelectorAll('.kid-settings__color-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const color = btn.dataset.color;
+              kidSettingsMount.querySelectorAll('.kid-settings__color-btn').forEach(b => b.classList.remove('kid-settings__color-btn--active'));
+              btn.classList.add('kid-settings__color-btn--active');
+              kid.color = color;
+              await writePerson(kid.id, { ...kid });
+              render();
+            });
+          });
+
+          // Close
+          const closeSettings = () => {
+            const overlay = document.getElementById('kidSettingsOverlay');
+            if (overlay) {
+              overlay.classList.remove('active');
+              setTimeout(() => { kidSettingsMount.innerHTML = ''; }, 300);
+            }
+          };
+          document.getElementById('kidSettingsClose')?.addEventListener('click', closeSettings);
+          document.getElementById('kidSettingsOverlay')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeSettings();
+          });
+        }
+
+        // ══════════════════════════════════════════
+        // Swipe to change day (admin-toggled)
+        // ══════════════════════════════════════════
+
+        if (ks.canSwipeDays) {
+          let swipeStartX = 0;
+          let swipeStartY = 0;
+          main.addEventListener('touchstart', (e) => {
+            swipeStartX = e.touches[0].clientX;
+            swipeStartY = e.touches[0].clientY;
+          }, { passive: true });
+          main.addEventListener('touchend', (e) => {
+            const dx = e.changedTouches[0].clientX - swipeStartX;
+            const dy = e.changedTouches[0].clientY - swipeStartY;
+            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+              viewDate = addDays(viewDate, dx < 0 ? 1 : -1);
+              celebrationShown = false;
+              overdueExpanded = false;
+              loadData().then(render);
+            }
+          }, { passive: true });
         }
 
         // ══════════════════════════════════════════
