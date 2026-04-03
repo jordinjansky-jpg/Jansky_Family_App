@@ -715,3 +715,152 @@ export function buildScheduleUpdates(tasks, people, settings, completions, exist
 
   return updates;
 }
+
+/**
+ * Reset the current week, month, or both: remove uncompleted entries for the
+ * period's weekly/monthly tasks, then re-place them across today → end of period
+ * using load balancing. Also rebuilds the full future schedule afterward.
+ *
+ * period: 'week' | 'month' | 'all'
+ *   - 'week':  reset weekly tasks into today → end of week
+ *   - 'month': reset monthly tasks into today → end of month
+ *   - 'all':   reset weekly into remaining week + monthly into remaining month
+ *
+ * Returns a Firebase multi-update payload.
+ */
+export function buildPeriodResetUpdates(period, tasks, people, settings, completions, existingSchedule) {
+  const timezone = settings.timezone || 'America/Chicago';
+  const weekendWeight = settings.weekendWeight || 1.5;
+  const today = todayKey(timezone);
+
+  // Which rotation types to reset, and their date windows
+  const resets = [];
+  if (period === 'week' || period === 'all') {
+    resets.push({
+      rotation: 'weekly',
+      periodStart: weekStart(today),
+      periodEnd: weekEnd(today),
+      remainingDates: dateRange(today, weekEnd(today))
+    });
+  }
+  if (period === 'month' || period === 'all') {
+    resets.push({
+      rotation: 'monthly',
+      periodStart: monthStart(today),
+      periodEnd: monthEnd(today),
+      remainingDates: dateRange(today, monthEnd(today))
+    });
+  }
+
+  const updates = {};
+  const completedKeys = new Set(Object.keys(completions || {}));
+
+  // 1. Remove uncompleted entries for each rotation type within its period
+  for (const r of resets) {
+    for (const [dk, dayEntries] of Object.entries(existingSchedule || {})) {
+      if (dk < r.periodStart || dk > r.periodEnd) continue;
+      if (!dayEntries) continue;
+      for (const [entryKey, entry] of Object.entries(dayEntries)) {
+        const task = tasks[entry.taskId];
+        if (!task || task.rotation !== r.rotation) continue;
+        if (completedKeys.has(entryKey)) continue;
+        updates[`schedule/${dk}/${entryKey}`] = null;
+      }
+    }
+  }
+
+  // 2. Build clean existing schedule (without removed entries)
+  const cleanSchedule = {};
+  for (const [dk, dayEntries] of Object.entries(existingSchedule || {})) {
+    if (!dayEntries) continue;
+    cleanSchedule[dk] = {};
+    for (const [ek, entry] of Object.entries(dayEntries)) {
+      if (updates[`schedule/${dk}/${ek}`] === null) continue;
+      cleanSchedule[dk][ek] = entry;
+    }
+  }
+
+  // 3. Place tasks for each reset period
+  const allPlaced = {}; // combined new placements across all resets
+  let keyCounter = 0;
+  function nextKey() {
+    keyCounter++;
+    return `sched_${Date.now()}_reset_${String(keyCounter).padStart(5, '0')}`;
+  }
+
+  // Track the outermost period end for future rebuild exclusion
+  let maxPeriodEnd = today;
+
+  for (const r of resets) {
+    if (r.periodEnd > maxPeriodEnd) maxPeriodEnd = r.periodEnd;
+
+    const periodSchedule = {};
+    for (const dk of r.remainingDates) {
+      periodSchedule[dk] = allPlaced[dk] ? { ...allPlaced[dk] } : {};
+    }
+
+    for (const [taskId, task] of Object.entries(tasks)) {
+      if (task.status !== 'active') continue;
+      if (task.rotation !== r.rotation) continue;
+      if (!task.owners || task.owners.length === 0) continue;
+
+      // Skip if already completed this period
+      if (r.rotation === 'weekly' && isCompletedThisWeek(taskId, today, completions, existingSchedule)) continue;
+      if (r.rotation === 'monthly' && isCompletedThisMonth(taskId, today, completions, existingSchedule)) continue;
+
+      if (isInCooldown(task, taskId, today, completions, existingSchedule)) continue;
+
+      const mode = task.ownerAssignmentMode || 'rotate';
+      let ownerId;
+      if (mode !== 'duplicate') {
+        ownerId = getRotationOwner(task, r.remainingDates[0]);
+      }
+
+      let targetDay;
+      if (task.dedicatedDay != null) {
+        targetDay = r.remainingDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
+      }
+      if (!targetDay && mode !== 'duplicate' && !task.exempt) {
+        targetDay = findLightestDay(ownerId, r.remainingDates, periodSchedule, cleanSchedule, tasks, weekendWeight);
+      }
+      if (!targetDay) {
+        targetDay = r.remainingDates[0];
+      }
+
+      if (task.createdDate && targetDay < task.createdDate) continue;
+
+      const entries = generateRotatedEntries(task, taskId, targetDay);
+      for (const entry of entries) {
+        const key = nextKey();
+        periodSchedule[targetDay][key] = entry;
+      }
+    }
+
+    // Merge into allPlaced
+    for (const [dk, dayEntries] of Object.entries(periodSchedule)) {
+      allPlaced[dk] = { ...(allPlaced[dk] || {}), ...dayEntries };
+    }
+  }
+
+  // 4. Write new period entries into updates
+  for (const [dk, dayEntries] of Object.entries(allPlaced)) {
+    for (const [key, entry] of Object.entries(dayEntries)) {
+      updates[`schedule/${dk}/${key}`] = entry;
+    }
+  }
+
+  // 5. Rebuild full future schedule so everything stays consistent
+  const mergedSchedule = { ...cleanSchedule };
+  for (const [dk, dayEntries] of Object.entries(allPlaced)) {
+    mergedSchedule[dk] = { ...(mergedSchedule[dk] || {}), ...dayEntries };
+  }
+
+  const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, mergedSchedule);
+  for (const [path, value] of Object.entries(futureUpdates)) {
+    const futureDateKey = path.replace('schedule/', '');
+    if (futureDateKey >= today && futureDateKey <= maxPeriodEnd) continue;
+    updates[path] = value;
+  }
+
+  return updates;
+}
