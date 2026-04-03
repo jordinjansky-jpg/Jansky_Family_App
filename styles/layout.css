@@ -82,19 +82,18 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
-  background: var(--accent);
-  box-shadow: 0 2px 6px var(--accent-light);
+  background: transparent;
   text-decoration: none;
   transition: all var(--transition-fast);
 }
 
 .header__admin:hover,
 .header__debug:hover {
-  background: var(--accent-hover);
+  background: var(--bg-secondary);
   transform: scale(1.05);
 }
 .header__admin:active,
-.header__debug:active { transform: scale(0.9); background: var(--accent-pressed); }
+.header__debug:active { transform: scale(0.9); background: var(--bg-tertiary, var(--bg-secondary)); }
 
 .header__stats {
   display: flex;

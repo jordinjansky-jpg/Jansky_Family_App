@@ -255,6 +255,13 @@
       // Person filter
       html += renderPersonFilter(people, activePerson);
 
+      // Legend for pill colors
+      html += `<div class="cal-legend">
+        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:color-mix(in srgb, var(--accent) 40%, transparent)"></span> Weekly</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:color-mix(in srgb, var(--warning-text, #b86e00) 40%, transparent)"></span> Monthly</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:var(--success-text, #2e7d32);width:6px;height:6px;border-radius:50%"></span> All done</span>
+      </div>`;
+
       // 3 months: current, next, next+1
       const nextMonth = getMonthKey(viewMonth, 1);
       const nextMonth2 = getMonthKey(viewMonth, 2);
