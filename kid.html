@@ -10,8 +10,28 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="/App Icon.png" type="image/png">
   <link rel="apple-touch-icon" href="/App Icon.png">
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json" id="manifestLink">
   <title>Family Hub — Kid Mode</title>
+  <script>
+    // Dynamic manifest so each kid.html?kid=Name can be added to homescreen independently
+    (function() {
+      var kid = new URLSearchParams(window.location.search).get('kid');
+      if (!kid) return;
+      var manifest = {
+        name: kid + "'s Tasks",
+        short_name: kid,
+        description: "Daily tasks for " + kid,
+        start_url: "/kid.html?kid=" + encodeURIComponent(kid),
+        display: "standalone",
+        background_color: "#1a1a2e",
+        theme_color: "#6c63ff",
+        icons: [{ src: "/App Icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
+      };
+      var blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+      document.getElementById('manifestLink').setAttribute('href', URL.createObjectURL(blob));
+      document.title = kid + "'s Tasks";
+    })();
+  </script>
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/components.css">
   <link rel="stylesheet" href="styles/dashboard.css">
