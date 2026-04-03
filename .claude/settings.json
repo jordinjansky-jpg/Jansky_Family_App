@@ -4,7 +4,12 @@
       "Bash(git commit -m ':*)",
       "Bash(git push:*)",
       "Bash(find /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App -type f \\\\\\( -name \"*.js\" -o -name \"*.html\" -o -name \"*.json\" \\\\\\) ! -path \"*/.claude/*\" -exec wc -c {} +)",
-      "Bash(xargs -I {} basename {})"
+      "Bash(xargs -I {} basename {})",
+      "Bash(node /tmp/hash_test.js)",
+      "Bash(python3 /tmp/hash_test.py)",
+      "Read(//tmp/**)",
+      "Bash(grep -n \"\\\\\\\\.innerHTML.*task\\\\\\\\.name\\\\|\\\\\\\\.innerHTML.*person\\\\\\\\.name\\\\|\\\\\\\\.innerHTML.*\\\\\\\\.label\" /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/calendar.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/tracker.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/kid.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/scoreboard.html)",
+      "Bash(grep -n \"\\\\.innerHTML\\\\s*=\\\\s*\\\\`\" /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/kid.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/tracker.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/calendar.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/scoreboard.html)"
     ]
   }
 }

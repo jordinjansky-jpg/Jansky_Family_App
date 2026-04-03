@@ -44,7 +44,6 @@ export function renderNavBar(activePage) {
     return `<a href="${item.href}" class="nav-item${active}" data-page="${item.id}" aria-label="${item.label}"${active ? ' aria-current="page"' : ''}>
       <span class="nav-item__icon" aria-hidden="true">${item.icon}</span>
       <span class="nav-item__label">${item.label}</span>
-      ${active ? '<span class="nav-item__dot"></span>' : ''}
     </a>`;
   }).join('');
 

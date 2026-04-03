@@ -167,34 +167,42 @@
         const isToday = dateKey === today;
         const isSelected = dateKey === selectedDay;
         const allDone = summary.total > 0 && summary.done === summary.total;
+        const isPast = dateKey < today;
 
         let cls = 'cal-grid__cell';
         if (isToday) cls += ' cal-grid__cell--today';
         if (isSelected) cls += ' cal-grid__cell--selected';
         if (allDone) cls += ' cal-grid__cell--alldone';
+        // Dim past days: fully dim if no tasks, partially if incomplete
+        if (isPast && !isToday && summary.total === 0) cls += ' cal-grid__cell--past';
+        else if (isPast && !isToday && !allDone && summary.total > 0) cls += ' cal-grid__cell--past-incomplete';
 
         const dayNum = parseInt(dateKey.split('-')[2], 10);
 
-        // Frequency breakdown labels
-        let freqHtml = '';
+        // Progress bar (replaces frequency text — cleaner on mobile)
+        let progressHtml = '';
         if (summary.total > 0) {
-          const parts = [];
-          if (summary.freq.daily.total > 0) parts.push(`<span class="cal-freq cal-freq--d">D${summary.freq.daily.done}/${summary.freq.daily.total}</span>`);
-          if (summary.freq.weekly.total > 0) parts.push(`<span class="cal-freq cal-freq--w">W${summary.freq.weekly.done}/${summary.freq.weekly.total}</span>`);
-          if (summary.freq.monthly.total > 0) parts.push(`<span class="cal-freq cal-freq--m">M${summary.freq.monthly.done}/${summary.freq.monthly.total}</span>`);
-          freqHtml = `<div class="cal-grid__freq">${parts.join('')}</div>`;
+          const pct = Math.round((summary.done / summary.total) * 100);
+          progressHtml = `<div class="cal-grid__progress"><div class="cal-grid__progress-fill" style="width:${pct}%"></div></div>`;
         }
 
-        // Event color indicators
+        // Weekly/Monthly task count pills
+        let freqHtml = '';
+        const freqParts = [];
+        if (summary.freq.weekly.total > 0) freqParts.push(`<span class="cal-pill cal-pill--w">${summary.freq.weekly.done}/${summary.freq.weekly.total}</span>`);
+        if (summary.freq.monthly.total > 0) freqParts.push(`<span class="cal-pill cal-pill--m">${summary.freq.monthly.done}/${summary.freq.monthly.total}</span>`);
+        if (freqParts.length > 0) freqHtml = `<div class="cal-grid__pills">${freqParts.join('')}</div>`;
+
+        // Event color dots (Google Calendar style)
         let eventHtml = '';
         if (summary.eventColors.length > 0) {
-          const thickness = summary.eventColors.length === 1 ? '3px' : `${Math.max(2, Math.floor(6 / summary.eventColors.length))}px`;
-          const segments = summary.eventColors.map(c => `<span class="cal-event-bar" style="background:${c};height:${thickness}"></span>`).join('');
-          eventHtml = `<div class="cal-event-bars">${segments}</div>`;
+          const dots = summary.eventColors.map(c => `<span class="cal-event-dot" style="background:${c}"></span>`).join('');
+          eventHtml = `<div class="cal-event-dots">${dots}</div>`;
         }
 
         html += `<button class="${cls}${summary.eventColors.length > 0 ? ' cal-grid__cell--has-events' : ''}" data-date="${dateKey}" type="button">
           <span class="cal-grid__day">${dayNum}</span>
+          ${progressHtml}
           ${freqHtml}
           ${eventHtml}
         </button>`;
