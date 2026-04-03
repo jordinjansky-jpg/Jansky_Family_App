@@ -374,8 +374,8 @@ function totalDayLoad(dateKey, newDayEntries, existingDayEntries, tasks) {
       counted.add(key);
       const task = tasks[entry.taskId];
       if (task) {
-        const est = task.timeOfDay === 'both' ? Math.ceil(task.estMin / 2) : task.estMin;
-        totalMin += est || 0;
+        const raw = task.timeOfDay === 'both' ? Math.ceil((task.estMin || 1) / 2) : (task.estMin || 1);
+        totalMin += raw;
       }
     }
   }
@@ -385,8 +385,8 @@ function totalDayLoad(dateKey, newDayEntries, existingDayEntries, tasks) {
       if (counted.has(key)) continue;
       const task = tasks[entry.taskId];
       if (task) {
-        const est = task.timeOfDay === 'both' ? Math.ceil(task.estMin / 2) : task.estMin;
-        totalMin += est || 0;
+        const raw = task.timeOfDay === 'both' ? Math.ceil((task.estMin || 1) / 2) : (task.estMin || 1);
+        totalMin += raw;
       }
     }
   }

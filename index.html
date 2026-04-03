@@ -614,26 +614,37 @@
       });
 
       // Delegate person chips
+      let pendingDelegateOwnerId = null;
       document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
         chip.addEventListener('click', async () => {
           const newOwnerId = chip.dataset.personId;
           if (!newOwnerId) return;
 
-          // Write a new schedule entry for today with the new owner, remove the old one
+          const moveToggle = document.getElementById('delegateMoveToggle');
+          if (moveToggle?.checked) {
+            // Store selection, open date picker for delegate+move
+            pendingDelegateOwnerId = newOwnerId;
+            document.querySelectorAll('#delegatePanel .chip--selectable').forEach(c => c.classList.remove('chip--active'));
+            chip.classList.add('chip--active');
+            const picker = document.getElementById('delegateMoveDatePicker');
+            if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+            return;
+          }
+
+          // Regular delegate (no move)
           const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
           if (!entry) return;
 
+          const originalPerson = people.find(p => p.id === entry.ownerId);
           const targetDate = dateKey || viewDate;
-          const newEntry = { ...entry, ownerId: newOwnerId };
-          delete newEntry.entryKey; // clean up any extra field
+          const newEntry = { ...entry, ownerId: newOwnerId, delegatedFromName: originalPerson?.name || '?' };
+          delete newEntry.entryKey;
 
-          // Atomic update: remove old entry, add new one
           const updates = {};
           updates[`schedule/${targetDate}/${entryKey}`] = null;
           const newKey = `sched_${Date.now()}_delegate`;
           updates[`schedule/${targetDate}/${newKey}`] = newEntry;
 
-          // If there was a completion, move it too
           if (completions[entryKey]) {
             updates[`completions/${entryKey}`] = null;
             updates[`completions/${newKey}`] = completions[entryKey];
@@ -644,6 +655,36 @@
           await loadData();
           render();
         });
+      });
+
+      // Delegate+Move date picker
+      document.getElementById('delegateMoveDatePicker')?.addEventListener('change', async (e) => {
+        const newDate = e.target.value;
+        if (!newDate || !pendingDelegateOwnerId) return;
+
+        const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+        if (!entry) return;
+
+        const originalPerson = people.find(p => p.id === entry.ownerId);
+        const sourceDate = dateKey || viewDate;
+        const newEntry = { ...entry, ownerId: pendingDelegateOwnerId, delegatedFromName: originalPerson?.name || '?', movedFromDate: sourceDate };
+        delete newEntry.entryKey;
+
+        const updates = {};
+        updates[`schedule/${sourceDate}/${entryKey}`] = null;
+        const newKey = `sched_${Date.now()}_delegate_moved`;
+        updates[`schedule/${newDate}/${newKey}`] = newEntry;
+
+        if (completions[entryKey]) {
+          updates[`completions/${entryKey}`] = null;
+          updates[`completions/${newKey}`] = completions[entryKey];
+        }
+
+        await multiUpdate(updates);
+        pendingDelegateOwnerId = null;
+        closeTaskSheet();
+        await loadData();
+        render();
       });
 
       // Move — directly open date picker
@@ -660,7 +701,7 @@
         if (!entry) return;
 
         const sourceDate = dateKey || viewDate;
-        const newEntry = { ...entry };
+        const newEntry = { ...entry, movedFromDate: sourceDate };
         delete newEntry.entryKey;
 
         const updates = {};
@@ -738,7 +779,7 @@
           rotation: document.getElementById('et_rotation')?.value || task.rotation,
           difficulty: document.getElementById('et_difficulty')?.value || task.difficulty,
           timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay,
-          estMin: parseInt(document.getElementById('et_estMin')?.value, 10) || 10,
+          estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('et_estMin')?.value, 10)),
           category: document.getElementById('et_category')?.value || task.category,
           owners
         };
@@ -860,7 +901,7 @@
           rotation,
           difficulty: document.getElementById('qa_difficulty')?.value || 'medium',
           timeOfDay: document.getElementById('qa_timeOfDay')?.value || 'anytime',
-          estMin: parseInt(document.getElementById('qa_estMin')?.value, 10) || 10,
+          estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('qa_estMin')?.value, 10)),
           category: catKey,
           owners,
           ownerAssignmentMode: assignMode,

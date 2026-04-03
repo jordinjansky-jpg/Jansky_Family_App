@@ -2,6 +2,14 @@
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 
+function formatMovedDate(dateStr) {
+  if (!dateStr) return 'moved';
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const d = new Date(dateStr + 'T12:00:00');
+  if (isNaN(d)) return 'moved';
+  return `from ${days[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`;
+}
+
 /**
  * Navigation bar configuration.
  * Adding a page = adding one entry here + creating the HTML file.
@@ -233,9 +241,13 @@ export function renderTaskCard(options) {
   // Delegation/move indicator based on entry key suffix
   let actionTag = '';
   if (entryKey && entryKey.includes('_delegate')) {
-    actionTag = `<span class="task-card__tag task-card__tag--delegated">↪ ${person?.name || '?'}</span>`;
-  } else if (entryKey && entryKey.includes('_moved')) {
-    actionTag = `<span class="task-card__tag task-card__tag--moved">📅 moved</span>`;
+    const fromName = entry.delegatedFromName || '?';
+    actionTag = `<span class="task-card__tag task-card__tag--delegated">↪ from ${fromName}</span>`;
+  }
+  if (entryKey && entryKey.includes('_moved')) {
+    const fromDate = entry.movedFromDate || '';
+    const movedLabel = fromDate ? formatMovedDate(fromDate) : 'moved';
+    actionTag += `<span class="task-card__tag task-card__tag--moved">📅 ${movedLabel}</span>`;
   }
 
   const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
@@ -320,6 +332,8 @@ export function renderTaskDetailSheet(options) {
       ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
       ${points ? `<span class="chip">${points.possible}pt</span>` : ''}
     </div>
+    ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${entry.delegatedFromName}</strong></div>` : ''}
+    ${entry.movedFromDate ? `<div class="task-detail__source-info">📅 Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
   </div>`;
 
   // Complete/uncomplete button
@@ -350,10 +364,14 @@ export function renderTaskDetailSheet(options) {
   if (showDelegate && people) {
     const otherPeople = people.filter(p => p.id !== entry.ownerId);
     html += `<div class="task-detail__delegate-panel" id="delegatePanel" style="display:none;">
-      <span class="form-label">Reassign to:</span>
+      <div class="task-detail__delegate-header">
+        <span class="form-label">Reassign to:</span>
+        ${showMove ? `<label class="task-detail__move-toggle"><input type="checkbox" id="delegateMoveToggle"> 📅 Move too</label>` : ''}
+      </div>
       <div class="task-detail__person-chips">
         ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${p.name}</button>`).join('')}
       </div>
+      <input type="date" id="delegateMoveDatePicker" class="task-detail__date-input" style="position:absolute;opacity:0;pointer-events:none;">
     </div>`;
   }
 
@@ -446,7 +464,7 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
       </div>
       <div class="form-group" style="flex:1">
         <label class="form-label">Est. Minutes</label>
-        <input type="number" id="qa_estMin" value="10" min="1" max="120">
+        <input type="number" id="qa_estMin" value="10" min="0" max="120">
       </div>
     </div>
     <div class="form-group">
@@ -539,7 +557,7 @@ export function renderEditTaskSheet(taskId, task, categories, people) {
       </div>
       <div class="form-group" style="flex:1">
         <label class="form-label">Est. Minutes</label>
-        <input type="number" id="et_estMin" value="${task.estMin || 10}" min="1" max="120">
+        <input type="number" id="et_estMin" value="${task.estMin ?? 10}" min="0" max="120">
       </div>
     </div>
     <div class="form-group">

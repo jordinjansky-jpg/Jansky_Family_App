@@ -2630,6 +2630,33 @@ img {
 .chip--selectable:hover {
   border-color: var(--accent);
 }
+.chip--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.task-detail__delegate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+.task-detail__move-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.task-detail__move-toggle input[type="checkbox"] {
+  margin: 0;
+}
+.task-detail__source-info {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+}
 .task-detail__move-options {
   display: flex;
   align-items: center;

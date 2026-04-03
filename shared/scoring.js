@@ -31,7 +31,7 @@ const GRADE_TABLE = [
  */
 export function basePoints(task) {
   const mult = DIFFICULTY_MULTIPLIER[task.difficulty] || 1;
-  const est = task.estMin || 0;
+  const est = task.estMin || 1;
   return Math.round(mult * (1 + est / 30));
 }
 

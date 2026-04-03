@@ -569,15 +569,27 @@
         if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
       });
 
+      let pendingDelegateOwnerId = null;
       document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
         chip.addEventListener('click', async () => {
           const newOwnerId = chip.dataset.personId;
           if (!newOwnerId) return;
+
+          const moveToggle = document.getElementById('delegateMoveToggle');
+          if (moveToggle?.checked) {
+            pendingDelegateOwnerId = newOwnerId;
+            document.querySelectorAll('#delegatePanel .chip--selectable').forEach(c => c.classList.remove('chip--active'));
+            chip.classList.add('chip--active');
+            const picker = document.getElementById('delegateMoveDatePicker');
+            if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+            return;
+          }
+
           const dayEntries = schedule[dateKey];
           const entry = dayEntries?.[entryKey];
           if (!entry) return;
-
-          const newEntry = { ...entry, ownerId: newOwnerId };
+          const originalPerson = people.find(p => p.id === entry.ownerId);
+          const newEntry = { ...entry, ownerId: newOwnerId, delegatedFromName: originalPerson?.name || '?' };
           const updates = {};
           updates[`schedule/${dateKey}/${entryKey}`] = null;
           const newKey = `sched_${Date.now()}_delegate`;
@@ -590,6 +602,29 @@
           closeTaskSheet();
           await loadData(); render();
         });
+      });
+
+      // Delegate+Move date picker
+      document.getElementById('delegateMoveDatePicker')?.addEventListener('change', async (e) => {
+        const newDate = e.target.value;
+        if (!newDate || !pendingDelegateOwnerId) return;
+        const dayEntries = schedule[dateKey];
+        const entry = dayEntries?.[entryKey];
+        if (!entry) return;
+        const originalPerson = people.find(p => p.id === entry.ownerId);
+        const newEntry = { ...entry, ownerId: pendingDelegateOwnerId, delegatedFromName: originalPerson?.name || '?', movedFromDate: dateKey };
+        const updates = {};
+        updates[`schedule/${dateKey}/${entryKey}`] = null;
+        const newKey = `sched_${Date.now()}_delegate_moved`;
+        updates[`schedule/${newDate}/${newKey}`] = newEntry;
+        if (comps[entryKey]) {
+          updates[`completions/${entryKey}`] = null;
+          updates[`completions/${newKey}`] = comps[entryKey];
+        }
+        await multiUpdate(updates);
+        pendingDelegateOwnerId = null;
+        closeTaskSheet();
+        location.reload();
       });
 
       // Move — directly open date picker
@@ -605,7 +640,7 @@
         const entry = dayEntries?.[entryKey];
         if (!entry) return;
 
-        const newEntry = { ...entry };
+        const newEntry = { ...entry, movedFromDate: dateKey };
         const updates = {};
         updates[`schedule/${dateKey}/${entryKey}`] = null;
         const newKey = `sched_${Date.now()}_moved`;
@@ -665,7 +700,7 @@
           rotation: document.getElementById('et_rotation')?.value || task.rotation,
           difficulty: document.getElementById('et_difficulty')?.value || task.difficulty,
           timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay,
-          estMin: parseInt(document.getElementById('et_estMin')?.value, 10) || 10,
+          estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('et_estMin')?.value, 10)),
           category: document.getElementById('et_category')?.value || task.category,
           owners
         };

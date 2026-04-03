@@ -570,14 +570,27 @@
         if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
       });
 
+      let pendingDelegateOwnerId = null;
       document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
         chip.addEventListener('click', async () => {
           const newOwnerId = chip.dataset.personId;
           if (!newOwnerId) return;
+
+          const moveToggle = document.getElementById('delegateMoveToggle');
+          if (moveToggle?.checked) {
+            pendingDelegateOwnerId = newOwnerId;
+            document.querySelectorAll('#delegatePanel .chip--selectable').forEach(c => c.classList.remove('chip--active'));
+            chip.classList.add('chip--active');
+            const picker = document.getElementById('delegateMoveDatePicker');
+            if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+            return;
+          }
+
           const dayEntries = allSchedule[dateKey] || {};
           const entry = dayEntries[entryKey];
           if (!entry) return;
-          const newEntry = { ...entry, ownerId: newOwnerId };
+          const originalPerson = people.find(p => p.id === entry.ownerId);
+          const newEntry = { ...entry, ownerId: newOwnerId, delegatedFromName: originalPerson?.name || '?' };
           const updates = {};
           updates[`schedule/${dateKey}/${entryKey}`] = null;
           const newKey = `sched_${Date.now()}_delegate`;
@@ -592,6 +605,29 @@
         });
       });
 
+      // Delegate+Move date picker
+      document.getElementById('delegateMoveDatePicker')?.addEventListener('change', async (e) => {
+        const newDate = e.target.value;
+        if (!newDate || !pendingDelegateOwnerId) return;
+        const dayEntries = allSchedule[dateKey] || {};
+        const entry = dayEntries[entryKey];
+        if (!entry) return;
+        const originalPerson = people.find(p => p.id === entry.ownerId);
+        const newEntry = { ...entry, ownerId: pendingDelegateOwnerId, delegatedFromName: originalPerson?.name || '?', movedFromDate: dateKey };
+        const updates = {};
+        updates[`schedule/${dateKey}/${entryKey}`] = null;
+        const newKey = `sched_${Date.now()}_delegate_moved`;
+        updates[`schedule/${newDate}/${newKey}`] = newEntry;
+        if (completions[entryKey]) {
+          updates[`completions/${entryKey}`] = null;
+          updates[`completions/${newKey}`] = completions[entryKey];
+        }
+        await multiUpdate(updates);
+        pendingDelegateOwnerId = null;
+        closeTaskSheet();
+        location.reload();
+      });
+
       // Move — directly open date picker
       document.getElementById('sheetMove')?.addEventListener('click', () => {
         const picker = document.getElementById('moveDatePicker');
@@ -604,7 +640,7 @@
         const dayEntries = allSchedule[dateKey] || {};
         const entry = dayEntries[entryKey];
         if (!entry) return;
-        const newEntry = { ...entry };
+        const newEntry = { ...entry, movedFromDate: dateKey };
         const updates = {};
         updates[`schedule/${dateKey}/${entryKey}`] = null;
         const newKey = `sched_${Date.now()}_moved`;
@@ -655,7 +691,7 @@
         const name = document.getElementById('et_name')?.value.trim();
         if (!name) { document.getElementById('et_name')?.focus(); return; }
         const owners = Array.from(document.querySelectorAll('#et_owners input:checked')).map(cb => cb.value);
-        const updated = { ...task, name, rotation: document.getElementById('et_rotation')?.value || task.rotation, difficulty: document.getElementById('et_difficulty')?.value || task.difficulty, timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay, estMin: parseInt(document.getElementById('et_estMin')?.value, 10) || 10, category: document.getElementById('et_category')?.value || task.category, owners };
+        const updated = { ...task, name, rotation: document.getElementById('et_rotation')?.value || task.rotation, difficulty: document.getElementById('et_difficulty')?.value || task.difficulty, timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay, estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('et_estMin')?.value, 10)), category: document.getElementById('et_category')?.value || task.category, owners };
         await writeTask(taskId, updated);
         tasks[taskId] = updated;
         closeTaskSheet();
@@ -843,7 +879,7 @@
           rotation,
           difficulty: document.getElementById('qa_difficulty')?.value || 'medium',
           timeOfDay: document.getElementById('qa_timeOfDay')?.value || 'anytime',
-          estMin: parseInt(document.getElementById('qa_estMin')?.value, 10) || 10,
+          estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('qa_estMin')?.value, 10)),
           category: catKey,
           owners,
           ownerAssignmentMode: assignMode,
