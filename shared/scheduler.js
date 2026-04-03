@@ -361,14 +361,16 @@ function isOnceTaskHandled(taskId, futureSchedule, completions, scheduleData) {
  * Calculate the total estimated minutes for a person on a given day.
  * Merges new schedule entries (being built) with existing schedule entries.
  */
-function personDayLoad(personId, dateKey, newDayEntries, existingDayEntries, tasks) {
+/**
+ * Calculate total estimated minutes on a day across ALL people (global load).
+ * Used for day-level decisions like weekend weighting.
+ */
+function totalDayLoad(dateKey, newDayEntries, existingDayEntries, tasks) {
   let totalMin = 0;
   const counted = new Set();
 
-  // Count from new schedule being built
   if (newDayEntries) {
     for (const [key, entry] of Object.entries(newDayEntries)) {
-      if (entry.ownerId !== personId) continue;
       counted.add(key);
       const task = tasks[entry.taskId];
       if (task) {
@@ -378,10 +380,8 @@ function personDayLoad(personId, dateKey, newDayEntries, existingDayEntries, tas
     }
   }
 
-  // Count from existing schedule (entries not already in new schedule)
   if (existingDayEntries) {
     for (const [key, entry] of Object.entries(existingDayEntries)) {
-      if (entry.ownerId !== personId) continue;
       if (counted.has(key)) continue;
       const task = tasks[entry.taskId];
       if (task) {
@@ -395,20 +395,18 @@ function personDayLoad(personId, dateKey, newDayEntries, existingDayEntries, tas
 }
 
 /**
- * Find the lightest day for a person within a date range.
- * weekendWeight: multiplier for weekend capacity (higher = more available).
- * Considers both the new schedule being built and the existing schedule.
+ * Find the lightest day within a date range using global load + weekend weighting.
+ * Uses total load across ALL people so weekend preference works as a global signal
+ * and tasks from different owners don't pile on the same day independently.
  *
  * Returns the dateKey of the lightest day.
  */
-function findLightestDay(personId, dateKeys, futureSchedule, existingSchedule, tasks, weekendWeight) {
-  // Calculate effective load for each day
+function findLightestDay(_unused, dateKeys, futureSchedule, existingSchedule, tasks, weekendWeight) {
   const candidates = [];
   for (const dk of dateKeys) {
     const existingDay = existingSchedule ? existingSchedule[dk] : null;
-    const rawLoad = personDayLoad(personId, dk, futureSchedule[dk], existingDay, tasks);
+    const rawLoad = totalDayLoad(dk, futureSchedule[dk], existingDay, tasks);
     // Baseline of 1 ensures weekend weight has effect even on empty days
-    // (without it, 0/weight = 0 for all weights, so ties always go to first weekday)
     const effectiveLoad = isWeekend(dk) ? (rawLoad + 1) / weekendWeight : rawLoad + 1;
     candidates.push({ dk, effectiveLoad });
   }
@@ -520,29 +518,29 @@ export function generateSchedule(tasks, people, settings, completions, existingS
     return `sched_${Date.now()}_${String(keyCounter).padStart(5, '0')}`;
   }
 
-  // Process each task
-  for (const [taskId, task] of Object.entries(tasks)) {
-    if (task.status !== 'active') continue;
-    if (!task.owners || task.owners.length === 0) continue;
-
-    const mode = task.ownerAssignmentMode || 'rotate';
-
-    switch (task.rotation) {
-      case 'daily':
-        placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeightWeekly, tasks, nextKey);
-        break;
-
-      case 'weekly':
-        placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeightWeekly, tasks, nextKey);
-        break;
-
-      case 'monthly':
-        placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeightMonthly, tasks, nextKey);
-        break;
-
-      case 'once':
-        placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeightWeekly, tasks, nextKey);
-        break;
+  // Process tasks in rotation order: daily → weekly → monthly → once
+  // This ensures weekly load is established before monthly picks days,
+  // and weekend weighting works as a global signal across all tasks.
+  const taskEntries = Object.entries(tasks).filter(([_, t]) => t.status === 'active' && t.owners?.length > 0);
+  const rotationOrder = ['daily', 'weekly', 'monthly', 'once'];
+  for (const rotation of rotationOrder) {
+    for (const [taskId, task] of taskEntries) {
+      if (task.rotation !== rotation) continue;
+      const ww = rotation === 'monthly' ? weekendWeightMonthly : weekendWeightWeekly;
+      switch (rotation) {
+        case 'daily':
+          placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
+          break;
+        case 'weekly':
+          placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
+          break;
+        case 'monthly':
+          placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
+          break;
+        case 'once':
+          placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
+          break;
+      }
     }
   }
 
@@ -580,42 +578,23 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
   }
 
   for (const [weekKey, weekDates] of Object.entries(weekGroups)) {
-    // Skip if before creation date
     if (task.createdDate && weekDates[weekDates.length - 1] < task.createdDate) continue;
-
-    // Check if already completed this week
     if (isCompletedThisWeek(taskId, weekDates[0], completions, existingSchedule)) continue;
-
-    // Check if already scheduled this week (new schedule + existing schedule including today)
     if (isScheduledThisWeek(taskId, weekDates[0], newSchedule, existingSchedule)) continue;
-
-    // Cooldown check
     if (isInCooldown(task, taskId, weekDates[0], completions, existingSchedule)) continue;
 
-    // Determine owner
-    const mode = task.ownerAssignmentMode || 'rotate';
-    let ownerId;
-    if (mode === 'duplicate') {
-      // Duplicate: place for all owners
-    } else {
-      ownerId = getRotationOwner(task, weekDates[0]);
-    }
-
-    // Determine day
+    // 1. Pick the DAY first (global load + weekend weight)
     let targetDay;
     if (task.dedicatedDay != null) {
       targetDay = weekDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
-      if (!targetDay) targetDay = weekDates[0]; // fallback if dedicated day not in range
-    } else if (mode !== 'duplicate' && !task.exempt) {
-      // Load balanced: find lightest day for this person
-      targetDay = findLightestDay(ownerId, weekDates, newSchedule, existingSchedule, allTasks, weekendWeight);
+      if (!targetDay) targetDay = weekDates[0];
     } else {
-      targetDay = weekDates[0];
+      targetDay = findLightestDay(null, weekDates, newSchedule, existingSchedule, allTasks, weekendWeight);
     }
 
-    // Filter by creation date
     if (task.createdDate && targetDay < task.createdDate) continue;
 
+    // 2. Place entries (owner assigned inside generateRotatedEntries)
     const entries = generateRotatedEntries(task, taskId, targetDay);
     for (const entry of entries) {
       const key = nextKey();
@@ -637,40 +616,23 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
   }
 
   for (const [monthKey, monthDates] of Object.entries(monthGroups)) {
-    // Skip if before creation date
     if (task.createdDate && monthDates[monthDates.length - 1] < task.createdDate) continue;
-
-    // Check if already completed this month
     if (isCompletedThisMonth(taskId, monthDates[0], completions, existingSchedule)) continue;
-
-    // Check if already scheduled this month (new schedule + existing schedule including today)
     if (isScheduledThisMonth(taskId, monthDates[0], newSchedule, existingSchedule)) continue;
-
-    // Cooldown check
     if (isInCooldown(task, taskId, monthDates[0], completions, existingSchedule)) continue;
 
-    // Determine owner
-    const mode = task.ownerAssignmentMode || 'rotate';
-    let ownerId;
-    if (mode !== 'duplicate') {
-      ownerId = getRotationOwner(task, monthDates[0]);
-    }
-
-    // Pick the best day within the month
+    // 1. Pick the DAY first (global load + weekend weight)
     let targetDay;
     if (task.dedicatedDay != null) {
       targetDay = monthDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
     }
-    if (!targetDay && mode !== 'duplicate' && !task.exempt) {
-      targetDay = findLightestDay(ownerId, monthDates, newSchedule, existingSchedule, allTasks, weekendWeight);
-    }
     if (!targetDay) {
-      // Default: place in the middle of the month's available days
-      targetDay = monthDates[Math.floor(monthDates.length / 2)];
+      targetDay = findLightestDay(null, monthDates, newSchedule, existingSchedule, allTasks, weekendWeight);
     }
 
     if (task.createdDate && targetDay < task.createdDate) continue;
 
+    // 2. Place entries (owner assigned inside generateRotatedEntries)
     const entries = generateRotatedEntries(task, taskId, targetDay);
     for (const entry of entries) {
       const key = nextKey();
@@ -686,29 +648,19 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
   // Check if already handled
   if (isOnceTaskHandled(taskId, newSchedule, completions, existingSchedule)) return;
 
-  const mode = task.ownerAssignmentMode || 'rotate';
   const eligibleDates = futureDates.filter(dk => !task.createdDate || dk >= task.createdDate);
   if (eligibleDates.length === 0) return;
 
-  let ownerId;
-  if (mode !== 'duplicate') {
-    ownerId = task.owners[0]; // Once tasks always use first owner
-  }
-
-  // Find the target day
+  // 1. Pick the DAY first
   let targetDay;
   if (task.dedicatedDate) {
-    // Specific date set — place on that exact date if it's in the future
     targetDay = eligibleDates.find(dk => dk === task.dedicatedDate);
     if (!targetDay) return; // date is in the past or out of range
   } else if (task.dedicatedDay != null) {
     targetDay = eligibleDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
   }
-  if (!targetDay && mode !== 'duplicate' && !task.exempt) {
-    targetDay = findLightestDay(ownerId, eligibleDates.slice(0, 14), newSchedule, existingSchedule, allTasks, weekendWeight);
-  }
   if (!targetDay) {
-    targetDay = eligibleDates[0];
+    targetDay = findLightestDay(null, eligibleDates.slice(0, 14), newSchedule, existingSchedule, allTasks, weekendWeight);
   }
 
   const entries = generateRotatedEntries(task, taskId, targetDay);
@@ -836,22 +788,14 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
 
       if (isInCooldown(task, taskId, today, completions, existingSchedule)) continue;
 
-      const mode = task.ownerAssignmentMode || 'rotate';
-      let ownerId;
-      if (mode !== 'duplicate') {
-        ownerId = getRotationOwner(task, r.remainingDates[0]);
-      }
-
+      // Pick DAY first (global load + weekend weight), then owner assigned in generateRotatedEntries
       let targetDay;
       if (task.dedicatedDay != null) {
         targetDay = r.remainingDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
       }
-      if (!targetDay && mode !== 'duplicate' && !task.exempt) {
-        const ww = r.rotation === 'monthly' ? weekendWeightMonthly : weekendWeightWeekly;
-        targetDay = findLightestDay(ownerId, r.remainingDates, periodSchedule, cleanSchedule, tasks, ww);
-      }
       if (!targetDay) {
-        targetDay = r.remainingDates[0];
+        const ww = r.rotation === 'monthly' ? weekendWeightMonthly : weekendWeightWeekly;
+        targetDay = findLightestDay(null, r.remainingDates, periodSchedule, cleanSchedule, tasks, ww);
       }
 
       if (task.createdDate && targetDay < task.createdDate) continue;
