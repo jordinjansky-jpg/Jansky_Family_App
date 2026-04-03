@@ -217,7 +217,8 @@
     // Tasks Tab
     // ══════════════════════════════════════════
 
-    let taskFilter = { rotation: '', owner: '', category: '', status: '' };
+    let taskFilter = { rotation: '', owner: '', category: '', status: '', difficulty: '' };
+    let taskSort = 'name';
     let editingTaskId = null;
 
     function renderTasksTab() {
@@ -248,6 +249,21 @@
             <option value="active"${taskFilter.status === 'active' ? ' selected' : ''}>Active</option>
             <option value="paused"${taskFilter.status === 'paused' ? ' selected' : ''}>Paused</option>
           </select>
+          <select class="admin-select" id="taskFilterDifficulty">
+            <option value="">All Difficulties</option>
+            <option value="easy"${taskFilter.difficulty === 'easy' ? ' selected' : ''}>Easy</option>
+            <option value="medium"${taskFilter.difficulty === 'medium' ? ' selected' : ''}>Medium</option>
+            <option value="hard"${taskFilter.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
+          </select>
+        </div>
+        <div class="admin-filters" style="margin-top:4px">
+          <select class="admin-select" id="taskSortBy">
+            <option value="name"${taskSort === 'name' ? ' selected' : ''}>Sort: Name</option>
+            <option value="difficulty"${taskSort === 'difficulty' ? ' selected' : ''}>Sort: Difficulty</option>
+            <option value="points"${taskSort === 'points' ? ' selected' : ''}>Sort: Points</option>
+            <option value="rotation"${taskSort === 'rotation' ? ' selected' : ''}>Sort: Rotation</option>
+            <option value="estMin"${taskSort === 'estMin' ? ' selected' : ''}>Sort: Est. Time</option>
+          </select>
         </div>
       </div>`;
 
@@ -257,7 +273,23 @@
         if (taskFilter.owner && !(t.owners || []).includes(taskFilter.owner)) return false;
         if (taskFilter.category && t.category !== taskFilter.category) return false;
         if (taskFilter.status && t.status !== taskFilter.status) return false;
+        if (taskFilter.difficulty && (t.difficulty || 'medium') !== taskFilter.difficulty) return false;
         return true;
+      });
+
+      // Sort
+      const diffOrder = { easy: 0, medium: 1, hard: 2 };
+      const rotOrder = { daily: 0, weekly: 1, monthly: 2, once: 3 };
+      filtered.sort((a, b) => {
+        const ta = a[1], tb = b[1];
+        switch (taskSort) {
+          case 'name': return (ta.name || '').localeCompare(tb.name || '');
+          case 'difficulty': return (diffOrder[ta.difficulty || 'medium'] || 0) - (diffOrder[tb.difficulty || 'medium'] || 0);
+          case 'points': return basePoints(tb) - basePoints(ta);
+          case 'rotation': return (rotOrder[ta.rotation] ?? 9) - (rotOrder[tb.rotation] ?? 9);
+          case 'estMin': return (tb.estMin || 0) - (ta.estMin || 0);
+          default: return 0;
+        }
       });
 
       html += `<div class="admin-section-header">
@@ -278,19 +310,27 @@
         for (const [id, task] of filtered) {
           const cat = catsObj[task.category];
           const owners = (task.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
-          const pts = basePoints(task);
           const pausedClass = task.status === 'paused' ? ' admin-list-item--paused' : '';
           const pausedBadge = task.status === 'paused' ? '<span class="admin-badge admin-badge--muted">⏸ Paused</span>' : '';
+          const diffLabel = { easy: 'Easy', medium: 'Med', hard: 'Hard' }[task.difficulty] || 'Med';
+          const todLabel = { am: 'AM', pm: 'PM', anytime: 'Any', both: 'AM+PM' }[task.timeOfDay] || 'Any';
           const editingThis = editingTaskId === id;
+          // Detail badges: est time, cooldown, exempt
+          let detailBadges = '';
+          if (task.estMin) detailBadges += `<span class="admin-badge">${task.estMin}m</span>`;
+          detailBadges += `<span class="admin-badge">${todLabel}</span>`;
+          if (task.cooldownDays) detailBadges += `<span class="admin-badge">CD ${task.cooldownDays}d</span>`;
+          if (task.exempt) detailBadges += `<span class="admin-badge admin-badge--muted">Exempt</span>`;
           html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}${editingThis ? ' admin-list-item--editing' : ''}" data-task-id="${id}">
             <div class="admin-list-item__row">
-              <span class="admin-list-item__name">${cat?.icon || ''} ${task.name}</span>
+              <span class="admin-list-item__name">${task.name}${cat?.icon ? ' ' + cat.icon : ''}</span>
               <span class="admin-list-item__tags">
                 <span class="admin-badge">${task.rotation}</span>
-                <span class="admin-badge">${pts}pt</span>
+                <span class="admin-badge">${diffLabel}</span>
                 ${pausedBadge}
               </span>
             </div>
+            <div class="admin-list-item__tags" style="padding:0 0 2px">${detailBadges}</div>
             <div class="admin-list-item__row">
               <span class="admin-list-item__meta">${owners || 'Unassigned'}${cat ? ' · ' + cat.label : ''}</span>
               <div class="admin-list-item__actions">
@@ -961,13 +1001,15 @@
 
     function bindTasksTab() {
       // Filters
-      for (const id of ['taskFilterRotation', 'taskFilterOwner', 'taskFilterCategory', 'taskFilterStatus']) {
+      for (const id of ['taskFilterRotation', 'taskFilterOwner', 'taskFilterCategory', 'taskFilterStatus', 'taskFilterDifficulty', 'taskSortBy']) {
         const el = main.querySelector(`#${id}`);
         if (el) el.addEventListener('change', () => {
           taskFilter.rotation = main.querySelector('#taskFilterRotation')?.value || '';
           taskFilter.owner = main.querySelector('#taskFilterOwner')?.value || '';
           taskFilter.category = main.querySelector('#taskFilterCategory')?.value || '';
           taskFilter.status = main.querySelector('#taskFilterStatus')?.value || '';
+          taskFilter.difficulty = main.querySelector('#taskFilterDifficulty')?.value || '';
+          taskSort = main.querySelector('#taskSortBy')?.value || 'name';
           render();
         });
       }

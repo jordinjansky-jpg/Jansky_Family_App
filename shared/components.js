@@ -253,7 +253,7 @@ export function renderTaskCard(options) {
   const meta = [estLabel, ptsLabel].filter(Boolean).join(' · ');
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const eventPrefix = isEvent ? '📅 ' : '';
-  const taskName = catIcon ? `${catIcon} ${task.name}` : `${eventPrefix}${task.name}`;
+  const taskName = catIcon ? `${task.name} ${catIcon}` : `${eventPrefix}${task.name}`;
   const eventStyle = eventColor ? `;--event-color:${eventColor}` : '';
   const tagsRow = actionTags ? `<div class="task-card__tags">${actionTags}</div>` : '';
 
@@ -325,7 +325,7 @@ export function renderTaskDetailSheet(options) {
   html += `<div class="task-detail__info">
     <div class="task-detail__name" style="--owner-color:${ownerColor}">
       <span class="task-card__initial">${(person?.name || '?')[0].toUpperCase()}</span>
-      <span>${catIcon ? catIcon + ' ' : ''}${task.name}</span>
+      <span>${task.name}${catIcon ? ' ' + catIcon : ''}</span>
     </div>
     <div class="task-detail__meta">
       ${person ? `<span class="chip" style="--person-color:${person.color}">${person.name}</span>` : ''}
