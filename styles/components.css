@@ -108,6 +108,51 @@
   border-color: var(--accent);
 }
 
+/* ============ Device Theme Picker ============ */
+.dt-section {
+  margin-bottom: var(--spacing-md);
+}
+.dt-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: var(--spacing-xs);
+}
+.dt-theme-btn {
+  padding: 10px 8px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-light);
+  background: var(--bg-card);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.dt-theme-btn:active { transform: scale(0.95); }
+.dt-theme-btn--active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.dt-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dt-color-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dt-color-btn:active { transform: scale(0.9); }
+.dt-color-btn--active {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-primary);
+}
+
 /* ============ Loading ============ */
 .loading-inline {
   display: flex;

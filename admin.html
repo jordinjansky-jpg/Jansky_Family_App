@@ -63,7 +63,7 @@
       multiUpdate, pushDebugEvent, factoryReset, onConnectionChange
     } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState, renderUndoToast, renderOfflineBanner, initOwnerChips, getSelectedOwners } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, buildPeriodResetUpdates, getRotationOwner } from './shared/scheduler.js';
@@ -152,9 +152,8 @@
       }
     };
 
-    // ── Cached theme ──
-    const cached = loadCachedTheme();
-    applyTheme(cached || defaultThemeConfig());
+    // ── Cached theme (device override > family cache > default) ──
+    applyTheme(resolveTheme());
 
     // ── Init Firebase ──
     initFirebase();
@@ -163,7 +162,7 @@
 
     // ── Load data ──
     let settings = await readSettings();
-    if (!cached && settings?.theme) applyTheme(settings.theme);
+    if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 
     let peopleObj = await readPeople() || {};
     let tasksObj = await readTasks() || {};

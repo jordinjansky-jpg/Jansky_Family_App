@@ -455,16 +455,15 @@
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, renderOfflineBanner } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, gradeDisplay } from './shared/scoring.js';
     import { initSwipe } from './shared/swipe.js';
 
-    // ── Cached theme ──
-    const cached = loadCachedTheme();
-    applyTheme(cached || defaultThemeConfig());
+    // ── Cached theme (device override > family cache > default) ──
+    applyTheme(resolveTheme());
 
     // ── Init Firebase ──
     initFirebase();
@@ -472,7 +471,7 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     const settings = await readSettings();
-    if (!cached && settings?.theme) applyTheme(settings.theme);
+    if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 
     // ── Check for kid parameter ──
     const params = new URLSearchParams(window.location.search);

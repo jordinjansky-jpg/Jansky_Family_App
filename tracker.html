@@ -37,16 +37,15 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, multiUpdate, onConnectionChange } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete } from './shared/state.js';
 
     // ── Cached theme ──
-    const cached = loadCachedTheme();
-    applyTheme(cached || defaultThemeConfig());
+    applyTheme(resolveTheme());
 
     // ── Init Firebase ──
     initFirebase();
@@ -59,7 +58,7 @@
       readCompletions(), readAllSchedule()
     ]);
 
-    if (!cached && settings?.theme) applyTheme(settings.theme);
+    if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -94,9 +93,14 @@
       subtitle: 'Tracker',
       dateLine: formatDateLong(today),
       showAdmin: true,
-      showDebug: debugActive
+      showDebug: debugActive,
+      showThemePicker: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('tracker');
+
+    document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
+      openDeviceThemeSheet(document.getElementById('taskSheetMount'), settings?.theme);
+    });
 
     // ── Connection status ──
     onConnectionChange(connected => {

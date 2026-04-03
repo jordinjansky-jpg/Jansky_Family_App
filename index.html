@@ -39,8 +39,8 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, onConnectionChange, onValue, onCompletions, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
@@ -48,9 +48,8 @@
     import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { initSwipe } from './shared/swipe.js';
 
-    // ── Cached theme ──
-    const cached = loadCachedTheme();
-    applyTheme(cached || defaultThemeConfig());
+    // ── Cached theme (device override > family cache > default) ──
+    applyTheme(resolveTheme());
 
     // ── Init Firebase ──
     initFirebase();
@@ -62,7 +61,8 @@
       readSettings(), readPeople(), readTasks(), readCategories()
     ]);
 
-    if (!cached && settings?.theme) applyTheme(settings.theme);
+    // Apply family theme from Firebase only if no device override
+    if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -88,6 +88,7 @@
       showAdmin: true,
       showDebug: debugActive,
       showAddTask: true,
+      showThemePicker: true,
       rightContent: '<span class="header__stats" id="headerStats"></span>'
     });
     document.getElementById('navMount').innerHTML = renderNavBar('home');
@@ -1151,8 +1152,11 @@
       });
     }
 
-    // Bind the header + button
+    // Bind the header buttons
     document.getElementById('headerAddTask')?.addEventListener('click', openQuickAddSheet);
+    document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
+      openDeviceThemeSheet(document.getElementById('taskSheetMount'), settings?.theme);
+    });
 
     // ══════════════════════════════════════════
     // Real-time listeners

@@ -3,6 +3,7 @@
 // Pages call these functions and insert results into the DOM.
 
 import { escapeHtml } from './utils.js';
+import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig } from './theme.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -63,12 +64,14 @@ export function renderHeader(options = {}) {
     showAdmin = true,
     showDebug = false,
     showAddTask = false,
+    showThemePicker = false,
     rightContent = ''
   } = options;
 
   const debugIcon = showDebug ? '<span class="header__debug" title="Debug mode active">🐛</span>' : '';
   const adminLink = showAdmin ? '<a href="admin.html" class="header__admin" title="Admin">⚙️</a>' : '';
   const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">📝</button>' : '';
+  const themeBtn = showThemePicker ? '<button class="header__theme" id="headerThemeBtn" title="Device Theme" type="button">🎨</button>' : '';
 
   return `<header class="app-header">
     <div class="header__left">
@@ -79,6 +82,7 @@ export function renderHeader(options = {}) {
     <div class="header__right">
       ${rightContent}
       ${addTaskBtn}
+      ${themeBtn}
       ${debugIcon}
       ${adminLink}
     </div>
@@ -653,4 +657,104 @@ export function initOwnerChips(containerId) {
 /** Read selected owner IDs from an owner-chips container. */
 export function getSelectedOwners(containerId) {
   return Array.from(document.querySelectorAll(`#${containerId} .owner-chip--selected`)).map(b => b.dataset.id);
+}
+
+/**
+ * Open the device theme picker bottom sheet.
+ * mountEl: DOM element to render into
+ * familyTheme: the Firebase settings.theme (fallback when device override cleared)
+ * onApply: optional callback after theme changes (e.g. to re-render page)
+ */
+export function openDeviceThemeSheet(mountEl, familyTheme, onApply) {
+  const presets = getPresets();
+  const colorPalette = getColorPalette();
+  const current = loadDeviceTheme();
+  const currentPreset = current?.preset || '';
+  const currentAccent = current?.accentColor || familyTheme?.accentColor || '#5b7fd6';
+
+  const html = renderBottomSheet(`<div class="task-detail-sheet">
+    <h3 class="admin-form__title">Device Theme</h3>
+    <div class="dt-section">
+      <label class="form-label">Theme</label>
+      <div class="dt-themes">
+        <button class="dt-theme-btn${!currentPreset ? ' dt-theme-btn--active' : ''}" data-preset="" type="button">Family Default</button>
+        ${presets.map(p => `<button class="dt-theme-btn${currentPreset === p.key ? ' dt-theme-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
+      </div>
+    </div>
+    <div class="dt-section">
+      <label class="form-label">Accent Color</label>
+      <div class="dt-colors">
+        ${colorPalette.map(c => `<button class="dt-color-btn${c === currentAccent ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`).join('')}
+      </div>
+    </div>
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
+    </div>
+  </div>`);
+
+  mountEl.innerHTML = html;
+
+  requestAnimationFrame(() => {
+    const overlay = document.getElementById('bottomSheet');
+    if (overlay) overlay.classList.add('active');
+  });
+
+  let activePreset = currentPreset;
+  let activeAccent = currentAccent;
+
+  function applyAndSave() {
+    if (!activePreset) {
+      saveDeviceTheme(null);
+      applyTheme(familyTheme || defaultThemeConfig());
+    } else {
+      const info = presets.find(p => p.key === activePreset);
+      const themeConfig = { mode: info.mode, preset: activePreset, accentColor: activeAccent };
+      saveDeviceTheme(themeConfig);
+      applyTheme(themeConfig);
+    }
+    if (onApply) onApply();
+  }
+
+  // Theme buttons
+  mountEl.querySelectorAll('.dt-theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mountEl.querySelectorAll('.dt-theme-btn').forEach(b => b.classList.remove('dt-theme-btn--active'));
+      btn.classList.add('dt-theme-btn--active');
+      activePreset = btn.dataset.preset;
+      applyAndSave();
+    });
+  });
+
+  // Color buttons
+  mountEl.querySelectorAll('.dt-color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mountEl.querySelectorAll('.dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
+      btn.classList.add('dt-color-btn--active');
+      activeAccent = btn.dataset.color;
+      if (!activePreset) {
+        // If on family default, auto-switch to the family preset so accent takes effect
+        const fam = familyTheme || defaultThemeConfig();
+        activePreset = fam.preset;
+        mountEl.querySelectorAll('.dt-theme-btn').forEach(b => {
+          b.classList.toggle('dt-theme-btn--active', b.dataset.preset === activePreset);
+        });
+      }
+      applyAndSave();
+    });
+  });
+
+  // Close
+  function closeSheet() {
+    const overlay = document.getElementById('bottomSheet');
+    if (overlay) {
+      overlay.classList.remove('active');
+      setTimeout(() => { mountEl.innerHTML = ''; }, 300);
+    } else {
+      mountEl.innerHTML = '';
+    }
+  }
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeSheet(); });
+  document.getElementById('dtClose')?.addEventListener('click', closeSheet);
 }

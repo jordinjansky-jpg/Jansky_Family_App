@@ -236,6 +236,37 @@ export function loadCachedTheme() {
 }
 
 /**
+ * Load device-local theme override (takes priority over family theme).
+ * Returns theme config or null.
+ */
+export function loadDeviceTheme() {
+  try {
+    const dt = localStorage.getItem('dr-device-theme');
+    return dt ? JSON.parse(dt) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save device-local theme override. Pass null to clear.
+ */
+export function saveDeviceTheme(themeConfig) {
+  if (themeConfig) {
+    localStorage.setItem('dr-device-theme', JSON.stringify(themeConfig));
+  } else {
+    localStorage.removeItem('dr-device-theme');
+  }
+}
+
+/**
+ * Resolve which theme to apply: device override > cached family > Firebase settings > default.
+ */
+export function resolveTheme(settingsTheme) {
+  return loadDeviceTheme() || loadCachedTheme() || settingsTheme || defaultThemeConfig();
+}
+
+/**
  * Grade color mapping — consistent across all pages.
  */
 export function gradeColor(grade) {

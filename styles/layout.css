@@ -74,7 +74,8 @@
 }
 
 .header__admin,
-.header__debug {
+.header__debug,
+.header__theme {
   font-size: 1.2rem;
   width: 34px;
   height: 34px;
@@ -88,12 +89,14 @@
 }
 
 .header__admin:hover,
-.header__debug:hover {
+.header__debug:hover,
+.header__theme:hover {
   background: var(--bg-secondary);
   transform: scale(1.05);
 }
 .header__admin:active,
-.header__debug:active { transform: scale(0.9); background: var(--bg-tertiary, var(--bg-secondary)); }
+.header__debug:active,
+.header__theme:active { transform: scale(0.9); background: var(--bg-tertiary, var(--bg-secondary)); }
 
 .header__stats {
   display: flex;

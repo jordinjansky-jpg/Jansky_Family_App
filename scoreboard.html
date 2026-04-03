@@ -29,6 +29,7 @@
   </div>
   <div id="navMount"></div>
   <div id="drilldownMount"></div>
+  <div id="themeSheetMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -37,16 +38,15 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, onConnectionChange } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderGradeBadge, renderBottomSheet, renderOfflineBanner } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderGradeBadge, renderBottomSheet, renderOfflineBanner, openDeviceThemeSheet } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
     import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints } from './shared/scoring.js';
 
-    // ── Cached theme ──
-    const cached = loadCachedTheme();
-    applyTheme(cached || defaultThemeConfig());
+    // ── Cached theme (device override > family cache > default) ──
+    applyTheme(resolveTheme());
 
     // ── Init Firebase ──
     initFirebase();
@@ -59,7 +59,7 @@
       readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks()
     ]);
 
-    if (!cached && settings?.theme) applyTheme(settings.theme);
+    if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -85,9 +85,14 @@
       subtitle: 'Scoreboard',
       dateLine: formatDateLong(today),
       showAdmin: true,
-      showDebug: debugActive
+      showDebug: debugActive,
+      showThemePicker: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('scoreboard');
+
+    document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
+      openDeviceThemeSheet(document.getElementById('themeSheetMount'), settings?.theme);
+    });
 
     // ── Connection status ──
     onConnectionChange(connected => {

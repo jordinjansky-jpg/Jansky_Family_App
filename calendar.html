@@ -39,17 +39,16 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, multiUpdate, onCompletions, onConnectionChange } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { initSwipe } from './shared/swipe.js';
 
-    // ── Cached theme ──
-    const cached = loadCachedTheme();
-    applyTheme(cached || defaultThemeConfig());
+    // ── Cached theme (device override > family cache > default) ──
+    applyTheme(resolveTheme());
 
     // ── Init Firebase ──
     initFirebase();
@@ -61,7 +60,7 @@
       readSettings(), readPeople(), readTasks(), readCategories()
     ]);
 
-    if (!cached && settings?.theme) applyTheme(settings.theme);
+    if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -87,7 +86,8 @@
       dateLine: formatDateLong(todayKey(settings?.timezone || 'America/Chicago')),
       showAdmin: true,
       showDebug: debugActive,
-      showAddTask: true
+      showAddTask: true,
+      showThemePicker: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
 
@@ -1151,6 +1151,9 @@
     }
 
     document.getElementById('headerAddTask')?.addEventListener('click', openQuickAddSheet);
+    document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
+      openDeviceThemeSheet(document.getElementById('taskSheetMount'), settings?.theme);
+    });
 
     // ══════════════════════════════════════════
     // Real-time listener
