@@ -272,10 +272,9 @@
       let html = '';
 
       if (prog.total === 0) {
-        html += `<div class="empty-state" style="padding:var(--spacing-md) 0;">
-          <span class="empty-state__icon">📭</span>
-          <h3 class="empty-state__title">Nothing scheduled</h3>
-        </div>`;
+        const calVariant = activePerson ? 'no-match' : (dateKey >= today ? 'future-empty' : 'free-day');
+        const calPersonName = activePerson ? people.find(p => p.id === activePerson)?.name : '';
+        html += renderEmptyState('', '', '', { variant: calVariant, personName: calPersonName });
       } else {
         const incomplete = {};
         const completedEntries = {};

@@ -158,6 +158,21 @@
   font-size: var(--font-size-sm);
 }
 
+/* ── Empty state entrance animation ── */
+@keyframes emptyBob {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.empty-state__icon {
+  animation: emptyBob 0.6s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-state__icon { animation: none; }
+}
+
 /* ============ Person Filter ============ */
 .person-filter {
   display: flex;

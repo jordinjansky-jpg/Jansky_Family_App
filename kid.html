@@ -861,8 +861,7 @@
           // ── Day's tasks ──
           html += `<div class="kid-tasks">`;
           if (prog.total === 0) {
-            const emptyMsg = isToday ? 'No tasks today — enjoy your free time!' : 'Nothing scheduled for this day.';
-            html += renderEmptyState('🎉', 'All clear!', emptyMsg);
+            html += renderEmptyState('', '', '', { variant: 'kid-free' });
           } else {
             // Split incomplete / completed
             const incomplete = {};

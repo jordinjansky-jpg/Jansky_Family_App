@@ -110,11 +110,29 @@ export function renderUndoToast(message) {
 /**
  * Render an empty state message.
  */
-export function renderEmptyState(icon, title, subtitle = '') {
+const EMPTY_VARIANTS = {
+  'all-done':     { icon: '🏆', title: 'Nothing left — you crushed it!' },
+  'free-day':     { icon: '🏖️', title: 'Free day!', subtitle: 'Nothing scheduled — enjoy it.' },
+  'future-empty': { icon: '📅', title: 'Nothing planned yet' },
+  'no-match':     { icon: '🔍', title: 'No tasks for {name}', subtitle: 'Try a different filter.' },
+  'kid-done':     { icon: '🎉', title: "You're all done!", subtitle: 'Go play!' },
+  'kid-free':     { icon: '☀️', title: 'No chores today!', subtitle: 'Lucky you!' }
+};
+
+export function renderEmptyState(icon, title, subtitle = '', options = {}) {
+  const { variant, personName, gradeHtml } = options;
+  if (variant && EMPTY_VARIANTS[variant]) {
+    const v = EMPTY_VARIANTS[variant];
+    icon = v.icon;
+    title = v.title.replace('{name}', esc(personName || ''));
+    subtitle = v.subtitle || subtitle || '';
+  }
+  const gradeRow = gradeHtml ? `<div class="empty-state__grade">${gradeHtml}</div>` : '';
   return `<div class="empty-state">
     <span class="empty-state__icon">${icon}</span>
     <h3 class="empty-state__title">${title}</h3>
     ${subtitle ? `<p class="empty-state__subtitle">${subtitle}</p>` : ''}
+    ${gradeRow}
   </div>`;
 }
 

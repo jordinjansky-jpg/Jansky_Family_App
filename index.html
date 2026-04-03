@@ -215,8 +215,12 @@
 
       // Day's tasks
       if (prog.total === 0) {
-        const emptyMsg = isToday ? 'Enjoy your free time!' : 'Nothing scheduled for this day.';
-        html += renderEmptyState('📭', 'No tasks', emptyMsg);
+        if (activePerson) {
+          html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
+        } else {
+          const variant = isToday ? 'free-day' : 'future-empty';
+          html += renderEmptyState('', '', '', { variant });
+        }
       } else {
         // Split into incomplete and completed
         const incomplete = {};
