@@ -982,13 +982,13 @@
       for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
         item.addEventListener('click', (e) => {
           if (e.target.closest('.admin-list-item__actions')) return;
-          editingTaskId = item.dataset.taskId;
+          editingTaskId = editingTaskId === item.dataset.taskId ? null : item.dataset.taskId;
           render();
         });
       }
       for (const btn of main.querySelectorAll('.admin-edit-task')) {
         btn.addEventListener('click', () => {
-          editingTaskId = btn.dataset.taskId;
+          editingTaskId = editingTaskId === btn.dataset.taskId ? null : btn.dataset.taskId;
           render();
         });
       }
