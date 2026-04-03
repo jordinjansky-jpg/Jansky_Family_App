@@ -1,5 +1,5 @@
 // Service Worker — network-first for app shell, network-only for Firebase API
-const CACHE_NAME = 'family-hub-v16';
+const CACHE_NAME = 'family-hub-v17';
 
 const APP_SHELL = [
   '/',
@@ -62,6 +62,26 @@ self.addEventListener('fetch', (event) => {
   // Network-only for Firebase API calls
   if (url.hostname.includes('firebaseio.com') ||
       url.hostname.includes('googleapis.com')) {
+    return;
+  }
+
+  // Dynamic kid-mode manifest — returns a kid-specific manifest so
+  // "Add to Home Screen" launches kid.html?kid=Name instead of index.html
+  if (url.pathname === '/kid-manifest.json') {
+    const kid = url.searchParams.get('kid') || 'Kid';
+    const manifest = {
+      name: kid + "'s Tasks",
+      short_name: kid,
+      description: "Daily tasks for " + kid,
+      start_url: "/kid.html?kid=" + encodeURIComponent(kid),
+      display: "standalone",
+      background_color: "#1a1a2e",
+      theme_color: "#6c63ff",
+      icons: [{ src: "/App Icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
+    };
+    event.respondWith(new Response(JSON.stringify(manifest), {
+      headers: { 'Content-Type': 'application/manifest+json' }
+    }));
     return;
   }
 

@@ -13,22 +13,14 @@
   <link rel="manifest" href="manifest.json" id="manifestLink">
   <title>Family Hub — Kid Mode</title>
   <script>
-    // Dynamic manifest so each kid.html?kid=Name can be added to homescreen independently
+    // Dynamic manifest served by the service worker so "Add to Home Screen"
+    // launches kid.html?kid=Name instead of the main dashboard
     (function() {
       var kid = new URLSearchParams(window.location.search).get('kid');
       if (!kid) return;
-      var manifest = {
-        name: kid + "'s Tasks",
-        short_name: kid,
-        description: "Daily tasks for " + kid,
-        start_url: "/kid.html?kid=" + encodeURIComponent(kid),
-        display: "standalone",
-        background_color: "#1a1a2e",
-        theme_color: "#6c63ff",
-        icons: [{ src: "/App Icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
-      };
-      var blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-      document.getElementById('manifestLink').setAttribute('href', URL.createObjectURL(blob));
+      document.getElementById('manifestLink').setAttribute(
+        'href', '/kid-manifest.json?kid=' + encodeURIComponent(kid)
+      );
       document.title = kid + "'s Tasks";
     })();
   </script>
