@@ -92,15 +92,7 @@
     });
     document.getElementById('navMount').innerHTML = renderNavBar('home');
 
-    // ── Connection status ──
-    onConnectionChange(connected => {
-      const existing = document.querySelector('.connection-dot');
-      const html = renderConnectionStatus(connected);
-      if (existing) existing.outerHTML = html;
-      else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', html);
-    });
-
-    // ── Offline/Online banner ──
+    // ── Connection status + Offline/Online banner ──
     const bannerMount = document.createElement('div');
     bannerMount.id = 'offlineBannerMount';
     document.body.appendChild(bannerMount);
@@ -109,6 +101,13 @@
     let wasOffline = false;
 
     onConnectionChange((connected) => {
+      // Update connection dot
+      const existing = document.querySelector('.connection-dot');
+      const dotHtml = renderConnectionStatus(connected);
+      if (existing) existing.outerHTML = dotHtml;
+      else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', dotHtml);
+
+      // Show offline/online banner
       if (bannerTimer) clearTimeout(bannerTimer);
       if (!connected) {
         wasOffline = true;

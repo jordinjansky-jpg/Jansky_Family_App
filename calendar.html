@@ -161,11 +161,6 @@
     // Render
     // ══════════════════════════════════════════
 
-    function getMonthKey(baseMonth, delta) {
-      const d = new Date(Date.UTC(yearNumber(baseMonth + '-01'), monthNumber(baseMonth + '-01') - 1 + delta, 1));
-      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-    }
-
     function renderMonthGrid(month) {
       const mStart = `${month}-01`;
       const mEnd = monthEnd(mStart);
@@ -243,11 +238,11 @@
       // Nav
       html += `<div class="date-header">
         <div class="date-nav">
-          <button class="date-nav__btn" id="prevMonth" type="button" title="Previous 3 months">&lsaquo;</button>
+          <button class="date-nav__btn" id="prevMonth" type="button" title="Previous month">&lsaquo;</button>
           <div class="date-nav__center">
             <span class="date-header__day">${MONTH_NAMES[monthNumber(viewMonth + '-01') - 1]} ${yearNumber(viewMonth + '-01')}</span>
           </div>
-          <button class="date-nav__btn" id="nextMonth" type="button" title="Next 3 months">&rsaquo;</button>
+          <button class="date-nav__btn" id="nextMonth" type="button" title="Next month">&rsaquo;</button>
         </div>
         ${viewMonth !== today.substring(0, 7) ? `<button class="btn btn--ghost btn--sm mt-sm" id="goThisMonth" type="button">This Month</button>` : ''}
       </div>`;
@@ -262,13 +257,8 @@
         <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:var(--success-text, #2e7d32);width:6px;height:6px;border-radius:50%"></span> All done</span>
       </div>`;
 
-      // 3 months: current, next, next+1
-      const nextMonth = getMonthKey(viewMonth, 1);
-      const nextMonth2 = getMonthKey(viewMonth, 2);
-
+      // Single month view (swipe/arrows to navigate)
       html += renderMonthGrid(viewMonth);
-      html += renderMonthGrid(nextMonth);
-      html += renderMonthGrid(nextMonth2);
 
       main.innerHTML = html;
       bindEvents();
@@ -947,6 +937,23 @@
       render();
     }
 
+    // ── Swipe to change month on calendar grid ──
+    let calSwipeStartX = 0;
+    let calSwipeStartY = 0;
+    main.addEventListener('touchstart', (e) => {
+      if (e.target.closest('.cal-sheet') || e.target.closest('.task-card')) return;
+      calSwipeStartX = e.touches[0].clientX;
+      calSwipeStartY = e.touches[0].clientY;
+    }, { passive: true });
+    main.addEventListener('touchend', (e) => {
+      if (e.target.closest('.cal-sheet') || e.target.closest('.task-card')) return;
+      const dx = e.changedTouches[0].clientX - calSwipeStartX;
+      const dy = e.changedTouches[0].clientY - calSwipeStartY;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        changeMonth(dx < 0 ? 1 : -1);
+      }
+    }, { passive: true });
+
     // ══════════════════════════════════════════
     // Completion toggle
     // ══════════════════════════════════════════
@@ -967,16 +974,13 @@
         await writeCompletion(entryKey, record);
 
         // Auto-archive one-time tasks on completion
-        const allSched = await readAllSchedule() || {};
-        for (const [dk, dayEntries] of Object.entries(allSched)) {
-          const entry = dayEntries?.[entryKey];
-          if (entry) {
-            const task = tasks[entry.taskId];
-            if (task && task.rotation === 'once') {
-              task.status = 'completed';
-              await writeTask(entry.taskId, task);
-            }
-            break;
+        const dayEntries = allSchedule[dateKey] || {};
+        const entry = dayEntries[entryKey];
+        if (entry) {
+          const task = tasks[entry.taskId];
+          if (task && task.rotation === 'once') {
+            task.status = 'completed';
+            await writeTask(entry.taskId, task);
           }
         }
       }

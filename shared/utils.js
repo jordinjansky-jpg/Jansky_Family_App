@@ -169,14 +169,6 @@ export function formatDateLong(dateKey) {
  * Escape HTML special characters.
  */
 export function escapeHtml(str) {
-  const div = typeof document !== 'undefined'
-    ? document.createElement('div')
-    : null;
-  if (div) {
-    div.textContent = str;
-    return div.innerHTML;
-  }
-  // Fallback for non-DOM environments
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

@@ -207,7 +207,7 @@
       const skipped = [];
 
       for (const [taskId, task] of Object.entries(tasks)) {
-        if (task.rotation !== rotationType || task.status === 'paused') continue;
+        if (task.rotation !== rotationType || task.status !== 'active') continue;
         if (scheduledTaskIds.has(taskId)) continue;
         // Task is active but wasn't scheduled in this period
         if (task.createdDate && task.createdDate > endDate) continue; // Created after period

@@ -175,9 +175,10 @@ export function dailyScore(personEntries, completions, tasks, categories, settin
   for (const [key, entry] of Object.entries(personEntries)) {
     const task = tasks[entry.taskId];
     if (!task) continue;
-    // Skip event categories — they don't count for scoring
+    // Skip event categories and exempt tasks — they don't count for scoring
     const cat = task.category ? categories[task.category] : null;
     if (cat?.isEvent) continue;
+    if (task.exempt) continue;
     const completion = completions?.[key] || null;
     const pts = earnedPoints(task, completion, {
       isOverdue: isOverdueDate,
@@ -217,9 +218,10 @@ export function buildSnapshot(personEntries, completions, tasks, categories, set
   for (const [key, entry] of Object.entries(personEntries)) {
     const task = tasks[entry.taskId];
     if (!task) continue;
-    // Skip event categories — they don't count for scoring/snapshots
+    // Skip event categories and exempt tasks — they don't count for scoring/snapshots
     const cat = task.category ? categories[task.category] : null;
     if (cat?.isEvent) continue;
+    if (task.exempt) continue;
     const completion = completions?.[key] || null;
     if (completion) {
       earned += earnedPoints(task, completion, { isOverdue: false, pastDueCreditPct });

@@ -78,7 +78,6 @@ function generateRotatedEntries(task, taskId, dateKey) {
   if (mode === 'fixed') {
     // Fixed mode (events): always first owner, no rotation
     const ownerId = task.owners[0];
-    const entries = [];
     if (task.timeOfDay === 'both') {
       entries.push({ ...baseEntry, ownerId, timeOfDay: 'am' });
       entries.push({ ...baseEntry, ownerId, timeOfDay: 'pm' });
