@@ -8,7 +8,7 @@
 }
 
 .cal-page .page-content {
-  height: calc(100dvh - var(--header-height) - var(--nav-height) - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - 40px - var(--nav-height) - env(safe-area-inset-bottom, 0px));
   padding-bottom: 0;
   overflow: hidden;
   display: flex;
@@ -334,5 +334,83 @@
   background: var(--accent);
   border-radius: 2px;
   transition: width 0.4s ease;
+}
+
+/* ============ Calendar Page — Compact Chrome ============ */
+/* Shrink header, nav, filters, legend to maximize grid space */
+
+.cal-page .app-header {
+  min-height: 40px;
+  padding: 4px var(--spacing-md);
+}
+
+.cal-page .header__title {
+  font-size: var(--font-size-sm);
+}
+
+.cal-page .header__subtitle,
+.cal-page .header__date {
+  font-size: 9px;
+}
+
+.cal-page .page-content {
+  padding-top: calc(40px + var(--spacing-sm));
+}
+
+.cal-page .date-header {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.cal-page .date-nav {
+  gap: var(--spacing-sm);
+}
+
+.cal-page .date-nav__btn {
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+}
+
+.cal-page .date-header__day {
+  font-size: var(--font-size-lg);
+}
+
+.cal-page .person-filter {
+  padding: 4px 0 5px;
+  gap: 6px;
+  margin-bottom: 2px;
+  border-bottom: none;
+}
+
+.cal-page .person-pill {
+  padding: 3px 10px;
+  font-size: var(--font-size-xs);
+  min-height: 28px;
+}
+
+.cal-page .cal-legend {
+  padding: 2px 0;
+  margin-bottom: 2px;
+  gap: var(--spacing-sm);
+}
+
+.cal-page .cal-legend__item {
+  font-size: 9px;
+}
+
+.cal-page .cal-grid__dow {
+  padding: 3px 0 2px;
+  font-size: 9px;
+}
+
+.cal-page .btn--sm {
+  min-height: 24px;
+  padding: 2px 10px;
+  font-size: var(--font-size-xs);
+}
+
+.cal-page .mt-sm {
+  margin-top: 2px;
 }
 
