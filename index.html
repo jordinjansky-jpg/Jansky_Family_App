@@ -191,7 +191,8 @@
             overdue: true,
             dateLabel: formatDateShort(item.dateKey),
             points: { possible: pts, override: ovr },
-            isEvent: !!cat?.isEvent
+            isEvent: !!cat?.isEvent,
+            showPoints: settings?.showPoints !== false
           });
         }
         html += `</div>`;
@@ -245,7 +246,8 @@
               completed: false,
               overdue: false,
               points: { possible: pts, override: ovr },
-              isEvent: !!cat?.isEvent
+              isEvent: !!cat?.isEvent,
+              showPoints: settings?.showPoints !== false
             });
           }
         }
@@ -269,7 +271,8 @@
               completed: true,
               overdue: false,
               points: { possible: pts, override: ovr },
-              isEvent: !!cat?.isEvent
+              isEvent: !!cat?.isEvent,
+              showPoints: settings?.showPoints !== false
             });
           }
         }
@@ -522,7 +525,8 @@
         people,
         showDelegate: true,
         showMove: true,
-        showEdit: true
+        showEdit: true,
+        showPoints: settings?.showPoints !== false
       });
 
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);

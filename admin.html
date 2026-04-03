@@ -404,7 +404,7 @@
         <div class="form-group">
           <label class="form-label">Category</label>
           <select id="tf_category">
-            ${ca.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+            ${ca.map(c => `<option value="${c.key}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key || (!task.category && c.isDefault) ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
@@ -679,7 +679,9 @@
             <input type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100">
             <p class="form-hint">% credit for late tasks</p>
           </div>
-          <div class="form-group" style="flex:1"></div>
+          <div class="form-group" style="flex:1">
+            <label class="admin-checkbox" style="margin-top:24px"><input type="checkbox" id="sf_showPoints"${settings?.showPoints !== false ? ' checked' : ''}> Show points on tasks</label>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group" style="flex:1">
@@ -1487,7 +1489,8 @@
           weekendWeightMonthly: parseFloat(main.querySelector('#sf_weekendWeightMonthly')?.value) || 3,
           pastDueCreditPct: parseInt(main.querySelector('#sf_pastDueCredit')?.value, 10) || 75,
           sliderMin: parseInt(main.querySelector('#sf_sliderMin')?.value, 10) || 0,
-          sliderMax: parseInt(main.querySelector('#sf_sliderMax')?.value, 10) || 150
+          sliderMax: parseInt(main.querySelector('#sf_sliderMax')?.value, 10) || 150,
+          showPoints: main.querySelector('#sf_showPoints')?.checked !== false
         };
 
         if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {

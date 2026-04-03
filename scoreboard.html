@@ -477,7 +477,7 @@
 
       html += `<div class="sb-drilldown__summary">
         <span class="grade-badge grade-badge--${gd.tier} grade-badge--lg">${gd.grade}</span>
-        <span class="sb-drilldown__stats">${grade.earned}/${grade.possible} pts · ${grade.percentage}%</span>
+        <span class="sb-drilldown__stats">${settings?.showPoints !== false ? `${grade.earned}/${grade.possible} pts · ` : ''}${grade.percentage}%</span>
       </div>`;
 
       // Task list grouped by status
@@ -498,7 +498,7 @@
           html += `<div class="sb-drilldown__task">
             <span class="sb-drilldown__task-name">${item.category ? item.category + ' ' : ''}${item.name}</span>
             <span class="sb-drilldown__task-date">${formatDateShort(item.date)}</span>
-            <span class="sb-drilldown__task-pts">${item.earned}/${item.pts}</span>
+            ${settings?.showPoints !== false ? `<span class="sb-drilldown__task-pts">${item.earned}/${item.pts}</span>` : ''}
           </div>`;
         }
         html += `</div>`;

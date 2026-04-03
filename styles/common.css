@@ -618,6 +618,7 @@ img {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   max-height: 80vh;
   overflow-y: auto;
+  overflow-x: hidden;
   transform: translateY(100%);
   transition: transform var(--transition-normal);
   padding-bottom: env(safe-area-inset-bottom, 0px);

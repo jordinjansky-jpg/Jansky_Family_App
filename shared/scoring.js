@@ -111,8 +111,9 @@ export function dailyPossible(entries, tasks, categories) {
     const task = tasks[entry.taskId];
     if (!task) continue;
     const cat = task.category ? categories[task.category] : null;
-    // Skip event categories — they don't count for scoring
+    // Skip event categories and exempt tasks — they don't count for scoring
     if (cat?.isEvent) continue;
+    if (task.exempt) continue;
     if (cat && cat.weightPercent > 0) {
       weighted[key] = { entry, task, cat };
     } else {

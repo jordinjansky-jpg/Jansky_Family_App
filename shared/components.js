@@ -215,7 +215,7 @@ export function renderProgressBar(done, total) {
  * points: optional { possible, override } — override is the pointsOverride percentage (null = no override)
  */
 export function renderTaskCard(options) {
-  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent } = options;
+  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, showPoints = true } = options;
   const doneClass = completed ? ' task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
   const eventClass = isEvent ? ' task-card--event' : '';
@@ -226,9 +226,9 @@ export function renderTaskCard(options) {
   const estLabel = task.estMin ? `${task.estMin}m` : '';
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
 
-  // Points label: show override value with color if active, else base (skip for events)
+  // Points label: show override value with color if active, else base (skip for events, exempt, and showPoints off)
   let ptsLabel = '';
-  if (points && !isEvent) {
+  if (points && !isEvent && !task.exempt && showPoints) {
     if (points.override != null && points.override !== 100) {
       const overridePts = Math.round(points.possible * (points.override / 100));
       const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
@@ -310,7 +310,7 @@ export function renderTaskDetailSheet(options) {
   const {
     entryKey, entry, task, person, category, completed, points,
     sliderMin, sliderMax, currentOverride, gradePreview,
-    people, showDelegate, showMove, showEdit, dateKey
+    people, showDelegate, showMove, showEdit, dateKey, showPoints = true
   } = options;
   const catIcon = category?.icon || '';
   const ownerColor = person?.color || 'var(--text-secondary)';
@@ -333,7 +333,7 @@ export function renderTaskDetailSheet(options) {
       <span class="chip">${diffLabel}</span>
       ${todLabel ? `<span class="chip">${todLabel}</span>` : ''}
       ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
-      ${points ? `<span class="chip">${points.possible}pt</span>` : ''}
+      ${points && !task.exempt && showPoints ? `<span class="chip">${points.possible}pt</span>` : ''}
     </div>
     ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${entry.delegatedFromName}</strong></div>` : ''}
     ${entry.movedFromDate ? `<div class="task-detail__source-info">📅 Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
@@ -384,7 +384,7 @@ export function renderTaskDetailSheet(options) {
   }
 
   // Points slider — always visible, preview-only label for incomplete tasks
-  if (points) {
+  if (points && showPoints) {
     const min = sliderMin ?? 0;
     const max = sliderMax ?? 150;
     const earnedPts = Math.round(points.possible * (sliderVal / 100));

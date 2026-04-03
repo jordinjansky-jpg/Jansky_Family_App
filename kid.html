@@ -675,7 +675,8 @@
                 overdue: true,
                 dateLabel: `Overdue`,
                 points: { possible: pts, override: ovr },
-                isEvent: !!cat?.isEvent
+                isEvent: !!cat?.isEvent,
+                showPoints: settings?.showPoints !== false
               });
             }
             html += `</div>`;
@@ -725,7 +726,8 @@
                   completed: true,
                   overdue: false,
                   points: { possible: pts, override: ovr },
-                  isEvent: !!cat?.isEvent
+                  isEvent: !!cat?.isEvent,
+                  showPoints: settings?.showPoints !== false
                 });
               }
             } else {
@@ -761,7 +763,8 @@
                     completed: false,
                     overdue: false,
                     points: { possible: pts, override: ovr },
-                    isEvent: !!cat?.isEvent
+                    isEvent: !!cat?.isEvent,
+                    showPoints: settings?.showPoints !== false
                   });
                 }
               }
@@ -784,7 +787,8 @@
                     completed: true,
                     overdue: false,
                     points: { possible: pts, override: ovr },
-                    isEvent: !!cat?.isEvent
+                    isEvent: !!cat?.isEvent,
+                    showPoints: settings?.showPoints !== false
                   });
                 }
               }

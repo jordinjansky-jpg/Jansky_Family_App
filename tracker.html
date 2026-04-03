@@ -498,7 +498,8 @@
         people,
         showDelegate: true,
         showMove: true,
-        showEdit: true
+        showEdit: true,
+        showPoints: settings?.showPoints !== false
       });
 
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
