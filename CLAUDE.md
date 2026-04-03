@@ -6,7 +6,7 @@ A family chore/task management app with scheduling, scoring, and gamification. E
 - **Frontend:** Vanilla JS (ES modules), HTML, CSS — no framework, no bundler, no npm
 - **Database:** Firebase Realtime Database (compat SDK via CDN — `firebase.` global, not modular imports)
 - **Hosting:** Cloudflare Pages — static files served as-is via `git push` to `main`
-- **Styling:** Single CSS file with CSS variables, themed via JS at runtime
+- **Styling:** Modular CSS split by responsibility, themed via JS at runtime. Service worker caches app shell for offline support.
 
 ## Commands
 ```bash
@@ -29,15 +29,25 @@ git push origin main
 ├── setup.html            ← First-run wizard (6 steps: info, people, categories, theme, PIN, finish)
 ├── manifest.json         ← PWA manifest for home screen installability
 ├── shared/
-│   ├── firebase.js       ← Firebase init + CRUD helpers (~25 exports). Only module that touches DB.
+│   ├── firebase.js       ← Firebase init + CRUD helpers + real-time listener wrappers (~25 exports). Only module that touches DB.
 │   ├── scheduler.js      ← Schedule generation: rotation, cooldown, load balancing, duplicate mode (~850 lines)
 │   ├── scoring.js        ← Points formula, letter grades, snapshots, streaks, weighted categories (~400 lines)
 │   ├── state.js          ← Completion queries, entry filtering/sorting/grouping (~115 lines)
 │   ├── components.js     ← All reusable HTML rendering: cards, sheets, forms, filters (~600 lines)
 │   ├── theme.js          ← 5 theme presets, CSS variable generation, localStorage cache (~260 lines)
-│   └── utils.js          ← Date math, timezone handling, formatting (Intl-based, no libraries) (~240 lines)
+│   ├── utils.js          ← Date math, timezone handling, formatting, debounce (Intl-based, no libraries)
+│   └── swipe.js          ← Card swipe gesture handler (touch events, thresholds, conflict resolution)
 └── styles/
-    └── common.css        ← All styles + CSS variables (~2,720 lines). Breakpoints: 400px, 768px, 1024px
+    ├── base.css          ← CSS variables, reset, typography
+    ├── layout.css        ← Header, nav bar, page-content, spacing
+    ├── components.css    ← Task cards, buttons, forms, badges, progress bars, swipe containers
+    ├── dashboard.css     ← Date header, time sections, task detail sheet, celebration
+    ├── calendar.css      ← Calendar grid, day cells, day sheet
+    ├── scoreboard.css    ← Leaderboard, sparklines, category breakdown
+    ├── tracker.css       ← Status rows, filters, weekly/monthly grids
+    ├── admin.css         ← Admin forms, tabs, PIN screen, setup wizard
+    ├── kid.css           ← Kid mode specific styles
+    └── responsive.css    ← Breakpoint overrides (400px, 768px, 1024px)
 ```
 
 ## Architecture Decisions
@@ -47,6 +57,10 @@ git push origin main
 - **Rendering:** Full re-render on data/filter changes (not incremental). Bottom sheets mount/unmount rather than persist.
 - **Imports:** All ES module imports use relative paths with `.js` extensions — bare imports break without bundler.
 - **Schema:** Changes require a migration plan since data is live in production Firebase.
+- **CSS split:** Styles are split into 10 files by responsibility. Each page loads only the CSS it needs via multiple `<link>` tags. Order matters: base → layout → components → page-specific → responsive.
+- **Offline support:** Service worker caches the full app shell (cache-first strategy). Firebase API calls are network-only. The app loads and functions offline; writes queue and sync on reconnect.
+- **Real-time updates:** Dashboard, calendar, and kid mode use Firebase `onValue` listeners for completions and schedule. Renders are debounced at 100ms. Scoreboard and tracker use one-shot reads (historical data).
+- **Swipe gestures:** Card swipes (complete/details) coexist with day-navigation swipes via touch target detection. Implemented in `shared/swipe.js`.
 
 ## Firebase Schema (`rundown/`)
 ```
@@ -121,6 +135,9 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - Editing an existing task in admin now auto-rebuilds the future schedule (no manual "Rebuild" click needed)
 - All pages use `loadData(); render()` pattern for in-place refresh after mutations (NOT `location.reload()`)
 - CSS has `--font-size-md: 1rem` between `sm` (0.8125rem) and `base` (0.9375rem) — used by scoreboard cards
+- SW cache list must be updated manually when files are added/renamed (bump `CACHE_NAME` version in sw.js)
+- CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
+- `swipe.js` touchmove uses `passive: false` to call `preventDefault()` during horizontal swipes
 
 ## Changelog (last 5)
 - Add meta tags, manifest.json, favicon, PWA support, event time field, auto-rebuild on task edit
