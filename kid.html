@@ -10,18 +10,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="/App Icon.png" type="image/png">
   <link rel="apple-touch-icon" href="/App Icon.png">
-  <link rel="manifest" href="manifest.json" id="manifestLink">
   <title>Family Hub — Kid Mode</title>
   <script>
-    // Dynamic manifest served by the service worker so "Add to Home Screen"
-    // launches kid.html?kid=Name instead of the main dashboard
+    // Set page title to kid's name for "Add to Home Screen" label on iOS
     (function() {
       var kid = new URLSearchParams(window.location.search).get('kid');
-      if (!kid) return;
-      document.getElementById('manifestLink').setAttribute(
-        'href', '/kid-manifest.json?kid=' + encodeURIComponent(kid)
-      );
-      document.title = kid + "'s Tasks";
+      if (kid) document.title = kid + "'s Tasks";
     })();
   </script>
   <link rel="stylesheet" href="styles/base.css">
