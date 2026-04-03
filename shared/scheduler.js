@@ -402,23 +402,36 @@ function personDayLoad(personId, dateKey, newDayEntries, existingDayEntries, tas
  * Returns the dateKey of the lightest day.
  */
 function findLightestDay(personId, dateKeys, futureSchedule, existingSchedule, tasks, weekendWeight) {
-  let bestDay = dateKeys[0];
-  let bestLoad = Infinity;
-
+  // Calculate effective load for each day
+  const candidates = [];
   for (const dk of dateKeys) {
     const existingDay = existingSchedule ? existingSchedule[dk] : null;
     const rawLoad = personDayLoad(personId, dk, futureSchedule[dk], existingDay, tasks);
     // Baseline of 1 ensures weekend weight has effect even on empty days
     // (without it, 0/weight = 0 for all weights, so ties always go to first weekday)
     const effectiveLoad = isWeekend(dk) ? (rawLoad + 1) / weekendWeight : rawLoad + 1;
-
-    if (effectiveLoad < bestLoad) {
-      bestLoad = effectiveLoad;
-      bestDay = dk;
-    }
+    candidates.push({ dk, effectiveLoad });
   }
 
-  return bestDay;
+  // Find minimum load, then collect all days tied at that load
+  const minLoad = Math.min(...candidates.map(c => c.effectiveLoad));
+  const tied = candidates.filter(c => Math.abs(c.effectiveLoad - minLoad) < 0.001);
+
+  // Spread tied days evenly using a hash of first date + personId for variety
+  const seed = tied[0].dk + (personId || '');
+  const pick = tied[Math.abs(hashDateKey(seed)) % tied.length];
+  return pick.dk;
+}
+
+/**
+ * Simple numeric hash from a date key for deterministic but varied tie-breaking.
+ */
+function hashDateKey(dk) {
+  let h = 0;
+  for (let i = 0; i < dk.length; i++) {
+    h = ((h << 5) - h + dk.charCodeAt(i)) | 0;
+  }
+  return h;
 }
 
 // ============================================================
