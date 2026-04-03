@@ -1,5 +1,5 @@
-// Service Worker — cache-first for app shell, network-only for Firebase API
-const CACHE_NAME = 'family-hub-v3';
+// Service Worker — network-first for app shell, network-only for Firebase API
+const CACHE_NAME = 'family-hub-v4';
 
 const APP_SHELL = [
   '/',
@@ -38,9 +38,10 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
+  // Pre-cache app shell for offline use, but don't block on failures
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => cache.addAll(APP_SHELL).catch(() => {}))
       .then(() => self.skipWaiting())
   );
 });
@@ -64,18 +65,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first with stale-while-revalidate for everything else
+  // Network-first: try network, fall back to cache for offline support
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request).then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => cached);
-
-      return cached || fetchPromise;
-    })
+    fetch(event.request).then((response) => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+      }
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });
