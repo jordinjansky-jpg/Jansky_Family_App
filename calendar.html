@@ -234,28 +234,29 @@
 
     function render() {
       let html = '';
+      const isCurrentMonth = viewMonth === today.substring(0, 7);
 
-      // Nav
+      // Month nav — compact single row with optional "Today" link inline
       html += `<div class="date-header">
         <div class="date-nav">
           <button class="date-nav__btn" id="prevMonth" type="button" title="Previous month">&lsaquo;</button>
           <div class="date-nav__center">
             <span class="date-header__day">${MONTH_NAMES[monthNumber(viewMonth + '-01') - 1]} ${yearNumber(viewMonth + '-01')}</span>
+            ${!isCurrentMonth ? `<button class="cal-today-link" id="goThisMonth" type="button">Today</button>` : ''}
           </div>
           <button class="date-nav__btn" id="nextMonth" type="button" title="Next month">&rsaquo;</button>
         </div>
-        ${viewMonth !== today.substring(0, 7) ? `<button class="btn btn--ghost btn--sm mt-sm" id="goThisMonth" type="button">This Month</button>` : ''}
       </div>`;
 
-      // Person filter
+      // Person filter + legend combined into one toolbar
+      html += `<div class="cal-toolbar">`;
       html += renderPersonFilter(people, activePerson);
-
-      // Legend for pill colors
       html += `<div class="cal-legend">
-        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:color-mix(in srgb, var(--accent) 40%, transparent)"></span> Weekly</span>
-        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:color-mix(in srgb, var(--warning-text, #b86e00) 40%, transparent)"></span> Monthly</span>
-        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:var(--success-text, #2e7d32);width:6px;height:6px;border-radius:50%"></span> All done</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:color-mix(in srgb, var(--accent) 40%, transparent)"></span>W</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:color-mix(in srgb, var(--warning-text, #b86e00) 40%, transparent)"></span>M</span>
+        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:var(--success-text, #2e7d32);width:6px;height:6px;border-radius:50%"></span>Done</span>
       </div>`;
+      html += `</div>`;
 
       // Single month view (swipe/arrows to navigate)
       html += renderMonthGrid(viewMonth);
