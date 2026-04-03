@@ -340,6 +340,21 @@
     let editingTaskId = null;
     let showingTemplates = false;
 
+    // Scroll to a task row after render (opening form or closing back to row)
+    function scrollToTask(taskId, openingForm) {
+      requestAnimationFrame(() => {
+        if (openingForm) {
+          // Scroll to the form that just appeared
+          const form = main.querySelector('#taskForm');
+          if (form) form.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+          // Closing — scroll the task row into view
+          const row = main.querySelector(`.admin-list-item[data-task-id="${taskId}"]`);
+          if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      });
+    }
+
     function renderTemplatePanel() {
       let html = `<div class="admin-form mb-md" id="templatePanel">
         <h3 class="admin-form__title">Task Templates</h3>
@@ -1272,14 +1287,20 @@
       for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
         item.addEventListener('click', (e) => {
           if (e.target.closest('.admin-list-item__actions')) return;
-          editingTaskId = editingTaskId === item.dataset.taskId ? null : item.dataset.taskId;
+          const tid = item.dataset.taskId;
+          const wasOpen = editingTaskId === tid;
+          editingTaskId = wasOpen ? null : tid;
           render();
+          scrollToTask(tid, !wasOpen);
         });
       }
       for (const btn of main.querySelectorAll('.admin-edit-task')) {
         btn.addEventListener('click', () => {
-          editingTaskId = editingTaskId === btn.dataset.taskId ? null : btn.dataset.taskId;
+          const tid = btn.dataset.taskId;
+          const wasOpen = editingTaskId === tid;
+          editingTaskId = wasOpen ? null : tid;
           render();
+          scrollToTask(tid, !wasOpen);
         });
       }
 
@@ -1416,8 +1437,10 @@
 
       // Cancel
       main.querySelector('#taskFormCancel')?.addEventListener('click', () => {
+        const prevId = editingTaskId;
         editingTaskId = null;
         render();
+        if (prevId && prevId !== 'new') scrollToTask(prevId, false);
       });
 
       // Save
@@ -1522,8 +1545,10 @@
           await multiUpdate(futureUpdates);
         }
 
+        const savedId = editingTaskId;
         editingTaskId = null;
         render();
+        if (savedId && savedId !== 'new') scrollToTask(savedId, false);
       });
     }
 
