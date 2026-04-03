@@ -588,7 +588,7 @@
           }
           await multiUpdate(updates);
           closeTaskSheet();
-          location.reload();
+          await loadData(); render();
         });
       });
 
@@ -874,23 +874,25 @@
           const mode = taskData.ownerAssignmentMode || 'rotate';
           const timeOfDay = taskData.timeOfDay || 'anytime';
           const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: mode };
+          let qaCounter = 0;
+          const qaKey = () => `sched_${Date.now()}_qa_${String(qaCounter++).padStart(3, '0')}`;
 
           if (mode === 'duplicate') {
             for (const oid of owners) {
               if (timeOfDay === 'both') {
-                schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
-                schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+                schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+                schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
               } else {
-                schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_${oid}`] = { ...baseEntry, ownerId: oid, timeOfDay };
+                schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay };
               }
             }
           } else {
             const ownerId = owners[0];
             if (timeOfDay === 'both') {
-              schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_am`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
-              schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa_pm`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+              schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+              schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
             } else {
-              schedUpdates[`schedule/${schedDate}/sched_${Date.now()}_qa`] = { ...baseEntry, ownerId, timeOfDay };
+              schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay };
             }
           }
           await multiUpdate(schedUpdates);

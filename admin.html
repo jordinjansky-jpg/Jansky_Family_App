@@ -776,7 +776,7 @@
         </div>
         <div id="scoreResetConfirm" style="display:none;">
           <p class="admin-msg admin-msg--danger mb-md">This will wipe all scoring history. Type <strong>RESET</strong> to confirm.</p>
-          <input type="text" id="scoreResetWord" placeholder="Type RESET" style="width:200px;">
+          <input type="text" id="scoreResetWord" placeholder="Type RESET" style="max-width:200px;width:100%;">
           <div class="admin-form__actions mt-md">
             <button class="btn btn--secondary" id="scoreResetCancel" type="button">Cancel</button>
             <button class="btn btn--danger" id="scoreResetConfirmBtn" type="button" disabled>Clear Scoreboard</button>
@@ -790,7 +790,7 @@
         </div>
         <div id="resetConfirm" style="display:none;">
           <p class="admin-msg admin-msg--danger mb-md">Type <strong>RESET</strong> below to confirm.</p>
-          <input type="text" id="resetWord" placeholder="Type RESET" style="width:200px;">
+          <input type="text" id="resetWord" placeholder="Type RESET" style="max-width:200px;width:100%;">
           <div class="admin-form__actions mt-md">
             <button class="btn btn--secondary" id="resetCancel" type="button">Cancel</button>
             <button class="btn btn--danger" id="resetConfirmBtn" type="button" disabled>Delete Everything</button>
@@ -984,6 +984,25 @@
         btn.addEventListener('click', async () => {
           const id = btn.dataset.taskId;
           if (!confirm(`Delete task "${tasksObj[id]?.name}"? This cannot be undone.`)) return;
+
+          // Clean up schedule entries and completions for this task
+          const allSched = await readAllSchedule() || {};
+          const allComp = await readCompletions() || {};
+          const cleanupUpdates = {};
+          for (const [dateKey, dayEntries] of Object.entries(allSched)) {
+            for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
+              if (entry.taskId === id) {
+                cleanupUpdates[`schedule/${dateKey}/${entryKey}`] = null;
+                if (allComp[entryKey]) {
+                  cleanupUpdates[`completions/${entryKey}`] = null;
+                }
+              }
+            }
+          }
+          if (Object.keys(cleanupUpdates).length > 0) {
+            await multiUpdate(cleanupUpdates);
+          }
+
           await removeTask(id);
           delete tasksObj[id];
           render();

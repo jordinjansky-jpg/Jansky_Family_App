@@ -588,7 +588,7 @@
           }
           await multiUpdate(updates);
           closeTaskSheet();
-          location.reload();
+          await loadData(); render();
         });
       });
 

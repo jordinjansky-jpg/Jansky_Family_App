@@ -764,6 +764,7 @@ img {
 /* ============ Dashboard — Date Header ============ */
 .date-header {
   text-align: center;
+  margin-top: var(--spacing-sm);
   margin-bottom: var(--spacing-sm);
 }
 
@@ -1605,7 +1606,7 @@ img {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
   margin-bottom: var(--spacing-lg);
 }
 
@@ -1615,6 +1616,7 @@ img {
   align-items: center;
   padding: var(--spacing-xs) var(--spacing-sm);
   border-bottom: 1px solid var(--border-color);
+  min-width: 320px;
 }
 
 .sb-grades-row:last-child { border-bottom: none; }
@@ -2282,7 +2284,6 @@ img {
   gap: 2px;
   min-width: 0;
   flex: 1;
-  overflow: hidden;
 }
 .admin-list-item__name {
   font-weight: 500;
@@ -2510,9 +2511,10 @@ img {
 }
 .admin-badge {
   display: inline-block;
-  padding: 1px 5px;
+  padding: 2px 8px;
   border-radius: var(--radius-pill, 9999px);
   font-size: 10px;
+  white-space: nowrap;
   background: var(--bg-secondary);
   color: var(--text-secondary);
   white-space: nowrap;
@@ -2574,6 +2576,7 @@ img {
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  overflow: hidden;
 }
 
 /* Header add-task button */

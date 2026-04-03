@@ -285,7 +285,7 @@ function isNextDay(dateA, dateB) {
   const a = new Date(dateA + 'T00:00:00Z');
   const b = new Date(dateB + 'T00:00:00Z');
   const diff = (b - a) / (1000 * 60 * 60 * 24);
-  return diff === 1;
+  return Math.abs(diff - 1) < 0.01;
 }
 
 /**
