@@ -130,4 +130,4 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - `8c433f8` Fix weighted categories to use per-person regular totals instead of family-wide
 
 ## Backlog
-(empty — all phases complete)
+- **Push notifications** — Daily reminders, task delegation alerts. Requires FCM + server-side trigger (Cloud Function or Cloudflare Worker). High effort (~2-3 sessions). See notifications uplift assessment from 2026-04-03.

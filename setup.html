@@ -441,6 +441,7 @@
   <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
     import { initFirebase, writeSettings, writeCategories, pushPerson, readSettings } from './shared/firebase.js';
@@ -748,8 +749,8 @@
       const adults = people.filter(p => p.role === 'adult').length;
       const kids = people.filter(p => p.role === 'child').length;
 
-      let summary = `<strong>${appName}</strong>`;
-      if (familyName) summary += ` — ${familyName}`;
+      let summary = `<strong>${esc(appName)}</strong>`;
+      if (familyName) summary += ` — ${esc(familyName)}`;
       summary += `<br>${people.length} family member${people.length !== 1 ? 's' : ''} (${adults} adult${adults !== 1 ? 's' : ''}, ${kids} kid${kids !== 1 ? 's' : ''})`;
       summary += `<br>${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}`;
 

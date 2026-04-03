@@ -29,12 +29,14 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readSchedule, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, onConnectionChange, onValue, readOnce, multiUpdate } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek } from './shared/utils.js';
+    import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml } from './shared/utils.js';
+    const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
@@ -319,7 +321,7 @@
         const earned = score.pointsMap?.[entryKey] || 0;
         const ovr = comp?.pointsOverride ?? '—';
         const status = comp ? 'done' : 'pending';
-        dbg += `${entryKey.slice(0, 16)} | ${task.name.slice(0, 20).padEnd(20)} | ${String(bp).padStart(4)} | ${String(earned).padStart(6)} | ${String(ovr).padStart(8)} | ${status}\n`;
+        dbg += `${entryKey.slice(0, 16)} | ${esc(task.name).slice(0, 20).padEnd(20)} | ${String(bp).padStart(4)} | ${String(earned).padStart(6)} | ${String(ovr).padStart(8)} | ${status}\n`;
       }
 
       dbg += `</pre>`;
@@ -449,11 +451,25 @@
         await writeCompletion(entryKey, record);
       }
 
+      // Auto-archive one-time tasks on completion
+      let archivedTaskId = null;
+      if (!wasComplete) {
+        const entry = viewEntries[entryKey] || overdueItems.find(([k]) => k === entryKey)?.[1];
+        if (entry) {
+          const task = tasks[entry.taskId];
+          if (task && task.rotation === 'once') {
+            archivedTaskId = entry.taskId;
+            task.status = 'completed';
+            await writeTask(entry.taskId, task);
+          }
+        }
+      }
+
       render();
 
       // Undo toast
       showUndoToast(
-        wasComplete ? 'Task marked incomplete' : 'Task completed',
+        wasComplete ? 'Task marked incomplete' : (archivedTaskId ? 'One-time task completed & archived' : 'Task completed'),
         async () => {
           if (wasComplete) {
             const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'dashboard' };
@@ -462,6 +478,11 @@
           } else {
             delete completions[entryKey];
             await removeCompletion(entryKey);
+            // Restore archived one-time task
+            if (archivedTaskId && tasks[archivedTaskId]) {
+              tasks[archivedTaskId].status = 'active';
+              await writeTask(archivedTaskId, tasks[archivedTaskId]);
+            }
           }
           celebrationShown = false;
           render();

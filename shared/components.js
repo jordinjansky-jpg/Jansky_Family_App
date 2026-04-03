@@ -41,13 +41,13 @@ const NAV_ITEMS = [
 export function renderNavBar(activePage) {
   const items = NAV_ITEMS.map(item => {
     const active = item.id === activePage ? ' nav-item--active' : '';
-    return `<a href="${item.href}" class="nav-item${active}" data-page="${item.id}">
-      <span class="nav-item__icon">${item.icon}</span>
+    return `<a href="${item.href}" class="nav-item${active}" data-page="${item.id}" aria-label="${item.label}"${active ? ' aria-current="page"' : ''}>
+      <span class="nav-item__icon" aria-hidden="true">${item.icon}</span>
       <span class="nav-item__label">${item.label}</span>
     </a>`;
   }).join('');
 
-  return `<nav class="bottom-nav">${items}</nav>`;
+  return `<nav class="bottom-nav" role="navigation" aria-label="Main navigation">${items}</nav>`;
 }
 
 /**
@@ -92,7 +92,7 @@ export function renderHeader(options = {}) {
 export function renderConnectionStatus(connected) {
   const cls = connected ? 'connection-dot--online' : 'connection-dot--offline';
   const label = connected ? 'Connected' : 'Offline';
-  return `<span class="connection-dot ${cls}" title="${label}"></span>`;
+  return `<span class="connection-dot ${cls}" title="${label}" role="status" aria-label="${label}"></span>`;
 }
 
 /**
@@ -124,7 +124,7 @@ export function renderEmptyState(icon, title, subtitle = '') {
  * Returns an HTML string.
  */
 export function renderBottomSheet(content) {
-  return `<div class="bottom-sheet-overlay" id="bottomSheet">
+  return `<div class="bottom-sheet-overlay" id="bottomSheet" role="dialog" aria-modal="true">
     <div class="bottom-sheet">
       <div class="bottom-sheet__handle"></div>
       <div class="bottom-sheet__content">
@@ -142,12 +142,12 @@ export function renderBottomSheet(content) {
  */
 export function renderPersonFilter(people, activePerson) {
   const allActive = !activePerson ? ' person-pill--active' : '';
-  let html = `<div class="person-filter">`;
-  html += `<button class="person-pill${allActive}" data-person-id="">All</button>`;
+  let html = `<div class="person-filter" role="group" aria-label="Filter by person">`;
+  html += `<button class="person-pill${allActive}" data-person-id="" aria-pressed="${!activePerson}">All</button>`;
 
   for (const p of people) {
     const active = activePerson === p.id ? ' person-pill--active' : '';
-    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}">${esc(p.name)}</button>`;
+    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}" aria-pressed="${activePerson === p.id}">${esc(p.name)}</button>`;
   }
 
   html += `</div>`;
@@ -166,7 +166,7 @@ export function renderProgressBar(done, total) {
       <span>${label}</span>
       <span class="progress-pct">${pct}%</span>
     </div>
-    <div class="progress-bar">
+    <div class="progress-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${label}">
       <div class="progress-bar__fill" style="width:${pct}%"></div>
     </div>
   </div>`;
@@ -250,10 +250,10 @@ export function renderTimeHeader(label) {
 export function renderOverdueBanner(count) {
   if (count === 0) return '';
   const s = count === 1 ? 'task' : 'tasks';
-  return `<button class="overdue-banner" id="overdueToggle" type="button">
-    <span class="overdue-banner__icon">⚠️</span>
+  return `<button class="overdue-banner" id="overdueToggle" type="button" aria-expanded="false" aria-controls="overdueList">
+    <span class="overdue-banner__icon" aria-hidden="true">⚠️</span>
     <span class="overdue-banner__text">${count} overdue ${s}</span>
-    <span class="overdue-banner__arrow" id="overdueArrow">▸</span>
+    <span class="overdue-banner__arrow" id="overdueArrow" aria-hidden="true">▸</span>
   </button>`;
 }
 
@@ -262,8 +262,8 @@ export function renderOverdueBanner(count) {
  * grade: letter string (e.g., 'A+', 'B-'), tier: 'a'|'b'|'c'|'d'|'f'
  */
 export function renderGradeBadge(grade, tier) {
-  if (!grade || grade === '--') return `<span class="grade-badge grade-badge--none">--</span>`;
-  return `<span class="grade-badge grade-badge--${tier}">${grade}</span>`;
+  if (!grade || grade === '--') return `<span class="grade-badge grade-badge--none" aria-label="No grade">--</span>`;
+  return `<span class="grade-badge grade-badge--${tier}" aria-label="Grade: ${grade}">${grade}</span>`;
 }
 
 /**

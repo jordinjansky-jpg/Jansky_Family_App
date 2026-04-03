@@ -40,10 +40,12 @@
     <div id="mainContent" style="display:none;"></div>
   </div>
   <div id="navMount"></div>
+  <div id="toastMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
     import {
@@ -54,12 +56,95 @@
       readCompletions, readAllSchedule, readOnce,
       multiUpdate, pushDebugEvent, factoryReset, onConnectionChange
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState, renderUndoToast } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, buildPeriodResetUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints } from './shared/scoring.js';
+
+    // ── Undo toast helper ──
+    let undoTimer = null;
+    function showUndoToast(message, undoCallback) {
+      const mount = document.getElementById('toastMount');
+      mount.innerHTML = renderUndoToast(message);
+      if (undoTimer) clearTimeout(undoTimer);
+      mount.querySelector('.undo-toast__btn').addEventListener('click', () => {
+        clearTimeout(undoTimer);
+        mount.innerHTML = '';
+        undoCallback();
+      });
+      undoTimer = setTimeout(() => {
+        const toast = mount.querySelector('.undo-toast');
+        if (toast) toast.style.opacity = '0';
+        setTimeout(() => { mount.innerHTML = ''; }, 300);
+      }, 5000);
+    }
+
+    // ── Task template presets ──
+    const TASK_TEMPLATES = {
+      'daily-chores': {
+        label: 'Daily Chores',
+        icon: '🧹',
+        tasks: [
+          { name: 'Make bed', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'am' },
+          { name: 'Brush teeth (morning)', rotation: 'daily', difficulty: 'easy', estMin: 3, timeOfDay: 'am' },
+          { name: 'Brush teeth (night)', rotation: 'daily', difficulty: 'easy', estMin: 3, timeOfDay: 'pm' },
+          { name: 'Pick up room', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
+          { name: 'Set the table', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' },
+          { name: 'Clear the table', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' },
+          { name: 'Load dishwasher', rotation: 'daily', difficulty: 'medium', estMin: 10, timeOfDay: 'pm' },
+          { name: 'Wipe kitchen counters', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' }
+        ]
+      },
+      'weekly-chores': {
+        label: 'Weekly Chores',
+        icon: '📅',
+        tasks: [
+          { name: 'Vacuum living room', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
+          { name: 'Mop kitchen floor', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
+          { name: 'Clean bathroom', rotation: 'weekly', difficulty: 'hard', estMin: 20, timeOfDay: 'anytime' },
+          { name: 'Take out trash', rotation: 'weekly', difficulty: 'easy', estMin: 5, timeOfDay: 'anytime' },
+          { name: 'Do laundry', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
+          { name: 'Change bed sheets', rotation: 'weekly', difficulty: 'medium', estMin: 10, timeOfDay: 'anytime' },
+          { name: 'Water plants', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' }
+        ]
+      },
+      'monthly-chores': {
+        label: 'Monthly Chores',
+        icon: '📆',
+        tasks: [
+          { name: 'Deep clean fridge', rotation: 'monthly', difficulty: 'hard', estMin: 30, timeOfDay: 'anytime' },
+          { name: 'Wipe baseboards', rotation: 'monthly', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
+          { name: 'Clean windows', rotation: 'monthly', difficulty: 'medium', estMin: 25, timeOfDay: 'anytime' },
+          { name: 'Organize pantry', rotation: 'monthly', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
+          { name: 'Dust ceiling fans', rotation: 'monthly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' }
+        ]
+      },
+      'kid-chores': {
+        label: 'Kid-Friendly Chores',
+        icon: '👦',
+        tasks: [
+          { name: 'Feed the pet', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'am' },
+          { name: 'Put away toys', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
+          { name: 'Help with laundry', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' },
+          { name: 'Dust furniture', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' },
+          { name: 'Sort recycling', rotation: 'weekly', difficulty: 'easy', estMin: 5, timeOfDay: 'anytime' },
+          { name: 'Water garden', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' }
+        ]
+      },
+      'self-care': {
+        label: 'Self-Care & Routines',
+        icon: '🧘',
+        tasks: [
+          { name: 'Morning workout', rotation: 'daily', difficulty: 'medium', estMin: 30, timeOfDay: 'am' },
+          { name: 'Read for 20 minutes', rotation: 'daily', difficulty: 'easy', estMin: 20, timeOfDay: 'pm' },
+          { name: 'Practice instrument', rotation: 'daily', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
+          { name: 'Journal / reflect', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
+          { name: 'Screen-free hour', rotation: 'daily', difficulty: 'easy', estMin: 60, timeOfDay: 'pm' }
+        ]
+      }
+    };
 
     // ── Cached theme ──
     const cached = loadCachedTheme();
@@ -184,15 +269,15 @@
     // ══════════════════════════════════════════
 
     function render() {
-      let html = `<div class="admin-tabs">`;
+      let html = `<div class="admin-tabs" role="tablist" aria-label="Admin sections">`;
       for (const tab of TABS) {
         const active = tab.id === activeTab ? ' admin-tab--active' : '';
-        html += `<button class="admin-tab${active}" data-tab="${tab.id}" type="button">
-          <span class="admin-tab__icon">${tab.icon}</span>
+        html += `<button class="admin-tab${active}" data-tab="${tab.id}" type="button" role="tab" aria-selected="${tab.id === activeTab}" aria-controls="admin-panel-${tab.id}">
+          <span class="admin-tab__icon" aria-hidden="true">${tab.icon}</span>
           <span class="admin-tab__label">${tab.label}</span>
         </button>`;
       }
-      html += `</div><div class="admin-content">`;
+      html += `</div><div class="admin-content" role="tabpanel" id="admin-panel-${activeTab}">`;
 
       switch (activeTab) {
         case 'tasks': html += renderTasksTab(); break;
@@ -227,6 +312,27 @@
     let taskFilter = { rotation: '', owner: '', category: '', status: '', difficulty: '' };
     let taskSort = 'name';
     let editingTaskId = null;
+    let showingTemplates = false;
+
+    function renderTemplatePanel() {
+      let html = `<div class="admin-form mb-md" id="templatePanel">
+        <h3 class="admin-form__title">Task Templates</h3>
+        <p class="form-hint mb-md">Select a template pack to import common chore sets. Tasks are created with "rotate" assignment mode — assign owners after import.</p>`;
+
+      for (const [key, pack] of Object.entries(TASK_TEMPLATES)) {
+        html += `<div class="admin-template-pack mb-md" style="border:1px solid var(--border-color);border-radius:8px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong>${pack.icon} ${esc(pack.label)}</strong>
+            <button class="btn btn--primary btn--sm template-import-btn" data-template="${key}" type="button">Import ${pack.tasks.length} tasks</button>
+          </div>
+          <div class="form-hint mt-sm">${pack.tasks.map(t => esc(t.name)).join(', ')}</div>
+        </div>`;
+      }
+
+      html += `<button class="btn btn--secondary" id="closeTemplates" type="button">Close</button>
+      </div>`;
+      return html;
+    }
 
     function renderTasksTab() {
       const pa = peopleArray();
@@ -301,8 +407,16 @@
 
       html += `<div class="admin-section-header">
         <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
-        <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
+        <div>
+          <button class="btn btn--secondary btn--sm" id="templateBtn" type="button">📋 Templates</button>
+          <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
+        </div>
       </div>`;
+
+      // Template panel
+      if (showingTemplates) {
+        html += renderTemplatePanel();
+      }
 
       // New task form at top
       if (editingTaskId === 'new') {
@@ -557,6 +671,14 @@
               <option value="subtle"${ks.celebrationStyle === 'subtle' ? ' selected' : ''}>Subtle</option>
               <option value="off"${ks.celebrationStyle === 'off' ? ' selected' : ''}>Off</option>
             </select>
+          </div>
+          <div class="form-group mt-sm">
+            <label class="form-label">Personal Theme</label>
+            <select id="pf_theme">
+              <option value=""${!person.theme?.preset ? ' selected' : ''}>Use family theme</option>
+              ${getPresets().map(p => `<option value="${p.key}"${person.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
+            </select>
+            <p class="form-hint">Override the app theme for this person's kid mode view.</p>
           </div>
         </div>
         <div class="admin-form__actions mt-md">
@@ -846,9 +968,32 @@
 
     function renderDataTab() {
       let html = `<div class="admin-form">
-        <h3 class="admin-form__title">Export Data</h3>
-        <p class="form-hint mb-md">Download a JSON dump of all Firebase data under rundown/.</p>
-        <button class="btn btn--secondary" id="exportDataBtn" type="button">Export JSON</button>
+        <h3 class="admin-form__title">Export & Import</h3>
+        <p class="form-hint mb-md">Download a JSON dump or restore from a backup.</p>
+        <div class="admin-form__actions">
+          <button class="btn btn--secondary" id="exportDataBtn" type="button">Export JSON</button>
+          <label class="btn btn--secondary" style="cursor:pointer;">
+            Import JSON
+            <input type="file" id="importDataInput" accept=".json" style="display:none;">
+          </label>
+        </div>
+        <div id="importStatus" class="mt-sm"></div>
+
+        <h3 class="admin-form__title mt-lg">Archive Old Data</h3>
+        <p class="form-hint mb-md">Prune schedule entries, completions, and snapshots older than N months. Tasks and settings are kept.</p>
+        <div class="form-row" style="align-items:flex-end;">
+          <div class="form-group" style="flex:0 0 120px;">
+            <label class="form-label">Older than</label>
+            <select id="archiveMonths" class="form-input">
+              <option value="3">3 months</option>
+              <option value="6" selected>6 months</option>
+              <option value="9">9 months</option>
+              <option value="12">12 months</option>
+            </select>
+          </div>
+          <button class="btn btn--secondary" id="archiveBtn" type="button">Prune Data</button>
+        </div>
+        <div id="archiveStatus" class="mt-sm"></div>
 
         <h3 class="admin-form__title mt-lg">Reset Scoreboard</h3>
         <p class="form-hint mb-md">Delete all snapshots, streaks, and completion records. Tasks and schedule are kept. Scores will rebuild from scratch.</p>
@@ -992,7 +1137,7 @@
       info += `Category: ${catsObj[task.category]?.label || task.category || 'None'}\n`;
       info += `Created: ${task.createdDate || '?'}\n`;
 
-      el.innerHTML = `<pre class="admin-pre">${info}</pre>`;
+      el.innerHTML = `<pre class="admin-pre">${esc(info)}</pre>`;
     }
 
     // ══════════════════════════════════════════
@@ -1032,8 +1177,64 @@
       // Add task
       main.querySelector('#addTaskBtn')?.addEventListener('click', () => {
         editingTaskId = 'new';
+        showingTemplates = false;
         render();
       });
+
+      // Templates toggle
+      main.querySelector('#templateBtn')?.addEventListener('click', () => {
+        showingTemplates = !showingTemplates;
+        render();
+      });
+      main.querySelector('#closeTemplates')?.addEventListener('click', () => {
+        showingTemplates = false;
+        render();
+      });
+
+      // Template import buttons
+      for (const btn of main.querySelectorAll('.template-import-btn')) {
+        btn.addEventListener('click', async () => {
+          const key = btn.dataset.template;
+          const pack = TASK_TEMPLATES[key];
+          if (!pack) return;
+          btn.disabled = true;
+          btn.textContent = 'Importing...';
+
+          // Find default category (first non-event category, or none)
+          const defaultCat = catsArray().find(c => !c.isEvent)?.key || '';
+
+          let imported = 0;
+          for (const t of pack.tasks) {
+            // Skip if task with same name already exists
+            const exists = Object.values(tasksObj).some(existing => existing.name === t.name);
+            if (exists) continue;
+
+            const taskData = {
+              name: t.name,
+              rotation: t.rotation,
+              difficulty: t.difficulty || 'medium',
+              estMin: t.estMin || 10,
+              timeOfDay: t.timeOfDay || 'anytime',
+              ownerAssignmentMode: 'rotate',
+              owners: [],
+              category: defaultCat,
+              status: 'active',
+              createdDate: today
+            };
+            const newId = await pushTask(taskData);
+            tasksObj[newId] = taskData;
+            imported++;
+          }
+
+          showingTemplates = false;
+          render();
+          if (imported > 0) {
+            showUndoToast(`Imported ${imported} tasks from "${pack.label}"`, () => {});
+          } else {
+            showUndoToast(`All tasks from "${pack.label}" already exist`, () => {});
+          }
+        });
+      }
 
       // Edit task — click row or edit button
       for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
@@ -1062,33 +1263,47 @@
         });
       }
 
-      // Delete task
+      // Delete task (with undo)
       for (const btn of main.querySelectorAll('.admin-delete-task')) {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.taskId;
-          if (!confirm(`Delete task "${tasksObj[id]?.name}"? This cannot be undone.`)) return;
+          const taskBackup = { ...tasksObj[id] };
+          const taskName = taskBackup.name || 'task';
 
-          // Clean up schedule entries and completions for this task
-          const allSched = await readAllSchedule() || {};
-          const allComp = await readCompletions() || {};
-          const cleanupUpdates = {};
-          for (const [dateKey, dayEntries] of Object.entries(allSched)) {
-            for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
-              if (entry.taskId === id) {
-                cleanupUpdates[`schedule/${dateKey}/${entryKey}`] = null;
-                if (allComp[entryKey]) {
-                  cleanupUpdates[`completions/${entryKey}`] = null;
+          // Immediately hide from UI
+          delete tasksObj[id];
+          editingTaskId = null;
+          render();
+
+          // Delayed delete — undo restores before Firebase delete fires
+          let cancelled = false;
+          const deleteTimer = setTimeout(async () => {
+            if (cancelled) return;
+            const allSched = await readAllSchedule() || {};
+            const allComp = await readCompletions() || {};
+            const cleanupUpdates = {};
+            for (const [dateKey, dayEntries] of Object.entries(allSched)) {
+              for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
+                if (entry.taskId === id) {
+                  cleanupUpdates[`schedule/${dateKey}/${entryKey}`] = null;
+                  if (allComp[entryKey]) {
+                    cleanupUpdates[`completions/${entryKey}`] = null;
+                  }
                 }
               }
             }
-          }
-          if (Object.keys(cleanupUpdates).length > 0) {
-            await multiUpdate(cleanupUpdates);
-          }
+            if (Object.keys(cleanupUpdates).length > 0) {
+              await multiUpdate(cleanupUpdates);
+            }
+            await removeTask(id);
+          }, 5500);
 
-          await removeTask(id);
-          delete tasksObj[id];
-          render();
+          showUndoToast(`Deleted "${taskName}"`, () => {
+            cancelled = true;
+            clearTimeout(deleteTimer);
+            tasksObj[id] = taskBackup;
+            render();
+          });
         });
       }
 
@@ -1302,14 +1517,29 @@
         });
       }
 
+      // Delete person (with undo)
       for (const btn of main.querySelectorAll('.admin-delete-person')) {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.personId;
-          const name = peopleObj[id]?.name || 'this person';
-          if (!confirm(`Remove ${name}? Tasks assigned to them will keep their assignment.`)) return;
-          await removeData(`people/${id}`);
+          const personBackup = { ...peopleObj[id] };
+          const name = personBackup.name || 'this person';
+
           delete peopleObj[id];
+          editingPersonId = null;
           render();
+
+          let cancelled = false;
+          const deleteTimer = setTimeout(async () => {
+            if (cancelled) return;
+            await removeData(`people/${id}`);
+          }, 5500);
+
+          showUndoToast(`Removed "${name}"`, () => {
+            cancelled = true;
+            clearTimeout(deleteTimer);
+            peopleObj[id] = personBackup;
+            render();
+          });
         });
       }
 
@@ -1364,6 +1594,12 @@
             celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
             celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full'
           };
+          const themePreset = main.querySelector('#pf_theme')?.value;
+          if (themePreset) {
+            personData.theme = { preset: themePreset, accentColor: settings?.theme?.accentColor || '#5b7fd6' };
+          } else {
+            personData.theme = null;
+          }
         }
 
         if (editingPersonId === 'new') {
@@ -1654,6 +1890,143 @@
         a.download = `daily-rundown-export-${today}.json`;
         a.click();
         URL.revokeObjectURL(url);
+      });
+
+      // Import data
+      main.querySelector('#importDataInput')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const statusEl = main.querySelector('#importStatus');
+        statusEl.innerHTML = '<span class="text-muted">Reading file...</span>';
+
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          if (!data || typeof data !== 'object') throw new Error('Invalid JSON structure');
+
+          // Validate it looks like a rundown export
+          const hasKnownKeys = ['settings', 'people', 'tasks', 'categories', 'schedule'].some(k => k in data);
+          if (!hasKnownKeys) throw new Error('File does not appear to be a Daily Rundown export');
+
+          if (!confirm('This will OVERWRITE all current data with the imported backup. Continue?')) {
+            statusEl.innerHTML = '';
+            return;
+          }
+
+          statusEl.innerHTML = '<span class="text-muted">Importing...</span>';
+
+          // Write the entire data object under rundown/
+          const updates = {};
+          for (const [key, value] of Object.entries(data)) {
+            updates[key] = value;
+          }
+          await multiUpdate(updates);
+
+          // Reload local state
+          const [newSettings, newPeople, newTasks, newCats] = await Promise.all([
+            readSettings(), readPeople(), readTasks(), readCategories()
+          ]);
+          Object.assign(settings, newSettings || {});
+          peopleObj = newPeople || {};
+          tasksObj = newTasks || {};
+          catsObj = newCats || {};
+
+          statusEl.innerHTML = '<span class="admin-msg admin-msg--success">Import complete! Data restored.</span>';
+          setTimeout(() => { statusEl.innerHTML = ''; render(); }, 2000);
+        } catch (err) {
+          statusEl.innerHTML = `<span class="admin-msg admin-msg--danger">Import failed: ${esc(err.message)}</span>`;
+        }
+      });
+
+      // Archive old data
+      main.querySelector('#archiveBtn')?.addEventListener('click', async () => {
+        const months = parseInt(main.querySelector('#archiveMonths').value, 10);
+        const statusEl = main.querySelector('#archiveStatus');
+        const btn = main.querySelector('#archiveBtn');
+
+        const cutoffDate = addDays(today, -(months * 30));
+
+        btn.disabled = true;
+        btn.textContent = 'Scanning...';
+        statusEl.innerHTML = '';
+
+        try {
+          const [allSched, allComp, allSnaps] = await Promise.all([
+            readAllSchedule(), readCompletions(), readOnce('snapshots')
+          ]);
+
+          const pruneUpdates = {};
+          let schedCount = 0, compCount = 0, snapCount = 0;
+
+          // Prune old schedule entries
+          if (allSched) {
+            for (const dateKey of Object.keys(allSched)) {
+              if (dateKey < cutoffDate) {
+                pruneUpdates[`schedule/${dateKey}`] = null;
+                schedCount++;
+              }
+            }
+          }
+
+          // Prune completions tied to old schedule entries
+          if (allComp && allSched) {
+            for (const [entryKey, comp] of Object.entries(allComp)) {
+              // Check if this completion's schedule entry was pruned
+              let foundInFuture = false;
+              if (allSched) {
+                for (const dateKey of Object.keys(allSched)) {
+                  if (dateKey >= cutoffDate && allSched[dateKey]?.[entryKey]) {
+                    foundInFuture = true;
+                    break;
+                  }
+                }
+              }
+              if (!foundInFuture) {
+                // Check all old dates for this entry
+                let foundInOld = false;
+                for (const dateKey of Object.keys(allSched)) {
+                  if (dateKey < cutoffDate && allSched[dateKey]?.[entryKey]) {
+                    foundInOld = true;
+                    break;
+                  }
+                }
+                if (foundInOld) {
+                  pruneUpdates[`completions/${entryKey}`] = null;
+                  compCount++;
+                }
+              }
+            }
+          }
+
+          // Prune old snapshots
+          if (allSnaps) {
+            for (const dateKey of Object.keys(allSnaps)) {
+              if (dateKey < cutoffDate) {
+                pruneUpdates[`snapshots/${dateKey}`] = null;
+                snapCount++;
+              }
+            }
+          }
+
+          const totalPruned = schedCount + compCount + snapCount;
+          if (totalPruned === 0) {
+            statusEl.innerHTML = '<span class="text-muted">No data older than the cutoff to prune.</span>';
+          } else {
+            if (!confirm(`Prune ${schedCount} schedule days, ${compCount} completions, ${snapCount} snapshot days older than ${months} months?`)) {
+              statusEl.innerHTML = '';
+              btn.disabled = false;
+              btn.textContent = 'Prune Data';
+              return;
+            }
+            await multiUpdate(pruneUpdates);
+            statusEl.innerHTML = `<span class="admin-msg admin-msg--success">Pruned ${totalPruned} records (${schedCount} schedule days, ${compCount} completions, ${snapCount} snapshots).</span>`;
+          }
+        } catch (err) {
+          statusEl.innerHTML = `<span class="admin-msg admin-msg--danger">Archive failed: ${esc(err.message)}</span>`;
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Prune Data';
       });
 
       // Scoreboard reset
