@@ -384,13 +384,13 @@
         <div class="form-group" id="dedicatedDayGroup" style="display:${(!task.rotation || task.rotation === 'daily') ? 'none' : ''}">
           <label class="form-label" id="dedicatedDayLabel">${task.rotation === 'once' ? 'Scheduled Date' : 'Dedicated Day'} <button type="button" id="tf_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${catsObj[task.category]?.isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
           <input type="date" id="tf_eventDate" style="position:absolute;opacity:0;pointer-events:none;" value="${task.dedicatedDate || ''}">
-          <div id="dayChips" style="display:${task.rotation === 'once' ? 'none' : 'flex'};flex-wrap:wrap;gap:6px;">
+          <select id="daySelect" class="dedicated-day-select" style="display:${task.rotation === 'once' ? 'none' : ''}">
+            <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
             ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
               const val = (i + 1) % 7; // Mon=1..Sat=6,Sun=0
-              return `<button type="button" class="btn btn--secondary btn--sm day-chip${task.dedicatedDay === val ? ' day-chip--active' : ''}" data-day="${val}">${d}</button>`;
+              return `<option value="${val}"${task.dedicatedDay === val ? ' selected' : ''}>${d}</option>`;
             }).join('')}
-            <button type="button" class="btn btn--secondary btn--sm day-chip${task.dedicatedDay == null ? ' day-chip--active' : ''}" data-day="" style="margin-left:auto">Any</button>
-          </div>
+          </select>
           <div id="dedicatedDateRow" style="display:${task.rotation === 'once' ? '' : 'none'}">
             <input type="date" id="tf_dedicatedDate" value="${task.dedicatedDate || ''}" class="task-detail__date-input" style="width:100%">
           </div>
@@ -1054,13 +1054,7 @@
         });
       }
 
-      // Day chip toggle
-      for (const chip of main.querySelectorAll('.day-chip')) {
-        chip.addEventListener('click', () => {
-          main.querySelectorAll('.day-chip').forEach(c => c.classList.remove('day-chip--active'));
-          chip.classList.add('day-chip--active');
-        });
-      }
+      // (Day selection is now a <select> — no chip toggle needed)
 
       // Category change — show/hide event date icon
       main.querySelector('#tf_category')?.addEventListener('change', (e) => {
@@ -1085,7 +1079,7 @@
       main.querySelector('#tf_rotation')?.addEventListener('change', (e) => {
         const rot = e.target.value;
         const group = main.querySelector('#dedicatedDayGroup');
-        const chips = main.querySelector('#dayChips');
+        const daySelect = main.querySelector('#daySelect');
         const dateRow = main.querySelector('#dedicatedDateRow');
         const label = main.querySelector('#dedicatedDayLabel');
         const catOpt = main.querySelector('#tf_category')?.selectedOptions[0];
@@ -1097,11 +1091,11 @@
           const eventBtn = label?.querySelector('#tf_eventDateBtn');
           const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
-            chips.style.display = 'none';
+            daySelect.style.display = 'none';
             dateRow.style.display = isEvent ? 'none' : '';
             label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
           } else {
-            chips.style.display = 'flex';
+            daySelect.style.display = '';
             dateRow.style.display = 'none';
             label.innerHTML = 'Dedicated Day ' + btnHtml;
           }
@@ -1130,10 +1124,9 @@
         const cooldown = main.querySelector('#tf_cooldown')?.value;
         const rotation = main.querySelector('#tf_rotation')?.value || 'daily';
 
-        // Read dedicated day from chips or date from picker
-        const activeChip = main.querySelector('.day-chip.day-chip--active');
-        const chipVal = activeChip?.dataset.day;
-        const dedicatedDay = (rotation !== 'once' && chipVal !== '' && chipVal != null) ? parseInt(chipVal, 10) : null;
+        // Read dedicated day from select or date from picker
+        const dayVal = main.querySelector('#daySelect')?.value;
+        const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
         const dedicatedDate = rotation === 'once' ? (main.querySelector('#tf_dedicatedDate')?.value || null) : null;
 
         const catKey = main.querySelector('#tf_category')?.value || '';

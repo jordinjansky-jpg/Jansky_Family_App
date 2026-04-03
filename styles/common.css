@@ -925,9 +925,7 @@ img {
   font-weight: 600;
   font-size: var(--font-size-base);
   line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .task-card__right {
@@ -1028,8 +1026,7 @@ img {
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 8px;
-  margin-left: 6px;
-  vertical-align: middle;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 .task-card__tag--delegated {
@@ -2377,17 +2374,15 @@ img {
   font-weight: 700;
 }
 
-/* Day chip toggle */
-.day-chip {
-  min-width: 44px;
-  padding: 6px 8px;
-  font-size: 0.82rem;
-}
-.day-chip--active {
-  background: var(--accent-light) !important;
-  border-color: var(--accent) !important;
-  color: var(--accent) !important;
-  font-weight: 700;
+/* Dedicated day dropdown */
+.dedicated-day-select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: var(--font-size-base);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 /* Admin Messages */

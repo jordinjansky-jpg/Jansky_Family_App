@@ -246,7 +246,8 @@ export function renderTaskCard(options) {
 
   return `<button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}${eventStyle}">
     <span class="task-card__initial">${ownerInitial}</span>
-    <span class="task-card__name">${taskName}${actionTag}</span>
+    <span class="task-card__name">${taskName}</span>
+    ${actionTag}
     <div class="task-card__right">
       <span class="task-card__meta">${meta}</span>
       ${dateLine}
@@ -471,13 +472,13 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
     <div class="form-group" id="qa_dedicatedDayGroup" style="display:none">
       <label class="form-label" id="qa_dedicatedDayLabel">Dedicated Day <button type="button" id="qa_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${defaultIsEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
       <input type="date" id="qa_eventDate" style="position:absolute;opacity:0;pointer-events:none;">
-      <div id="qa_dayChips" style="display:flex;flex-wrap:wrap;gap:6px;">
+      <select id="qa_daySelect" class="dedicated-day-select" style="display:none">
+        <option value="" selected>Any</option>
         ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
           const val = (i + 1) % 7;
-          return `<button type="button" class="btn btn--secondary btn--sm day-chip" data-day="${val}">${d}</button>`;
+          return `<option value="${val}">${d}</option>`;
         }).join('')}
-        <button type="button" class="btn btn--secondary btn--sm day-chip day-chip--active" data-day="" style="margin-left:auto">Any</button>
-      </div>
+      </select>
       <div id="qa_dedicatedDateRow" style="display:none">
         <input type="date" id="qa_dedicatedDate" class="task-detail__date-input" style="width:100%">
       </div>

@@ -776,7 +776,7 @@
       document.getElementById('qa_rotation')?.addEventListener('change', (e) => {
         const rot = e.target.value;
         const group = document.getElementById('qa_dedicatedDayGroup');
-        const chips = document.getElementById('qa_dayChips');
+        const daySelect = document.getElementById('qa_daySelect');
         const dateRow = document.getElementById('qa_dedicatedDateRow');
         const label = document.getElementById('qa_dedicatedDayLabel');
         const catOpt = document.getElementById('qa_category')?.selectedOptions[0];
@@ -788,11 +788,11 @@
           const eventBtn = label?.querySelector('#qa_eventDateBtn');
           const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
-            chips.style.display = 'none';
+            daySelect.style.display = 'none';
             dateRow.style.display = isEvent ? 'none' : '';
             label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
           } else {
-            chips.style.display = 'flex';
+            daySelect.style.display = '';
             dateRow.style.display = 'none';
             label.innerHTML = 'Dedicated Day ' + btnHtml;
           }
@@ -803,14 +803,6 @@
           });
         }
       });
-
-      // Day chip toggle
-      for (const chip of document.querySelectorAll('#qa_dayChips .day-chip')) {
-        chip.addEventListener('click', () => {
-          document.querySelectorAll('#qa_dayChips .day-chip').forEach(c => c.classList.remove('day-chip--active'));
-          chip.classList.add('day-chip--active');
-        });
-      }
 
       // Assignment mode toggle
       const modeGroup = document.getElementById('qa_assignModeHint')?.parentElement;
@@ -842,9 +834,8 @@
         const assignMode = isEvent ? 'fixed' : (activeModeBtn?.dataset.mode || 'rotate');
 
         // Read dedicated day/date
-        const activeChip = document.querySelector('#qa_dayChips .day-chip.day-chip--active');
-        const chipVal = activeChip?.dataset.day;
-        const dedicatedDay = (rotation !== 'once' && chipVal !== '' && chipVal != null) ? parseInt(chipVal, 10) : null;
+        const dayVal = document.getElementById('qa_daySelect')?.value;
+        const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
         const dedicatedDate = isEvent && eventDate ? eventDate : (rotation === 'once' ? (document.getElementById('qa_dedicatedDate')?.value || null) : null);
 
         const taskData = {
