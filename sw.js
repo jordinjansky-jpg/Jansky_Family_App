@@ -1,5 +1,5 @@
 // Service Worker — network-first for app shell, network-only for Firebase API
-const CACHE_NAME = 'family-hub-v22';
+const CACHE_NAME = 'family-hub-v23';
 
 const APP_SHELL = [
   '/',
@@ -88,6 +88,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname === '/person-manifest.json') {
     const person = url.searchParams.get('person') || 'User';
     const manifest = {
+      id: "/person/" + encodeURIComponent(person),
       name: person + "'s Family Hub",
       short_name: person,
       description: "Daily tasks for " + person,
