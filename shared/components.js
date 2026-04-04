@@ -600,15 +600,24 @@ export function getSelectedOwners(containerId) {
  * familyTheme: the Firebase settings.theme (fallback when device override cleared)
  * onApply: optional callback after theme changes (e.g. to re-render page)
  */
-export function openDeviceThemeSheet(mountEl, familyTheme, onApply) {
+export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) {
   const presets = getPresets();
   const colorPalette = getColorPalette();
   const current = loadDeviceTheme();
   const currentPreset = current?.preset || '';
   const currentAccent = current?.accentColor || familyTheme?.accentColor || '#5b7fd6';
 
+  // Person color section (shown when accessed via ?person= link)
+  const personColorHtml = personOpts ? `
+    <div class="dt-section">
+      <label class="form-label">My Color</label>
+      <div class="dt-colors">
+        ${colorPalette.map(c => `<button class="dt-person-color-btn${c === personOpts.person.color ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`).join('')}
+      </div>
+    </div>` : '';
+
   const html = renderBottomSheet(`<div class="task-detail-sheet">
-    <h3 class="admin-form__title">Device Theme</h3>
+    <h3 class="admin-form__title">${personOpts ? 'My Settings' : 'Device Theme'}</h3>
     <div class="dt-section">
       <label class="form-label">Theme</label>
       <div class="dt-themes">
@@ -622,6 +631,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply) {
         ${colorPalette.map(c => `<button class="dt-color-btn${c === currentAccent ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`).join('')}
       </div>
     </div>
+    ${personColorHtml}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>
@@ -637,15 +647,25 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply) {
   let activePreset = currentPreset;
   let activeAccent = currentAccent;
 
-  function applyAndSave() {
+  async function applyAndSave() {
     if (!activePreset) {
       saveDeviceTheme(null);
       applyTheme(familyTheme || defaultThemeConfig());
+      if (personOpts) {
+        personOpts.person.theme = null;
+        const { id, ...data } = personOpts.person;
+        await personOpts.writePerson(id, data);
+      }
     } else {
       const info = presets.find(p => p.key === activePreset);
       const themeConfig = { mode: info.mode, preset: activePreset, accentColor: activeAccent };
       saveDeviceTheme(themeConfig);
       applyTheme(themeConfig);
+      if (personOpts) {
+        personOpts.person.theme = themeConfig;
+        const { id, ...data } = personOpts.person;
+        await personOpts.writePerson(id, data);
+      }
     }
     if (onApply) onApply();
   }
@@ -660,7 +680,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply) {
     });
   });
 
-  // Color buttons
+  // Accent color buttons
   mountEl.querySelectorAll('.dt-color-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       mountEl.querySelectorAll('.dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
@@ -677,6 +697,20 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply) {
       applyAndSave();
     });
   });
+
+  // Person color buttons
+  if (personOpts) {
+    mountEl.querySelectorAll('.dt-person-color-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        mountEl.querySelectorAll('.dt-person-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
+        btn.classList.add('dt-color-btn--active');
+        personOpts.person.color = btn.dataset.color;
+        const { id, ...data } = personOpts.person;
+        await personOpts.writePerson(id, data);
+        if (onApply) onApply();
+      });
+    });
+  }
 
   // Close
   function closeSheet() {

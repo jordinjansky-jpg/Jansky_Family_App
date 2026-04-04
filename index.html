@@ -10,8 +10,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="/App Icon.png" type="image/png">
   <link rel="apple-touch-icon" href="/App Icon.png">
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json" id="manifestLink">
   <title>Family Hub</title>
+  <script>
+    // Set page title + PWA manifest for person-linked access (?person=Name)
+    (function() {
+      var person = new URLSearchParams(window.location.search).get('person');
+      if (person) {
+        document.title = person + "'s Daily Rundown";
+        document.getElementById('manifestLink').href = '/person-manifest.json?person=' + encodeURIComponent(person);
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/layout.css">
   <link rel="stylesheet" href="styles/components.css">
@@ -38,7 +48,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, onConnectionChange, onValue, onCompletions, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, onConnectionChange, onValue, onCompletions, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -70,14 +80,46 @@
     const tasks = tasksObj || {};
     const cats = catsObj || {};
 
+    // ── Person link mode (?person=Name) ──
+    const personParam = new URLSearchParams(window.location.search).get('person');
+    const linkedPerson = personParam
+      ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
+      : null;
+
+    // Show error if person param given but not found
+    if (personParam && !linkedPerson) {
+      document.getElementById('loadingState').style.display = 'none';
+      const main = document.getElementById('mainContent');
+      main.style.display = '';
+      main.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:var(--spacing-lg);">
+          <div style="font-size:3rem;margin-bottom:var(--spacing-md);">🤔</div>
+          <h2 style="font-size:var(--font-size-lg);font-weight:700;margin-bottom:var(--spacing-sm);">Who's ${esc(personParam)}?</h2>
+          <p style="color:var(--text-secondary);font-size:var(--font-size-sm);">We couldn't find anyone with that name.<br>Check the link or ask an admin.</p>
+          <a href="index.html" class="btn btn--secondary mt-md">Go to Dashboard</a>
+        </div>`;
+      return;
+    }
+
+    // Apply person's saved theme from Firebase (overrides family theme)
+    if (linkedPerson?.theme?.preset) {
+      applyTheme(linkedPerson.theme);
+    }
+
     // ── App state ──
     let viewDate = today;     // currently viewed date
-    let activePerson = null;  // null = "All"
+    // Restore saved filter from Firebase for person link, default to their own id
+    let activePerson = linkedPerson
+      ? (linkedPerson.savedFilter !== undefined ? linkedPerson.savedFilter : linkedPerson.id)
+      : null;
     let completions = {};
     let viewEntries = {};     // entries for viewDate
     let overdueItems = [];
     let overdueExpanded = false;
     let celebrationShown = false;
+
+    // ── Person link title ──
+    if (linkedPerson) document.title = `${linkedPerson.name}'s Daily Rundown`;
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
@@ -392,8 +434,13 @@
 
       // Person filter
       main.querySelectorAll('.person-pill').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
           activePerson = btn.dataset.personId || null;
+          if (linkedPerson) {
+            linkedPerson.savedFilter = activePerson || null;
+            const { id, ...data } = linkedPerson;
+            await writePerson(id, data);
+          }
           celebrationShown = false;
           render();
         });
@@ -1156,7 +1203,12 @@
     // Bind the header buttons
     document.getElementById('headerAddTask')?.addEventListener('click', openQuickAddSheet);
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
-      openDeviceThemeSheet(document.getElementById('taskSheetMount'), settings?.theme);
+      openDeviceThemeSheet(
+        document.getElementById('taskSheetMount'),
+        settings?.theme,
+        linkedPerson ? () => render() : undefined,
+        linkedPerson ? { person: linkedPerson, writePerson } : undefined
+      );
     });
 
     // ══════════════════════════════════════════
