@@ -10,13 +10,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="/App Icon.png" type="image/png">
   <link rel="apple-touch-icon" href="/App Icon.png">
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json" id="manifestLink">
   <title>Family Hub</title>
   <script>
-    // Set page title for person-linked access (?person=Name) — used by iOS "Add to Home Screen"
+    // Person-linked access (?person=Name): set title for iOS "Add to Home Screen"
+    // and remove manifest so iOS uses the actual URL (not manifest's start_url)
     (function() {
       var person = new URLSearchParams(window.location.search).get('person');
-      if (person) document.title = person + "'s Daily Rundown";
+      if (person) {
+        document.title = person + "'s Daily Rundown";
+        document.getElementById('manifestLink').remove();
+      }
     })();
   </script>
   <link rel="stylesheet" href="styles/base.css">
