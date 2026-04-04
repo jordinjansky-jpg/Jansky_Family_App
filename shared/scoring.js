@@ -180,10 +180,17 @@ export function dailyScore(personEntries, completions, tasks, categories, settin
     if (cat?.isEvent) continue;
     if (task.exempt) continue;
     const completion = completions?.[key] || null;
-    const pts = earnedPoints(task, completion, {
-      isOverdue: isOverdueDate,
-      pastDueCreditPct
-    });
+    if (!completion) continue;
+    // Use weighted possible points (from pointsMap) as base for earned calculation
+    const basePts = pointsMap[key] ?? basePoints(task);
+    let pts;
+    if (completion.pointsOverride != null) {
+      pts = Math.round(basePts * (completion.pointsOverride / 100));
+    } else if (isOverdueDate) {
+      pts = Math.round(basePts * (pastDueCreditPct / 100));
+    } else {
+      pts = basePts;
+    }
     earned += pts;
   }
 

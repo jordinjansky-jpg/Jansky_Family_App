@@ -284,7 +284,8 @@
 
 .person-pill[data-person-id]:not([data-person-id=""]).person-pill--active {
   border-color: var(--person-color);
-  color: var(--person-color);
+  background: var(--person-color);
+  color: #fff;
 }
 
 @keyframes pillPop {
@@ -876,7 +877,7 @@
 
 .offline-banner {
   position: fixed;
-  top: var(--header-height);
+  top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   display: flex;
@@ -888,7 +889,7 @@
   color: var(--warning-text);
   font-size: var(--font-size-sm);
   font-weight: 600;
-  z-index: 99;
+  z-index: 101;
   animation: bannerSlideIn 0.3s ease-out;
 }
 

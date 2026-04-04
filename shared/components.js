@@ -375,8 +375,8 @@ export function renderTaskDetailSheet(options) {
     html += `<input type="date" id="moveDatePicker" class="task-detail__date-input" style="position:absolute;opacity:0;pointer-events:none;">`;
   }
 
-  // Points slider — always visible, preview-only label for incomplete tasks
-  if (points && showPoints) {
+  // Points slider — always visible regardless of showPoints (that only hides card labels)
+  if (points) {
     const min = sliderMin ?? 0;
     const max = sliderMax ?? 150;
     const earnedPts = Math.round(points.possible * (sliderVal / 100));
