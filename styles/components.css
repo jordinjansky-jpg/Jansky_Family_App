@@ -412,6 +412,71 @@
   min-width: 120px;
 }
 
+/* ============ Compact Form ============ */
+.form-compact .form-group {
+  margin-bottom: var(--spacing-xs);
+}
+.form-compact .form-label {
+  margin-bottom: 2px;
+  font-size: var(--font-size-xs);
+}
+.form-compact .form-row {
+  gap: var(--spacing-xs);
+}
+.form-compact .form-row-3 {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+.form-compact .form-row-3 > * {
+  flex: 1;
+  min-width: 0;
+}
+.form-compact .form-row-2 {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+.form-compact .form-row-2 > .form-group--2fr {
+  flex: 2;
+  min-width: 0;
+}
+.form-compact .form-row-2 > .form-group--1fr {
+  flex: 1;
+  min-width: 0;
+}
+.form-compact .admin-form__title {
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-base);
+}
+.form-compact .admin-form__actions {
+  margin-top: var(--spacing-sm);
+}
+.form-compact .owner-chips {
+  gap: var(--spacing-xs);
+}
+.form-compact .form-hint {
+  margin-top: 2px;
+}
+.form-compact select,
+.form-compact input[type="text"],
+.form-compact input[type="number"],
+.form-compact input[type="time"],
+.form-compact input[type="date"] {
+  padding: 6px 8px;
+  font-size: var(--font-size-sm);
+}
+.form-compact .inline-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.form-compact .inline-row .form-group {
+  margin-bottom: 0;
+}
+.form-compact .admin-checkbox {
+  margin-top: 0;
+  font-size: var(--font-size-sm);
+}
+
 /* ============ Chip / Tag ============ */
 .chip {
   display: inline-flex;
