@@ -605,16 +605,10 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
   const colorPalette = getColorPalette();
   const current = loadDeviceTheme();
   const currentPreset = current?.preset || '';
-  const currentAccent = current?.accentColor || familyTheme?.accentColor || '#5b7fd6';
-
-  // Person color section (shown when accessed via ?person= link)
-  const personColorHtml = personOpts ? `
-    <div class="dt-section">
-      <label class="form-label">My Color</label>
-      <div class="dt-colors">
-        ${colorPalette.map(c => `<button class="dt-person-color-btn${c === personOpts.person.color ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`).join('')}
-      </div>
-    </div>` : '';
+  // For person pages, use person's color as the active accent
+  const currentAccent = personOpts
+    ? (personOpts.person.color || '#5b7fd6')
+    : (current?.accentColor || familyTheme?.accentColor || '#5b7fd6');
 
   const html = renderBottomSheet(`<div class="task-detail-sheet">
     <h3 class="admin-form__title">${personOpts ? 'My Settings' : 'Device Theme'}</h3>
@@ -626,12 +620,11 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
       </div>
     </div>
     <div class="dt-section">
-      <label class="form-label">Accent Color</label>
+      <label class="form-label">${personOpts ? 'My Color' : 'Accent Color'}</label>
       <div class="dt-colors">
         ${colorPalette.map(c => `<button class="dt-color-btn${c === currentAccent ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`).join('')}
       </div>
     </div>
-    ${personColorHtml}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>
@@ -680,9 +673,9 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     });
   });
 
-  // Accent color buttons
+  // Accent color buttons (also sets person color when on a person page)
   mountEl.querySelectorAll('.dt-color-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       mountEl.querySelectorAll('.dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
       btn.classList.add('dt-color-btn--active');
       activeAccent = btn.dataset.color;
@@ -694,23 +687,12 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
           b.classList.toggle('dt-theme-btn--active', b.dataset.preset === activePreset);
         });
       }
+      if (personOpts) {
+        personOpts.person.color = btn.dataset.color;
+      }
       applyAndSave();
     });
   });
-
-  // Person color buttons
-  if (personOpts) {
-    mountEl.querySelectorAll('.dt-person-color-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        mountEl.querySelectorAll('.dt-person-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
-        btn.classList.add('dt-color-btn--active');
-        personOpts.person.color = btn.dataset.color;
-        const { id, ...data } = personOpts.person;
-        await personOpts.writePerson(id, data);
-        if (onApply) onApply();
-      });
-    });
-  }
 
   // Close
   function closeSheet() {
