@@ -639,11 +639,21 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
     let targetDay;
     if (task.dedicatedDay != null) {
       targetDay = weekDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
-      if (!targetDay) targetDay = weekDates[0];
+      if (!targetDay) {
+        // Dedicated day already passed this week — place on the past date
+        // so it appears in the overdue banner instead of pretending it's a today task
+        const wStart = weekStart(weekDates[0]);
+        const fullWeek = dateRange(wStart, weekEnd(weekDates[0]));
+        targetDay = fullWeek.find(dk => dayOfWeek(dk) === task.dedicatedDay);
+        if (targetDay) {
+          if (!newSchedule[targetDay]) newSchedule[targetDay] = {};
+        }
+      }
     } else {
       targetDay = findLightestDay(weekDates, newSchedule, existingSchedule, allTasks, weekendWeight);
     }
 
+    if (!targetDay) continue;
     if (task.createdDate && targetDay < task.createdDate) continue;
 
     // 2. Place entries (owner assigned via day-level load balancing)
@@ -677,6 +687,17 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
     let targetDay;
     if (task.dedicatedDay != null) {
       targetDay = monthDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
+      if (!targetDay) {
+        // Dedicated day already passed this month — place on the most recent past
+        // occurrence so it appears in the overdue banner
+        const mStart = monthStart(monthDates[0]);
+        const fullMonth = dateRange(mStart, monthEnd(monthDates[0]));
+        const pastOccurrences = fullMonth.filter(dk => dayOfWeek(dk) === task.dedicatedDay && dk < monthDates[0]);
+        targetDay = pastOccurrences.length > 0 ? pastOccurrences[pastOccurrences.length - 1] : null;
+        if (targetDay) {
+          if (!newSchedule[targetDay]) newSchedule[targetDay] = {};
+        }
+      }
     }
     if (!targetDay) {
       targetDay = findLightestDay(monthDates, newSchedule, existingSchedule, allTasks, weekendWeight);
@@ -843,6 +864,19 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
       let targetDay;
       if (task.dedicatedDay != null) {
         targetDay = r.remainingDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
+        if (!targetDay) {
+          // Dedicated day already passed — place on the past date so it shows as overdue
+          const fullPeriod = dateRange(r.periodStart, r.periodEnd);
+          if (r.rotation === 'monthly') {
+            const pastOccurrences = fullPeriod.filter(dk => dayOfWeek(dk) === task.dedicatedDay && dk < today);
+            targetDay = pastOccurrences.length > 0 ? pastOccurrences[pastOccurrences.length - 1] : null;
+          } else {
+            targetDay = fullPeriod.find(dk => dayOfWeek(dk) === task.dedicatedDay);
+          }
+          if (targetDay) {
+            if (!periodSchedule[targetDay]) periodSchedule[targetDay] = {};
+          }
+        }
       }
       if (!targetDay) {
         const ww = r.rotation === 'monthly' ? weekendWeightMonthly : weekendWeightWeekly;
