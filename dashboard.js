@@ -31,6 +31,7 @@ const today = todayKey(tz);
 const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
 const tasks = tasksObj || {};
 const cats = catsObj || {};
+let activePressTimer = null;
 
 // ── Person link mode (?person=Name) ──
 const personParam = new URLSearchParams(window.location.search).get('person');
@@ -134,6 +135,8 @@ async function loadData() {
 }
 
 function render() {
+  clearTimeout(activePressTimer);
+  activePressTimer = null;
   const filtered = filterByPerson(viewEntries, activePerson);
   const prog = dayProgress(filtered, completions);
   const isToday = viewDate === today;
@@ -400,29 +403,32 @@ function bindEvents() {
 
   // Task card: tap to toggle, long-press to open detail sheet
   main.querySelectorAll('.task-card').forEach(btn => {
-    let pressTimer = null;
     let didLongPress = false;
 
     const startPress = (e) => {
       didLongPress = false;
-      pressTimer = setTimeout(() => {
+      clearTimeout(activePressTimer);
+      activePressTimer = setTimeout(() => {
         didLongPress = true;
+        activePressTimer = null;
         openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
       }, 500);
     };
 
     const endPress = (e) => {
-      clearTimeout(pressTimer);
+      clearTimeout(activePressTimer);
+      activePressTimer = null;
       if (!didLongPress) {
         toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
       }
     };
 
-    const cancelPress = () => { clearTimeout(pressTimer); };
+    const cancelPress = () => { clearTimeout(activePressTimer); activePressTimer = null; };
 
     btn.addEventListener('pointerdown', startPress);
     btn.addEventListener('pointerup', endPress);
     btn.addEventListener('pointerleave', cancelPress);
+    btn.addEventListener('pointercancel', cancelPress);
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
   });
 
