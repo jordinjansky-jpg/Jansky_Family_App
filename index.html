@@ -111,7 +111,7 @@
     let viewDate = today;     // currently viewed date
     // Restore saved filter from Firebase for person link, default to their own id
     let activePerson = linkedPerson
-      ? (linkedPerson.savedFilter !== undefined ? linkedPerson.savedFilter : linkedPerson.id)
+      ? (linkedPerson.savedFilter !== undefined ? linkedPerson.savedFilter : null)
       : null;
     let completions = {};
     let viewEntries = {};     // entries for viewDate
@@ -119,8 +119,8 @@
     let overdueExpanded = false;
     let celebrationShown = false;
 
-    // ── Person link title ──
-    if (linkedPerson) document.title = `${linkedPerson.name}'s Daily Rundown`;
+    // ── Person link title (uses app name from Firebase settings) ──
+    if (linkedPerson) document.title = `${linkedPerson.name}'s ${settings?.appName || 'Daily Rundown'}`;
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
