@@ -340,20 +340,6 @@
     let editingTaskId = null;
     let showingTemplates = false;
 
-    // Scroll to a task row after render (opening form or closing back to row)
-    function scrollToTask(taskId, openingForm) {
-      requestAnimationFrame(() => {
-        if (openingForm) {
-          // Scroll to the form that just appeared
-          const form = main.querySelector('#taskForm');
-          if (form) form.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        } else {
-          // Closing — scroll the task row into view
-          const row = main.querySelector(`.admin-list-item[data-task-id="${taskId}"]`);
-          if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }
-      });
-    }
 
     function renderTemplatePanel() {
       let html = `<div class="admin-form mb-md" id="templatePanel">
