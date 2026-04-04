@@ -873,17 +873,29 @@
       const pa = peopleArray();
 
       let totalEntries = 0;
+      let totalMinutes = 0;
       const perPerson = {};
-      for (const p of pa) perPerson[p.id] = 0;
+      const perPersonMin = {};
+      for (const p of pa) { perPerson[p.id] = 0; perPersonMin[p.id] = 0; }
 
       for (const dateKey of futureDates) {
         const dayEntries = allSchedule[dateKey] || {};
         const entries = Object.values(dayEntries);
         totalEntries += entries.length;
         for (const e of entries) {
-          if (perPerson[e.ownerId] !== undefined) perPerson[e.ownerId]++;
+          const task = tasksObj[e.taskId];
+          const mins = task ? (task.estMin || 0) : 0;
+          totalMinutes += mins;
+          if (perPerson[e.ownerId] !== undefined) {
+            perPerson[e.ownerId]++;
+            perPersonMin[e.ownerId] += mins;
+          }
         }
       }
+
+      const totalHrs = Math.floor(totalMinutes / 60);
+      const totalRem = totalMinutes % 60;
+      const totalTimeStr = totalHrs > 0 ? `${totalHrs}h ${totalRem}m` : `${totalRem}m`;
 
       let html = `<div class="admin-stat-cards">
         <div class="admin-stat-card">
@@ -894,18 +906,27 @@
           <span class="admin-stat-card__value">${totalEntries}</span>
           <span class="admin-stat-card__label">Total Entries</span>
         </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-card__value">${totalTimeStr}</span>
+          <span class="admin-stat-card__label">Total Time</span>
+        </div>
       </div>
       <h4 class="form-label mt-md">Load per Person</h4>
       <div class="admin-list">`;
       for (const p of pa) {
         const count = perPerson[p.id] || 0;
         const avg = futureDates.length > 0 ? (count / futureDates.length).toFixed(1) : '0';
+        const personMins = perPersonMin[p.id] || 0;
+        const avgMins = futureDates.length > 0 ? (personMins / futureDates.length) : 0;
+        const avgMinsStr = avgMins >= 60
+          ? `${Math.floor(avgMins / 60)}h ${Math.round(avgMins % 60)}m`
+          : `${Math.round(avgMins)}m`;
         html += `<div class="admin-list-item">
           <div class="admin-person-row">
             <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color}"></div>
             <span class="admin-list-item__name">${esc(p.name)}</span>
           </div>
-          <span class="admin-list-item__meta">${count} tasks · ${avg}/day avg</span>
+          <span class="admin-list-item__meta">${count} tasks · ${avg}/day · ${avgMinsStr}/day</span>
         </div>`;
       }
       html += `</div>`;
