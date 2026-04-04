@@ -467,8 +467,8 @@
           if (task.estMin) detailBadges += `<span class="admin-badge">${task.estMin}m</span>`;
           detailBadges += `<span class="admin-badge">${todLabel}</span>`;
           if (task.cooldownDays) detailBadges += `<span class="admin-badge">CD ${task.cooldownDays}d</span>`;
-          if (task.dedicatedDay) {
-            const dayNames = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+          if (task.dedicatedDay != null) {
+            const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
             detailBadges += `<span class="admin-badge">📅 ${dayNames[task.dedicatedDay] || task.dedicatedDay}</span>`;
           }
           if (task.dedicatedDate) detailBadges += `<span class="admin-badge">📅 ${task.dedicatedDate}</span>`;
