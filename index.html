@@ -46,7 +46,7 @@
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
-    import { initSwipe } from './shared/swipe.js';
+
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -449,24 +449,16 @@
     let swipeStartX = 0;
     let swipeStartY = 0;
     main.addEventListener('touchstart', (e) => {
-      if (e.target.closest('.task-card')) return;
       swipeStartX = e.touches[0].clientX;
       swipeStartY = e.touches[0].clientY;
     }, { passive: true });
     main.addEventListener('touchend', (e) => {
-      if (e.target.closest('.task-card')) return;
       const dx = e.changedTouches[0].clientX - swipeStartX;
       const dy = e.changedTouches[0].clientY - swipeStartY;
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
         changeDay(dx < 0 ? 1 : -1);
       }
     }, { passive: true });
-
-    // ── Swipe to complete / details on task cards ──
-    initSwipe(main, {
-      onComplete: (entryKey, dateKey) => toggleTask(entryKey, dateKey),
-      onDetails: (entryKey, dateKey) => openTaskSheet(entryKey, dateKey)
-    });
 
     // ══════════════════════════════════════════
     // Completion toggle

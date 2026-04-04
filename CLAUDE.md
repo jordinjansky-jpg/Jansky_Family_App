@@ -36,11 +36,10 @@ git push origin main
 │   ├── components.js     ← All reusable HTML rendering: cards, sheets, forms, filters (~600 lines)
 │   ├── theme.js          ← 5 theme presets, CSS variable generation, localStorage cache (~260 lines)
 │   ├── utils.js          ← Date math, timezone handling, formatting, debounce (Intl-based, no libraries)
-│   └── swipe.js          ← Card swipe gesture handler (touch events, thresholds, conflict resolution)
 └── styles/
     ├── base.css          ← CSS variables, reset, typography
     ├── layout.css        ← Header, nav bar, page-content, spacing
-    ├── components.css    ← Task cards, buttons, forms, badges, progress bars, swipe containers
+    ├── components.css    ← Task cards, buttons, forms, badges, progress bars
     ├── dashboard.css     ← Date header, time sections, task detail sheet, celebration
     ├── calendar.css      ← Calendar grid, day cells, day sheet
     ├── scoreboard.css    ← Leaderboard, sparklines, category breakdown
@@ -60,7 +59,7 @@ git push origin main
 - **CSS split:** Styles are split into 10 files by responsibility. Each page loads only the CSS it needs via multiple `<link>` tags. Order matters: base → layout → components → page-specific → responsive.
 - **Offline support:** Service worker caches the full app shell (network-first strategy). Firebase API calls are network-only. The app loads and functions offline; writes queue and sync on reconnect.
 - **Real-time updates:** Dashboard, calendar, and kid mode use Firebase `onValue` listeners for completions and schedule. Renders are debounced at 100ms. Scoreboard and tracker use one-shot reads (historical data).
-- **Swipe gestures:** Card swipes (complete/details) coexist with day-navigation swipes via touch target detection. Implemented in `shared/swipe.js`.
+- **Swipe gestures:** Horizontal swipe anywhere on page navigates between days (dashboard/kid) or months (calendar).
 
 ## Firebase Schema (`rundown/`)
 ```
@@ -113,7 +112,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **One-time tasks:** With `dedicatedDate`, placed on that exact date. Without it, load-balanced to lightest day.
 - **Completion:** Allowed on any date (no future-date blocking). Completed tasks render at the bottom of all task lists.
 - **Task grouping order:** Events → Daily → Weekly → Monthly → One-Time, then by owner within each group.
-- **Long-press:** 500ms timer opens detail sheet. Tap toggles completion. Swipe navigates days (dashboard) or months (calendar).
+- **Long-press:** 500ms timer opens detail sheet. Tap toggles completion. Horizontal swipe navigates days (dashboard) or months (calendar).
 - **Duplicate mode:** Creates one schedule entry per owner. Fixed mode always uses first owner (used for events).
 - **Daily cooldown:** Tasks with `cooldownDays` are spaced at fixed intervals (`cooldownDays + 1` days apart).
 - **Scoreboard blending:** Weekly grades blend snapshots (past days) + live daily score (today) for accuracy.
@@ -137,7 +136,6 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS has `--font-size-md: 1rem` between `sm` (0.8125rem) and `base` (0.9375rem) — used by scoreboard cards
 - SW cache list must be updated manually when files are added/renamed (bump `CACHE_NAME` version in sw.js)
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
-- `swipe.js` touchmove uses `passive: false` to call `preventDefault()` during horizontal swipes
 
 ## Changelog (last 5)
 - `e841314` 7 bug fixes (scheduler shadowing, scoring exempt tasks, tracker skipped filter, duplicate listeners, calendar perf), calendar single-month view with swipe nav, SW v5

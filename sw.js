@@ -1,5 +1,5 @@
 // Service Worker — network-first for app shell, network-only for Firebase API
-const CACHE_NAME = 'family-hub-v17';
+const CACHE_NAME = 'family-hub-v18';
 
 const APP_SHELL = [
   '/',
@@ -31,7 +31,6 @@ const APP_SHELL = [
   '/shared/components.js',
   '/shared/theme.js',
   '/shared/utils.js',
-  '/shared/swipe.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js'
