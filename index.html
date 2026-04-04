@@ -25,7 +25,7 @@
         var manifest = JSON.stringify({
           name: person + "'s " + appName,
           short_name: person,
-          start_url: "/index.html?person=" + encodeURIComponent(person),
+          start_url: location.origin + "/index.html?person=" + encodeURIComponent(person),
           display: "standalone",
           background_color: "#1a1a2e",
           theme_color: "#6c63ff",
