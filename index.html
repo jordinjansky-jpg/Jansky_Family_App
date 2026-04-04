@@ -291,30 +291,42 @@
           }
         }
 
-        // Render completed tasks at the very bottom
+        // Render completed tasks at the very bottom, grouped by frequency
         const completedEntries = Object.entries(completed_);
         if (completedEntries.length > 0) {
           html += renderTimeHeader(`Completed (${completedEntries.length})`);
-          for (const [entryKey, entry] of completedEntries) {
-            const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-            const person = people.find(p => p.id === entry.ownerId);
-            const cat = task.category ? cats[task.category] : null;
-            const pts = score.pointsMap[entryKey] || basePoints(task);
-            const ovr = completions[entryKey]?.pointsOverride ?? null;
-            html += renderTaskCard({
-              entryKey,
-              entry: { ...entry, dateKey: viewDate },
-              task,
-              person,
-              category: cat,
-              completed: true,
-              overdue: false,
-              points: { possible: pts, override: ovr },
-              isEvent: !!cat?.isEvent,
-              showPoints: settings?.showPoints !== false,
-              showTodIconBoth: !!settings?.showTodIconBoth,
-              showTodIconSingle: !!settings?.showTodIconSingle
-            });
+          const compGroups = groupByFrequency(completed_, tasks, cats);
+          const compNonEmpty = sections.filter(s => Object.keys(compGroups[s.key]).length > 0);
+          const showCompHeaders = compNonEmpty.length > 1;
+
+          for (const sec of sections) {
+            const entries = compGroups[sec.key];
+            const sorted = sortEntries(entries, completions);
+            if (sorted.length === 0) continue;
+
+            if (showCompHeaders) html += renderTimeHeader(sec.label);
+
+            for (const [entryKey, entry] of sorted) {
+              const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+              const person = people.find(p => p.id === entry.ownerId);
+              const cat = task.category ? cats[task.category] : null;
+              const pts = score.pointsMap[entryKey] || basePoints(task);
+              const ovr = completions[entryKey]?.pointsOverride ?? null;
+              html += renderTaskCard({
+                entryKey,
+                entry: { ...entry, dateKey: viewDate },
+                task,
+                person,
+                category: cat,
+                completed: true,
+                overdue: false,
+                points: { possible: pts, override: ovr },
+                isEvent: !!cat?.isEvent,
+                showPoints: settings?.showPoints !== false,
+                showTodIconBoth: !!settings?.showTodIconBoth,
+                showTodIconSingle: !!settings?.showTodIconSingle
+              });
+            }
           }
         }
       }
