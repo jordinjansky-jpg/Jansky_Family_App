@@ -649,7 +649,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
 
   async function applyAndSave() {
     if (!activePreset) {
-      saveDeviceTheme(null);
+      if (!personOpts) saveDeviceTheme(null);
       applyTheme(familyTheme || defaultThemeConfig());
       if (personOpts) {
         personOpts.person.theme = null;
@@ -659,7 +659,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     } else {
       const info = presets.find(p => p.key === activePreset);
       const themeConfig = { mode: info.mode, preset: activePreset, accentColor: activeAccent };
-      saveDeviceTheme(themeConfig);
+      if (!personOpts) saveDeviceTheme(themeConfig);
       applyTheme(themeConfig);
       if (personOpts) {
         personOpts.person.theme = themeConfig;

@@ -77,7 +77,7 @@ if (linkedPerson) document.title = `${linkedPerson.name}'s ${settings?.appName |
 const debugActive = localStorage.getItem('dr-debug') === 'true';
 document.getElementById('headerMount').innerHTML = renderHeader({
   appName: settings?.appName || 'Daily Rundown',
-  subtitle: settings?.familyName || '',
+  subtitle: linkedPerson ? linkedPerson.name : (settings?.familyName || ''),
   dateLine: formatDateLong(todayKey(settings?.timezone || 'America/Chicago')),
   showAdmin: true,
   showDebug: debugActive,
