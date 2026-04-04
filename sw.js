@@ -1,5 +1,5 @@
 // Service Worker — network-first for app shell, network-only for Firebase API
-const CACHE_NAME = 'family-hub-v24';
+const CACHE_NAME = 'family-hub-v25';
 
 const APP_SHELL = [
   '/',
@@ -86,7 +86,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Dynamic person manifest — "Add to Home Screen" launches index.html?person=Name
+  // Dynamic person manifest — "Install" launches person.html?person=Name
   if (url.pathname === '/person-manifest.json') {
     const person = url.searchParams.get('person') || 'User';
     const manifest = {
@@ -94,7 +94,7 @@ self.addEventListener('fetch', (event) => {
       name: person + "'s Family Hub",
       short_name: person,
       description: "Daily tasks for " + person,
-      start_url: "/index.html?person=" + encodeURIComponent(person),
+      start_url: "/person.html?person=" + encodeURIComponent(person),
       display: "standalone",
       background_color: "#1a1a2e",
       theme_color: "#6c63ff",

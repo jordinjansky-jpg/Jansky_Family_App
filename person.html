@@ -11,15 +11,16 @@
   <link rel="apple-touch-icon" href="/App Icon.png">
   <title>Family Hub</title>
   <script>
-    // Set title for "Add to Home Screen" using cached app name
     (function() {
       var person = new URLSearchParams(window.location.search).get('person');
-      if (person) {
-        var appName = localStorage.getItem('dr-app-name') || 'Family Hub';
-        document.title = person + "'s " + appName;
-      } else {
-        window.location.href = 'index.html';
-      }
+      if (!person) { window.location.href = 'index.html'; return; }
+      var appName = localStorage.getItem('dr-app-name') || 'Family Hub';
+      document.title = person + "'s " + appName;
+      // Manifest served by SW with correct start_url and unique id per person
+      var link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = '/person-manifest.json?person=' + encodeURIComponent(person);
+      document.head.appendChild(link);
     })();
   </script>
   <link rel="stylesheet" href="styles/base.css">
