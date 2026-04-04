@@ -1,17 +1,27 @@
 <!DOCTYPE html>
-<!-- v2 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
+  <meta name="description" content="Personal daily task dashboard">
   <meta name="theme-color" content="#6c63ff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="/App Icon.png" type="image/png">
   <link rel="apple-touch-icon" href="/App Icon.png">
   <title>Family Hub</title>
-  <link rel="manifest" href="manifest.json">
+  <script>
+    // Set title for "Add to Home Screen" using cached app name
+    (function() {
+      var person = new URLSearchParams(window.location.search).get('person');
+      if (person) {
+        var appName = localStorage.getItem('dr-app-name') || 'Family Hub';
+        document.title = person + "'s " + appName;
+      } else {
+        window.location.href = 'index.html';
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/layout.css">
   <link rel="stylesheet" href="styles/components.css">

@@ -1,0 +1,1222 @@
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, onConnectionChange, onValue, onCompletions, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
+import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
+import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
+const esc = (s) => escapeHtml(String(s ?? ''));
+import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
+import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
+import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
+
+
+// ── Cached theme (device override > family cache > default) ──
+applyTheme(resolveTheme());
+
+// ── Init Firebase ──
+initFirebase();
+const firstRun = await isFirstRun();
+if (firstRun) { window.location.href = 'setup.html'; }
+
+// ── Load core data ──
+const [settings, peopleObj, tasksObj, catsObj] = await Promise.all([
+  readSettings(), readPeople(), readTasks(), readCategories()
+]);
+
+// Apply family theme from Firebase only if no device override
+if (settings?.theme) applyTheme(resolveTheme(settings.theme));
+// Cache app name for instant title on next load (used by inline script)
+if (settings?.appName) localStorage.setItem('dr-app-name', settings.appName);
+
+const tz = settings?.timezone || 'America/Chicago';
+const today = todayKey(tz);
+const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
+const tasks = tasksObj || {};
+const cats = catsObj || {};
+
+// ── Person link mode (?person=Name) ──
+const personParam = new URLSearchParams(window.location.search).get('person');
+const linkedPerson = personParam
+  ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
+  : null;
+
+// Show error if person param given but not found
+if (personParam && !linkedPerson) {
+  document.getElementById('loadingState').style.display = 'none';
+  const errMain = document.getElementById('mainContent');
+  errMain.style.display = '';
+  errMain.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:var(--spacing-lg);">
+      <div style="font-size:3rem;margin-bottom:var(--spacing-md);">🤔</div>
+      <h2 style="font-size:var(--font-size-lg);font-weight:700;margin-bottom:var(--spacing-sm);">Who's ${esc(personParam)}?</h2>
+      <p style="color:var(--text-secondary);font-size:var(--font-size-sm);">We couldn't find anyone with that name.<br>Check the link or ask an admin.</p>
+      <a href="index.html" class="btn btn--secondary mt-md">Go to Dashboard</a>
+    </div>`;
+  // Skip rest of init — error message is displayed
+} else {
+
+// Apply person's saved theme from Firebase (overrides family theme)
+if (linkedPerson?.theme?.preset) {
+  applyTheme(linkedPerson.theme);
+}
+
+// ── App state ──
+let viewDate = today;     // currently viewed date
+// Restore saved filter from Firebase for person link, default to their own id
+let activePerson = linkedPerson
+  ? (linkedPerson.savedFilter !== undefined ? linkedPerson.savedFilter : null)
+  : null;
+let completions = {};
+let viewEntries = {};     // entries for viewDate
+let overdueItems = [];
+let overdueExpanded = false;
+let celebrationShown = false;
+
+// ── Person link title (uses app name from Firebase settings) ──
+if (linkedPerson) document.title = `${linkedPerson.name}'s ${settings?.appName || 'Daily Rundown'}`;
+
+// ── Header & Nav ──
+const debugActive = localStorage.getItem('dr-debug') === 'true';
+document.getElementById('headerMount').innerHTML = renderHeader({
+  appName: settings?.appName || 'Daily Rundown',
+  subtitle: settings?.familyName || '',
+  dateLine: formatDateLong(todayKey(settings?.timezone || 'America/Chicago')),
+  showAdmin: true,
+  showDebug: debugActive,
+  showAddTask: true,
+  showThemePicker: true,
+  rightContent: '<span class="header__stats" id="headerStats"></span>'
+});
+document.getElementById('navMount').innerHTML = renderNavBar('home');
+
+// ── Connection status + Offline/Online banner ──
+const bannerMount = document.createElement('div');
+bannerMount.id = 'offlineBannerMount';
+document.body.appendChild(bannerMount);
+
+let bannerTimer = null;
+let wasOffline = false;
+
+onConnectionChange((connected) => {
+  // Update connection dot
+  const existing = document.querySelector('.connection-dot');
+  const dotHtml = renderConnectionStatus(connected);
+  if (existing) existing.outerHTML = dotHtml;
+  else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', dotHtml);
+
+  // Show offline/online banner
+  if (bannerTimer) clearTimeout(bannerTimer);
+  if (!connected) {
+    wasOffline = true;
+    bannerMount.innerHTML = renderOfflineBanner('Working offline — changes will sync');
+    bannerTimer = setTimeout(() => { bannerMount.innerHTML = ''; }, 3000);
+  } else if (wasOffline) {
+    bannerMount.innerHTML = renderOfflineBanner('Back online');
+    bannerMount.querySelector('.offline-banner')?.classList.add('offline-banner--online');
+    bannerTimer = setTimeout(() => { bannerMount.innerHTML = ''; }, 2000);
+  }
+});
+
+// ── Hide loading, show content ──
+document.getElementById('loadingState').style.display = 'none';
+const main = document.getElementById('mainContent');
+main.style.display = '';
+
+// ── Celebration mount ──
+document.getElementById('celebrationMount').innerHTML = renderCelebration();
+
+// ══════════════════════════════════════════
+// Render the dashboard
+// ══════════════════════════════════════════
+
+// loadData only loads overdue items (completions and schedule/{viewDate} come from listeners)
+async function loadData() {
+  const allSched = await readAllSchedule();
+  overdueItems = getOverdueEntries(allSched || {}, completions, today);
+}
+
+function render() {
+  const filtered = filterByPerson(viewEntries, activePerson);
+  const prog = dayProgress(filtered, completions);
+  const isToday = viewDate === today;
+  const isFuture = viewDate > today;
+  const overdueActive = overdueItems.filter(e => !isComplete(e.entryKey, completions));
+  const overdueFiltered = activePerson
+    ? overdueActive.filter(e => e.ownerId === activePerson)
+    : overdueActive;
+
+  // Compute daily score for filtered entries
+  const score = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
+  const gd = gradeDisplay(score.percentage);
+
+  // Compute total task time for filtered entries
+  let totalMinutes = 0;
+  for (const [key, entry] of Object.entries(filtered)) {
+    const task = tasks[entry.taskId];
+    if (task?.estMin) totalMinutes += task.estMin;
+  }
+  const timeH = Math.floor(totalMinutes / 60);
+  const timeM = totalMinutes % 60;
+  const timeLabel = timeH > 0 ? `${timeH}h${timeM > 0 ? ' ' + String(timeM).padStart(2, '0') + 'm' : ''}` : `${timeM}m`;
+
+  // Date header
+  const dateObj = new Date(viewDate + 'T12:00:00Z');
+  const dayName = DAY_NAMES[dateObj.getUTCDay()];
+  const longDate = formatDateLong(viewDate);
+  const dayLabel = isToday ? 'Today' : dayName;
+
+  let html = '';
+
+  // Date with nav arrows + stats
+  const statsItems = [];
+  if (score.possible > 0) statsItems.push(`${renderGradeBadge(gd.grade, gd.tier)} ${score.percentage}%`);
+  statsItems.push(`${prog.done}/${prog.total} tasks`);
+  if (totalMinutes > 0) statsItems.push(timeLabel);
+  const statsHtml = `<div class="date-header__stats mt-sm">${statsItems.join('<span class="date-header__sep">·</span>')}</div>`;
+
+  html += `<div class="date-header">
+    <div class="date-nav">
+      <button class="date-nav__btn" id="prevDay" type="button" title="Previous day">&lsaquo;</button>
+      <div class="date-nav__center">
+        <span class="date-header__day">${dayLabel}</span>
+        <span class="date-header__full">${longDate}</span>
+      </div>
+      <button class="date-nav__btn" id="nextDay" type="button" title="Next day">&rsaquo;</button>
+    </div>
+    ${statsHtml}
+    ${!isToday ? `<button class="btn btn--ghost btn--sm mt-sm" id="goToday" type="button">Back to Today</button>` : ''}
+  </div>`;
+
+  // Person filter
+  html += renderPersonFilter(people, activePerson);
+
+  // Progress
+  html += renderProgressBar(prog.done, prog.total);
+
+  // Overdue banner
+  if (overdueFiltered.length > 0) {
+    html += renderOverdueBanner(overdueFiltered.length);
+    const sortedOverdue = [...overdueFiltered].sort((a, b) => {
+      const ownerCmp = (a.ownerId || '').localeCompare(b.ownerId || '');
+      if (ownerCmp !== 0) return ownerCmp;
+      return a.dateKey.localeCompare(b.dateKey);
+    });
+    html += `<div class="overdue-list" id="overdueList" style="display:${overdueExpanded ? 'block' : 'none'};">`;
+    for (const item of sortedOverdue) {
+      const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+      const person = people.find(p => p.id === item.ownerId);
+      const cat = task.category ? cats[task.category] : null;
+      const pts = basePoints(task);
+      const ovr = completions[item.entryKey]?.pointsOverride ?? null;
+      html += renderTaskCard({
+        entryKey: item.entryKey,
+        entry: { ...item, dateKey: item.dateKey },
+        task,
+        person,
+        category: cat,
+        completed: isComplete(item.entryKey, completions),
+        overdue: true,
+        dateLabel: formatDateShort(item.dateKey),
+        points: { possible: pts, override: ovr },
+        isEvent: !!cat?.isEvent,
+        showPoints: settings?.showPoints !== false,
+        showTodIconBoth: !!settings?.showTodIconBoth,
+        showTodIconSingle: !!settings?.showTodIconSingle
+      });
+    }
+    html += `</div>`;
+  }
+
+  // Day's tasks
+  if (prog.total === 0) {
+    if (activePerson) {
+      html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
+    } else {
+      const variant = isToday ? 'free-day' : 'future-empty';
+      html += renderEmptyState('', '', '', { variant });
+    }
+  } else {
+    // Split into incomplete and completed
+    const incomplete = {};
+    const completed_ = {};
+    for (const [key, entry] of Object.entries(filtered)) {
+      if (isComplete(key, completions)) completed_[key] = entry;
+      else incomplete[key] = entry;
+    }
+
+    // Render incomplete tasks grouped by frequency (events first)
+    const groups = groupByFrequency(incomplete, tasks, cats);
+    const sections = [
+      { key: 'events', label: 'Events' },
+      { key: 'daily', label: 'Daily' },
+      { key: 'weekly', label: 'Weekly' },
+      { key: 'monthly', label: 'Monthly' },
+      { key: 'once', label: 'One-Time' }
+    ];
+
+    const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
+    const showHeaders = nonEmpty.length > 1;
+
+    for (const sec of sections) {
+      const entries = groups[sec.key];
+      const sorted = sortEntries(entries, completions);
+      if (sorted.length === 0) continue;
+
+      if (showHeaders) html += renderTimeHeader(sec.label);
+
+      for (const [entryKey, entry] of sorted) {
+        const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+        const person = people.find(p => p.id === entry.ownerId);
+        const cat = task.category ? cats[task.category] : null;
+        const pts = score.pointsMap[entryKey] || basePoints(task);
+        const ovr = completions[entryKey]?.pointsOverride ?? null;
+        html += renderTaskCard({
+          entryKey,
+          entry: { ...entry, dateKey: viewDate },
+          task,
+          person,
+          category: cat,
+          completed: false,
+          overdue: false,
+          points: { possible: pts, override: ovr },
+          isEvent: !!cat?.isEvent,
+          showPoints: settings?.showPoints !== false,
+          showTodIconBoth: !!settings?.showTodIconBoth,
+          showTodIconSingle: !!settings?.showTodIconSingle
+        });
+      }
+    }
+
+    // Render completed tasks at the very bottom, grouped by frequency
+    const completedEntries = Object.entries(completed_);
+    if (completedEntries.length > 0) {
+      html += renderTimeHeader(`Completed (${completedEntries.length})`);
+      const compGroups = groupByFrequency(completed_, tasks, cats);
+      const compNonEmpty = sections.filter(s => Object.keys(compGroups[s.key]).length > 0);
+      const showCompHeaders = compNonEmpty.length > 1;
+
+      for (const sec of sections) {
+        const entries = compGroups[sec.key];
+        const sorted = sortEntries(entries, completions);
+        if (sorted.length === 0) continue;
+
+        if (showCompHeaders) html += renderTimeHeader(sec.label);
+
+        for (const [entryKey, entry] of sorted) {
+          const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+          const person = people.find(p => p.id === entry.ownerId);
+          const cat = task.category ? cats[task.category] : null;
+          const pts = score.pointsMap[entryKey] || basePoints(task);
+          const ovr = completions[entryKey]?.pointsOverride ?? null;
+          html += renderTaskCard({
+            entryKey,
+            entry: { ...entry, dateKey: viewDate },
+            task,
+            person,
+            category: cat,
+            completed: true,
+            overdue: false,
+            points: { possible: pts, override: ovr },
+            isEvent: !!cat?.isEvent,
+            showPoints: settings?.showPoints !== false,
+            showTodIconBoth: !!settings?.showTodIconBoth,
+            showTodIconSingle: !!settings?.showTodIconSingle
+          });
+        }
+      }
+    }
+  }
+
+  // Debug overlay
+  if (localStorage.getItem('dr-debug') === 'true') {
+    html += renderDebugPanel(filtered, score);
+  }
+
+  main.innerHTML = html;
+  bindEvents();
+
+  // Update header stats
+  const headerStats = document.getElementById('headerStats');
+  if (headerStats) {
+    const hParts = [];
+    if (score.possible > 0) hParts.push(`${renderGradeBadge(gd.grade, gd.tier)} ${score.percentage}%`);
+    if (totalMinutes > 0) hParts.push(timeLabel);
+    headerStats.innerHTML = hParts.join(' <span class="date-header__sep">·</span> ');
+  }
+}
+
+function renderDebugPanel(filtered, score) {
+  let dbg = `<div class="debug-panel">`;
+  dbg += `<div class="debug-panel__title">🐛 Debug — Day Score</div>`;
+  dbg += `<pre class="debug-panel__pre">`;
+  dbg += `Date: ${viewDate} | Person filter: ${activePerson || 'All'}\n`;
+  dbg += `Score: ${score.earned}/${score.possible} = ${score.percentage}%\n`;
+  dbg += `Grade: ${gradeDisplay(score.percentage).grade}\n\n`;
+  dbg += `Entry Key | Task | Base Pts | Earned | Override | Status\n`;
+  dbg += `${'—'.repeat(70)}\n`;
+
+  for (const [entryKey, entry] of Object.entries(filtered)) {
+    const task = tasks[entry.taskId] || { name: '?', difficulty: 'medium', estMin: 0 };
+    const bp = basePoints(task);
+    const comp = completions[entryKey];
+    const earned = score.pointsMap?.[entryKey] || 0;
+    const ovr = comp?.pointsOverride ?? '—';
+    const status = comp ? 'done' : 'pending';
+    dbg += `${entryKey.slice(0, 16)} | ${esc(task.name).slice(0, 20).padEnd(20)} | ${String(bp).padStart(4)} | ${String(earned).padStart(6)} | ${String(ovr).padStart(8)} | ${status}\n`;
+  }
+
+  dbg += `</pre>`;
+  dbg += `<button class="btn btn--ghost btn--sm" id="copyDebug" type="button">Copy to Clipboard</button>`;
+  dbg += `</div>`;
+  return dbg;
+}
+
+// ══════════════════════════════════════════
+// Event binding
+// ══════════════════════════════════════════
+
+function bindEvents() {
+  // Day navigation
+  document.getElementById('prevDay')?.addEventListener('click', () => changeDay(-1));
+  document.getElementById('nextDay')?.addEventListener('click', () => changeDay(1));
+  document.getElementById('goToday')?.addEventListener('click', () => {
+    viewDate = today;
+    celebrationShown = false;
+    subscribeSchedule(viewDate);
+    loadData();
+  });
+
+  // Person filter
+  main.querySelectorAll('.person-pill').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      activePerson = btn.dataset.personId || null;
+      if (linkedPerson) {
+        linkedPerson.savedFilter = activePerson || null;
+        const { id, ...data } = linkedPerson;
+        await writePerson(id, data);
+      }
+      celebrationShown = false;
+      render();
+    });
+  });
+
+  // Task card: tap to toggle, long-press to open detail sheet
+  main.querySelectorAll('.task-card').forEach(btn => {
+    let pressTimer = null;
+    let didLongPress = false;
+
+    const startPress = (e) => {
+      didLongPress = false;
+      pressTimer = setTimeout(() => {
+        didLongPress = true;
+        openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
+      }, 500);
+    };
+
+    const endPress = (e) => {
+      clearTimeout(pressTimer);
+      if (!didLongPress) {
+        toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
+      }
+    };
+
+    const cancelPress = () => { clearTimeout(pressTimer); };
+
+    btn.addEventListener('pointerdown', startPress);
+    btn.addEventListener('pointerup', endPress);
+    btn.addEventListener('pointerleave', cancelPress);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  });
+
+  // Overdue toggle
+  const overdueBtn = document.getElementById('overdueToggle');
+  if (overdueBtn) {
+    overdueBtn.addEventListener('click', () => {
+      overdueExpanded = !overdueExpanded;
+      const list = document.getElementById('overdueList');
+      const arrow = document.getElementById('overdueArrow');
+      if (list) list.style.display = overdueExpanded ? 'block' : 'none';
+      if (arrow) arrow.classList.toggle('expanded', overdueExpanded);
+    });
+  }
+
+  // Debug copy button
+  document.getElementById('copyDebug')?.addEventListener('click', async () => {
+    const pre = main.querySelector('.debug-panel__pre');
+    if (pre) {
+      await navigator.clipboard.writeText(pre.textContent);
+      alert('Copied to clipboard!');
+    }
+  });
+}
+
+async function changeDay(delta) {
+  viewDate = addDays(viewDate, delta);
+  celebrationShown = false;
+  overdueExpanded = false;
+  subscribeSchedule(viewDate);
+  await loadData();
+}
+
+// ── Swipe to change day ──
+let swipeStartX = 0;
+let swipeStartY = 0;
+main.addEventListener('touchstart', (e) => {
+  swipeStartX = e.touches[0].clientX;
+  swipeStartY = e.touches[0].clientY;
+}, { passive: true });
+main.addEventListener('touchend', (e) => {
+  const dx = e.changedTouches[0].clientX - swipeStartX;
+  const dy = e.changedTouches[0].clientY - swipeStartY;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    changeDay(dx < 0 ? 1 : -1);
+  }
+}, { passive: true });
+
+// ══════════════════════════════════════════
+// Completion toggle
+// ══════════════════════════════════════════
+
+let undoTimer = null;
+
+async function toggleTask(entryKey, dateKey) {
+  if (!entryKey) return;
+  const wasComplete = isComplete(entryKey, completions);
+
+  if (wasComplete) {
+    // Uncomplete
+    delete completions[entryKey];
+    await removeCompletion(entryKey);
+    celebrationShown = false;
+  } else {
+    // Complete
+    const record = {
+      completedAt: firebase.database.ServerValue.TIMESTAMP,
+      completedBy: 'dashboard'
+    };
+    completions[entryKey] = record;
+    await writeCompletion(entryKey, record);
+  }
+
+  // Auto-archive one-time tasks on completion
+  let archivedTaskId = null;
+  if (!wasComplete) {
+    const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+    if (entry) {
+      const task = tasks[entry.taskId];
+      if (task && task.rotation === 'once') {
+        archivedTaskId = entry.taskId;
+        task.status = 'completed';
+        await writeTask(entry.taskId, task);
+      }
+    }
+  }
+
+  const doRenderAndToast = () => {
+    render();
+
+    // Undo toast
+    showUndoToast(
+      wasComplete ? 'Task marked incomplete' : (archivedTaskId ? 'One-time task completed & archived' : 'Task completed'),
+      async () => {
+        if (wasComplete) {
+          const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'dashboard' };
+          completions[entryKey] = record;
+          await writeCompletion(entryKey, record);
+        } else {
+          delete completions[entryKey];
+          await removeCompletion(entryKey);
+          // Restore archived one-time task
+          if (archivedTaskId && tasks[archivedTaskId]) {
+            tasks[archivedTaskId].status = 'active';
+            await writeTask(archivedTaskId, tasks[archivedTaskId]);
+          }
+        }
+        celebrationShown = false;
+        render();
+      }
+    );
+
+    // Check for celebration
+    checkCelebration();
+  };
+
+  if (!wasComplete) {
+    // Add press animation, then render after delay
+    const cardEl = document.querySelector(`[data-entry-key="${entryKey}"]`);
+    if (cardEl) {
+      cardEl.classList.add('task-card--completing');
+      cardEl.style.pointerEvents = 'none';
+    }
+    setTimeout(doRenderAndToast, 400);
+  } else {
+    doRenderAndToast();
+  }
+}
+
+function showUndoToast(message, undoCallback) {
+  const mount = document.getElementById('toastMount');
+  mount.innerHTML = renderUndoToast(message);
+  const toast = mount.querySelector('.undo-toast');
+
+  if (undoTimer) clearTimeout(undoTimer);
+
+  toast.querySelector('.undo-toast__btn').addEventListener('click', () => {
+    mount.innerHTML = '';
+    if (undoTimer) clearTimeout(undoTimer);
+    undoCallback();
+  });
+
+  // Auto-dismiss after 4s
+  undoTimer = setTimeout(() => {
+    if (toast.parentNode) {
+      toast.style.opacity = '0';
+      setTimeout(() => { mount.innerHTML = ''; }, 300);
+    }
+  }, 4000);
+}
+
+function checkCelebration() {
+  if (celebrationShown) return;
+  const filtered = filterByPerson(viewEntries, activePerson);
+  if (isAllDone(filtered, completions)) {
+    celebrationShown = true;
+    const cel = document.getElementById('celebration');
+    cel.classList.add('active');
+    setTimeout(() => {
+      cel.classList.add('celebration--dismiss');
+      setTimeout(() => {
+        cel.classList.remove('active', 'celebration--dismiss');
+      }, 400);
+    }, 2500);
+  }
+}
+
+// ══════════════════════════════════════════
+// Task detail bottom sheet (long-press)
+// ══════════════════════════════════════════
+
+const taskSheetMount = document.getElementById('taskSheetMount');
+
+function openTaskSheet(entryKey, dateKey) {
+  // Find entry in current view or overdue
+  const entry = viewEntries[entryKey]
+    || overdueItems.find(o => o.entryKey === entryKey);
+  if (!entry) return;
+
+  const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+  const person = people.find(p => p.id === entry.ownerId);
+  const cat = task.category ? cats[task.category] : null;
+  const completed = isComplete(entryKey, completions);
+  const pts = basePoints(task);
+  const completion = completions[entryKey];
+  const currentOverride = completion?.pointsOverride ?? null;
+
+  // Grade preview
+  const filtered = filterByPerson(viewEntries, activePerson);
+  const score = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
+  const gd = gradeDisplay(score.percentage);
+  const gradePreview = score.possible > 0 ? `${gd.grade} (${score.percentage}%)` : null;
+
+  const sheetContent = renderTaskDetailSheet({
+    entryKey,
+    entry: { ...entry, dateKey: dateKey || viewDate },
+    task,
+    person,
+    category: cat,
+    completed,
+    points: { possible: pts },
+    sliderMin: settings?.sliderMin ?? 0,
+    sliderMax: settings?.sliderMax ?? 150,
+    currentOverride: currentOverride != null ? currentOverride : 100,
+    gradePreview,
+    people,
+    showDelegate: true,
+    showMove: true,
+    showEdit: true,
+    showPoints: settings?.showPoints !== false
+  });
+
+  taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+  requestAnimationFrame(() => {
+    const overlay = document.getElementById('bottomSheet');
+    if (overlay) overlay.classList.add('active');
+  });
+
+  // Bind sheet events
+  bindTaskSheetEvents(entryKey, dateKey);
+}
+
+function closeTaskSheet() {
+  const overlay = document.getElementById('bottomSheet');
+  if (overlay) {
+    overlay.classList.remove('active');
+    setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
+  }
+}
+
+function bindTaskSheetEvents(entryKey, dateKey) {
+  // Close on overlay click
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+
+  // Toggle complete
+  document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
+    closeTaskSheet();
+    await toggleTask(entryKey, dateKey);
+  });
+
+  // Points slider — preview for all tasks, save only for completed
+  const slider = document.getElementById('pointsSlider');
+  if (slider) {
+    const isCompleted = isComplete(entryKey, completions);
+
+    slider.addEventListener('input', () => {
+      const val = parseInt(slider.value, 10);
+      const basePts = parseInt(slider.dataset.basePts, 10);
+      const earnedPts = Math.round(basePts * (val / 100));
+      const label = document.getElementById('sliderValueLabel');
+      if (label) label.textContent = `${val}% (${earnedPts}pt)`;
+
+      // Live grade preview — temporarily inject override into completions
+      const filtered = filterByPerson(viewEntries, activePerson);
+      const hadRecord = !!completions[entryKey];
+      const origRecord = completions[entryKey];
+      // Simulate: treat as completed with this override for preview
+      completions[entryKey] = {
+        ...(origRecord || { completedAt: Date.now(), completedBy: 'preview' }),
+        pointsOverride: val === 100 ? null : val
+      };
+      const previewScore = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
+      const previewGd = gradeDisplay(previewScore.percentage);
+      const previewEl = document.getElementById('gradePreview');
+      if (previewEl) previewEl.textContent = `Grade: ${previewGd.grade} (${previewScore.percentage}%)`;
+      // Restore original state
+      if (hadRecord) completions[entryKey] = origRecord;
+      else delete completions[entryKey];
+    });
+
+    slider.addEventListener('change', async () => {
+      if (!isCompleted) return; // preview only for incomplete tasks
+      const val = parseInt(slider.value, 10);
+      const override = val === 100 ? null : val;
+      completions[entryKey].pointsOverride = override;
+      await writeCompletion(entryKey, completions[entryKey]);
+      render();
+    });
+
+    // Reset to 100% button
+    const resetBtn = document.getElementById('sliderReset');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        slider.value = 100;
+        slider.dispatchEvent(new Event('input'));
+        slider.dispatchEvent(new Event('change'));
+      });
+    }
+  }
+
+  // Delegate
+  document.getElementById('sheetDelegate')?.addEventListener('click', () => {
+    const panel = document.getElementById('delegatePanel');
+    if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  });
+
+  // Delegate person chips
+  let pendingDelegateOwnerId = null;
+  document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
+    chip.addEventListener('click', async () => {
+      const newOwnerId = chip.dataset.personId;
+      if (!newOwnerId) return;
+
+      const moveToggle = document.getElementById('delegateMoveToggle');
+      if (moveToggle?.checked) {
+        // Store selection, open date picker for delegate+move
+        pendingDelegateOwnerId = newOwnerId;
+        document.querySelectorAll('#delegatePanel .chip--selectable').forEach(c => c.classList.remove('chip--active'));
+        chip.classList.add('chip--active');
+        const picker = document.getElementById('delegateMoveDatePicker');
+        if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+        return;
+      }
+
+      // Regular delegate (no move)
+      const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+      if (!entry) return;
+
+      const originalPerson = people.find(p => p.id === entry.ownerId);
+      const targetDate = dateKey || viewDate;
+      const newEntry = { ...entry, ownerId: newOwnerId, delegatedFromName: originalPerson?.name || '?' };
+      delete newEntry.entryKey;
+
+      const updates = {};
+      updates[`schedule/${targetDate}/${entryKey}`] = null;
+      const newKey = `sched_${Date.now()}_delegate`;
+      updates[`schedule/${targetDate}/${newKey}`] = newEntry;
+
+      if (completions[entryKey]) {
+        updates[`completions/${entryKey}`] = null;
+        updates[`completions/${newKey}`] = completions[entryKey];
+      }
+
+      await multiUpdate(updates);
+      closeTaskSheet();
+      await loadData();
+      render();
+    });
+  });
+
+  // Delegate+Move date picker
+  document.getElementById('delegateMoveDatePicker')?.addEventListener('change', async (e) => {
+    const newDate = e.target.value;
+    if (!newDate || !pendingDelegateOwnerId) return;
+
+    const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+    if (!entry) return;
+
+    const originalPerson = people.find(p => p.id === entry.ownerId);
+    const sourceDate = dateKey || viewDate;
+    const newEntry = { ...entry, ownerId: pendingDelegateOwnerId, delegatedFromName: originalPerson?.name || '?', movedFromDate: sourceDate };
+    delete newEntry.entryKey;
+
+    const updates = {};
+    updates[`schedule/${sourceDate}/${entryKey}`] = null;
+    const newKey = `sched_${Date.now()}_delegate_moved`;
+    updates[`schedule/${newDate}/${newKey}`] = newEntry;
+
+    if (completions[entryKey]) {
+      updates[`completions/${entryKey}`] = null;
+      updates[`completions/${newKey}`] = completions[entryKey];
+    }
+
+    await multiUpdate(updates);
+    pendingDelegateOwnerId = null;
+    closeTaskSheet();
+    await loadData();
+    render();
+  });
+
+  // Move — directly open date picker
+  document.getElementById('sheetMove')?.addEventListener('click', () => {
+    const picker = document.getElementById('moveDatePicker');
+    if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+  });
+
+  document.getElementById('moveDatePicker')?.addEventListener('change', async (e) => {
+    const newDate = e.target.value;
+    if (!newDate) return;
+
+    const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+    if (!entry) return;
+
+    const sourceDate = dateKey || viewDate;
+    const newEntry = { ...entry, movedFromDate: sourceDate };
+    delete newEntry.entryKey;
+
+    const updates = {};
+    updates[`schedule/${sourceDate}/${entryKey}`] = null;
+    const newKey = `sched_${Date.now()}_moved`;
+    updates[`schedule/${newDate}/${newKey}`] = newEntry;
+
+    if (completions[entryKey]) {
+      updates[`completions/${entryKey}`] = null;
+      updates[`completions/${newKey}`] = completions[entryKey];
+    }
+
+    await multiUpdate(updates);
+    closeTaskSheet();
+    await loadData();
+    render();
+  });
+
+  // Skip (mark as missed — remove from schedule)
+  document.getElementById('moveSkip')?.addEventListener('click', async () => {
+    const sourceDate = dateKey || viewDate;
+    const updates = {};
+    updates[`schedule/${sourceDate}/${entryKey}`] = null;
+    if (completions[entryKey]) {
+      updates[`completions/${entryKey}`] = null;
+    }
+    await multiUpdate(updates);
+    closeTaskSheet();
+    await loadData();
+    render();
+  });
+
+  // Edit task
+  document.getElementById('sheetEdit')?.addEventListener('click', () => {
+    const taskId = document.getElementById('sheetEdit').dataset.taskId;
+    // Close detail sheet then open edit sheet after animation completes
+    const overlay = document.getElementById('bottomSheet');
+    if (overlay) overlay.classList.remove('active');
+    setTimeout(() => { openEditTaskSheet(taskId); }, 320);
+  });
+}
+
+// ══════════════════════════════════════════
+// Edit task sheet (no PIN)
+// ══════════════════════════════════════════
+
+function openEditTaskSheet(taskId) {
+  const task = tasks[taskId];
+  if (!task) return;
+
+  const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
+  const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people);
+  taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+  initOwnerChips('et_owners');
+
+  requestAnimationFrame(() => {
+    const overlay = document.getElementById('bottomSheet');
+    if (overlay) overlay.classList.add('active');
+  });
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
+  document.getElementById('et_cancel')?.addEventListener('click', closeTaskSheet);
+
+  // Assignment mode toggle
+  const modeGroup = document.getElementById('et_assignMode');
+  if (modeGroup) {
+    for (const btn of modeGroup.querySelectorAll('.admin-mode-btn')) {
+      btn.addEventListener('click', () => {
+        modeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
+        btn.classList.add('admin-mode-btn--active');
+      });
+    }
+  }
+
+  // Rotation change — show/hide dedicated day vs date
+  document.getElementById('et_rotation')?.addEventListener('change', (e) => {
+    const rot = e.target.value;
+    const group = document.getElementById('et_dedicatedDayGroup');
+    const daySelect = document.getElementById('et_daySelect');
+    const dateRow = document.getElementById('et_dedicatedDateRow');
+    const label = document.getElementById('et_dedicatedDayLabel');
+    const catOpt = document.getElementById('et_category')?.selectedOptions[0];
+    const isEvent = catOpt?.dataset.event === '1';
+    if (rot === 'daily') {
+      group.style.display = 'none';
+    } else {
+      group.style.display = '';
+      const eventBtn = label?.querySelector('#et_eventDateBtn');
+      const btnHtml = eventBtn ? eventBtn.outerHTML : '';
+      if (rot === 'once') {
+        daySelect.style.display = 'none';
+        dateRow.style.display = isEvent ? 'none' : '';
+        label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
+      } else {
+        daySelect.style.display = '';
+        dateRow.style.display = 'none';
+        label.innerHTML = 'Dedicated Day ' + btnHtml;
+      }
+      label?.querySelector('#et_eventDateBtn')?.addEventListener('click', () => {
+        const picker = document.getElementById('et_eventDate');
+        if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
+      });
+    }
+  });
+
+  // Category change — show/hide event date button
+  document.getElementById('et_category')?.addEventListener('change', (e) => {
+    const isEvent = e.target.selectedOptions[0]?.dataset.event === '1';
+    const eventBtn = document.getElementById('et_eventDateBtn');
+    if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+    const eventTimeGroup = document.getElementById('et_eventTimeGroup');
+    if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+    if (isEvent) {
+      const rotSelect = document.getElementById('et_rotation');
+      if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
+    }
+  });
+
+  // Event date icon
+  document.getElementById('et_eventDateBtn')?.addEventListener('click', () => {
+    const picker = document.getElementById('et_eventDate');
+    if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+  });
+
+  document.getElementById('et_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('et_name')?.value.trim();
+    if (!name) { document.getElementById('et_name')?.focus(); return; }
+
+    const owners = getSelectedOwners('et_owners');
+    const rotation = document.getElementById('et_rotation')?.value || task.rotation;
+    const activeMode = modeGroup?.querySelector('.admin-mode-btn--active')?.dataset.mode || 'rotate';
+    const dayVal = document.getElementById('et_daySelect')?.value;
+    const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
+    const dedicatedDate = rotation === 'once' ? (document.getElementById('et_dedicatedDate')?.value || null) : null;
+    const cooldown = document.getElementById('et_cooldown')?.value;
+    const catOpt = document.getElementById('et_category')?.selectedOptions[0];
+    const catIsEvent = catOpt?.dataset.event === '1';
+    const eventDate = document.getElementById('et_eventDate')?.value;
+    const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
+
+    const eventTime = catIsEvent ? (document.getElementById('et_eventTime')?.value || null) : null;
+    const updated = {
+      ...task,
+      name,
+      rotation,
+      difficulty: document.getElementById('et_difficulty')?.value || task.difficulty,
+      timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay,
+      estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('et_estMin')?.value, 10)),
+      category: document.getElementById('et_category')?.value || task.category,
+      owners,
+      ownerAssignmentMode: activeMode,
+      dedicatedDay,
+      dedicatedDate: effectiveDedicatedDate,
+      eventTime,
+      cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
+      exempt: document.getElementById('et_exempt')?.checked || false
+    };
+
+    await writeTask(taskId, updated);
+    tasks[taskId] = updated;
+    closeTaskSheet();
+    render();
+  });
+}
+
+// ══════════════════════════════════════════
+// Quick-add task (header + button)
+// ══════════════════════════════════════════
+
+function openQuickAddSheet() {
+  const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
+  const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
+  const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey);
+  taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+  initOwnerChips('qa_owners');
+
+  requestAnimationFrame(() => {
+    const overlay = document.getElementById('bottomSheet');
+    if (overlay) overlay.classList.add('active');
+    document.getElementById('qa_name')?.focus();
+  });
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
+
+  // Show/hide event date icon when category changes
+  document.getElementById('qa_category')?.addEventListener('change', (e) => {
+    const opt = e.target.selectedOptions[0];
+    const isEvent = opt?.dataset.event === '1';
+    const eventBtn = document.getElementById('qa_eventDateBtn');
+    if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+    const eventTimeGroup = document.getElementById('qa_eventTimeGroup');
+    if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+    if (isEvent) {
+      const rotSelect = document.getElementById('qa_rotation');
+      if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
+    }
+  });
+
+  // Event date icon — open native date picker
+  document.getElementById('qa_eventDateBtn')?.addEventListener('click', () => {
+    const picker = document.getElementById('qa_eventDate');
+    if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+  });
+
+  // Rotation change — show/hide dedicated day vs date
+  document.getElementById('qa_rotation')?.addEventListener('change', (e) => {
+    const rot = e.target.value;
+    const group = document.getElementById('qa_dedicatedDayGroup');
+    const daySelect = document.getElementById('qa_daySelect');
+    const dateRow = document.getElementById('qa_dedicatedDateRow');
+    const label = document.getElementById('qa_dedicatedDayLabel');
+    // Check if current category is an event
+    const catOpt = document.getElementById('qa_category')?.selectedOptions[0];
+    const isEvent = catOpt?.dataset.event === '1';
+    if (rot === 'daily') {
+      group.style.display = 'none';
+    } else {
+      group.style.display = '';
+      const eventBtn = label?.querySelector('#qa_eventDateBtn');
+      const btnHtml = eventBtn ? eventBtn.outerHTML : '';
+      if (rot === 'once') {
+        daySelect.style.display = 'none';
+        // Events: only show 📅 icon, no date input row
+        dateRow.style.display = isEvent ? 'none' : '';
+        label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
+      } else {
+        daySelect.style.display = '';
+        dateRow.style.display = 'none';
+        label.innerHTML = 'Dedicated Day ' + btnHtml;
+      }
+      // Re-bind event date button after innerHTML replace
+      label?.querySelector('#qa_eventDateBtn')?.addEventListener('click', () => {
+        const picker = document.getElementById('qa_eventDate');
+        if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
+      });
+    }
+  });
+
+  // Assignment mode toggle
+  const qaModeGroup = document.getElementById('qa_assignMode');
+  if (qaModeGroup) {
+    for (const btn of qaModeGroup.querySelectorAll('.admin-mode-btn')) {
+      btn.addEventListener('click', () => {
+        qaModeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
+        btn.classList.add('admin-mode-btn--active');
+      });
+    }
+  }
+
+  document.getElementById('qa_cancel')?.addEventListener('click', closeTaskSheet);
+
+  document.getElementById('qa_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('qa_name')?.value.trim();
+    if (!name) { document.getElementById('qa_name')?.focus(); return; }
+
+    const owners = getSelectedOwners('qa_owners');
+    const catKey = document.getElementById('qa_category')?.value || '';
+    const isEvent = !!cats[catKey]?.isEvent;
+    const eventDate = document.getElementById('qa_eventDate')?.value || '';
+    const rotation = isEvent && eventDate ? 'once' : (document.getElementById('qa_rotation')?.value || 'daily');
+
+    // Read assignment mode
+    const activeModeBtn = document.querySelector('#qa_assignMode .admin-mode-btn--active');
+    const assignMode = isEvent ? 'fixed' : (activeModeBtn?.dataset.mode || 'rotate');
+
+    // Read dedicated day/date
+    const dayVal = document.getElementById('qa_daySelect')?.value;
+    const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
+    const dedicatedDate = isEvent && eventDate ? eventDate : (rotation === 'once' ? (document.getElementById('qa_dedicatedDate')?.value || null) : null);
+
+    const eventTime = isEvent ? (document.getElementById('qa_eventTime')?.value || null) : null;
+    const taskData = {
+      name,
+      rotation,
+      difficulty: document.getElementById('qa_difficulty')?.value || 'medium',
+      timeOfDay: document.getElementById('qa_timeOfDay')?.value || 'anytime',
+      estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('qa_estMin')?.value, 10)),
+      category: catKey,
+      owners,
+      ownerAssignmentMode: assignMode,
+      dedicatedDay,
+      dedicatedDate,
+      eventTime,
+      cooldownDays: parseInt(document.getElementById('qa_cooldown')?.value, 10) || null,
+      exempt: !!document.getElementById('qa_exempt')?.checked,
+      status: 'active',
+      createdDate: today
+    };
+
+    const newId = await pushTask(taskData);
+    tasks[newId] = taskData;
+
+    // Create schedule entry: event/once with date goes on that date, otherwise today
+    // Skip today for weekly/monthly with dedicatedDay that isn't today
+    const skipToday = (taskData.rotation === 'once' && dedicatedDate && dedicatedDate !== today)
+      || ((taskData.rotation === 'weekly' || taskData.rotation === 'monthly') && taskData.dedicatedDay != null && dayOfWeek(today) !== taskData.dedicatedDay);
+    const schedDate = dedicatedDate || today;
+    if (owners.length > 0 && !skipToday) {
+      const schedUpdates = {};
+      const mode = taskData.ownerAssignmentMode || 'rotate';
+      const timeOfDay = taskData.timeOfDay || 'anytime';
+      const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: mode };
+      let qaCounter = 0;
+      const qaKey = () => `sched_${Date.now()}_qa_${String(qaCounter++).padStart(3, '0')}`;
+
+      if (mode === 'duplicate') {
+        for (const oid of owners) {
+          if (timeOfDay === 'both') {
+            schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+            schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+          } else {
+            schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay };
+          }
+        }
+      } else {
+        // Use proper rotation owner instead of always first owner
+        const ownerId = mode === 'fixed' ? owners[0] : getRotationOwner(taskData, today, newId);
+        if (timeOfDay === 'both') {
+          schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+          schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+        } else {
+          schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay };
+        }
+      }
+      await multiUpdate(schedUpdates);
+    }
+
+    // Rebuild future schedule so the new task appears on upcoming days
+    const allSched = await readAllSchedule() || {};
+    const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched);
+    await multiUpdate(futureUpdates);
+
+    await loadData();
+    closeTaskSheet();
+    render();
+  });
+}
+
+// Bind the header buttons
+document.getElementById('headerAddTask')?.addEventListener('click', openQuickAddSheet);
+document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
+  openDeviceThemeSheet(
+    document.getElementById('taskSheetMount'),
+    settings?.theme,
+    linkedPerson ? () => render() : undefined,
+    linkedPerson ? { person: linkedPerson, writePerson } : undefined
+  );
+});
+
+// ══════════════════════════════════════════
+// Real-time listeners
+// ══════════════════════════════════════════
+
+const debouncedRender = debounce(() => render(), 100);
+
+// Completions listener — stays active for the lifetime of the page
+onCompletions((val) => {
+  completions = val || {};
+  debouncedRender();
+});
+
+// Schedule listener — resubscribed when viewDate changes
+let unsubscribeSchedule = null;
+
+function subscribeSchedule(dateKey) {
+  if (unsubscribeSchedule) unsubscribeSchedule();
+  unsubscribeSchedule = onScheduleDay(dateKey, (val) => {
+    viewEntries = val || {};
+    debouncedRender();
+  });
+}
+
+// ══════════════════════════════════════════
+// Daily rollover — create snapshots for past days
+// ══════════════════════════════════════════
+
+async function runRollover() {
+  const [allSched, existingSnapshots, existingStreaks] = await Promise.all([
+    readAllSchedule(),
+    readOnce('snapshots'),
+    readOnce('streaks')
+  ]);
+
+  const { updates, snapshotCount } = computeRollover(
+    today, allSched || {}, completions, tasks, cats, settings,
+    people, existingSnapshots || {}, existingStreaks || {}
+  );
+
+  if (snapshotCount > 0) {
+    await multiUpdate(updates);
+  }
+}
+
+// ══════════════════════════════════════════
+// Initial load
+// ══════════════════════════════════════════
+
+// Subscribe to today's schedule (fires immediately with current data)
+subscribeSchedule(viewDate);
+// Load overdue items (one-shot, spans multiple past dates)
+await loadData();
+// listeners will trigger debouncedRender; run render immediately for first paint
+render();
+runRollover(); // fire-and-forget, don't block UI
+
+} // end person-not-found else
