@@ -62,7 +62,7 @@
       readCompletions, readAllSchedule, readOnce,
       multiUpdate, pushDebugEvent, factoryReset, onConnectionChange
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState, renderUndoToast, renderOfflineBanner, initOwnerChips, getSelectedOwners } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderConnectionStatus, renderEmptyState, renderUndoToast, renderOfflineBanner, initOwnerChips, getSelectedOwners, renderTaskFormCompact } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -476,14 +476,13 @@
           const pausedBadge = task.status === 'paused' ? '<span class="admin-badge admin-badge--muted">⏸ Paused</span>' : '';
           const diffLabel = { easy: 'Easy', medium: 'Med', hard: 'Hard' }[task.difficulty] || 'Med';
           const todLabel = { am: 'AM', pm: 'PM', anytime: 'Any', both: 'AM+PM' }[task.timeOfDay] || 'Any';
-          const editingThis = editingTaskId === id;
           // Detail badges: est time, cooldown, exempt
           let detailBadges = '';
           if (task.estMin) detailBadges += `<span class="admin-badge">${task.estMin}m</span>`;
           detailBadges += `<span class="admin-badge">${todLabel}</span>`;
           if (task.cooldownDays) detailBadges += `<span class="admin-badge">CD ${task.cooldownDays}d</span>`;
           if (task.exempt) detailBadges += `<span class="admin-badge admin-badge--muted">Exempt</span>`;
-          html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}${editingThis ? ' admin-list-item--editing' : ''}" data-task-id="${id}">
+          html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}" data-task-id="${id}">
             <div class="admin-list-item__row">
               <span class="admin-list-item__name">${esc(task.name)}${cat?.icon ? ' ' + cat.icon : ''}</span>
               <span class="admin-list-item__tags">
@@ -502,12 +501,15 @@
               </div>
             </div>
           </div>`;
-          // Inline edit form right after this task row
-          if (editingThis) {
-            html += renderTaskForm(id);
-          }
         }
         html += `</div>`;
+      }
+
+      // Modal overlay for editing (not for 'new' — new stays at top)
+      if (editingTaskId && editingTaskId !== 'new') {
+        html += `<div class="task-form-backdrop" id="taskFormBackdrop">
+          <div class="task-form-modal">${renderTaskForm(editingTaskId)}</div>
+        </div>`;
       }
 
       return html;
@@ -517,102 +519,14 @@
       const task = taskId ? tasksObj[taskId] : {};
       const pa = peopleArray();
       const ca = catsArray();
-      const isEdit = !!taskId;
-      const title = isEdit ? 'Edit Task' : 'New Task';
-
-      const selectedOwners = task.owners || [];
-      const assignMode = task.ownerAssignmentMode || 'rotate';
-
-      let html = `<div class="admin-form" id="taskForm">
-        <h3 class="admin-form__title">${title}</h3>
-        <div class="form-group">
-          <label class="form-label">Task Name</label>
-          <input type="text" id="tf_name" value="${task.name || ''}" placeholder="e.g., Take out trash">
-        </div>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Rotation</label>
-            <select id="tf_rotation">
-              <option value="daily"${task.rotation === 'daily' ? ' selected' : ''}>Daily</option>
-              <option value="weekly"${task.rotation === 'weekly' ? ' selected' : ''}>Weekly</option>
-              <option value="monthly"${task.rotation === 'monthly' ? ' selected' : ''}>Monthly</option>
-              <option value="once"${task.rotation === 'once' ? ' selected' : ''}>One-Time</option>
-            </select>
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Difficulty</label>
-            <select id="tf_difficulty">
-              <option value="easy"${task.difficulty === 'easy' ? ' selected' : ''}>Easy</option>
-              <option value="medium"${(task.difficulty || 'medium') === 'medium' ? ' selected' : ''}>Medium</option>
-              <option value="hard"${task.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Time of Day</label>
-            <select id="tf_timeOfDay">
-              <option value="anytime"${(task.timeOfDay || 'anytime') === 'anytime' ? ' selected' : ''}>Anytime</option>
-              <option value="am"${task.timeOfDay === 'am' ? ' selected' : ''}>Morning</option>
-              <option value="pm"${task.timeOfDay === 'pm' ? ' selected' : ''}>Afternoon</option>
-              <option value="both"${task.timeOfDay === 'both' ? ' selected' : ''}>Both</option>
-            </select>
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Est. Minutes</label>
-            <input type="number" id="tf_estMin" value="${task.estMin ?? 10}" min="0" max="120">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Category</label>
-          <select id="tf_category">
-            ${ca.map(c => `<option value="${esc(c.key)}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key || (!task.category && c.isDefault) ? ' selected' : ''}>${esc(c.icon)} ${esc(c.label)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Owners</label>
-          <div class="owner-chips" id="tf_owners">
-            ${pa.map(p => `<button type="button" class="owner-chip${selectedOwners.includes(p.id) ? ' owner-chip--selected' : ''}" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Assignment Mode</label>
-          <div class="form-row">
-            <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'rotate' ? ' admin-mode-btn--active' : ''}" data-mode="rotate" type="button">Rotate</button>
-            <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
-          </div>
-          <p class="form-hint" id="assignModeHint">${assignMode === 'duplicate' ? 'Each selected owner gets their own task instance every period.' : 'Rotate between owners each period.'}</p>
-        </div>
-        <div class="form-group" id="dedicatedDayGroup" style="display:${(!task.rotation || task.rotation === 'daily') ? 'none' : ''}">
-          <label class="form-label" id="dedicatedDayLabel">${task.rotation === 'once' ? 'Scheduled Date' : 'Dedicated Day'} <button type="button" id="tf_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${catsObj[task.category]?.isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
-          <input type="date" id="tf_eventDate" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);" value="${task.dedicatedDate || ''}">
-          <select id="daySelect" class="dedicated-day-select" style="display:${task.rotation === 'once' ? 'none' : ''}">
-            <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
-            ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
-              const val = (i + 1) % 7; // Mon=1..Sat=6,Sun=0
-              return `<option value="${val}"${task.dedicatedDay === val ? ' selected' : ''}>${d}</option>`;
-            }).join('')}
-          </select>
-          <div id="dedicatedDateRow" style="display:${task.rotation === 'once' ? '' : 'none'}">
-            <input type="date" id="tf_dedicatedDate" value="${task.dedicatedDate || ''}" class="task-detail__date-input" style="width:100%">
-          </div>
-        </div>
-        <div class="form-group" id="tf_eventTimeGroup" style="display:${catsObj[task.category]?.isEvent ? '' : 'none'}">
-          <label class="form-label">Event Time</label>
-          <input type="time" id="tf_eventTime" value="${task.eventTime || ''}" placeholder="Optional">
-          <p class="form-hint">Leave blank for all-day events</p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Cooldown Days</label>
-          <input type="number" id="tf_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
-        </div>
-        <label class="admin-checkbox mt-sm"><input type="checkbox" id="tf_exempt"${task.exempt ? ' checked' : ''}> Exempt from scoring</label>
-        <div class="admin-form__actions mt-md">
-          <button class="btn btn--secondary" id="taskFormCancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="taskFormSave" type="button">${isEdit ? 'Save Changes' : 'Create Task'}</button>
-        </div>
-      </div>`;
-      return html;
+      return `<div class="admin-form">${renderTaskFormCompact({
+        task,
+        taskId,
+        mode: taskId ? 'edit' : 'create',
+        categories: ca,
+        people: pa,
+        prefix: 'tf'
+      })}</div>`;
     }
 
     // ══════════════════════════════════════════
@@ -1283,26 +1197,30 @@
         });
       }
 
-      // Edit task — click row or edit button
+      // Edit task — click row or edit button → open modal
       for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
         item.addEventListener('click', (e) => {
           if (e.target.closest('.admin-list-item__actions')) return;
           const tid = item.dataset.taskId;
-          const wasOpen = editingTaskId === tid;
-          editingTaskId = wasOpen ? null : tid;
+          editingTaskId = editingTaskId === tid ? null : tid;
           render();
-          scrollToTask(tid, !wasOpen);
         });
       }
       for (const btn of main.querySelectorAll('.admin-edit-task')) {
         btn.addEventListener('click', () => {
           const tid = btn.dataset.taskId;
-          const wasOpen = editingTaskId === tid;
-          editingTaskId = wasOpen ? null : tid;
+          editingTaskId = editingTaskId === tid ? null : tid;
           render();
-          scrollToTask(tid, !wasOpen);
         });
       }
+
+      // Modal backdrop click → close
+      document.querySelector('#taskFormBackdrop')?.addEventListener('click', (e) => {
+        if (e.target.id === 'taskFormBackdrop') {
+          editingTaskId = null;
+          render();
+        }
+      });
 
       // Pause/unpause
       for (const btn of main.querySelectorAll('.admin-pause-task')) {
@@ -1373,50 +1291,45 @@
     }
 
     function bindTaskForm() {
+      const root = editingTaskId === 'new' ? main : document;
       initOwnerChips('tf_owners');
       // Assignment mode toggle
-      for (const btn of main.querySelectorAll('.admin-mode-btn')) {
+      for (const btn of root.querySelectorAll('#tf_assignMode .admin-mode-btn')) {
         btn.addEventListener('click', () => {
-          main.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
+          root.querySelectorAll('#tf_assignMode .admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
           btn.classList.add('admin-mode-btn--active');
-          const hint = main.querySelector('#assignModeHint');
-          if (hint) hint.textContent = btn.dataset.mode === 'duplicate'
-            ? 'Each selected owner gets their own task instance every period.'
-            : 'Rotate between owners each period.';
         });
       }
 
-      // (Day selection is now a <select> — no chip toggle needed)
-
       // Category change — show/hide event date icon
-      main.querySelector('#tf_category')?.addEventListener('change', (e) => {
+      root.querySelector('#tf_category')?.addEventListener('change', (e) => {
         const opt = e.target.selectedOptions[0];
         const isEvent = opt?.dataset.event === '1';
-        const eventBtn = main.querySelector('#tf_eventDateBtn');
+        const eventBtn = root.querySelector('#tf_eventDateBtn');
         if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
-        const eventTimeGroup = main.querySelector('#tf_eventTimeGroup');
+        const eventTimeGroup = root.querySelector('#tf_eventTimeGroup');
         if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
         // If event, force rotation to once
         if (isEvent) {
-          const rotSelect = main.querySelector('#tf_rotation');
+          const rotSelect = root.querySelector('#tf_rotation');
           if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
         }
       });
 
       // Event date icon — open native date picker
-      main.querySelector('#tf_eventDateBtn')?.addEventListener('click', () => {
-        const picker = main.querySelector('#tf_eventDate');
+      root.querySelector('#tf_eventDateBtn')?.addEventListener('click', () => {
+        const picker = root.querySelector('#tf_eventDate');
         if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
       });
 
       // Rotation change — show/hide dedicated day vs date picker
-      main.querySelector('#tf_rotation')?.addEventListener('change', (e) => {
+      root.querySelector('#tf_rotation')?.addEventListener('change', (e) => {
         const rot = e.target.value;
-        const group = main.querySelector('#dedicatedDayGroup');
-        const daySelect = main.querySelector('#daySelect');
-        const dateRow = main.querySelector('#dedicatedDateRow');
-        const label = main.querySelector('#dedicatedDayLabel');
-        const catOpt = main.querySelector('#tf_category')?.selectedOptions[0];
+        const group = root.querySelector('#tf_dedicatedDayGroup');
+        const daySelect = root.querySelector('#tf_daySelect');
+        const dateRow = root.querySelector('#tf_dedicatedDateRow');
+        const label = root.querySelector('#tf_dedicatedDayLabel');
+        const catOpt = root.querySelector('#tf_category')?.selectedOptions[0];
         const isEvent = catOpt?.dataset.event === '1';
         if (rot === 'daily') {
           group.style.display = 'none';
@@ -1427,60 +1340,58 @@
           if (rot === 'once') {
             daySelect.style.display = 'none';
             dateRow.style.display = isEvent ? 'none' : '';
-            label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
+            label.innerHTML = (isEvent ? 'Event Date ' : 'Date ') + btnHtml;
           } else {
             daySelect.style.display = '';
             dateRow.style.display = 'none';
-            label.innerHTML = 'Dedicated Day ' + btnHtml;
+            label.innerHTML = 'Day ' + btnHtml;
           }
           // Re-bind event date button after innerHTML replace
           label?.querySelector('#tf_eventDateBtn')?.addEventListener('click', () => {
-            const picker = main.querySelector('#tf_eventDate');
+            const picker = root.querySelector('#tf_eventDate');
             if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
           });
         }
       });
 
       // Cancel
-      main.querySelector('#taskFormCancel')?.addEventListener('click', () => {
-        const prevId = editingTaskId;
+      root.querySelector('#tf_cancel')?.addEventListener('click', () => {
         editingTaskId = null;
         render();
-        if (prevId && prevId !== 'new') scrollToTask(prevId, false);
       });
 
       // Save
-      main.querySelector('#taskFormSave')?.addEventListener('click', async () => {
-        const name = main.querySelector('#tf_name')?.value.trim();
-        if (!name) { main.querySelector('#tf_name')?.focus(); return; }
+      root.querySelector('#tf_save')?.addEventListener('click', async () => {
+        const name = root.querySelector('#tf_name')?.value.trim();
+        if (!name) { root.querySelector('#tf_name')?.focus(); return; }
 
         const owners = getSelectedOwners('tf_owners');
-        const activeMode = main.querySelector('.admin-mode-btn.admin-mode-btn--active');
+        const activeMode = root.querySelector('#tf_assignMode .admin-mode-btn.admin-mode-btn--active');
         const assignMode = activeMode?.dataset.mode || 'rotate';
-        const cooldown = main.querySelector('#tf_cooldown')?.value;
-        const rotation = main.querySelector('#tf_rotation')?.value || 'daily';
+        const cooldown = root.querySelector('#tf_cooldown')?.value;
+        const rotation = root.querySelector('#tf_rotation')?.value || 'daily';
 
         // Read dedicated day from select or date from picker
-        const dayVal = main.querySelector('#daySelect')?.value;
+        const dayVal = root.querySelector('#tf_daySelect')?.value;
         const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
-        const dedicatedDate = rotation === 'once' ? (main.querySelector('#tf_dedicatedDate')?.value || null) : null;
+        const dedicatedDate = rotation === 'once' ? (root.querySelector('#tf_dedicatedDate')?.value || null) : null;
 
-        const catKey = main.querySelector('#tf_category')?.value || '';
+        const catKey = root.querySelector('#tf_category')?.value || '';
         const catIsEvent = catsObj[catKey]?.isEvent || false;
         const effectiveMode = catIsEvent ? 'fixed' : assignMode;
 
         // Event date overrides dedicatedDate & rotation
-        const eventDate = catIsEvent ? (main.querySelector('#tf_eventDate')?.value || null) : null;
+        const eventDate = catIsEvent ? (root.querySelector('#tf_eventDate')?.value || null) : null;
         const effectiveRotation = catIsEvent && eventDate ? 'once' : rotation;
         const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
-        const eventTime = catIsEvent ? (main.querySelector('#tf_eventTime')?.value || null) : null;
+        const eventTime = catIsEvent ? (root.querySelector('#tf_eventTime')?.value || null) : null;
 
         const taskData = {
           name,
           rotation: effectiveRotation,
-          difficulty: main.querySelector('#tf_difficulty')?.value || 'medium',
-          timeOfDay: main.querySelector('#tf_timeOfDay')?.value || 'anytime',
-          estMin: (v => isNaN(v) ? 10 : v)(parseInt(main.querySelector('#tf_estMin')?.value, 10)),
+          difficulty: root.querySelector('#tf_difficulty')?.value || 'medium',
+          timeOfDay: root.querySelector('#tf_timeOfDay')?.value || 'anytime',
+          estMin: (v => isNaN(v) ? 10 : v)(parseInt(root.querySelector('#tf_estMin')?.value, 10)),
           category: catKey,
           owners,
           ownerAssignmentMode: effectiveMode,
@@ -1488,7 +1399,7 @@
           dedicatedDate: effectiveDedicatedDate,
           eventTime,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
-          exempt: main.querySelector('#tf_exempt')?.checked || false,
+          exempt: root.querySelector('#tf_exempt')?.checked || false,
           status: 'active'
         };
 
@@ -1551,10 +1462,8 @@
           await multiUpdate(futureUpdates);
         }
 
-        const savedId = editingTaskId;
         editingTaskId = null;
         render();
-        if (savedId && savedId !== 'new') scrollToTask(savedId, false);
       });
     }
 
