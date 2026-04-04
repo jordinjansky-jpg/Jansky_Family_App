@@ -40,9 +40,13 @@ const NAV_ITEMS = [
  * Returns an HTML string.
  */
 export function renderNavBar(activePage) {
+  const personHome = sessionStorage.getItem('dr-person-home');
   const items = NAV_ITEMS.map(item => {
+    const href = (item.id === 'home' && personHome)
+      ? `person.html?person=${encodeURIComponent(personHome)}`
+      : item.href;
     const active = item.id === activePage ? ' nav-item--active' : '';
-    return `<a href="${item.href}" class="nav-item${active}" data-page="${item.id}" aria-label="${item.label}"${active ? ' aria-current="page"' : ''}>
+    return `<a href="${href}" class="nav-item${active}" data-page="${item.id}" aria-label="${item.label}"${active ? ' aria-current="page"' : ''}>
       <span class="nav-item__icon" aria-hidden="true">${item.icon}</span>
       <span class="nav-item__label">${item.label}</span>
     </a>`;

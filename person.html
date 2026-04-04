@@ -16,6 +16,7 @@
       if (!person) { window.location.href = 'index.html'; return; }
       var appName = localStorage.getItem('dr-app-name') || 'Family Hub';
       document.title = person + "'s " + appName;
+      sessionStorage.setItem('dr-person-home', person);
       // Manifest served by SW with correct start_url and unique id per person
       var link = document.createElement('link');
       link.rel = 'manifest';
