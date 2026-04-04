@@ -18,7 +18,8 @@
     (function() {
       var person = new URLSearchParams(window.location.search).get('person');
       if (person) {
-        document.title = person + "'s Daily Rundown";
+        var appName = localStorage.getItem('dr-app-name') || 'Daily Rundown';
+        document.title = person + "'s " + appName;
         document.getElementById('manifestLink').remove();
       }
     })();
@@ -74,6 +75,8 @@
 
     // Apply family theme from Firebase only if no device override
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
+    // Cache app name for instant title on next load (used by inline script)
+    if (settings?.appName) localStorage.setItem('dr-app-name', settings.appName);
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
