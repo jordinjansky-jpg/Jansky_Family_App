@@ -1420,7 +1420,7 @@
               }
             } else {
               // Use proper rotation owner instead of always first owner
-              const ownerId = effectiveMode === 'fixed' ? owners[0] : getRotationOwner(taskData, today);
+              const ownerId = effectiveMode === 'fixed' ? owners[0] : getRotationOwner(taskData, today, newId);
               if (tod === 'both') {
                 schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
                 schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };

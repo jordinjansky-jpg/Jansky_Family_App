@@ -13,15 +13,27 @@ const SCHEDULE_DAYS = 90;
 // ============================================================
 
 /**
- * Determine the assigned owner for a rotate-mode task on a given date.
- * Rotation is deterministic: same inputs always produce the same owner.
- *
- * - daily: rotate by day index (days since epoch mod owner count)
- * - weekly: ISO week number mod owner count
- * - monthly: month number mod owner count
- * - once: first owner
+ * Simple string hash for deterministic per-task tie-breaking.
  */
-export function getRotationOwner(task, dateKey) {
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Determine the assigned owner for a rotate-mode task on a given date.
+ * - daily: deterministic rotation with per-task hash offset so different daily
+ *   tasks go to different people on the same day (not all to the same person)
+ * - once: first owner
+ * - weekly/monthly: delegates to getBalancedOwner for time-based balancing
+ *
+ * taskId is optional — only needed for daily tasks to compute per-task offset.
+ */
+export function getRotationOwner(task, dateKey, taskId) {
   const owners = task.owners;
   if (!owners || owners.length === 0) return null;
   if (owners.length === 1) return owners[0];
@@ -33,10 +45,13 @@ export function getRotationOwner(task, dateKey) {
       const d = new Date(dateKey + 'T00:00:00Z');
       const epoch = new Date('2024-01-01T00:00:00Z');
       const daysSinceEpoch = Math.floor((d - epoch) / 86400000);
-      index = daysSinceEpoch % owners.length;
+      // Per-task hash offset so different tasks rotate to different people on the same day
+      const offset = taskId ? hashCode(taskId) : 0;
+      index = (daysSinceEpoch + offset) % owners.length;
       break;
     }
     case 'weekly': {
+      // Fallback for callers without balanceCtx — use week-based rotation
       const week = isoWeekNumber(dateKey);
       index = week % owners.length;
       break;
@@ -56,10 +71,97 @@ export function getRotationOwner(task, dateKey) {
 }
 
 /**
- * Generate entries with proper owner rotation.
- * Replaces basic single-owner assignment for rotate mode.
+ * Calculate total estimated minutes for a specific person on a given day.
+ * Merges new schedule entries (being built) with existing schedule entries.
+ * Includes ALL task types (daily, weekly, monthly, one-time) already placed.
  */
-function generateRotatedEntries(task, taskId, dateKey) {
+function personDayLoad(personId, dateKey, newDayEntries, existingDayEntries, tasks) {
+  let totalMin = 0;
+  const counted = new Set();
+
+  if (newDayEntries) {
+    for (const [key, entry] of Object.entries(newDayEntries)) {
+      if (entry.ownerId !== personId) continue;
+      counted.add(key);
+      const task = tasks[entry.taskId];
+      if (task) {
+        const raw = task.timeOfDay === 'both' ? Math.ceil((task.estMin || 1) / 2) : (task.estMin || 1);
+        totalMin += raw;
+      }
+    }
+  }
+
+  if (existingDayEntries) {
+    for (const [key, entry] of Object.entries(existingDayEntries)) {
+      if (entry.ownerId !== personId) continue;
+      if (counted.has(key)) continue;
+      const task = tasks[entry.taskId];
+      if (task) {
+        const raw = task.timeOfDay === 'both' ? Math.ceil((task.estMin || 1) / 2) : (task.estMin || 1);
+        totalMin += raw;
+      }
+    }
+  }
+
+  return totalMin;
+}
+
+/**
+ * Pick the owner with the least total time on the target day.
+ * Considers ALL tasks already placed (daily, weekly, etc.) so the person
+ * with the lightest actual workload that day gets the assignment.
+ *
+ * Tie-breaker: per-task hash + period index ensures different tasks
+ * stagger across people and the same person rarely gets the same task
+ * in consecutive periods.
+ */
+function getBalancedOwner(task, taskId, dateKey, newSchedule, existingSchedule, allTasks) {
+  const owners = task.owners;
+  if (!owners || owners.length === 0) return null;
+  if (owners.length === 1) return owners[0];
+
+  const newDay = newSchedule[dateKey] || null;
+  const existDay = existingSchedule ? existingSchedule[dateKey] : null;
+
+  // Compute per-person load on this specific day (all task types included)
+  const loads = {};
+  let minLoad = Infinity;
+  for (const oid of owners) {
+    loads[oid] = personDayLoad(oid, dateKey, newDay, existDay, allTasks);
+    if (loads[oid] < minLoad) minLoad = loads[oid];
+  }
+
+  const tied = owners.filter(oid => Math.abs(loads[oid] - minLoad) < 0.01);
+
+  if (tied.length === 1) return tied[0];
+
+  // Tie-breaker: task hash + period index for deterministic anti-repeat
+  const taskHash = hashCode(taskId);
+  let periodIndex;
+  switch (task.rotation) {
+    case 'weekly':
+      periodIndex = isoWeekNumber(dateKey);
+      break;
+    case 'monthly':
+      periodIndex = monthNumber(dateKey);
+      break;
+    default:
+      periodIndex = 0;
+  }
+
+  // Sort tied owners for deterministic ordering, then pick via hash + period
+  tied.sort();
+  return tied[(taskHash + periodIndex) % tied.length];
+}
+
+/**
+ * Generate entries with proper owner rotation.
+ * For weekly/monthly rotate tasks, uses day-level time-based load balancing.
+ * For daily/once/duplicate/fixed, uses deterministic rotation.
+ *
+ * balanceCtx: { newSchedule, existingSchedule, allTasks } — passed for weekly/monthly
+ */
+function generateRotatedEntries(task, taskId, dateKey, balanceCtx) {
   const mode = task.ownerAssignmentMode || 'rotate';
   const baseEntry = {
     taskId,
@@ -70,8 +172,6 @@ function generateRotatedEntries(task, taskId, dateKey) {
   const entries = [];
 
   if (mode === 'duplicate') {
-    // Step 5: handled separately — fall through to basic for now
-    // (will be filled in by generateDuplicateEntries)
     return generateDuplicateEntries(task, taskId, dateKey);
   }
 
@@ -87,8 +187,16 @@ function generateRotatedEntries(task, taskId, dateKey) {
     return entries;
   }
 
-  // Rotate mode: one owner per period
-  const ownerId = getRotationOwner(task, dateKey);
+  // Rotate mode: pick owner
+  // Weekly/monthly: use day-level load balancing (all task types on that day)
+  // Daily/once: use deterministic rotation
+  let ownerId;
+  if (balanceCtx && (task.rotation === 'weekly' || task.rotation === 'monthly')) {
+    ownerId = getBalancedOwner(task, taskId, dateKey,
+      balanceCtx.newSchedule, balanceCtx.existingSchedule, balanceCtx.allTasks);
+  } else {
+    ownerId = getRotationOwner(task, dateKey, taskId);
+  }
 
   if (task.timeOfDay === 'both') {
     entries.push({ ...baseEntry, ownerId, timeOfDay: 'am' });
@@ -437,9 +545,13 @@ export function generateSchedule(tasks, people, settings, completions, existingS
     return `sched_${Date.now()}_${String(keyCounter).padStart(5, '0')}`;
   }
 
+  // Balance context passed to weekly/monthly placement for per-day load balancing.
+  // getBalancedOwner reads newSchedule + existingSchedule to compute each person's
+  // total estMin on the target day (including daily tasks already placed).
+  const balanceCtx = { newSchedule, existingSchedule, allTasks: tasks };
+
   // Process tasks in rotation order: daily → weekly → monthly → once
-  // This ensures weekly load is established before monthly picks days,
-  // and weekend weighting works as a global signal across all tasks.
+  // Daily tasks are placed first so weekly/monthly balancing sees them.
   const taskEntries = Object.entries(tasks).filter(([_, t]) => t.status === 'active' && t.owners?.length > 0);
   const rotationOrder = ['daily', 'weekly', 'monthly', 'once'];
   for (const rotation of rotationOrder) {
@@ -451,10 +563,10 @@ export function generateSchedule(tasks, people, settings, completions, existingS
           placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
           break;
         case 'weekly':
-          placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
+          placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey, balanceCtx);
           break;
         case 'monthly':
-          placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
+          placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey, balanceCtx);
           break;
         case 'once':
           placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
@@ -508,7 +620,7 @@ function placeDailyTask(taskId, task, futureDates, newSchedule, existingSchedule
 /**
  * Place a weekly task — once per week on the best day.
  */
-function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey) {
+function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey, balanceCtx) {
   // Group future dates by ISO week
   const weekGroups = {};
   for (const dk of futureDates) {
@@ -534,8 +646,8 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
 
     if (task.createdDate && targetDay < task.createdDate) continue;
 
-    // 2. Place entries (owner assigned inside generateRotatedEntries)
-    const entries = generateRotatedEntries(task, taskId, targetDay);
+    // 2. Place entries (owner assigned via day-level load balancing)
+    const entries = generateRotatedEntries(task, taskId, targetDay, balanceCtx);
     for (const entry of entries) {
       const key = nextKey();
       newSchedule[targetDay][key] = entry;
@@ -546,7 +658,7 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
 /**
  * Place a monthly task — once per month, distributed across weeks.
  */
-function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey) {
+function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey, balanceCtx) {
   // Group future dates by month
   const monthGroups = {};
   for (const dk of futureDates) {
@@ -572,8 +684,8 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
 
     if (task.createdDate && targetDay < task.createdDate) continue;
 
-    // 2. Place entries (owner assigned inside generateRotatedEntries)
-    const entries = generateRotatedEntries(task, taskId, targetDay);
+    // 2. Place entries (owner assigned via day-level load balancing)
+    const entries = generateRotatedEntries(task, taskId, targetDay, balanceCtx);
     for (const entry of entries) {
       const key = nextKey();
       newSchedule[targetDay][key] = entry;
@@ -717,6 +829,9 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
       periodSchedule[dk] = allPlaced[dk] ? { ...allPlaced[dk] } : {};
     }
 
+    // Balance context: periodSchedule is the "new" schedule, cleanSchedule has existing entries
+    const balanceCtx = { newSchedule: periodSchedule, existingSchedule: cleanSchedule, allTasks: tasks };
+
     for (const [taskId, task] of Object.entries(tasks)) {
       if (task.status !== 'active') continue;
       if (task.rotation !== r.rotation) continue;
@@ -736,7 +851,7 @@ export function buildPeriodResetUpdates(period, tasks, people, settings, complet
 
       if (task.createdDate && targetDay < task.createdDate) continue;
 
-      const entries = generateRotatedEntries(task, taskId, targetDay);
+      const entries = generateRotatedEntries(task, taskId, targetDay, balanceCtx);
       for (const entry of entries) {
         const key = nextKey();
         periodSchedule[targetDay][key] = entry;

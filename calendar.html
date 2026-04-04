@@ -1114,7 +1114,7 @@
             }
           } else {
             // Use proper rotation owner instead of always first owner
-            const ownerId = mode === 'fixed' ? owners[0] : getRotationOwner(taskData, today);
+            const ownerId = mode === 'fixed' ? owners[0] : getRotationOwner(taskData, today, newId);
             if (timeOfDay === 'both') {
               schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
               schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
