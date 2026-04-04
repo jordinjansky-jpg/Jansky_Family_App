@@ -17,25 +17,15 @@
     // or iOS uses manifest start_url instead of the actual ?person= URL)
     (function() {
       var person = new URLSearchParams(window.location.search).get('person');
-      var link = document.createElement('link');
-      link.rel = 'manifest';
       if (person) {
         var appName = localStorage.getItem('dr-app-name') || 'Family Hub';
         document.title = person + "'s " + appName;
-        link.href = 'data:application/json,' + encodeURIComponent(JSON.stringify({
-          id: "/person/" + person,
-          name: person + "'s " + appName,
-          short_name: person,
-          start_url: "/index.html?person=" + encodeURIComponent(person),
-          display: "standalone",
-          background_color: "#1a1a2e",
-          theme_color: "#6c63ff",
-          icons: [{ src: "/App Icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
-        }));
       } else {
+        var link = document.createElement('link');
+        link.rel = 'manifest';
         link.href = 'manifest.json';
+        document.head.appendChild(link);
       }
-      document.head.appendChild(link);
     })();
   </script>
   <link rel="stylesheet" href="styles/base.css">
