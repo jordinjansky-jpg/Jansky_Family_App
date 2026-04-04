@@ -10,16 +10,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="/App Icon.png" type="image/png">
   <link rel="apple-touch-icon" href="/App Icon.png">
-  <link rel="manifest" href="manifest.json" id="manifestLink">
+  <link rel="manifest" href="manifest.json">
   <title>Family Hub</title>
   <script>
-    // Set page title + PWA manifest for person-linked access (?person=Name)
+    // Set page title for person-linked access (?person=Name) — used by iOS "Add to Home Screen"
     (function() {
       var person = new URLSearchParams(window.location.search).get('person');
-      if (person) {
-        document.title = person + "'s Daily Rundown";
-        document.getElementById('manifestLink').href = '/person-manifest.json?person=' + encodeURIComponent(person);
-      }
+      if (person) document.title = person + "'s Daily Rundown";
     })();
   </script>
   <link rel="stylesheet" href="styles/base.css">
