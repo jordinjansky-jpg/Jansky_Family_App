@@ -61,9 +61,10 @@ if (linkedPerson?.theme?.preset) {
 
 // ── App state ──
 let viewDate = today;     // currently viewed date
-// Restore saved filter from Firebase for person link, default to their own id
+// Restore saved filter from Firebase for person link (prefs.dashboard > legacy savedFilter)
 let activePerson = linkedPerson
-  ? (linkedPerson.savedFilter !== undefined ? linkedPerson.savedFilter : null)
+  ? (linkedPerson.prefs?.dashboard?.personFilter !== undefined ? linkedPerson.prefs.dashboard.personFilter
+    : linkedPerson.savedFilter !== undefined ? linkedPerson.savedFilter : null)
   : null;
 let completions = {};
 let viewEntries = {};     // entries for viewDate
@@ -392,7 +393,9 @@ function bindEvents() {
     btn.addEventListener('click', async () => {
       activePerson = btn.dataset.personId || null;
       if (linkedPerson) {
-        linkedPerson.savedFilter = activePerson || null;
+        const prefs = { ...(linkedPerson.prefs || {}), dashboard: { personFilter: activePerson } };
+        linkedPerson.prefs = prefs;
+        linkedPerson.savedFilter = activePerson || null; // backward compat
         const { id, ...data } = linkedPerson;
         await writePerson(id, data);
       }

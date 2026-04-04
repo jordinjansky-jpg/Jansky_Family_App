@@ -37,7 +37,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, onConnectionChange } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, onConnectionChange, writePerson } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderGradeBadge, renderBottomSheet, renderOfflineBanner, openDeviceThemeSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
@@ -70,6 +70,12 @@
     const schedule = allSchedule || {};
     const snapshots = allSnapshots || {};
     const streaks = allStreaks || {};
+
+    // ── Person link mode (?person=Name) for per-user prefs ──
+    const personParam = new URLSearchParams(window.location.search).get('person');
+    const linkedPerson = personParam
+      ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
+      : null;
 
     // ── Date ranges ──
     const wStart = weekStart(today);
@@ -246,7 +252,7 @@
     }
 
     // ── Period selector state ──
-    let selectedPeriod = 'week'; // 'today' | 'week' | 'month' | 'year'
+    let selectedPeriod = linkedPerson?.prefs?.scoreboard?.period || 'week'; // 'today' | 'week' | 'month' | 'year'
 
     // ── Render ──
 
@@ -419,6 +425,12 @@
       document.querySelectorAll('.sb-tab').forEach(btn => {
         btn.addEventListener('click', () => {
           selectedPeriod = btn.dataset.period;
+          if (linkedPerson) {
+            const prefs = { ...(linkedPerson.prefs || {}), scoreboard: { period: selectedPeriod } };
+            linkedPerson.prefs = prefs;
+            const { id, ...data } = linkedPerson;
+            writePerson(id, data);
+          }
           render();
         });
       });

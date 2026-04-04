@@ -38,7 +38,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, multiUpdate, onCompletions, onConnectionChange } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, multiUpdate, onCompletions, onConnectionChange } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
@@ -71,9 +71,15 @@
     const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'];
 
+    // ── Person link mode (?person=Name) for per-user prefs ──
+    const personParam = new URLSearchParams(window.location.search).get('person');
+    const linkedPerson = personParam
+      ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
+      : null;
+
     // ── App state ──
     let viewMonth = today.substring(0, 7); // YYYY-MM
-    let activePerson = null;
+    let activePerson = linkedPerson?.prefs?.calendar?.personFilter || null;
     let selectedDay = null;
     let completions = {};
     let allSchedule = {};
@@ -889,6 +895,12 @@
       main.querySelectorAll('.person-pill').forEach(btn => {
         btn.addEventListener('click', () => {
           activePerson = btn.dataset.personId || null;
+          if (linkedPerson) {
+            const prefs = { ...(linkedPerson.prefs || {}), calendar: { personFilter: activePerson } };
+            linkedPerson.prefs = prefs;
+            const { id, ...data } = linkedPerson;
+            writePerson(id, data);
+          }
           render();
         });
       });

@@ -36,7 +36,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, multiUpdate, onConnectionChange } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onConnectionChange } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -80,11 +80,18 @@
     const mStart = monthStart(today);
     const mEnd = monthEnd(today);
 
-    // ── State ──
-    let activeView = 'weekly';  // 'weekly' | 'monthly'
-    let activePerson = null;
-    let activeCategory = null;
-    let activeStatus = null;    // null = all, or 'done'|'late'|'overdue'|'upcoming'|'skipped'
+    // ── Person link mode (?person=Name) for per-user prefs ──
+    const personParam = new URLSearchParams(window.location.search).get('person');
+    const linkedPerson = personParam
+      ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
+      : null;
+
+    // ── State (restore from prefs if available) ──
+    const _tp = linkedPerson?.prefs?.tracker || {};
+    let activeView = _tp.view || 'weekly';  // 'weekly' | 'monthly'
+    let activePerson = _tp.personFilter || null;
+    let activeCategory = _tp.category || null;
+    let activeStatus = _tp.status || null;    // null = all, or 'done'|'late'|'overdue'|'upcoming'|'skipped'
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
@@ -458,11 +465,20 @@
 
     // ── Event binding ──
 
+    function saveTrackerPrefs() {
+      if (!linkedPerson) return;
+      const prefs = { ...(linkedPerson.prefs || {}), tracker: { view: activeView, personFilter: activePerson, category: activeCategory, status: activeStatus } };
+      linkedPerson.prefs = prefs;
+      const { id, ...data } = linkedPerson;
+      writePerson(id, data);
+    }
+
     function bindEvents() {
       // View tabs
       for (const tab of main.querySelectorAll('.tracker-tab')) {
         tab.addEventListener('click', () => {
           activeView = tab.dataset.view;
+          saveTrackerPrefs();
           render();
         });
       }
@@ -471,6 +487,7 @@
       for (const pill of main.querySelectorAll('.person-pill')) {
         pill.addEventListener('click', () => {
           activePerson = pill.dataset.personId || null;
+          saveTrackerPrefs();
           render();
         });
       }
@@ -480,6 +497,7 @@
       if (catSelect) {
         catSelect.addEventListener('change', () => {
           activeCategory = catSelect.value || null;
+          saveTrackerPrefs();
           render();
         });
       }
@@ -489,6 +507,7 @@
       if (statusSelect) {
         statusSelect.addEventListener('change', () => {
           activeStatus = statusSelect.value || null;
+          saveTrackerPrefs();
           render();
         });
       }
