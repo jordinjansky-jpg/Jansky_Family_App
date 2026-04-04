@@ -404,19 +404,19 @@
 /* Schedule Stats */
 .admin-stat-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-sm);
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-xs);
 }
 .admin-stat-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-xs);
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
 }
 .admin-stat-card__value {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-base);
   font-weight: 700;
   color: var(--accent);
 }

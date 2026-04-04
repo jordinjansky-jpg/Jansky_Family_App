@@ -89,17 +89,17 @@
     // Show error if person param given but not found
     if (personParam && !linkedPerson) {
       document.getElementById('loadingState').style.display = 'none';
-      const main = document.getElementById('mainContent');
-      main.style.display = '';
-      main.innerHTML = `
+      const errMain = document.getElementById('mainContent');
+      errMain.style.display = '';
+      errMain.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:var(--spacing-lg);">
           <div style="font-size:3rem;margin-bottom:var(--spacing-md);">🤔</div>
           <h2 style="font-size:var(--font-size-lg);font-weight:700;margin-bottom:var(--spacing-sm);">Who's ${esc(personParam)}?</h2>
           <p style="color:var(--text-secondary);font-size:var(--font-size-sm);">We couldn't find anyone with that name.<br>Check the link or ask an admin.</p>
           <a href="index.html" class="btn btn--secondary mt-md">Go to Dashboard</a>
         </div>`;
-      return;
-    }
+      // Skip rest of init — error message is displayed
+    } else {
 
     // Apply person's saved theme from Firebase (overrides family theme)
     if (linkedPerson?.theme?.preset) {
@@ -1266,6 +1266,8 @@
     // listeners will trigger debouncedRender; run render immediately for first paint
     render();
     runRollover(); // fire-and-forget, don't block UI
+
+    } // end person-not-found else
   </script>
 </body>
 </html>
