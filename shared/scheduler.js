@@ -759,17 +759,13 @@ export function buildScheduleUpdates(tasks, people, settings, completions, exist
   const newSchedule = generateSchedule(tasks, people, settings, completions, existingSchedule, options);
   const updates = {};
 
-  // Optionally remove all uncompleted past entries
+  // Optionally wipe all past date nodes entirely
   if (clearPast) {
     const timezone = settings.timezone || 'America/Chicago';
     const today = todayKey(timezone);
-    const completedKeys = new Set(Object.keys(completions || {}));
-    for (const [dk, dayEntries] of Object.entries(existingSchedule || {})) {
-      if (dk >= today || !dayEntries) continue;
-      for (const [entryKey] of Object.entries(dayEntries)) {
-        if (completedKeys.has(entryKey)) continue;
-        updates[`schedule/${dk}/${entryKey}`] = null;
-      }
+    for (const dk of Object.keys(existingSchedule || {})) {
+      if (dk >= today) continue;
+      updates[`schedule/${dk}`] = null;
     }
   }
 
