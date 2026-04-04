@@ -973,6 +973,13 @@ function openEditTaskSheet(taskId) {
 
     await writeTask(taskId, updated);
     tasks[taskId] = updated;
+
+    // Auto-rebuild future schedule so edits take effect immediately
+    const allSched = await readAllSchedule() || {};
+    const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, { includeToday: true });
+    await multiUpdate(futureUpdates);
+
+    await loadData();
     closeTaskSheet();
     render();
   });
