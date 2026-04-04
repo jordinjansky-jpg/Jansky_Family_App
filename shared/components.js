@@ -42,9 +42,14 @@ const NAV_ITEMS = [
 export function renderNavBar(activePage) {
   const personHome = sessionStorage.getItem('dr-person-home');
   const items = NAV_ITEMS.map(item => {
-    const href = (item.id === 'home' && personHome)
-      ? `person.html?person=${encodeURIComponent(personHome)}`
-      : item.href;
+    let href;
+    if (item.id === 'home' && personHome) {
+      href = `person.html?person=${encodeURIComponent(personHome)}`;
+    } else if (personHome && item.id !== 'home') {
+      href = `${item.href}?person=${encodeURIComponent(personHome)}`;
+    } else {
+      href = item.href;
+    }
     const active = item.id === activePage ? ' nav-item--active' : '';
     return `<a href="${href}" class="nav-item${active}" data-page="${item.id}" aria-label="${item.label}"${active ? ' aria-current="page"' : ''}>
       <span class="nav-item__icon" aria-hidden="true">${item.icon}</span>
