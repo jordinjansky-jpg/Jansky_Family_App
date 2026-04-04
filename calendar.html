@@ -766,16 +766,15 @@
       });
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
-      document.getElementById('etCancel')?.addEventListener('click', closeTaskSheet);
+      document.getElementById('et_cancel')?.addEventListener('click', closeTaskSheet);
 
       // Assignment mode toggle
-      const modeGroup = document.getElementById('et_assignModeHint')?.parentElement;
+      const modeGroup = document.getElementById('et_assignMode');
       if (modeGroup) {
         for (const btn of modeGroup.querySelectorAll('.admin-mode-btn')) {
           btn.addEventListener('click', () => {
             modeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
             btn.classList.add('admin-mode-btn--active');
-            document.getElementById('et_assignModeHint').textContent = btn.dataset.mode === 'duplicate' ? 'Each owner gets their own entry.' : 'Rotate between owners each period.';
           });
         }
       }
@@ -830,7 +829,7 @@
         if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
       });
 
-      document.getElementById('etSave')?.addEventListener('click', async () => {
+      document.getElementById('et_save')?.addEventListener('click', async () => {
         const name = document.getElementById('et_name')?.value.trim();
         if (!name) { document.getElementById('et_name')?.focus(); return; }
         const owners = getSelectedOwners('et_owners');
@@ -1038,21 +1037,19 @@
       });
 
       // Assignment mode toggle
-      const modeGroup = document.getElementById('qa_assignModeHint')?.parentElement;
-      if (modeGroup) {
-        for (const btn of modeGroup.querySelectorAll('.admin-mode-btn')) {
+      const qaModeGroup = document.getElementById('qa_assignMode');
+      if (qaModeGroup) {
+        for (const btn of qaModeGroup.querySelectorAll('.admin-mode-btn')) {
           btn.addEventListener('click', () => {
-            modeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
+            qaModeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
             btn.classList.add('admin-mode-btn--active');
-            const hint = document.getElementById('qa_assignModeHint');
-            if (hint) hint.textContent = btn.dataset.mode === 'duplicate' ? 'Each selected owner gets their own task instance every period.' : 'Rotate between owners each period.';
           });
         }
       }
 
-      document.getElementById('qaCancel')?.addEventListener('click', closeTaskSheet);
+      document.getElementById('qa_cancel')?.addEventListener('click', closeTaskSheet);
 
-      document.getElementById('qaSave')?.addEventListener('click', async () => {
+      document.getElementById('qa_save')?.addEventListener('click', async () => {
         const name = document.getElementById('qa_name')?.value.trim();
         if (!name) { document.getElementById('qa_name')?.focus(); return; }
 
@@ -1063,7 +1060,7 @@
         const rotation = isEvent && eventDate ? 'once' : (document.getElementById('qa_rotation')?.value || 'daily');
 
         // Read assignment mode
-        const activeModeBtn = document.getElementById('qa_assignModeHint')?.parentElement?.querySelector('.admin-mode-btn--active');
+        const activeModeBtn = document.querySelector('#qa_assignMode .admin-mode-btn--active');
         const assignMode = isEvent ? 'fixed' : (activeModeBtn?.dataset.mode || 'rotate');
 
         // Read dedicated day/date

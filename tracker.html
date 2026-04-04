@@ -740,16 +740,15 @@
 
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
-      document.getElementById('etCancel')?.addEventListener('click', closeTaskSheet);
+      document.getElementById('et_cancel')?.addEventListener('click', closeTaskSheet);
 
       // Assignment mode toggle
-      const modeGroup = document.getElementById('et_assignModeHint')?.parentElement;
+      const modeGroup = document.getElementById('et_assignMode');
       if (modeGroup) {
         for (const btn of modeGroup.querySelectorAll('.admin-mode-btn')) {
           btn.addEventListener('click', () => {
             modeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
             btn.classList.add('admin-mode-btn--active');
-            document.getElementById('et_assignModeHint').textContent = btn.dataset.mode === 'duplicate' ? 'Each owner gets their own entry.' : 'Rotate between owners each period.';
           });
         }
       }
@@ -804,7 +803,7 @@
         if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
       });
 
-      document.getElementById('etSave')?.addEventListener('click', async () => {
+      document.getElementById('et_save')?.addEventListener('click', async () => {
         const name = document.getElementById('et_name')?.value.trim();
         if (!name) { document.getElementById('et_name')?.focus(); return; }
         const owners = getSelectedOwners('et_owners');
