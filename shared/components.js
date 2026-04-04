@@ -424,104 +424,137 @@ export function renderCelebration() {
 }
 
 /**
+ * Render a condensed task form that fits mobile without scrolling.
+ * @param {Object} opts
+ * @param {Object} opts.task - task object ({} for new)
+ * @param {string|null} opts.taskId - task ID or null for create
+ * @param {'create'|'edit'} opts.mode
+ * @param {Array} opts.categories - [{ key, label, icon, isEvent, isDefault }]
+ * @param {Array} opts.people - [{ id, name, color }]
+ * @param {string} opts.prefix - ID prefix ('tf','qa','et')
+ */
+export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create', categories = [], people = [], prefix = 'tf' }) {
+  const isEdit = mode === 'edit';
+  const title = isEdit ? 'Edit Task' : 'New Task';
+  const selectedOwners = task.owners || [];
+  const assignMode = task.ownerAssignmentMode || 'rotate';
+  const catObj = categories.find(c => c.key === task.category);
+  const isEvent = !!catObj?.isEvent;
+  const showDedicated = task.rotation && task.rotation !== 'daily';
+
+  const catOptions = categories.map(c =>
+    `<option value="${esc(c.key)}" data-event="${c.isEvent ? '1' : ''}"${
+      task.category === c.key || (!task.category && c.isDefault) ? ' selected' : ''
+    }>${esc(c.icon)} ${esc(c.label)}</option>`
+  ).join('');
+
+  const ownerChips = people.map(p =>
+    `<button type="button" class="owner-chip${selectedOwners.includes(p.id) ? ' owner-chip--selected' : ''}" data-id="${p.id}">${esc(p.name)}</button>`
+  ).join('');
+
+  const dayOptions = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
+    const val = (i + 1) % 7;
+    return `<option value="${val}"${task.dedicatedDay === val ? ' selected' : ''}>${d}</option>`;
+  }).join('');
+
+  return `<div class="form-compact" id="${prefix}_form">
+    <h3 class="admin-form__title">${title}</h3>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input type="text" id="${prefix}_name" value="${esc(task.name || '')}" placeholder="e.g., Take out trash">
+    </div>
+    <div class="form-row-3">
+      <div class="form-group">
+        <label class="form-label">Rotation</label>
+        <select id="${prefix}_rotation">
+          <option value="daily"${task.rotation === 'daily' ? ' selected' : ''}>Daily</option>
+          <option value="weekly"${task.rotation === 'weekly' ? ' selected' : ''}>Weekly</option>
+          <option value="monthly"${task.rotation === 'monthly' ? ' selected' : ''}>Monthly</option>
+          <option value="once"${task.rotation === 'once' ? ' selected' : ''}>One-Time</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Difficulty</label>
+        <select id="${prefix}_difficulty">
+          <option value="easy"${task.difficulty === 'easy' ? ' selected' : ''}>Easy</option>
+          <option value="medium"${(task.difficulty || 'medium') === 'medium' ? ' selected' : ''}>Medium</option>
+          <option value="hard"${task.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time</label>
+        <select id="${prefix}_timeOfDay">
+          <option value="anytime"${(task.timeOfDay || 'anytime') === 'anytime' ? ' selected' : ''}>Any</option>
+          <option value="am"${task.timeOfDay === 'am' ? ' selected' : ''}>AM</option>
+          <option value="pm"${task.timeOfDay === 'pm' ? ' selected' : ''}>PM</option>
+          <option value="both"${task.timeOfDay === 'both' ? ' selected' : ''}>Both</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group form-group--2fr">
+        <label class="form-label">Category</label>
+        <select id="${prefix}_category">${catOptions}</select>
+      </div>
+      <div class="form-group form-group--1fr">
+        <label class="form-label">Est. Min</label>
+        <input type="number" id="${prefix}_estMin" value="${task.estMin ?? 10}" min="0" max="120">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Owners</label>
+      <div class="owner-chips" id="${prefix}_owners">${ownerChips}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Assign</label>
+      <div class="form-row" id="${prefix}_assignMode">
+        <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'rotate' ? ' admin-mode-btn--active' : ''}" data-mode="rotate" type="button">Rotate</button>
+        <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
+      </div>
+    </div>
+    <div class="inline-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Cooldown</label>
+        <input type="number" id="${prefix}_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
+      </div>
+      <label class="admin-checkbox"><input type="checkbox" id="${prefix}_exempt"${task.exempt ? ' checked' : ''}> Exempt</label>
+    </div>
+    <div class="form-group" id="${prefix}_dedicatedDayGroup" style="display:${showDedicated ? '' : 'none'}">
+      <label class="form-label" id="${prefix}_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Date') : 'Day'} <button type="button" id="${prefix}_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
+      <input type="date" id="${prefix}_eventDate" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);" value="${task.dedicatedDate || ''}">
+      <select id="${prefix}_daySelect" class="dedicated-day-select" style="display:${task.rotation === 'once' ? 'none' : ''}">
+        <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
+        ${dayOptions}
+      </select>
+      <div id="${prefix}_dedicatedDateRow" style="display:${task.rotation === 'once' && !isEvent ? '' : 'none'}">
+        <input type="date" id="${prefix}_dedicatedDate" class="task-detail__date-input" style="width:100%" value="${task.dedicatedDate || ''}">
+      </div>
+    </div>
+    <div class="form-group" id="${prefix}_eventTimeGroup" style="display:${isEvent ? '' : 'none'}">
+      <label class="form-label">Event Time</label>
+      <input type="time" id="${prefix}_eventTime" value="${task.eventTime || ''}">
+    </div>
+    <div class="admin-form__actions">
+      <button class="btn btn--secondary" id="${prefix}_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="${prefix}_save" type="button"${taskId ? ` data-task-id="${taskId}"` : ''}>${isEdit ? 'Save' : 'Create'}</button>
+    </div>
+  </div>`;
+}
+
+/**
  * Render the quick-add task bottom sheet.
  * people: array of { id, name, color }
  * categories: array of { key, label, icon }
  */
 export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
-  // Check if default category is an event
-  const defaultCat = defaultCategoryKey ? categories.find(c => c.key === defaultCategoryKey) : null;
-  const defaultIsEvent = !!defaultCat?.isEvent;
-  let html = `<div class="task-detail-sheet">
-    <h3 class="admin-form__title">Quick Add Task</h3>
-    <div class="form-group">
-      <label class="form-label">Task Name</label>
-      <input type="text" id="qa_name" placeholder="e.g., Take out trash" autofocus>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Rotation</label>
-        <select id="qa_rotation">
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-          <option value="once">One-Time</option>
-        </select>
-      </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Difficulty</label>
-        <select id="qa_difficulty">
-          <option value="easy">Easy</option>
-          <option value="medium" selected>Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Time of Day</label>
-        <select id="qa_timeOfDay">
-          <option value="anytime">Anytime</option>
-          <option value="am">Morning</option>
-          <option value="pm">Afternoon</option>
-          <option value="both">Both</option>
-        </select>
-      </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Est. Minutes</label>
-        <input type="number" id="qa_estMin" value="10" min="0" max="120">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Category</label>
-      <select id="qa_category">
-        ${categories.map(c => `<option value="${esc(c.key)}" data-event="${c.isEvent ? '1' : ''}"${(defaultCategoryKey && c.key === defaultCategoryKey) ? ' selected' : ''}>${esc(c.icon)} ${esc(c.label)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Owners</label>
-      <div class="owner-chips" id="qa_owners">
-        ${people.map(p => `<button type="button" class="owner-chip" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Assignment Mode</label>
-      <div class="form-row">
-        <button class="btn btn--secondary btn--sm admin-mode-btn admin-mode-btn--active" data-mode="rotate" type="button">Rotate</button>
-        <button class="btn btn--secondary btn--sm admin-mode-btn" data-mode="duplicate" type="button">Duplicate</button>
-      </div>
-      <p class="form-hint" id="qa_assignModeHint">Rotate between owners each period.</p>
-    </div>
-    <div class="form-group" id="qa_dedicatedDayGroup" style="display:none">
-      <label class="form-label" id="qa_dedicatedDayLabel">Dedicated Day <button type="button" id="qa_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${defaultIsEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
-      <input type="date" id="qa_eventDate" style="position:absolute;opacity:0;pointer-events:none;">
-      <select id="qa_daySelect" class="dedicated-day-select" style="display:none">
-        <option value="" selected>Any</option>
-        ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
-          const val = (i + 1) % 7;
-          return `<option value="${val}">${d}</option>`;
-        }).join('')}
-      </select>
-      <div id="qa_dedicatedDateRow" style="display:none">
-        <input type="date" id="qa_dedicatedDate" class="task-detail__date-input" style="width:100%">
-      </div>
-    </div>
-    <div class="form-group" id="qa_eventTimeGroup" style="display:${defaultIsEvent ? '' : 'none'}">
-      <label class="form-label">Event Time</label>
-      <input type="time" id="qa_eventTime" value="">
-      <p class="form-hint">Leave blank for all-day events</p>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Cooldown Days</label>
-      <input type="number" id="qa_cooldown" value="" min="0" max="30" placeholder="0">
-    </div>
-    <label class="admin-checkbox mt-sm"><input type="checkbox" id="qa_exempt"> Exempt from scoring</label>
-    <div class="admin-form__actions mt-md">
-      <button class="btn btn--secondary" id="qaCancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="qaSave" type="button">Create Task</button>
-    </div>
-  </div>`;
-  return html;
+  const task = defaultCategoryKey ? { category: defaultCategoryKey } : {};
+  return `<div class="task-detail-sheet">${renderTaskFormCompact({
+    task,
+    mode: 'create',
+    categories,
+    people,
+    prefix: 'qa'
+  })}</div>`;
 }
 
 /**
@@ -529,103 +562,14 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
  * task: the task object, categories: [{key, label, icon}], people: [{id, name, color}]
  */
 export function renderEditTaskSheet(taskId, task, categories, people) {
-  const selectedOwners = task.owners || [];
-  const assignMode = task.ownerAssignmentMode || 'rotate';
-  const catObj = categories.find(c => c.key === task.category);
-  const isEvent = !!catObj?.isEvent;
-  const showDedicated = task.rotation && task.rotation !== 'daily';
-  let html = `<div class="task-detail-sheet">
-    <h3 class="admin-form__title">Edit Task</h3>
-    <div class="form-group">
-      <label class="form-label">Task Name</label>
-      <input type="text" id="et_name" value="${esc(task.name || '')}">
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Rotation</label>
-        <select id="et_rotation">
-          <option value="daily"${task.rotation === 'daily' ? ' selected' : ''}>Daily</option>
-          <option value="weekly"${task.rotation === 'weekly' ? ' selected' : ''}>Weekly</option>
-          <option value="monthly"${task.rotation === 'monthly' ? ' selected' : ''}>Monthly</option>
-          <option value="once"${task.rotation === 'once' ? ' selected' : ''}>One-Time</option>
-        </select>
-      </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Difficulty</label>
-        <select id="et_difficulty">
-          <option value="easy"${task.difficulty === 'easy' ? ' selected' : ''}>Easy</option>
-          <option value="medium"${(task.difficulty || 'medium') === 'medium' ? ' selected' : ''}>Medium</option>
-          <option value="hard"${task.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Time of Day</label>
-        <select id="et_timeOfDay">
-          <option value="anytime"${(task.timeOfDay || 'anytime') === 'anytime' ? ' selected' : ''}>Anytime</option>
-          <option value="am"${task.timeOfDay === 'am' ? ' selected' : ''}>Morning</option>
-          <option value="pm"${task.timeOfDay === 'pm' ? ' selected' : ''}>Afternoon</option>
-          <option value="both"${task.timeOfDay === 'both' ? ' selected' : ''}>Both</option>
-        </select>
-      </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Est. Minutes</label>
-        <input type="number" id="et_estMin" value="${task.estMin ?? 10}" min="0" max="120">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Category</label>
-      <select id="et_category">
-        ${categories.map(c => `<option value="${esc(c.key)}" data-event="${c.isEvent ? '1' : ''}"${task.category === c.key ? ' selected' : ''}>${esc(c.icon)} ${esc(c.label)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Owners</label>
-      <div class="owner-chips" id="et_owners">
-        ${people.map(p => `<button type="button" class="owner-chip${selectedOwners.includes(p.id) ? ' owner-chip--selected' : ''}" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Assignment Mode</label>
-      <div class="form-row">
-        <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'rotate' ? ' admin-mode-btn--active' : ''}" data-mode="rotate" type="button">Rotate</button>
-        <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
-      </div>
-      <p class="form-hint" id="et_assignModeHint">${assignMode === 'duplicate' ? 'Each owner gets their own entry.' : 'Rotate between owners each period.'}</p>
-    </div>
-    <div class="form-group" id="et_dedicatedDayGroup" style="display:${showDedicated ? '' : 'none'}">
-      <label class="form-label" id="et_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Scheduled Date') : 'Dedicated Day'} <button type="button" id="et_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
-      <input type="date" id="et_eventDate" style="position:absolute;opacity:0;pointer-events:none;" value="${task.dedicatedDate || ''}">
-      <select id="et_daySelect" class="dedicated-day-select" style="display:${task.rotation === 'once' ? 'none' : ''}">
-        <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
-        ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
-          const val = (i + 1) % 7;
-          return `<option value="${val}"${task.dedicatedDay === val ? ' selected' : ''}>${d}</option>`;
-        }).join('')}
-      </select>
-      <div id="et_dedicatedDateRow" style="display:${task.rotation === 'once' && !isEvent ? '' : 'none'}">
-        <input type="date" id="et_dedicatedDate" class="task-detail__date-input" style="width:100%" value="${task.dedicatedDate || ''}">
-      </div>
-    </div>
-    <div class="form-group" id="et_eventTimeGroup" style="display:${isEvent ? '' : 'none'}">
-      <label class="form-label">Event Time</label>
-      <input type="time" id="et_eventTime" value="${task.eventTime || ''}">
-      <p class="form-hint">Leave blank for all-day events</p>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Cooldown Days</label>
-        <input type="number" id="et_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
-      </div>
-    </div>
-    <label class="admin-checkbox mt-sm"><input type="checkbox" id="et_exempt"${task.exempt ? ' checked' : ''}> Exempt from scoring</label>
-    <div class="admin-form__actions mt-md">
-      <button class="btn btn--secondary" id="etCancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="etSave" data-task-id="${taskId}" type="button">Save Changes</button>
-    </div>
-  </div>`;
-  return html;
+  return `<div class="task-detail-sheet">${renderTaskFormCompact({
+    task,
+    taskId,
+    mode: 'edit',
+    categories,
+    people,
+    prefix: 'et'
+  })}</div>`;
 }
 
 export function renderOfflineBanner(message) {
