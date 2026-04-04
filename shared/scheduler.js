@@ -755,8 +755,23 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
  * for all future dates. null values clear dates with no entries.
  */
 export function buildScheduleUpdates(tasks, people, settings, completions, existingSchedule, options) {
+  const { clearPast = false } = options || {};
   const newSchedule = generateSchedule(tasks, people, settings, completions, existingSchedule, options);
   const updates = {};
+
+  // Optionally remove all uncompleted past entries
+  if (clearPast) {
+    const timezone = settings.timezone || 'America/Chicago';
+    const today = todayKey(timezone);
+    const completedKeys = new Set(Object.keys(completions || {}));
+    for (const [dk, dayEntries] of Object.entries(existingSchedule || {})) {
+      if (dk >= today || !dayEntries) continue;
+      for (const [entryKey] of Object.entries(dayEntries)) {
+        if (completedKeys.has(entryKey)) continue;
+        updates[`schedule/${dk}/${entryKey}`] = null;
+      }
+    }
+  }
 
   for (const [dateKey, entries] of Object.entries(newSchedule)) {
     const hasEntries = Object.keys(entries).length > 0;
@@ -766,161 +781,3 @@ export function buildScheduleUpdates(tasks, people, settings, completions, exist
   return updates;
 }
 
-/**
- * Reset the current week, month, or both: remove uncompleted entries for the
- * period's weekly/monthly tasks, then re-place them across today → end of period
- * using load balancing. Also rebuilds the full future schedule afterward.
- *
- * period: 'week' | 'month' | 'all'
- *   - 'week':  reset weekly tasks into today → end of week
- *   - 'month': reset monthly tasks into today → end of month
- *   - 'all':   reset weekly into remaining week + monthly into remaining month
- *
- * Returns a Firebase multi-update payload.
- */
-export function buildPeriodResetUpdates(period, tasks, people, settings, completions, existingSchedule) {
-  const timezone = settings.timezone || 'America/Chicago';
-  const weekendWeightWeekly = settings.weekendWeightWeekly ?? settings.weekendWeight ?? 1.5;
-  const weekendWeightMonthly = settings.weekendWeightMonthly ?? settings.weekendWeight ?? 3;
-  const today = todayKey(timezone);
-
-  // Which rotation types to reset, and their date windows
-  const resets = [];
-  if (period === 'week' || period === 'all') {
-    resets.push({
-      rotation: 'weekly',
-      periodStart: weekStart(today),
-      periodEnd: weekEnd(today),
-      remainingDates: dateRange(today, weekEnd(today))
-    });
-  }
-  if (period === 'month' || period === 'all') {
-    resets.push({
-      rotation: 'monthly',
-      periodStart: monthStart(today),
-      periodEnd: monthEnd(today),
-      remainingDates: dateRange(today, monthEnd(today))
-    });
-  }
-
-  const updates = {};
-  const completedKeys = new Set(Object.keys(completions || {}));
-
-  // 1. Remove uncompleted entries for each rotation type within its period
-  for (const r of resets) {
-    for (const [dk, dayEntries] of Object.entries(existingSchedule || {})) {
-      if (dk < r.periodStart || dk > r.periodEnd) continue;
-      if (!dayEntries) continue;
-      for (const [entryKey, entry] of Object.entries(dayEntries)) {
-        const task = tasks[entry.taskId];
-        if (!task || task.rotation !== r.rotation) continue;
-        if (completedKeys.has(entryKey)) continue;
-        updates[`schedule/${dk}/${entryKey}`] = null;
-      }
-    }
-  }
-
-  // 2. Build clean existing schedule (without removed entries)
-  const cleanSchedule = {};
-  for (const [dk, dayEntries] of Object.entries(existingSchedule || {})) {
-    if (!dayEntries) continue;
-    cleanSchedule[dk] = {};
-    for (const [ek, entry] of Object.entries(dayEntries)) {
-      if (updates[`schedule/${dk}/${ek}`] === null) continue;
-      cleanSchedule[dk][ek] = entry;
-    }
-  }
-
-  // 3. Place tasks for each reset period
-  const allPlaced = {}; // combined new placements across all resets
-  let keyCounter = 0;
-  function nextKey() {
-    keyCounter++;
-    return `sched_${Date.now()}_reset_${String(keyCounter).padStart(5, '0')}`;
-  }
-
-  // Track the outermost period end for future rebuild exclusion
-  let maxPeriodEnd = today;
-
-  for (const r of resets) {
-    if (r.periodEnd > maxPeriodEnd) maxPeriodEnd = r.periodEnd;
-
-    const periodSchedule = {};
-    for (const dk of r.remainingDates) {
-      periodSchedule[dk] = allPlaced[dk] ? { ...allPlaced[dk] } : {};
-    }
-
-    // Balance context: periodSchedule is the "new" schedule, cleanSchedule has existing entries
-    const balanceCtx = { newSchedule: periodSchedule, existingSchedule: cleanSchedule, allTasks: tasks };
-
-    for (const [taskId, task] of Object.entries(tasks)) {
-      if (task.status !== 'active') continue;
-      if (task.rotation !== r.rotation) continue;
-      if (!task.owners || task.owners.length === 0) continue;
-
-      // Reset ignores prior completions — re-place all tasks into remaining days
-
-      // Pick DAY first (global load + weekend weight), then owner assigned in generateRotatedEntries
-      let targetDay;
-      if (task.dedicatedDay != null) {
-        targetDay = r.remainingDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
-        if (!targetDay) {
-          // Dedicated day already passed — place on the past date so it shows as overdue
-          const fullPeriod = dateRange(r.periodStart, r.periodEnd);
-          if (r.rotation === 'monthly') {
-            const pastOccurrences = fullPeriod.filter(dk => dayOfWeek(dk) === task.dedicatedDay && dk < today);
-            targetDay = pastOccurrences.length > 0 ? pastOccurrences[pastOccurrences.length - 1] : null;
-          } else {
-            targetDay = fullPeriod.find(dk => dayOfWeek(dk) === task.dedicatedDay);
-          }
-          if (targetDay) {
-            if (!periodSchedule[targetDay]) periodSchedule[targetDay] = {};
-          }
-        }
-      }
-      if (!targetDay) {
-        const ww = r.rotation === 'monthly' ? weekendWeightMonthly : weekendWeightWeekly;
-        targetDay = findLightestDay(r.remainingDates, periodSchedule, cleanSchedule, tasks, ww);
-      }
-
-      if (task.createdDate && targetDay < task.createdDate) continue;
-
-      const entries = generateRotatedEntries(task, taskId, targetDay, balanceCtx);
-      for (const entry of entries) {
-        const key = nextKey();
-        periodSchedule[targetDay][key] = entry;
-      }
-    }
-
-    // Merge into allPlaced
-    for (const [dk, dayEntries] of Object.entries(periodSchedule)) {
-      allPlaced[dk] = { ...(allPlaced[dk] || {}), ...dayEntries };
-    }
-  }
-
-  // 4. Write new period entries into updates
-  for (const [dk, dayEntries] of Object.entries(allPlaced)) {
-    for (const [key, entry] of Object.entries(dayEntries)) {
-      updates[`schedule/${dk}/${key}`] = entry;
-    }
-  }
-
-  // 5. Rebuild full future schedule (after the reset period) so everything stays consistent.
-  //    Merge cleanSchedule + period placements so the rebuild sees correct load state.
-  const mergedSchedule = { ...cleanSchedule };
-  for (const [dk, dayEntries] of Object.entries(allPlaced)) {
-    mergedSchedule[dk] = { ...(mergedSchedule[dk] || {}), ...dayEntries };
-  }
-
-  // Rebuild from tomorrow onward (default). The period dates are already handled above,
-  // so we only take entries AFTER the period from the rebuild output.
-  const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, mergedSchedule, { includeToday: true });
-  for (const [path, value] of Object.entries(futureUpdates)) {
-    // Path format: "schedule/YYYY-MM-DD"
-    const futureDateKey = path.substring(9); // strip "schedule/"
-    if (futureDateKey <= maxPeriodEnd) continue;
-    updates[path] = value;
-  }
-
-  return updates;
-}

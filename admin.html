@@ -66,7 +66,7 @@
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
-    import { generateSchedule, buildScheduleUpdates, buildPeriodResetUpdates, getRotationOwner } from './shared/scheduler.js';
+    import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints } from './shared/scoring.js';
 
     // ── Undo toast helper ──
@@ -851,15 +851,10 @@
           <div class="loading-inline"><div class="loading-spinner loading-spinner--small"></div><span>Loading schedule...</span></div>
         </div>
         <div class="admin-form__actions mt-md" style="flex-wrap:wrap;gap:8px">
-          <button class="btn btn--primary" id="rebuildScheduleBtn" type="button">Rebuild Future Schedule</button>
+          <button class="btn btn--primary" id="rebuildScheduleBtn" type="button">Rebuild Schedule</button>
+          <button class="btn btn--secondary" id="resetScheduleBtn" type="button">Clear Past &amp; Rebuild</button>
         </div>
-        <h3 class="admin-form__title mt-lg">Reset Period</h3>
-        <p class="form-hint mb-md">Clear uncompleted weekly/monthly tasks from the current period and redistribute them across the remaining days using load balancing. Completed tasks are preserved.</p>
-        <div class="admin-form__actions" style="flex-wrap:wrap;gap:8px">
-          <button class="btn btn--secondary" id="resetWeekBtn" type="button">Reset Week</button>
-          <button class="btn btn--secondary" id="resetMonthBtn" type="button">Reset Month</button>
-          <button class="btn btn--secondary" id="resetAllBtn" type="button">Reset All</button>
-        </div>
+        <p class="form-hint mt-sm">Rebuild regenerates today + future. Clear Past also removes uncompleted past entries.</p>
         <div id="scheduleMsg" class="admin-msg mt-sm"></div>
       </div>`;
       return html;
@@ -1802,67 +1797,33 @@
     function bindScheduleTab() {
       loadScheduleStats();
 
-      main.querySelector('#rebuildScheduleBtn')?.addEventListener('click', async () => {
-        const msgEl = main.querySelector('#scheduleMsg');
-        const btn = main.querySelector('#rebuildScheduleBtn');
-        btn.disabled = true;
-        btn.textContent = 'Rebuilding...';
-
-        try {
-          const completions = await readCompletions() || {};
-          const existingSchedule = await readAllSchedule() || {};
-          const updates = buildScheduleUpdates(tasksObj, peopleArray(), settings, completions, existingSchedule, { includeToday: true });
-          await multiUpdate(updates);
-
-          await pushDebugEvent({ type: 'schedule_rebuilt', payload: { initiator: 'admin' }, timestamp: Date.now() });
-
-          if (msgEl) {
-            msgEl.textContent = 'Schedule rebuilt successfully!';
-            msgEl.className = 'admin-msg admin-msg--success mt-sm';
-          }
-          await loadScheduleStats();
-        } catch (err) {
-          console.error('Rebuild failed:', err);
-          if (msgEl) {
-            msgEl.textContent = 'Rebuild failed: ' + err.message;
-            msgEl.className = 'admin-msg admin-msg--danger mt-sm';
-          }
-        }
-
-        btn.disabled = false;
-        btn.textContent = 'Rebuild Future Schedule';
-      });
-
-      // Period reset buttons
-      for (const [btnId, period, label] of [
-        ['resetWeekBtn', 'week', 'Reset Week'],
-        ['resetMonthBtn', 'month', 'Reset Month'],
-        ['resetAllBtn', 'all', 'Reset All']
+      for (const [btnId, clearPast, label] of [
+        ['rebuildScheduleBtn', false, 'Rebuild Schedule'],
+        ['resetScheduleBtn', true, 'Clear Past & Rebuild']
       ]) {
         main.querySelector(`#${btnId}`)?.addEventListener('click', async () => {
           const msgEl = main.querySelector('#scheduleMsg');
           const btn = main.querySelector(`#${btnId}`);
           btn.disabled = true;
-          btn.textContent = 'Resetting...';
+          btn.textContent = clearPast ? 'Clearing & Rebuilding...' : 'Rebuilding...';
 
           try {
             const completions = await readCompletions() || {};
             const existingSchedule = await readAllSchedule() || {};
-            const updates = buildPeriodResetUpdates(period, tasksObj, peopleArray(), settings, completions, existingSchedule);
+            const updates = buildScheduleUpdates(tasksObj, peopleArray(), settings, completions, existingSchedule, { includeToday: true, clearPast });
             await multiUpdate(updates);
 
-            await pushDebugEvent({ type: 'period_reset', payload: { period, initiator: 'admin' }, timestamp: Date.now() });
+            await pushDebugEvent({ type: 'schedule_rebuilt', payload: { clearPast, initiator: 'admin' }, timestamp: Date.now() });
 
             if (msgEl) {
-              const desc = period === 'all' ? 'Week + Month' : period === 'week' ? 'Week' : 'Month';
-              msgEl.textContent = `${desc} reset successfully! Tasks redistributed.`;
+              msgEl.textContent = clearPast ? 'Past cleared & schedule rebuilt!' : 'Schedule rebuilt successfully!';
               msgEl.className = 'admin-msg admin-msg--success mt-sm';
             }
             await loadScheduleStats();
           } catch (err) {
-            console.error('Period reset failed:', err);
+            console.error('Rebuild failed:', err);
             if (msgEl) {
-              msgEl.textContent = 'Reset failed: ' + err.message;
+              msgEl.textContent = 'Rebuild failed: ' + err.message;
               msgEl.className = 'admin-msg admin-msg--danger mt-sm';
             }
           }
