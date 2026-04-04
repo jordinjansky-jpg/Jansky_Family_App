@@ -437,6 +437,66 @@
       85% { opacity: 1; }
       100% { transform: translateY(105vh) rotate(720deg) scale(0.8); opacity: 0; }
     }
+
+    /* ── PIN prompt overlay ── */
+    .kid-pin-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      background: var(--overlay-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+    .kid-pin-dialog {
+      background: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-lg);
+      width: min(320px, 90vw);
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+    }
+    .kid-pin-dialog__icon { font-size: 2.5rem; margin-bottom: var(--spacing-sm); }
+    .kid-pin-dialog__title { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--spacing-xs); }
+    .kid-pin-dialog__desc { color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: var(--spacing-md); }
+    .kid-pin-dialog__inputs {
+      display: flex;
+      gap: var(--spacing-sm);
+      justify-content: center;
+      margin-bottom: var(--spacing-sm);
+    }
+    .kid-pin-digit {
+      width: 48px;
+      height: 56px;
+      text-align: center;
+      font-size: var(--font-size-xl);
+      font-weight: 700;
+      border: 2px solid var(--border-light);
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+    .kid-pin-digit:focus { border-color: var(--accent); outline: none; }
+    .kid-pin-dialog__error {
+      color: var(--danger);
+      font-size: var(--font-size-sm);
+      min-height: 1.4em;
+    }
+    .kid-pin-dialog__cancel {
+      margin-top: var(--spacing-sm);
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      cursor: pointer;
+      padding: var(--spacing-xs) var(--spacing-md);
+    }
+    .task-card__lock {
+      font-size: 0.75rem;
+      margin-left: 4px;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
@@ -453,6 +513,7 @@
   <div id="celebrationMount"></div>
   <div id="taskSheetMount"></div>
   <div id="kidSettingsMount"></div>
+  <div id="pinPromptMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1022,6 +1083,16 @@
           html += `</div>`;
 
           main.innerHTML = html;
+
+          // Add lock icon to pin-protected task cards
+          main.querySelectorAll('.task-card').forEach(card => {
+            const ek = card.dataset.entryKey;
+            if (ek && isTaskPinProtected(ek) && !card.querySelector('.task-card__lock')) {
+              const nameEl = card.querySelector('.task-card__name');
+              if (nameEl) nameEl.insertAdjacentHTML('beforeend', '<span class="task-card__lock">🔒</span>');
+            }
+          });
+
           bindEvents();
         }
 
@@ -1086,6 +1157,75 @@
         }
 
         // ══════════════════════════════════════════
+        // PIN-protected category check
+        // ══════════════════════════════════════════
+
+        function isTaskPinProtected(entryKey) {
+          const entry = viewEntries[entryKey] || (overdueItems || []).find(e => e.entryKey === entryKey);
+          if (!entry) return false;
+          const task = tasks[entry.taskId];
+          if (!task || !task.category) return false;
+          const cat = cats[task.category];
+          return !!cat?.pinProtected;
+        }
+
+        function requirePin() {
+          return new Promise((resolve) => {
+            const adminPin = settings?.adminPin || '';
+            const recoveryPin = settings?.recoveryPin || '9999';
+            const mount = document.getElementById('pinPromptMount');
+            mount.innerHTML = `
+              <div class="kid-pin-overlay" id="kidPinOverlay">
+                <div class="kid-pin-dialog">
+                  <div class="kid-pin-dialog__icon">🔒</div>
+                  <div class="kid-pin-dialog__title">Ask a Parent</div>
+                  <div class="kid-pin-dialog__desc">This task needs a parent's PIN to complete</div>
+                  <div class="kid-pin-dialog__inputs">
+                    <input type="tel" class="kid-pin-digit" maxlength="1" data-pin="0" inputmode="numeric">
+                    <input type="tel" class="kid-pin-digit" maxlength="1" data-pin="1" inputmode="numeric">
+                    <input type="tel" class="kid-pin-digit" maxlength="1" data-pin="2" inputmode="numeric">
+                    <input type="tel" class="kid-pin-digit" maxlength="1" data-pin="3" inputmode="numeric">
+                  </div>
+                  <div class="kid-pin-dialog__error" id="kidPinError"></div>
+                  <button class="kid-pin-dialog__cancel" id="kidPinCancel" type="button">Cancel</button>
+                </div>
+              </div>`;
+
+            const digits = mount.querySelectorAll('.kid-pin-digit');
+            const cleanup = () => { mount.innerHTML = ''; };
+
+            digits[0].focus();
+            digits.forEach((inp, i) => {
+              inp.addEventListener('input', () => {
+                if (inp.value.length === 1 && i < 3) digits[i + 1].focus();
+                const entered = Array.from(digits).map(d => d.value).join('');
+                if (entered.length === 4) {
+                  if (entered === adminPin || entered === recoveryPin) {
+                    cleanup();
+                    resolve(true);
+                  } else {
+                    document.getElementById('kidPinError').textContent = 'Wrong PIN — try again';
+                    digits.forEach(d => { d.value = ''; });
+                    digits[0].focus();
+                  }
+                }
+              });
+              inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !inp.value && i > 0) digits[i - 1].focus();
+              });
+            });
+
+            document.getElementById('kidPinCancel').addEventListener('click', () => {
+              cleanup();
+              resolve(false);
+            });
+            document.getElementById('kidPinOverlay').addEventListener('click', (e) => {
+              if (e.target === e.currentTarget) { cleanup(); resolve(false); }
+            });
+          });
+        }
+
+        // ══════════════════════════════════════════
         // Completion toggle
         // ══════════════════════════════════════════
 
@@ -1094,6 +1234,12 @@
         async function toggleTask(entryKey, dateKey) {
           if (!entryKey) return;
           const wasComplete = isComplete(entryKey, completions);
+
+          // PIN-protected: require PIN to mark complete (not to unmark)
+          if (!wasComplete && isTaskPinProtected(entryKey)) {
+            const ok = await requirePin();
+            if (!ok) return;
+          }
 
           if (wasComplete) {
             delete completions[entryKey];
@@ -1409,7 +1555,8 @@
           </div>`;
 
           // Complete/uncomplete button
-          const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
+          const isPinLocked = !completed && isTaskPinProtected(entryKey);
+          const toggleLabel = completed ? 'Mark Incomplete' : (isPinLocked ? '🔒 Mark Complete' : 'Mark Complete');
           const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
           html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
 
