@@ -405,17 +405,27 @@ function bindEvents() {
   });
 
   // Task card: tap to toggle, long-press to open detail sheet
+  // Movement threshold (px) — cancel long-press if finger moves more than this (scroll detection)
+  const PRESS_MOVE_THRESHOLD = 10;
   main.querySelectorAll('.task-card').forEach(btn => {
     let didLongPress = false;
+    let startX = 0, startY = 0;
 
     const startPress = (e) => {
       didLongPress = false;
+      startX = e.clientX; startY = e.clientY;
       clearTimeout(activePressTimer);
       activePressTimer = setTimeout(() => {
         didLongPress = true;
         activePressTimer = null;
         openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
-      }, 500);
+      }, 800);
+    };
+
+    const movePress = (e) => {
+      if (activePressTimer && (Math.abs(e.clientX - startX) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - startY) > PRESS_MOVE_THRESHOLD)) {
+        clearTimeout(activePressTimer); activePressTimer = null;
+      }
     };
 
     const endPress = (e) => {
@@ -429,6 +439,7 @@ function bindEvents() {
     const cancelPress = () => { clearTimeout(activePressTimer); activePressTimer = null; };
 
     btn.addEventListener('pointerdown', startPress);
+    btn.addEventListener('pointermove', movePress);
     btn.addEventListener('pointerup', endPress);
     btn.addEventListener('pointerleave', cancelPress);
     btn.addEventListener('pointercancel', cancelPress);

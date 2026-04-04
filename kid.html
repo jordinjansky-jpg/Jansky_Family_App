@@ -1113,30 +1113,44 @@
           });
 
           // Task cards: tap to toggle, long-press for detail
+          // Movement threshold (px) — cancel long-press if finger moves more than this (scroll detection)
+          const PRESS_MOVE_THRESHOLD = 10;
           main.querySelectorAll('.task-card').forEach(btn => {
             let pressTimer = null;
             let didLongPress = false;
+            let startX = 0, startY = 0;
 
-            const startPress = () => {
+            const startPress = (e) => {
               didLongPress = false;
+              startX = e.clientX; startY = e.clientY;
               pressTimer = setTimeout(() => {
                 didLongPress = true;
+                pressTimer = null;
                 openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
               }, 800);
             };
 
+            const movePress = (e) => {
+              if (pressTimer && (Math.abs(e.clientX - startX) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - startY) > PRESS_MOVE_THRESHOLD)) {
+                clearTimeout(pressTimer); pressTimer = null;
+              }
+            };
+
             const endPress = () => {
               clearTimeout(pressTimer);
+              pressTimer = null;
               if (!didLongPress) {
                 toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
               }
             };
 
-            const cancelPress = () => { clearTimeout(pressTimer); };
+            const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
 
             btn.addEventListener('pointerdown', startPress);
+            btn.addEventListener('pointermove', movePress);
             btn.addEventListener('pointerup', endPress);
             btn.addEventListener('pointerleave', cancelPress);
+            btn.addEventListener('pointercancel', cancelPress);
             btn.addEventListener('contextmenu', e => e.preventDefault());
           });
 
