@@ -499,6 +499,15 @@
         </div>`;
       }
 
+      // Floating action bar (select mode with selections)
+      if (selectMode && selectedTaskIds.size > 0) {
+        html += `<div class="bulk-action-bar">
+          <button class="btn btn--ghost btn--sm" id="bulkCancelBtn" type="button">Cancel</button>
+          <button class="btn btn--danger btn--sm" id="bulkDeleteBtn" type="button">Delete ${selectedTaskIds.size}</button>
+          <button class="btn btn--primary btn--sm" id="bulkEditBtn" type="button">Edit ${selectedTaskIds.size}</button>
+        </div>`;
+      }
+
       return html;
     }
 
@@ -1195,6 +1204,19 @@
         render();
       });
 
+      // Floating action bar buttons
+      main.querySelector('#bulkCancelBtn')?.addEventListener('click', () => {
+        selectMode = false;
+        selectedTaskIds.clear();
+        render();
+      });
+      main.querySelector('#bulkEditBtn')?.addEventListener('click', () => {
+        renderBulkEditModal();
+      });
+      main.querySelector('#bulkDeleteBtn')?.addEventListener('click', () => {
+        handleBulkDelete();
+      });
+
       // Template import buttons
       for (const btn of main.querySelectorAll('.template-import-btn')) {
         btn.addEventListener('click', async () => {
@@ -1521,6 +1543,18 @@
         editingTaskId = null;
         render();
       });
+    }
+
+    // ── Bulk Actions ──
+
+    function renderBulkEditModal() {
+      // TODO: Task 6 will implement this
+      console.log('bulk edit', selectedTaskIds);
+    }
+
+    async function handleBulkDelete() {
+      // TODO: Task 7 will implement this
+      console.log('bulk delete', selectedTaskIds);
     }
 
     // ── People tab events ──
