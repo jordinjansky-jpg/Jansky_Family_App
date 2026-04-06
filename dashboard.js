@@ -74,7 +74,7 @@ let overdueExpanded = false;
 let celebrationShown = false;
 
 // ── Person link title (uses app name from Firebase settings) ──
-if (linkedPerson) document.title = `${linkedPerson.name}'s ${settings?.appName || 'Daily Rundown'}`;
+if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
 
 // ── Header & Nav ──
 const debugActive = localStorage.getItem('dr-debug') === 'true';

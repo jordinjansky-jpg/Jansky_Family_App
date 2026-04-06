@@ -15,7 +15,10 @@
     // Set page title to kid's name for "Add to Home Screen" label on iOS
     (function() {
       var kid = new URLSearchParams(window.location.search).get('kid');
-      if (kid) document.title = kid + "'s Tasks";
+      if (kid) {
+        var safe = kid.replace(/[<>"'&]/g, '');
+        document.title = safe + "'s Tasks";
+      }
     })();
   </script>
   <link rel="stylesheet" href="styles/base.css">
@@ -583,7 +586,7 @@
           applyTheme(kid.theme);
         }
 
-        document.title = `${kid.name}'s Daily Rundown`;
+        document.title = `${esc(kid.name)}'s Daily Rundown`;
 
         // ── Offline/Online banner ──
         const bannerMount = document.createElement('div');

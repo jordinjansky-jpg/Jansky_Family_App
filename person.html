@@ -15,7 +15,8 @@
       var person = new URLSearchParams(window.location.search).get('person');
       if (!person) { window.location.href = 'index.html'; return; }
       var appName = localStorage.getItem('dr-app-name') || 'Family Hub';
-      document.title = person + "'s " + appName;
+      var safe = person.replace(/[<>"'&]/g, '');
+      document.title = safe + "'s " + appName;
       sessionStorage.setItem('dr-person-home', person);
       // Manifest served by SW with correct start_url and unique id per person
       var link = document.createElement('link');
