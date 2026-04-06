@@ -1548,8 +1548,186 @@
     // ── Bulk Actions ──
 
     function renderBulkEditModal() {
-      // TODO: Task 6 will implement this
-      console.log('bulk edit', selectedTaskIds);
+      const pa = peopleArray();
+      const ca = catsArray();
+      const count = selectedTaskIds.size;
+
+      const ownerChips = pa.map(p =>
+        `<button type="button" class="owner-chip" data-id="${p.id}">${esc(p.name)}</button>`
+      ).join('');
+
+      const catOptions = ca.map(c =>
+        `<option value="${esc(c.key)}">${esc(c.icon)} ${esc(c.label)}</option>`
+      ).join('');
+
+      const modalHtml = `<div class="task-form-backdrop" id="bulkEditBackdrop">
+        <div class="task-form-modal">
+          <div class="admin-form">
+            <h3 class="admin-form__title">Edit ${count} task${count !== 1 ? 's' : ''}</h3>
+            <div class="bulk-edit-form">
+              <div class="form-group">
+                <label class="form-label">Rotation</label>
+                <select id="be_rotation">
+                  <option value="" selected>\u2014 no change \u2014</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="once">One-Time</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Owner Assignment Mode</label>
+                <select id="be_assignMode">
+                  <option value="" selected>\u2014 no change \u2014</option>
+                  <option value="rotate">Rotate</option>
+                  <option value="duplicate">Duplicate</option>
+                  <option value="fixed">Fixed</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Category</label>
+                <select id="be_category">
+                  <option value="" selected>\u2014 no change \u2014</option>
+                  ${catOptions}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Status</label>
+                <select id="be_status">
+                  <option value="" selected>\u2014 no change \u2014</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Difficulty</label>
+                <select id="be_difficulty">
+                  <option value="" selected>\u2014 no change \u2014</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Time of Day</label>
+                <select id="be_timeOfDay">
+                  <option value="" selected>\u2014 no change \u2014</option>
+                  <option value="am">AM</option>
+                  <option value="pm">PM</option>
+                  <option value="anytime">Anytime</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Estimated Minutes</label>
+                <input type="number" id="be_estMin" value="" min="0" max="120" placeholder="Leave blank for no change">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Owners</label>
+                <div class="owner-chips" id="be_owners">${ownerChips}</div>
+                <span class="owner-chips-hint" id="be_ownersHint">Leave unchanged</span>
+              </div>
+            </div>
+            <div class="admin-form__actions mt-md">
+              <button class="btn btn--secondary" id="bulkEditCancel" type="button">Cancel</button>
+              <button class="btn btn--primary" id="bulkEditApply" type="button">Apply to ${count} task${count !== 1 ? 's' : ''}</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+      // Mount modal into document body so it's above everything
+      const mountDiv = document.createElement('div');
+      mountDiv.id = 'bulkEditMount';
+      mountDiv.innerHTML = modalHtml;
+      document.body.appendChild(mountDiv);
+
+      // Track whether owners were touched
+      let ownersChanged = false;
+      const ownersContainer = document.getElementById('be_owners');
+      const ownersHint = document.getElementById('be_ownersHint');
+      ownersContainer?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.owner-chip');
+        if (chip) {
+          chip.classList.toggle('owner-chip--selected');
+          if (!ownersChanged) {
+            ownersChanged = true;
+            if (ownersHint) ownersHint.style.display = 'none';
+          }
+        }
+      });
+
+      // Backdrop click closes
+      document.getElementById('bulkEditBackdrop')?.addEventListener('click', (e) => {
+        if (e.target.id === 'bulkEditBackdrop') closeBulkEditModal();
+      });
+
+      // Cancel button
+      document.getElementById('bulkEditCancel')?.addEventListener('click', () => {
+        closeBulkEditModal();
+      });
+
+      // Apply button
+      document.getElementById('bulkEditApply')?.addEventListener('click', async () => {
+        const changes = {};
+        const rotation = document.getElementById('be_rotation')?.value;
+        const assignMode = document.getElementById('be_assignMode')?.value;
+        const category = document.getElementById('be_category')?.value;
+        const status = document.getElementById('be_status')?.value;
+        const difficulty = document.getElementById('be_difficulty')?.value;
+        const timeOfDay = document.getElementById('be_timeOfDay')?.value;
+        const estMinVal = document.getElementById('be_estMin')?.value;
+
+        if (rotation) changes.rotation = rotation;
+        if (assignMode) changes.ownerAssignmentMode = assignMode;
+        if (category) changes.category = category;
+        if (status) changes.status = status;
+        if (difficulty) changes.difficulty = difficulty;
+        if (timeOfDay) changes.timeOfDay = timeOfDay;
+        if (estMinVal !== '' && estMinVal != null) {
+          const parsed = parseInt(estMinVal, 10);
+          if (!isNaN(parsed)) changes.estMin = parsed;
+        }
+        if (ownersChanged) {
+          changes.owners = Array.from(document.querySelectorAll('#be_owners .owner-chip--selected')).map(b => b.dataset.id);
+        }
+
+        if (Object.keys(changes).length === 0) {
+          closeBulkEditModal();
+          return;
+        }
+
+        // Disable button during save
+        const applyBtn = document.getElementById('bulkEditApply');
+        if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Saving...'; }
+
+        // Apply changes to each selected task
+        const ids = [...selectedTaskIds];
+        for (const id of ids) {
+          const existing = tasksObj[id];
+          if (!existing) continue;
+          const merged = { ...existing, ...changes };
+          await writeTask(id, merged);
+          tasksObj[id] = merged;
+        }
+
+        // Single schedule rebuild
+        const allSched = await readAllSchedule() || {};
+        const allComp = await readCompletions() || {};
+        const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true }, catsObj);
+        await multiUpdate(futureUpdates);
+
+        closeBulkEditModal();
+        selectMode = false;
+        selectedTaskIds.clear();
+        render();
+        showUndoToast(`Updated ${ids.length} task${ids.length !== 1 ? 's' : ''}`, () => {});
+      });
+    }
+
+    function closeBulkEditModal() {
+      document.getElementById('bulkEditMount')?.remove();
     }
 
     async function handleBulkDelete() {
