@@ -528,28 +528,27 @@ async function toggleTask(entryKey, dateKey) {
     await writeCompletion(entryKey, record);
   }
 
+  // Look up the entry once for archive + cooldown logic
+  const toggledEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+
   // Auto-archive one-time tasks on completion
   let archivedTaskId = null;
-  if (!wasComplete) {
-    const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
-    if (entry) {
-      const task = tasks[entry.taskId];
-      if (task && task.rotation === 'once') {
-        archivedTaskId = entry.taskId;
-        task.status = 'completed';
-        await writeTask(entry.taskId, task);
-      }
+  if (!wasComplete && toggledEntry) {
+    const task = tasks[toggledEntry.taskId];
+    if (task && task.rotation === 'once') {
+      archivedTaskId = toggledEntry.taskId;
+      task.status = 'completed';
+      await writeTask(toggledEntry.taskId, task);
     }
   }
 
   // Cooldown task rebuild: re-place future entries anchored from today
-  const cdEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
-  if (cdEntry) {
-    const cdTask = tasks[cdEntry.taskId];
+  if (toggledEntry) {
+    const cdTask = tasks[toggledEntry.taskId];
     if (cdTask?.cooldownDays > 0) {
       const allSched = await readAllSchedule() || {};
       const cdUpdates = rebuildSingleTaskSchedule(
-        cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks
+        toggledEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks
       );
       if (Object.keys(cdUpdates).length > 0) {
         await multiUpdate(cdUpdates);
@@ -1240,8 +1239,9 @@ document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
 const debouncedRender = debounce(() => render(), 100);
 
 // Completions listener — stays active for the lifetime of the page
-onCompletions((val) => {
+onCompletions(async (val) => {
   completions = val || {};
+  await loadData();
   debouncedRender();
 });
 

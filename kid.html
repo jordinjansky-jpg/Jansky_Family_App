@@ -1962,8 +1962,9 @@
         const debouncedRender = debounce(() => render(), 100);
 
         // Completions listener — stays active for the lifetime of the page
-        onCompletions((val) => {
+        onCompletions(async (val) => {
           completions = val || {};
+          await loadData();
           debouncedRender();
         });
 
