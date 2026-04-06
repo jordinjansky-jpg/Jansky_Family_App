@@ -934,9 +934,10 @@ function bindTaskSheetEvents(entryKey, dateKey) {
 
   function closeNotesEditor() {
     if (notesEditor) notesEditor.style.display = 'none';
-    const hasText = notesInput?.value.trim();
-    if (notesDisplay) notesDisplay.style.display = hasText ? '' : 'none';
-    if (notesAddBtn) notesAddBtn.style.display = hasText ? 'none' : '';
+    const originalText = document.getElementById('notesText')?.textContent?.trim() || '';
+    if (notesInput) notesInput.value = originalText;
+    if (notesDisplay) notesDisplay.style.display = originalText ? '' : 'none';
+    if (notesAddBtn) notesAddBtn.style.display = originalText ? 'none' : '';
   }
 
   notesAddBtn?.addEventListener('click', openNotesEditor);
@@ -949,7 +950,7 @@ function bindTaskSheetEvents(entryKey, dateKey) {
     const dk = notesSaveBtn.dataset.dateKey;
     if (ek && dk) {
       await multiUpdate({ [`schedule/${dk}/${ek}/notes`]: noteValue });
-      if (schedule[dk]?.[ek]) schedule[dk][ek].notes = noteValue;
+      if (viewEntries[ek]) viewEntries[ek].notes = noteValue;
     }
     const notesText = document.getElementById('notesText');
     if (notesText) notesText.textContent = noteValue || '';
@@ -1233,7 +1234,7 @@ function openQuickAddSheet() {
       const schedUpdates = {};
       const mode = taskData.ownerAssignmentMode || 'rotate';
       const timeOfDay = taskData.timeOfDay || 'anytime';
-      const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: mode };
+      const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: mode, ...(taskData.notes ? { notes: taskData.notes } : {}) };
       let qaCounter = 0;
       const qaKey = () => `sched_${Date.now()}_qa_${String(qaCounter++).padStart(3, '0')}`;
 
