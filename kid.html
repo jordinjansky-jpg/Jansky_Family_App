@@ -1616,6 +1616,15 @@
             ${entry.movedFromDate ? `<div class="task-detail__source-info">📅 Moved from <strong>${(() => { const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; const d = new Date(entry.movedFromDate + 'T12:00:00'); return isNaN(d) ? entry.movedFromDate : days[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate(); })()}</strong></div>` : ''}
           </div>`;
 
+          // Event notes (read-only)
+          const noteText = entry.notes || '';
+          if (cat?.isEvent && noteText) {
+            html += `<div class="task-detail__notes mt-md">
+              <span class="form-label">Notes</span>
+              <div class="task-detail__notes-text">${esc(noteText)}</div>
+            </div>`;
+          }
+
           // Complete/uncomplete button
           const isPinLocked = !completed && isTaskPinProtected(entryKey);
           const toggleLabel = completed ? 'Mark Incomplete' : (isPinLocked ? '🔒 Mark Complete' : 'Mark Complete');
