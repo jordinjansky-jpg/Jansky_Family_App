@@ -466,9 +466,16 @@
           }
           if (task.dedicatedDate) detailBadges += `<span class="admin-badge">📅 ${task.dedicatedDate}</span>`;
           if (task.exempt) detailBadges += `<span class="admin-badge admin-badge--muted">Exempt</span>`;
-          html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}" data-task-id="${id}">
+          const selectedClass = selectMode && selectedTaskIds.has(id) ? ' admin-list-item--selected' : '';
+          const checkboxHtml = selectMode ? `<input type="checkbox" class="bulk-checkbox" ${selectedTaskIds.has(id) ? 'checked' : ''}>` : '';
+          const actionsHtml = selectMode ? '' : `<div class="admin-list-item__actions">
+                <button class="btn btn--ghost btn--sm admin-edit-task" data-task-id="${id}" type="button">Edit</button>
+                <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '▶' : '⏸'}</button>
+                <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button">✕</button>
+              </div>`;
+          html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}${selectedClass}" data-task-id="${id}">
             <div class="admin-list-item__row">
-              <span class="admin-list-item__name">${esc(task.name)}${cat?.icon ? ' ' + cat.icon : ''}</span>
+              ${checkboxHtml}<span class="admin-list-item__name">${esc(task.name)}${cat?.icon ? ' ' + cat.icon : ''}</span>
               <span class="admin-list-item__tags">
                 <span class="admin-badge">${task.rotation}</span>
                 <span class="admin-badge">${diffLabel}</span>
@@ -478,11 +485,7 @@
             <div class="admin-list-item__tags" style="padding:0 0 2px">${detailBadges}</div>
             <div class="admin-list-item__row">
               <span class="admin-list-item__meta">${owners || 'Unassigned'}${cat ? ' · ' + cat.label : ''}</span>
-              <div class="admin-list-item__actions">
-                <button class="btn btn--ghost btn--sm admin-edit-task" data-task-id="${id}" type="button">Edit</button>
-                <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '▶' : '⏸'}</button>
-                <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button">✕</button>
-              </div>
+              ${actionsHtml}
             </div>
           </div>`;
         }
@@ -1237,13 +1240,22 @@
         });
       }
 
-      // Edit task — click row or edit button → open modal
+      // Task row click — select mode toggles checkbox, normal mode opens edit
       for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
         item.addEventListener('click', (e) => {
           if (e.target.closest('.admin-list-item__actions')) return;
           const tid = item.dataset.taskId;
-          editingTaskId = editingTaskId === tid ? null : tid;
-          render();
+          if (selectMode) {
+            if (selectedTaskIds.has(tid)) {
+              selectedTaskIds.delete(tid);
+            } else {
+              selectedTaskIds.add(tid);
+            }
+            render();
+          } else {
+            editingTaskId = editingTaskId === tid ? null : tid;
+            render();
+          }
         });
       }
       for (const btn of main.querySelectorAll('.admin-edit-task')) {
