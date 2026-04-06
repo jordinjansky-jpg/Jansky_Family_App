@@ -92,8 +92,8 @@
 
 /* All done — green tint + checkmark */
 .cal-grid__cell--alldone {
-  background: color-mix(in srgb, var(--success-text, #2e7d32) 8%, var(--bg-card));
-  border-color: color-mix(in srgb, var(--success-text, #2e7d32) 20%, var(--border-subtle, var(--border-light)));
+  background: color-mix(in srgb, var(--success-text) 8%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--success-text) 20%, var(--border-subtle, var(--border-light)));
 }
 
 .cal-grid__cell--alldone::after {
@@ -104,7 +104,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--success-text, #2e7d32);
+  background: var(--success-text);
   opacity: 0.7;
   /* CSS checkmark inside the dot */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2.5 5.5L4.5 7.5L7.5 3.5' stroke='white' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -139,7 +139,7 @@
 }
 
 .cal-grid__cell--alldone .cal-grid__progress-fill {
-  background: var(--success-text, #2e7d32);
+  background: var(--success-text);
 }
 
 .cal-grid__day {

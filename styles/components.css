@@ -99,7 +99,7 @@
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
   user-select: none;
 }
 .owner-chip--selected {
@@ -127,7 +127,7 @@
   color: var(--text-primary);
   cursor: pointer;
   text-align: center;
-  transition: all 0.15s;
+  transition: all var(--transition-fast);
 }
 .dt-theme-btn:active { transform: scale(0.95); }
 .dt-theme-btn--active {
@@ -145,7 +145,7 @@
   border-radius: 50%;
   border: 3px solid transparent;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition-fast);
 }
 .dt-color-btn:active { transform: scale(0.9); }
 .dt-color-btn--active {
