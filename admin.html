@@ -1319,6 +1319,8 @@
         if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
         const eventTimeGroup = root.querySelector('#tf_eventTimeGroup');
         if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+        const notesGroup = root.querySelector('#tf_notesGroup');
+        if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
         // If event, force rotation to once
         if (isEvent) {
           const rotSelect = root.querySelector('#tf_rotation');
@@ -1395,6 +1397,7 @@
         const effectiveRotation = catIsEvent && eventDate ? 'once' : rotation;
         const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
         const eventTime = catIsEvent ? (root.querySelector('#tf_eventTime')?.value || null) : null;
+        const notes = catIsEvent ? (root.querySelector('#tf_notes')?.value.trim() || null) : null;
 
         const taskData = {
           name,
@@ -1408,6 +1411,7 @@
           dedicatedDay,
           dedicatedDate: effectiveDedicatedDate,
           eventTime,
+          notes,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
           exempt: root.querySelector('#tf_exempt')?.checked || false,
           status: 'active'
@@ -1425,7 +1429,7 @@
             || ((taskData.rotation === 'weekly' || taskData.rotation === 'monthly') && taskData.dedicatedDay != null && dayOfWeek(today) !== taskData.dedicatedDay);
           if (owners.length > 0 && !skipToday) {
             const schedUpdates = {};
-            const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: effectiveMode };
+            const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: effectiveMode, ...(taskData.notes ? { notes: taskData.notes } : {}) };
             const tod = taskData.timeOfDay || 'anytime';
             let newCounter = 0;
             const newKey = () => `sched_${Date.now()}_new_${String(newCounter++).padStart(3, '0')}`;
