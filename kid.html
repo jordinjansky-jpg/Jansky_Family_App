@@ -529,8 +529,9 @@
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
-    import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
+    import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, gradeDisplay } from './shared/scoring.js';
+    import { rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
 
     // ── Cached theme (device override > family cache > default) ──
@@ -828,6 +829,7 @@
         let completions = {};
         let viewEntries = {};
         let overdueItems = [];
+        let suppressedCooldownTaskIds = new Set();
         let overdueExpanded = false;
         let celebrationShown = false;
         let streakData = { current: 0, best: 0 };
@@ -847,8 +849,9 @@
             readAllSchedule(),
             readStreaks(kid.id)
           ]);
-          const allOverdue = getOverdueEntries(allSched || {}, completions, today);
+          const allOverdue = getOverdueEntries(allSched || {}, completions, today, tasks);
           overdueItems = allOverdue.filter(e => e.ownerId === kid.id);
+          suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSched || {}, completions, tasks, today);
           streakData = streaks || { current: 0, best: 0 };
         }
 
@@ -857,9 +860,20 @@
         // ══════════════════════════════════════════
 
         function render() {
-          const prog = dayProgress(viewEntries, completions);
+          // Filter out future instances of cooldown tasks that have overdue entries
+          let displayEntries = viewEntries;
+          if (suppressedCooldownTaskIds.size > 0 && viewDate > today) {
+            displayEntries = {};
+            for (const [key, entry] of Object.entries(viewEntries)) {
+              if (!suppressedCooldownTaskIds.has(entry.taskId)) {
+                displayEntries[key] = entry;
+              }
+            }
+          }
+
+          const prog = dayProgress(displayEntries, completions);
           const isToday = viewDate === today;
-          const score = dailyScore(viewEntries, completions, tasks, cats, settings, viewDate, today);
+          const score = dailyScore(displayEntries, completions, tasks, cats, settings, viewDate, today);
           const gd = gradeDisplay(score.percentage);
 
           let html = '';
@@ -955,7 +969,7 @@
             // Split incomplete / completed
             const incomplete = {};
             const completed_ = {};
-            for (const [key, entry] of Object.entries(viewEntries)) {
+            for (const [key, entry] of Object.entries(displayEntries)) {
               if (isComplete(key, completions)) completed_[key] = entry;
               else incomplete[key] = entry;
             }
@@ -1280,6 +1294,22 @@
               }
             }
 
+            // Cooldown task rebuild
+            const cdEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+            if (cdEntry) {
+              const cdTask = tasks[cdEntry.taskId];
+              if (cdTask?.cooldownDays > 0) {
+                const allSched = await readAllSchedule() || {};
+                const cdUpdates = rebuildSingleTaskSchedule(
+                  cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks
+                );
+                if (Object.keys(cdUpdates).length > 0) {
+                  await multiUpdate(cdUpdates);
+                }
+                await loadData();
+              }
+            }
+
             // Per-task celebration
             triggerCelebration(entryKey, 'task');
           }
@@ -1304,6 +1334,21 @@
                       task.status = 'active';
                       await writeTask(entry.taskId, task);
                     }
+                  }
+                }
+                // Rebuild cooldown task schedule after undo
+                const undoEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+                if (undoEntry) {
+                  const undoTask = tasks[undoEntry.taskId];
+                  if (undoTask?.cooldownDays > 0) {
+                    const allSched = await readAllSchedule() || {};
+                    const undoUpdates = rebuildSingleTaskSchedule(
+                      undoEntry.taskId, undoTask, today, allSched, completions, people, settings, tasks
+                    );
+                    if (Object.keys(undoUpdates).length > 0) {
+                      await multiUpdate(undoUpdates);
+                    }
+                    await loadData();
                   }
                 }
                 celebrationShown = false;
