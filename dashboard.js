@@ -523,7 +523,7 @@ async function toggleTask(entryKey, dateKey) {
     if (cdTask?.cooldownDays > 0) {
       const allSched = await readAllSchedule() || {};
       const cdUpdates = rebuildSingleTaskSchedule(
-        toggledEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks
+        toggledEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks, catsObj
       );
       if (Object.keys(cdUpdates).length > 0) {
         await multiUpdate(cdUpdates);
@@ -560,7 +560,7 @@ async function toggleTask(entryKey, dateKey) {
           if (undoTask?.cooldownDays > 0) {
             const allSched = await readAllSchedule() || {};
             const undoUpdates = rebuildSingleTaskSchedule(
-              undoEntry.taskId, undoTask, today, allSched, completions, people, settings, tasks
+              undoEntry.taskId, undoTask, today, allSched, completions, people, settings, tasks, catsObj
             );
             if (Object.keys(undoUpdates).length > 0) {
               await multiUpdate(undoUpdates);
@@ -1059,7 +1059,7 @@ function openEditTaskSheet(taskId) {
 
     // Auto-rebuild future schedule so edits take effect immediately
     const allSched = await readAllSchedule() || {};
-    const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, { includeToday: true });
+    const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, { includeToday: true }, catsObj);
     await multiUpdate(futureUpdates);
 
     await loadData();
@@ -1237,7 +1237,7 @@ function openQuickAddSheet() {
 
     // Rebuild future schedule so the new task appears on upcoming days
     const allSched = await readAllSchedule() || {};
-    const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched);
+    const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, undefined, catsObj);
     await multiUpdate(futureUpdates);
 
     await loadData();

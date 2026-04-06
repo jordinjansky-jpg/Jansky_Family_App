@@ -918,7 +918,7 @@
 
         // Auto-rebuild future schedule so edits take effect immediately
         const allSched = await readAllSchedule() || {};
-        const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, { includeToday: true });
+        const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, { includeToday: true }, catsObj);
         await multiUpdate(futureUpdates);
 
         await loadData();
@@ -1035,7 +1035,7 @@
         const toggledTask = tasks[toggledEntry.taskId];
         if (toggledTask?.cooldownDays > 0) {
           const cdUpdates = rebuildSingleTaskSchedule(
-            toggledEntry.taskId, toggledTask, today, allSchedule, completions, people, settings, tasks
+            toggledEntry.taskId, toggledTask, today, allSchedule, completions, people, settings, tasks, catsObj
           );
           if (Object.keys(cdUpdates).length > 0) {
             await multiUpdate(cdUpdates);
@@ -1216,7 +1216,7 @@
 
         // Rebuild future schedule so the new task appears on upcoming days
         const existingSched = await readAllSchedule() || {};
-        const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, existingSched);
+        const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, existingSched, undefined, catsObj);
         await multiUpdate(futureUpdates);
 
         await loadData();

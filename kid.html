@@ -808,7 +808,7 @@
               if (cdTask?.cooldownDays > 0) {
                 const allSched = await readAllSchedule() || {};
                 const cdUpdates = rebuildSingleTaskSchedule(
-                  cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks
+                  cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks, catsObj
                 );
                 if (Object.keys(cdUpdates).length > 0) {
                   await multiUpdate(cdUpdates);
@@ -850,7 +850,7 @@
                   if (undoTask?.cooldownDays > 0) {
                     const allSched = await readAllSchedule() || {};
                     const undoUpdates = rebuildSingleTaskSchedule(
-                      undoEntry.taskId, undoTask, today, allSched, completions, people, settings, tasks
+                      undoEntry.taskId, undoTask, today, allSched, completions, people, settings, tasks, catsObj
                     );
                     if (Object.keys(undoUpdates).length > 0) {
                       await multiUpdate(undoUpdates);
