@@ -310,7 +310,8 @@ export function renderTaskDetailSheet(options) {
   const {
     entryKey, entry, task, person, category, completed, points,
     sliderMin, sliderMax, currentOverride, gradePreview,
-    people, showDelegate, showMove, showEdit, dateKey, showPoints = true
+    people, showDelegate, showMove, showEdit, dateKey, showPoints = true,
+    isEvent = false, readOnly = false
   } = options;
   const catIcon = category?.icon || '';
   const ownerColor = person?.color || 'var(--text-secondary)';
@@ -339,6 +340,36 @@ export function renderTaskDetailSheet(options) {
     ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></div>` : ''}
     ${entry.movedFromDate ? `<div class="task-detail__source-info">📅 Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
   </div>`;
+
+  // Event notes
+  if (isEvent) {
+    const noteText = entry.notes || '';
+    if (readOnly) {
+      // Read-only mode (kid mode)
+      if (noteText) {
+        html += `<div class="task-detail__notes mt-md">
+          <span class="form-label">Notes</span>
+          <div class="task-detail__notes-text">${esc(noteText)}</div>
+        </div>`;
+      }
+    } else {
+      html += `<div class="task-detail__notes mt-md">
+        <span class="form-label">Notes</span>
+        <div class="task-detail__notes-display" id="notesDisplay" style="display:${noteText ? '' : 'none'}">
+          <div class="task-detail__notes-text" id="notesText">${esc(noteText)}</div>
+          <button class="btn btn--ghost btn--sm" id="notesEditBtn" type="button">Edit</button>
+        </div>
+        <button class="btn btn--ghost btn--sm" id="notesAddBtn" type="button" style="display:${noteText ? 'none' : ''}">+ Add Note</button>
+        <div class="task-detail__notes-editor" id="notesEditor" style="display:none">
+          <textarea class="task-detail__notes-input" id="notesInput" rows="3" placeholder="Add notes for this event...">${esc(noteText)}</textarea>
+          <div class="task-detail__notes-actions">
+            <button class="btn btn--secondary btn--sm" id="notesCancelBtn" type="button">Cancel</button>
+            <button class="btn btn--primary btn--sm" id="notesSaveBtn" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Save</button>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
 
   // Complete/uncomplete button
   const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
