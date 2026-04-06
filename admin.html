@@ -300,6 +300,8 @@
       for (const tab of main.querySelectorAll('.admin-tab')) {
         tab.addEventListener('click', () => {
           activeTab = tab.dataset.tab;
+          selectMode = false;
+          selectedTaskIds.clear();
           render();
         });
       }
@@ -313,6 +315,8 @@
     let taskSort = 'name';
     let editingTaskId = null;
     let showingTemplates = false;
+    let selectMode = false;
+    let selectedTaskIds = new Set();
 
 
     function renderTemplatePanel() {
