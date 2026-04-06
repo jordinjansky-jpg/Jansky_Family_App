@@ -75,11 +75,16 @@
       const mount = document.getElementById('toastMount');
       mount.innerHTML = renderUndoToast(message);
       if (undoTimer) clearTimeout(undoTimer);
-      mount.querySelector('.undo-toast__btn').addEventListener('click', () => {
-        clearTimeout(undoTimer);
-        mount.innerHTML = '';
-        undoCallback();
-      });
+      const undoBtn = mount.querySelector('.undo-toast__btn');
+      if (undoCallback) {
+        undoBtn.addEventListener('click', () => {
+          clearTimeout(undoTimer);
+          mount.innerHTML = '';
+          undoCallback();
+        });
+      } else {
+        undoBtn.style.display = 'none';
+      }
       undoTimer = setTimeout(() => {
         const toast = mount.querySelector('.undo-toast');
         if (toast) toast.style.opacity = '0';
@@ -1724,7 +1729,7 @@
         selectMode = false;
         selectedTaskIds.clear();
         render();
-        showUndoToast(`Updated ${ids.length} task${ids.length !== 1 ? 's' : ''}`, () => {});
+        showUndoToast(`Updated ${ids.length} task${ids.length !== 1 ? 's' : ''}`);
       });
     }
 
@@ -1781,7 +1786,7 @@
       const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp2, allSched2, { includeToday: true }, catsObj);
       await multiUpdate(futureUpdates);
 
-      showUndoToast(`Deleted ${count} task${count !== 1 ? 's' : ''}`, () => {});
+      showUndoToast(`Deleted ${count} task${count !== 1 ? 's' : ''}`);
     }
 
     // ── People tab events ──
