@@ -625,4 +625,55 @@
   background: transparent;
   color: inherit;
 }
+
+/* ============ Bulk Admin Actions ============ */
+
+/* Selected task row highlight */
+.admin-list-item--selected {
+  background: var(--accent-light, rgba(108, 99, 255, 0.08));
+  border-color: var(--accent, #6c63ff);
+}
+
+/* Bulk select checkbox in task rows */
+.bulk-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: var(--spacing-xs);
+}
+
+/* Floating action bar at bottom */
+.bulk-action-bar {
+  position: fixed;
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--spacing-sm));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 900;
+  max-width: calc(100vw - var(--spacing-md) * 2);
+}
+
+/* Bulk edit modal form layout */
+.bulk-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.bulk-edit-form .form-group {
+  margin-bottom: 0;
+}
+.bulk-edit-form .owner-chips-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
 
