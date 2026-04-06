@@ -72,14 +72,14 @@ rundown/
 ├── tasks/
 │   └── {pushId}      ← { name, rotation, owners[], ownerAssignmentMode,
 │                         timeOfDay, dedicatedDay?, dedicatedDate?, cooldownDays?, estMin,
-│                         difficulty, category, status, createdDate, exempt?, eventTime? }
+│                         difficulty, category, status, createdDate, exempt?, eventTime?, notes? }
 │                       rotation: 'daily' | 'weekly' | 'monthly' | 'once'
 │                       ownerAssignmentMode: 'rotate' | 'duplicate' | 'fixed'
 │                       timeOfDay: 'am' | 'pm' | 'anytime' | 'both'
 │                       eventTime: 'HH:MM' (24h) | null — appointment time for event tasks
 ├── schedule/
 │   └── {YYYY-MM-DD}/
-│       └── {entryKey} ← { taskId, ownerId, rotationType, ownerAssignmentMode, timeOfDay }
+│       └── {entryKey} ← { taskId, ownerId, rotationType, ownerAssignmentMode, timeOfDay, notes? }
 │                       entryKey format: sched_{timestamp}_{counter}
 ├── completions/
 │   └── {entryKey}     ← { completedAt: ServerValue.TIMESTAMP, completedBy: 'dashboard'|'calendar'|'kid-mode',
