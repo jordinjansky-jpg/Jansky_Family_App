@@ -388,6 +388,7 @@
             <option value="">All Statuses</option>
             <option value="active"${taskFilter.status === 'active' ? ' selected' : ''}>Active</option>
             <option value="paused"${taskFilter.status === 'paused' ? ' selected' : ''}>Paused</option>
+            <option value="completed"${taskFilter.status === 'completed' ? ' selected' : ''}>Completed</option>
           </select>
           <select class="admin-select" id="taskFilterDifficulty">
             <option value="">All Difficulties</option>
@@ -409,6 +410,8 @@
 
       // Filtered tasks
       let filtered = taskEntries.filter(([id, t]) => {
+        // Auto-hide completed one-time tasks unless status filter is explicitly set
+        if (!taskFilter.status && t.rotation === 'once' && t.status === 'completed') return false;
         if (taskFilter.rotation && t.rotation !== taskFilter.rotation) return false;
         if (taskFilter.owner && !(t.owners || []).includes(taskFilter.owner)) return false;
         if (taskFilter.category && t.category !== taskFilter.category) return false;
