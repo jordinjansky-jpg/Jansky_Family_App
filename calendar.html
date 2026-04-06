@@ -42,9 +42,9 @@
     import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
-    import { isComplete, filterByPerson, groupByFrequency, dayProgress, sortEntries } from './shared/state.js';
+    import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueCooldownTaskIds, sortEntries } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
-    import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
+    import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
 
     // ── Cached theme (device override > family cache > default) ──
@@ -83,6 +83,7 @@
     let selectedDay = null;
     let completions = {};
     let allSchedule = {};
+    let suppressedCooldownTaskIds = new Set();
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
@@ -131,6 +132,7 @@
     async function loadData() {
       const sched = await readAllSchedule();
       allSchedule = sched || {};
+      suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
     }
 
     // ══════════════════════════════════════════
@@ -287,7 +289,13 @@
     const sheetMount = document.getElementById('sheetMount');
 
     function buildDayContent(dateKey) {
-      const dayEntries = allSchedule[dateKey] || {};
+      let dayEntries = allSchedule[dateKey] || {};
+      // Filter out suppressed cooldown tasks for future dates
+      if (dateKey > today && suppressedCooldownTaskIds.size > 0) {
+        dayEntries = Object.fromEntries(
+          Object.entries(dayEntries).filter(([_, e]) => !suppressedCooldownTaskIds.has(e.taskId))
+        );
+      }
       const filtered = filterByPerson(dayEntries, activePerson);
       const prog = dayProgress(filtered, completions);
       const score = dailyScore(filtered, completions, tasks, cats, settings, dateKey, today);
@@ -993,6 +1001,22 @@
         }
       }
 
+      // Cooldown task rebuild
+      const toggledEntry = (allSchedule[dateKey] || {})[entryKey];
+      if (toggledEntry) {
+        const toggledTask = tasks[toggledEntry.taskId];
+        if (toggledTask?.cooldownDays > 0) {
+          const cdUpdates = rebuildSingleTaskSchedule(
+            toggledEntry.taskId, toggledTask, today, allSchedule, completions, people, settings, tasks
+          );
+          if (Object.keys(cdUpdates).length > 0) {
+            await multiUpdate(cdUpdates);
+            allSchedule = await readAllSchedule() || {};
+            suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
+          }
+        }
+      }
+
       // Refresh grid + sheet content (render handles updateSheet if sheet is open)
       render();
     }
@@ -1182,6 +1206,7 @@
 
     onCompletions((val) => {
       completions = val || {};
+      suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
       debouncedRender();
     });
 
