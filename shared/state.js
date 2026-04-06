@@ -40,18 +40,23 @@ export function dayProgress(entries, completions) {
 
 /**
  * Find overdue entries — past dates with incomplete tasks.
+ * Excludes daily tasks UNLESS they have a cooldown (cooldown tasks behave like weekly/monthly).
  * @param {object} schedule - Full schedule { dateKey: { entryKey: entry } }
  * @param {object} completions - All completions
  * @param {string} today - Today's date key (YYYY-MM-DD)
+ * @param {object} tasks - All tasks { taskId: taskObject }
  * @returns {Array<{ dateKey, entryKey, ...entry }>} sorted oldest first
  */
-export function getOverdueEntries(schedule, completions, today) {
+export function getOverdueEntries(schedule, completions, today, tasks) {
   const overdue = [];
   if (!schedule) return overdue;
   for (const [dateKey, dayEntries] of Object.entries(schedule)) {
     if (dateKey >= today || !dayEntries) continue;
     for (const [entryKey, entry] of Object.entries(dayEntries)) {
-      if (!isComplete(entryKey, completions) && entry.rotationType !== 'daily') {
+      if (isComplete(entryKey, completions)) continue;
+      const isDailyNoCooldown = entry.rotationType === 'daily'
+        && !(tasks && tasks[entry.taskId]?.cooldownDays > 0);
+      if (!isDailyNoCooldown) {
         overdue.push({ dateKey, entryKey, ...entry });
       }
     }
