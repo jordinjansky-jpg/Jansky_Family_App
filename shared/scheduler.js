@@ -794,11 +794,28 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
           if (!newSchedule[targetDay]) newSchedule[targetDay] = {};
         }
       }
+      // Dedicated-day tasks: if over category limit, skip this period
+      if (targetDay && !canPlaceUnderCategoryLimit(task, targetDay, balanceCtx.categories, newSchedule, existingSchedule, allTasks)) {
+        continue;
+      }
     }
     if (!targetDay) {
-      targetDay = findLightestDay(monthDates, newSchedule, existingSchedule, allTasks, weekendWeight);
+      // Try days sorted by load, pick first that passes category limit
+      const sortedDays = [...monthDates].sort((a, b) => {
+        const loadA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
+        const loadB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+        return loadA - loadB;
+      });
+      for (const dk of sortedDays) {
+        if (task.createdDate && dk < task.createdDate) continue;
+        if (canPlaceUnderCategoryLimit(task, dk, balanceCtx.categories, newSchedule, existingSchedule, allTasks)) {
+          targetDay = dk;
+          break;
+        }
+      }
     }
 
+    if (!targetDay) continue;
     if (task.createdDate && targetDay < task.createdDate) continue;
 
     // 2. Place entries (owner assigned via day-level load balancing)
