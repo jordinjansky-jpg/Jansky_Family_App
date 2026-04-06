@@ -65,6 +65,31 @@ export function getOverdueEntries(schedule, completions, today, tasks) {
 }
 
 /**
+ * Get task IDs of cooldown tasks that have an overdue (uncompleted, past-date) entry.
+ * Used by pages to suppress future instances of these tasks from rendering.
+ * @param {object} schedule - Full schedule { dateKey: { entryKey: entry } }
+ * @param {object} completions - All completions
+ * @param {object} tasks - All tasks { taskId: taskObject }
+ * @param {string} today - Today's date key (YYYY-MM-DD)
+ * @returns {Set<string>} taskIds with overdue cooldown entries
+ */
+export function getOverdueCooldownTaskIds(schedule, completions, tasks, today) {
+  const ids = new Set();
+  if (!schedule || !tasks) return ids;
+  for (const [dateKey, dayEntries] of Object.entries(schedule)) {
+    if (dateKey >= today || !dayEntries) continue;
+    for (const [entryKey, entry] of Object.entries(dayEntries)) {
+      if (isComplete(entryKey, completions)) continue;
+      const task = tasks[entry.taskId];
+      if (task?.cooldownDays > 0) {
+        ids.add(entry.taskId);
+      }
+    }
+  }
+  return ids;
+}
+
+/**
  * Check if every entry in the set is complete.
  * Returns false if there are zero entries.
  */
