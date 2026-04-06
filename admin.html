@@ -1731,8 +1731,55 @@
     }
 
     async function handleBulkDelete() {
-      // TODO: Task 7 will implement this
-      console.log('bulk delete', selectedTaskIds);
+      const count = selectedTaskIds.size;
+      if (!confirm(`Delete ${count} task${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+      const ids = [...selectedTaskIds];
+
+      // Remove from local state immediately
+      for (const id of ids) {
+        delete tasksObj[id];
+      }
+      selectMode = false;
+      selectedTaskIds.clear();
+      editingTaskId = null;
+      render();
+
+      // Delete tasks from Firebase
+      for (const id of ids) {
+        await removeTask(id);
+      }
+
+      // Clean up orphaned schedule entries and completions
+      try {
+        const allSched = await readAllSchedule() || {};
+        const allComp = await readCompletions() || {};
+        const cleanupUpdates = {};
+        const idSet = new Set(ids);
+        for (const [dateKey, dayEntries] of Object.entries(allSched)) {
+          for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
+            if (idSet.has(entry.taskId)) {
+              cleanupUpdates[`schedule/${dateKey}/${entryKey}`] = null;
+              if (allComp[entryKey]) {
+                cleanupUpdates[`completions/${entryKey}`] = null;
+              }
+            }
+          }
+        }
+        if (Object.keys(cleanupUpdates).length > 0) {
+          await multiUpdate(cleanupUpdates);
+        }
+      } catch (e) {
+        console.warn('Tasks deleted but schedule cleanup failed:', e);
+      }
+
+      // Rebuild schedule
+      const allSched2 = await readAllSchedule() || {};
+      const allComp2 = await readCompletions() || {};
+      const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp2, allSched2, { includeToday: true }, catsObj);
+      await multiUpdate(futureUpdates);
+
+      showUndoToast(`Deleted ${count} task${count !== 1 ? 's' : ''}`, () => {});
     }
 
     // ── People tab events ──
