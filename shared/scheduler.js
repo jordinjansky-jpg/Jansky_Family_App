@@ -728,8 +728,25 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
           if (!newSchedule[targetDay]) newSchedule[targetDay] = {};
         }
       }
+      // Dedicated-day tasks: if over category limit, skip this period
+      if (targetDay && !canPlaceUnderCategoryLimit(task, targetDay, balanceCtx.categories, newSchedule, existingSchedule, allTasks)) {
+        continue;
+      }
     } else {
-      targetDay = findLightestDay(weekDates, newSchedule, existingSchedule, allTasks, weekendWeight);
+      // Try lightest day first, then fall back to other days if over category limit
+      const sortedDays = [...weekDates].sort((a, b) => {
+        const loadA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
+        const loadB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+        return loadA - loadB;
+      });
+      targetDay = null;
+      for (const dk of sortedDays) {
+        if (task.createdDate && dk < task.createdDate) continue;
+        if (canPlaceUnderCategoryLimit(task, dk, balanceCtx.categories, newSchedule, existingSchedule, allTasks)) {
+          targetDay = dk;
+          break;
+        }
+      }
     }
 
     if (!targetDay) continue;
