@@ -587,7 +587,8 @@
         showDelegate: true,
         showMove: true,
         showEdit: true,
-        showPoints: settings?.showPoints !== false
+        showPoints: settings?.showPoints !== false,
+        isEvent: !!cat?.isEvent
       });
 
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
@@ -619,6 +620,46 @@
       document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
         closeTaskSheet();
         await toggleTask(entryKey, dateKey);
+      });
+
+      // Notes inline editing
+      const notesAddBtn = document.getElementById('notesAddBtn');
+      const notesEditBtn = document.getElementById('notesEditBtn');
+      const notesCancelBtn = document.getElementById('notesCancelBtn');
+      const notesSaveBtn = document.getElementById('notesSaveBtn');
+      const notesEditor = document.getElementById('notesEditor');
+      const notesDisplay = document.getElementById('notesDisplay');
+      const notesInput = document.getElementById('notesInput');
+
+      function openNotesEditor() {
+        if (notesEditor) notesEditor.style.display = '';
+        if (notesDisplay) notesDisplay.style.display = 'none';
+        if (notesAddBtn) notesAddBtn.style.display = 'none';
+        if (notesInput) notesInput.focus();
+      }
+
+      function closeNotesEditor() {
+        if (notesEditor) notesEditor.style.display = 'none';
+        const hasText = notesInput?.value.trim();
+        if (notesDisplay) notesDisplay.style.display = hasText ? '' : 'none';
+        if (notesAddBtn) notesAddBtn.style.display = hasText ? 'none' : '';
+      }
+
+      notesAddBtn?.addEventListener('click', openNotesEditor);
+      notesEditBtn?.addEventListener('click', openNotesEditor);
+      notesCancelBtn?.addEventListener('click', closeNotesEditor);
+
+      notesSaveBtn?.addEventListener('click', async () => {
+        const noteValue = notesInput?.value.trim() || null;
+        const ek = notesSaveBtn.dataset.entryKey;
+        const dk = notesSaveBtn.dataset.dateKey;
+        if (ek && dk) {
+          await multiUpdate({ [`schedule/${dk}/${ek}/notes`]: noteValue });
+          if (allSchedule[dk]?.[ek]) allSchedule[dk][ek].notes = noteValue;
+        }
+        const notesText = document.getElementById('notesText');
+        if (notesText) notesText.textContent = noteValue || '';
+        closeNotesEditor();
       });
 
       // Points slider — preview for all tasks, save only for completed
@@ -845,6 +886,8 @@
         if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
         const eventTimeGroup = document.getElementById('et_eventTimeGroup');
         if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+        const notesGroup = document.getElementById('et_notesGroup');
+        if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
         if (isEvent) {
           const rotSelect = document.getElementById('et_rotation');
           if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -873,6 +916,7 @@
         const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
 
         const eventTime = catIsEvent ? (document.getElementById('et_eventTime')?.value || null) : null;
+        const notes = catIsEvent ? (document.getElementById('et_notes')?.value.trim() || null) : null;
         const updated = {
           ...task, name, rotation,
           difficulty: document.getElementById('et_difficulty')?.value || task.difficulty,
@@ -882,6 +926,7 @@
           owners, ownerAssignmentMode: activeMode, dedicatedDay,
           dedicatedDate: effectiveDedicatedDate,
           eventTime,
+          notes,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
           exempt: document.getElementById('et_exempt')?.checked || false
         };
@@ -1049,6 +1094,8 @@
         if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
         const eventTimeGroup = document.getElementById('qa_eventTimeGroup');
         if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+        const notesGroup = document.getElementById('qa_notesGroup');
+        if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
         if (isEvent) {
           const rotSelect = document.getElementById('qa_rotation');
           if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -1126,6 +1173,7 @@
         const dedicatedDate = isEvent && eventDate ? eventDate : (rotation === 'once' ? (document.getElementById('qa_dedicatedDate')?.value || null) : null);
 
         const eventTime = isEvent ? (document.getElementById('qa_eventTime')?.value || null) : null;
+        const notes = isEvent ? (document.getElementById('qa_notes')?.value.trim() || null) : null;
         const taskData = {
           name,
           rotation,
@@ -1138,6 +1186,7 @@
           dedicatedDay,
           dedicatedDate,
           eventTime,
+          notes,
           cooldownDays: parseInt(document.getElementById('qa_cooldown')?.value, 10) || null,
           exempt: !!document.getElementById('qa_exempt')?.checked,
           status: 'active',
