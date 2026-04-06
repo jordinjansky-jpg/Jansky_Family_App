@@ -16,6 +16,7 @@
   --shadow-md: 0 2px 8px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06);
   --shadow-lg: 0 4px 12px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.12);
   --border-subtle: #f3f0eb;
+  --bg-hover: rgba(0,0,0,0.04);
   --overlay-bg: rgba(0,0,0,0.4);
 
   /* Accent — set by theme */
@@ -64,6 +65,7 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-full: 9999px;
 
   /* Transitions */

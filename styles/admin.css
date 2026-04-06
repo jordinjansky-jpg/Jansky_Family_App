@@ -190,11 +190,11 @@
   cursor: pointer;
 }
 .admin-list-item--clickable:active {
-  background: var(--bg-hover, var(--border-light));
+  background: var(--bg-hover);
 }
 .admin-list-item--editing {
   border-color: var(--accent, #4a90d9);
-  background: var(--bg-hover, var(--border-light));
+  background: var(--bg-hover);
 }
 .admin-list-item--paused {
   opacity: 0.6;
