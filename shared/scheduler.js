@@ -166,7 +166,8 @@ function generateRotatedEntries(task, taskId, dateKey, balanceCtx) {
   const baseEntry = {
     taskId,
     rotationType: task.rotation,
-    ownerAssignmentMode: mode
+    ownerAssignmentMode: mode,
+    ...(task.notes ? { notes: task.notes } : {})
   };
 
   const entries = [];
@@ -458,7 +459,8 @@ function generateDuplicateEntries(task, taskId, dateKey) {
   const baseEntry = {
     taskId,
     rotationType: task.rotation,
-    ownerAssignmentMode: 'duplicate'
+    ownerAssignmentMode: 'duplicate',
+    ...(task.notes ? { notes: task.notes } : {})
   };
 
   for (const ownerId of task.owners) {
