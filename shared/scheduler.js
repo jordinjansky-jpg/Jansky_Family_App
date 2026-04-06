@@ -459,6 +459,47 @@ function categoryDayLoad(categoryId, personId, dateKey, newSchedule, existingSch
 }
 
 /**
+ * Check whether placing a task on a given day would stay within category limits.
+ * Returns true if both per-person and per-household limits pass (or aren't set).
+ *
+ * For duplicate mode: checks each owner independently against per-person limit,
+ * and checks combined total against household limit.
+ * For rotate/fixed mode: checks the single assigned owner.
+ */
+function canPlaceUnderCategoryLimit(task, dateKey, categories, newSchedule, existingSchedule, tasks) {
+  if (!categories) return true;
+  const cat = categories[task.category];
+  if (!cat) return true;
+
+  const personLimit = cat.dailyLimitPerPerson;
+  const householdLimit = cat.dailyLimitPerHousehold;
+  if (!personLimit && !householdLimit) return true;
+
+  const taskMin = task.timeOfDay === 'both' ? Math.ceil((task.estMin || 1) / 2) : (task.estMin || 1);
+  // For duplicate mode, total household addition is taskMin * number of owners
+  const mode = task.ownerAssignmentMode || 'rotate';
+  const ownerCount = mode === 'duplicate' ? (task.owners?.length || 1) : 1;
+
+  // Per-person check: each owner must have room
+  if (personLimit) {
+    const ownersToCheck = mode === 'duplicate' ? task.owners : [task.owners?.[0]];
+    for (const ownerId of ownersToCheck) {
+      if (!ownerId) continue;
+      const current = categoryDayLoad(task.category, ownerId, dateKey, newSchedule, existingSchedule, tasks);
+      if (current + taskMin > personLimit) return false;
+    }
+  }
+
+  // Household check: total across all people
+  if (householdLimit) {
+    const current = categoryDayLoad(task.category, null, dateKey, newSchedule, existingSchedule, tasks);
+    if (current + (taskMin * ownerCount) > householdLimit) return false;
+  }
+
+  return true;
+}
+
+/**
  * Find the lightest day within a date range using global load + weekend weighting.
  * Uses total load across ALL people so weekend preference works as a global signal
  * and tasks from different owners don't pile on the same day independently.
