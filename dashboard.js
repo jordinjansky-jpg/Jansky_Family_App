@@ -3,9 +3,9 @@ import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, r
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
-import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, isAllDone, sortEntries } from './shared/state.js';
+import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
-import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
+import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
 
 // ── Cached theme (device override > family cache > default) ──
@@ -69,6 +69,7 @@ let activePerson = linkedPerson
 let completions = {};
 let viewEntries = {};     // entries for viewDate
 let overdueItems = [];
+let suppressedCooldownTaskIds = new Set();
 let overdueExpanded = false;
 let celebrationShown = false;
 
@@ -132,13 +133,24 @@ document.getElementById('celebrationMount').innerHTML = renderCelebration();
 // loadData only loads overdue items (completions and schedule/{viewDate} come from listeners)
 async function loadData() {
   const allSched = await readAllSchedule();
-  overdueItems = getOverdueEntries(allSched || {}, completions, today);
+  overdueItems = getOverdueEntries(allSched || {}, completions, today, tasks);
+  suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSched || {}, completions, tasks, today);
 }
 
 function render() {
   clearTimeout(activePressTimer);
   activePressTimer = null;
-  const filtered = filterByPerson(viewEntries, activePerson);
+  // Filter out future instances of cooldown tasks that have overdue entries
+  let displayEntries = viewEntries;
+  if (suppressedCooldownTaskIds.size > 0 && viewDate > today) {
+    displayEntries = {};
+    for (const [key, entry] of Object.entries(viewEntries)) {
+      if (!suppressedCooldownTaskIds.has(entry.taskId)) {
+        displayEntries[key] = entry;
+      }
+    }
+  }
+  const filtered = filterByPerson(displayEntries, activePerson);
   const prog = dayProgress(filtered, completions);
   const isToday = viewDate === today;
   const isFuture = viewDate > today;
@@ -530,6 +542,22 @@ async function toggleTask(entryKey, dateKey) {
     }
   }
 
+  // Cooldown task rebuild: re-place future entries anchored from today
+  const cdEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+  if (cdEntry) {
+    const cdTask = tasks[cdEntry.taskId];
+    if (cdTask?.cooldownDays > 0) {
+      const allSched = await readAllSchedule() || {};
+      const cdUpdates = rebuildSingleTaskSchedule(
+        cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks
+      );
+      if (Object.keys(cdUpdates).length > 0) {
+        await multiUpdate(cdUpdates);
+      }
+      await loadData();
+    }
+  }
+
   const doRenderAndToast = () => {
     render();
 
@@ -551,6 +579,21 @@ async function toggleTask(entryKey, dateKey) {
           }
         }
         celebrationShown = false;
+        // Rebuild cooldown task schedule after undo
+        const undoEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+        if (undoEntry) {
+          const undoTask = tasks[undoEntry.taskId];
+          if (undoTask?.cooldownDays > 0) {
+            const allSched = await readAllSchedule() || {};
+            const undoUpdates = rebuildSingleTaskSchedule(
+              undoEntry.taskId, undoTask, today, allSched, completions, people, settings, tasks
+            );
+            if (Object.keys(undoUpdates).length > 0) {
+              await multiUpdate(undoUpdates);
+            }
+            await loadData();
+          }
+        }
         render();
       }
     );
