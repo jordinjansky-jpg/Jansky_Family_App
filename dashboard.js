@@ -694,7 +694,8 @@ function openTaskSheet(entryKey, dateKey) {
     showDelegate: true,
     showMove: true,
     showEdit: true,
-    showPoints: settings?.showPoints !== false
+    showPoints: settings?.showPoints !== false,
+    isEvent: !!cat?.isEvent
   });
 
   taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
@@ -914,6 +915,46 @@ function bindTaskSheetEvents(entryKey, dateKey) {
     if (overlay) overlay.classList.remove('active');
     setTimeout(() => { openEditTaskSheet(taskId); }, 320);
   });
+
+  // Notes inline editing
+  const notesAddBtn = document.getElementById('notesAddBtn');
+  const notesEditBtn = document.getElementById('notesEditBtn');
+  const notesCancelBtn = document.getElementById('notesCancelBtn');
+  const notesSaveBtn = document.getElementById('notesSaveBtn');
+  const notesEditor = document.getElementById('notesEditor');
+  const notesDisplay = document.getElementById('notesDisplay');
+  const notesInput = document.getElementById('notesInput');
+
+  function openNotesEditor() {
+    if (notesEditor) notesEditor.style.display = '';
+    if (notesDisplay) notesDisplay.style.display = 'none';
+    if (notesAddBtn) notesAddBtn.style.display = 'none';
+    if (notesInput) notesInput.focus();
+  }
+
+  function closeNotesEditor() {
+    if (notesEditor) notesEditor.style.display = 'none';
+    const hasText = notesInput?.value.trim();
+    if (notesDisplay) notesDisplay.style.display = hasText ? '' : 'none';
+    if (notesAddBtn) notesAddBtn.style.display = hasText ? 'none' : '';
+  }
+
+  notesAddBtn?.addEventListener('click', openNotesEditor);
+  notesEditBtn?.addEventListener('click', openNotesEditor);
+  notesCancelBtn?.addEventListener('click', closeNotesEditor);
+
+  notesSaveBtn?.addEventListener('click', async () => {
+    const noteValue = notesInput?.value.trim() || null;
+    const ek = notesSaveBtn.dataset.entryKey;
+    const dk = notesSaveBtn.dataset.dateKey;
+    if (ek && dk) {
+      await multiUpdate({ [`schedule/${dk}/${ek}/notes`]: noteValue });
+      if (schedule[dk]?.[ek]) schedule[dk][ek].notes = noteValue;
+    }
+    const notesText = document.getElementById('notesText');
+    if (notesText) notesText.textContent = noteValue || '';
+    closeNotesEditor();
+  });
 }
 
 // ══════════════════════════════════════════
@@ -987,6 +1028,8 @@ function openEditTaskSheet(taskId) {
     if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
     const eventTimeGroup = document.getElementById('et_eventTimeGroup');
     if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+    const notesGroup = document.getElementById('et_notesGroup');
+    if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
     if (isEvent) {
       const rotSelect = document.getElementById('et_rotation');
       if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -1016,6 +1059,7 @@ function openEditTaskSheet(taskId) {
     const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
 
     const eventTime = catIsEvent ? (document.getElementById('et_eventTime')?.value || null) : null;
+    const notes = catIsEvent ? (document.getElementById('et_notes')?.value.trim() || null) : null;
     const updated = {
       ...task,
       name,
@@ -1029,6 +1073,7 @@ function openEditTaskSheet(taskId) {
       dedicatedDay,
       dedicatedDate: effectiveDedicatedDate,
       eventTime,
+      notes,
       cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
       exempt: document.getElementById('et_exempt')?.checked || false
     };
@@ -1075,6 +1120,8 @@ function openQuickAddSheet() {
     if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
     const eventTimeGroup = document.getElementById('qa_eventTimeGroup');
     if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+    const notesGroup = document.getElementById('qa_notesGroup');
+    if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
     if (isEvent) {
       const rotSelect = document.getElementById('qa_rotation');
       if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -1154,6 +1201,7 @@ function openQuickAddSheet() {
     const dedicatedDate = isEvent && eventDate ? eventDate : (rotation === 'once' ? (document.getElementById('qa_dedicatedDate')?.value || null) : null);
 
     const eventTime = isEvent ? (document.getElementById('qa_eventTime')?.value || null) : null;
+    const notes = isEvent ? (document.getElementById('qa_notes')?.value.trim() || null) : null;
     const taskData = {
       name,
       rotation,
@@ -1166,6 +1214,7 @@ function openQuickAddSheet() {
       dedicatedDay,
       dedicatedDate,
       eventTime,
+      notes,
       cooldownDays: parseInt(document.getElementById('qa_cooldown')?.value, 10) || null,
       exempt: !!document.getElementById('qa_exempt')?.checked,
       status: 'active',
