@@ -753,3 +753,43 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
   overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeSheet(); });
   document.getElementById('dtClose')?.addEventListener('click', closeSheet);
 }
+
+/**
+ * Initialize the offline/online banner and connection dot.
+ * Creates a mount element, subscribes to connection changes, and auto-hides banners.
+ *
+ * @param {Function} onConnectionChange - Firebase connection listener function
+ * @param {object} options - { showConnectionDot: boolean } — dot updates the header
+ * @returns {Function} unsubscribe function
+ */
+export function initOfflineBanner(onConnectionChange, options = {}) {
+  const { showConnectionDot = true } = options;
+  const mount = document.createElement('div');
+  mount.id = 'offlineBannerMount';
+  document.body.appendChild(mount);
+
+  let timer = null;
+  let wasOffline = false;
+
+  return onConnectionChange((connected) => {
+    // Update connection dot in header
+    if (showConnectionDot) {
+      const existing = document.querySelector('.connection-dot');
+      const dotHtml = renderConnectionStatus(connected);
+      if (existing) existing.outerHTML = dotHtml;
+      else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', dotHtml);
+    }
+
+    // Show offline/online banner
+    if (timer) clearTimeout(timer);
+    if (!connected) {
+      wasOffline = true;
+      mount.innerHTML = renderOfflineBanner('Working offline — changes will sync');
+      timer = setTimeout(() => { mount.innerHTML = ''; }, 3000);
+    } else if (wasOffline) {
+      mount.innerHTML = renderOfflineBanner('Back online');
+      mount.querySelector('.offline-banner')?.classList.add('offline-banner--online');
+      timer = setTimeout(() => { mount.innerHTML = ''; }, 2000);
+    }
+  });
+}

@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, onConnectionChange, onValue, onCompletions, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderConnectionStatus, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderOfflineBanner, initOwnerChips, getSelectedOwners, openDeviceThemeSheet } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, initOwnerChips, getSelectedOwners, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -91,32 +91,7 @@ document.getElementById('headerMount').innerHTML = renderHeader({
 document.getElementById('navMount').innerHTML = renderNavBar('home');
 
 // ── Connection status + Offline/Online banner ──
-const bannerMount = document.createElement('div');
-bannerMount.id = 'offlineBannerMount';
-document.body.appendChild(bannerMount);
-
-let bannerTimer = null;
-let wasOffline = false;
-
-onConnectionChange((connected) => {
-  // Update connection dot
-  const existing = document.querySelector('.connection-dot');
-  const dotHtml = renderConnectionStatus(connected);
-  if (existing) existing.outerHTML = dotHtml;
-  else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', dotHtml);
-
-  // Show offline/online banner
-  if (bannerTimer) clearTimeout(bannerTimer);
-  if (!connected) {
-    wasOffline = true;
-    bannerMount.innerHTML = renderOfflineBanner('Working offline — changes will sync');
-    bannerTimer = setTimeout(() => { bannerMount.innerHTML = ''; }, 3000);
-  } else if (wasOffline) {
-    bannerMount.innerHTML = renderOfflineBanner('Back online');
-    bannerMount.querySelector('.offline-banner')?.classList.add('offline-banner--online');
-    bannerTimer = setTimeout(() => { bannerMount.innerHTML = ''; }, 2000);
-  }
-});
+initOfflineBanner(onConnectionChange);
 
 // ── Hide loading, show content ──
 document.getElementById('loadingState').style.display = 'none';
