@@ -648,7 +648,7 @@ export function generateSchedule(tasks, people, settings, completions, existingS
           placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey, balanceCtx);
           break;
         case 'once':
-          placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey);
+          placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey, balanceCtx);
           break;
       }
     }
@@ -830,24 +830,50 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
 /**
  * Place a once task on the best available future day.
  */
-function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey) {
+function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, weekendWeight, allTasks, nextKey, balanceCtx) {
   // Check if already handled
   if (isOnceTaskHandled(taskId, newSchedule, completions, existingSchedule)) return;
 
   const eligibleDates = futureDates.filter(dk => !task.createdDate || dk >= task.createdDate);
   if (eligibleDates.length === 0) return;
 
+  const categories = balanceCtx?.categories;
+
   // 1. Pick the DAY first
   let targetDay;
   if (task.dedicatedDate) {
     targetDay = eligibleDates.find(dk => dk === task.dedicatedDate);
     if (!targetDay) return; // date is in the past or out of range
+    // Dedicated-date tasks: if over category limit, skip entirely
+    if (!canPlaceUnderCategoryLimit(task, targetDay, categories, newSchedule, existingSchedule, allTasks)) return;
   } else if (task.dedicatedDay != null) {
-    targetDay = eligibleDates.find(dk => dayOfWeek(dk) === task.dedicatedDay);
+    // Try the first occurrence, then subsequent ones if over limit
+    const dayOccurrences = eligibleDates.filter(dk => dayOfWeek(dk) === task.dedicatedDay);
+    targetDay = null;
+    for (const dk of dayOccurrences) {
+      if (canPlaceUnderCategoryLimit(task, dk, categories, newSchedule, existingSchedule, allTasks)) {
+        targetDay = dk;
+        break;
+      }
+    }
   }
   if (!targetDay) {
-    targetDay = findLightestDay(eligibleDates.slice(0, 14), newSchedule, existingSchedule, allTasks, weekendWeight);
+    // Try days sorted by load, pick first under category limit
+    const candidates = eligibleDates.slice(0, 14);
+    const sortedDays = [...candidates].sort((a, b) => {
+      const loadA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
+      const loadB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+      return loadA - loadB;
+    });
+    for (const dk of sortedDays) {
+      if (canPlaceUnderCategoryLimit(task, dk, categories, newSchedule, existingSchedule, allTasks)) {
+        targetDay = dk;
+        break;
+      }
+    }
   }
+
+  if (!targetDay) return;
 
   const entries = generateRotatedEntries(task, taskId, targetDay);
   for (const entry of entries) {
