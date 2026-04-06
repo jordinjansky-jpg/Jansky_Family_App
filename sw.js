@@ -39,10 +39,15 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  // Pre-cache app shell for offline use, but don't block on failures
+  // Pre-cache app shell for offline use
+  // Cache each asset individually so one failure doesn't block all caching
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL).catch(() => {}))
+      .then((cache) => Promise.all(
+        APP_SHELL.map((url) =>
+          cache.add(url).catch((err) => console.warn('[SW] Failed to cache:', url, err.message))
+        )
+      ))
       .then(() => self.skipWaiting())
   );
 });
