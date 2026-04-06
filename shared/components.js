@@ -543,6 +543,10 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
       <label class="form-label">Event Time</label>
       <input type="time" id="${prefix}_eventTime" value="${task.eventTime || ''}">
     </div>
+    <div class="form-group" id="${prefix}_notesGroup" style="display:${isEvent ? '' : 'none'}">
+      <label class="form-label">Notes</label>
+      <textarea id="${prefix}_notes" class="task-detail__notes-input" rows="3" placeholder="Add notes for this event...">${esc(task.notes || '')}</textarea>
+    </div>
     <div class="admin-form__actions">
       <button class="btn btn--secondary" id="${prefix}_cancel" type="button">Cancel</button>
       <button class="btn btn--primary" id="${prefix}_save" type="button"${taskId ? ` data-task-id="${taskId}"` : ''}>${isEdit ? 'Save' : 'Create'}</button>
