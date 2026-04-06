@@ -433,14 +433,16 @@
         </div>`;
       }
 
-      // Template panel
-      if (showingTemplates) {
-        html += renderTemplatePanel();
-      }
+      if (!selectMode) {
+        // Template panel
+        if (showingTemplates) {
+          html += renderTemplatePanel();
+        }
 
-      // New task form at top
-      if (editingTaskId === 'new') {
-        html += renderTaskForm(null);
+        // New task form at top
+        if (editingTaskId === 'new') {
+          html += renderTaskForm(null);
+        }
       }
 
       // Task list with inline edit form
@@ -493,7 +495,7 @@
       }
 
       // Modal overlay for editing (not for 'new' — new stays at top)
-      if (editingTaskId && editingTaskId !== 'new') {
+      if (!selectMode && editingTaskId && editingTaskId !== 'new') {
         html += `<div class="task-form-backdrop" id="taskFormBackdrop">
           <div class="task-form-modal">${renderTaskForm(editingTaskId)}</div>
         </div>`;
