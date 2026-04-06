@@ -14,7 +14,6 @@ const FIREBASE_CONFIG = {
 const ROOT = 'rundown';
 
 let db = null;
-let connectionListeners = [];
 
 /**
  * Initialize Firebase. Must be called after Firebase SDK scripts are loaded.
