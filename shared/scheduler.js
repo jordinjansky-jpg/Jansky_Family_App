@@ -502,31 +502,6 @@ function canPlaceUnderCategoryLimit(task, dateKey, categories, newSchedule, exis
   return true;
 }
 
-/**
- * Find the lightest day within a date range using global load + weekend weighting.
- * Uses total load across ALL people so weekend preference works as a global signal
- * and tasks from different owners don't pile on the same day independently.
- *
- * Returns the dateKey of the lightest day.
- */
-function findLightestDay(dateKeys, futureSchedule, existingSchedule, tasks, weekendWeight) {
-  const candidates = [];
-  for (const dk of dateKeys) {
-    const existingDay = existingSchedule ? existingSchedule[dk] : null;
-    const rawLoad = totalDayLoad(dk, futureSchedule[dk], existingDay, tasks);
-    // Baseline of 1 ensures weekend weight has effect even on empty days
-    const effectiveLoad = isWeekend(dk) ? (rawLoad + 1) / weekendWeight : rawLoad + 1;
-    candidates.push({ dk, effectiveLoad });
-  }
-
-  // Find minimum load, then collect all days tied at that load
-  const minLoad = Math.min(...candidates.map(c => c.effectiveLoad));
-  const tied = candidates.filter(c => Math.abs(c.effectiveLoad - minLoad) < 0.001);
-
-  // Pick randomly among tied days so tasks spread across all equal options
-  return tied[Math.floor(Math.random() * tied.length)].dk;
-}
-
 // ============================================================
 // Step 5: Duplicate-to-all-owners mode
 // ============================================================
@@ -852,7 +827,12 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
   let targetDay;
   if (task.dedicatedDate) {
     targetDay = eligibleDates.find(dk => dk === task.dedicatedDate);
-    if (!targetDay) return; // date is in the past or out of range
+    // If the dedicated date is in the past, place on the first eligible day
+    // (today) so the task still appears in the overdue banner instead of vanishing.
+    if (!targetDay && task.dedicatedDate < eligibleDates[0]) {
+      targetDay = eligibleDates[0];
+    }
+    if (!targetDay) return; // date is out of the future window
     // Dedicated-date tasks: if over category limit, skip entirely
     if (!canPlaceUnderCategoryLimit(task, targetDay, categories, newSchedule, existingSchedule, allTasks)) return;
   } else if (task.dedicatedDay != null) {
@@ -962,20 +942,23 @@ export function rebuildSingleTaskSchedule(taskId, task, anchorDate, existingSche
 
   // Inject a synthetic entry at anchorDate so placeDailyTask sees it as the
   // most recent placement and spaces cooldown from there.
-  // For weekly/monthly, isInCooldown already checks completions + schedule.
+  // ONLY used for daily rotation — weekly/monthly use isScheduledThisWeek/Month
+  // checks that would incorrectly treat the synthetic anchor as a real placement.
   const anchoredSchedule = { ...cleanedSchedule };
-  if (!anchoredSchedule[anchorDate]) anchoredSchedule[anchorDate] = {};
-  anchoredSchedule[anchorDate] = { ...anchoredSchedule[anchorDate], _cooldownAnchor: { taskId } };
+  if (task.rotation === 'daily') {
+    if (!anchoredSchedule[anchorDate]) anchoredSchedule[anchorDate] = {};
+    anchoredSchedule[anchorDate] = { ...anchoredSchedule[anchorDate], _cooldownAnchor: { taskId } };
+  }
 
   switch (task.rotation) {
     case 'daily':
       placeDailyTask(taskId, task, futureDates, newSchedule, anchoredSchedule, completions, weekendWeightWeekly, allTasks, nextKey);
       break;
     case 'weekly':
-      placeWeeklyTask(taskId, task, futureDates, newSchedule, anchoredSchedule, completions, weekendWeightWeekly, allTasks, nextKey, balanceCtx);
+      placeWeeklyTask(taskId, task, futureDates, newSchedule, cleanedSchedule, completions, weekendWeightWeekly, allTasks, nextKey, balanceCtx);
       break;
     case 'monthly':
-      placeMonthlyTask(taskId, task, futureDates, newSchedule, anchoredSchedule, completions, weekendWeightMonthly, allTasks, nextKey, balanceCtx);
+      placeMonthlyTask(taskId, task, futureDates, newSchedule, cleanedSchedule, completions, weekendWeightMonthly, allTasks, nextKey, balanceCtx);
       break;
   }
 

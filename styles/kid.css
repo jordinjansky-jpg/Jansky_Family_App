@@ -118,7 +118,7 @@
     .kid-settings__theme-btn:active { transform: scale(0.95); }
     .kid-settings__theme-btn--active {
       border-color: var(--accent);
-      background: var(--accent-muted);
+      background: var(--accent-light);
     }
     .kid-settings__colors {
       display: flex;
@@ -459,7 +459,7 @@
     }
     .kid-pin-digit:focus { border-color: var(--accent); outline: none; }
     .kid-pin-dialog__error {
-      color: var(--danger);
+      color: var(--danger-text);
       font-size: var(--font-size-sm);
       min-height: 1.4em;
     }

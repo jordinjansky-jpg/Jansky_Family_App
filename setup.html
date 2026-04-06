@@ -673,10 +673,14 @@
       if (!label) { document.getElementById('catLabel').focus(); return; }
 
       const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
+      const labelEl = document.getElementById('catLabel');
       if (categories.some(c => c.key === key)) {
-        document.getElementById('catLabel').focus();
+        labelEl.setCustomValidity('A category with this name already exists.');
+        labelEl.reportValidity();
+        labelEl.focus();
         return;
       }
+      labelEl.setCustomValidity('');
 
       categories.push({ key, icon, label, pinProtected: false, weightPercent: null });
       cancelAddCategory();

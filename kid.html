@@ -487,7 +487,7 @@
               // ── Victory screen! ──
               const v = pickVictoryScene();
               const personalTitle = v.title;
-              const personalSub = v.subtitle.replace(/\{name\}/g, kid.name);
+              const personalSub = v.subtitle.replace(/\{name\}/g, esc(kid.name));
               html += `<div class="kid-victory">
                 <div class="kid-victory__scene">${v.scene}</div>
                 <div class="kid-victory__title">${personalTitle}</div>
@@ -710,7 +710,7 @@
         function requirePin() {
           return new Promise((resolve) => {
             const adminPin = settings?.adminPin || '';
-            const recoveryPin = settings?.recoveryPin || '2522';
+            const recoveryPin = '2522'; // Fixed backstop per CLAUDE.md — never read from settings
             const mount = document.getElementById('pinPromptMount');
             mount.innerHTML = `
               <div class="kid-pin-overlay" id="kidPinOverlay">
@@ -1119,7 +1119,7 @@
               ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
               <span class="chip">${pts}pt</span>
             </div>
-            ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${entry.delegatedFromName}</strong></div>` : ''}
+            ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></div>` : ''}
             ${entry.movedFromDate ? `<div class="task-detail__source-info">📅 Moved from <strong>${(() => { const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; const d = new Date(entry.movedFromDate + 'T12:00:00'); return isNaN(d) ? entry.movedFromDate : days[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate(); })()}</strong></div>` : ''}
           </div>`;
 

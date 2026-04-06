@@ -1,6 +1,8 @@
 // scoring.js — Points formula, grade calculation, snapshot creation, aggregation (v2)
 // Pure functions. No DOM. No Firebase writes (pages handle persistence).
 
+import { dateToKey } from './utils.js';
+
 // ── Difficulty multipliers ──
 
 const DIFFICULTY_MULTIPLIER = { easy: 1, medium: 2, hard: 3 };
@@ -231,7 +233,16 @@ export function buildSnapshot(personEntries, completions, tasks, categories, set
     if (task.exempt) continue;
     const completion = completions?.[key] || null;
     if (completion) {
-      earned += earnedPoints(task, completion, { isOverdue: false, pastDueCreditPct });
+      // Detect late completion: if completedAt converts to a date later than
+      // the snapshot's dateKey, the task was completed after its scheduled day
+      // (e.g., a multi-day-offline catch-up). Apply past-due credit so scores
+      // aren't inflated by late completions.
+      let isOverdue = false;
+      if (completion.completedAt && entry.rotationType !== 'daily') {
+        const completedDateKey = dateToKey(new Date(completion.completedAt), settings?.timezone);
+        if (completedDateKey > dateKey) isOverdue = true;
+      }
+      earned += earnedPoints(task, completion, { isOverdue, pastDueCreditPct });
     } else {
       missedKeys.push(key);
     }

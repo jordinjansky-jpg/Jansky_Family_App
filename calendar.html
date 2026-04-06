@@ -39,7 +39,8 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, multiUpdate, onCompletions, onConnectionChange } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, initOwnerChips, getSelectedOwners, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
+    import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueCooldownTaskIds, sortEntries } from './shared/state.js';
@@ -470,7 +471,16 @@
       bindSheetEvents();
     }
 
+    // AbortController for sheet event listeners — aborted before each rebind
+    // to prevent listener accumulation when updateSheet is called repeatedly.
+    let sheetEventsController = null;
+
     function bindSheetEvents() {
+      // Tear down previous listeners if any
+      if (sheetEventsController) sheetEventsController.abort();
+      sheetEventsController = new AbortController();
+      const signal = sheetEventsController.signal;
+
       // Bind task cards in sheet: tap to toggle, long-press for detail sheet
       // Movement threshold (px) — cancel long-press if finger moves more than this (scroll detection)
       const PRESS_MOVE_THRESHOLD = 10;
@@ -507,16 +517,17 @@
 
         const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
 
-        btn.addEventListener('pointerdown', startPress);
-        btn.addEventListener('pointermove', movePress);
-        btn.addEventListener('pointerup', endPress);
-        btn.addEventListener('pointerleave', cancelPress);
-        btn.addEventListener('pointercancel', cancelPress);
-        btn.addEventListener('contextmenu', (e) => e.preventDefault());
+        btn.addEventListener('pointerdown', startPress, { signal });
+        btn.addEventListener('pointermove', movePress, { signal });
+        btn.addEventListener('pointerup', endPress, { signal });
+        btn.addEventListener('pointerleave', cancelPress, { signal });
+        btn.addEventListener('pointercancel', cancelPress, { signal });
+        btn.addEventListener('contextmenu', (e) => e.preventDefault(), { signal });
       });
     }
 
     function closeSheet() {
+      if (sheetEventsController) { sheetEventsController.abort(); sheetEventsController = null; }
       const overlay = document.getElementById('calSheetOverlay');
       const sheet = document.getElementById('calSheet');
       if (overlay) {

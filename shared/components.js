@@ -623,20 +623,8 @@ export function renderOfflineBanner(message) {
   </div>`;
 }
 
-/** Attach click-to-toggle on owner chip buttons inside a container. */
-export function initOwnerChips(containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  container.addEventListener('click', (e) => {
-    const chip = e.target.closest('.owner-chip');
-    if (chip) chip.classList.toggle('owner-chip--selected');
-  });
-}
-
-/** Read selected owner IDs from an owner-chips container. */
-export function getSelectedOwners(containerId) {
-  return Array.from(document.querySelectorAll(`#${containerId} .owner-chip--selected`)).map(b => b.dataset.id);
-}
+// initOwnerChips / getSelectedOwners moved to ./dom-helpers.js
+// (components.js stays pure — no DOM access)
 
 /**
  * Open the device theme picker bottom sheet.

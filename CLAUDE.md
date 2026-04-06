@@ -34,6 +34,7 @@ git push origin main
 │   ├── scoring.js        ← Points formula, letter grades, snapshots, streaks, weighted categories (~400 lines)
 │   ├── state.js          ← Completion queries, entry filtering/sorting/grouping (~115 lines)
 │   ├── components.js     ← All reusable HTML rendering: cards, sheets, forms, filters (~600 lines)
+│   ├── dom-helpers.js    ← Small DOM-binding helpers (initOwnerChips, getSelectedOwners). Only shared module besides theme.js permitted to touch DOM.
 │   ├── theme.js          ← 5 theme presets, CSS variable generation, localStorage cache (~260 lines)
 │   ├── utils.js          ← Date math, timezone handling, formatting, debounce (Intl-based, no libraries)
 └── styles/
@@ -112,8 +113,9 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **Overdue logic:** Only non-daily tasks from past dates count as overdue. Daily tasks are excluded (they repeat naturally).
 - **One-time tasks:** With `dedicatedDate`, placed on that exact date. Without it, load-balanced to lightest day.
 - **Completion:** Allowed on any date (no future-date blocking). Completed tasks render at the bottom of all task lists.
-- **Task grouping order:** Events → Daily → Weekly → Monthly → One-Time, then by owner within each group.
-- **Long-press:** 500ms timer opens detail sheet. Tap toggles completion. Horizontal swipe navigates days (dashboard) or months (calendar).
+- **Task grouping order (dashboard/kid):** Events → Daily → Weekly → Monthly → One-Time, then by owner within each group.
+- **Task grouping order (calendar day sheet):** Events → Monthly → Weekly → One-Time → Daily. Different from dashboard intentionally — calendar emphasizes uncommon recurrences first since users open the sheet for scheduling visibility, not the daily grind.
+- **Long-press:** Opens detail sheet. Tap toggles completion. Horizontal swipe navigates days (dashboard) or months (calendar). Timing: **500ms on tracker**, **800ms on calendar/kid mode** (longer hold required there because those views are more touch-scroll-heavy and false-fires are more disruptive).
 - **Duplicate mode:** Creates one schedule entry per owner. Fixed mode always uses first owner (used for events).
 - **Daily cooldown:** Tasks with `cooldownDays` are spaced at fixed intervals (`cooldownDays + 1` days apart).
 - **Scoreboard blending:** Weekly grades blend snapshots (past days) + live daily score (today) for accuracy.
@@ -139,6 +141,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Codebase audit fixes: XSS hardening (admin/kid name escaping), CSS variable fixes (kid PIN error, theme button), scheduler bug fixes (cooldown anchor leak in weekly/monthly, past-date one-time tasks now appear instead of vanishing), scoring late-completion detection in snapshots, calendar listener leak fix via AbortController, recovery PIN unconditional, parseIntOr/parseFloatOr helpers, DOM helpers extracted to dom-helpers.js, dead code removal
 - Bulk admin actions: multi-select mode in tasks tab, batch edit (rotation, assignment mode, category, status, difficulty, time of day, est. minutes, owners), batch delete with confirmation, floating action bar, auto schedule rebuild
 - Category-level daily limits: per-person and per-household minute caps on categories, scheduler defers/skips tasks over limit, admin UI with badges
 - `e841314` 7 bug fixes (scheduler shadowing, scoring exempt tasks, tracker skipped filter, duplicate listeners, calendar perf), calendar single-month view with swipe nav, SW v5

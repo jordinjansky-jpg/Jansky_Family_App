@@ -129,6 +129,24 @@ export function dateRange(startKey, endKey) {
 }
 
 /**
+ * Parse an integer from a string, returning fallback for NaN/null/undefined.
+ * Critically, this preserves a valid 0 value (unlike `parseInt(...) || fallback`).
+ */
+export function parseIntOr(value, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? fallback : n;
+}
+
+/**
+ * Parse a float from a string, returning fallback for NaN/null/undefined.
+ * Preserves a valid 0 value.
+ */
+export function parseFloatOr(value, fallback) {
+  const n = parseFloat(value);
+  return Number.isNaN(n) ? fallback : n;
+}
+
+/**
  * Format minutes as "Xh Ym" or just "Ym" if under 60.
  */
 export function formatMinutes(min) {

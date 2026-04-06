@@ -232,22 +232,6 @@
   border-radius: 0;
 }
 
-/* Legacy bar support (remove after migration) */
-.cal-event-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  width: 100%;
-  margin-top: auto;
-  border-radius: 0 0 3px 3px;
-  overflow: hidden;
-}
-.cal-event-bar {
-  display: block;
-  width: 100%;
-  border-radius: 1px;
-}
-
 /* ============ Calendar Day Sheet ============ */
 .cal-sheet-overlay {
   position: fixed;

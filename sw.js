@@ -1,5 +1,9 @@
 // Service Worker — network-first for app shell, network-only for Firebase API
-const CACHE_NAME = 'family-hub-v27';
+//
+// MAINTENANCE: When you add, rename, or remove any file in APP_SHELL below,
+// you MUST bump CACHE_NAME (e.g. v28 → v29) so existing clients fetch the new
+// shell. There is no build step generating this list.
+const CACHE_NAME = 'family-hub-v28';
 
 const APP_SHELL = [
   '/',
@@ -31,6 +35,7 @@ const APP_SHELL = [
   '/shared/scoring.js',
   '/shared/state.js',
   '/shared/components.js',
+  '/shared/dom-helpers.js',
   '/shared/theme.js',
   '/shared/utils.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)

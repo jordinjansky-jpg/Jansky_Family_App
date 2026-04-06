@@ -62,9 +62,10 @@
       readCompletions, readAllSchedule, readOnce,
       multiUpdate, pushDebugEvent, factoryReset, onConnectionChange
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, initOwnerChips, getSelectedOwners, renderTaskFormCompact, initOfflineBanner } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, initOfflineBanner } from './shared/components.js';
+    import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
-    import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml } from './shared/utils.js';
+    import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints } from './shared/scoring.js';
@@ -595,7 +596,7 @@
         <h3 class="admin-form__title">${title}</h3>
         <div class="form-group">
           <label class="form-label">Name</label>
-          <input type="text" id="pf_name" value="${person.name || ''}" placeholder="e.g., Jordin">
+          <input type="text" id="pf_name" value="${esc(person.name || '')}" placeholder="e.g., Jordin">
         </div>
         <div class="form-group">
           <label class="form-label">Color</label>
@@ -759,11 +760,11 @@
         <h3 class="admin-form__title">App Settings</h3>
         <div class="form-group">
           <label class="form-label">App Name</label>
-          <input type="text" id="sf_appName" value="${settings?.appName || 'Daily Rundown'}">
+          <input type="text" id="sf_appName" value="${esc(settings?.appName || 'Daily Rundown')}">
         </div>
         <div class="form-group">
           <label class="form-label">Family Name</label>
-          <input type="text" id="sf_familyName" value="${settings?.familyName || ''}" placeholder="The Jansky Family">
+          <input type="text" id="sf_familyName" value="${esc(settings?.familyName || '')}" placeholder="The Jansky Family">
         </div>
         <div class="form-group">
           <label class="form-label">Timezone</label>
@@ -1503,7 +1504,7 @@
             const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: effectiveMode, ...(taskData.notes ? { notes: taskData.notes } : {}) };
             const tod = taskData.timeOfDay || 'anytime';
             let newCounter = 0;
-            const newKey = () => `sched_${Date.now()}_new_${String(newCounter++).padStart(3, '0')}`;
+            const newKey = () => `sched_${Date.now()}_${String(newCounter++).padStart(5, '0')}`;
 
             if (effectiveMode === 'duplicate') {
               for (const oid of owners) {
@@ -1940,13 +1941,17 @@
           const key = btn.dataset.catKey;
           const ca = catsArray();
           if (ca.length <= 1) { alert('Cannot delete the last category.'); return; }
-          if (!confirm(`Delete category "${catsObj[key]?.label}"? Tasks will be reassigned to Chores.`)) return;
 
-          // Reassign tasks to chores
-          const choresKey = Object.keys(catsObj).find(k => k !== key) || 'chores';
+          // Reassign tasks to the default category (or first remaining if none flagged)
+          const defaultEntry = Object.entries(catsObj).find(([k, c]) => k !== key && c?.isDefault);
+          const fallbackKey = defaultEntry ? defaultEntry[0] : (Object.keys(catsObj).find(k => k !== key) || 'chores');
+          const fallbackLabel = catsObj[fallbackKey]?.label || fallbackKey;
+
+          if (!confirm(`Delete category "${catsObj[key]?.label}"? Tasks will be reassigned to "${fallbackLabel}".`)) return;
+
           for (const [taskId, task] of Object.entries(tasksObj)) {
             if (task.category === key) {
-              task.category = choresKey;
+              task.category = fallbackKey;
               await writeTask(taskId, task);
             }
           }
@@ -2046,11 +2051,11 @@
           appName: main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
           familyName: main.querySelector('#sf_familyName')?.value.trim() || '',
           timezone: main.querySelector('#sf_timezone')?.value || settings?.timezone,
-          weekendWeightWeekly: parseFloat(main.querySelector('#sf_weekendWeightWeekly')?.value) || 1.5,
-          weekendWeightMonthly: parseFloat(main.querySelector('#sf_weekendWeightMonthly')?.value) || 3,
-          pastDueCreditPct: parseInt(main.querySelector('#sf_pastDueCredit')?.value, 10) || 75,
-          sliderMin: parseInt(main.querySelector('#sf_sliderMin')?.value, 10) || 0,
-          sliderMax: parseInt(main.querySelector('#sf_sliderMax')?.value, 10) || 150,
+          weekendWeightWeekly: parseFloatOr(main.querySelector('#sf_weekendWeightWeekly')?.value, 1.5),
+          weekendWeightMonthly: parseFloatOr(main.querySelector('#sf_weekendWeightMonthly')?.value, 3),
+          pastDueCreditPct: parseIntOr(main.querySelector('#sf_pastDueCredit')?.value, 75),
+          sliderMin: parseIntOr(main.querySelector('#sf_sliderMin')?.value, 0),
+          sliderMax: parseIntOr(main.querySelector('#sf_sliderMax')?.value, 150),
           showPoints: main.querySelector('#sf_showPoints')?.checked !== false,
           showTodIconBoth: !!main.querySelector('#sf_showTodIconBoth')?.checked,
           showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked

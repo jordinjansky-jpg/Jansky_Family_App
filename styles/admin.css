@@ -476,6 +476,19 @@
   background: var(--danger-bg);
   color: var(--danger-text);
 }
+/* Event-category badge — uses inline color from category eventColor */
+.admin-badge--event {
+  font-weight: 600;
+}
+
+/* Compact list variant — used for the debug event log */
+.admin-list--compact {
+  gap: 4px;
+}
+.admin-list--compact .admin-list-item {
+  padding: 6px 8px;
+  font-size: var(--font-size-sm);
+}
 
 /* Admin event color picker */
 .admin-event-color-row {
