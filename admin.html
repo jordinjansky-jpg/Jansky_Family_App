@@ -198,7 +198,7 @@
     const PIN_SESSION_KEY = 'dr-admin-pin-ts';
     const PIN_SESSION_TTL = 30 * 60 * 1000; // 30 minutes
     const adminPin = settings?.adminPin || '';
-    const recoveryPin = settings?.recoveryPin || '9999';
+    const recoveryPin = settings?.recoveryPin || '2522';
 
     // Check if PIN session is still valid
     const pinTs = parseInt(sessionStorage.getItem(PIN_SESSION_KEY) || '0', 10);

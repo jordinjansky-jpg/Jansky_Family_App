@@ -118,7 +118,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **Daily cooldown:** Tasks with `cooldownDays` are spaced at fixed intervals (`cooldownDays + 1` days apart).
 - **Scoreboard blending:** Weekly grades blend snapshots (past days) + live daily score (today) for accuracy.
 - **Kid mode:** Isolated view at `kid.html?kid=Name`. No nav bar, no admin access, no task editing. Per-child settings control features.
-- **Admin PIN:** 4-digit PIN with 30-min session cache in sessionStorage. Recovery PIN is always `9999`.
+- **Admin PIN:** 4-digit PIN with 30-min session cache in sessionStorage. Recovery PIN is always `2522`.
 - **Calendar sheet height:** Locks on open so person filter changes don't cause resize jitter.
 
 ## Gotchas (Critical)
