@@ -573,7 +573,7 @@ function generateDuplicateEntries(task, taskId, dateKey) {
  * Returns:
  *   { dateKey: { generatedKey: entry } } — new schedule for future dates (and optionally today).
  */
-export function generateSchedule(tasks, people, settings, completions, existingSchedule, options) {
+export function generateSchedule(tasks, people, settings, completions, existingSchedule, options, categories) {
   if (!tasks || !people || !settings) return {};
 
   const { includeToday = false } = options || {};
@@ -627,7 +627,7 @@ export function generateSchedule(tasks, people, settings, completions, existingS
   // Balance context passed to weekly/monthly placement for per-day load balancing.
   // getBalancedOwner reads newSchedule + existingSchedule to compute each person's
   // total estMin on the target day (including daily tasks already placed).
-  const balanceCtx = { newSchedule, existingSchedule, allTasks: tasks };
+  const balanceCtx = { newSchedule, existingSchedule, allTasks: tasks, categories };
 
   // Process tasks in rotation order: daily → weekly → monthly → once
   // Daily tasks are placed first so weekly/monthly balancing sees them.
@@ -835,7 +835,7 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
  *   { 'schedule/YYYY-MM-DD/entryKey': entry | null }
  * where null deletes stale entries.
  */
-export function rebuildSingleTaskSchedule(taskId, task, anchorDate, existingSchedule, completions, people, settings, allTasks) {
+export function rebuildSingleTaskSchedule(taskId, task, anchorDate, existingSchedule, completions, people, settings, allTasks, categories) {
   if (!task || !task.cooldownDays || !settings) return {};
 
   const timezone = settings.timezone || 'America/Chicago';
@@ -887,7 +887,7 @@ export function rebuildSingleTaskSchedule(taskId, task, anchorDate, existingSche
 
   const weekendWeightWeekly = settings.weekendWeightWeekly ?? settings.weekendWeight ?? 1.5;
   const weekendWeightMonthly = settings.weekendWeightMonthly ?? settings.weekendWeight ?? 3;
-  const balanceCtx = { newSchedule, existingSchedule: cleanedSchedule, allTasks };
+  const balanceCtx = { newSchedule, existingSchedule: cleanedSchedule, allTasks, categories };
 
   // Inject a synthetic entry at anchorDate so placeDailyTask sees it as the
   // most recent placement and spaces cooldown from there.
@@ -929,9 +929,9 @@ export function rebuildSingleTaskSchedule(taskId, task, anchorDate, existingSche
  * Returns an object of { 'schedule/YYYY-MM-DD': { entries } | null }
  * for all future dates. null values clear dates with no entries.
  */
-export function buildScheduleUpdates(tasks, people, settings, completions, existingSchedule, options) {
+export function buildScheduleUpdates(tasks, people, settings, completions, existingSchedule, options, categories) {
   const { clearPast = false } = options || {};
-  const newSchedule = generateSchedule(tasks, people, settings, completions, existingSchedule, options);
+  const newSchedule = generateSchedule(tasks, people, settings, completions, existingSchedule, options, categories);
   const updates = {};
 
   // Optionally wipe all past date nodes entirely
