@@ -640,6 +640,8 @@
         if (c.isDefault) badges.push('<span class="admin-badge">Default</span>');
         if (c.weightPercent) badges.push(`<span class="admin-badge admin-badge--muted">${c.weightPercent}%</span>`);
         if (c.pinProtected) badges.push('<span class="admin-badge admin-badge--muted">🔒</span>');
+        if (c.dailyLimitPerPerson) badges.push(`<span class="admin-badge admin-badge--muted">👤${c.dailyLimitPerPerson}m</span>`);
+        if (c.dailyLimitPerHousehold) badges.push(`<span class="admin-badge admin-badge--muted">🏠${c.dailyLimitPerHousehold}m</span>`);
         if (c.showIcon === false) badges.push('<span class="admin-badge admin-badge--muted">Icon off</span>');
         html += `<div class="admin-list-item admin-list-item--clickable" data-cat-key="${c.key}">
           <div class="admin-list-item__main">
@@ -678,6 +680,18 @@
             <label class="form-label">Weight %</label>
             <input type="number" id="cf_weight" value="${cat.weightPercent || ''}" min="0" max="100" placeholder="None">
             <p class="form-hint">Leave empty for no weighting</p>
+          </div>
+        </div>
+        <div class="form-row" id="catLimitsRow" style="display:${cat.isEvent ? 'none' : 'flex'}">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Limit / Person (min)</label>
+            <input type="number" id="cf_limitPerson" value="${cat.dailyLimitPerPerson || ''}" min="1" placeholder="None">
+            <p class="form-hint">Leave empty for no limit</p>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Limit / Household (min)</label>
+            <input type="number" id="cf_limitHousehold" value="${cat.dailyLimitPerHousehold || ''}" min="1" placeholder="None">
+            <p class="form-hint">Leave empty for no limit</p>
           </div>
         </div>
         <label class="admin-checkbox"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}> Event category (no scoring, calendar highlight)</label>
@@ -1436,7 +1450,7 @@
           // Rebuild future schedule so the new task appears on upcoming days
           const allSched = await readAllSchedule() || {};
           const allComp = await readCompletions() || {};
-          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched);
+          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, undefined, catsObj);
           await multiUpdate(futureUpdates);
         } else {
           // Preserve existing fields
@@ -1449,7 +1463,7 @@
           // Auto-rebuild future schedule so edits take effect immediately
           const allSched = await readAllSchedule() || {};
           const allComp = await readCompletions() || {};
-          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true });
+          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true }, catsObj);
           await multiUpdate(futureUpdates);
         }
 
@@ -1640,8 +1654,10 @@
       // Event toggle shows/hides color picker
       const eventCheckbox = main.querySelector('#cf_isEvent');
       const eventColorRow = main.querySelector('#eventColorRow');
+      const catLimitsRow = main.querySelector('#catLimitsRow');
       eventCheckbox?.addEventListener('change', () => {
         if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? 'flex' : 'none';
+        if (catLimitsRow) catLimitsRow.style.display = eventCheckbox.checked ? 'none' : 'flex';
       });
 
       // Event color dot selection
@@ -1664,6 +1680,8 @@
         const pinProtected = main.querySelector('#cf_pinProtected')?.checked || false;
         const isDefault = main.querySelector('#cf_isDefault')?.checked || false;
         const isEvent = main.querySelector('#cf_isEvent')?.checked || false;
+        const limitPerson = main.querySelector('#cf_limitPerson')?.value;
+        const limitHousehold = main.querySelector('#cf_limitHousehold')?.value;
 
         // If setting as default, clear default from all other categories
         if (isDefault) {
@@ -1680,7 +1698,9 @@
           isDefault,
           isEvent,
           eventColor: isEvent ? selectedEventColor : null,
-          weightPercent: isEvent ? null : (weight ? parseInt(weight, 10) : null)
+          weightPercent: isEvent ? null : (weight ? parseInt(weight, 10) : null),
+          dailyLimitPerPerson: isEvent ? null : (limitPerson ? parseInt(limitPerson, 10) : null),
+          dailyLimitPerHousehold: isEvent ? null : (limitHousehold ? parseInt(limitHousehold, 10) : null)
         };
 
         if (editingCatKey === 'new') {
@@ -1791,7 +1811,7 @@
           try {
             const completions = await readCompletions() || {};
             const existingSchedule = await readAllSchedule() || {};
-            const updates = buildScheduleUpdates(tasksObj, peopleArray(), settings, completions, existingSchedule, { includeToday: true, clearPast });
+            const updates = buildScheduleUpdates(tasksObj, peopleArray(), settings, completions, existingSchedule, { includeToday: true, clearPast }, catsObj);
             await multiUpdate(updates);
 
             await pushDebugEvent({ type: 'schedule_rebuilt', payload: { clearPast, initiator: 'admin' }, timestamp: Date.now() });
