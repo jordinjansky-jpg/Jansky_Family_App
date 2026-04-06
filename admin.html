@@ -413,13 +413,25 @@
         }
       });
 
-      html += `<div class="admin-section-header">
-        <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
-        <div>
-          <button class="btn btn--secondary btn--sm" id="templateBtn" type="button">📋 Templates</button>
-          <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
-        </div>
-      </div>`;
+      if (selectMode) {
+        html += `<div class="admin-section-header">
+          <span>${selectedTaskIds.size} selected</span>
+          <div>
+            <button class="btn btn--ghost btn--sm" id="selectAllBtn" type="button">Select All</button>
+            <button class="btn btn--ghost btn--sm" id="deselectAllBtn" type="button">Deselect All</button>
+            <button class="btn btn--secondary btn--sm" id="cancelSelectBtn" type="button">Cancel</button>
+          </div>
+        </div>`;
+      } else {
+        html += `<div class="admin-section-header">
+          <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
+          <div>
+            <button class="btn btn--secondary btn--sm" id="selectModeBtn" type="button">Select</button>
+            <button class="btn btn--secondary btn--sm" id="templateBtn" type="button">📋 Templates</button>
+            <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
+          </div>
+        </div>`;
+      }
 
       // Template panel
       if (showingTemplates) {
@@ -1154,6 +1166,29 @@
       });
       main.querySelector('#closeTemplates')?.addEventListener('click', () => {
         showingTemplates = false;
+        render();
+      });
+
+      // Select mode toggle
+      main.querySelector('#selectModeBtn')?.addEventListener('click', () => {
+        selectMode = true;
+        editingTaskId = null;
+        showingTemplates = false;
+        render();
+      });
+      main.querySelector('#cancelSelectBtn')?.addEventListener('click', () => {
+        selectMode = false;
+        selectedTaskIds.clear();
+        render();
+      });
+      main.querySelector('#selectAllBtn')?.addEventListener('click', () => {
+        for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
+          selectedTaskIds.add(item.dataset.taskId);
+        }
+        render();
+      });
+      main.querySelector('#deselectAllBtn')?.addEventListener('click', () => {
+        selectedTaskIds.clear();
         render();
       });
 
