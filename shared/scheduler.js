@@ -481,6 +481,9 @@ function canPlaceUnderCategoryLimit(task, dateKey, categories, newSchedule, exis
   const ownerCount = mode === 'duplicate' ? (task.owners?.length || 1) : 1;
 
   // Per-person check: each owner must have room
+  // Note: for rotate mode, we check owners[0] as a heuristic. The actual owner
+  // is determined later by getBalancedOwner (lightest load), so this may over- or
+  // under-restrict in rare cases where owners have very different category loads.
   if (personLimit) {
     const ownersToCheck = mode === 'duplicate' ? task.owners : [task.owners?.[0]];
     for (const ownerId of ownersToCheck) {
@@ -734,9 +737,12 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
       }
     } else {
       // Try lightest day first, then fall back to other days if over category limit
+      // Apply weekend weighting to match findLightestDay behavior
       const sortedDays = [...weekDates].sort((a, b) => {
-        const loadA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
-        const loadB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+        const rawA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
+        const rawB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+        const loadA = isWeekend(a) ? (rawA + 1) / weekendWeight : rawA + 1;
+        const loadB = isWeekend(b) ? (rawB + 1) / weekendWeight : rawB + 1;
         return loadA - loadB;
       });
       targetDay = null;
@@ -801,9 +807,12 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
     }
     if (!targetDay) {
       // Try days sorted by load, pick first that passes category limit
+      // Apply weekend weighting to match findLightestDay behavior
       const sortedDays = [...monthDates].sort((a, b) => {
-        const loadA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
-        const loadB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+        const rawA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
+        const rawB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+        const loadA = isWeekend(a) ? (rawA + 1) / weekendWeight : rawA + 1;
+        const loadB = isWeekend(b) ? (rawB + 1) / weekendWeight : rawB + 1;
         return loadA - loadB;
       });
       for (const dk of sortedDays) {
@@ -861,8 +870,10 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
     // Try days sorted by load, pick first under category limit
     const candidates = eligibleDates.slice(0, 14);
     const sortedDays = [...candidates].sort((a, b) => {
-      const loadA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
-      const loadB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+      const rawA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
+      const rawB = totalDayLoad(b, newSchedule[b], existingSchedule?.[b], allTasks);
+      const loadA = isWeekend(a) ? (rawA + 1) / weekendWeight : rawA + 1;
+      const loadB = isWeekend(b) ? (rawB + 1) / weekendWeight : rawB + 1;
       return loadA - loadB;
     });
     for (const dk of sortedDays) {
