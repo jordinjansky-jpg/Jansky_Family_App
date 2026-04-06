@@ -423,6 +423,42 @@ function totalDayLoad(dateKey, newDayEntries, existingDayEntries, tasks) {
 }
 
 /**
+ * Calculate total estimated minutes for a specific category on a given day.
+ * If personId is provided, returns that person's category load.
+ * If personId is null, returns the household total across all people.
+ */
+function categoryDayLoad(categoryId, personId, dateKey, newSchedule, existingSchedule, tasks) {
+  let totalMin = 0;
+  const counted = new Set();
+  const newDay = newSchedule[dateKey] || null;
+  const existDay = existingSchedule ? existingSchedule[dateKey] : null;
+
+  if (newDay) {
+    for (const [key, entry] of Object.entries(newDay)) {
+      const task = tasks[entry.taskId];
+      if (!task || task.category !== categoryId) continue;
+      if (personId && entry.ownerId !== personId) continue;
+      counted.add(key);
+      const raw = task.timeOfDay === 'both' ? Math.ceil((task.estMin || 1) / 2) : (task.estMin || 1);
+      totalMin += raw;
+    }
+  }
+
+  if (existDay) {
+    for (const [key, entry] of Object.entries(existDay)) {
+      if (counted.has(key)) continue;
+      const task = tasks[entry.taskId];
+      if (!task || task.category !== categoryId) continue;
+      if (personId && entry.ownerId !== personId) continue;
+      const raw = task.timeOfDay === 'both' ? Math.ceil((task.estMin || 1) / 2) : (task.estMin || 1);
+      totalMin += raw;
+    }
+  }
+
+  return totalMin;
+}
+
+/**
  * Find the lightest day within a date range using global load + weekend weighting.
  * Uses total load across ALL people so weekend preference works as a global signal
  * and tasks from different owners don't pile on the same day independently.
