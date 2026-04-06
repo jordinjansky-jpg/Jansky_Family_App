@@ -744,6 +744,102 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
 }
 
 // ============================================================
+// Single-task cooldown schedule rebuild
+// ============================================================
+
+/**
+ * Rebuild future schedule entries for a single cooldown task, anchored from a
+ * specific date (typically the actual completion date). Deletes stale future
+ * entries and re-places the task using its rotation's placement logic.
+ *
+ * Returns a flat Firebase multi-update object:
+ *   { 'schedule/YYYY-MM-DD/entryKey': entry | null }
+ * where null deletes stale entries.
+ */
+export function rebuildSingleTaskSchedule(taskId, task, anchorDate, existingSchedule, completions, people, settings, allTasks) {
+  if (!task || !task.cooldownDays || !settings) return {};
+
+  const timezone = settings.timezone || 'America/Chicago';
+  const today = todayKey(timezone);
+  const startDate = addDays(anchorDate, 1);
+  const endDate = addDays(today, SCHEDULE_DAYS);
+  if (startDate > endDate) return {};
+
+  const futureDates = dateRange(startDate, endDate);
+  const updates = {};
+
+  // 1. Find and null-out all future entries for this task
+  for (const dk of futureDates) {
+    const dayEntries = existingSchedule[dk];
+    if (!dayEntries) continue;
+    for (const [ek, entry] of Object.entries(dayEntries)) {
+      if (entry.taskId === taskId) {
+        updates[`schedule/${dk}/${ek}`] = null;
+      }
+    }
+  }
+
+  // 2. Build a cleaned existingSchedule (without stale entries for this task)
+  //    so placement functions see accurate load from other tasks
+  const cleanedSchedule = {};
+  for (const [dk, dayEntries] of Object.entries(existingSchedule || {})) {
+    if (!dayEntries) continue;
+    const cleaned = {};
+    for (const [ek, entry] of Object.entries(dayEntries)) {
+      // Keep entries from other tasks, and completed entries for this task
+      if (entry.taskId !== taskId || (completions && completions[ek])) {
+        cleaned[ek] = entry;
+      }
+    }
+    if (Object.keys(cleaned).length > 0) cleanedSchedule[dk] = cleaned;
+  }
+
+  // 3. Place the task using its rotation logic
+  const newSchedule = {};
+  for (const dk of futureDates) {
+    newSchedule[dk] = {};
+  }
+
+  let keyCounter = 0;
+  function nextKey() {
+    keyCounter++;
+    return `sched_${Date.now()}_${String(keyCounter).padStart(5, '0')}`;
+  }
+
+  const weekendWeightWeekly = settings.weekendWeightWeekly ?? settings.weekendWeight ?? 1.5;
+  const weekendWeightMonthly = settings.weekendWeightMonthly ?? settings.weekendWeight ?? 3;
+  const balanceCtx = { newSchedule, existingSchedule: cleanedSchedule, allTasks };
+
+  // Inject a synthetic entry at anchorDate so placeDailyTask sees it as the
+  // most recent placement and spaces cooldown from there.
+  // For weekly/monthly, isInCooldown already checks completions + schedule.
+  const anchoredSchedule = { ...cleanedSchedule };
+  if (!anchoredSchedule[anchorDate]) anchoredSchedule[anchorDate] = {};
+  anchoredSchedule[anchorDate] = { ...anchoredSchedule[anchorDate], _cooldownAnchor: { taskId } };
+
+  switch (task.rotation) {
+    case 'daily':
+      placeDailyTask(taskId, task, futureDates, newSchedule, anchoredSchedule, completions, weekendWeightWeekly, allTasks, nextKey);
+      break;
+    case 'weekly':
+      placeWeeklyTask(taskId, task, futureDates, newSchedule, anchoredSchedule, completions, weekendWeightWeekly, allTasks, nextKey, balanceCtx);
+      break;
+    case 'monthly':
+      placeMonthlyTask(taskId, task, futureDates, newSchedule, anchoredSchedule, completions, weekendWeightMonthly, allTasks, nextKey, balanceCtx);
+      break;
+  }
+
+  // 4. Merge new entries into updates
+  for (const [dk, dayEntries] of Object.entries(newSchedule)) {
+    for (const [ek, entry] of Object.entries(dayEntries)) {
+      updates[`schedule/${dk}/${ek}`] = entry;
+    }
+  }
+
+  return updates;
+}
+
+// ============================================================
 // Schedule write orchestration
 // ============================================================
 
