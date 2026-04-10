@@ -220,14 +220,18 @@ export function renderTaskCard(options) {
   const estLabel = task.estMin ? `${task.estMin}m` : '';
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
 
-  // Points label: show override value with color if active, else base (skip for events, exempt, and showPoints off)
+  // Points label: show override value with color if active, else base (skip for events, exempt).
+  // When points are hidden but an override is active, show a colored ▲/▼ arrow in the points slot.
   let ptsLabel = '';
   if (points && !isEvent && !task.exempt) {
     if (points.override != null && points.override !== 100) {
+      const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
       if (showPoints) {
         const overridePts = Math.round(points.possible * (points.override / 100));
-        const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
         ptsLabel = `<span class="${colorClass}">${overridePts}pt</span>`;
+      } else {
+        const icon = points.override > 100 ? '▲' : '▼';
+        ptsLabel = `<span class="${colorClass}">${icon}</span>`;
       }
     } else if (showPoints) {
       ptsLabel = `${points.possible}pt`;
@@ -248,12 +252,6 @@ export function renderTaskCard(options) {
   // Late chip for incomplete past daily tasks
   if (isPastDaily && !completed) {
     actionTags += `<span class="task-card__tag task-card__tag--late">Late</span>`;
-  }
-  // Point override indicator when points are hidden
-  if (points && !isEvent && !task.exempt && !showPoints && points.override != null && points.override !== 100) {
-    const tagClass = points.override > 100 ? 'task-card__tag--boosted' : 'task-card__tag--reduced';
-    const icon = points.override > 100 ? '▲' : '▼';
-    actionTags += `<span class="task-card__tag ${tagClass}">${icon}</span>`;
   }
 
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
