@@ -20,7 +20,9 @@ git push origin main
 ## File Structure
 ```
 /                         ← Served as-is by Cloudflare Pages
-├── index.html            ← Dashboard — daily task list, completion toggling, progress, overdue banner
+├── index.html            ← Dashboard shell — loads dashboard.js
+├── dashboard.js          ← Dashboard logic — daily task list, completion toggling, progress, overdue banner
+├── person.html           ← Per-person PWA entry (?person=Name) — installable home screen shortcut with unique manifest (served by sw.js)
 ├── calendar.html         ← Single-month grid with swipe nav, day detail bottom sheet, event color bars
 ├── scoreboard.html       ← Leaderboard, grades table, trend sparklines, category breakdown
 ├── tracker.html          ← Weekly/monthly task status rows, filters, skipped task detection
@@ -85,7 +87,8 @@ rundown/
 │                       entryKey format: sched_{timestamp}_{counter}
 ├── completions/
 │   └── {entryKey}     ← { completedAt: ServerValue.TIMESTAMP, completedBy: 'dashboard'|'calendar'|'kid-mode',
-│                          pointsOverride?: number (percentage 0-150, null = use base) }
+│                          pointsOverride?: number (percentage 0-150, null = use base),
+│                          isLate?: true (set when completing a past-date task) }
 ├── snapshots/
 │   └── {YYYY-MM-DD}/{personId}  ← { earned, possible, percentage, grade, missedKeys[] }
 ├── streaks/
@@ -99,7 +102,7 @@ rundown/
 - **Grade bands:** A+ (97-100), A (93-96), A- (90-92), B+ (87-89), B (83-86), B- (80-82), C+ (77-79), C (73-76), C- (70-72), D+ (67-69), D (63-66), D- (60-62), F (0-59)
 - **Daily score:** `(earnedPoints / possiblePoints) × 100` — per person
 - **Weighted categories:** `ownerRegularPts × (W / (100 - W))` — uses per-person regular task totals
-- **Past-due credit:** `basePoints × (pastDueCreditPct / 100)` — default 75%
+- **Late completion penalty:** Set at completion time, not scoring time. When completing a past-date task, `pointsOverride` is set to `pastDueCreditPct` (default 75%) and `isLate: true` is flagged. Slider shows the penalty and is adjustable by parents. Pre-set slider overrides take priority over the late penalty.
 - **Streaks:** consecutive all-complete days per person (current + best). DST-safe: `Math.abs(diff - 1) < 0.01`
 - **Snapshots:** immutable daily records created at rollover (fire-and-forget on dashboard load)
 - **Aggregation:** weekly/monthly/12-month grades computed from snapshots at render time (not stored)
@@ -112,7 +115,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **Schedule reset:** Ignores prior completions and cooldowns — wipes and re-places all future entries.
 - **Overdue logic:** Only non-daily tasks from past dates count as overdue. Daily tasks are excluded (they repeat naturally).
 - **One-time tasks:** With `dedicatedDate`, placed on that exact date. Without it, load-balanced to lightest day.
-- **Completion:** Allowed on any date (no future-date blocking). Completed tasks render at the bottom of all task lists.
+- **Completion:** Allowed on any date (no future-date blocking). Completed tasks render at the bottom of all task lists. **Past daily tasks are tap-blocked** — tapping opens the detail sheet instead of toggling. Long-press or sheet button required to complete. All past-date completions (any rotation) get `isLate: true` + `pointsOverride: pastDueCreditPct`.
 - **Task grouping order (dashboard/kid):** Events → Daily → Weekly → Monthly → One-Time, then by owner within each group.
 - **Task grouping order (calendar day sheet):** Events → Monthly → Weekly → One-Time → Daily. Different from dashboard intentionally — calendar emphasizes uncommon recurrences first since users open the sheet for scheduling visibility, not the daily grind.
 - **Long-press:** Opens detail sheet. Tap toggles completion. Horizontal swipe navigates days (dashboard) or months (calendar). Timing: **500ms on tracker**, **800ms on calendar/kid mode** (longer hold required there because those views are more touch-scroll-heavy and false-fires are more disruptive).
@@ -141,6 +144,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Late completion penalties: moved late penalty from scoring-time detection to completion-time recording. Past daily tasks tap-blocked (opens detail sheet instead). "Complete (Late)" button label on past-date tasks. `isLate` flag + `pointsOverride` set at completion time. "Late" chip on incomplete past daily cards. Slider shows penalty, parent-adjustable. Scoring simplified (removed `isOverdue` logic from `earnedPoints`, `dailyScore`, `buildSnapshot`).
 - Codebase audit fixes: XSS hardening (admin/kid name escaping), CSS variable fixes (kid PIN error, theme button), scheduler bug fixes (cooldown anchor leak in weekly/monthly, past-date one-time tasks now appear instead of vanishing), scoring late-completion detection in snapshots, calendar listener leak fix via AbortController, recovery PIN unconditional, parseIntOr/parseFloatOr helpers, DOM helpers extracted to dom-helpers.js, dead code removal
 - Bulk admin actions: multi-select mode in tasks tab, batch edit (rotation, assignment mode, category, status, difficulty, time of day, est. minutes, owners), batch delete with confirmation, floating action bar, auto schedule rebuild
 - Category-level daily limits: per-person and per-household minute caps on categories, scheduler defers/skips tasks over limit, admin UI with badges
