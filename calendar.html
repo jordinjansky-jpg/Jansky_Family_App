@@ -512,7 +512,15 @@
           clearTimeout(pressTimer);
           pressTimer = null;
           if (!didLongPress) {
-            toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
+            // Block tap on past incomplete daily tasks — must use detail sheet
+            const ek = btn.dataset.entryKey;
+            const dk = btn.dataset.dateKey;
+            const entry = (allSchedule[dk] || {})[ek];
+            if (entry && dk < today && entry.rotationType === 'daily' && !isComplete(ek, completions)) {
+              openTaskSheet(ek, dk);
+              return;
+            }
+            toggleTask(ek, dk);
           }
         };
 
