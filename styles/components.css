@@ -777,6 +777,10 @@
   background: var(--warning-bg);
   color: var(--warning-text);
 }
+.task-card__tag--late {
+  background: var(--color-warning, #f59e0b);
+  color: #fff;
+}
 
 /* ============ Overdue Banner ============ */
 .overdue-banner {
