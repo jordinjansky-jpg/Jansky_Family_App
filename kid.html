@@ -1160,8 +1160,10 @@
           }
 
           // Complete/uncomplete button
-          const isPinLocked = !completed && isTaskPinProtected(entryKey);
-          const toggleLabel = completed ? 'Mark Incomplete' : (isPinLocked ? '🔒 Mark Complete' : 'Mark Complete');
+          const isPastDate = entry.dateKey && entry.dateKey < today;
+          const isLateEligible = isPastDate && !completed && !cat?.isEvent && !task.exempt;
+          const isPinLocked = !completed && !isLateEligible && isTaskPinProtected(entryKey);
+          const toggleLabel = completed ? 'Mark Incomplete' : (isLateEligible ? 'Complete (Late)' : (isPinLocked ? '🔒 Mark Complete' : 'Mark Complete'));
           const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
           html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
 
