@@ -781,6 +781,14 @@
   background: var(--warning-bg);
   color: var(--warning-text);
 }
+.task-card__tag--boosted {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.task-card__tag--reduced {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
 
 /* ============ Overdue Banner ============ */
 .overdue-banner {

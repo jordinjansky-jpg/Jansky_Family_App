@@ -228,10 +228,6 @@ export function renderTaskCard(options) {
         const overridePts = Math.round(points.possible * (points.override / 100));
         const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
         ptsLabel = `<span class="${colorClass}">${overridePts}pt</span>`;
-      } else {
-        const iconClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
-        const icon = points.override > 100 ? '+' : '−';
-        ptsLabel = `<span class="${iconClass}">${icon}</span>`;
       }
     } else if (showPoints) {
       ptsLabel = `${points.possible}pt`;
@@ -252,6 +248,12 @@ export function renderTaskCard(options) {
   // Late chip for incomplete past daily tasks
   if (isPastDaily && !completed) {
     actionTags += `<span class="task-card__tag task-card__tag--late">Late</span>`;
+  }
+  // Point override indicator when points are hidden
+  if (points && !isEvent && !task.exempt && !showPoints && points.override != null && points.override !== 100) {
+    const tagClass = points.override > 100 ? 'task-card__tag--boosted' : 'task-card__tag--reduced';
+    const icon = points.override > 100 ? '▲' : '▼';
+    actionTags += `<span class="task-card__tag ${tagClass}">${icon}</span>`;
   }
 
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
