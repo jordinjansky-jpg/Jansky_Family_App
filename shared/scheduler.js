@@ -303,12 +303,13 @@ function isScheduledThisWeek(taskId, dateKey, futureSchedule, existingSchedule) 
     }
   }
 
-  // Check existing schedule (today + past entries not in newSchedule)
+  // Check existing schedule (today + past + completed entries on rebuilt dates)
+  // After stripping, rebuilt dates only retain completed entries, so this
+  // correctly detects tasks already completed this period without blocking
+  // uncompleted tasks from being re-placed.
   if (existingSchedule) {
     for (const [schedDate, dayEntries] of Object.entries(existingSchedule)) {
       if (schedDate < wStart || schedDate > wEnd) continue;
-      // Skip dates that are in futureSchedule (those are being rebuilt)
-      if (futureSchedule[schedDate] !== undefined) continue;
       if (dayEntries) {
         for (const entry of Object.values(dayEntries)) {
           if (entry.taskId === taskId) return true;
@@ -338,11 +339,10 @@ function isScheduledThisMonth(taskId, dateKey, futureSchedule, existingSchedule)
     }
   }
 
-  // Check existing schedule (today + past entries not in newSchedule)
+  // Check existing schedule (today + past + completed entries on rebuilt dates)
   if (existingSchedule) {
     for (const [schedDate, dayEntries] of Object.entries(existingSchedule)) {
       if (schedDate < mStart || schedDate > mEnd) continue;
-      if (futureSchedule[schedDate] !== undefined) continue;
       if (dayEntries) {
         for (const entry of Object.values(dayEntries)) {
           if (entry.taskId === taskId) return true;
@@ -563,10 +563,11 @@ export function generateSchedule(tasks, people, settings, completions, existingS
   const endDate = addDays(today, SCHEDULE_DAYS);
   const futureDates = dateRange(startDate, endDate);
 
-  // When rebuilding (includeToday), strip uncompleted entries from existingSchedule
-  // for dates being rebuilt. This lets isScheduledThisWeek/Month re-place tasks
-  // that were on old dates (e.g. weekdays) onto better ones (e.g. weekends).
-  if (includeToday && existingSchedule) {
+  // Strip uncompleted entries from existingSchedule for dates being rebuilt.
+  // This lets placement functions re-place tasks onto better dates, and prevents
+  // isOnceTaskHandled from finding stale entries that buildScheduleUpdates will
+  // replace (which would cause one-time tasks to vanish from the schedule).
+  if (existingSchedule) {
     existingSchedule = { ...existingSchedule };
     const completedKeys = new Set(Object.keys(completions || {}));
     for (const dk of futureDates) {
@@ -628,6 +629,25 @@ export function generateSchedule(tasks, people, settings, completions, existingS
         case 'once':
           placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule, completions, ww, tasks, nextKey, balanceCtx);
           break;
+      }
+    }
+  }
+
+  // Preserve completed entries from existing schedule on rebuilt dates.
+  // After stripping, existingSchedule only retains completed entries for these
+  // dates. Merge them into newSchedule so buildScheduleUpdates (which replaces
+  // entire date nodes) doesn't orphan their completion records.
+  if (existingSchedule) {
+    for (const dk of futureDates) {
+      if (!existingSchedule[dk]) continue;
+      for (const [ek, entry] of Object.entries(existingSchedule[dk])) {
+        // If scheduler regenerated an entry for the same task+owner+timeOfDay,
+        // prefer the completed one (its key matches the completion record)
+        const dupeKey = Object.entries(newSchedule[dk]).find(
+          ([_, ne]) => ne.taskId === entry.taskId && ne.ownerId === entry.ownerId && ne.timeOfDay === entry.timeOfDay
+        )?.[0];
+        if (dupeKey) delete newSchedule[dk][dupeKey];
+        newSchedule[dk][ek] = entry;
       }
     }
   }

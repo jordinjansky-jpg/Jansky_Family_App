@@ -1312,6 +1312,11 @@
           if (!task) return;
           task.status = task.status === 'paused' ? 'active' : 'paused';
           await writeTask(id, task);
+          // Rebuild schedule so paused tasks are removed / unpaused tasks are placed
+          const allSched = await readAllSchedule() || {};
+          const allComp = await readCompletions() || {};
+          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true }, catsObj);
+          await multiUpdate(futureUpdates);
           render();
         });
       }
