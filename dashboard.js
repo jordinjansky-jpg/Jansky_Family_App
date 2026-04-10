@@ -273,7 +273,8 @@ function render() {
           isEvent: !!cat?.isEvent,
           showPoints: settings?.showPoints !== false,
           showTodIconBoth: !!settings?.showTodIconBoth,
-          showTodIconSingle: !!settings?.showTodIconSingle
+          showTodIconSingle: !!settings?.showTodIconSingle,
+          isPastDaily: viewDate < today && entry.rotationType === 'daily'
         });
       }
     }

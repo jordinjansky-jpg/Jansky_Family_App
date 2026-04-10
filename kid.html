@@ -566,7 +566,8 @@
                     overdue: false,
                     points: { possible: pts, override: ovr },
                     isEvent: !!cat?.isEvent,
-                    showPoints: settings?.showPoints !== false
+                    showPoints: settings?.showPoints !== false,
+                    isPastDaily: viewDate < today && entry.rotationType === 'daily'
                   });
                 }
               }

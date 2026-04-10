@@ -209,7 +209,7 @@ export function renderProgressBar(done, total) {
  * points: optional { possible, override } — override is the pointsOverride percentage (null = no override)
  */
 export function renderTaskCard(options) {
-  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, showPoints = true } = options;
+  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, showPoints = true, isPastDaily = false } = options;
   const doneClass = completed ? ' task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
   const eventClass = isEvent ? ' task-card--event' : '';
@@ -242,6 +242,10 @@ export function renderTaskCard(options) {
     const fromDate = entry.movedFromDate || '';
     const movedLabel = fromDate ? formatMovedDate(fromDate) : 'moved';
     actionTags += `<span class="task-card__tag task-card__tag--moved">${movedLabel}</span>`;
+  }
+  // Late chip for incomplete past daily tasks
+  if (isPastDaily && !completed) {
+    actionTags += `<span class="task-card__tag task-card__tag--late">Late</span>`;
   }
 
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';

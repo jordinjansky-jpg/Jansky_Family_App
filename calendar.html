@@ -322,7 +322,7 @@
             const cat = task.category ? cats[task.category] : null;
             const pts = score.pointsMap[entryKey] || basePoints(task);
             const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
-            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: false, overdue: false, points: { possible: pts, override: ovr }, isEvent: !!cat?.isEvent, showPoints: settings?.showPoints !== false, showTodIconBoth: !!settings?.showTodIconBoth, showTodIconSingle: !!settings?.showTodIconSingle });
+            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: false, overdue: false, points: { possible: pts, override: ovr }, isEvent: !!cat?.isEvent, showPoints: settings?.showPoints !== false, showTodIconBoth: !!settings?.showTodIconBoth, showTodIconSingle: !!settings?.showTodIconSingle, isPastDaily: dateKey < today && entry.rotationType === 'daily' });
           }
         }
 
