@@ -421,7 +421,15 @@ function bindEvents() {
       clearTimeout(activePressTimer);
       activePressTimer = null;
       if (!didLongPress) {
-        toggleTask(btn.dataset.entryKey, btn.dataset.dateKey);
+        // Block tap on past incomplete daily tasks — must use detail sheet
+        const ek = btn.dataset.entryKey;
+        const dk = btn.dataset.dateKey || viewDate;
+        const entry = viewEntries[ek] || overdueItems.find(o => o.entryKey === ek);
+        if (entry && dk < today && entry.rotationType === 'daily' && !isComplete(ek, completions)) {
+          openTaskSheet(ek, dk);
+          return;
+        }
+        toggleTask(ek, dk);
       }
     };
 
