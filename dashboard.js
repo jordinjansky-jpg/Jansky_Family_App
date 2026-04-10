@@ -198,7 +198,7 @@ function render() {
       const person = people.find(p => p.id === item.ownerId);
       const cat = task.category ? cats[task.category] : null;
       const pts = basePoints(task);
-      const ovr = completions[item.entryKey]?.pointsOverride ?? null;
+      const ovr = completions[item.entryKey]?.pointsOverride ?? item.pointsOverride ?? null;
       html += renderTaskCard({
         entryKey: item.entryKey,
         entry: { ...item, dateKey: item.dateKey },
@@ -260,7 +260,7 @@ function render() {
         const person = people.find(p => p.id === entry.ownerId);
         const cat = task.category ? cats[task.category] : null;
         const pts = score.pointsMap[entryKey] || basePoints(task);
-        const ovr = completions[entryKey]?.pointsOverride ?? null;
+        const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
         html += renderTaskCard({
           entryKey,
           entry: { ...entry, dateKey: viewDate },
@@ -298,7 +298,7 @@ function render() {
           const person = people.find(p => p.id === entry.ownerId);
           const cat = task.category ? cats[task.category] : null;
           const pts = score.pointsMap[entryKey] || basePoints(task);
-          const ovr = completions[entryKey]?.pointsOverride ?? null;
+          const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
           html += renderTaskCard({
             entryKey,
             entry: { ...entry, dateKey: viewDate },

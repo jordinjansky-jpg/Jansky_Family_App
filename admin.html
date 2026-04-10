@@ -809,12 +809,12 @@
         <div class="form-row">
           <div class="form-group" style="flex:1">
             <label class="form-label">Long Press (ms)</label>
-            <input type="range" id="sf_longPressMs" min="200" max="1000" step="50" value="${settings?.longPressMs ?? 500}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
+            <input type="range" class="slider" id="sf_longPressMs" min="200" max="1000" step="50" value="${settings?.longPressMs ?? 500}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
             <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.longPressMs ?? 500}ms</span>
           </div>
           <div class="form-group" style="flex:1">
             <label class="form-label">Kid Long Press (ms)</label>
-            <input type="range" id="sf_kidLongPressMs" min="200" max="1000" step="50" value="${settings?.kidLongPressMs ?? 500}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
+            <input type="range" class="slider" id="sf_kidLongPressMs" min="200" max="1000" step="50" value="${settings?.kidLongPressMs ?? 500}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
             <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.kidLongPressMs ?? 500}ms</span>
           </div>
         </div>
