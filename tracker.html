@@ -68,6 +68,7 @@
     const cats = catsObj || {};
     let comps = completions || {};
     let schedule = allSchedule || {};
+    let pendingSliderOverride = null;
 
     async function loadData() {
       const [c, s] = await Promise.all([readCompletions(), readAllSchedule()]);
@@ -498,7 +499,7 @@
           pressTimer = setTimeout(() => {
             didLongPress = true;
             openTaskSheet(row.dataset.entryKey, row.dataset.dateKey);
-          }, 500);
+          }, settings?.longPressMs ?? 500);
         });
 
         row.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
@@ -525,7 +526,7 @@
       const completed = !!comps[entryKey];
       const pts = basePoints(task);
       const completion = comps[entryKey];
-      const currentOverride = completion?.pointsOverride ?? null;
+      const currentOverride = completion?.pointsOverride ?? entry.pointsOverride ?? null;
 
       const sheetContent = renderTaskDetailSheet({
         entryKey,
@@ -557,11 +558,23 @@
       bindTaskSheetEvents(entryKey, dateKey);
     }
 
-    function closeTaskSheet() {
+    async function closeTaskSheet() {
+      if (pendingSliderOverride) {
+        const { entryKey, dateKey: sliderDateKey, value } = pendingSliderOverride;
+        const override = value === 100 ? null : value;
+        pendingSliderOverride = null;
+        await multiUpdate({ [`schedule/${sliderDateKey}/${entryKey}/pointsOverride`]: override });
+        const dayEntries = schedule[sliderDateKey] || {};
+        if (dayEntries[entryKey]) dayEntries[entryKey].pointsOverride = override;
+        if (comps[entryKey]) {
+          comps[entryKey].pointsOverride = override;
+          await writeCompletion(entryKey, comps[entryKey]);
+        }
+      }
       const overlay = document.getElementById('bottomSheet');
       if (overlay) {
         overlay.classList.remove('active');
-        setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
+        setTimeout(() => { taskSheetMount.innerHTML = ''; render(); }, 300);
       }
     }
 
@@ -573,30 +586,20 @@
 
       // Toggle complete from sheet
       document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
-        closeTaskSheet();
+        await closeTaskSheet();
         await toggleCompletion(entryKey, dateKey);
       });
 
-      // Points slider
+      // Points slider — stores pending override, saved on sheet close or toggle-complete
       const slider = document.getElementById('pointsSlider');
       if (slider) {
-        const completed = !!comps[entryKey];
-
         slider.addEventListener('input', () => {
           const val = parseInt(slider.value, 10);
           const basePts = parseInt(slider.dataset.basePts, 10);
           const earnedPts = Math.round(basePts * (val / 100));
           const label = document.getElementById('sliderValueLabel');
           if (label) label.textContent = `${val}% (${earnedPts}pt)`;
-        });
-
-        slider.addEventListener('change', async () => {
-          if (!completed) return;
-          const val = parseInt(slider.value, 10);
-          const override = val === 100 ? null : val;
-          comps[entryKey].pointsOverride = override;
-          await writeCompletion(entryKey, comps[entryKey]);
-          render();
+          pendingSliderOverride = { entryKey, dateKey, value: val };
         });
 
         const resetBtn = document.getElementById('sliderReset');
@@ -604,7 +607,6 @@
           resetBtn.addEventListener('click', () => {
             slider.value = 100;
             slider.dispatchEvent(new Event('input'));
-            slider.dispatchEvent(new Event('change'));
           });
         }
       }
@@ -892,6 +894,13 @@
           completedAt: firebase.database.ServerValue.TIMESTAMP,
           completedBy: 'tracker'
         };
+        const pendingVal = pendingSliderOverride?.entryKey === entryKey ? pendingSliderOverride.value : null;
+        const savedVal = (schedule[dateKey] || {})[entryKey]?.pointsOverride;
+        const overrideVal = pendingVal ?? savedVal ?? null;
+        if (overrideVal != null && overrideVal !== 100) {
+          record.pointsOverride = overrideVal;
+        }
+        pendingSliderOverride = null;
         comps[entryKey] = record;
         await writeCompletion(entryKey, record);
       }

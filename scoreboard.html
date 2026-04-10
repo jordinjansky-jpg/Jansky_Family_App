@@ -419,7 +419,7 @@
           pressTimer = setTimeout(() => {
             didLongPress = true;
             openDrilldown(btn.dataset.personId);
-          }, 500);
+          }, settings?.longPressMs ?? 500);
         };
         const endPress = (e) => {
           clearTimeout(pressTimer);

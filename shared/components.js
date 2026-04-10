@@ -420,8 +420,7 @@ export function renderTaskDetailSheet(options) {
     const min = sliderMin ?? 0;
     const max = sliderMax ?? 150;
     const earnedPts = Math.round(points.possible * (sliderVal / 100));
-    const sliderLabel = completed ? 'Points Override' : 'Points Preview';
-    const previewNote = completed ? '' : '<div class="form-hint">Complete the task to save override</div>';
+    const sliderLabel = 'Points Override';
     html += `<div class="task-detail__slider mt-md">
       <div class="task-detail__slider-header">
         <span class="form-label">${sliderLabel}</span>
@@ -432,7 +431,6 @@ export function renderTaskDetailSheet(options) {
         ${sliderVal !== 100 ? `<button class="btn btn--secondary btn--sm" id="sliderReset" type="button">Reset</button>` : ''}
       </div>
       ${gradePreview ? `<div class="task-detail__grade-preview" id="gradePreview">Grade: ${gradePreview}</div>` : ''}
-      ${previewNote}
     </div>`;
   }
 

@@ -33,6 +33,7 @@ const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...
 const tasks = tasksObj || {};
 const cats = catsObj || {};
 let activePressTimer = null;
+let pendingSliderOverride = null; // { entryKey, value } — set by slider, consumed by toggleTask/closeSheet
 
 // ── Person link mode (?person=Name) ──
 const personParam = new URLSearchParams(window.location.search).get('person');
@@ -407,7 +408,7 @@ function bindEvents() {
         didLongPress = true;
         activePressTimer = null;
         openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
-      }, 800);
+      }, settings?.longPressMs ?? 500);
     };
 
     const movePress = (e) => {
@@ -495,11 +496,18 @@ async function toggleTask(entryKey, dateKey) {
     await removeCompletion(entryKey);
     celebrationShown = false;
   } else {
-    // Complete
+    // Complete — include pending slider override or saved override from schedule entry
     const record = {
       completedAt: firebase.database.ServerValue.TIMESTAMP,
       completedBy: 'dashboard'
     };
+    const pendingVal = pendingSliderOverride?.entryKey === entryKey ? pendingSliderOverride.value : null;
+    const savedVal = (viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey))?.pointsOverride;
+    const overrideVal = pendingVal ?? savedVal ?? null;
+    if (overrideVal != null && overrideVal !== 100) {
+      record.pointsOverride = overrideVal;
+    }
+    pendingSliderOverride = null;
     completions[entryKey] = record;
     await writeCompletion(entryKey, record);
   }
@@ -646,7 +654,7 @@ function openTaskSheet(entryKey, dateKey) {
   const completed = isComplete(entryKey, completions);
   const pts = basePoints(task);
   const completion = completions[entryKey];
-  const currentOverride = completion?.pointsOverride ?? null;
+  const currentOverride = completion?.pointsOverride ?? entry.pointsOverride ?? null;
 
   // Grade preview
   const filtered = filterByPerson(viewEntries, activePerson);
@@ -685,11 +693,26 @@ function openTaskSheet(entryKey, dateKey) {
   bindTaskSheetEvents(entryKey, dateKey);
 }
 
-function closeTaskSheet() {
+async function closeTaskSheet() {
+  // Save any pending slider override before closing
+  if (pendingSliderOverride) {
+    const { entryKey, dateKey: sliderDateKey, value } = pendingSliderOverride;
+    const override = value === 100 ? null : value;
+    pendingSliderOverride = null;
+    // Always persist to schedule entry (works for both complete and incomplete tasks)
+    await multiUpdate({ [`schedule/${sliderDateKey}/${entryKey}/pointsOverride`]: override });
+    // Also update the in-memory schedule entry
+    if (viewEntries[entryKey]) viewEntries[entryKey].pointsOverride = override;
+    // If already completed, update the completion record too
+    if (isComplete(entryKey, completions)) {
+      completions[entryKey].pointsOverride = override;
+      await writeCompletion(entryKey, completions[entryKey]);
+    }
+  }
   const overlay = document.getElementById('bottomSheet');
   if (overlay) {
     overlay.classList.remove('active');
-    setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
+    setTimeout(() => { taskSheetMount.innerHTML = ''; render(); }, 300);
   }
 }
 
@@ -702,15 +725,13 @@ function bindTaskSheetEvents(entryKey, dateKey) {
 
   // Toggle complete
   document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
-    closeTaskSheet();
+    await closeTaskSheet();
     await toggleTask(entryKey, dateKey);
   });
 
-  // Points slider — preview for all tasks, save only for completed
+  // Points slider — stores pending override, saved on sheet close or toggle-complete
   const slider = document.getElementById('pointsSlider');
   if (slider) {
-    const isCompleted = isComplete(entryKey, completions);
-
     slider.addEventListener('input', () => {
       const val = parseInt(slider.value, 10);
       const basePts = parseInt(slider.dataset.basePts, 10);
@@ -718,11 +739,13 @@ function bindTaskSheetEvents(entryKey, dateKey) {
       const label = document.getElementById('sliderValueLabel');
       if (label) label.textContent = `${val}% (${earnedPts}pt)`;
 
+      // Track pending override
+      pendingSliderOverride = { entryKey, dateKey, value: val };
+
       // Live grade preview — temporarily inject override into completions
       const filtered = filterByPerson(viewEntries, activePerson);
       const hadRecord = !!completions[entryKey];
       const origRecord = completions[entryKey];
-      // Simulate: treat as completed with this override for preview
       completions[entryKey] = {
         ...(origRecord || { completedAt: Date.now(), completedBy: 'preview' }),
         pointsOverride: val === 100 ? null : val
@@ -736,22 +759,12 @@ function bindTaskSheetEvents(entryKey, dateKey) {
       else delete completions[entryKey];
     });
 
-    slider.addEventListener('change', async () => {
-      if (!isCompleted) return; // preview only for incomplete tasks
-      const val = parseInt(slider.value, 10);
-      const override = val === 100 ? null : val;
-      completions[entryKey].pointsOverride = override;
-      await writeCompletion(entryKey, completions[entryKey]);
-      render();
-    });
-
     // Reset to 100% button
     const resetBtn = document.getElementById('sliderReset');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         slider.value = 100;
         slider.dispatchEvent(new Event('input'));
-        slider.dispatchEvent(new Event('change'));
       });
     }
   }

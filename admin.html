@@ -806,6 +806,18 @@
             <input type="number" id="sf_sliderMax" value="${settings?.sliderMax ?? 150}" min="100" max="300">
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Long Press (ms)</label>
+            <input type="range" id="sf_longPressMs" min="200" max="1000" step="50" value="${settings?.longPressMs ?? 500}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
+            <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.longPressMs ?? 500}ms</span>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Kid Long Press (ms)</label>
+            <input type="range" id="sf_kidLongPressMs" min="200" max="1000" step="50" value="${settings?.kidLongPressMs ?? 500}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
+            <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.kidLongPressMs ?? 500}ms</span>
+          </div>
+        </div>
         <h3 class="admin-form__title mt-md">Change Admin PIN</h3>
         <div class="form-group">
           <label class="form-label">New 4-digit PIN</label>
@@ -2063,7 +2075,9 @@
           sliderMax: parseIntOr(main.querySelector('#sf_sliderMax')?.value, 150),
           showPoints: main.querySelector('#sf_showPoints')?.checked !== false,
           showTodIconBoth: !!main.querySelector('#sf_showTodIconBoth')?.checked,
-          showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked
+          showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
+          longPressMs: parseIntOr(main.querySelector('#sf_longPressMs')?.value, 500),
+          kidLongPressMs: parseIntOr(main.querySelector('#sf_kidLongPressMs')?.value, 500)
         };
 
         if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {
