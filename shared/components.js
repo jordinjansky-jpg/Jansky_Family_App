@@ -222,12 +222,18 @@ export function renderTaskCard(options) {
 
   // Points label: show override value with color if active, else base (skip for events, exempt, and showPoints off)
   let ptsLabel = '';
-  if (points && !isEvent && !task.exempt && showPoints) {
+  if (points && !isEvent && !task.exempt) {
     if (points.override != null && points.override !== 100) {
-      const overridePts = Math.round(points.possible * (points.override / 100));
-      const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
-      ptsLabel = `<span class="${colorClass}">${overridePts}pt</span>`;
-    } else {
+      if (showPoints) {
+        const overridePts = Math.round(points.possible * (points.override / 100));
+        const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
+        ptsLabel = `<span class="${colorClass}">${overridePts}pt</span>`;
+      } else {
+        const iconClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
+        const icon = points.override > 100 ? '+' : '−';
+        ptsLabel = `<span class="${iconClass}">${icon}</span>`;
+      }
+    } else if (showPoints) {
       ptsLabel = `${points.possible}pt`;
     }
   }
