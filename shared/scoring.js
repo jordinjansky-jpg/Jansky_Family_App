@@ -1,7 +1,6 @@
 // scoring.js — Points formula, grade calculation, snapshot creation, aggregation (v2)
 // Pure functions. No DOM. No Firebase writes (pages handle persistence).
 
-import { dateToKey } from './utils.js';
 
 // ── Difficulty multipliers ──
 
@@ -65,26 +64,18 @@ export function gradeTier(pct) {
 
 /**
  * Calculate earned points for a single entry.
- * Handles pointsOverride (from slider) and past-due credit.
+ * Uses pointsOverride if set (late penalty or manual slider), otherwise base points.
  *
  * @param {object} task - The task definition
  * @param {object|null} completion - The completion record (or null if incomplete)
- * @param {object} options - { pastDueCreditPct, isOverdue, categories }
  * @returns {number} earned points (0 if not completed)
  */
-export function earnedPoints(task, completion, options = {}) {
+export function earnedPoints(task, completion) {
   if (!completion) return 0;
   const base = basePoints(task);
 
-  // Slider override: pointsOverride is stored as a percentage (0–150)
   if (completion.pointsOverride != null) {
     return Math.round(base * (completion.pointsOverride / 100));
-  }
-
-  // Past-due credit
-  if (options.isOverdue) {
-    const creditPct = options.pastDueCreditPct ?? 75;
-    return Math.round(base * (creditPct / 100));
   }
 
   return base;
@@ -170,26 +161,19 @@ export function dailyScore(personEntries, completions, tasks, categories, settin
   const { possible, pointsMap } = dailyPossible(personEntries, tasks, categories);
   if (possible === 0) return { earned: 0, possible: 0, percentage: 0, grade: '--', pointsMap: {} };
 
-  const isOverdueDate = dateKey < today;
-  const pastDueCreditPct = settings?.pastDueCreditPct ?? 75;
-
   let earned = 0;
   for (const [key, entry] of Object.entries(personEntries)) {
     const task = tasks[entry.taskId];
     if (!task) continue;
-    // Skip event categories and exempt tasks — they don't count for scoring
     const cat = task.category ? categories[task.category] : null;
     if (cat?.isEvent) continue;
     if (task.exempt) continue;
     const completion = completions?.[key] || null;
     if (!completion) continue;
-    // Use weighted possible points (from pointsMap) as base for earned calculation
     const basePts = pointsMap[key] ?? basePoints(task);
     let pts;
     if (completion.pointsOverride != null) {
       pts = Math.round(basePts * (completion.pointsOverride / 100));
-    } else if (isOverdueDate) {
-      pts = Math.round(basePts * (pastDueCreditPct / 100));
     } else {
       pts = basePts;
     }
@@ -220,29 +204,25 @@ export function buildSnapshot(personEntries, completions, tasks, categories, set
   const { possible, pointsMap } = dailyPossible(personEntries, tasks, categories);
   if (possible === 0) return null;
 
-  const pastDueCreditPct = settings?.pastDueCreditPct ?? 75;
   let earned = 0;
   const missedKeys = [];
 
   for (const [key, entry] of Object.entries(personEntries)) {
     const task = tasks[entry.taskId];
     if (!task) continue;
-    // Skip event categories and exempt tasks — they don't count for scoring/snapshots
     const cat = task.category ? categories[task.category] : null;
     if (cat?.isEvent) continue;
     if (task.exempt) continue;
     const completion = completions?.[key] || null;
     if (completion) {
-      // Detect late completion: if completedAt converts to a date later than
-      // the snapshot's dateKey, the task was completed after its scheduled day
-      // (e.g., a multi-day-offline catch-up). Apply past-due credit so scores
-      // aren't inflated by late completions.
-      let isOverdue = false;
-      if (completion.completedAt && entry.rotationType !== 'daily') {
-        const completedDateKey = dateToKey(new Date(completion.completedAt), settings?.timezone);
-        if (completedDateKey > dateKey) isOverdue = true;
+      const basePts = pointsMap[key] ?? basePoints(task);
+      let pts;
+      if (completion.pointsOverride != null) {
+        pts = Math.round(basePts * (completion.pointsOverride / 100));
+      } else {
+        pts = basePts;
       }
-      earned += earnedPoints(task, completion, { isOverdue, pastDueCreditPct });
+      earned += pts;
     } else {
       missedKeys.push(key);
     }

@@ -182,11 +182,7 @@
           catTotals[catKey].possible += pts;
           const completion = comps[k] || null;
           if (completion) {
-            const isOverdue = current < today;
-            catTotals[catKey].earned += earnedPoints(task, completion, {
-              isOverdue,
-              pastDueCreditPct: settings?.pastDueCreditPct ?? 75
-            });
+            catTotals[catKey].earned += earnedPoints(task, completion);
           }
         }
         current = addDays(current, 1);
@@ -462,10 +458,7 @@
           if (!task) continue;
           const completion = comps[k] || null;
           const pts = basePoints(task);
-          const earned = completion ? earnedPoints(task, completion, {
-            isOverdue: current < today,
-            pastDueCreditPct: settings?.pastDueCreditPct ?? 75
-          }) : 0;
+          const earned = completion ? earnedPoints(task, completion) : 0;
 
           let status;
           if (completion) {
