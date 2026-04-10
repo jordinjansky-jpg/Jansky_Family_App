@@ -700,7 +700,8 @@ function openTaskSheet(entryKey, dateKey) {
     showMove: true,
     showEdit: true,
     showPoints: settings?.showPoints !== false,
-    isEvent: !!cat?.isEvent
+    isEvent: !!cat?.isEvent,
+    isPastDate: (dateKey || viewDate) < today
   });
 
   taskSheetMount.innerHTML = renderBottomSheet(sheetContent);

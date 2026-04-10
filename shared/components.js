@@ -311,7 +311,7 @@ export function renderTaskDetailSheet(options) {
     entryKey, entry, task, person, category, completed, points,
     sliderMin, sliderMax, currentOverride, gradePreview,
     people, showDelegate, showMove, showEdit, dateKey, showPoints = true,
-    isEvent = false, readOnly = false
+    isEvent = false, readOnly = false, isPastDate = false
   } = options;
   const catIcon = category?.icon || '';
   const ownerColor = person?.color || 'var(--text-secondary)';
@@ -372,7 +372,8 @@ export function renderTaskDetailSheet(options) {
   }
 
   // Complete/uncomplete button
-  const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
+  const isLateEligible = isPastDate && !completed && !isEvent && !task.exempt;
+  const toggleLabel = completed ? 'Mark Incomplete' : (isLateEligible ? 'Complete (Late)' : 'Mark Complete');
   const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
   html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
 

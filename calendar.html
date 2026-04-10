@@ -590,7 +590,8 @@
         showMove: true,
         showEdit: true,
         showPoints: settings?.showPoints !== false,
-        isEvent: !!cat?.isEvent
+        isEvent: !!cat?.isEvent,
+        isPastDate: dateKey < today
       });
 
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
