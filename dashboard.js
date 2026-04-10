@@ -508,6 +508,19 @@ async function toggleTask(entryKey, dateKey) {
       record.pointsOverride = overrideVal;
     }
     pendingSliderOverride = null;
+
+    // Late completion: apply penalty if completing a past-date task with no prior override
+    const entryDateKey = dateKey || viewDate;
+    if (entryDateKey < today && record.pointsOverride == null) {
+      const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+      const task = entry ? tasks[entry.taskId] : null;
+      const cat = task?.category ? cats[task.category] : null;
+      if (!cat?.isEvent && !task?.exempt) {
+        record.pointsOverride = settings?.pastDueCreditPct ?? 75;
+        record.isLate = true;
+      }
+    }
+
     completions[entryKey] = record;
     await writeCompletion(entryKey, record);
   }
