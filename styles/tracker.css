@@ -29,13 +29,19 @@
 
 .tracker-period {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  gap: 0.125rem;
   margin: 0.5rem 0 0.75rem;
   font-size: var(--font-size-md);
   color: var(--text-secondary);
-  position: relative;
+}
+
+.tracker-period__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .tracker-period__label {
@@ -73,18 +79,15 @@
 }
 
 .tracker-period__today {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
   background: transparent;
-  border: 1px solid var(--border-color, var(--text-secondary));
+  border: none;
   color: var(--text-secondary);
   font-size: 0.8125rem;
+  font-weight: 500;
   padding: 0.25rem 0.6rem;
   border-radius: var(--radius-sm, 6px);
   cursor: pointer;
-  min-height: 44px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
