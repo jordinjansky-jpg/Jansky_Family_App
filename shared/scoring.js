@@ -4,7 +4,8 @@
 
 // ── Difficulty multipliers ──
 
-const DIFFICULTY_MULTIPLIER = { easy: 1, medium: 2, hard: 3 };
+export const DEFAULT_DIFFICULTY_MULTIPLIERS = { easy: 1, medium: 2, hard: 3 };
+const MIN_EST_MIN = 5;
 
 // ── Grade table (descending order for lookup) ──
 
@@ -28,12 +29,18 @@ const GRADE_TABLE = [
 
 /**
  * Calculate base points for a task.
- * Formula: difficultyMultiplier × (1 + estMin / 30), rounded.
+ * Formula: max(estMin, 5) × difficultyMultiplier.
+ * Both operands are integers, so the result is an integer with no rounding.
+ *
+ * @param {object} task - The task definition
+ * @param {object} [difficultyMultipliers] - Per-family multipliers; falls back to defaults
+ * @returns {number} integer base points
  */
-export function basePoints(task) {
-  const mult = DIFFICULTY_MULTIPLIER[task.difficulty] || 1;
-  const est = task.estMin || 1;
-  return Math.round(mult * (1 + est / 30));
+export function basePoints(task, difficultyMultipliers) {
+  const mults = difficultyMultipliers || DEFAULT_DIFFICULTY_MULTIPLIERS;
+  const mult = mults[task.difficulty] ?? 1;
+  const est = Math.max(task.estMin || 0, MIN_EST_MIN);
+  return est * mult;
 }
 
 /**
