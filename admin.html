@@ -412,7 +412,7 @@
         switch (taskSort) {
           case 'name': return (ta.name || '').localeCompare(tb.name || '');
           case 'difficulty': return (diffOrder[ta.difficulty || 'medium'] || 0) - (diffOrder[tb.difficulty || 'medium'] || 0);
-          case 'points': return basePoints(tb) - basePoints(ta);
+          case 'points': return basePoints(tb, settings?.difficultyMultipliers) - basePoints(ta, settings?.difficultyMultipliers);
           case 'rotation': return (rotOrder[ta.rotation] ?? 9) - (rotOrder[tb.rotation] ?? 9);
           case 'estMin': return (tb.estMin || 0) - (ta.estMin || 0);
           default: return 0;
@@ -1132,7 +1132,7 @@
 
       const pa = peopleArray();
       const owners = (task.owners || []).map(oid => ({ id: oid, name: peopleObj[oid]?.name || '?' }));
-      const pts = basePoints(task);
+      const pts = basePoints(task, settings?.difficultyMultipliers);
 
       let info = `Task: ${task.name}\n`;
       info += `Rotation: ${task.rotation}\n`;
