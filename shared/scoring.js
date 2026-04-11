@@ -77,9 +77,9 @@ export function gradeTier(pct) {
  * @param {object|null} completion - The completion record (or null if incomplete)
  * @returns {number} earned points (0 if not completed)
  */
-export function earnedPoints(task, completion) {
+export function earnedPoints(task, completion, difficultyMultipliers) {
   if (!completion) return 0;
-  const base = basePoints(task);
+  const base = basePoints(task, difficultyMultipliers);
 
   if (completion.pointsOverride != null) {
     return Math.round(base * (completion.pointsOverride / 100));
@@ -98,7 +98,7 @@ export function earnedPoints(task, completion) {
  * @returns {{ possible: number, pointsMap: object }}
  *   pointsMap: { entryKey: possiblePoints } for each entry
  */
-export function dailyPossible(entries, tasks, categories) {
+export function dailyPossible(entries, tasks, categories, difficultyMultipliers) {
   if (!entries || Object.keys(entries).length === 0) {
     return { possible: 0, pointsMap: {} };
   }
@@ -131,7 +131,7 @@ export function dailyPossible(entries, tasks, categories) {
   for (const [oid, entries_] of Object.entries(regularByOwner)) {
     let total = 0;
     for (const [key, { task }] of Object.entries(entries_)) {
-      const pts = basePoints(task);
+      const pts = basePoints(task, difficultyMultipliers);
       pointsMap[key] = pts;
       total += pts;
     }
@@ -144,7 +144,7 @@ export function dailyPossible(entries, tasks, categories) {
     const ownerRegular = regularTotalByOwner[entry.ownerId] || 0;
     const weightedPts = ownerRegular > 0
       ? Math.round(ownerRegular * (w / (100 - w)))
-      : basePoints(task);
+      : basePoints(task, difficultyMultipliers);
     pointsMap[key] = weightedPts;
   }
 
@@ -165,7 +165,8 @@ export function dailyPossible(entries, tasks, categories) {
  * @returns {{ earned: number, possible: number, percentage: number, grade: string, pointsMap: object }}
  */
 export function dailyScore(personEntries, completions, tasks, categories, settings, dateKey, today) {
-  const { possible, pointsMap } = dailyPossible(personEntries, tasks, categories);
+  const mults = settings?.difficultyMultipliers;
+  const { possible, pointsMap } = dailyPossible(personEntries, tasks, categories, mults);
   if (possible === 0) return { earned: 0, possible: 0, percentage: 0, grade: '--', pointsMap: {} };
 
   let earned = 0;
@@ -177,7 +178,7 @@ export function dailyScore(personEntries, completions, tasks, categories, settin
     if (task.exempt) continue;
     const completion = completions?.[key] || null;
     if (!completion) continue;
-    const basePts = pointsMap[key] ?? basePoints(task);
+    const basePts = pointsMap[key] ?? basePoints(task, mults);
     let pts;
     if (completion.pointsOverride != null) {
       pts = Math.round(basePts * (completion.pointsOverride / 100));
@@ -208,7 +209,8 @@ export function dailyScore(personEntries, completions, tasks, categories, settin
  * @returns {object} snapshot data { earned, possible, percentage, grade, missedKeys }
  */
 export function buildSnapshot(personEntries, completions, tasks, categories, settings, dateKey) {
-  const { possible, pointsMap } = dailyPossible(personEntries, tasks, categories);
+  const mults = settings?.difficultyMultipliers;
+  const { possible, pointsMap } = dailyPossible(personEntries, tasks, categories, mults);
   if (possible === 0) return null;
 
   let earned = 0;
@@ -222,7 +224,7 @@ export function buildSnapshot(personEntries, completions, tasks, categories, set
     if (task.exempt) continue;
     const completion = completions?.[key] || null;
     if (completion) {
-      const basePts = pointsMap[key] ?? basePoints(task);
+      const basePts = pointsMap[key] ?? basePoints(task, mults);
       let pts;
       if (completion.pointsOverride != null) {
         pts = Math.round(basePts * (completion.pointsOverride / 100));
