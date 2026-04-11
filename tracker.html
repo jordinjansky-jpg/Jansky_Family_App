@@ -524,7 +524,7 @@
       const person = people.find(p => p.id === entry.ownerId);
       const cat = task.category ? cats[task.category] : null;
       const completed = !!comps[entryKey];
-      const pts = basePoints(task);
+      const pts = basePoints(task, settings?.difficultyMultipliers);
       const completion = comps[entryKey];
       const currentOverride = completion?.pointsOverride ?? entry.pointsOverride ?? null;
 
