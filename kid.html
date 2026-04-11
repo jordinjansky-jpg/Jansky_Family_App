@@ -448,7 +448,7 @@
             for (const item of overdueActive) {
               const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
               const cat = task.category ? cats[task.category] : null;
-              const pts = basePoints(task);
+              const pts = basePoints(task, settings?.difficultyMultipliers);
               const ovr = completions[item.entryKey]?.pointsOverride ?? item.pointsOverride ?? null;
               html += renderTaskCard({
                 entryKey: item.entryKey,
@@ -516,7 +516,7 @@
                 for (const [entryKey, entry] of sorted) {
                   const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
                   const cat = task.category ? cats[task.category] : null;
-                  const pts = score.pointsMap[entryKey] || basePoints(task);
+                  const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
                   const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
                   html += renderTaskCard({
                     entryKey,
@@ -554,7 +554,7 @@
                 for (const [entryKey, entry] of sorted) {
                   const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
                   const cat = task.category ? cats[task.category] : null;
-                  const pts = score.pointsMap[entryKey] || basePoints(task);
+                  const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
                   const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
                   html += renderTaskCard({
                     entryKey,
@@ -587,7 +587,7 @@
                   for (const [entryKey, entry] of sorted) {
                     const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
                     const cat = task.category ? cats[task.category] : null;
-                    const pts = score.pointsMap[entryKey] || basePoints(task);
+                    const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
                     const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
                     html += renderTaskCard({
                       entryKey,
@@ -1099,7 +1099,7 @@
           const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
           const cat = task.category ? cats[task.category] : null;
           const completed = isComplete(entryKey, completions);
-          const pts = basePoints(task);
+          const pts = basePoints(task, settings?.difficultyMultipliers);
           const completion = completions[entryKey];
           const currentOverride = completion?.pointsOverride ?? entry.pointsOverride ?? null;
 
