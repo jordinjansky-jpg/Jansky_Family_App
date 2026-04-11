@@ -462,7 +462,7 @@
 
           let status;
           if (completion) {
-            status = current < today && e.rotationType !== 'daily' ? 'Late' : 'Done';
+            status = completion.isLate ? 'Late' : 'Done';
           } else if (current < today) {
             status = 'Missed';
           } else {
