@@ -9,7 +9,21 @@
       "Bash(python3 /tmp/hash_test.py)",
       "Read(//tmp/**)",
       "Bash(grep -n \"\\\\\\\\.innerHTML.*task\\\\\\\\.name\\\\|\\\\\\\\.innerHTML.*person\\\\\\\\.name\\\\|\\\\\\\\.innerHTML.*\\\\\\\\.label\" /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/calendar.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/tracker.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/kid.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/scoreboard.html)",
-      "Bash(grep -n \"\\\\.innerHTML\\\\s*=\\\\s*\\\\`\" /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/kid.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/tracker.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/calendar.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/scoreboard.html)"
+      "Bash(grep -n \"\\\\.innerHTML\\\\s*=\\\\s*\\\\`\" /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/kid.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/tracker.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/calendar.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/scoreboard.html)",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "Read(//c/Users/jordi/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/subagent-driven-development/**)",
+      "Bash(node -c shared/scheduler.js)",
+      "Bash(node --check shared/components.js)",
+      "Bash(node --check shared/firebase.js)",
+      "Bash(node --check shared/theme.js)",
+      "Bash(node --check shared/utils.js)",
+      "Bash(node --check shared/state.js)",
+      "Bash(node --check shared/scoring.js)",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "WebFetch(domain:dashboard.jansky.app)",
+      "mcp__plugin_playwright_playwright__browser_snapshot"
     ]
   }
 }

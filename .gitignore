@@ -1,5 +1,6 @@
 .DS_Store
 Thumbs.db
 *.log
+.playwright-mcp/
 node_modules/
 .env

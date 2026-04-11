@@ -9,7 +9,23 @@
       "Bash(git commit -m ':*)",
       "Bash(git config:*)",
       "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")",
-      "Bash(gh repo:*)"
+      "Bash(gh repo:*)",
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "Bash(node --check index.html)",
+      "Bash(sed '$s/<\\\\/script>//')",
+      "Bash(node --check /tmp/test_module.mjs)",
+      "Bash(cp /tmp/index_top.html index.html)",
+      "Bash(node --check dashboard.js)",
+      "Bash(node -c shared/components.js)",
+      "Bash(node -c shared/firebase.js)",
+      "Bash(node -c shared/utils.js)",
+      "Bash(node -c shared/scoring.js)",
+      "Bash(node -c shared/state.js)",
+      "Bash(node -e ':*)",
+      "Bash(rm -rf .playwright-mcp daily-rundown-spec.md)",
+      "Bash(mkdir -p docs/superpowers/archive)",
+      "Bash(mv docs/superpowers/plans/*.md docs/superpowers/specs/*.md docs/superpowers/archive/)"
     ]
   }
 }
