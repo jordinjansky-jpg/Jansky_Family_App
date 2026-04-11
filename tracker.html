@@ -453,7 +453,12 @@
           <button class="tracker-tab${weeklyActive}" data-view="weekly" type="button">Weekly</button>
           <button class="tracker-tab${monthlyActive}" data-view="monthly" type="button">Monthly</button>
         </div>
-        <div class="tracker-period">${renderPeriodLabel()}</div>
+        <div class="tracker-period">
+          <button class="tracker-period__nav" data-period-nav="prev" type="button" aria-label="Previous">◀</button>
+          <span class="tracker-period__label">${renderPeriodLabel()}</span>
+          <button class="tracker-period__nav" data-period-nav="next" type="button" aria-label="Next">▶</button>
+          <button class="tracker-period__today" data-period-nav="today" type="button">Today</button>
+        </div>
         ${renderPersonFilter(people, activePerson)}
         <div class="tracker-filters">
           ${renderCategoryFilter()}
