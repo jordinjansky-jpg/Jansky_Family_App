@@ -1019,7 +1019,7 @@
 
 .task-detail__slider-value--numeric {
   font-variant-numeric: tabular-nums;
-  min-width: 7.5ch;
+  min-width: 12ch;
   display: inline-block;
   text-align: right;
 }

@@ -466,13 +466,12 @@
 }
 
 /* Larger points totals after rescale — stable digit widths prevent reflow jitter */
-.sb-leaderboard__points,
-.sb-leaderboard__grade-pct,
-.sb-card__number,
+.sb-card__pct,
+.sb-cat-pct,
+.sb-drilldown__stats,
 .sb-drilldown__task-pts,
-.sb-category__earned,
-.sb-category__total,
-.sb-period-total {
+.sb-streak-current,
+.sb-streak-best {
   font-variant-numeric: tabular-nums;
 }
 

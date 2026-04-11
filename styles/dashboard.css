@@ -233,11 +233,8 @@
   .celebration__confetti { display: none; }
 }
 
-/* Daily points total — stable digit widths after rescale */
-.dashboard-progress__count,
-.dashboard-progress__total,
-.daily-score__earned,
-.daily-score__possible {
+/* Daily points / grade stats — stable digit widths after rescale */
+.date-header__stats {
   font-variant-numeric: tabular-nums;
 }
 
