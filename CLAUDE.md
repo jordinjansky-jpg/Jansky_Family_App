@@ -97,8 +97,7 @@ rundown/
 ```
 
 ## Scoring System
-- **Points formula:** `difficultyMultiplier × (1 + estMin / 30)`, rounded to nearest integer
-  - Difficulty multipliers: Easy = 1, Medium = 2, Hard = 3
+- **Points formula:** `max(estMin, 5) × difficultyMultiplier`. Both operands are integers; no rounding. Difficulty multipliers are configurable per-family via `settings.difficultyMultipliers` (defaults `{easy:1, medium:2, hard:3}`, clamped 1–10 in admin UI). Floor of 5 minutes ensures every task is worth at least `5 × mult`, so late penalties (`basePoints × pointsOverride/100`) always produce a visible reduction even on the smallest tasks.
 - **Grade bands:** A+ (97-100), A (93-96), A- (90-92), B+ (87-89), B (83-86), B- (80-82), C+ (77-79), C (73-76), C- (70-72), D+ (67-69), D (63-66), D- (60-62), F (0-59)
 - **Daily score:** `(earnedPoints / possiblePoints) × 100` — per person
 - **Weighted categories:** `ownerRegularPts × (W / (100 - W))` — uses per-person regular task totals
@@ -144,13 +143,13 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Points system rescale: new formula `basePoints = max(estMin, 5) × difficultyMultiplier` replaces `round(mult × (1 + estMin/30))`. Produces larger integer values so late penalties actually land on small tasks (e.g. a 5-min easy task is now 5pt, so 75% late → 4pt instead of 1pt → 1pt). Difficulty multipliers are now configurable per-family via `settings.difficultyMultipliers` in the admin Settings tab (defaults `{easy:1, medium:2, hard:3}`, clamped 1–10, soft-warned if non-monotonic). Zero data migration — percentages and grades are identical pre/post because `earned` and `possible` both scale by the same factor. Tabular-nums added to stats displays so larger numbers don't jitter in place.
 - Late completion penalties: moved late penalty from scoring-time detection to completion-time recording. Past daily tasks tap-blocked (opens detail sheet instead). "Complete (Late)" button label on past-date tasks. `isLate` flag + `pointsOverride` set at completion time. "Late" chip on incomplete past daily cards. Slider shows penalty, parent-adjustable. Scoring simplified (removed `isOverdue` logic from `earnedPoints`, `dailyScore`, `buildSnapshot`).
 - Codebase audit fixes: XSS hardening (admin/kid name escaping), CSS variable fixes (kid PIN error, theme button), scheduler bug fixes (cooldown anchor leak in weekly/monthly, past-date one-time tasks now appear instead of vanishing), scoring late-completion detection in snapshots, calendar listener leak fix via AbortController, recovery PIN unconditional, parseIntOr/parseFloatOr helpers, DOM helpers extracted to dom-helpers.js, dead code removal
 - Bulk admin actions: multi-select mode in tasks tab, batch edit (rotation, assignment mode, category, status, difficulty, time of day, est. minutes, owners), batch delete with confirmation, floating action bar, auto schedule rebuild
 - Category-level daily limits: per-person and per-household minute caps on categories, scheduler defers/skips tasks over limit, admin UI with badges
 - `e841314` 7 bug fixes (scheduler shadowing, scoring exempt tasks, tracker skipped filter, duplicate listeners, calendar perf), calendar single-month view with swipe nav, SW v5
 - Add meta tags, manifest.json, favicon, PWA support, event time field, auto-rebuild on task edit
-- `17df628` Pre-release audit: remove dead code, fix bugs, harden XSS, clean CSS
 
 ## Backlog
 - **Push notifications** — Daily reminders, task delegation alerts. Requires FCM + server-side trigger (Cloud Function or Cloudflare Worker). High effort (~2-3 sessions). See notifications uplift assessment from 2026-04-03.
