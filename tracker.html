@@ -76,11 +76,15 @@
       schedule = s || {};
     }
 
-    // ── Date ranges ──
-    const wStart = weekStart(today);
-    const wEnd = weekEnd(today);
-    const mStart = monthStart(today);
-    const mEnd = monthEnd(today);
+    // ── Period anchor (in-memory only, resets to today on reload) ──
+    let periodAnchor = today;
+
+    function currentRange() {
+      if (activeView === 'weekly') {
+        return { start: weekStart(periodAnchor), end: weekEnd(periodAnchor) };
+      }
+      return { start: monthStart(periodAnchor), end: monthEnd(periodAnchor) };
+    }
 
     // ── Person link mode (?person=Name) for per-user prefs ──
     const personParam = new URLSearchParams(window.location.search).get('person');
@@ -333,8 +337,9 @@
     // ── Weekly view ──
 
     function renderWeeklyView() {
-      const rows = collectRows('weekly', wStart, wEnd);
-      const skipped = findSkippedTasks('weekly', wStart, wEnd, rows);
+      const { start, end } = currentRange();
+      const rows = collectRows('weekly', start, end);
+      const skipped = findSkippedTasks('weekly', start, end, rows);
       const allRows = [...rows, ...skipped];
       const filtered = filterRows(allRows);
 
@@ -360,8 +365,9 @@
     // ── Monthly view ──
 
     function renderMonthlyView() {
-      const rows = collectRows('monthly', mStart, mEnd);
-      const skipped = findSkippedTasks('monthly', mStart, mEnd, rows);
+      const { start, end } = currentRange();
+      const rows = collectRows('monthly', start, end);
+      const skipped = findSkippedTasks('monthly', start, end, rows);
       const allRows = [...rows, ...skipped];
       const filtered = filterRows(allRows);
 
@@ -407,10 +413,11 @@
     // ── Period navigation label ──
 
     function renderPeriodLabel() {
+      const { start, end } = currentRange();
       if (activeView === 'weekly') {
-        return `${formatDateShort(wStart)} – ${formatDateShort(wEnd)}`;
+        return `${formatDateShort(start)} – ${formatDateShort(end)}`;
       }
-      const monthName = new Date(mStart + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      const monthName = new Date(start + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
       return monthName;
     }
 
