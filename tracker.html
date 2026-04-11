@@ -487,6 +487,7 @@
       for (const tab of main.querySelectorAll('.tracker-tab')) {
         tab.addEventListener('click', () => {
           activeView = tab.dataset.view;
+          periodAnchor = today;  // Reset to current period on tab switch
           saveTrackerPrefs();
           render();
         });
@@ -955,6 +956,27 @@
     document.getElementById('loadingState').style.display = 'none';
     const main = document.getElementById('mainContent');
     main.style.display = '';
+
+    // ── Swipe to change period ──
+    // Bound once to the stable `main` element (its innerHTML is replaced per
+    // render, but the node itself persists). Do NOT move this into bindEvents
+    // or listeners will stack on every render.
+    let swipeStartX = 0;
+    let swipeStartY = 0;
+    main.addEventListener('touchstart', (e) => {
+      if (e.target.closest('#taskSheetMount') || e.target.closest('.bottom-sheet')) return;
+      swipeStartX = e.touches[0].clientX;
+      swipeStartY = e.touches[0].clientY;
+    }, { passive: true });
+    main.addEventListener('touchend', (e) => {
+      if (e.target.closest('#taskSheetMount') || e.target.closest('.bottom-sheet')) return;
+      const dx = e.changedTouches[0].clientX - swipeStartX;
+      const dy = e.changedTouches[0].clientY - swipeStartY;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        shiftPeriod(dx < 0 ? 1 : -1);
+      }
+    }, { passive: true });
+
     render();
   </script>
 </body>
