@@ -521,6 +521,16 @@
         });
       }
 
+      // Period navigation buttons
+      for (const btn of main.querySelectorAll('[data-period-nav]')) {
+        btn.addEventListener('click', () => {
+          const nav = btn.dataset.periodNav;
+          if (nav === 'prev') shiftPeriod(-1);
+          else if (nav === 'next') shiftPeriod(1);
+          else if (nav === 'today') snapToToday();
+        });
+      }
+
       // Long-press on tracker rows to open detail sheet
       for (const row of main.querySelectorAll('.tracker-row[data-entry-key]')) {
         if (!row.dataset.entryKey) continue; // skip skipped tasks (no entry)
