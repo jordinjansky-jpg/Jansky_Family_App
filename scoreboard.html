@@ -178,11 +178,11 @@
           if (!catTotals[catKey]) {
             catTotals[catKey] = { earned: 0, possible: 0, label: cat?.label || cat?.name || 'Uncategorized', icon: cat?.icon || '' };
           }
-          const pts = basePoints(task);
+          const pts = basePoints(task, settings?.difficultyMultipliers);
           catTotals[catKey].possible += pts;
           const completion = comps[k] || null;
           if (completion) {
-            catTotals[catKey].earned += earnedPoints(task, completion);
+            catTotals[catKey].earned += earnedPoints(task, completion, settings?.difficultyMultipliers);
           }
         }
         current = addDays(current, 1);
@@ -457,8 +457,8 @@
           const task = tasks[e.taskId];
           if (!task) continue;
           const completion = comps[k] || null;
-          const pts = basePoints(task);
-          const earned = completion ? earnedPoints(task, completion) : 0;
+          const pts = basePoints(task, settings?.difficultyMultipliers);
+          const earned = completion ? earnedPoints(task, completion, settings?.difficultyMultipliers) : 0;
 
           let status;
           if (completion) {
