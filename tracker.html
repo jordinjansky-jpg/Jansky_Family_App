@@ -339,7 +339,7 @@
     function renderWeeklyView() {
       const { start, end } = currentRange();
       const rows = collectRows('weekly', start, end);
-      const skipped = findSkippedTasks('weekly', start, end, rows);
+      const skipped = start > today ? [] : findSkippedTasks('weekly', start, end, rows);
       const allRows = [...rows, ...skipped];
       const filtered = filterRows(allRows);
 
@@ -367,7 +367,7 @@
     function renderMonthlyView() {
       const { start, end } = currentRange();
       const rows = collectRows('monthly', start, end);
-      const skipped = findSkippedTasks('monthly', start, end, rows);
+      const skipped = start > today ? [] : findSkippedTasks('monthly', start, end, rows);
       const allRows = [...rows, ...skipped];
       const filtered = filterRows(allRows);
 
