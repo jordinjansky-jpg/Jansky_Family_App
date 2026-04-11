@@ -197,7 +197,7 @@ function render() {
       const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
       const person = people.find(p => p.id === item.ownerId);
       const cat = task.category ? cats[task.category] : null;
-      const pts = basePoints(task);
+      const pts = basePoints(task, settings?.difficultyMultipliers);
       const ovr = completions[item.entryKey]?.pointsOverride ?? item.pointsOverride ?? null;
       html += renderTaskCard({
         entryKey: item.entryKey,
@@ -259,7 +259,7 @@ function render() {
         const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
         const person = people.find(p => p.id === entry.ownerId);
         const cat = task.category ? cats[task.category] : null;
-        const pts = score.pointsMap[entryKey] || basePoints(task);
+        const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
         const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
         html += renderTaskCard({
           entryKey,
@@ -298,7 +298,7 @@ function render() {
           const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
           const person = people.find(p => p.id === entry.ownerId);
           const cat = task.category ? cats[task.category] : null;
-          const pts = score.pointsMap[entryKey] || basePoints(task);
+          const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
           const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
           html += renderTaskCard({
             entryKey,
@@ -349,7 +349,7 @@ function renderDebugPanel(filtered, score) {
 
   for (const [entryKey, entry] of Object.entries(filtered)) {
     const task = tasks[entry.taskId] || { name: '?', difficulty: 'medium', estMin: 0 };
-    const bp = basePoints(task);
+    const bp = basePoints(task, settings?.difficultyMultipliers);
     const comp = completions[entryKey];
     const earned = score.pointsMap?.[entryKey] || 0;
     const ovr = comp?.pointsOverride ?? '—';
@@ -674,7 +674,7 @@ function openTaskSheet(entryKey, dateKey) {
   const person = people.find(p => p.id === entry.ownerId);
   const cat = task.category ? cats[task.category] : null;
   const completed = isComplete(entryKey, completions);
-  const pts = basePoints(task);
+  const pts = basePoints(task, settings?.difficultyMultipliers);
   const completion = completions[entryKey];
   const currentOverride = completion?.pointsOverride ?? entry.pointsOverride ?? null;
 
