@@ -55,11 +55,15 @@
   line-height: 1;
 }
 
-.tracker-period__nav:hover,
-.tracker-period__nav:focus-visible {
+.tracker-period__nav:hover {
   background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
   color: var(--text-primary);
+}
+
+.tracker-period__nav:focus-visible {
   outline: none;
+  color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--accent, #6c63ff);
 }
 
 .tracker-period__today {
@@ -73,11 +77,15 @@
   cursor: pointer;
 }
 
-.tracker-period__today:hover,
-.tracker-period__today:focus-visible {
+.tracker-period__today:hover {
   background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
   color: var(--text-primary);
+}
+
+.tracker-period__today:focus-visible {
   outline: none;
+  color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--accent, #6c63ff);
 }
 
 .tracker-filters {
