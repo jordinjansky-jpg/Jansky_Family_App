@@ -320,7 +320,7 @@
             const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
-            const pts = score.pointsMap[entryKey] || basePoints(task);
+            const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
             const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
             html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: false, overdue: false, points: { possible: pts, override: ovr }, isEvent: !!cat?.isEvent, showPoints: settings?.showPoints !== false, showTodIconBoth: !!settings?.showTodIconBoth, showTodIconSingle: !!settings?.showTodIconSingle, isPastDaily: dateKey < today && entry.rotationType === 'daily' });
           }
@@ -333,7 +333,7 @@
             const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
             const person = people.find(p => p.id === entry.ownerId);
             const cat = task.category ? cats[task.category] : null;
-            const pts = score.pointsMap[entryKey] || basePoints(task);
+            const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
             const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
             html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: true, overdue: false, points: { possible: pts, override: ovr }, isEvent: !!cat?.isEvent, showPoints: settings?.showPoints !== false, showTodIconBoth: !!settings?.showTodIconBoth, showTodIconSingle: !!settings?.showTodIconSingle });
           }
@@ -563,7 +563,7 @@
       const person = people.find(p => p.id === entry.ownerId);
       const cat = task.category ? cats[task.category] : null;
       const completed = isComplete(entryKey, completions);
-      const pts = basePoints(task);
+      const pts = basePoints(task, settings?.difficultyMultipliers);
       const completion = completions[entryKey];
       const currentOverride = completion?.pointsOverride ?? entry.pointsOverride ?? null;
 
