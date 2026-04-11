@@ -793,6 +793,25 @@
           </div>
         </div>
         <div class="form-group">
+          <label class="form-label">Difficulty Multipliers</label>
+          <div class="form-row">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Easy</label>
+              <input type="number" id="sf_diffEasy" value="${settings?.difficultyMultipliers?.easy ?? 1}" min="1" max="10" step="1">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Medium</label>
+              <input type="number" id="sf_diffMedium" value="${settings?.difficultyMultipliers?.medium ?? 2}" min="1" max="10" step="1">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Hard</label>
+              <input type="number" id="sf_diffHard" value="${settings?.difficultyMultipliers?.hard ?? 3}" min="1" max="10" step="1">
+            </div>
+          </div>
+          <p class="form-hint">Point multiplier per difficulty. Default: 1 / 2 / 3.</p>
+          <button type="button" class="btn btn--ghost btn--sm" id="sf_diffReset">Reset to defaults</button>
+        </div>
+        <div class="form-group">
           <label class="admin-checkbox"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}> Show AM/PM icons on "Both" tasks</label>
           <label class="admin-checkbox"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}> Show AM/PM icons on dedicated AM or PM tasks</label>
         </div>
@@ -2063,6 +2082,24 @@
         const msgEl = main.querySelector('#settingsMsg');
         const newPin = main.querySelector('#sf_newPin')?.value.trim();
 
+        const clampMult = (raw, fallback) => {
+          const n = parseIntOr(raw, fallback);
+          return Math.min(10, Math.max(1, n));
+        };
+        const newDiffEasy = clampMult(main.querySelector('#sf_diffEasy')?.value, 1);
+        const newDiffMedium = clampMult(main.querySelector('#sf_diffMedium')?.value, 2);
+        const newDiffHard = clampMult(main.querySelector('#sf_diffHard')?.value, 3);
+
+        // Soft warning on non-monotonic multipliers
+        if (newDiffEasy > newDiffMedium || newDiffMedium > newDiffHard) {
+          const ok = confirm(
+            `Difficulty multipliers are usually increasing (easy ≤ medium ≤ hard).\n` +
+            `You entered: easy=${newDiffEasy}, medium=${newDiffMedium}, hard=${newDiffHard}.\n\n` +
+            `Save anyway?`
+          );
+          if (!ok) return;
+        }
+
         const updated = {
           ...settings,
           appName: main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
@@ -2077,7 +2114,8 @@
           showTodIconBoth: !!main.querySelector('#sf_showTodIconBoth')?.checked,
           showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
           longPressMs: parseIntOr(main.querySelector('#sf_longPressMs')?.value, 500),
-          kidLongPressMs: parseIntOr(main.querySelector('#sf_kidLongPressMs')?.value, 500)
+          kidLongPressMs: parseIntOr(main.querySelector('#sf_kidLongPressMs')?.value, 500),
+          difficultyMultipliers: { easy: newDiffEasy, medium: newDiffMedium, hard: newDiffHard }
         };
 
         if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {
@@ -2100,6 +2138,15 @@
           msgEl.className = 'admin-msg admin-msg--success mt-sm';
           setTimeout(() => { msgEl.textContent = ''; }, 2000);
         }
+      });
+
+      main.querySelector('#sf_diffReset')?.addEventListener('click', () => {
+        const easyInput = main.querySelector('#sf_diffEasy');
+        const mediumInput = main.querySelector('#sf_diffMedium');
+        const hardInput = main.querySelector('#sf_diffHard');
+        if (easyInput) easyInput.value = 1;
+        if (mediumInput) mediumInput.value = 2;
+        if (hardInput) hardInput.value = 3;
       });
     }
 
