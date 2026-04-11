@@ -1016,3 +1016,10 @@
   border: none;
   box-shadow: var(--shadow-sm);
 }
+
+.task-detail__slider-value--numeric {
+  font-variant-numeric: tabular-nums;
+  min-width: 7.5ch;
+  display: inline-block;
+  text-align: right;
+}

@@ -232,4 +232,12 @@
 @media (prefers-reduced-motion: reduce) {
   .celebration__confetti { display: none; }
 }
+
+/* Daily points total — stable digit widths after rescale */
+.dashboard-progress__count,
+.dashboard-progress__total,
+.daily-score__earned,
+.daily-score__possible {
+  font-variant-numeric: tabular-nums;
+}
 

@@ -464,4 +464,15 @@
 @media (prefers-reduced-motion: reduce) {
   .streak-value--animate { animation: none; }
 }
+
+/* Larger points totals after rescale — stable digit widths prevent reflow jitter */
+.sb-leaderboard__points,
+.sb-leaderboard__grade-pct,
+.sb-card__number,
+.sb-drilldown__task-pts,
+.sb-category__earned,
+.sb-category__total,
+.sb-period-total {
+  font-variant-numeric: tabular-nums;
+}
 

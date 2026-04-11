@@ -435,7 +435,7 @@ export function renderTaskDetailSheet(options) {
     html += `<div class="task-detail__slider mt-md">
       <div class="task-detail__slider-header">
         <span class="form-label">${sliderLabel}</span>
-        <span class="task-detail__slider-value" id="sliderValueLabel">${sliderVal}% (${earnedPts}pt)</span>
+        <span class="task-detail__slider-value task-detail__slider-value--numeric" id="sliderValueLabel">${sliderVal}% (${earnedPts}pt)</span>
       </div>
       <div class="task-detail__slider-row">
         <input type="range" class="slider" id="pointsSlider" min="${min}" max="${max}" value="${sliderVal}" step="5" data-entry-key="${entryKey}" data-base-pts="${points.possible}">
