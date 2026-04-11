@@ -86,6 +86,27 @@
       return { start: monthStart(periodAnchor), end: monthEnd(periodAnchor) };
     }
 
+    function shiftPeriod(delta) {
+      // delta is -1 (previous) or +1 (next)
+      if (activeView === 'weekly') {
+        periodAnchor = addDays(periodAnchor, delta * 7);
+      } else {
+        // Step to the adjacent calendar month, then normalise to its start
+        // so repeated taps are stable regardless of month length.
+        const anchor = monthStart(periodAnchor);
+        const stepped = delta < 0
+          ? addDays(anchor, -1)                 // day before this month's start
+          : addDays(monthEnd(anchor), 1);       // day after this month's end
+        periodAnchor = monthStart(stepped);
+      }
+      render();
+    }
+
+    function snapToToday() {
+      periodAnchor = today;
+      render();
+    }
+
     // ── Person link mode (?person=Name) for per-user prefs ──
     const personParam = new URLSearchParams(window.location.search).get('person');
     const linkedPerson = personParam
