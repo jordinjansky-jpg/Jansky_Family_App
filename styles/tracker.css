@@ -28,11 +28,56 @@
 }
 
 .tracker-period {
-  text-align: center;
-  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+  font-size: var(--font-size-md);
   color: var(--text-secondary);
-  padding: var(--spacing-sm) 0;
-  font-weight: 500;
+}
+
+.tracker-period__label {
+  min-width: 10ch;
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tracker-period__nav {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  line-height: 1;
+}
+
+.tracker-period__nav:hover,
+.tracker-period__nav:focus-visible {
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
+  color: var(--text-primary);
+  outline: none;
+}
+
+.tracker-period__today {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--border-color, var(--text-secondary));
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+}
+
+.tracker-period__today:hover,
+.tracker-period__today:focus-visible {
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
+  color: var(--text-primary);
+  outline: none;
 }
 
 .tracker-filters {
