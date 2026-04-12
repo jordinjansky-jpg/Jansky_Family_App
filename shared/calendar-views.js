@@ -194,7 +194,7 @@ export function renderDayView(opts) {
     eventsHtml = `<div class="cal-day__empty">${emptyMsg}</div>`;
   }
 
-  return `<div class="cal-day">${eventsHtml}${tasksHtml}</div>`;
+  return `<div class="cal-day"><div class="cal-day__grid">${eventsHtml}${tasksHtml}</div></div>`;
 }
 
 /**

@@ -3,8 +3,11 @@
 /* ── Page shell ── */
 .cal-page { overflow: hidden; height: 100dvh; }
 .cal-page .page-content {
-  height: calc(100dvh - var(--header-height) - var(--nav-height) - env(safe-area-inset-bottom, 0px));
+  height: 100dvh;
+  max-width: 100%;
   padding: 0 var(--spacing-sm);
+  padding-top: calc(var(--header-height) + var(--spacing-xs) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -76,6 +79,7 @@
 .cal-week__body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: 1fr;
   gap: 2px;
   flex: 1;
   min-height: 0;
@@ -428,7 +432,13 @@
 .cal-grid__cell--alldone .cal-grid__progress-fill { background: var(--success-text); }
 
 /* ── View transitions ── */
-.cal-view-enter { animation: calViewFadeIn 200ms ease both; }
+.cal-view-enter {
+  animation: calViewFadeIn 200ms ease both;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 @keyframes calViewFadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -523,9 +533,4 @@
 .cal-density--cozy .cal-grid { grid-auto-rows: minmax(52px, 1fr); }
 .cal-density--cozy .cal-grid__day { font-size: 13px; }
 
-/* ── PWA standalone ── */
-@media (display-mode: standalone) {
-  .cal-page .page-content {
-    height: calc(100dvh - var(--header-height) - var(--nav-height) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-  }
-}
+/* ── PWA standalone — padding already uses env() safe-area, no extra override needed ── */
