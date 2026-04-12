@@ -490,6 +490,25 @@
   line-height: 1;
   margin-bottom: 1px;
 }
+/* Event pills inside month cells — condensed */
+.cal-grid__cell .event-pill {
+  font-size: 8px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  margin-bottom: 1px;
+  min-height: 0;
+}
+.cal-grid__cell .event-pill__time {
+  font-size: 7px;
+}
+.cal-grid__cell .event-pill__text {
+  font-size: 8px;
+  line-height: 1.2;
+}
+.cal-grid__cell .event-pill__people { display: none; }
+.cal-grid__cell .event-pill--timed {
+  border-left-width: 2px;
+}
 .cal-grid__event-name {
   font-size: 8px;
   font-weight: 600;
@@ -648,6 +667,8 @@
 .cal-density--cozy .cal-grid { grid-auto-rows: minmax(60px, 1fr); }
 .cal-density--cozy .cal-grid__day { font-size: 14px; }
 .cal-density--cozy .cal-grid__event-name { font-size: 10px; }
+.cal-density--cozy .cal-grid__cell .event-pill { font-size: 10px; }
+.cal-density--cozy .cal-grid__cell .event-pill__time { font-size: 8px; }
 .cal-density--cozy .cal-grid__progress { height: 3px; }
 
 /* ── Mobile week: vertical day-by-day list ── */

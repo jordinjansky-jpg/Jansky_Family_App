@@ -11,6 +11,73 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /**
+ * Build a compact time-grid HTML for timed events.
+ * Events are stacked vertically by overlap group (no empty time gaps).
+ * Overlapping events sit side-by-side within a group.
+ * @param {Array} timedEvents - [[id, eventObj], ...]
+ * @param {Array} people - people array
+ * @param {number} scale - px per minute (default 1.5)
+ * @param {number} minHeight - minimum pill height in px (default 28)
+ * @param {string} wrapperClass - CSS class for the grid container
+ * @returns {string} HTML string
+ */
+function buildTimeGrid(timedEvents, people, { scale = 1.5, minHeight = 28, wrapperClass = 'cal-week__time-grid', itemClass = 'cal-week__timed' } = {}) {
+  if (timedEvents.length === 0) return '';
+
+  const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const parsed = timedEvents.map(([id, evt]) => {
+    const start = toMin(evt.startTime);
+    const end = evt.endTime ? toMin(evt.endTime) : start + 15;
+    return { id, evt, start, end, dur: end - start };
+  });
+
+  // Overlap detection
+  parsed.sort((a, b) => a.start - b.start || a.end - b.end);
+  const groups = [];
+  let curGroup = [], groupEnd = 0;
+  for (const ev of parsed) {
+    if (curGroup.length > 0 && ev.start >= groupEnd) { groups.push(curGroup); curGroup = []; }
+    curGroup.push(ev);
+    groupEnd = Math.max(groupEnd, ev.end);
+  }
+  if (curGroup.length > 0) groups.push(curGroup);
+
+  // Column assignment per group
+  const layout = new Map();
+  for (const group of groups) {
+    const cols = [];
+    for (const ev of group) {
+      let placed = false;
+      for (let ci = 0; ci < cols.length; ci++) {
+        if (ev.start >= cols[ci]) { cols[ci] = ev.end; layout.set(ev, { col: ci }); placed = true; break; }
+      }
+      if (!placed) { layout.set(ev, { col: cols.length }); cols.push(ev.end); }
+    }
+    const tc = cols.length;
+    for (const ev of group) layout.get(ev).totalCols = tc;
+  }
+
+  // Compact stacked render
+  const groupGap = 4;
+  let yOffset = 0;
+  let html = '';
+  for (const group of groups) {
+    const groupHeight = Math.max(...group.map(ev => Math.max(ev.dur * scale, minHeight)));
+    for (const ev of group) {
+      const height = Math.max(ev.dur * scale, minHeight);
+      const { col, totalCols } = layout.get(ev);
+      const left = (col / totalCols) * 100;
+      const width = (1 / totalCols) * 100;
+      const pill = renderEventPill(ev.evt, people);
+      html += `<div class="${itemClass}" style="top:${yOffset.toFixed(1)}px;height:${height.toFixed(1)}px;left:${left.toFixed(1)}%;width:${width.toFixed(1)}%">${pill}</div>`;
+    }
+    yOffset += groupHeight + groupGap;
+  }
+  const gridHeight = Math.max(yOffset - groupGap, 0);
+  return `<div class="${wrapperClass}" style="height:${gridHeight.toFixed(1)}px">${html}</div>`;
+}
+
+/**
  * Render the week view.
  * @param {object} opts
  * @param {string} opts.weekStartDate - YYYY-MM-DD of the first day of the displayed week
@@ -73,78 +140,8 @@ export function renderWeekView(opts) {
       allDayHtml += renderEventPill(evt, people);
     }
 
-    // Timed events — positioned in a time grid
-    let timeGridHtml = '';
-    if (timedEvents.length > 0) {
-      // Parse time to minutes since midnight
-      const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-      // Find time range for this day's events
-      let earliest = 24 * 60, latest = 0;
-      const parsed = timedEvents.map(([id, evt]) => {
-        const start = toMin(evt.startTime);
-        const end = evt.endTime ? toMin(evt.endTime) : start + 15;
-        earliest = Math.min(earliest, start);
-        latest = Math.max(latest, end);
-        return { id, evt, start, end, dur: end - start };
-      });
-      // Snap earliest down to hour, latest up to hour
-      earliest = Math.floor(earliest / 60) * 60;
-      latest = Math.ceil(latest / 60) * 60;
-      const totalMin = Math.max(latest - earliest, 60); // at least 1 hour
-
-      // Detect overlaps and assign columns per overlap group
-      parsed.sort((a, b) => a.start - b.start || a.end - b.end);
-      // Build overlap groups: events that transitively overlap share a group
-      const groups = [];
-      let curGroup = [];
-      let groupEnd = 0;
-      for (const ev of parsed) {
-        if (curGroup.length > 0 && ev.start >= groupEnd) {
-          groups.push(curGroup);
-          curGroup = [];
-        }
-        curGroup.push(ev);
-        groupEnd = Math.max(groupEnd, ev.end);
-      }
-      if (curGroup.length > 0) groups.push(curGroup);
-
-      // Within each group, assign columns greedily
-      const layout = new Map(); // ev → { col, totalCols }
-      for (const group of groups) {
-        const cols = [];
-        for (const ev of group) {
-          let placed = false;
-          for (let ci = 0; ci < cols.length; ci++) {
-            if (ev.start >= cols[ci]) { cols[ci] = ev.end; layout.set(ev, { col: ci }); placed = true; break; }
-          }
-          if (!placed) { layout.set(ev, { col: cols.length }); cols.push(ev.end); }
-        }
-        const tc = cols.length;
-        for (const ev of group) layout.get(ev).totalCols = tc;
-      }
-
-      // Compact stacked layout: no empty time gaps between non-overlapping groups.
-      // Each group stacks below the previous one. Within a group, overlapping events sit side-by-side.
-      const pxPerMin = 1.5;
-      const groupGap = 4; // px between groups
-      let yOffset = 0;
-
-      for (const group of groups) {
-        // Find tallest event in this group (determines group height)
-        const groupHeight = Math.max(...group.map(ev => Math.max(ev.dur * pxPerMin, 28)));
-        for (const ev of group) {
-          const height = Math.max(ev.dur * pxPerMin, 28);
-          const { col, totalCols } = layout.get(ev);
-          const left = (col / totalCols) * 100;
-          const width = (1 / totalCols) * 100;
-          const pill = renderEventPill(ev.evt, people);
-          timeGridHtml += `<div class="cal-week__timed" style="top:${yOffset.toFixed(1)}px;height:${height.toFixed(1)}px;left:${left.toFixed(1)}%;width:${width.toFixed(1)}%">${pill}</div>`;
-        }
-        yOffset += groupHeight + groupGap;
-      }
-      const gridHeight = Math.max(yOffset - groupGap, 0);
-      timeGridHtml = `<div class="cal-week__time-grid" style="height:${gridHeight.toFixed(1)}px">${timeGridHtml}</div>`;
-    }
+    // Timed events — compact time grid
+    const timeGridHtml = buildTimeGrid(timedEvents, people);
 
     let eventsHtml = allDayHtml + timeGridHtml;
 
@@ -198,9 +195,20 @@ export function renderDayView(opts) {
 
   let eventsHtml = '';
   if (sortedEvents.length > 0) {
+    const allDayEvents = sortedEvents.filter(([, e]) => e.allDay);
+    const timedEvents = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
+
     eventsHtml += `<div class="cal-day__section">
       <div class="cal-day__section-header cal-day__section-header--sticky">Events</div>`;
-    for (const [eventId, event] of sortedEvents) {
+    // All-day pills
+    for (const [, evt] of allDayEvents) {
+      eventsHtml += renderEventPill(evt, people);
+    }
+    // Timed events — same compact time grid as week view, slightly larger scale for day view
+    eventsHtml += buildTimeGrid(timedEvents, people, { scale: 2, minHeight: 32 });
+    // Remaining events without startTime rendered as bubbles
+    const untimed = sortedEvents.filter(([, e]) => !e.allDay && !e.startTime);
+    for (const [eventId, event] of untimed) {
       eventsHtml += renderEventBubble(eventId, event, people);
     }
     eventsHtml += `</div>`;
@@ -292,7 +300,7 @@ export function renderMonthView(opts) {
   const mEnd = monthEnd(mStart);
   const firstDow = dayOfWeek(mStart);
   const days = dateRange(mStart, mEnd);
-  const maxEventNames = density === 'cozy' ? 0 : 2;
+  const maxEventNames = density === 'cozy' ? 0 : 4;
 
   // Day-of-week headers respecting week start day
   const dowHeaders = [];
@@ -332,14 +340,12 @@ export function renderMonthView(opts) {
 
     const dayNum = parseInt(dk.split('-')[2], 10);
 
-    // Event names or dots based on density
+    // Event pills or dots based on density
     let eventsHtml = '';
     if (maxEventNames > 0 && sortedEvents.length > 0) {
       const visible = sortedEvents.slice(0, maxEventNames);
       const overflow = sortedEvents.length - maxEventNames;
-      eventsHtml = visible.map(([, e]) =>
-        `<div class="cal-grid__event-name" style="color:${e.color || '#5b7fd6'}">${esc(e.name)}</div>`
-      ).join('');
+      eventsHtml = visible.map(([, e]) => renderEventPill(e, people)).join('');
       if (overflow > 0) eventsHtml += `<div class="cal-grid__overflow">+${overflow}</div>`;
     } else if (sortedEvents.length > 0) {
       // Cozy: just dots
