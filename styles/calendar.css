@@ -6,7 +6,7 @@
   height: 100dvh;
   max-width: 100%;
   padding: 0 var(--spacing-sm);
-  padding-top: calc(var(--header-height) + var(--spacing-xs) + env(safe-area-inset-top, 0px));
+  padding-top: calc(var(--header-height) + var(--spacing-md) + env(safe-area-inset-top, 0px));
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   display: flex;
@@ -62,12 +62,12 @@
   text-align: center;
 }
 .cal-week__dow {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  padding: 4px 0 2px;
+  padding: 6px 0 4px;
   line-height: 1.3;
 }
 .cal-week__dow--today { color: var(--accent); }
@@ -89,8 +89,8 @@
 .cal-week__col {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 4px 2px;
+  gap: 3px;
+  padding: 6px 4px;
   background: var(--bg-card);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle, var(--border-light));
@@ -103,20 +103,23 @@
 }
 .cal-week__col--past { opacity: 0.65; }
 
+/* Column inline label (visible on mobile only) */
+.cal-week__col-label { display: none; }
+
 /* Event pills */
 .event-pill {
-  padding: 2px 4px;
+  padding: 3px 6px;
   border-radius: 4px;
   color: white;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
 }
 .event-pill__text {
   overflow: hidden;
@@ -124,35 +127,35 @@
 }
 .event-pill__people {
   display: flex;
-  gap: 1px;
+  gap: 2px;
   flex-shrink: 0;
 }
 .event-pill__dot {
-  width: 6px; height: 6px;
+  width: 7px; height: 7px;
   border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.5);
 }
 .cal-week__overflow {
-  font-size: 8px;
+  font-size: var(--font-size-xs);
   color: var(--text-muted);
   text-align: center;
-  padding: 1px 0;
+  padding: 2px 0;
 }
 
 /* Task rows in week view */
-.cal-week__tasks { border-top: 1px solid var(--border-light); padding-top: 2px; }
+.cal-week__tasks { border-top: 1px solid var(--border-light); padding-top: 4px; margin-top: 4px; }
 .cal-week__task {
   display: flex;
   align-items: center;
-  gap: 2px;
-  font-size: 8px;
-  line-height: 1.3;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
   cursor: pointer;
-  padding: 1px 0;
+  padding: 2px 0;
 }
 .cal-week__task--done { opacity: 0.4; text-decoration: line-through; }
-.cal-week__task-check { width: 10px; height: 10px; margin: 0; flex-shrink: 0; }
-.cal-week__task-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.cal-week__task-check { width: 14px; height: 14px; margin: 0; flex-shrink: 0; }
+.cal-week__task-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .cal-week__task-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -532,5 +535,55 @@
 .cal-density--cozy .cal-week__task { font-size: 10px; }
 .cal-density--cozy .cal-grid { grid-auto-rows: minmax(52px, 1fr); }
 .cal-density--cozy .cal-grid__day { font-size: 13px; }
+
+/* ── Mobile week: vertical day-by-day list ── */
+@media (max-width: 600px) {
+  .cal-week__header { display: none; }
+  .cal-week__body {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    gap: var(--spacing-sm);
+    overflow-y: auto;
+  }
+  .cal-week__col {
+    padding: var(--spacing-sm) var(--spacing-md);
+    gap: var(--spacing-xs);
+    border-radius: var(--radius-md);
+  }
+  .cal-week__col-label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: var(--spacing-xs);
+  }
+  .cal-week__col-day {
+    font-size: var(--font-size-base);
+    font-weight: 800;
+    color: var(--text-primary);
+  }
+  .cal-week__col-date {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+  }
+  .cal-week__col--today .cal-week__col-day { color: var(--accent); }
+  .event-pill {
+    font-size: var(--font-size-sm);
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    gap: 4px;
+  }
+  .event-pill__dot { width: 8px; height: 8px; }
+  .cal-week__tasks { padding-top: var(--spacing-xs); margin-top: var(--spacing-xs); }
+  .cal-week__task {
+    font-size: var(--font-size-base);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) 0;
+  }
+  .cal-week__task-check { width: 18px; height: 18px; }
+  .cal-week__task-dot { width: 8px; height: 8px; }
+  .cal-week__overflow { font-size: var(--font-size-sm); }
+}
 
 /* ── PWA standalone — padding already uses env() safe-area, no extra override needed ── */

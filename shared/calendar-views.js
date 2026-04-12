@@ -87,7 +87,13 @@ export function renderWeekView(opts) {
       </label>`;
     }
 
+    const dow = dayOfWeek(dk);
+    const dayNum = parseInt(dk.split('-')[2], 10);
+    const monthIdx = parseInt(dk.split('-')[1], 10) - 1;
+    const colLabel = `<div class="cal-week__col-label"><span class="cal-week__col-day">${DAY_NAMES_FULL[dow]}</span><span class="cal-week__col-date">${MONTH_NAMES[monthIdx]} ${dayNum}</span></div>`;
+
     return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}">
+      ${colLabel}
       <div class="cal-week__events">${eventsHtml}</div>
       ${tasksHtml ? `<div class="cal-week__tasks">${tasksHtml}</div>` : ''}
     </div>`;
