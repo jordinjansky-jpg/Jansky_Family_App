@@ -38,17 +38,17 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, multiUpdate, onCompletions, onConnectionChange } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
-    import { todayKey, addDays, dayOfWeek, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
-    import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueCooldownTaskIds, sortEntries } from './shared/state.js';
+    import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
+    import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
+    import { renderWeekView, renderDayView, renderMonthView, renderCalendarNav } from './shared/calendar-views.js';
 
-
-    // ── Cached theme (device override > family cache > default) ──
+    // ── Cached theme ──
     applyTheme(resolveTheme());
 
     // ── Init Firebase ──
@@ -57,8 +57,8 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load core data ──
-    const [settings, peopleObj, tasksObj, catsObj] = await Promise.all([
-      readSettings(), readPeople(), readTasks(), readCategories()
+    const [settings, peopleObj, tasksObj, catsObj, eventsObj] = await Promise.all([
+      readSettings(), readPeople(), readTasks(), readCategories(), readEvents()
     ]);
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
@@ -68,51 +68,63 @@
     const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
     const tasks = tasksObj || {};
     const cats = catsObj || {};
+    let events = eventsObj || {};
 
     const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'];
 
-    // ── Person link mode (?person=Name) for per-user prefs ──
+    // ── Personal preferences (localStorage) ──
+    const calPrefsRaw = localStorage.getItem('dr-cal-prefs');
+    const calPrefs = calPrefsRaw ? JSON.parse(calPrefsRaw) : {};
+    function saveCalPrefs() { localStorage.setItem('dr-cal-prefs', JSON.stringify(calPrefs)); }
+
+    // ── Calendar defaults (admin settings → personal override) ──
+    const calDefaults = settings?.calendarDefaults || {};
+    const weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
+    const density = calPrefs.density || calDefaults.density || 'snug';
+    const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'week';
+
+    // ── Person link mode ──
     const personParam = new URLSearchParams(window.location.search).get('person');
     const linkedPerson = personParam
       ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
       : null;
 
     // ── App state ──
-    let viewMonth = today.substring(0, 7); // YYYY-MM
-    let activePerson = linkedPerson?.prefs?.calendar?.personFilter || null;
-    let selectedDay = null;
+    let currentView = defaultView; // 'week' | 'month' | 'day'
+    let viewWeekStart = weekStartForDay(today, weekStartDay);
+    let viewMonth = today.substring(0, 7);
+    let viewDay = null;
+    let activePerson = calPrefs.personFilter || linkedPerson?.prefs?.calendar?.personFilter || null;
     let completions = {};
     let allSchedule = {};
     let suppressedCooldownTaskIds = new Set();
-    let pendingSliderOverride = null; // { entryKey, dateKey, value }
+    let pendingSliderOverride = null;
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
       subtitle: 'Calendar',
-      dateLine: formatDateLong(todayKey(settings?.timezone || 'America/Chicago')),
+      dateLine: formatDateLong(today),
       showAdmin: true,
       showDebug: debugActive,
       showAddTask: true,
       showThemePicker: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
-
-    // ── Offline/Online banner ──
     initOfflineBanner(onConnectionChange);
 
-    // ── Hide loading, show content ──
     document.getElementById('loadingState').style.display = 'none';
     const main = document.getElementById('mainContent');
     main.style.display = '';
+    const sheetMount = document.getElementById('sheetMount');
+    const taskSheetMount = document.getElementById('taskSheetMount');
 
     // ══════════════════════════════════════════
     // Data loading
     // ══════════════════════════════════════════
 
-    // loadData only loads schedule (completions comes from listener)
     async function loadData() {
       const sched = await readAllSchedule();
       allSchedule = sched || {};
@@ -120,439 +132,514 @@
     }
 
     // ══════════════════════════════════════════
-    // Calendar grid helpers
+    // Main render — dispatches to active view
     // ══════════════════════════════════════════
-
-    function getDaySummary(dateKey) {
-      const dayEntries = allSchedule[dateKey] || {};
-      const filtered = filterByPerson(dayEntries, activePerson);
-      const keys = Object.keys(filtered);
-      const total = keys.length;
-      const done = keys.filter(k => isComplete(k, completions)).length;
-
-      // Count by frequency
-      const freq = { daily: { total: 0, done: 0 }, weekly: { total: 0, done: 0 }, monthly: { total: 0, done: 0 } };
-      // Collect unique event colors for this day
-      const eventColors = new Set();
-      for (const [key, entry] of Object.entries(filtered)) {
-        const task = tasks[entry.taskId];
-        const cat = task?.category ? cats[task.category] : null;
-        if (cat?.isEvent && cat.eventColor) {
-          eventColors.add(cat.eventColor);
-        }
-        const rt = entry.rotationType || 'daily';
-        const bucket = freq[rt] || freq.daily;
-        bucket.total++;
-        if (isComplete(key, completions)) bucket.done++;
-      }
-
-      return { total, done, freq, eventColors: [...eventColors] };
-    }
-
-    // ══════════════════════════════════════════
-    // Render
-    // ══════════════════════════════════════════
-
-    function renderMonthGrid(month) {
-      const mStart = `${month}-01`;
-      const mEnd = monthEnd(mStart);
-      const firstDow = dayOfWeek(mStart);
-      const days = dateRange(mStart, mEnd);
-      const mn = monthNumber(mStart);
-      const yr = yearNumber(mStart);
-      const isCurrent = month === today.substring(0, 7);
-
-      let html = `<div class="cal-month${isCurrent ? ' cal-month--current' : ''}">`;
-      html += `<div class="cal-month__title">${MONTH_NAMES[mn - 1]} ${yr}</div>`;
-      html += `<div class="cal-grid">`;
-
-      for (const d of DAY_NAMES_SHORT) {
-        html += `<div class="cal-grid__dow">${d}</div>`;
-      }
-
-      for (let i = 0; i < firstDow; i++) {
-        html += `<div class="cal-grid__cell cal-grid__cell--empty"></div>`;
-      }
-
-      for (const dateKey of days) {
-        const summary = getDaySummary(dateKey);
-        const isToday = dateKey === today;
-        const isSelected = dateKey === selectedDay;
-        const allDone = summary.total > 0 && summary.done === summary.total;
-        const isPast = dateKey < today;
-
-        let cls = 'cal-grid__cell';
-        if (isToday) cls += ' cal-grid__cell--today';
-        if (isSelected) cls += ' cal-grid__cell--selected';
-        if (allDone) cls += ' cal-grid__cell--alldone';
-        // Dim past days: fully dim if no tasks, partially if incomplete
-        if (isPast && !isToday && summary.total === 0) cls += ' cal-grid__cell--past';
-        else if (isPast && !isToday && !allDone && summary.total > 0) cls += ' cal-grid__cell--past-incomplete';
-
-        const dayNum = parseInt(dateKey.split('-')[2], 10);
-
-        // Progress bar (replaces frequency text — cleaner on mobile)
-        let progressHtml = '';
-        if (summary.total > 0) {
-          const pct = Math.round((summary.done / summary.total) * 100);
-          progressHtml = `<div class="cal-grid__progress"><div class="cal-grid__progress-fill" style="width:${pct}%"></div></div>`;
-        }
-
-        // Weekly/Monthly task count pills
-        let freqHtml = '';
-        const freqParts = [];
-        if (summary.freq.weekly.total > 0) freqParts.push(`<span class="cal-pill cal-pill--w">${summary.freq.weekly.done}/${summary.freq.weekly.total}</span>`);
-        if (summary.freq.monthly.total > 0) freqParts.push(`<span class="cal-pill cal-pill--m">${summary.freq.monthly.done}/${summary.freq.monthly.total}</span>`);
-        if (freqParts.length > 0) freqHtml = `<div class="cal-grid__pills">${freqParts.join('')}</div>`;
-
-        // Event color dots (Google Calendar style)
-        let eventHtml = '';
-        if (summary.eventColors.length > 0) {
-          const dots = summary.eventColors.map(c => `<span class="cal-event-dot" style="background:${c}"></span>`).join('');
-          eventHtml = `<div class="cal-event-dots">${dots}</div>`;
-        }
-
-        html += `<button class="${cls}${summary.eventColors.length > 0 ? ' cal-grid__cell--has-events' : ''}" data-date="${dateKey}" type="button">
-          <span class="cal-grid__day">${dayNum}</span>
-          ${progressHtml}
-          ${freqHtml}
-          ${eventHtml}
-        </button>`;
-      }
-
-      html += `</div></div>`;
-      return html;
-    }
 
     function render() {
-      let html = '';
-      const isCurrentMonth = viewMonth === today.substring(0, 7);
+      let navLabel = '';
+      let isCurrentPeriod = false;
 
-      // Month nav — compact single row
-      html += `<div class="date-header">
-        <div class="date-nav">
-          <button class="date-nav__btn" id="prevMonth" type="button" title="Previous month">&lsaquo;</button>
-          <div class="date-nav__center">
-            <span class="date-header__day">${MONTH_NAMES[monthNumber(viewMonth + '-01') - 1]} ${yearNumber(viewMonth + '-01')}</span>
-            ${!isCurrentMonth ? `<button class="cal-today-link" id="goThisMonth" type="button">Today</button>` : ''}
+      if (currentView === 'day') {
+        const dayLabel = formatDateShort(viewDay);
+        const isToday = viewDay === today;
+        const prog = getDayProgress(viewDay);
+
+        let html = `<div class="cal-day-header">
+          <div>
+            <div class="cal-day-header__title">${dayLabel}${isToday ? ' <span class="cal-sheet__today">Today</span>' : ''}</div>
           </div>
-          <button class="date-nav__btn" id="nextMonth" type="button" title="Next month">&rsaquo;</button>
-        </div>
-      </div>`;
+          <div class="cal-day-header__meta">
+            ${prog.total > 0 ? `<span>${prog.done}/${prog.total}</span>` : ''}
+            <button class="date-nav__btn" id="backToWeek" type="button" title="Back to week">&times;</button>
+          </div>
+        </div>`;
 
-      // Person filter + legend combined into one toolbar
-      html += `<div class="cal-toolbar">`;
+        html += renderPersonFilter(people, activePerson);
+        html += `<div class="cal-view-enter">`;
+        html += renderDayView({
+          dateKey: viewDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings
+        });
+        html += `</div>`;
+        main.innerHTML = html;
+        bindDayViewEvents();
+        return;
+      }
+
+      // Week or Month view
+      if (currentView === 'week') {
+        const weekEnd = addDays(viewWeekStart, 6);
+        const m1 = MONTH_NAMES[monthNumber(viewWeekStart) - 1];
+        const m2 = monthNumber(viewWeekStart) !== monthNumber(weekEnd) ? ' – ' + MONTH_NAMES[monthNumber(weekEnd) - 1] : '';
+        navLabel = `${m1}${m2} ${yearNumber(viewWeekStart)}`;
+        const todayWeekStart = weekStartForDay(today, weekStartDay);
+        isCurrentPeriod = viewWeekStart === todayWeekStart;
+      } else {
+        navLabel = `${MONTH_NAMES[monthNumber(viewMonth + '-01') - 1]} ${yearNumber(viewMonth + '-01')}`;
+        isCurrentPeriod = viewMonth === today.substring(0, 7);
+      }
+
+      let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay });
       html += renderPersonFilter(people, activePerson);
-      html += `<div class="cal-legend">
-        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:color-mix(in srgb, var(--accent) 40%, transparent)"></span>W</span>
-        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:color-mix(in srgb, var(--warning-text, #b86e00) 40%, transparent)"></span>M</span>
-        <span class="cal-legend__item"><span class="cal-legend__swatch" style="background:var(--success-text, #2e7d32);width:6px;height:6px;border-radius:50%"></span>Done</span>
-      </div>`;
+
+      html += `<div class="cal-view-enter ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
+      if (currentView === 'week') {
+        html += renderWeekView({
+          weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay
+        });
+      } else {
+        html += renderMonthView({
+          viewMonth, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay
+        });
+      }
       html += `</div>`;
 
-      // Single month view (swipe/arrows to navigate)
-      html += renderMonthGrid(viewMonth);
-
       main.innerHTML = html;
-      bindEvents();
+      bindNavEvents();
+      bindPersonFilterEvents();
 
-      // If sheet is already open, update in place (no re-animation)
-      if (selectedDay && document.getElementById('calSheet')) {
-        updateSheet(selectedDay);
-      } else if (selectedDay) {
-        openSheet(selectedDay);
-      } else {
-        closeSheet();
-      }
+      if (currentView === 'week') bindWeekViewEvents();
+      else bindMonthViewEvents();
     }
 
-    // ══════════════════════════════════════════
-    // Bottom sheet for day detail
-    // ══════════════════════════════════════════
-
-    const sheetMount = document.getElementById('sheetMount');
-
-    function buildDayContent(dateKey) {
-      let dayEntries = allSchedule[dateKey] || {};
-      // Filter out suppressed cooldown tasks for future dates
-      if (dateKey > today && suppressedCooldownTaskIds.size > 0) {
-        dayEntries = Object.fromEntries(
-          Object.entries(dayEntries).filter(([_, e]) => !suppressedCooldownTaskIds.has(e.taskId))
-        );
-      }
+    function getDayProgress(dateKey) {
+      const dayEntries = allSchedule[dateKey] || {};
       const filtered = filterByPerson(dayEntries, activePerson);
-      const prog = dayProgress(filtered, completions);
-      const score = dailyScore(filtered, completions, tasks, cats, settings, dateKey, today);
-      const gd = gradeDisplay(score.percentage);
-
-      let html = '';
-
-      if (prog.total === 0) {
-        const calVariant = activePerson ? 'no-match' : (dateKey >= today ? 'future-empty' : 'free-day');
-        const calPersonName = activePerson ? people.find(p => p.id === activePerson)?.name : '';
-        html += renderEmptyState('', '', '', { variant: calVariant, personName: calPersonName });
-      } else {
-        const incomplete = {};
-        const completedEntries = {};
-        for (const [key, entry] of Object.entries(filtered)) {
-          if (isComplete(key, completions)) completedEntries[key] = entry;
-          else incomplete[key] = entry;
-        }
-
-        const groups = groupByFrequency(incomplete, tasks, cats);
-        const sections = [
-          { key: 'events', label: 'Events' },
-          { key: 'monthly', label: 'Monthly' },
-          { key: 'weekly', label: 'Weekly' },
-          { key: 'once', label: 'One-Time' },
-          { key: 'daily', label: 'Daily' }
-        ];
-
-        const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
-        const showHeaders = nonEmpty.length > 1;
-
-        for (const sec of sections) {
-          const entries = groups[sec.key];
-          const sorted = sortEntries(entries, completions);
-          if (sorted.length === 0) continue;
-          if (showHeaders) html += renderTimeHeader(sec.label);
-          for (const [entryKey, entry] of sorted) {
-            const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-            const person = people.find(p => p.id === entry.ownerId);
-            const cat = task.category ? cats[task.category] : null;
-            const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
-            const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
-            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: false, overdue: false, points: { possible: pts, override: ovr }, isEvent: !!cat?.isEvent, showPoints: settings?.showPoints !== false, showTodIconBoth: !!settings?.showTodIconBoth, showTodIconSingle: !!settings?.showTodIconSingle, isPastDaily: dateKey < today && entry.rotationType === 'daily' });
-          }
-        }
-
-        const compArr = Object.entries(completedEntries);
-        if (compArr.length > 0) {
-          html += renderTimeHeader(`Completed (${compArr.length})`);
-          for (const [entryKey, entry] of compArr) {
-            const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-            const person = people.find(p => p.id === entry.ownerId);
-            const cat = task.category ? cats[task.category] : null;
-            const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
-            const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
-            html += renderTaskCard({ entryKey, entry: { ...entry, dateKey }, task, person, category: cat, completed: true, overdue: false, points: { possible: pts, override: ovr }, isEvent: !!cat?.isEvent, showPoints: settings?.showPoints !== false, showTodIconBoth: !!settings?.showTodIconBoth, showTodIconSingle: !!settings?.showTodIconSingle });
-          }
-        }
-      }
-
-      // Compute time remaining (incomplete tasks only)
-      let remainMin = 0;
-      for (const [key, entry] of Object.entries(filtered)) {
-        if (!isComplete(key, completions)) {
-          const task = tasks[entry.taskId];
-          if (task?.estMin) remainMin += task.estMin;
-        }
-      }
-      const rH = Math.floor(remainMin / 60);
-      const rM = remainMin % 60;
-      const timeLeft = rH > 0 ? `${rH}h${rM > 0 ? ' ' + String(rM).padStart(2, '0') + 'm' : ''}` : `${rM}m`;
-
-      return { html, prog, score, gd, timeLeft, remainMin };
+      const taskEntries = Object.fromEntries(
+        Object.entries(filtered).filter(([, e]) => e.type !== 'event')
+      );
+      return dayProgress(taskEntries, completions);
     }
 
-    function openSheet(dateKey) {
-      const { html, prog, score, gd, timeLeft, remainMin } = buildDayContent(dateKey);
-      const dateLabel = formatDateShort(dateKey);
-      const isToday = dateKey === today;
-      const dayTag = isToday ? ' <span class="cal-sheet__today">Today</span>' : '';
-      const gradeHtml = score.possible > 0 ? ` ${renderGradeBadge(gd.grade, gd.tier)}` : '';
-      const summaryParts = [`${prog.done}/${prog.total} done`];
-      if (remainMin > 0) summaryParts.push(`${timeLeft} left`);
+    // ══════════════════════════════════════════
+    // Navigation bindings
+    // ══════════════════════════════════════════
 
-      sheetMount.innerHTML = `<div class="cal-sheet-overlay" id="calSheetOverlay">
-        <div class="cal-sheet" id="calSheet">
-          <div class="cal-sheet__handle"></div>
-          <div class="cal-sheet__header">
-            <div class="cal-sheet__title">${dateLabel}${dayTag}${gradeHtml}</div>
-            <div class="cal-sheet__summary">${summaryParts.join(' · ')}</div>
-          </div>
-          <div class="cal-sheet__progress">
-            <div class="cal-sheet__progress-fill" style="width:${prog.pct}%"></div>
-          </div>
-          <div class="cal-sheet__body">${html}</div>
-        </div>
-      </div>`;
-
-      // Animate in, then lock height so filter changes don't resize
-      requestAnimationFrame(() => {
-        const overlay = document.getElementById('calSheetOverlay');
-        const sheet = document.getElementById('calSheet');
-        if (overlay) overlay.classList.add('active');
-        if (sheet) {
-          sheet.classList.add('active');
-          // After transition completes, lock the sheet height
-          sheet.addEventListener('transitionend', () => {
-            sheet.style.minHeight = sheet.offsetHeight + 'px';
-          }, { once: true });
+    function bindNavEvents() {
+      document.getElementById('prevPeriod')?.addEventListener('click', () => {
+        if (currentView === 'week') {
+          viewWeekStart = addDays(viewWeekStart, -7);
+        } else {
+          const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01') - 2, 1));
+          viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
         }
+        render();
       });
 
-      // Bind overlay click to close
-      document.getElementById('calSheetOverlay')?.addEventListener('click', (e) => {
-        if (e.target.id === 'calSheetOverlay') {
-          selectedDay = null;
-          closeSheet();
+      document.getElementById('nextPeriod')?.addEventListener('click', () => {
+        if (currentView === 'week') {
+          viewWeekStart = addDays(viewWeekStart, 7);
+        } else {
+          const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01'), 1));
+          viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        }
+        render();
+      });
+
+      document.getElementById('goToday')?.addEventListener('click', () => {
+        if (currentView === 'week') viewWeekStart = weekStartForDay(today, weekStartDay);
+        else viewMonth = today.substring(0, 7);
+        render();
+      });
+
+      document.getElementById('viewSwitcher')?.addEventListener('click', () => {
+        currentView = currentView === 'week' ? 'month' : 'week';
+        render();
+      });
+    }
+
+    function bindPersonFilterEvents() {
+      main.querySelectorAll('.person-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activePerson = btn.dataset.personId || null;
+          calPrefs.personFilter = activePerson;
+          saveCalPrefs();
+          if (linkedPerson) {
+            const prefs = { ...(linkedPerson.prefs || {}), calendar: { personFilter: activePerson } };
+            linkedPerson.prefs = prefs;
+            const { id, ...data } = linkedPerson;
+            writePerson(id, data);
+          }
           render();
+        });
+      });
+    }
+
+    // ══════════════════════════════════════════
+    // Week view bindings
+    // ══════════════════════════════════════════
+
+    function bindWeekViewEvents() {
+      main.querySelectorAll('.cal-week__col[data-date]').forEach(col => {
+        col.addEventListener('click', (e) => {
+          if (e.target.classList.contains('cal-week__task-check')) return;
+          viewDay = col.dataset.date;
+          currentView = 'day';
+          render();
+        });
+      });
+
+      main.querySelectorAll('.cal-week__task-check').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          e.stopPropagation();
+          toggleTask(cb.dataset.entryKey, cb.dataset.dateKey);
+        });
+      });
+    }
+
+    function bindMonthViewEvents() {
+      main.querySelectorAll('.cal-grid__cell[data-date]').forEach(cell => {
+        cell.addEventListener('click', () => {
+          viewDay = cell.dataset.date;
+          currentView = 'day';
+          render();
+        });
+      });
+    }
+
+    // ══════════════════════════════════════════
+    // Day view bindings
+    // ══════════════════════════════════════════
+
+    function bindDayViewEvents() {
+      bindPersonFilterEvents();
+
+      document.getElementById('backToWeek')?.addEventListener('click', () => {
+        currentView = defaultView;
+        if (currentView === 'week' && viewDay) {
+          viewWeekStart = weekStartForDay(viewDay, weekStartDay);
+        }
+        viewDay = null;
+        render();
+      });
+
+      main.querySelectorAll('.event-bubble[data-event-id]').forEach(btn => {
+        btn.addEventListener('click', () => openEventDetailSheet(btn.dataset.eventId));
+      });
+
+      main.querySelectorAll('.cal-day__task-check').forEach(btn => {
+        const entryKey = btn.dataset.entryKey;
+        const dateKey = btn.dataset.dateKey;
+        if (btn.dataset.tapBlocked === 'true') {
+          btn.addEventListener('click', () => openTaskSheet(entryKey, dateKey));
+        } else {
+          btn.addEventListener('click', () => toggleTask(entryKey, dateKey));
         }
       });
 
-      bindSheetEvents();
-      bindSheetSwipe();
-    }
+      main.querySelectorAll('.cal-day__task').forEach(row => {
+        let pressTimer = null;
+        let didLongPress = false;
+        const entryKey = row.dataset.entryKey;
+        const dateKey = row.dataset.dateKey;
 
-    function changeSheetDay(delta) {
-      if (!selectedDay) return;
-      selectedDay = addDays(selectedDay, delta);
-      // Update grid selection
-      main.querySelectorAll('.cal-grid__cell--selected').forEach(el => el.classList.remove('cal-grid__cell--selected'));
-      const newCell = main.querySelector(`.cal-grid__cell[data-date="${selectedDay}"]`);
-      if (newCell) newCell.classList.add('cal-grid__cell--selected');
-      // Update sheet title + content
-      const sheet = document.getElementById('calSheet');
-      if (sheet) {
-        const { html, prog, score, gd } = buildDayContent(selectedDay);
-        const dateLabel = formatDateShort(selectedDay);
-        const isToday = selectedDay === today;
-        const dayTag = isToday ? ' <span class="cal-sheet__today">Today</span>' : '';
-        const gradeHtml = score.possible > 0 ? ` ${renderGradeBadge(gd.grade, gd.tier)}` : '';
-        const titleEl = sheet.querySelector('.cal-sheet__title');
-        if (titleEl) titleEl.innerHTML = `${dateLabel}${dayTag}${gradeHtml}`;
-        updateSheet(selectedDay);
-      }
-    }
+        row.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('.cal-day__task-check')) return;
+          didLongPress = false;
+          pressTimer = setTimeout(() => {
+            didLongPress = true;
+            openTaskSheet(entryKey, dateKey);
+          }, settings?.longPressMs ?? 500);
+        });
+        row.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
+        row.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
+        row.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
+        row.addEventListener('contextmenu', (e) => e.preventDefault());
+      });
 
-    function bindSheetSwipe() {
-      const sheet = document.getElementById('calSheet');
-      if (!sheet) return;
+      // Swipe between days
       let sx = 0, sy = 0;
-      sheet.addEventListener('touchstart', (e) => {
+      main.addEventListener('touchstart', (e) => {
         sx = e.touches[0].clientX;
         sy = e.touches[0].clientY;
       }, { passive: true });
-      sheet.addEventListener('touchend', (e) => {
+      main.addEventListener('touchend', (e) => {
         const dx = e.changedTouches[0].clientX - sx;
         const dy = e.changedTouches[0].clientY - sy;
         if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-          changeSheetDay(dx < 0 ? 1 : -1);
+          viewDay = addDays(viewDay, dx < 0 ? 1 : -1);
+          render();
         }
       }, { passive: true });
     }
 
-    function updateSheet(dateKey) {
-      const { html, prog, score, gd, timeLeft, remainMin } = buildDayContent(dateKey);
-      const sheet = document.getElementById('calSheet');
-      if (!sheet) return;
+    // ══════════════════════════════════════════
+    // Completion toggle
+    // ══════════════════════════════════════════
 
-      // Update progress
-      const progFill = sheet.querySelector('.cal-sheet__progress-fill');
-      if (progFill) progFill.style.width = `${prog.pct}%`;
-      const summary = sheet.querySelector('.cal-sheet__summary');
-      const sumParts = [`${prog.done}/${prog.total} done`];
-      if (remainMin > 0) sumParts.push(`${timeLeft} left`);
-      if (summary) summary.textContent = sumParts.join(' · ');
+    async function toggleTask(entryKey, dateKey) {
+      if (!entryKey) return;
+      const wasComplete = isComplete(entryKey, completions);
 
-      // Update grade badge in title
-      const titleEl = sheet.querySelector('.cal-sheet__title');
-      if (titleEl) {
-        const existingBadge = titleEl.querySelector('.grade-badge');
-        const newBadgeHtml = score.possible > 0 ? ` ${renderGradeBadge(gd.grade, gd.tier)}` : '';
-        if (existingBadge) existingBadge.outerHTML = newBadgeHtml;
-        else if (newBadgeHtml) titleEl.insertAdjacentHTML('beforeend', newBadgeHtml);
+      if (wasComplete) {
+        delete completions[entryKey];
+        await removeCompletion(entryKey);
+      } else {
+        const record = {
+          completedAt: firebase.database.ServerValue.TIMESTAMP,
+          completedBy: 'calendar'
+        };
+        const pendingVal = pendingSliderOverride?.entryKey === entryKey ? pendingSliderOverride.value : null;
+        const savedVal = (allSchedule[dateKey] || {})[entryKey]?.pointsOverride;
+        const overrideVal = pendingVal ?? savedVal ?? null;
+        if (overrideVal != null && overrideVal !== 100) {
+          record.pointsOverride = overrideVal;
+        }
+        pendingSliderOverride = null;
+
+        if (dateKey < today && record.pointsOverride == null) {
+          const entry = (allSchedule[dateKey] || {})[entryKey];
+          const task = entry ? tasks[entry.taskId] : null;
+          const cat = task?.category ? cats[task.category] : null;
+          if (!cat?.isEvent && !task?.exempt) {
+            record.pointsOverride = settings?.pastDueCreditPct ?? 75;
+            record.isLate = true;
+          }
+        }
+        completions[entryKey] = record;
+        await writeCompletion(entryKey, record);
+
+        const dayEntries = allSchedule[dateKey] || {};
+        const entry = dayEntries[entryKey];
+        if (entry) {
+          const task = tasks[entry.taskId];
+          if (task && task.rotation === 'once') {
+            task.status = 'completed';
+            await writeTask(entry.taskId, task);
+          }
+        }
       }
 
-      // Update body
-      const body = sheet.querySelector('.cal-sheet__body');
-      if (body) body.innerHTML = html;
+      const toggledEntry = (allSchedule[dateKey] || {})[entryKey];
+      if (toggledEntry) {
+        const toggledTask = tasks[toggledEntry.taskId];
+        if (toggledTask?.cooldownDays > 0) {
+          const cdUpdates = rebuildSingleTaskSchedule(
+            toggledEntry.taskId, toggledTask, today, allSchedule, completions, people, settings, tasks, catsObj
+          );
+          if (Object.keys(cdUpdates).length > 0) {
+            await multiUpdate(cdUpdates);
+            allSchedule = await readAllSchedule() || {};
+            suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
+          }
+        }
+      }
 
-      bindSheetEvents();
+      render();
     }
 
-    // AbortController for sheet event listeners — aborted before each rebind
-    // to prevent listener accumulation when updateSheet is called repeatedly.
-    let sheetEventsController = null;
+    // ══════════════════════════════════════════
+    // Universal Add Menu
+    // ══════════════════════════════════════════
 
-    function bindSheetEvents() {
-      // Tear down previous listeners if any
-      if (sheetEventsController) sheetEventsController.abort();
-      sheetEventsController = new AbortController();
-      const signal = sheetEventsController.signal;
+    function openAddMenu() {
+      const options = [
+        { key: 'event', label: 'New Event', icon: '📅' },
+        { key: 'task', label: 'New Task', icon: '✅' }
+      ];
+      const html = renderAddMenu(options);
+      taskSheetMount.innerHTML = renderBottomSheet(html);
+      requestAnimationFrame(() => {
+        document.getElementById('bottomSheet')?.classList.add('active');
+      });
 
-      // Bind task cards in sheet: tap to toggle, long-press for detail sheet
-      // Movement threshold (px) — cancel long-press if finger moves more than this (scroll detection)
-      const PRESS_MOVE_THRESHOLD = 10;
-      sheetMount.querySelectorAll('.task-card').forEach(btn => {
-        let pressTimer = null;
-        let didLongPress = false;
-        let startX = 0, startY = 0;
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeTaskSheet();
+      });
 
-        const startPress = (e) => {
-          e.stopPropagation();
-          didLongPress = false;
-          startX = e.clientX; startY = e.clientY;
-          pressTimer = setTimeout(() => {
-            didLongPress = true;
-            pressTimer = null;
-            openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
-          }, settings?.longPressMs ?? 500);
-        };
-
-        const movePress = (e) => {
-          if (pressTimer && (Math.abs(e.clientX - startX) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - startY) > PRESS_MOVE_THRESHOLD)) {
-            clearTimeout(pressTimer); pressTimer = null;
+      taskSheetMount.querySelectorAll('.add-menu__item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = btn.dataset.action;
+          closeTaskSheet();
+          if (action === 'event') {
+            setTimeout(() => openEventForm(), 320);
+          } else if (action === 'task') {
+            setTimeout(() => openQuickAddSheet(), 320);
           }
-        };
-
-        const endPress = (e) => {
-          e.stopPropagation();
-          clearTimeout(pressTimer);
-          pressTimer = null;
-          if (!didLongPress) {
-            // Block tap on past incomplete daily tasks — must use detail sheet
-            const ek = btn.dataset.entryKey;
-            const dk = btn.dataset.dateKey;
-            const entry = (allSchedule[dk] || {})[ek];
-            if (entry && dk < today && entry.rotationType === 'daily' && !isComplete(ek, completions)) {
-              openTaskSheet(ek, dk);
-              return;
-            }
-            toggleTask(ek, dk);
-          }
-        };
-
-        const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
-
-        btn.addEventListener('pointerdown', startPress, { signal });
-        btn.addEventListener('pointermove', movePress, { signal });
-        btn.addEventListener('pointerup', endPress, { signal });
-        btn.addEventListener('pointerleave', cancelPress, { signal });
-        btn.addEventListener('pointercancel', cancelPress, { signal });
-        btn.addEventListener('contextmenu', (e) => e.preventDefault(), { signal });
+        });
       });
     }
 
-    function closeSheet() {
-      if (sheetEventsController) { sheetEventsController.abort(); sheetEventsController = null; }
-      const overlay = document.getElementById('calSheetOverlay');
-      const sheet = document.getElementById('calSheet');
-      if (overlay) {
-        overlay.classList.remove('active');
-        sheet?.classList.remove('active');
-        setTimeout(() => { sheetMount.innerHTML = ''; }, 300);
-      } else {
-        sheetMount.innerHTML = '';
-      }
+    document.getElementById('headerAddTask')?.addEventListener('click', openAddMenu);
+
+    // ══════════════════════════════════════════
+    // Event Form (Create / Edit)
+    // ══════════════════════════════════════════
+
+    function openEventForm(existingEventId = null) {
+      const event = existingEventId ? events[existingEventId] : {};
+      const mode = existingEventId ? 'edit' : 'create';
+      const dateKey = viewDay || today;
+      const html = renderEventForm({ event, eventId: existingEventId, people, dateKey, mode });
+      taskSheetMount.innerHTML = renderBottomSheet(html);
+
+      requestAnimationFrame(() => {
+        document.getElementById('bottomSheet')?.classList.add('active');
+        if (mode === 'create') document.getElementById('ef_name')?.focus();
+      });
+
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeTaskSheet();
+      });
+
+      document.getElementById('ef_allDay')?.addEventListener('change', (e) => {
+        const hide = e.target.checked;
+        document.getElementById('ef_timeGroup').style.display = hide ? 'none' : '';
+        document.getElementById('ef_endTimeGroup').style.display = hide ? 'none' : '';
+      });
+
+      document.querySelectorAll('#ef_colors .dt-color-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#ef_colors .dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
+          btn.classList.add('dt-color-btn--active');
+        });
+      });
+
+      document.querySelectorAll('#ef_people .chip--selectable').forEach(chip => {
+        chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
+      });
+
+      document.getElementById('ef_cancel')?.addEventListener('click', closeTaskSheet);
+
+      document.getElementById('ef_save')?.addEventListener('click', async () => {
+        const name = document.getElementById('ef_name')?.value.trim();
+        if (!name) { document.getElementById('ef_name')?.focus(); return; }
+
+        const selectedPeople = [];
+        document.querySelectorAll('#ef_people .chip--active').forEach(c => {
+          if (c.dataset.personId) selectedPeople.push(c.dataset.personId);
+        });
+
+        const selectedColor = document.querySelector('#ef_colors .dt-color-btn--active')?.dataset.color
+          || (selectedPeople[0] ? people.find(p => p.id === selectedPeople[0])?.color : null)
+          || '#4285f4';
+
+        const eventData = {
+          name,
+          date: document.getElementById('ef_date')?.value || today,
+          allDay: document.getElementById('ef_allDay')?.checked || false,
+          startTime: document.getElementById('ef_allDay')?.checked ? null : (document.getElementById('ef_startTime')?.value || null),
+          endTime: document.getElementById('ef_allDay')?.checked ? null : (document.getElementById('ef_endTime')?.value || null),
+          color: selectedColor,
+          people: selectedPeople,
+          location: document.getElementById('ef_location')?.value.trim() || null,
+          notes: document.getElementById('ef_notes')?.value.trim() || null,
+          url: document.getElementById('ef_url')?.value.trim() || null,
+          recurrence: null,
+          reminders: null,
+          createdDate: today
+        };
+
+        const eventId = existingEventId;
+        if (eventId) {
+          await writeEvent(eventId, eventData);
+          events[eventId] = eventData;
+        } else {
+          const newId = await pushEvent(eventData);
+          events[newId] = eventData;
+
+          const schedKey = `sched_${Date.now()}_event`;
+          await multiUpdate({
+            [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId }
+          });
+        }
+
+        closeTaskSheet();
+        await loadData();
+        render();
+      });
+
+      document.getElementById('ef_delete')?.addEventListener('click', async () => {
+        if (!existingEventId) return;
+        if (!confirm('Delete this event?')) return;
+        await removeEvent(existingEventId);
+        delete events[existingEventId];
+
+        const updates = {};
+        for (const [dk, dayEntries] of Object.entries(allSchedule)) {
+          for (const [ek, entry] of Object.entries(dayEntries || {})) {
+            if (entry.type === 'event' && entry.eventId === existingEventId) {
+              updates[`schedule/${dk}/${ek}`] = null;
+            }
+          }
+        }
+        if (Object.keys(updates).length > 0) await multiUpdate(updates);
+
+        closeTaskSheet();
+        await loadData();
+        render();
+      });
     }
 
     // ══════════════════════════════════════════
-    // Task detail bottom sheet (long-press)
+    // Event Detail Sheet
     // ══════════════════════════════════════════
 
-    const taskSheetMount = document.getElementById('taskSheetMount');
+    function openEventDetailSheet(eventId) {
+      const event = events[eventId];
+      if (!event) return;
+      const html = renderEventDetailSheet(eventId, event, people);
+      taskSheetMount.innerHTML = renderBottomSheet(html);
+
+      requestAnimationFrame(() => {
+        document.getElementById('bottomSheet')?.classList.add('active');
+      });
+
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeTaskSheet();
+      });
+
+      document.getElementById('eventEdit')?.addEventListener('click', () => {
+        closeTaskSheet();
+        setTimeout(() => openEventForm(eventId), 320);
+      });
+
+      document.getElementById('eventDelete')?.addEventListener('click', async () => {
+        if (!confirm('Delete this event?')) return;
+        await removeEvent(eventId);
+        delete events[eventId];
+        const updates = {};
+        for (const [dk, dayEntries] of Object.entries(allSchedule)) {
+          for (const [ek, entry] of Object.entries(dayEntries || {})) {
+            if (entry.type === 'event' && entry.eventId === eventId) {
+              updates[`schedule/${dk}/${ek}`] = null;
+            }
+          }
+        }
+        if (Object.keys(updates).length > 0) await multiUpdate(updates);
+        closeTaskSheet();
+        await loadData();
+        render();
+      });
+    }
+
+    // ══════════════════════════════════════════
+    // Task detail bottom sheet (long-press) — carried from v1
+    // ══════════════════════════════════════════
+
+    function closeTaskSheet() {
+      if (pendingSliderOverride) {
+        const { entryKey, dateKey: sliderDateKey, value } = pendingSliderOverride;
+        const override = value === 100 ? null : value;
+        pendingSliderOverride = null;
+        multiUpdate({ [`schedule/${sliderDateKey}/${entryKey}/pointsOverride`]: override });
+        const dayEntries = allSchedule[sliderDateKey] || {};
+        if (dayEntries[entryKey]) dayEntries[entryKey].pointsOverride = override;
+        if (isComplete(entryKey, completions)) {
+          completions[entryKey].pointsOverride = override;
+          writeCompletion(entryKey, completions[entryKey]);
+        }
+      }
+      const overlay = document.getElementById('bottomSheet');
+      if (overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
+      } else {
+        taskSheetMount.innerHTML = '';
+      }
+    }
 
     function openTaskSheet(entryKey, dateKey) {
       const dayEntries = allSchedule[dateKey] || {};
@@ -567,7 +654,6 @@
       const completion = completions[entryKey];
       const currentOverride = completion?.pointsOverride ?? entry.pointsOverride ?? null;
 
-      // Grade preview
       const filtered = filterByPerson(dayEntries, activePerson);
       const score = dailyScore(filtered, completions, tasks, cats, settings, dateKey, today);
       const gd = gradeDisplay(score.percentage);
@@ -595,43 +681,18 @@
       });
 
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
-
       requestAnimationFrame(() => {
-        const overlay = document.getElementById('bottomSheet');
-        if (overlay) overlay.classList.add('active');
+        document.getElementById('bottomSheet')?.classList.add('active');
       });
-
       bindTaskSheetEvents(entryKey, dateKey);
     }
 
-    async function closeTaskSheet() {
-      if (pendingSliderOverride) {
-        const { entryKey, dateKey: sliderDateKey, value } = pendingSliderOverride;
-        const override = value === 100 ? null : value;
-        pendingSliderOverride = null;
-        await multiUpdate({ [`schedule/${sliderDateKey}/${entryKey}/pointsOverride`]: override });
-        const dayEntries = allSchedule[sliderDateKey] || {};
-        if (dayEntries[entryKey]) dayEntries[entryKey].pointsOverride = override;
-        if (isComplete(entryKey, completions)) {
-          completions[entryKey].pointsOverride = override;
-          await writeCompletion(entryKey, completions[entryKey]);
-        }
-      }
-      const overlay = document.getElementById('bottomSheet');
-      if (overlay) {
-        overlay.classList.remove('active');
-        setTimeout(() => { taskSheetMount.innerHTML = ''; if (selectedDay) updateSheet(selectedDay); }, 300);
-      }
-    }
-
     function bindTaskSheetEvents(entryKey, dateKey) {
-      // Close on overlay click
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', (e) => {
         if (e.target === overlay) closeTaskSheet();
       });
 
-      // Toggle complete
       document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
         await closeTaskSheet();
         await toggleTask(entryKey, dateKey);
@@ -652,7 +713,6 @@
         if (notesAddBtn) notesAddBtn.style.display = 'none';
         if (notesInput) notesInput.focus();
       }
-
       function closeNotesEditor() {
         if (notesEditor) notesEditor.style.display = 'none';
         const originalText = document.getElementById('notesText')?.textContent?.trim() || '';
@@ -660,11 +720,9 @@
         if (notesDisplay) notesDisplay.style.display = originalText ? '' : 'none';
         if (notesAddBtn) notesAddBtn.style.display = originalText ? 'none' : '';
       }
-
       notesAddBtn?.addEventListener('click', openNotesEditor);
       notesEditBtn?.addEventListener('click', openNotesEditor);
       notesCancelBtn?.addEventListener('click', closeNotesEditor);
-
       notesSaveBtn?.addEventListener('click', async () => {
         const noteValue = notesInput?.value.trim() || null;
         const ek = notesSaveBtn.dataset.entryKey;
@@ -678,21 +736,18 @@
         closeNotesEditor();
       });
 
-      // Points slider — stores pending override, saved on sheet close or toggle-complete
+      // Points slider
       const slider = document.getElementById('pointsSlider');
       if (slider) {
         const dayEntries = allSchedule[dateKey] || {};
-
         slider.addEventListener('input', () => {
           const val = parseInt(slider.value, 10);
           const basePts = parseInt(slider.dataset.basePts, 10);
           const earnedPts = Math.round(basePts * (val / 100));
           const label = document.getElementById('sliderValueLabel');
           if (label) label.textContent = `${val}% (${earnedPts}pt)`;
-
           pendingSliderOverride = { entryKey, dateKey, value: val };
 
-          // Live grade preview — temporarily inject override into completions
           const filtered = filterByPerson(dayEntries, activePerson);
           const hadRecord = !!completions[entryKey];
           const origRecord = completions[entryKey];
@@ -708,7 +763,6 @@
           else delete completions[entryKey];
         });
 
-        // Reset to 100% button
         const resetBtn = document.getElementById('sliderReset');
         if (resetBtn) {
           resetBtn.addEventListener('click', () => {
@@ -759,7 +813,6 @@
         });
       });
 
-      // Delegate+Move date picker
       document.getElementById('delegateMoveDatePicker')?.addEventListener('change', async (e) => {
         const newDate = e.target.value;
         if (!newDate || !pendingDelegateOwnerId) return;
@@ -782,7 +835,7 @@
         await loadData(); render();
       });
 
-      // Move — directly open date picker
+      // Move
       document.getElementById('sheetMove')?.addEventListener('click', () => {
         const picker = document.getElementById('moveDatePicker');
         if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
@@ -836,14 +889,12 @@
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
       initOwnerChips('et_owners');
       requestAnimationFrame(() => {
-        const overlay = document.getElementById('bottomSheet');
-        if (overlay) overlay.classList.add('active');
+        document.getElementById('bottomSheet')?.classList.add('active');
       });
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
       document.getElementById('et_cancel')?.addEventListener('click', closeTaskSheet);
 
-      // Assignment mode toggle
       const modeGroup = document.getElementById('et_assignMode');
       if (modeGroup) {
         for (const btn of modeGroup.querySelectorAll('.admin-mode-btn')) {
@@ -854,7 +905,6 @@
         }
       }
 
-      // Rotation change — show/hide dedicated day vs date
       document.getElementById('et_rotation')?.addEventListener('change', (e) => {
         const rot = e.target.value;
         const group = document.getElementById('et_dedicatedDayGroup');
@@ -885,7 +935,6 @@
         }
       });
 
-      // Category change — show/hide event date button
       document.getElementById('et_category')?.addEventListener('change', (e) => {
         const isEvent = e.target.selectedOptions[0]?.dataset.event === '1';
         const eventBtn = document.getElementById('et_eventDateBtn');
@@ -900,7 +949,6 @@
         }
       });
 
-      // Event date icon
       document.getElementById('et_eventDateBtn')?.addEventListener('click', () => {
         const picker = document.getElementById('et_eventDate');
         if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
@@ -939,7 +987,6 @@
         await writeTask(taskId, updated);
         tasks[taskId] = updated;
 
-        // Auto-rebuild future schedule so edits take effect immediately
         const allSched = await readAllSchedule() || {};
         const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, { includeToday: true }, catsObj);
         await multiUpdate(futureUpdates);
@@ -951,146 +998,7 @@
     }
 
     // ══════════════════════════════════════════
-    // Events
-    // ══════════════════════════════════════════
-
-    function bindEvents() {
-      // Month nav
-      document.getElementById('prevMonth')?.addEventListener('click', () => changeMonth(-1));
-      document.getElementById('nextMonth')?.addEventListener('click', () => changeMonth(1));
-      document.getElementById('goThisMonth')?.addEventListener('click', () => {
-        viewMonth = today.substring(0, 7);
-        selectedDay = null;
-        render();
-      });
-
-      // Person filter
-      main.querySelectorAll('.person-pill').forEach(btn => {
-        btn.addEventListener('click', () => {
-          activePerson = btn.dataset.personId || null;
-          if (linkedPerson) {
-            const prefs = { ...(linkedPerson.prefs || {}), calendar: { personFilter: activePerson } };
-            linkedPerson.prefs = prefs;
-            const { id, ...data } = linkedPerson;
-            writePerson(id, data);
-          }
-          render();
-        });
-      });
-
-      // Day cell tap
-      main.querySelectorAll('.cal-grid__cell[data-date]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const dateKey = btn.dataset.date;
-          // Update selected styling
-          main.querySelectorAll('.cal-grid__cell--selected').forEach(el => el.classList.remove('cal-grid__cell--selected'));
-          if (selectedDay === dateKey) {
-            selectedDay = null;
-            closeSheet();
-          } else {
-            selectedDay = dateKey;
-            btn.classList.add('cal-grid__cell--selected');
-            openSheet(dateKey);
-          }
-        });
-      });
-    }
-
-    function changeMonth(delta) {
-      const mStart = `${viewMonth}-01`;
-      const d = new Date(Date.UTC(yearNumber(mStart), monthNumber(mStart) - 1 + delta, 1));
-      viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-      selectedDay = null;
-      render();
-    }
-
-    // ── Swipe to change month on calendar grid ──
-    let calSwipeStartX = 0;
-    let calSwipeStartY = 0;
-    main.addEventListener('touchstart', (e) => {
-      if (e.target.closest('.cal-sheet') || e.target.closest('.task-card')) return;
-      calSwipeStartX = e.touches[0].clientX;
-      calSwipeStartY = e.touches[0].clientY;
-    }, { passive: true });
-    main.addEventListener('touchend', (e) => {
-      if (e.target.closest('.cal-sheet') || e.target.closest('.task-card')) return;
-      const dx = e.changedTouches[0].clientX - calSwipeStartX;
-      const dy = e.changedTouches[0].clientY - calSwipeStartY;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        changeMonth(dx < 0 ? 1 : -1);
-      }
-    }, { passive: true });
-
-    // ══════════════════════════════════════════
-    // Completion toggle
-    // ══════════════════════════════════════════
-
-    async function toggleTask(entryKey, dateKey) {
-      if (!entryKey) return;
-      const wasComplete = isComplete(entryKey, completions);
-
-      if (wasComplete) {
-        delete completions[entryKey];
-        await removeCompletion(entryKey);
-      } else {
-        const record = {
-          completedAt: firebase.database.ServerValue.TIMESTAMP,
-          completedBy: 'calendar'
-        };
-        const pendingVal = pendingSliderOverride?.entryKey === entryKey ? pendingSliderOverride.value : null;
-        const savedVal = (allSchedule[dateKey] || {})[entryKey]?.pointsOverride;
-        const overrideVal = pendingVal ?? savedVal ?? null;
-        if (overrideVal != null && overrideVal !== 100) {
-          record.pointsOverride = overrideVal;
-        }
-        pendingSliderOverride = null;
-        // Late completion: apply penalty if completing a past-date task with no prior override
-        if (dateKey < today && record.pointsOverride == null) {
-          const entry = (allSchedule[dateKey] || {})[entryKey];
-          const task = entry ? tasks[entry.taskId] : null;
-          const cat = task?.category ? cats[task.category] : null;
-          if (!cat?.isEvent && !task?.exempt) {
-            record.pointsOverride = settings?.pastDueCreditPct ?? 75;
-            record.isLate = true;
-          }
-        }
-        completions[entryKey] = record;
-        await writeCompletion(entryKey, record);
-
-        // Auto-archive one-time tasks on completion
-        const dayEntries = allSchedule[dateKey] || {};
-        const entry = dayEntries[entryKey];
-        if (entry) {
-          const task = tasks[entry.taskId];
-          if (task && task.rotation === 'once') {
-            task.status = 'completed';
-            await writeTask(entry.taskId, task);
-          }
-        }
-      }
-
-      // Cooldown task rebuild
-      const toggledEntry = (allSchedule[dateKey] || {})[entryKey];
-      if (toggledEntry) {
-        const toggledTask = tasks[toggledEntry.taskId];
-        if (toggledTask?.cooldownDays > 0) {
-          const cdUpdates = rebuildSingleTaskSchedule(
-            toggledEntry.taskId, toggledTask, today, allSchedule, completions, people, settings, tasks, catsObj
-          );
-          if (Object.keys(cdUpdates).length > 0) {
-            await multiUpdate(cdUpdates);
-            allSchedule = await readAllSchedule() || {};
-            suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
-          }
-        }
-      }
-
-      // Refresh grid + sheet content (render handles updateSheet if sheet is open)
-      render();
-    }
-
-    // ══════════════════════════════════════════
-    // Quick-add task
+    // Quick-add task — carried from v1
     // ══════════════════════════════════════════
 
     function openQuickAddSheet() {
@@ -1101,15 +1009,13 @@
       initOwnerChips('qa_owners');
 
       requestAnimationFrame(() => {
-        const overlay = document.getElementById('bottomSheet');
-        if (overlay) overlay.classList.add('active');
+        document.getElementById('bottomSheet')?.classList.add('active');
         document.getElementById('qa_name')?.focus();
       });
 
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
 
-      // Show/hide event date icon when category changes
       document.getElementById('qa_category')?.addEventListener('change', (e) => {
         const opt = e.target.selectedOptions[0];
         const isEvent = opt?.dataset.event === '1';
@@ -1125,13 +1031,11 @@
         }
       });
 
-      // Event date icon — open native date picker
       document.getElementById('qa_eventDateBtn')?.addEventListener('click', () => {
         const picker = document.getElementById('qa_eventDate');
         if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
       });
 
-      // Rotation change — show/hide dedicated day vs date
       document.getElementById('qa_rotation')?.addEventListener('change', (e) => {
         const rot = e.target.value;
         const group = document.getElementById('qa_dedicatedDayGroup');
@@ -1155,7 +1059,6 @@
             dateRow.style.display = 'none';
             label.innerHTML = 'Dedicated Day ' + btnHtml;
           }
-          // Re-bind event date button after innerHTML replace
           label?.querySelector('#qa_eventDateBtn')?.addEventListener('click', () => {
             const picker = document.getElementById('qa_eventDate');
             if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
@@ -1163,7 +1066,6 @@
         }
       });
 
-      // Assignment mode toggle
       const qaModeGroup = document.getElementById('qa_assignMode');
       if (qaModeGroup) {
         for (const btn of qaModeGroup.querySelectorAll('.admin-mode-btn')) {
@@ -1186,11 +1088,9 @@
         const eventDate = document.getElementById('qa_eventDate')?.value || '';
         const rotation = isEvent && eventDate ? 'once' : (document.getElementById('qa_rotation')?.value || 'daily');
 
-        // Read assignment mode
         const activeModeBtn = document.querySelector('#qa_assignMode .admin-mode-btn--active');
         const assignMode = isEvent ? 'fixed' : (activeModeBtn?.dataset.mode || 'rotate');
 
-        // Read dedicated day/date
         const dayVal = document.getElementById('qa_daySelect')?.value;
         const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
         const dedicatedDate = isEvent && eventDate ? eventDate : (rotation === 'once' ? (document.getElementById('qa_dedicatedDate')?.value || null) : null);
@@ -1198,29 +1098,20 @@
         const eventTime = isEvent ? (document.getElementById('qa_eventTime')?.value || null) : null;
         const notes = isEvent ? (document.getElementById('qa_notes')?.value.trim() || null) : null;
         const taskData = {
-          name,
-          rotation,
+          name, rotation,
           difficulty: document.getElementById('qa_difficulty')?.value || 'medium',
           timeOfDay: document.getElementById('qa_timeOfDay')?.value || 'anytime',
           estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('qa_estMin')?.value, 10)),
-          category: catKey,
-          owners,
-          ownerAssignmentMode: assignMode,
-          dedicatedDay,
-          dedicatedDate,
-          eventTime,
-          notes,
+          category: catKey, owners,
+          ownerAssignmentMode: assignMode, dedicatedDay, dedicatedDate, eventTime, notes,
           cooldownDays: parseInt(document.getElementById('qa_cooldown')?.value, 10) || null,
           exempt: !!document.getElementById('qa_exempt')?.checked,
-          status: 'active',
-          createdDate: today
+          status: 'active', createdDate: today
         };
 
         const newId = await pushTask(taskData);
         tasks[newId] = taskData;
 
-        // Create schedule entry: event/once with date goes on that date, otherwise today
-        // Skip today for weekly/monthly with dedicatedDay that isn't today
         const skipToday = (taskData.rotation === 'once' && dedicatedDate && dedicatedDate !== today)
           || ((taskData.rotation === 'weekly' || taskData.rotation === 'monthly') && taskData.dedicatedDay != null && dayOfWeek(today) !== taskData.dedicatedDay);
         const schedDate = dedicatedDate || today;
@@ -1242,7 +1133,6 @@
               }
             }
           } else {
-            // Use proper rotation owner instead of always first owner
             const ownerId = mode === 'fixed' ? owners[0] : getRotationOwner(taskData, today, newId);
             if (timeOfDay === 'both') {
               schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
@@ -1254,7 +1144,6 @@
           await multiUpdate(schedUpdates);
         }
 
-        // Rebuild future schedule so the new task appears on upcoming days
         const existingSched = await readAllSchedule() || {};
         const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, existingSched, undefined, catsObj);
         await multiUpdate(futureUpdates);
@@ -1265,13 +1154,39 @@
       });
     }
 
-    document.getElementById('headerAddTask')?.addEventListener('click', openQuickAddSheet);
+    // ── Theme picker ──
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
       openDeviceThemeSheet(document.getElementById('taskSheetMount'), settings?.theme);
     });
 
     // ══════════════════════════════════════════
-    // Real-time listener
+    // Swipe navigation (week/month)
+    // ══════════════════════════════════════════
+
+    let swipeStartX = 0, swipeStartY = 0;
+    main.addEventListener('touchstart', (e) => {
+      if (currentView === 'day') return;
+      swipeStartX = e.touches[0].clientX;
+      swipeStartY = e.touches[0].clientY;
+    }, { passive: true });
+    main.addEventListener('touchend', (e) => {
+      if (currentView === 'day') return;
+      const dx = e.changedTouches[0].clientX - swipeStartX;
+      const dy = e.changedTouches[0].clientY - swipeStartY;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        const delta = dx < 0 ? 1 : -1;
+        if (currentView === 'week') {
+          viewWeekStart = addDays(viewWeekStart, delta * 7);
+        } else {
+          const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01') - 1 + delta, 1));
+          viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        }
+        render();
+      }
+    }, { passive: true });
+
+    // ══════════════════════════════════════════
+    // Real-time listeners
     // ══════════════════════════════════════════
 
     const debouncedRender = debounce(() => render(), 100);
@@ -1279,6 +1194,11 @@
     onCompletions((val) => {
       completions = val || {};
       suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
+      debouncedRender();
+    });
+
+    onEvents((val) => {
+      events = val || {};
       debouncedRender();
     });
 
