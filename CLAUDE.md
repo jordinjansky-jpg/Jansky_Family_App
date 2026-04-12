@@ -23,7 +23,7 @@ git push origin main
 ├── index.html            ← Dashboard shell — loads dashboard.js
 ├── dashboard.js          ← Dashboard logic — daily task list, completion toggling, progress, overdue banner
 ├── person.html           ← Per-person PWA entry (?person=Name) — installable home screen shortcut with unique manifest (served by sw.js)
-├── calendar.html         ← Single-month grid with swipe nav, day detail bottom sheet, event color bars
+├── calendar.html         ← Three-view calendar hub (week default, month, day/agenda) with swipe nav and universal "+" menu
 ├── scoreboard.html       ← Leaderboard, grades table, trend sparklines, category breakdown
 ├── tracker.html          ← Weekly/monthly task status rows, filters, skipped task detection
 ├── admin.html            ← PIN-gated admin (tasks, people, categories, settings, theme, schedule, data, debug)
@@ -38,6 +38,7 @@ git push origin main
 │   ├── components.js     ← All reusable HTML rendering: cards, sheets, forms, filters (~600 lines)
 │   ├── dom-helpers.js    ← Small DOM-binding helpers (initOwnerChips, getSelectedOwners). Only shared module besides theme.js permitted to touch DOM.
 │   ├── theme.js          ← 5 theme presets, CSS variable generation, localStorage cache (~260 lines)
+│   ├── calendar-views.js ← Calendar view renderers (week, day, month grids)
 │   ├── utils.js          ← Date math, timezone handling, formatting, debounce (Intl-based, no libraries)
 └── styles/
     ├── base.css          ← CSS variables, reset, typography
@@ -62,17 +63,22 @@ git push origin main
 - **CSS split:** Styles are split into 10 files by responsibility. Each page loads only the CSS it needs via multiple `<link>` tags. Order matters: base → layout → components → page-specific → responsive.
 - **Offline support:** Service worker caches the full app shell (network-first strategy). Firebase API calls are network-only. The app loads and functions offline; writes queue and sync on reconnect.
 - **Real-time updates:** Dashboard, calendar, and kid mode use Firebase `onValue` listeners for completions and schedule. Renders are debounced at 100ms. Scoreboard and tracker use one-shot reads (historical data).
-- **Swipe gestures:** Horizontal swipe anywhere on page navigates between days (dashboard/kid) or months (calendar).
+- **Swipe gestures:** Horizontal swipe anywhere on page navigates between days (dashboard/kid) or weeks/months (calendar).
+- **Events are a separate Firebase node** (`rundown/events/`), not tasks with an `isEvent` flag. Events have their own color, people array, and CRUD flow. They do not participate in scoring, completions, or scheduler rotation.
 
 ## Firebase Schema (`rundown/`)
 ```
 rundown/
-├── settings          ← flat object { appName, familyName, timezone, weekendWeight, theme: {...} }
+├── settings          ← flat object { appName, familyName, timezone, weekendWeight, theme: {...},
+│                         calendarDefaults: { defaultView, density, weekStartDay } }
 ├── people/
 │   └── {pushId}      ← { name, color }
 ├── categories/
 │   └── {pushId}      ← { name, icon, isEvent?, eventColor?, weightPercent?, showIcon?, isDefault?, pinProtected?,
 │                         dailyLimitPerPerson?, dailyLimitPerHousehold? }
+├── events/
+│   └── {pushId}      ← { name, date, allDay, startTime?, endTime?, color, people[],
+│                         location?, notes?, url?, recurrence?, reminders?, createdDate }
 ├── tasks/
 │   └── {pushId}      ← { name, rotation, owners[], ownerAssignmentMode,
 │                         timeOfDay, dedicatedDay?, dedicatedDate?, cooldownDays?, estMin,
@@ -83,7 +89,7 @@ rundown/
 │                       eventTime: 'HH:MM' (24h) | null — appointment time for event tasks
 ├── schedule/
 │   └── {YYYY-MM-DD}/
-│       └── {entryKey} ← { taskId, ownerId, rotationType, ownerAssignmentMode, timeOfDay, notes? }
+│       └── {entryKey} ← { type: 'task'|'event', taskId?, eventId?, ownerId, rotationType, ownerAssignmentMode, timeOfDay, notes? }
 │                       entryKey format: sched_{timestamp}_{counter}
 ├── completions/
 │   └── {entryKey}     ← { completedAt: ServerValue.TIMESTAMP, completedBy: 'dashboard'|'calendar'|'kid-mode',
@@ -152,10 +158,149 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - Add meta tags, manifest.json, favicon, PWA support, event time field, auto-rebuild on task edit
 
 ## Backlog
-- **Push notifications** — Daily reminders, task delegation alerts. Requires FCM + server-side trigger (Cloud Function or Cloudflare Worker). High effort (~2-3 sessions). See notifications uplift assessment from 2026-04-03.
-- **Rewards & milestones** — Achievement badges for streaks (10-day, 30-day, 100-day), grade milestones (first A+ week), and cumulative point thresholds. Parent-defined rewards linked to grade or point targets ("A+ this week → pick Friday's dinner"). Optional rewards store where kids spend earned points. Data: `rundown/rewards/{pushId}` for definitions, `rundown/achievements/{personId}/{achievementKey}` for unlocked badges. UI: new tab or scoreboard sub-section. Medium effort (~2 sessions).
-- **Task timer / stopwatch** — Visible countdown in kid mode and dashboard using the existing `estMin` field. Start button on task card or detail sheet launches a timer overlay. Optional: auto-complete when timer finishes. Sounds/vibration at completion. Consider: timer should persist across page navigation (use sessionStorage or a small state module). Purely client-side — no schema changes. Medium effort (~1-2 sessions).
-- **Week view on calendar** — Dense 7-day view showing tasks by time-of-day slot (AM/PM/Anytime rows). Swipe to navigate weeks (reuse existing swipe infra). Toggle between month and week view via a button in the calendar header. Uses the same schedule data — just a different rendering layout. Medium effort (~1-2 sessions).
-- **Flexible recurrence** — Support "every N days", "every other week", "1st and 15th of month", "every other Tuesday" beyond the current daily/weekly/monthly/once. Schema: add `recurrenceRule` object to task (e.g., `{ type: 'interval', every: 14 }` or `{ type: 'dates', days: [1, 15] }`). Scheduler interprets the rule during placement. High complexity — the scheduler is already ~850 lines. Consider: extend `placeDailyTask` with interval support, add new `placeCustomTask` for date-based rules. High effort (~2 sessions).
-- **Task delegation / swaps** — Family members propose trades ("I'll do your dishes if you do my laundry"). Schema: `rundown/trades/{pushId}` with `{ proposerId, proposerTaskKey, targetId, targetTaskKey, status: 'pending'|'accepted'|'declined', createdAt }`. Accepting a trade swaps `ownerId` on the two schedule entries. UI: notification badge on dashboard, trade proposal from detail sheet, accept/decline in a trades list. Medium-high effort (~2 sessions).
-- **Vacation / skip mode** — Mark a person as "away" for a date range. Schema: `rundown/people/{id}/away: [{ start, end }]`. Scheduler skips placing tasks for away people in their date range. Optionally redistribute their tasks to other owners (rotate-mode only) or mark as exempt for scoring. UI: per-person "Away" toggle in admin with date picker. Admin could also set a family-wide "vacation mode" that pauses all non-daily tasks. Medium effort (~1-2 sessions).
+
+Product direction: evolve Daily Rundown from a task manager into a **Skylight Calendar competitor** — a free, web-based family hub. The app already has a superior task/scoring engine; the goal is to add the hub features (calendar, meals, lists, display) that make it the family's single go-to screen. Design bar: as clean as Skylight, as easy to use as Google Calendar. All features below run on free tiers (Firebase Spark, Cloudflare free, OpenWeatherMap free, FCM free) except school lunch PDF import which costs ~$0.03/month via Claude API.
+
+### Tier 1 — The Family Hub Transformation (build in order)
+
+**1.1 — Calendar Overhaul (Family Hub)** · Implemented
+
+Three-view calendar (week default, month, day drill-in), separate events node (`rundown/events/`), universal "+" add menu (New Event / New Task), configurable density (cozy/snug), week start day setting, personal preferences via theme button. Design spec: `docs/superpowers/specs/2026-04-12-calendar-overhaul-design.md`
+
+---
+
+**1.2 — Rewards Store** · Medium (~2 sessions) · No dependencies · Cost: $0
+
+Points-based rewards system. Kids earn points from the existing scoring engine and redeem them for parent-defined rewards.
+
+*Core mechanics:*
+- Parents define rewards in admin: name, point cost, optional emoji/icon, optional per-person availability, optional quantity limits.
+- Kids see available rewards and their point balance in kid mode and on the scoreboard.
+- Redemption: kid taps a reward → confirmation → points deducted → redemption logged.
+- Parents see redemption history and can approve/deny if configured to require approval.
+- Achievement badges for milestones: streak thresholds (10-day, 30-day, 100-day), grade milestones (first A+ day, first A+ week), cumulative point thresholds.
+
+*Schema:*
+```
+rundown/rewards/{pushId}       ← { name, pointCost, icon?, perPerson?, maxRedemptions?, requiresApproval? }
+rundown/redemptions/{pushId}   ← { rewardId, personId, pointsSpent, redeemedAt, status: 'completed'|'pending' }
+rundown/achievements/{personId}/{achievementKey} ← { unlockedAt, seen? }
+```
+
+*UI:* New section on scoreboard (rewards shelf with progress bars toward each reward). In kid mode: prominent rewards display with visual progress. In admin: rewards management tab.
+
+---
+
+**1.3 — Meal Planning (Lightweight)** · Medium (~2 sessions) · Depends on 1.1 · Cost: $0
+
+Simple "what are we eating" system — not a recipe database. Answers "what's for dinner?" at a glance from the wall display or phone.
+
+*Core features:*
+- Per-day meal slots: Breakfast, Lunch, Dinner, Snack (configurable — some families only plan dinner).
+- Each entry: meal name + optional recipe URL + optional notes.
+- Recipe links: tap a meal name to open the recipe website. On kiosk/wall display, show a QR code so someone can scan with their phone to pull up the recipe.
+- Saved meals library: builds organically. Every meal you add gets saved. When planning a new day, autocomplete suggests from your library. "Taco Tuesday" should take 2 seconds to add after the first time.
+- Quick-plan: week view in admin or calendar where you can drag saved meals onto day slots.
+- School lunch entries (from PDF import, see 2.3) display distinctly — school emoji, different styling, read-only.
+
+*Schema:*
+```
+rundown/meals/{YYYY-MM-DD}/{slot}  ← { name, url?, notes?, source?: 'manual'|'school' }
+rundown/mealLibrary/{pushId}       ← { name, url?, tags?, lastUsed }
+```
+
+*Display:* Meals appear in the calendar day view (all three views), on the kiosk display, and in kid mode. Keep it visually light — a small section, not competing with events and tasks for attention. Note: the day view's sticky-section architecture supports a 'Meals' section with no structural changes. The universal '+' menu already has a slot reserved for 'Add Meal.'
+
+---
+
+**1.4 — Weather Widget** · Low (~0.5 session) · No dependencies · Cost: $0
+
+Current conditions + forecast on dashboard and calendar. OpenWeatherMap free tier (1,000 calls/day — app uses ~50). Single family location from `rundown/settings`. Show temperature, conditions icon, high/low on calendar day view and kiosk display header. Cache in localStorage (refresh every 30-60 min). Small footprint — ambient info, not a weather app.
+
+---
+
+**1.5 — Kiosk / Wall Display Mode** · Medium (~1-2 sessions) · Depends on 1.1, 1.3, 1.4 · Cost: $0 (hardware ~$175-255 one-time: Raspberry Pi 5 + 27" touchscreen + wall mount)
+
+A dedicated full-screen mode (`display.html`) designed for a 27" wall-mounted touchscreen. This is NOT a passive read-only dashboard — it's the full app in a large-format, always-on layout. The family can do everything from the wall: add events, check off tasks, plan meals, browse the week, drill into any day. Think of it as an iPad app permanently mounted on the kitchen wall, not a PowerPoint slide with checkboxes.
+
+*Default state:* Week overview showing the current week's events, tasks, meals, and weather. This is what you see when you walk into the kitchen — a full picture of the family's week at a glance.
+
+*Full interactivity:*
+- Tap any day to drill into the day/agenda view with full detail.
+- Tap "+" to add events or meals — same easy creation flow as the calendar hub.
+- Tap tasks to check them off, open detail sheets, mark late.
+- Swipe or tap arrows to navigate weeks/months.
+- Tap a person's avatar to switch to their kid-mode view (person-as-navigation).
+- Access the scoreboard, rewards, shopping list from a slide-out menu or tab bar.
+
+*What makes it "kiosk" rather than just "the app on a big screen":*
+- No browser chrome — full-screen, immersive.
+- Larger touch targets and fonts optimized for arm's-length interaction on a 27" display.
+- Auto-wake/sleep on configurable schedule (screen dims at 10pm, brightens at 6am).
+- Optional ambient mode during sleep: clock, tomorrow's first event, weather.
+- No admin access from this view (PIN-protected settings stay on phone only).
+- Designed to launch on boot via Raspberry Pi Chromium `--kiosk` flag or Android tablet full-screen mode.
+
+Note: the density settings (cozy/snug) and responsive side-by-side day view from 1.1 lay direct groundwork for kiosk layout.
+
+*Not just for the wall:* Should also work well on a 10" tablet propped on a kitchen counter. Layout adapts to both 27" landscape and 10" tablet landscape.
+
+---
+
+**1.6 — Shopping Lists** · Medium (~1-2 sessions) · No dependencies · Cost: $0
+
+Shared grocery/shopping lists with real-time Firebase sync. Two people at the store see the same list — items checked off by one update instantly for both.
+
+*Core features:*
+- Quick-add with autocomplete from past items.
+- Tap to cross off (strikethrough, item sinks to bottom of list).
+- Optional category grouping (produce, dairy, frozen, etc.) — categories auto-suggested based on past categorization of the same item.
+- Multiple lists (Grocery, Costco, Target, etc.).
+- Anyone can add/edit — no PIN required.
+- Accessible from nav bar, kiosk display menu, and as a standalone page on phone.
+
+*Schema:*
+```
+rundown/lists/{listId}              ← { name, createdAt, sortOrder }
+rundown/lists/{listId}/items/{id}   ← { name, checked, category?, addedBy?, addedAt }
+```
+
+---
+
+### Tier 2 — Deepening the Platform
+
+**2.1 — Push Notifications** · High (~2-3 sessions) · Depends on 1.1 · Cost: $0 (FCM is free unlimited; Cloudflare Workers free tier is 100K req/day)
+
+Daily reminders, upcoming event alerts (15/30/60 min before), task nudges. Requires FCM (Firebase Cloud Messaging) + Cloudflare Worker for server-side scheduling. Per-person notification preferences (what types, quiet hours). This is the feature that enables "replace Google Calendar" — without buzzing your phone before the dentist appointment, people will keep Google Calendar alongside this app. See notifications uplift assessment from 2026-04-03. Note: `reminders` field is reserved on the `events/` schema for per-event notification configuration.
+
+---
+
+**2.2 — Flexible Recurrence** · High (~2 sessions) · Depends on 1.1 · Cost: $0
+
+Support "every N days", "every other week", "1st and 15th of month", "every other Tuesday" beyond daily/weekly/monthly/once. Schema: add `recurrenceRule` object to task/event (e.g., `{ type: 'interval', every: 14 }` or `{ type: 'dates', days: [1, 15] }`). Scheduler interprets the rule during placement. High complexity — the scheduler is already ~850 lines. Consider: extend `placeDailyTask` with interval support, add new `placeCustomTask` for date-based rules. Note: `recurrence` field is reserved on the `events/` schema (`rundown/events/` node). Recurrence applies to both events and tasks.
+
+---
+
+**2.3 — School Lunch PDF Import** · Medium (~1-2 sessions) · Depends on 1.3 · Cost: ~$0.03/month (Claude API via Haiku 4.5, one-time $5 credit lasts years)
+
+AI-powered import of school lunch calendars. Parent uploads PDF in admin → Cloudflare Worker receives it → sends to Claude API (Haiku 4.5) with extraction prompt → structured menu data returned as JSON → written to Firebase as school lunch entries tagged with `source: "school"`. First Cloudflare Worker and first external API dependency. The Worker pattern is reusable for future AI features. Requires Anthropic API key stored as Cloudflare Worker secret.
+
+---
+
+**2.4 — Vacation / Skip Mode** · Medium (~1-2 sessions) · No dependencies · Cost: $0
+
+Mark a person as "away" for a date range. Schema: `rundown/people/{id}/away: [{ start, end }]`. Scheduler skips placing tasks for away people. Optionally redistribute to other owners (rotate-mode only) or mark exempt for scoring. Per-person "Away" toggle in admin with date picker. Family-wide "vacation mode" pauses all non-daily tasks.
+
+---
+
+### Tier 3 — Polish & Engagement
+
+**3.1 — Task Timer / Stopwatch** · Medium (~1-2 sessions) · No dependencies · Cost: $0
+
+Visible countdown in kid mode and dashboard using `estMin`. Start button on task card launches timer overlay. Optional auto-complete on finish. Sounds/vibration. Persist across page nav via sessionStorage. Purely client-side, no schema changes.
+
+---
+
+**3.2 — Task Delegation / Swaps** · Medium-high (~2 sessions) · Depends on 2.1 · Cost: $0
+
+Family members propose trades ("I'll do your dishes if you do my laundry"). Schema: `rundown/trades/{pushId}` with `{ proposerId, proposerTaskKey, targetId, targetTaskKey, status: 'pending'|'accepted'|'declined', createdAt }`. Accepting swaps `ownerId` on schedule entries. UI: notification badge, trade proposal from detail sheet, accept/decline list.
