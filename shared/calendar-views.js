@@ -300,7 +300,7 @@ export function renderMonthView(opts) {
   const mEnd = monthEnd(mStart);
   const firstDow = dayOfWeek(mStart);
   const days = dateRange(mStart, mEnd);
-  const maxEventNames = density === 'cozy' ? 0 : 4;
+  const maxEventPills = 4;
 
   // Day-of-week headers respecting week start day
   const dowHeaders = [];
@@ -340,19 +340,13 @@ export function renderMonthView(opts) {
 
     const dayNum = parseInt(dk.split('-')[2], 10);
 
-    // Event pills or dots based on density
+    // Event pills (condensed for month cells)
     let eventsHtml = '';
-    if (maxEventNames > 0 && sortedEvents.length > 0) {
-      const visible = sortedEvents.slice(0, maxEventNames);
-      const overflow = sortedEvents.length - maxEventNames;
+    if (sortedEvents.length > 0) {
+      const visible = sortedEvents.slice(0, maxEventPills);
+      const overflow = sortedEvents.length - maxEventPills;
       eventsHtml = visible.map(([, e]) => renderEventPill(e, people)).join('');
       if (overflow > 0) eventsHtml += `<div class="cal-grid__overflow">+${overflow}</div>`;
-    } else if (sortedEvents.length > 0) {
-      // Cozy: just dots
-      const dots = sortedEvents.slice(0, 4).map(([, e]) =>
-        `<span class="cal-grid__event-dot" style="background:${e.color || '#5b7fd6'}"></span>`
-      ).join('');
-      eventsHtml = `<div class="cal-grid__dots">${dots}</div>`;
     }
 
     // Progress indicator
