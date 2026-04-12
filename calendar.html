@@ -82,6 +82,7 @@
     const calDefaults = settings?.calendarDefaults || {};
     let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
     let density = calPrefs.density || calDefaults.density || 'snug';
+    let showDailyInWeek = calPrefs.showDailyInWeek ?? calDefaults.showDailyInWeek ?? true;
     const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'week';
 
     // ── Person link mode ──
@@ -185,7 +186,7 @@
       html += `<div class="cal-view-enter ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
       if (currentView === 'week') {
         html += renderWeekView({
-          weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay
+          weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, showDailyInWeek
         });
       } else {
         html += renderMonthView({
@@ -1179,7 +1180,7 @@
       const html = renderBottomSheet(`<div class="task-detail-sheet">
         <h3 class="admin-form__title">Preferences</h3>
 
-        <div class="dt-section">
+        <div class="pref-row">
           <label class="form-label">Default View</label>
           <div class="dt-themes">
             <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'week' ? ' dt-theme-btn--active' : ''}" data-pref-view="week" type="button">Week</button>
@@ -1187,23 +1188,31 @@
           </div>
         </div>
 
-        <div class="dt-section">
-          <label class="form-label">Display Density</label>
+        <div class="pref-row">
+          <label class="form-label">Density</label>
           <div class="dt-themes">
             <button class="dt-theme-btn${density === 'snug' ? ' dt-theme-btn--active' : ''}" data-pref-density="snug" type="button">Snug</button>
             <button class="dt-theme-btn${density === 'cozy' ? ' dt-theme-btn--active' : ''}" data-pref-density="cozy" type="button">Cozy</button>
           </div>
         </div>
 
-        <div class="dt-section">
-          <label class="form-label">Week Starts On</label>
+        <div class="pref-row">
+          <label class="form-label">Week Starts</label>
           <div class="dt-themes">
             <button class="dt-theme-btn${weekStartDay === 0 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="0" type="button">Sunday</button>
             <button class="dt-theme-btn${weekStartDay === 1 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="1" type="button">Monday</button>
           </div>
         </div>
 
-        <div class="dt-section" style="margin-top:var(--spacing-md);border-top:1px solid var(--border-light);padding-top:var(--spacing-md)">
+        <div class="pref-row">
+          <label class="form-label">Daily Tasks</label>
+          <div class="dt-themes">
+            <button class="dt-theme-btn${showDailyInWeek ? ' dt-theme-btn--active' : ''}" data-pref-daily="true" type="button">Show</button>
+            <button class="dt-theme-btn${!showDailyInWeek ? ' dt-theme-btn--active' : ''}" data-pref-daily="false" type="button">Hide</button>
+          </div>
+        </div>
+
+        <div style="margin-top:var(--spacing-md);border-top:1px solid var(--border-light);padding-top:var(--spacing-md)">
           <button class="btn btn--secondary" id="prefOpenTheme" type="button" style="width:100%">🎨 Change Theme</button>
         </div>
 
@@ -1243,6 +1252,16 @@
         saveCalPrefs();
         viewWeekStart = weekStartForDay(today, weekStartDay);
         mount.querySelectorAll('[data-pref-wsd]').forEach(b => b.classList.remove('dt-theme-btn--active'));
+        btn.classList.add('dt-theme-btn--active');
+        render();
+      }));
+
+      // Daily tasks toggle
+      mount.querySelectorAll('[data-pref-daily]').forEach(btn => btn.addEventListener('click', () => {
+        showDailyInWeek = btn.dataset.prefDaily === 'true';
+        calPrefs.showDailyInWeek = showDailyInWeek;
+        saveCalPrefs();
+        mount.querySelectorAll('[data-pref-daily]').forEach(b => b.classList.remove('dt-theme-btn--active'));
         btn.classList.add('dt-theme-btn--active');
         render();
       }));

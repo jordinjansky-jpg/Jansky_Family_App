@@ -98,7 +98,10 @@
   border: 1px solid var(--border-subtle, var(--border-light));
   min-width: 0;
   cursor: pointer;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+.cal-week__events { display: flex; flex-direction: column; gap: 2px; }
 .cal-week__col--today {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 4%, var(--bg-card));
@@ -146,6 +149,7 @@
 
 /* Task rows in week view */
 .cal-week__tasks { border-top: 1px solid var(--border-light); padding-top: 4px; margin-top: 4px; }
+.cal-week__tasks--daily { border-top-style: dashed; }
 .cal-week__task {
   display: flex;
   align-items: center;
@@ -595,6 +599,36 @@
   .cal-week__task-check { width: 18px; height: 18px; }
   .cal-week__task-dot { width: 8px; height: 8px; }
   .cal-week__overflow { font-size: var(--font-size-sm); }
+}
+
+/* ── Person pill color dot (always visible legend) ── */
+.person-pill__dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 2px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.person-pill--active .person-pill__dot { background: #fff !important; }
+
+/* ── Preferences sheet inline layout ── */
+.pref-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+.pref-row .form-label {
+  min-width: 100px;
+  margin-bottom: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.pref-row .dt-themes {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex: 1;
 }
 
 /* ── PWA standalone — padding already uses env() safe-area, no extra override needed ── */

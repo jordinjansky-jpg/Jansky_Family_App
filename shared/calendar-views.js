@@ -27,7 +27,7 @@ const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
  * @returns {string} HTML
  */
 export function renderWeekView(opts) {
-  const { weekStartDate, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay } = opts;
+  const { weekStartDate, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, showDailyInWeek } = opts;
   const days = dateRange(weekStartDate, addDays(weekStartDate, 6));
   const maxPills = density === 'cozy' ? 3 : 5;
 
@@ -46,18 +46,22 @@ export function renderWeekView(opts) {
     dayEvents = filterEventsByPerson(dayEvents, activePerson);
     const sortedEvents = sortEvents(dayEvents);
 
-    // Tasks for this day (only weekly/monthly — no daily chores in week view)
+    // Tasks — split into weekly/monthly/once vs daily
     const dayEntries = allSchedule[dk] || {};
     const filteredEntries = filterByPerson(dayEntries, activePerson);
-    const weekMonthTasks = {};
+    const recurringTasks = {};
+    const dailyTasks = {};
     for (const [key, entry] of Object.entries(filteredEntries)) {
-      if (entry.type === 'event') continue; // skip event schedule entries
+      if (entry.type === 'event') continue;
       const rt = entry.rotationType || 'daily';
-      if (rt === 'weekly' || rt === 'monthly' || rt === 'once') {
-        weekMonthTasks[key] = entry;
+      if (rt === 'daily') {
+        dailyTasks[key] = entry;
+      } else {
+        recurringTasks[key] = entry;
       }
     }
-    const sortedTasks = sortEntries(weekMonthTasks, completions);
+    const sortedRecurring = sortEntries(recurringTasks, completions);
+    const sortedDaily = showDailyInWeek ? sortEntries(dailyTasks, completions) : [];
 
     // Build event pills HTML
     let eventsHtml = '';
@@ -74,18 +78,23 @@ export function renderWeekView(opts) {
       eventsHtml += `<div class="cal-week__overflow">+${overflow} more</div>`;
     }
 
-    // Build task rows HTML
-    let tasksHtml = '';
-    for (const [entryKey, entry] of sortedTasks) {
+    // Helper to build task row HTML
+    function taskRow(entryKey, entry) {
       const task = tasks[entry.taskId] || { name: 'Unknown' };
       const person = people.find(p => p.id === entry.ownerId);
       const done = isComplete(entryKey, completions);
-      tasksHtml += `<label class="cal-week__task${done ? ' cal-week__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}">
+      return `<label class="cal-week__task${done ? ' cal-week__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}">
         <input type="checkbox" class="cal-week__task-check" ${done ? 'checked' : ''} data-entry-key="${entryKey}" data-date-key="${dk}">
         ${person ? `<span class="cal-week__task-dot" style="background:${person.color}"></span>` : ''}
         <span class="cal-week__task-name">${esc(task.name)}</span>
       </label>`;
     }
+
+    let recurringHtml = '';
+    for (const [entryKey, entry] of sortedRecurring) recurringHtml += taskRow(entryKey, entry);
+
+    let dailyHtml = '';
+    for (const [entryKey, entry] of sortedDaily) dailyHtml += taskRow(entryKey, entry);
 
     const dow = dayOfWeek(dk);
     const dayNum = parseInt(dk.split('-')[2], 10);
@@ -95,7 +104,8 @@ export function renderWeekView(opts) {
     return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}">
       ${colLabel}
       <div class="cal-week__events">${eventsHtml}</div>
-      ${tasksHtml ? `<div class="cal-week__tasks">${tasksHtml}</div>` : ''}
+      ${recurringHtml ? `<div class="cal-week__tasks">${recurringHtml}</div>` : ''}
+      ${dailyHtml ? `<div class="cal-week__tasks cal-week__tasks--daily">${dailyHtml}</div>` : ''}
     </div>`;
   }).join('');
 

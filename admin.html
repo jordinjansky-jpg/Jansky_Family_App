@@ -860,6 +860,13 @@
               <option value="1"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '1' ? ' selected' : ''}>Monday</option>
             </select>
           </div>
+          <div class="admin-form__group">
+            <label class="form-label" for="set_showDaily">Daily Tasks in Week View</label>
+            <select class="form-input" id="set_showDaily">
+              <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
+              <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
+            </select>
+          </div>
         </fieldset>
         <h3 class="admin-form__title mt-md">Change Admin PIN</h3>
         <div class="form-group">
@@ -2143,7 +2150,8 @@
           calendarDefaults: {
             defaultView: main.querySelector('#set_calView')?.value || 'week',
             density: main.querySelector('#set_calDensity')?.value || 'snug',
-            weekStartDay: parseInt(main.querySelector('#set_weekStart')?.value, 10) || 0
+            weekStartDay: parseInt(main.querySelector('#set_weekStart')?.value, 10) || 0,
+            showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false'
           }
         };
 

@@ -178,7 +178,7 @@ export function renderPersonFilter(people, activePerson) {
 
   for (const p of people) {
     const active = activePerson === p.id ? ' person-pill--active' : '';
-    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}" aria-pressed="${activePerson === p.id}">${esc(p.name)}</button>`;
+    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}" aria-pressed="${activePerson === p.id}"><span class="person-pill__dot" style="background:${p.color}"></span>${esc(p.name)}</button>`;
   }
 
   html += `</div>`;
