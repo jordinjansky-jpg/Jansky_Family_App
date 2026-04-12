@@ -16,3 +16,16 @@
     --max-width: 800px;
   }
 }
+
+/* ── Calendar responsive: side-by-side day view on wider screens ── */
+@media (min-width: 768px) {
+  .cal-day {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+    align-items: start;
+  }
+  .cal-day__section { margin-bottom: 0; }
+  .cal-week__col { padding: 6px 4px; }
+  .event-pill { font-size: 10px; }
+}
