@@ -1203,10 +1203,89 @@
     });
 
     // ══════════════════════════════════════════
+    // Migration: isEvent categories → events/ node
+    // ══════════════════════════════════════════
+
+    async function migrateEventCategories() {
+      const migrated = localStorage.getItem('dr-events-migrated');
+      if (migrated) return;
+
+      const eventCatKeys = Object.entries(cats)
+        .filter(([, c]) => c.isEvent)
+        .map(([key]) => key);
+
+      if (eventCatKeys.length === 0) {
+        localStorage.setItem('dr-events-migrated', 'true');
+        return;
+      }
+
+      const updates = {};
+      let counter = 0;
+
+      for (const [taskId, task] of Object.entries(tasks)) {
+        if (!eventCatKeys.includes(task.category)) continue;
+
+        const cat = cats[task.category];
+        const eventData = {
+          name: task.name,
+          date: task.dedicatedDate || today,
+          allDay: !task.eventTime,
+          startTime: task.eventTime || null,
+          endTime: null,
+          color: cat?.eventColor || '#4285f4',
+          people: task.owners || [],
+          location: null,
+          notes: task.notes || null,
+          url: null,
+          recurrence: null,
+          reminders: null,
+          createdDate: task.createdDate || today
+        };
+
+        const eventRef = firebase.database().ref('rundown/events').push();
+        const eventId = eventRef.key;
+        updates[`events/${eventId}`] = eventData;
+
+        for (const [dateKey, dayEntries] of Object.entries(allSchedule)) {
+          for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
+            if (entry.taskId === taskId) {
+              updates[`schedule/${dateKey}/${entryKey}`] = { type: 'event', eventId };
+            }
+          }
+        }
+
+        for (const [entryKey] of Object.entries(completions)) {
+          const schedEntry = Object.values(allSchedule).flatMap(d => Object.entries(d || {})).find(([k]) => k === entryKey);
+          if (schedEntry && schedEntry[1]?.taskId === taskId) {
+            updates[`completions/${entryKey}`] = null;
+          }
+        }
+
+        updates[`tasks/${taskId}`] = null;
+        counter++;
+      }
+
+      if (counter > 0) {
+        await multiUpdate(updates);
+        const [newTasks, newEvents, newSched] = await Promise.all([
+          readTasks(), readEvents(), readAllSchedule()
+        ]);
+        Object.keys(tasks).forEach(k => delete tasks[k]);
+        Object.assign(tasks, newTasks || {});
+        events = newEvents || {};
+        allSchedule = newSched || {};
+        console.log(`Migrated ${counter} event tasks to events/ node`);
+      }
+
+      localStorage.setItem('dr-events-migrated', 'true');
+    }
+
+    // ══════════════════════════════════════════
     // Initial load
     // ══════════════════════════════════════════
 
     await loadData();
+    await migrateEventCategories();
     render();
   </script>
 </body>
