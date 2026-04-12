@@ -666,6 +666,30 @@
 .cal-density--cozy .cal-week__date-num { font-size: var(--font-size-lg); }
 /* Cozy density: no diff for month grid (same as snug) */
 
+/* ── Mobile: compact person filter + controls ── */
+@media (max-width: 600px) {
+  .person-filter {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    gap: 4px;
+    padding: 4px 0 6px;
+  }
+  .person-pill {
+    padding: 3px 8px;
+    font-size: var(--font-size-xs);
+    min-height: 0;
+    border-width: 1.5px;
+  }
+  .cal-controls {
+    margin-left: auto;
+    gap: 6px;
+  }
+  .cal-controls__seg button {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+}
+
 /* ── Mobile week: vertical day-by-day list ── */
 @media (max-width: 600px) {
   .cal-week__header { display: none; }
@@ -674,6 +698,7 @@
     grid-template-rows: none;
     gap: var(--spacing-sm);
     overflow-y: auto;
+    padding-bottom: calc(var(--nav-height) + var(--spacing-lg));
   }
   .cal-week__col {
     padding: var(--spacing-sm) var(--spacing-md);
