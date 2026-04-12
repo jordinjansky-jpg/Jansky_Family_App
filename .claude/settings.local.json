@@ -25,7 +25,18 @@
       "Bash(node -e ':*)",
       "Bash(rm -rf .playwright-mcp daily-rundown-spec.md)",
       "Bash(mkdir -p docs/superpowers/archive)",
-      "Bash(mv docs/superpowers/plans/*.md docs/superpowers/specs/*.md docs/superpowers/archive/)"
+      "Bash(mv docs/superpowers/plans/*.md docs/superpowers/specs/*.md docs/superpowers/archive/)",
+      "Bash(node --check \"C:/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/shared/scoring.js\")",
+      "Bash(echo \"exit:$?\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(find /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App -name \"*.js\" -type f -exec grep -l \"dashboard-progress__count\" {} \\\\;)",
+      "Bash(grep -E \"\\(sb-card__pct|sb-cat-pct|sb-drilldown__stats|sb-drilldown__task-pts|sb-streak-current|sb-streak-best\\)\" /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/scoreboard.html /c/Users/jordi/OneDrive/Documents/Personal/Claude/Jansky_Family_App/*.js)",
+      "WebSearch",
+      "WebFetch(domain:myskylight.com)",
+      "WebFetch(domain:skylight.zendesk.com)",
+      "WebFetch(domain:techcrunch.com)",
+      "WebFetch(domain:cybernews.com)",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot"
     ]
   }
 }

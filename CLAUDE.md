@@ -23,7 +23,7 @@ git push origin main
 ├── index.html            ← Dashboard shell — loads dashboard.js
 ├── dashboard.js          ← Dashboard logic — daily task list, completion toggling, progress, overdue banner
 ├── person.html           ← Per-person PWA entry (?person=Name) — installable home screen shortcut with unique manifest (served by sw.js)
-├── calendar.html         ← Three-view calendar hub (week default, month, day/agenda) with swipe nav and universal "+" menu
+├── calendar.html         ← Single-month grid with swipe nav, day detail bottom sheet, event color bars
 ├── scoreboard.html       ← Leaderboard, grades table, trend sparklines, category breakdown
 ├── tracker.html          ← Weekly/monthly task status rows, filters, skipped task detection
 ├── admin.html            ← PIN-gated admin (tasks, people, categories, settings, theme, schedule, data, debug)
@@ -38,7 +38,6 @@ git push origin main
 │   ├── components.js     ← All reusable HTML rendering: cards, sheets, forms, filters (~600 lines)
 │   ├── dom-helpers.js    ← Small DOM-binding helpers (initOwnerChips, getSelectedOwners). Only shared module besides theme.js permitted to touch DOM.
 │   ├── theme.js          ← 5 theme presets, CSS variable generation, localStorage cache (~260 lines)
-│   ├── calendar-views.js ← Calendar view renderers (week, day, month grids)
 │   ├── utils.js          ← Date math, timezone handling, formatting, debounce (Intl-based, no libraries)
 └── styles/
     ├── base.css          ← CSS variables, reset, typography
@@ -63,22 +62,17 @@ git push origin main
 - **CSS split:** Styles are split into 10 files by responsibility. Each page loads only the CSS it needs via multiple `<link>` tags. Order matters: base → layout → components → page-specific → responsive.
 - **Offline support:** Service worker caches the full app shell (network-first strategy). Firebase API calls are network-only. The app loads and functions offline; writes queue and sync on reconnect.
 - **Real-time updates:** Dashboard, calendar, and kid mode use Firebase `onValue` listeners for completions and schedule. Renders are debounced at 100ms. Scoreboard and tracker use one-shot reads (historical data).
-- **Swipe gestures:** Horizontal swipe anywhere on page navigates between days (dashboard/kid) or weeks/months (calendar).
-- **Events are a separate Firebase node** (`rundown/events/`), not tasks with an `isEvent` flag. Events have their own color, people array, and CRUD flow. They do not participate in scoring, completions, or scheduler rotation.
+- **Swipe gestures:** Horizontal swipe anywhere on page navigates between days (dashboard/kid) or months (calendar).
 
 ## Firebase Schema (`rundown/`)
 ```
 rundown/
-├── settings          ← flat object { appName, familyName, timezone, weekendWeight, theme: {...},
-│                         calendarDefaults: { defaultView, density, weekStartDay } }
+├── settings          ← flat object { appName, familyName, timezone, weekendWeight, theme: {...} }
 ├── people/
 │   └── {pushId}      ← { name, color }
 ├── categories/
 │   └── {pushId}      ← { name, icon, isEvent?, eventColor?, weightPercent?, showIcon?, isDefault?, pinProtected?,
 │                         dailyLimitPerPerson?, dailyLimitPerHousehold? }
-├── events/
-│   └── {pushId}      ← { name, date, allDay, startTime?, endTime?, color, people[],
-│                         location?, notes?, url?, recurrence?, reminders?, createdDate }
 ├── tasks/
 │   └── {pushId}      ← { name, rotation, owners[], ownerAssignmentMode,
 │                         timeOfDay, dedicatedDay?, dedicatedDate?, cooldownDays?, estMin,
@@ -89,7 +83,7 @@ rundown/
 │                       eventTime: 'HH:MM' (24h) | null — appointment time for event tasks
 ├── schedule/
 │   └── {YYYY-MM-DD}/
-│       └── {entryKey} ← { type: 'task'|'event', taskId?, eventId?, ownerId, rotationType, ownerAssignmentMode, timeOfDay, notes? }
+│       └── {entryKey} ← { taskId, ownerId, rotationType, ownerAssignmentMode, timeOfDay, notes? }
 │                       entryKey format: sched_{timestamp}_{counter}
 ├── completions/
 │   └── {entryKey}     ← { completedAt: ServerValue.TIMESTAMP, completedBy: 'dashboard'|'calendar'|'kid-mode',
@@ -163,9 +157,32 @@ Product direction: evolve Daily Rundown from a task manager into a **Skylight Ca
 
 ### Tier 1 — The Family Hub Transformation (build in order)
 
-**1.1 — Calendar Overhaul (Family Hub)** · Implemented
+**1.1 — Calendar Overhaul (Family Hub)** · High (~3-4 sessions) · No dependencies · Cost: $0
 
-Three-view calendar (week default, month, day drill-in), separate events node (`rundown/events/`), universal "+" add menu (New Event / New Task), configurable density (cozy/snug), week start day setting, personal preferences via theme button. Design spec: `docs/superpowers/specs/2026-04-12-calendar-overhaul-design.md`
+The calendar becomes the central screen of the entire app — the thing on the wall, the thing everyone opens first. This is the single most important feature for the Skylight transformation.
+
+*Three unified views:*
+- **Month** — Clean grid. Each day cell shows color-coded dots/bars for people, truncated event names visible at a glance without tapping (not hidden behind a sheet like today). Meals shown as a subtle icon or text. Tap a day to drill into it.
+- **Week** — Dense 7-day view with time-slotted layout (morning/afternoon/evening or hourly). This is the primary "at a glance" view for the wall display. Shows tasks, events, and meals for the week. Swipe to navigate weeks (reuse existing swipe infra).
+- **Day/Agenda** — Scrollable timeline of everything happening today. Tasks grouped by time-of-day, events at their scheduled time, meals in their slots, weather at the top. This is the "drill in" view from month or week.
+
+*Events become first-class:*
+Right now events are tasks in an `isEvent` category. For the hub to work, event creation must be as fast as Google Calendar: tap a day (or tap "+" on any view) → type name → set time → optional: assign people, add location, set recurrence → done. This flow must NOT require admin/PIN access — anyone in the family can add "Soccer practice at 3:30" without unlocking anything. PIN protection stays for task/chore management and admin settings only.
+
+*Unified day content — every view shows all four content types in a clear visual hierarchy:*
+1. Weather (small, top)
+2. Events (time-specific appointments — bold, prominent)
+3. Meals (what we're eating — subtle but visible)
+4. Tasks/chores (who does what — grouped by person, checkable)
+
+*Design principles (critical — read these before building):*
+- **Information density matters.** A month view with empty gray boxes is useless. Show enough in each cell that you rarely need to drill in for basic questions ("do we have anything Thursday night?").
+- **Color is the primary visual language.** Each person's color should make it instantly obvious who's busy when, without reading text.
+- **Touch-first but not touch-only.** Works great on a 27" touchscreen, but also great on a phone.
+- **Transitions and polish.** View switching should animate smoothly. Drilling from month → day should feel like zooming in, not a page load. Swipe gestures for navigation across all views.
+- **This must look and feel like a real product the family will use as their primary calendar.** Study Skylight's calendar screenshots for visual cleanliness and Google Calendar's interaction patterns for usability. The goal is a calendar you'd be proud to show people — not "a developer built this."
+
+*What this replaces:* Absorbs the old "week view on calendar" backlog item. The existing calendar.html gets redesigned in place.
 
 ---
 
@@ -209,7 +226,7 @@ rundown/meals/{YYYY-MM-DD}/{slot}  ← { name, url?, notes?, source?: 'manual'|'
 rundown/mealLibrary/{pushId}       ← { name, url?, tags?, lastUsed }
 ```
 
-*Display:* Meals appear in the calendar day view (all three views), on the kiosk display, and in kid mode. Keep it visually light — a small section, not competing with events and tasks for attention. Note: the day view's sticky-section architecture supports a 'Meals' section with no structural changes. The universal '+' menu already has a slot reserved for 'Add Meal.'
+*Display:* Meals appear in the calendar day view (all three views), on the kiosk display, and in kid mode. Keep it visually light — a small section, not competing with events and tasks for attention.
 
 ---
 
@@ -230,8 +247,8 @@ A dedicated full-screen mode (`display.html`) designed for a 27" wall-mounted to
 - Tap "+" to add events or meals — same easy creation flow as the calendar hub.
 - Tap tasks to check them off, open detail sheets, mark late.
 - Swipe or tap arrows to navigate weeks/months.
-- Tap a person's avatar to switch to their kid-mode view (person-as-navigation).
 - Access the scoreboard, rewards, shopping list from a slide-out menu or tab bar.
+- Kid mode accessible per-child (tap their avatar to see their view).
 
 *What makes it "kiosk" rather than just "the app on a big screen":*
 - No browser chrome — full-screen, immersive.
@@ -240,8 +257,6 @@ A dedicated full-screen mode (`display.html`) designed for a 27" wall-mounted to
 - Optional ambient mode during sleep: clock, tomorrow's first event, weather.
 - No admin access from this view (PIN-protected settings stay on phone only).
 - Designed to launch on boot via Raspberry Pi Chromium `--kiosk` flag or Android tablet full-screen mode.
-
-Note: the density settings (cozy/snug) and responsive side-by-side day view from 1.1 lay direct groundwork for kiosk layout.
 
 *Not just for the wall:* Should also work well on a 10" tablet propped on a kitchen counter. Layout adapts to both 27" landscape and 10" tablet landscape.
 
@@ -271,13 +286,13 @@ rundown/lists/{listId}/items/{id}   ← { name, checked, category?, addedBy?, ad
 
 **2.1 — Push Notifications** · High (~2-3 sessions) · Depends on 1.1 · Cost: $0 (FCM is free unlimited; Cloudflare Workers free tier is 100K req/day)
 
-Daily reminders, upcoming event alerts (15/30/60 min before), task nudges. Requires FCM (Firebase Cloud Messaging) + Cloudflare Worker for server-side scheduling. Per-person notification preferences (what types, quiet hours). This is the feature that enables "replace Google Calendar" — without buzzing your phone before the dentist appointment, people will keep Google Calendar alongside this app. See notifications uplift assessment from 2026-04-03. Note: `reminders` field is reserved on the `events/` schema for per-event notification configuration.
+Daily reminders, upcoming event alerts (15/30/60 min before), task nudges. Requires FCM (Firebase Cloud Messaging) + Cloudflare Worker for server-side scheduling. Per-person notification preferences (what types, quiet hours). This is the feature that enables "replace Google Calendar" — without buzzing your phone before the dentist appointment, people will keep Google Calendar alongside this app. See notifications uplift assessment from 2026-04-03.
 
 ---
 
 **2.2 — Flexible Recurrence** · High (~2 sessions) · Depends on 1.1 · Cost: $0
 
-Support "every N days", "every other week", "1st and 15th of month", "every other Tuesday" beyond daily/weekly/monthly/once. Schema: add `recurrenceRule` object to task/event (e.g., `{ type: 'interval', every: 14 }` or `{ type: 'dates', days: [1, 15] }`). Scheduler interprets the rule during placement. High complexity — the scheduler is already ~850 lines. Consider: extend `placeDailyTask` with interval support, add new `placeCustomTask` for date-based rules. Note: `recurrence` field is reserved on the `events/` schema (`rundown/events/` node). Recurrence applies to both events and tasks.
+Support "every N days", "every other week", "1st and 15th of month", "every other Tuesday" beyond daily/weekly/monthly/once. Schema: add `recurrenceRule` object to task/event (e.g., `{ type: 'interval', every: 14 }` or `{ type: 'dates', days: [1, 15] }`). Essential for the calendar to be a real Google Calendar replacement — family events need real recurrence rules. Extends the scheduler (~850 lines). Consider: extend `placeDailyTask` with interval support, add new `placeCustomTask` for date-based rules.
 
 ---
 
