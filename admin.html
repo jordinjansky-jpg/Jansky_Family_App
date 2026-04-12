@@ -837,6 +837,30 @@
             <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.kidLongPressMs ?? 500}ms</span>
           </div>
         </div>
+        <fieldset class="admin-form__fieldset">
+          <legend>Calendar Defaults</legend>
+          <div class="admin-form__group">
+            <label class="form-label" for="set_calView">Default View</label>
+            <select class="form-input" id="set_calView">
+              <option value="week"${(settings?.calendarDefaults?.defaultView || 'week') === 'week' ? ' selected' : ''}>Week</option>
+              <option value="month"${(settings?.calendarDefaults?.defaultView || 'week') === 'month' ? ' selected' : ''}>Month</option>
+            </select>
+          </div>
+          <div class="admin-form__group">
+            <label class="form-label" for="set_calDensity">Display Density</label>
+            <select class="form-input" id="set_calDensity">
+              <option value="snug"${(settings?.calendarDefaults?.density || 'snug') === 'snug' ? ' selected' : ''}>Snug (more detail)</option>
+              <option value="cozy"${(settings?.calendarDefaults?.density || 'snug') === 'cozy' ? ' selected' : ''}>Cozy (larger, wall-friendly)</option>
+            </select>
+          </div>
+          <div class="admin-form__group">
+            <label class="form-label" for="set_weekStart">Week Starts On</label>
+            <select class="form-input" id="set_weekStart">
+              <option value="0"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '0' ? ' selected' : ''}>Sunday</option>
+              <option value="1"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '1' ? ' selected' : ''}>Monday</option>
+            </select>
+          </div>
+        </fieldset>
         <h3 class="admin-form__title mt-md">Change Admin PIN</h3>
         <div class="form-group">
           <label class="form-label">New 4-digit PIN</label>
@@ -2115,7 +2139,12 @@
           showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
           longPressMs: parseIntOr(main.querySelector('#sf_longPressMs')?.value, 500),
           kidLongPressMs: parseIntOr(main.querySelector('#sf_kidLongPressMs')?.value, 500),
-          difficultyMultipliers: { easy: newDiffEasy, medium: newDiffMedium, hard: newDiffHard }
+          difficultyMultipliers: { easy: newDiffEasy, medium: newDiffMedium, hard: newDiffHard },
+          calendarDefaults: {
+            defaultView: main.querySelector('#set_calView')?.value || 'week',
+            density: main.querySelector('#set_calDensity')?.value || 'snug',
+            weekStartDay: parseInt(main.querySelector('#set_weekStart')?.value, 10) || 0
+          }
         };
 
         if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {
