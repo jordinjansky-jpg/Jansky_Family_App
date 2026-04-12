@@ -80,8 +80,8 @@
 
     // ── Calendar defaults (admin settings → personal override) ──
     const calDefaults = settings?.calendarDefaults || {};
-    const weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
-    const density = calPrefs.density || calDefaults.density || 'snug';
+    let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
+    let density = calPrefs.density || calDefaults.density || 'snug';
     const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'week';
 
     // ── Person link mode ──
@@ -1173,9 +1173,96 @@
       });
     }
 
-    // ── Theme picker ──
+    // ── Preferences sheet (theme + calendar settings) ──
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
-      openDeviceThemeSheet(document.getElementById('taskSheetMount'), settings?.theme);
+      const mount = document.getElementById('taskSheetMount');
+      const html = renderBottomSheet(`<div class="task-detail-sheet">
+        <h3 class="admin-form__title">Preferences</h3>
+
+        <div class="dt-section">
+          <label class="form-label">Default View</label>
+          <div class="dt-themes">
+            <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'week' ? ' dt-theme-btn--active' : ''}" data-pref-view="week" type="button">Week</button>
+            <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'month' ? ' dt-theme-btn--active' : ''}" data-pref-view="month" type="button">Month</button>
+          </div>
+        </div>
+
+        <div class="dt-section">
+          <label class="form-label">Display Density</label>
+          <div class="dt-themes">
+            <button class="dt-theme-btn${density === 'snug' ? ' dt-theme-btn--active' : ''}" data-pref-density="snug" type="button">Snug</button>
+            <button class="dt-theme-btn${density === 'cozy' ? ' dt-theme-btn--active' : ''}" data-pref-density="cozy" type="button">Cozy</button>
+          </div>
+        </div>
+
+        <div class="dt-section">
+          <label class="form-label">Week Starts On</label>
+          <div class="dt-themes">
+            <button class="dt-theme-btn${weekStartDay === 0 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="0" type="button">Sunday</button>
+            <button class="dt-theme-btn${weekStartDay === 1 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="1" type="button">Monday</button>
+          </div>
+        </div>
+
+        <div class="dt-section" style="margin-top:var(--spacing-md);border-top:1px solid var(--border-light);padding-top:var(--spacing-md)">
+          <button class="btn btn--secondary" id="prefOpenTheme" type="button" style="width:100%">🎨 Change Theme</button>
+        </div>
+
+        <div class="admin-form__actions mt-md">
+          <button class="btn btn--secondary" id="prefClose" type="button">Done</button>
+        </div>
+      </div>`);
+
+      mount.innerHTML = html;
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) overlay.classList.add('active');
+      });
+
+      // View toggle
+      mount.querySelectorAll('[data-pref-view]').forEach(btn => btn.addEventListener('click', () => {
+        calPrefs.defaultView = btn.dataset.prefView;
+        saveCalPrefs();
+        mount.querySelectorAll('[data-pref-view]').forEach(b => b.classList.remove('dt-theme-btn--active'));
+        btn.classList.add('dt-theme-btn--active');
+      }));
+
+      // Density toggle
+      mount.querySelectorAll('[data-pref-density]').forEach(btn => btn.addEventListener('click', () => {
+        density = btn.dataset.prefDensity;
+        calPrefs.density = density;
+        saveCalPrefs();
+        mount.querySelectorAll('[data-pref-density]').forEach(b => b.classList.remove('dt-theme-btn--active'));
+        btn.classList.add('dt-theme-btn--active');
+        render();
+      }));
+
+      // Week start day toggle
+      mount.querySelectorAll('[data-pref-wsd]').forEach(btn => btn.addEventListener('click', () => {
+        weekStartDay = parseInt(btn.dataset.prefWsd, 10);
+        calPrefs.weekStartDay = weekStartDay;
+        saveCalPrefs();
+        viewWeekStart = weekStartForDay(today, weekStartDay);
+        mount.querySelectorAll('[data-pref-wsd]').forEach(b => b.classList.remove('dt-theme-btn--active'));
+        btn.classList.add('dt-theme-btn--active');
+        render();
+      }));
+
+      // Open theme sub-sheet
+      mount.querySelector('#prefOpenTheme')?.addEventListener('click', () => {
+        openDeviceThemeSheet(mount, settings?.theme);
+      });
+
+      // Close
+      mount.querySelector('#prefClose')?.addEventListener('click', () => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) { overlay.classList.remove('active'); setTimeout(() => mount.innerHTML = '', 300); }
+      });
+      document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+        if (e.target.id === 'bottomSheet') {
+          e.target.classList.remove('active');
+          setTimeout(() => mount.innerHTML = '', 300);
+        }
+      });
     });
 
     // ══════════════════════════════════════════

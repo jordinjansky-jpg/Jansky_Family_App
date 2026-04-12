@@ -6,7 +6,9 @@
   height: 100dvh;
   max-width: 100%;
   padding: 0 var(--spacing-sm);
-  padding-top: calc(var(--header-height) + var(--spacing-md) + env(safe-area-inset-top, 0px));
+  /* header actual height can exceed --header-height (56px) due to subtitle+date wrapping;
+     use a generous top pad so nav arrows never clip under the header */
+  padding-top: calc(var(--header-height) + 28px + env(safe-area-inset-top, 0px));
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   display: flex;
@@ -529,12 +531,21 @@
   font-weight: 600;
 }
 
-/* ── Density: Cozy ── */
-.cal-density--cozy .cal-week__col { padding: 6px 3px; }
-.cal-density--cozy .event-pill { font-size: 10px; padding: 3px 5px; }
-.cal-density--cozy .cal-week__task { font-size: 10px; }
-.cal-density--cozy .cal-grid { grid-auto-rows: minmax(52px, 1fr); }
-.cal-density--cozy .cal-grid__day { font-size: 13px; }
+/* ── Density: Cozy (fewer items, larger text — good for wall/distance viewing) ── */
+.cal-density--cozy .cal-week__col { padding: 8px 6px; gap: 5px; }
+.cal-density--cozy .event-pill { font-size: var(--font-size-sm); padding: 5px 8px; border-radius: var(--radius-sm); }
+.cal-density--cozy .event-pill__dot { width: 9px; height: 9px; }
+.cal-density--cozy .cal-week__task { font-size: var(--font-size-sm); gap: 6px; padding: 3px 0; }
+.cal-density--cozy .cal-week__task-check { width: 18px; height: 18px; }
+.cal-density--cozy .cal-week__task-dot { width: 9px; height: 9px; }
+.cal-density--cozy .cal-week__tasks { padding-top: 6px; margin-top: 6px; }
+.cal-density--cozy .cal-week__overflow { font-size: var(--font-size-sm); }
+.cal-density--cozy .cal-week__dow { font-size: var(--font-size-sm); }
+.cal-density--cozy .cal-week__date-num { font-size: var(--font-size-lg); }
+.cal-density--cozy .cal-grid { grid-auto-rows: minmax(60px, 1fr); }
+.cal-density--cozy .cal-grid__day { font-size: 14px; }
+.cal-density--cozy .cal-grid__event-name { font-size: 10px; }
+.cal-density--cozy .cal-grid__progress { height: 3px; }
 
 /* ── Mobile week: vertical day-by-day list ── */
 @media (max-width: 600px) {
