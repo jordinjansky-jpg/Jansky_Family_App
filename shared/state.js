@@ -143,3 +143,73 @@ export function sortEntries(entries, completions) {
     return todA - todB;
   });
 }
+
+// ── Event helpers ────────────────────────────────────────────────────────────
+// Events are a first-class data type stored separately from schedule entries.
+// Event objects: { name, date, allDay, startTime, endTime, color, people[], location, notes, url }
+
+/**
+ * Filter events by person. Events use `people[]` array, not `ownerId`.
+ * @param {object} events - { eventId: eventObject }
+ * @param {string|null} personId
+ * @returns {object} filtered events
+ */
+export function filterEventsByPerson(events, personId) {
+  if (!personId || !events) return events || {};
+  const result = {};
+  for (const [id, event] of Object.entries(events)) {
+    if (event.people && event.people.includes(personId)) {
+      result[id] = event;
+    }
+  }
+  return result;
+}
+
+/**
+ * Get events for a specific date.
+ * @param {object} events - { eventId: eventObject }
+ * @param {string} dateKey - YYYY-MM-DD
+ * @returns {object} filtered events for that date
+ */
+export function getEventsForDate(events, dateKey) {
+  if (!events) return {};
+  const result = {};
+  for (const [id, event] of Object.entries(events)) {
+    if (event.date === dateKey) {
+      result[id] = event;
+    }
+  }
+  return result;
+}
+
+/**
+ * Sort events chronologically. All-day events first, then by startTime.
+ * Returns array of [eventId, event] pairs.
+ */
+export function sortEvents(events) {
+  if (!events) return [];
+  return Object.entries(events).sort(([, a], [, b]) => {
+    if (a.allDay && !b.allDay) return -1;
+    if (!a.allDay && b.allDay) return 1;
+    if (a.allDay && b.allDay) return (a.name || '').localeCompare(b.name || '');
+    return (a.startTime || '').localeCompare(b.startTime || '');
+  });
+}
+
+/**
+ * Get events for a date range (inclusive).
+ * @param {object} events - { eventId: eventObject }
+ * @param {string} startKey - YYYY-MM-DD
+ * @param {string} endKey - YYYY-MM-DD
+ * @returns {object} filtered events
+ */
+export function getEventsForRange(events, startKey, endKey) {
+  if (!events) return {};
+  const result = {};
+  for (const [id, event] of Object.entries(events)) {
+    if (event.date >= startKey && event.date <= endKey) {
+      result[id] = event;
+    }
+  }
+  return result;
+}

@@ -99,6 +99,25 @@ export function weekEnd(dateKey) {
 }
 
 /**
+ * Get the start date key of the week containing dateKey,
+ * using a configurable start day (0=Sunday, 1=Monday, ...).
+ * Default is 0 (Sunday).
+ */
+export function weekStartForDay(dateKey, startDay = 0) {
+  const dow = dayOfWeek(dateKey);
+  const diff = (dow - startDay + 7) % 7;
+  return addDays(dateKey, -diff);
+}
+
+/**
+ * Get the end date key (6 days after start) of the week containing dateKey,
+ * using a configurable start day.
+ */
+export function weekEndForDay(dateKey, startDay = 0) {
+  return addDays(weekStartForDay(dateKey, startDay), 6);
+}
+
+/**
  * Get the first day of the month for a date key.
  */
 export function monthStart(dateKey) {

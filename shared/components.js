@@ -2,7 +2,7 @@
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 
-import { escapeHtml } from './utils.js';
+import { escapeHtml, formatDateShort } from './utils.js';
 import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig } from './theme.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -171,16 +171,17 @@ export function renderBottomSheet(content) {
  * activePerson: id of selected person or null for "All"
  * Returns an HTML string.
  */
-export function renderPersonFilter(people, activePerson) {
+export function renderPersonFilter(people, activePerson, trailingHtml = '') {
   const allActive = !activePerson ? ' person-pill--active' : '';
   let html = `<div class="person-filter" role="group" aria-label="Filter by person">`;
   html += `<button class="person-pill${allActive}" data-person-id="" aria-pressed="${!activePerson}">All</button>`;
 
   for (const p of people) {
     const active = activePerson === p.id ? ' person-pill--active' : '';
-    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}" aria-pressed="${activePerson === p.id}">${esc(p.name)}</button>`;
+    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}" aria-pressed="${activePerson === p.id}"><span class="person-pill__dot" style="background:${p.color}"></span>${esc(p.name)}</button>`;
   }
 
+  html += trailingHtml;
   html += `</div>`;
   return html;
 }
@@ -310,6 +311,235 @@ export function renderOverdueBanner(count) {
 export function renderGradeBadge(grade, tier) {
   if (!grade || grade === '--') return `<span class="grade-badge grade-badge--none" aria-label="No grade">--</span>`;
   return `<span class="grade-badge grade-badge--${tier}" aria-label="Grade: ${grade}">${grade}</span>`;
+}
+
+// ── Calendar event helpers (private) ──────────────────────────
+
+/** Format "HH:MM" 24h to "3:30pm" */
+function formatTime12(time24) {
+  if (!time24) return '';
+  const [h, m] = time24.split(':').map(Number);
+  const suffix = h >= 12 ? 'pm' : 'am';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, '0')}${suffix}`;
+}
+
+/** Format time range "3:30pm – 4:30pm" or just "3:30pm" if no end */
+function formatTimeRange(start, end) {
+  const s = formatTime12(start);
+  if (!end) return s;
+  return `${s} – ${formatTime12(end)}`;
+}
+
+// ── Calendar event components ─────────────────────────────────
+
+/**
+ * Render an event pill for week/month views.
+ * event: { name, startTime, allDay, color, people[] }
+ * people: array of { id, name, color }
+ */
+/**
+ * Build multi-person event styling.
+ * Single person: solid color. Multiple people: horizontal gradient blend (all-day)
+ * or segmented left border (timed).
+ */
+function eventPersonColors(event, people) {
+  const assignedPeople = (event.people || []).map(pid => people.find(p => p.id === pid)).filter(Boolean);
+  return assignedPeople.map(p => p.color);
+}
+
+function eventAllDayBg(event, people) {
+  const colors = eventPersonColors(event, people);
+  const eventColor = event.color || '#5b7fd6';
+  if (colors.length <= 1) return eventColor;
+  // Soft horizontal gradient blending person colors
+  return `linear-gradient(90deg, ${colors.join(', ')})`;
+}
+
+function eventTimedBorderGradient(colors) {
+  // Vertical segmented border: each person's color stacked evenly
+  const pct = 100 / colors.length;
+  const stops = colors.map((c, i) => `${c} ${i * pct}%, ${c} ${(i + 1) * pct}%`);
+  return `linear-gradient(180deg, ${stops.join(', ')})`;
+}
+
+export function renderEventPill(event, people = []) {
+  const isTimed = !event.allDay && event.startTime;
+  const colors = eventPersonColors(event, people);
+  const isMulti = colors.length > 1;
+
+  // Person color dots for multi-person events
+  const dotsHtml = isMulti
+    ? `<span class="event-pill__people">${colors.map(c => `<span class="event-pill__dot" style="background:${c}"></span>`).join('')}</span>`
+    : '';
+
+  if (isTimed) {
+    const timeStr = formatTimeRange(event.startTime, event.endTime);
+    const barColor = event.color || '#5b7fd6';
+    const isShort = !event.endTime;
+    const cls = `event-pill event-pill--timed${isShort ? ' event-pill--short' : ''}${isMulti ? ' event-pill--multi' : ''}`;
+    // Multi-person timed: segmented left border via gradient
+    const borderStyle = isMulti
+      ? `--event-bg:${barColor};border-image:${eventTimedBorderGradient(colors)} 1;border-image-slice:1`
+      : `--event-bg:${barColor}`;
+    return `<div class="${cls}" style="${borderStyle}">
+      <span class="event-pill__time">${esc(timeStr)}</span>
+      <span class="event-pill__text">${esc(event.name)}</span>
+      ${dotsHtml}
+    </div>`;
+  }
+
+  // All-day: solid or gradient blend + dots
+  const bg = eventAllDayBg(event, people);
+  return `<div class="event-pill${isMulti ? ' event-pill--multi' : ''}" style="background:${bg}">
+    <span class="event-pill__text">${esc(event.name)}</span>
+    ${dotsHtml}
+  </div>`;
+}
+
+/**
+ * Render an event bubble for day view (larger, more detail than pill).
+ */
+export function renderEventBubble(eventId, event, people = []) {
+  const bg = event.color || '#5b7fd6';
+  const timeStr = event.allDay ? 'All Day' : formatTimeRange(event.startTime, event.endTime);
+  const assignedPeople = (event.people || []).map(pid => people.find(p => p.id === pid)).filter(Boolean);
+  const peopleDots = assignedPeople.map(p =>
+    `<span class="event-bubble__dot" style="background:${p.color}" title="${esc(p.name)}"></span>`
+  ).join('');
+  const locationHtml = event.location ? `<span class="event-bubble__location">${esc(event.location)}</span>` : '';
+
+  return `<button class="event-bubble" data-event-id="${eventId}" style="--event-color:${bg}" type="button">
+    <div class="event-bubble__time">${esc(timeStr)}</div>
+    <div class="event-bubble__name">${esc(event.name)}</div>
+    ${locationHtml}
+    <div class="event-bubble__people">${peopleDots}</div>
+  </button>`;
+}
+
+/**
+ * Render the universal "+" add menu.
+ * options: array of { key, label, icon }
+ */
+export function renderAddMenu(options) {
+  const items = options.map(o =>
+    `<button class="add-menu__item" data-action="${o.key}" type="button">
+      <span class="add-menu__icon">${o.icon}</span>
+      <span class="add-menu__label">${esc(o.label)}</span>
+    </button>`
+  ).join('');
+  return `<div class="add-menu">${items}</div>`;
+}
+
+/**
+ * Render the view switcher button for the calendar header.
+ * currentView: 'week' | 'month'
+ */
+export function renderViewSwitcher(currentView) {
+  const icon = currentView === 'week' ? '📅' : '📋';
+  const label = currentView === 'week' ? 'Month' : 'Week';
+  return `<button class="view-switcher" id="viewSwitcher" type="button" title="Switch to ${label} view">${icon}</button>`;
+}
+
+/**
+ * Render the new event creation/edit form.
+ * options: { event?, eventId?, people, dateKey, mode: 'create'|'edit' }
+ */
+export function renderEventForm({ event = {}, eventId = null, people = [], dateKey = '', mode = 'create' }) {
+  const isEdit = mode === 'edit';
+  const title = isEdit ? 'Edit Event' : 'New Event';
+  const saveLabel = isEdit ? 'Save' : 'Create';
+  const peoplePills = people.map(p => {
+    const selected = (event.people || []).includes(p.id);
+    return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+  }).join('');
+
+  const colorPalette = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#ff6d01', '#46bdc6', '#7baaf7', '#f07b72', '#fdd663', '#57bb8a', '#e8710a', '#795548', '#9e9e9e', '#607d8b'];
+  const currentColor = event.color || people[0]?.color || '#4285f4';
+  const colorDots = colorPalette.map(c =>
+    `<button class="dt-color-btn${c === currentColor ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`
+  ).join('');
+
+  return `<div class="task-detail-sheet">
+    <h3 class="admin-form__title">${title}</h3>
+    <div class="admin-form__group">
+      <label class="form-label" for="ef_name">Event name</label>
+      <input class="form-input" id="ef_name" type="text" placeholder="Soccer practice, Dentist, etc." value="${esc(event.name || '')}" autocomplete="off">
+    </div>
+    <div class="admin-form__group">
+      <label class="form-label" for="ef_date">Date</label>
+      <input class="form-input" id="ef_date" type="date" value="${event.date || dateKey}">
+    </div>
+    <div class="admin-form__group">
+      <label class="form-label">
+        <input type="checkbox" id="ef_allDay" ${event.allDay ? 'checked' : ''}> All day
+      </label>
+    </div>
+    <div class="ef-time-row" id="ef_timeGroup" ${event.allDay ? 'style="display:none"' : ''}>
+      <div class="ef-time-field">
+        <label class="form-label" for="ef_startTime">Start</label>
+        <input class="form-input" id="ef_startTime" type="time" value="${event.startTime || ''}">
+      </div>
+      <div class="ef-time-field">
+        <label class="form-label" for="ef_endTime">End</label>
+        <input class="form-input" id="ef_endTime" type="time" value="${event.endTime || ''}">
+      </div>
+    </div>
+    <div class="admin-form__group">
+      <label class="form-label">People</label>
+      <div class="owner-chips" id="ef_people">${peoplePills}</div>
+    </div>
+    <details class="ef-more-options">
+      <summary class="form-label ef-more-toggle">More options</summary>
+      <div class="admin-form__group">
+        <label class="form-label">Color</label>
+        <div class="dt-colors" id="ef_colors">${colorDots}</div>
+      </div>
+      <div class="admin-form__group">
+        <label class="form-label" for="ef_location">Location</label>
+        <input class="form-input" id="ef_location" type="text" placeholder="Optional" value="${esc(event.location || '')}">
+      </div>
+      <div class="admin-form__group">
+        <label class="form-label" for="ef_notes">Notes</label>
+        <textarea class="form-input form-textarea" id="ef_notes" rows="2" placeholder="Optional">${esc(event.notes || '')}</textarea>
+      </div>
+      <div class="admin-form__group">
+        <label class="form-label" for="ef_url">Link / URL</label>
+        <input class="form-input" id="ef_url" type="url" placeholder="Optional" value="${esc(event.url || '')}">
+      </div>
+    </details>
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="ef_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="ef_save" type="button" ${eventId ? `data-event-id="${eventId}"` : ''}>${saveLabel}</button>
+    </div>
+    ${isEdit ? `<button class="btn btn--danger btn--small mt-md" id="ef_delete" type="button" data-event-id="${eventId}">Delete Event</button>` : ''}
+  </div>`;
+}
+
+/**
+ * Render event detail sheet (shown on tap in day view).
+ */
+export function renderEventDetailSheet(eventId, event, people = []) {
+  const timeStr = event.allDay ? 'All Day' : formatTimeRange(event.startTime, event.endTime);
+  const assignedPeople = (event.people || []).map(pid => people.find(p => p.id === pid)).filter(Boolean);
+  const peopleHtml = assignedPeople.map(p =>
+    `<span class="chip" style="--person-color:${p.color}">${esc(p.name)}</span>`
+  ).join(' ');
+
+  return `<div class="task-detail-sheet">
+    <div class="event-detail__color-bar" style="background:${event.color || '#5b7fd6'}"></div>
+    <h3 class="event-detail__name">${esc(event.name)}</h3>
+    <div class="event-detail__time">${esc(timeStr)}</div>
+    <div class="event-detail__date">${formatDateShort(event.date)}</div>
+    ${peopleHtml ? `<div class="event-detail__people">${peopleHtml}</div>` : ''}
+    ${event.location ? `<div class="event-detail__row"><strong>Location:</strong> ${esc(event.location)}</div>` : ''}
+    ${event.notes ? `<div class="event-detail__row"><strong>Notes:</strong> ${esc(event.notes)}</div>` : ''}
+    ${event.url ? `<div class="event-detail__row"><a href="${esc(event.url)}" target="_blank" rel="noopener">Open Link</a></div>` : ''}
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="eventEdit" data-event-id="${eventId}" type="button">Edit</button>
+      <button class="btn btn--danger btn--small" id="eventDelete" data-event-id="${eventId}" type="button">Delete</button>
+    </div>
+  </div>`;
 }
 
 /**
