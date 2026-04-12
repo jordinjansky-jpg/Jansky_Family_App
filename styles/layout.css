@@ -6,6 +6,7 @@
   margin: 0 auto;
   padding: var(--spacing-md);
   padding-top: calc(var(--header-height) + var(--spacing-md) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--nav-height) + var(--spacing-md) + env(safe-area-inset-bottom, 0px));
   overflow-x: hidden;
   animation: pageFadeIn 0.3s ease-out;
 }
