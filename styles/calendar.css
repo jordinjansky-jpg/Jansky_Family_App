@@ -192,6 +192,17 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
+/* Short timed events (no end time): single-line layout */
+.event-pill--short {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.event-pill--short .event-pill__time {
+  flex-shrink: 0;
+}
+
 /* Striped pills (multi-person diagonal stripes) */
 .event-pill--striped {
   color: #fff;

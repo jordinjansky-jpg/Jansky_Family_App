@@ -366,15 +366,12 @@ export function renderEventPill(event, people = []) {
 
   if (isTimed) {
     const timeStr = formatTimeRange(event.startTime, event.endTime);
-    // Timed: left-bar block style with stripes or tint
     const barColor = event.color || '#5b7fd6';
-    if (isStriped) {
-      return `<div class="event-pill event-pill--timed event-pill--striped" style="--event-bg:${barColor};${bgStyle}">
-        <span class="event-pill__time">${esc(timeStr)}</span>
-        <span class="event-pill__text">${esc(event.name)}</span>
-      </div>`;
-    }
-    return `<div class="event-pill event-pill--timed" style="--event-bg:${barColor}">
+    // Short events (no end time): single-line compact layout
+    const isShort = !event.endTime;
+    const cls = `event-pill event-pill--timed${isShort ? ' event-pill--short' : ''}${isStriped ? ' event-pill--striped' : ''}`;
+    const style = isStriped ? `--event-bg:${barColor};${bgStyle}` : `--event-bg:${barColor}`;
+    return `<div class="${cls}" style="${style}">
       <span class="event-pill__time">${esc(timeStr)}</span>
       <span class="event-pill__text">${esc(event.name)}</span>
     </div>`;
