@@ -100,6 +100,7 @@
     let allSchedule = {};
     let suppressedCooldownTaskIds = new Set();
     let pendingSliderOverride = null;
+    let daySwipeController = null;
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
@@ -338,7 +339,7 @@
           pressTimer = setTimeout(() => {
             didLongPress = true;
             openTaskSheet(entryKey, dateKey);
-          }, settings?.longPressMs ?? 500);
+          }, settings?.longPressMs ?? 800);
         });
         row.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
         row.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
@@ -346,12 +347,14 @@
         row.addEventListener('contextmenu', (e) => e.preventDefault());
       });
 
-      // Swipe between days
+      // Swipe between days — use AbortController to prevent stacking listeners on re-render
+      if (daySwipeController) daySwipeController.abort();
+      daySwipeController = new AbortController();
       let sx = 0, sy = 0;
       main.addEventListener('touchstart', (e) => {
         sx = e.touches[0].clientX;
         sy = e.touches[0].clientY;
-      }, { passive: true });
+      }, { passive: true, signal: daySwipeController.signal });
       main.addEventListener('touchend', (e) => {
         const dx = e.changedTouches[0].clientX - sx;
         const dy = e.changedTouches[0].clientY - sy;
@@ -359,7 +362,7 @@
           viewDay = addDays(viewDay, dx < 0 ? 1 : -1);
           render();
         }
-      }, { passive: true });
+      }, { passive: true, signal: daySwipeController.signal });
     }
 
     // ══════════════════════════════════════════
@@ -533,13 +536,29 @@
 
         const eventId = existingEventId;
         if (eventId) {
+          const oldEvent = events[eventId];
           await writeEvent(eventId, eventData);
           events[eventId] = eventData;
+
+          // If date changed, move schedule entry to new date
+          if (oldEvent && oldEvent.date !== eventData.date) {
+            const moveUpdates = {};
+            for (const [dk, dayEntries] of Object.entries(allSchedule)) {
+              for (const [ek, entry] of Object.entries(dayEntries || {})) {
+                if (entry.type === 'event' && entry.eventId === eventId) {
+                  moveUpdates[`schedule/${dk}/${ek}`] = null;
+                }
+              }
+            }
+            const newSchedKey = `sched_${Date.now()}_event_${Math.random().toString(36).slice(2, 6)}`;
+            moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId };
+            await multiUpdate(moveUpdates);
+          }
         } else {
           const newId = await pushEvent(eventData);
           events[newId] = eventData;
 
-          const schedKey = `sched_${Date.now()}_event`;
+          const schedKey = `sched_${Date.now()}_event_${Math.random().toString(36).slice(2, 6)}`;
           await multiUpdate({
             [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId }
           });
@@ -1242,8 +1261,8 @@
           createdDate: task.createdDate || today
         };
 
-        const eventRef = firebase.database().ref('rundown/events').push();
-        const eventId = eventRef.key;
+        // Generate a push key via multiUpdate path — avoids direct firebase.database() call
+        const eventId = `evt_${Date.now()}_${counter}`;
         updates[`events/${eventId}`] = eventData;
 
         for (const [dateKey, dayEntries] of Object.entries(allSchedule)) {
