@@ -283,6 +283,42 @@ export async function writeStreaks(personId, data) {
   return writeData(`streaks/${personId}`, data);
 }
 
+// --- Events ---
+
+export async function readEvents() {
+  return readOnce('events');
+}
+
+export async function readEvent(eventId) {
+  return readOnce(`events/${eventId}`);
+}
+
+export function onEvents(callback) {
+  return onValue('events', callback);
+}
+
+export async function pushEvent(data) {
+  return pushData('events', data);
+}
+
+export async function writeEvent(eventId, data) {
+  return writeData(`events/${eventId}`, data);
+}
+
+export async function removeEvent(eventId) {
+  return removeData(`events/${eventId}`);
+}
+
+// --- Calendar Settings ---
+
+export async function readCalendarDefaults() {
+  return readOnce('settings/calendarDefaults');
+}
+
+export async function writeCalendarDefaults(defaults) {
+  return writeData('settings/calendarDefaults', defaults);
+}
+
 /**
  * Push a debug event log entry.
  */
