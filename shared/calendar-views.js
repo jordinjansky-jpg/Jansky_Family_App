@@ -63,20 +63,83 @@ export function renderWeekView(opts) {
     const sortedRecurring = sortEntries(recurringTasks, completions);
     const sortedDaily = showDailyInWeek ? sortEntries(dailyTasks, completions) : [];
 
-    // Build event pills HTML
-    let eventsHtml = '';
+    // Separate all-day vs timed events
     const allDayEvents = sortedEvents.filter(([, e]) => e.allDay);
-    const timedEvents = sortedEvents.filter(([, e]) => !e.allDay);
-    const visibleEvents = [...allDayEvents, ...timedEvents];
-    const overflow = visibleEvents.length - maxPills;
+    const timedEvents = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
 
-    for (let i = 0; i < Math.min(visibleEvents.length, maxPills); i++) {
-      const [, evt] = visibleEvents[i];
-      eventsHtml += renderEventPill(evt, people);
+    // All-day pills (simple list)
+    let allDayHtml = '';
+    for (const [, evt] of allDayEvents) {
+      allDayHtml += renderEventPill(evt, people);
     }
-    if (overflow > 0) {
-      eventsHtml += `<div class="cal-week__overflow">+${overflow} more</div>`;
+
+    // Timed events — positioned in a time grid
+    let timeGridHtml = '';
+    if (timedEvents.length > 0) {
+      // Parse time to minutes since midnight
+      const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+      // Find time range for this day's events
+      let earliest = 24 * 60, latest = 0;
+      const parsed = timedEvents.map(([id, evt]) => {
+        const start = toMin(evt.startTime);
+        const end = evt.endTime ? toMin(evt.endTime) : start + 15;
+        earliest = Math.min(earliest, start);
+        latest = Math.max(latest, end);
+        return { id, evt, start, end, dur: end - start };
+      });
+      // Snap earliest down to hour, latest up to hour
+      earliest = Math.floor(earliest / 60) * 60;
+      latest = Math.ceil(latest / 60) * 60;
+      const totalMin = Math.max(latest - earliest, 60); // at least 1 hour
+
+      // Detect overlaps and assign columns per overlap group
+      parsed.sort((a, b) => a.start - b.start || a.end - b.end);
+      // Build overlap groups: events that transitively overlap share a group
+      const groups = [];
+      let curGroup = [];
+      let groupEnd = 0;
+      for (const ev of parsed) {
+        if (curGroup.length > 0 && ev.start >= groupEnd) {
+          groups.push(curGroup);
+          curGroup = [];
+        }
+        curGroup.push(ev);
+        groupEnd = Math.max(groupEnd, ev.end);
+      }
+      if (curGroup.length > 0) groups.push(curGroup);
+
+      // Within each group, assign columns greedily
+      const layout = new Map(); // ev → { col, totalCols }
+      for (const group of groups) {
+        const cols = [];
+        for (const ev of group) {
+          let placed = false;
+          for (let ci = 0; ci < cols.length; ci++) {
+            if (ev.start >= cols[ci]) { cols[ci] = ev.end; layout.set(ev, { col: ci }); placed = true; break; }
+          }
+          if (!placed) { layout.set(ev, { col: cols.length }); cols.push(ev.end); }
+        }
+        const tc = cols.length;
+        for (const ev of group) layout.get(ev).totalCols = tc;
+      }
+
+      // Pixel height per minute — 1.5px/min so events are readable
+      const pxPerMin = 1.5;
+      const gridHeight = totalMin * pxPerMin;
+
+      for (const ev of parsed) {
+        const top = (ev.start - earliest) * pxPerMin;
+        const height = Math.max(ev.dur * pxPerMin, 28); // min 28px to fit time + name
+        const { col, totalCols } = layout.get(ev);
+        const left = (col / totalCols) * 100;
+        const width = (1 / totalCols) * 100;
+        const pill = renderEventPill(ev.evt, people);
+        timeGridHtml += `<div class="cal-week__timed" style="top:${top.toFixed(1)}px;height:${height.toFixed(1)}px;left:${left.toFixed(1)}%;width:${width.toFixed(1)}%">${pill}</div>`;
+      }
+      timeGridHtml = `<div class="cal-week__time-grid" style="height:${gridHeight.toFixed(1)}px">${timeGridHtml}</div>`;
     }
+
+    let eventsHtml = allDayHtml + timeGridHtml;
 
     // Helper to build task row HTML
     function taskRow(entryKey, entry) {

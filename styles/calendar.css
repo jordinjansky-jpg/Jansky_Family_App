@@ -105,6 +105,36 @@
   .cal-week__col::-webkit-scrollbar { display: none; }
 }
 .cal-week__events { display: flex; flex-direction: column; gap: 2px; }
+/* Time grid for positioned timed events */
+.cal-week__time-grid {
+  position: relative;
+  width: 100%;
+  margin-top: 2px;
+}
+.cal-week__timed {
+  position: absolute;
+  padding: 0 1px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.cal-week__timed .event-pill {
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.cal-week__timed .event-pill--timed {
+  height: 100%;
+  justify-content: flex-start;
+  padding: 2px 4px;
+}
+.cal-week__timed .event-pill__time {
+  font-size: 0.5625rem;
+  line-height: 1;
+}
+.cal-week__timed .event-pill__text {
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+}
 .cal-week__col--today {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 4%, var(--bg-card));
@@ -162,7 +192,16 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.event-pill--timed .event-pill__people { margin-top: 1px; }
+/* Striped pills (multi-person diagonal stripes) */
+.event-pill--striped {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.event-pill--striped.event-pill--timed {
+  background: var(--bg-card) !important;
+  text-shadow: none;
+  color: var(--text-primary);
+}
 
 .event-pill__dot {
   width: 7px; height: 7px;
@@ -557,7 +596,20 @@
 .event-detail__row a { color: var(--accent); }
 
 /* ── Event form extras ── */
+.ef-time-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+.ef-time-field { flex: 1; }
+.ef-time-field .form-label { font-size: var(--font-size-xs); margin-bottom: 2px; }
 .ef-more-options { margin-top: var(--spacing-sm); }
+/* People chips use person color when selected */
+#ef_people .chip--active {
+  background: var(--person-color);
+  border-color: var(--person-color);
+  color: #fff;
+}
 .ef-more-toggle {
   cursor: pointer;
   color: var(--accent);

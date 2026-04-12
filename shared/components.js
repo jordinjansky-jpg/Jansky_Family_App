@@ -337,26 +337,52 @@ function formatTimeRange(start, end) {
  * event: { name, startTime, allDay, color, people[] }
  * people: array of { id, name, color }
  */
+/**
+ * Build a diagonal stripe CSS background for multi-person events (Skylight style).
+ * Single person or no people: solid event color. Multiple people: diagonal stripes.
+ */
+function eventPillBg(event, people) {
+  const assignedPeople = (event.people || []).map(pid => people.find(p => p.id === pid)).filter(Boolean);
+  const eventColor = event.color || '#5b7fd6';
+  if (assignedPeople.length <= 1) return eventColor;
+  // Build diagonal repeating gradient with person colors
+  const stripeW = 6; // px per stripe
+  const colors = assignedPeople.map(p => p.color);
+  const stops = [];
+  colors.forEach((c, i) => {
+    const start = i * stripeW;
+    const end = (i + 1) * stripeW;
+    stops.push(`${c} ${start}px, ${c} ${end}px`);
+  });
+  const totalW = colors.length * stripeW;
+  return `repeating-linear-gradient(135deg, ${stops.join(', ')}) 0 0 / ${totalW}px ${totalW}px`;
+}
+
 export function renderEventPill(event, people = []) {
-  const bg = event.color || '#5b7fd6';
   const isTimed = !event.allDay && event.startTime;
-  const peopleDots = (event.people || []).map(pid => {
-    const person = people.find(p => p.id === pid);
-    return person ? `<span class="event-pill__dot" style="background:${person.color}" title="${esc(person.name)}"></span>` : '';
-  }).join('');
+  const bg = eventPillBg(event, people);
+  const isStriped = (event.people || []).length > 1;
+  const bgStyle = isStriped ? `background:${bg}` : `background:${bg}`;
 
   if (isTimed) {
     const timeStr = formatTimeRange(event.startTime, event.endTime);
-    return `<div class="event-pill event-pill--timed" style="--event-bg:${bg}">
+    // Timed: left-bar block style with stripes or tint
+    const barColor = event.color || '#5b7fd6';
+    if (isStriped) {
+      return `<div class="event-pill event-pill--timed event-pill--striped" style="--event-bg:${barColor};${bgStyle}">
+        <span class="event-pill__time">${esc(timeStr)}</span>
+        <span class="event-pill__text">${esc(event.name)}</span>
+      </div>`;
+    }
+    return `<div class="event-pill event-pill--timed" style="--event-bg:${barColor}">
       <span class="event-pill__time">${esc(timeStr)}</span>
       <span class="event-pill__text">${esc(event.name)}</span>
-      ${peopleDots ? `<span class="event-pill__people">${peopleDots}</span>` : ''}
     </div>`;
   }
 
-  return `<div class="event-pill" style="background:${bg}">
+  // All-day: solid pill or striped
+  return `<div class="event-pill${isStriped ? ' event-pill--striped' : ''}" style="${bgStyle}">
     <span class="event-pill__text">${esc(event.name)}</span>
-    ${peopleDots ? `<span class="event-pill__people">${peopleDots}</span>` : ''}
   </div>`;
 }
 
@@ -438,9 +464,15 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
         <input type="checkbox" id="ef_allDay" ${event.allDay ? 'checked' : ''}> All day
       </label>
     </div>
-    <div class="admin-form__group" id="ef_timeGroup" ${event.allDay ? 'style="display:none"' : ''}>
-      <label class="form-label" for="ef_startTime">Start time</label>
-      <input class="form-input" id="ef_startTime" type="time" value="${event.startTime || ''}">
+    <div class="ef-time-row" id="ef_timeGroup" ${event.allDay ? 'style="display:none"' : ''}>
+      <div class="ef-time-field">
+        <label class="form-label" for="ef_startTime">Start</label>
+        <input class="form-input" id="ef_startTime" type="time" value="${event.startTime || ''}">
+      </div>
+      <div class="ef-time-field">
+        <label class="form-label" for="ef_endTime">End</label>
+        <input class="form-input" id="ef_endTime" type="time" value="${event.endTime || ''}">
+      </div>
     </div>
     <div class="admin-form__group">
       <label class="form-label">People</label>
@@ -448,10 +480,6 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     </div>
     <details class="ef-more-options">
       <summary class="form-label ef-more-toggle">More options</summary>
-      <div class="admin-form__group" id="ef_endTimeGroup" ${event.allDay ? 'style="display:none"' : ''}>
-        <label class="form-label" for="ef_endTime">End time</label>
-        <input class="form-input" id="ef_endTime" type="time" value="${event.endTime || ''}">
-      </div>
       <div class="admin-form__group">
         <label class="form-label">Color</label>
         <div class="dt-colors" id="ef_colors">${colorDots}</div>
