@@ -171,7 +171,7 @@ export function renderBottomSheet(content) {
  * activePerson: id of selected person or null for "All"
  * Returns an HTML string.
  */
-export function renderPersonFilter(people, activePerson) {
+export function renderPersonFilter(people, activePerson, trailingHtml = '') {
   const allActive = !activePerson ? ' person-pill--active' : '';
   let html = `<div class="person-filter" role="group" aria-label="Filter by person">`;
   html += `<button class="person-pill${allActive}" data-person-id="" aria-pressed="${!activePerson}">All</button>`;
@@ -181,6 +181,7 @@ export function renderPersonFilter(people, activePerson) {
     html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}" aria-pressed="${activePerson === p.id}"><span class="person-pill__dot" style="background:${p.color}"></span>${esc(p.name)}</button>`;
   }
 
+  html += trailingHtml;
   html += `</div>`;
   return html;
 }
@@ -338,48 +339,61 @@ function formatTimeRange(start, end) {
  * people: array of { id, name, color }
  */
 /**
- * Build a diagonal stripe CSS background for multi-person events (Skylight style).
- * Single person or no people: solid event color. Multiple people: diagonal stripes.
+ * Build multi-person event styling.
+ * Single person: solid color. Multiple people: horizontal gradient blend (all-day)
+ * or segmented left border (timed).
  */
-function eventPillBg(event, people) {
+function eventPersonColors(event, people) {
   const assignedPeople = (event.people || []).map(pid => people.find(p => p.id === pid)).filter(Boolean);
+  return assignedPeople.map(p => p.color);
+}
+
+function eventAllDayBg(event, people) {
+  const colors = eventPersonColors(event, people);
   const eventColor = event.color || '#5b7fd6';
-  if (assignedPeople.length <= 1) return eventColor;
-  // Build diagonal repeating gradient with person colors
-  const stripeW = 6; // px per stripe
-  const colors = assignedPeople.map(p => p.color);
-  const stops = [];
-  colors.forEach((c, i) => {
-    const start = i * stripeW;
-    const end = (i + 1) * stripeW;
-    stops.push(`${c} ${start}px, ${c} ${end}px`);
-  });
-  const totalW = colors.length * stripeW;
-  return `repeating-linear-gradient(135deg, ${stops.join(', ')}) 0 0 / ${totalW}px ${totalW}px`;
+  if (colors.length <= 1) return eventColor;
+  // Soft horizontal gradient blending person colors
+  return `linear-gradient(90deg, ${colors.join(', ')})`;
+}
+
+function eventTimedBorderGradient(colors) {
+  // Vertical segmented border: each person's color stacked evenly
+  const pct = 100 / colors.length;
+  const stops = colors.map((c, i) => `${c} ${i * pct}%, ${c} ${(i + 1) * pct}%`);
+  return `linear-gradient(180deg, ${stops.join(', ')})`;
 }
 
 export function renderEventPill(event, people = []) {
   const isTimed = !event.allDay && event.startTime;
-  const bg = eventPillBg(event, people);
-  const isStriped = (event.people || []).length > 1;
-  const bgStyle = isStriped ? `background:${bg}` : `background:${bg}`;
+  const colors = eventPersonColors(event, people);
+  const isMulti = colors.length > 1;
+
+  // Person color dots for multi-person events
+  const dotsHtml = isMulti
+    ? `<span class="event-pill__people">${colors.map(c => `<span class="event-pill__dot" style="background:${c}"></span>`).join('')}</span>`
+    : '';
 
   if (isTimed) {
     const timeStr = formatTimeRange(event.startTime, event.endTime);
     const barColor = event.color || '#5b7fd6';
-    // Short events (no end time): single-line compact layout
     const isShort = !event.endTime;
-    const cls = `event-pill event-pill--timed${isShort ? ' event-pill--short' : ''}${isStriped ? ' event-pill--striped' : ''}`;
-    const style = isStriped ? `--event-bg:${barColor};${bgStyle}` : `--event-bg:${barColor}`;
-    return `<div class="${cls}" style="${style}">
+    const cls = `event-pill event-pill--timed${isShort ? ' event-pill--short' : ''}${isMulti ? ' event-pill--multi' : ''}`;
+    // Multi-person timed: segmented left border via gradient
+    const borderStyle = isMulti
+      ? `--event-bg:${barColor};border-image:${eventTimedBorderGradient(colors)} 1;border-image-slice:1`
+      : `--event-bg:${barColor}`;
+    return `<div class="${cls}" style="${borderStyle}">
       <span class="event-pill__time">${esc(timeStr)}</span>
       <span class="event-pill__text">${esc(event.name)}</span>
+      ${dotsHtml}
     </div>`;
   }
 
-  // All-day: solid pill or striped
-  return `<div class="event-pill${isStriped ? ' event-pill--striped' : ''}" style="${bgStyle}">
+  // All-day: solid or gradient blend + dots
+  const bg = eventAllDayBg(event, people);
+  return `<div class="event-pill${isMulti ? ' event-pill--multi' : ''}" style="background:${bg}">
     <span class="event-pill__text">${esc(event.name)}</span>
+    ${dotsHtml}
   </div>`;
 }
 

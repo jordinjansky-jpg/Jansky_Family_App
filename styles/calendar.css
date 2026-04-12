@@ -187,7 +187,6 @@
 }
 .event-pill--timed .event-pill__text {
   font-weight: 600;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
@@ -203,15 +202,23 @@
   flex-shrink: 0;
 }
 
-/* Striped pills (multi-person diagonal stripes) */
-.event-pill--striped {
+/* Multi-person all-day pills: gradient blend */
+.event-pill--multi {
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
 }
-.event-pill--striped.event-pill--timed {
-  background: var(--bg-card) !important;
-  text-shadow: none;
+/* Multi-person timed pills: segmented left border + person dots */
+.event-pill--multi.event-pill--timed {
+  border-left-width: 4px;
+  border-left-style: solid;
   color: var(--text-primary);
+  text-shadow: none;
+}
+.event-pill__people {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .event-pill__dot {
@@ -712,33 +719,39 @@
 }
 .person-pill--active .person-pill__dot { background: #fff !important; }
 
-/* ── Preferences sheet compact layout ── */
-.pref-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-}
-.pref-cell {
+/* ── Inline calendar controls (inside person-filter row) ── */
+.cal-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
-.pref-cell .form-label {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  white-space: nowrap;
+.cal-controls__group {
+  display: flex;
+  align-items: center;
 }
-.pref-cell .dt-themes { display: flex; gap: 0; }
-.pref-cell .dt-theme-btn {
-  padding: 3px 8px;
+.cal-controls__seg {
+  display: flex;
+}
+.cal-controls__seg button {
+  padding: 2px 8px;
   font-size: var(--font-size-xs);
-  border-radius: 0;
-  border-width: 1px;
   font-weight: 500;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
   margin-left: -1px;
+  border-radius: 0;
+  line-height: 1.4;
 }
-.pref-cell .dt-theme-btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); margin-left: 0; }
-.pref-cell .dt-theme-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.cal-controls__seg button:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); margin-left: 0; }
+.cal-controls__seg button:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.cal-controls__seg button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
 
 /* ── PWA standalone — padding already uses env() safe-area, no extra override needed ── */

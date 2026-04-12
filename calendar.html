@@ -181,7 +181,21 @@
       }
 
       let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay });
-      html += renderPersonFilter(people, activePerson);
+      html += renderPersonFilter(people, activePerson, `
+        <div class="cal-controls">
+          <div class="cal-controls__group">
+            <div class="cal-controls__seg">
+              <button class="${density === 'snug' ? 'active' : ''}" data-ctl-density="snug" type="button">Snug</button>
+              <button class="${density === 'cozy' ? 'active' : ''}" data-ctl-density="cozy" type="button">Cozy</button>
+            </div>
+          </div>
+          <div class="cal-controls__group">
+            <div class="cal-controls__seg">
+              <button class="${showDailyInWeek ? 'active' : ''}" data-ctl-daily="true" type="button">Show</button>
+              <button class="${!showDailyInWeek ? 'active' : ''}" data-ctl-daily="false" type="button">Hide</button>
+            </div>
+          </div>
+        </div>`);
 
       html += `<div class="cal-view-enter ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
       if (currentView === 'week') {
@@ -247,6 +261,22 @@
         currentView = currentView === 'week' ? 'month' : 'week';
         render();
       });
+
+      // Inline density toggle
+      main.querySelectorAll('[data-ctl-density]').forEach(btn => btn.addEventListener('click', () => {
+        density = btn.dataset.ctlDensity;
+        calPrefs.density = density;
+        saveCalPrefs();
+        render();
+      }));
+
+      // Inline daily toggle
+      main.querySelectorAll('[data-ctl-daily]').forEach(btn => btn.addEventListener('click', () => {
+        showDailyInWeek = btn.dataset.ctlDaily === 'true';
+        calPrefs.showDailyInWeek = showDailyInWeek;
+        saveCalPrefs();
+        render();
+      }));
     }
 
     function bindPersonFilterEvents() {
@@ -1174,107 +1204,10 @@
       });
     }
 
-    // ── Preferences sheet (theme + calendar settings) ──
+    // ── Theme button — opens device theme sheet directly ──
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
       const mount = document.getElementById('taskSheetMount');
-      const html = renderBottomSheet(`<div class="task-detail-sheet">
-        <h3 class="admin-form__title">Preferences</h3>
-
-        <div class="pref-grid">
-          <div class="pref-cell">
-            <label class="form-label">View</label>
-            <div class="dt-themes">
-              <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'week' ? ' dt-theme-btn--active' : ''}" data-pref-view="week" type="button">Week</button>
-              <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'month' ? ' dt-theme-btn--active' : ''}" data-pref-view="month" type="button">Month</button>
-            </div>
-          </div>
-          <div class="pref-cell">
-            <label class="form-label">Density</label>
-            <div class="dt-themes">
-              <button class="dt-theme-btn${density === 'snug' ? ' dt-theme-btn--active' : ''}" data-pref-density="snug" type="button">Snug</button>
-              <button class="dt-theme-btn${density === 'cozy' ? ' dt-theme-btn--active' : ''}" data-pref-density="cozy" type="button">Cozy</button>
-            </div>
-          </div>
-          <div class="pref-cell">
-            <label class="form-label">Week Start</label>
-            <div class="dt-themes">
-              <button class="dt-theme-btn${weekStartDay === 0 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="0" type="button">Sun</button>
-              <button class="dt-theme-btn${weekStartDay === 1 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="1" type="button">Mon</button>
-            </div>
-          </div>
-          <div class="pref-cell">
-            <label class="form-label">Daily</label>
-            <div class="dt-themes">
-              <button class="dt-theme-btn${showDailyInWeek ? ' dt-theme-btn--active' : ''}" data-pref-daily="true" type="button">Show</button>
-              <button class="dt-theme-btn${!showDailyInWeek ? ' dt-theme-btn--active' : ''}" data-pref-daily="false" type="button">Hide</button>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:var(--spacing-md);border-top:1px solid var(--border-light);padding-top:var(--spacing-md)">
-          <button class="btn btn--secondary" id="prefOpenTheme" type="button" style="width:100%">🎨 Change Theme</button>
-        </div>
-
-        <div class="admin-form__actions mt-md">
-          <button class="btn btn--secondary" id="prefClose" type="button">Done</button>
-        </div>
-      </div>`);
-
-      mount.innerHTML = html;
-      requestAnimationFrame(() => {
-        const overlay = document.getElementById('bottomSheet');
-        if (overlay) overlay.classList.add('active');
-      });
-
-      // View toggle
-      mount.querySelectorAll('[data-pref-view]').forEach(btn => btn.addEventListener('click', () => {
-        calPrefs.defaultView = btn.dataset.prefView;
-        saveCalPrefs();
-        mount.querySelectorAll('[data-pref-view]').forEach(b => b.classList.remove('dt-theme-btn--active'));
-        btn.classList.add('dt-theme-btn--active');
-      }));
-
-      // Density toggle
-      mount.querySelectorAll('[data-pref-density]').forEach(btn => btn.addEventListener('click', () => {
-        density = btn.dataset.prefDensity;
-        calPrefs.density = density;
-        saveCalPrefs();
-        mount.querySelectorAll('[data-pref-density]').forEach(b => b.classList.remove('dt-theme-btn--active'));
-        btn.classList.add('dt-theme-btn--active');
-        render();
-      }));
-
-      // Week start day toggle
-      mount.querySelectorAll('[data-pref-wsd]').forEach(btn => btn.addEventListener('click', () => {
-        weekStartDay = parseInt(btn.dataset.prefWsd, 10);
-        calPrefs.weekStartDay = weekStartDay;
-        saveCalPrefs();
-        viewWeekStart = weekStartForDay(today, weekStartDay);
-        mount.querySelectorAll('[data-pref-wsd]').forEach(b => b.classList.remove('dt-theme-btn--active'));
-        btn.classList.add('dt-theme-btn--active');
-        render();
-      }));
-
-      // Daily tasks toggle
-      mount.querySelectorAll('[data-pref-daily]').forEach(btn => btn.addEventListener('click', () => {
-        showDailyInWeek = btn.dataset.prefDaily === 'true';
-        calPrefs.showDailyInWeek = showDailyInWeek;
-        saveCalPrefs();
-        mount.querySelectorAll('[data-pref-daily]').forEach(b => b.classList.remove('dt-theme-btn--active'));
-        btn.classList.add('dt-theme-btn--active');
-        render();
-      }));
-
-      // Open theme sub-sheet
-      mount.querySelector('#prefOpenTheme')?.addEventListener('click', () => {
-        openDeviceThemeSheet(mount, settings?.theme);
-      });
-
-      // Close
-      mount.querySelector('#prefClose')?.addEventListener('click', () => {
-        const overlay = document.getElementById('bottomSheet');
-        if (overlay) { overlay.classList.remove('active'); setTimeout(() => mount.innerHTML = '', 300); }
-      });
+      openDeviceThemeSheet(mount, settings?.theme);
       document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
         if (e.target.id === 'bottomSheet') {
           e.target.classList.remove('active');

@@ -123,19 +123,26 @@ export function renderWeekView(opts) {
         for (const ev of group) layout.get(ev).totalCols = tc;
       }
 
-      // Pixel height per minute — 1.5px/min so events are readable
+      // Compact stacked layout: no empty time gaps between non-overlapping groups.
+      // Each group stacks below the previous one. Within a group, overlapping events sit side-by-side.
       const pxPerMin = 1.5;
-      const gridHeight = totalMin * pxPerMin;
+      const groupGap = 4; // px between groups
+      let yOffset = 0;
 
-      for (const ev of parsed) {
-        const top = (ev.start - earliest) * pxPerMin;
-        const height = Math.max(ev.dur * pxPerMin, 28); // min 28px to fit time + name
-        const { col, totalCols } = layout.get(ev);
-        const left = (col / totalCols) * 100;
-        const width = (1 / totalCols) * 100;
-        const pill = renderEventPill(ev.evt, people);
-        timeGridHtml += `<div class="cal-week__timed" style="top:${top.toFixed(1)}px;height:${height.toFixed(1)}px;left:${left.toFixed(1)}%;width:${width.toFixed(1)}%">${pill}</div>`;
+      for (const group of groups) {
+        // Find tallest event in this group (determines group height)
+        const groupHeight = Math.max(...group.map(ev => Math.max(ev.dur * pxPerMin, 28)));
+        for (const ev of group) {
+          const height = Math.max(ev.dur * pxPerMin, 28);
+          const { col, totalCols } = layout.get(ev);
+          const left = (col / totalCols) * 100;
+          const width = (1 / totalCols) * 100;
+          const pill = renderEventPill(ev.evt, people);
+          timeGridHtml += `<div class="cal-week__timed" style="top:${yOffset.toFixed(1)}px;height:${height.toFixed(1)}px;left:${left.toFixed(1)}%;width:${width.toFixed(1)}%">${pill}</div>`;
+        }
+        yOffset += groupHeight + groupGap;
       }
+      const gridHeight = Math.max(yOffset - groupGap, 0);
       timeGridHtml = `<div class="cal-week__time-grid" style="height:${gridHeight.toFixed(1)}px">${timeGridHtml}</div>`;
     }
 
