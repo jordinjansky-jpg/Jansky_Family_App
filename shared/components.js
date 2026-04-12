@@ -339,14 +339,23 @@ function formatTimeRange(start, end) {
  */
 export function renderEventPill(event, people = []) {
   const bg = event.color || '#5b7fd6';
-  const timeStr = event.allDay ? '' : event.startTime ? formatTime12(event.startTime) + ' ' : '';
+  const isTimed = !event.allDay && event.startTime;
   const peopleDots = (event.people || []).map(pid => {
     const person = people.find(p => p.id === pid);
     return person ? `<span class="event-pill__dot" style="background:${person.color}" title="${esc(person.name)}"></span>` : '';
   }).join('');
 
+  if (isTimed) {
+    const timeStr = formatTimeRange(event.startTime, event.endTime);
+    return `<div class="event-pill event-pill--timed" style="--event-bg:${bg}">
+      <span class="event-pill__time">${esc(timeStr)}</span>
+      <span class="event-pill__text">${esc(event.name)}</span>
+      ${peopleDots ? `<span class="event-pill__people">${peopleDots}</span>` : ''}
+    </div>`;
+  }
+
   return `<div class="event-pill" style="background:${bg}">
-    <span class="event-pill__text">${esc(timeStr + event.name)}</span>
+    <span class="event-pill__text">${esc(event.name)}</span>
     ${peopleDots ? `<span class="event-pill__people">${peopleDots}</span>` : ''}
   </div>`;
 }

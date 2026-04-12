@@ -1180,35 +1180,34 @@
       const html = renderBottomSheet(`<div class="task-detail-sheet">
         <h3 class="admin-form__title">Preferences</h3>
 
-        <div class="pref-row">
-          <label class="form-label">Default View</label>
-          <div class="dt-themes">
-            <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'week' ? ' dt-theme-btn--active' : ''}" data-pref-view="week" type="button">Week</button>
-            <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'month' ? ' dt-theme-btn--active' : ''}" data-pref-view="month" type="button">Month</button>
+        <div class="pref-grid">
+          <div class="pref-cell">
+            <label class="form-label">View</label>
+            <div class="dt-themes">
+              <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'week' ? ' dt-theme-btn--active' : ''}" data-pref-view="week" type="button">Week</button>
+              <button class="dt-theme-btn${(calPrefs.defaultView || defaultView) === 'month' ? ' dt-theme-btn--active' : ''}" data-pref-view="month" type="button">Month</button>
+            </div>
           </div>
-        </div>
-
-        <div class="pref-row">
-          <label class="form-label">Density</label>
-          <div class="dt-themes">
-            <button class="dt-theme-btn${density === 'snug' ? ' dt-theme-btn--active' : ''}" data-pref-density="snug" type="button">Snug</button>
-            <button class="dt-theme-btn${density === 'cozy' ? ' dt-theme-btn--active' : ''}" data-pref-density="cozy" type="button">Cozy</button>
+          <div class="pref-cell">
+            <label class="form-label">Density</label>
+            <div class="dt-themes">
+              <button class="dt-theme-btn${density === 'snug' ? ' dt-theme-btn--active' : ''}" data-pref-density="snug" type="button">Snug</button>
+              <button class="dt-theme-btn${density === 'cozy' ? ' dt-theme-btn--active' : ''}" data-pref-density="cozy" type="button">Cozy</button>
+            </div>
           </div>
-        </div>
-
-        <div class="pref-row">
-          <label class="form-label">Week Starts</label>
-          <div class="dt-themes">
-            <button class="dt-theme-btn${weekStartDay === 0 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="0" type="button">Sunday</button>
-            <button class="dt-theme-btn${weekStartDay === 1 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="1" type="button">Monday</button>
+          <div class="pref-cell">
+            <label class="form-label">Week Start</label>
+            <div class="dt-themes">
+              <button class="dt-theme-btn${weekStartDay === 0 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="0" type="button">Sun</button>
+              <button class="dt-theme-btn${weekStartDay === 1 ? ' dt-theme-btn--active' : ''}" data-pref-wsd="1" type="button">Mon</button>
+            </div>
           </div>
-        </div>
-
-        <div class="pref-row">
-          <label class="form-label">Daily Tasks</label>
-          <div class="dt-themes">
-            <button class="dt-theme-btn${showDailyInWeek ? ' dt-theme-btn--active' : ''}" data-pref-daily="true" type="button">Show</button>
-            <button class="dt-theme-btn${!showDailyInWeek ? ' dt-theme-btn--active' : ''}" data-pref-daily="false" type="button">Hide</button>
+          <div class="pref-cell">
+            <label class="form-label">Daily</label>
+            <div class="dt-themes">
+              <button class="dt-theme-btn${showDailyInWeek ? ' dt-theme-btn--active' : ''}" data-pref-daily="true" type="button">Show</button>
+              <button class="dt-theme-btn${!showDailyInWeek ? ' dt-theme-btn--active' : ''}" data-pref-daily="false" type="button">Hide</button>
+            </div>
           </div>
         </div>
 

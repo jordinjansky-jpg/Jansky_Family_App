@@ -98,8 +98,11 @@
   border: 1px solid var(--border-subtle, var(--border-light));
   min-width: 0;
   cursor: pointer;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+}
+/* Desktop: columns share a fixed-height grid row, so each scrolls independently */
+@media (min-width: 601px) {
+  .cal-week__col { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .cal-week__col::-webkit-scrollbar { display: none; }
 }
 .cal-week__events { display: flex; flex-direction: column; gap: 2px; }
 .cal-week__col--today {
@@ -135,6 +138,32 @@
   gap: 2px;
   flex-shrink: 0;
 }
+/* Timed events — calendar-block style with left color bar */
+.event-pill--timed {
+  background: color-mix(in srgb, var(--event-bg) 15%, var(--bg-card)) !important;
+  border-left: 3px solid var(--event-bg);
+  color: var(--text-primary);
+  flex-direction: column;
+  align-items: flex-start;
+  white-space: normal;
+  gap: 0;
+  padding: 3px 5px 3px 4px;
+}
+.event-pill__time {
+  font-size: 0.625rem;
+  font-weight: 400;
+  opacity: 0.7;
+  line-height: 1.2;
+}
+.event-pill--timed .event-pill__text {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.event-pill--timed .event-pill__people { margin-top: 1px; }
+
 .event-pill__dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -565,6 +594,14 @@
     gap: var(--spacing-xs);
     border-radius: var(--radius-md);
   }
+  /* Daily tasks section scrolls within the card on mobile */
+  .cal-week__tasks--daily {
+    max-height: 180px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .cal-week__tasks--daily::-webkit-scrollbar { display: none; }
   .cal-week__col-label {
     display: flex;
     align-items: baseline;
@@ -612,23 +649,33 @@
 }
 .person-pill--active .person-pill__dot { background: #fff !important; }
 
-/* ── Preferences sheet inline layout ── */
-.pref-row {
+/* ── Preferences sheet compact layout ── */
+.pref-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+.pref-cell {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
+  gap: 6px;
 }
-.pref-row .form-label {
-  min-width: 100px;
-  margin-bottom: 0;
-  font-size: var(--font-size-sm);
+.pref-cell .form-label {
+  margin: 0;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
+  white-space: nowrap;
 }
-.pref-row .dt-themes {
-  display: flex;
-  gap: var(--spacing-xs);
-  flex: 1;
+.pref-cell .dt-themes { display: flex; gap: 0; }
+.pref-cell .dt-theme-btn {
+  padding: 3px 8px;
+  font-size: var(--font-size-xs);
+  border-radius: 0;
+  border-width: 1px;
+  font-weight: 500;
+  margin-left: -1px;
 }
+.pref-cell .dt-theme-btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); margin-left: 0; }
+.pref-cell .dt-theme-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 
 /* ── PWA standalone — padding already uses env() safe-area, no extra override needed ── */
