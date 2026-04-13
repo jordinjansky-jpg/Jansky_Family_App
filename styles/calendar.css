@@ -717,18 +717,40 @@
 }
 .person-pill--active .person-pill__dot { background: #fff !important; }
 
-/* ── Calendar view controls (in nav row) ── */
-.cal-controls__toggle {
-  padding: 3px 8px;
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  border: 1px solid var(--border-light);
+/* ── Calendar nav stacked controls ── */
+.cal-nav__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.cal-nav__controls .cal-nav__view-btn {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-bottom: none;
+  width: 100%;
+  height: 28px;
+  font-size: 14px;
+}
+.cal-nav__controls .cal-nav__view-btn:only-child {
   border-radius: var(--radius-sm);
+  border-bottom: 1.5px solid var(--border-color);
+}
+.cal-controls__toggle {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid var(--border-light);
+  border-top: none;
   background: var(--bg-card);
   color: var(--text-muted);
   cursor: pointer;
   border-radius: 0;
   line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.cal-controls__toggle:last-child {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 .cal-controls__toggle.active {
   background: var(--accent);

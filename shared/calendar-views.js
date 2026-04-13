@@ -388,8 +388,10 @@ export function renderCalendarNav(opts) {
         ${!isCurrentPeriod ? `<button class="cal-today-link" id="goToday" type="button">Today</button>` : ''}
       </div>
       <button class="date-nav__btn" id="nextPeriod" type="button" title="Next">&rsaquo;</button>
-      ${controlsHtml}
-      <button class="cal-nav__view-btn" id="viewSwitcher" type="button" title="Switch to ${switchLabel}">${switchIcon}</button>
+      <div class="cal-nav__controls">
+        <button class="cal-nav__view-btn" id="viewSwitcher" type="button" title="Switch to ${switchLabel}">${switchIcon}</button>
+        ${controlsHtml}
+      </div>
     </div>
   </div>`;
 }

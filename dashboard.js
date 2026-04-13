@@ -1,5 +1,5 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -702,9 +702,113 @@ function openEventDetailSheet(eventId) {
     render();
   });
 
-  // Edit redirects to calendar (dashboard doesn't have event form)
   document.getElementById('eventEdit')?.addEventListener('click', () => {
-    window.location.href = `calendar.html`;
+    closeTaskSheet();
+    setTimeout(() => openEventForm(eventId), 320);
+  });
+}
+
+function openEventForm(existingEventId = null) {
+  const event = existingEventId ? events[existingEventId] : {};
+  const mode = existingEventId ? 'edit' : 'create';
+  const html = renderEventForm({ event, eventId: existingEventId, people, dateKey: viewDate, mode });
+  taskSheetMount.innerHTML = renderBottomSheet(html);
+
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    if (mode === 'create') document.getElementById('ef_name')?.focus();
+  });
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+
+  document.getElementById('ef_allDay')?.addEventListener('change', (e) => {
+    const hide = e.target.checked;
+    document.getElementById('ef_timeGroup').style.display = hide ? 'none' : '';
+    document.getElementById('ef_endTimeGroup')?.style && (document.getElementById('ef_endTimeGroup').style.display = hide ? 'none' : '');
+  });
+
+  document.querySelectorAll('#ef_colors .dt-color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#ef_colors .dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
+      btn.classList.add('dt-color-btn--active');
+    });
+  });
+
+  document.querySelectorAll('#ef_people .chip--selectable').forEach(chip => {
+    chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
+  });
+
+  document.getElementById('ef_cancel')?.addEventListener('click', closeTaskSheet);
+
+  document.getElementById('ef_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('ef_name')?.value.trim();
+    if (!name) { document.getElementById('ef_name')?.focus(); return; }
+
+    const selectedPeople = [];
+    document.querySelectorAll('#ef_people .chip--active').forEach(c => {
+      if (c.dataset.personId) selectedPeople.push(c.dataset.personId);
+    });
+
+    const selectedColor = document.querySelector('#ef_colors .dt-color-btn--active')?.dataset.color
+      || (selectedPeople[0] ? people.find(p => p.id === selectedPeople[0])?.color : null)
+      || '#4285f4';
+
+    const eventData = {
+      name,
+      date: document.getElementById('ef_date')?.value || viewDate,
+      allDay: document.getElementById('ef_allDay')?.checked || false,
+      startTime: document.getElementById('ef_allDay')?.checked ? null : (document.getElementById('ef_startTime')?.value || null),
+      endTime: document.getElementById('ef_allDay')?.checked ? null : (document.getElementById('ef_endTime')?.value || null),
+      color: selectedColor,
+      people: selectedPeople,
+      location: document.getElementById('ef_location')?.value.trim() || null,
+      notes: document.getElementById('ef_notes')?.value.trim() || null,
+      url: document.getElementById('ef_url')?.value.trim() || null,
+      createdDate: todayKey(settings?.timezone || 'America/Chicago')
+    };
+
+    if (existingEventId) {
+      const oldEvent = events[existingEventId];
+      await writeEvent(existingEventId, eventData);
+      events[existingEventId] = eventData;
+
+      if (oldEvent && oldEvent.date !== eventData.date) {
+        const allSched = await readAllSchedule() || {};
+        const moveUpdates = {};
+        for (const [dk, dayEntries] of Object.entries(allSched)) {
+          for (const [ek, entry] of Object.entries(dayEntries || {})) {
+            if (entry.type === 'event' && entry.eventId === existingEventId) {
+              moveUpdates[`schedule/${dk}/${ek}`] = null;
+            }
+          }
+        }
+        const newSchedKey = `sched_${Date.now()}_event`;
+        moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId: existingEventId };
+        await multiUpdate(moveUpdates);
+      }
+    } else {
+      const newId = await pushEvent(eventData);
+      events[newId] = eventData;
+      const schedKey = `sched_${Date.now()}_event`;
+      await multiUpdate({
+        [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId }
+      });
+    }
+
+    closeTaskSheet();
+    render();
+  });
+
+  document.getElementById('ef_delete')?.addEventListener('click', async () => {
+    if (!existingEventId) return;
+    if (!confirm('Delete this event?')) return;
+    await removeEvent(existingEventId);
+    delete events[existingEventId];
+    closeTaskSheet();
+    render();
   });
 }
 

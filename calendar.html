@@ -441,7 +441,8 @@
       if (!entryKey) return;
       const wasComplete = isComplete(entryKey, completions);
 
-      // Optimistic inline DOM update — toggle visuals immediately
+      // Optimistic inline DOM update — visuals toggle instantly, no re-render.
+      // The onCompletions listener will do a debounced re-render when Firebase confirms.
       const taskRow = main.querySelector(`.cal-day__task[data-entry-key="${entryKey}"]`);
       const weekCheck = main.querySelector(`.cal-week__task-check[data-entry-key="${entryKey}"]`);
       if (taskRow) {
@@ -456,9 +457,10 @@
       }
       if (weekCheck) weekCheck.checked = !wasComplete;
 
+      // Update local state + write to Firebase (listener handles re-render)
       if (wasComplete) {
         delete completions[entryKey];
-        await removeCompletion(entryKey);
+        removeCompletion(entryKey);
       } else {
         const record = {
           completedAt: firebase.database.ServerValue.TIMESTAMP,
@@ -482,7 +484,7 @@
           }
         }
         completions[entryKey] = record;
-        await writeCompletion(entryKey, record);
+        writeCompletion(entryKey, record);
 
         const dayEntries = allSchedule[dateKey] || {};
         const entry = dayEntries[entryKey];
@@ -490,11 +492,12 @@
           const task = tasks[entry.taskId];
           if (task && task.rotation === 'once') {
             task.status = 'completed';
-            await writeTask(entry.taskId, task);
+            writeTask(entry.taskId, task);
           }
         }
       }
 
+      // Cooldown task rebuild (rare — only for cooldown tasks)
       const toggledEntry = (allSchedule[dateKey] || {})[entryKey];
       if (toggledEntry) {
         const toggledTask = tasks[toggledEntry.taskId];
@@ -509,8 +512,7 @@
           }
         }
       }
-
-      render(true);
+      // No render() call — onCompletions listener handles debounced re-render
     }
 
     // ══════════════════════════════════════════
@@ -1298,7 +1300,7 @@
     // Real-time listeners
     // ══════════════════════════════════════════
 
-    const debouncedRender = debounce(() => render(), 100);
+    const debouncedRender = debounce(() => render(true), 100);
 
     onCompletions((val) => {
       completions = val || {};
