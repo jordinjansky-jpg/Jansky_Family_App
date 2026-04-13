@@ -1,10 +1,10 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, onConnectionChange, onValue, onCompletions, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
-import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
+import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
@@ -18,8 +18,8 @@ const firstRun = await isFirstRun();
 if (firstRun) { window.location.href = 'setup.html'; }
 
 // ── Load core data ──
-const [settings, peopleObj, tasksObj, catsObj] = await Promise.all([
-  readSettings(), readPeople(), readTasks(), readCategories()
+const [settings, peopleObj, tasksObj, catsObj, eventsObj] = await Promise.all([
+  readSettings(), readPeople(), readTasks(), readCategories(), readEvents()
 ]);
 
 // Apply family theme from Firebase only if no device override
@@ -32,6 +32,7 @@ const today = todayKey(tz);
 const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
 const tasks = tasksObj || {};
 const cats = catsObj || {};
+let events = eventsObj || {};
 let activePressTimer = null;
 let pendingSliderOverride = null; // { entryKey, value } — set by slider, consumed by toggleTask/closeSheet
 
@@ -117,17 +118,19 @@ async function loadData() {
 function render() {
   clearTimeout(activePressTimer);
   activePressTimer = null;
-  // Filter out future instances of cooldown tasks that have overdue entries
-  let displayEntries = viewEntries;
-  if (suppressedCooldownTaskIds.size > 0 && viewDate > today) {
-    displayEntries = {};
-    for (const [key, entry] of Object.entries(viewEntries)) {
-      if (!suppressedCooldownTaskIds.has(entry.taskId)) {
-        displayEntries[key] = entry;
-      }
-    }
+  // Filter out event schedule entries (type: 'event') — real events come from events collection
+  let displayEntries = {};
+  for (const [key, entry] of Object.entries(viewEntries)) {
+    if (entry.type === 'event') continue;
+    if (suppressedCooldownTaskIds.size > 0 && viewDate > today && suppressedCooldownTaskIds.has(entry.taskId)) continue;
+    displayEntries[key] = entry;
   }
   const filtered = filterByPerson(displayEntries, activePerson);
+
+  // Get events for current date from events collection
+  let dayEvents = getEventsForDate(events, viewDate);
+  dayEvents = filterEventsByPerson(dayEvents, activePerson);
+  const sortedEvents = sortEvents(dayEvents);
   const prog = dayProgress(filtered, completions);
   const isToday = viewDate === today;
   const isFuture = viewDate > today;
@@ -218,8 +221,16 @@ function render() {
     html += `</div>`;
   }
 
+  // Events from events collection
+  if (sortedEvents.length > 0) {
+    html += renderTimeHeader('Events');
+    for (const [eventId, event] of sortedEvents) {
+      html += renderEventBubble(eventId, event, people);
+    }
+  }
+
   // Day's tasks
-  if (prog.total === 0) {
+  if (prog.total === 0 && sortedEvents.length === 0) {
     if (activePerson) {
       html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
     } else {
@@ -1304,6 +1315,12 @@ const debouncedRender = debounce(() => render(), 100);
 onCompletions(async (val) => {
   completions = val || {};
   await loadData();
+  debouncedRender();
+});
+
+// Events listener — stays active for the lifetime of the page
+onEvents((val) => {
+  events = val || {};
   debouncedRender();
 });
 

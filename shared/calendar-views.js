@@ -69,7 +69,7 @@ function buildTimeGrid(timedEvents, people, { scale = 1.5, minHeight = 28, wrapp
       const left = (col / totalCols) * 100;
       const width = (1 / totalCols) * 100;
       const pill = renderEventPill(ev.evt, people);
-      html += `<div class="${itemClass}" style="top:${yOffset.toFixed(1)}px;height:${height.toFixed(1)}px;left:${left.toFixed(1)}%;width:${width.toFixed(1)}%">${pill}</div>`;
+      html += `<div class="${itemClass}" data-event-id="${ev.id}" style="top:${yOffset.toFixed(1)}px;height:${height.toFixed(1)}px;left:${left.toFixed(1)}%;width:${width.toFixed(1)}%">${pill}</div>`;
     }
     yOffset += groupHeight + groupGap;
   }

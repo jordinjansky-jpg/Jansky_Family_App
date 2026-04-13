@@ -1023,3 +1023,44 @@
   display: inline-block;
   text-align: right;
 }
+
+/* ============ Event Bubbles ============ */
+.event-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-xs);
+  border-radius: var(--radius-md);
+  border: none;
+  background: color-mix(in srgb, var(--event-color) 12%, var(--bg-card));
+  border-left: 4px solid var(--event-color);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.event-bubble:active { transform: scale(0.98); }
+.event-bubble__time {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--event-color);
+}
+.event-bubble__name {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.event-bubble__location {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.event-bubble__people {
+  display: flex;
+  gap: 3px;
+  margin-top: 2px;
+}
+.event-bubble__dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}

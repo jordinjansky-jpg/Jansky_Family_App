@@ -181,21 +181,16 @@
       }
 
       let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay });
-      html += renderPersonFilter(people, activePerson, `
+      const controlsHtml = currentView === 'week' ? `
         <div class="cal-controls">
-          <div class="cal-controls__group">
-            <div class="cal-controls__seg">
-              <button class="${density === 'snug' ? 'active' : ''}" data-ctl-density="snug" type="button">Snug</button>
-              <button class="${density === 'cozy' ? 'active' : ''}" data-ctl-density="cozy" type="button">Cozy</button>
-            </div>
-          </div>
-          <div class="cal-controls__group">
-            <div class="cal-controls__seg">
-              <button class="${showDailyInWeek ? 'active' : ''}" data-ctl-daily="true" type="button">Show</button>
-              <button class="${!showDailyInWeek ? 'active' : ''}" data-ctl-daily="false" type="button">Hide</button>
-            </div>
-          </div>
-        </div>`);
+          <button class="cal-controls__toggle${density === 'cozy' ? ' active' : ''}" data-ctl-density="${density === 'cozy' ? 'snug' : 'cozy'}" type="button" title="${density === 'cozy' ? 'Compact view' : 'Spacious view'}">
+            ${density === 'cozy' ? '▤' : '▥'}
+          </button>
+          <button class="cal-controls__toggle${showDailyInWeek ? ' active' : ''}" data-ctl-daily="${showDailyInWeek ? 'false' : 'true'}" type="button" title="${showDailyInWeek ? 'Hide daily tasks' : 'Show daily tasks'}">
+            Daily
+          </button>
+        </div>` : '';
+      html += renderPersonFilter(people, activePerson, controlsHtml);
 
       html += `<div class="cal-view-enter ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
       if (currentView === 'week') {
@@ -351,17 +346,42 @@
       });
 
       main.querySelectorAll('.event-bubble[data-event-id]').forEach(btn => {
-        btn.addEventListener('click', () => openEventDetailSheet(btn.dataset.eventId));
+        let pressTimer = null;
+        let didLongPress = false;
+        btn.addEventListener('pointerdown', () => {
+          didLongPress = false;
+          pressTimer = setTimeout(() => {
+            didLongPress = true;
+            openEventDetailSheet(btn.dataset.eventId);
+          }, settings?.longPressMs ?? 800);
+        });
+        btn.addEventListener('pointerup', () => {
+          clearTimeout(pressTimer);
+          if (!didLongPress) openEventDetailSheet(btn.dataset.eventId);
+        });
+        btn.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
+        btn.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
+        btn.addEventListener('contextmenu', (e) => e.preventDefault());
       });
 
-      main.querySelectorAll('.cal-day__task-check').forEach(btn => {
-        const entryKey = btn.dataset.entryKey;
-        const dateKey = btn.dataset.dateKey;
-        if (btn.dataset.tapBlocked === 'true') {
-          btn.addEventListener('click', () => openTaskSheet(entryKey, dateKey));
-        } else {
-          btn.addEventListener('click', () => toggleTask(entryKey, dateKey));
-        }
+      // Timed event pills in day view (wrapper divs carry data-event-id)
+      main.querySelectorAll('[data-event-id]:not(.event-bubble)').forEach(pill => {
+        let pressTimer = null;
+        let didLongPress = false;
+        pill.addEventListener('pointerdown', () => {
+          didLongPress = false;
+          pressTimer = setTimeout(() => {
+            didLongPress = true;
+            openEventDetailSheet(pill.dataset.eventId);
+          }, settings?.longPressMs ?? 800);
+        });
+        pill.addEventListener('pointerup', () => {
+          clearTimeout(pressTimer);
+          if (!didLongPress) openEventDetailSheet(pill.dataset.eventId);
+        });
+        pill.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
+        pill.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
+        pill.addEventListener('contextmenu', (e) => e.preventDefault());
       });
 
       main.querySelectorAll('.cal-day__task').forEach(row => {
@@ -369,16 +389,26 @@
         let didLongPress = false;
         const entryKey = row.dataset.entryKey;
         const dateKey = row.dataset.dateKey;
+        const tapBlocked = row.querySelector('.cal-day__task-check')?.dataset.tapBlocked === 'true';
 
         row.addEventListener('pointerdown', (e) => {
-          if (e.target.closest('.cal-day__task-check')) return;
           didLongPress = false;
           pressTimer = setTimeout(() => {
             didLongPress = true;
             openTaskSheet(entryKey, dateKey);
           }, settings?.longPressMs ?? 800);
         });
-        row.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
+        row.addEventListener('pointerup', () => {
+          clearTimeout(pressTimer);
+          if (!didLongPress) {
+            if (tapBlocked) {
+              openTaskSheet(entryKey, dateKey);
+            } else {
+              row.classList.add('cal-day__task--completing');
+              setTimeout(() => toggleTask(entryKey, dateKey), 200);
+            }
+          }
+        });
         row.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
         row.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
         row.addEventListener('contextmenu', (e) => e.preventDefault());

@@ -368,15 +368,12 @@
         // ══════════════════════════════════════════
 
         function render() {
-          // Filter out future instances of cooldown tasks that have overdue entries
-          let displayEntries = viewEntries;
-          if (suppressedCooldownTaskIds.size > 0 && viewDate > today) {
-            displayEntries = {};
-            for (const [key, entry] of Object.entries(viewEntries)) {
-              if (!suppressedCooldownTaskIds.has(entry.taskId)) {
-                displayEntries[key] = entry;
-              }
-            }
+          // Filter out event schedule entries and future cooldown-suppressed tasks
+          let displayEntries = {};
+          for (const [key, entry] of Object.entries(viewEntries)) {
+            if (entry.type === 'event') continue;
+            if (suppressedCooldownTaskIds.size > 0 && viewDate > today && suppressedCooldownTaskIds.has(entry.taskId)) continue;
+            displayEntries[key] = entry;
           }
 
           const prog = dayProgress(displayEntries, completions);

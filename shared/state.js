@@ -32,7 +32,7 @@ export function filterByPerson(entries, personId) {
  */
 export function dayProgress(entries, completions) {
   if (!entries) return { total: 0, done: 0, pct: 0 };
-  const keys = Object.keys(entries);
+  const keys = Object.keys(entries).filter(k => entries[k]?.type !== 'event');
   const total = keys.length;
   const done = keys.filter(k => isComplete(k, completions)).length;
   return { total, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
@@ -53,6 +53,7 @@ export function getOverdueEntries(schedule, completions, today, tasks) {
   for (const [dateKey, dayEntries] of Object.entries(schedule)) {
     if (dateKey >= today || !dayEntries) continue;
     for (const [entryKey, entry] of Object.entries(dayEntries)) {
+      if (entry.type === 'event') continue; // standalone events aren't overdue tasks
       if (isComplete(entryKey, completions)) continue;
       const isDailyNoCooldown = entry.rotationType === 'daily'
         && !(tasks && tasks[entry.taskId]?.cooldownDays > 0);
