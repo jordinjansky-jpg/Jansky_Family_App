@@ -317,10 +317,6 @@
 .cal-day__task:active { background: var(--bg-hover); }
 .cal-day__task--done { opacity: 0.45; }
 .cal-day__task--done .cal-day__task-name { text-decoration: line-through; }
-.cal-day__task--completing {
-  opacity: 0.45;
-  transform: scale(0.98);
-}
 .cal-day__task-check {
   width: 22px; height: 22px;
   border-radius: 50%;
@@ -645,10 +641,6 @@
     min-height: 0;
     border-width: 1.5px;
   }
-  .cal-controls {
-    margin-left: auto;
-    gap: 4px;
-  }
   .cal-controls__toggle {
     padding: 2px 6px;
     font-size: 10px;
@@ -725,14 +717,7 @@
 }
 .person-pill--active .person-pill__dot { background: #fff !important; }
 
-/* ── Inline calendar controls (inside person-filter row) ── */
-.cal-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
+/* ── Calendar view controls (in nav row) ── */
 .cal-controls__toggle {
   padding: 3px 8px;
   font-size: var(--font-size-xs);

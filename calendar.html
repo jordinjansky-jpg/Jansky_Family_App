@@ -137,7 +137,8 @@
     // Main render — dispatches to active view
     // ══════════════════════════════════════════
 
-    function render() {
+    function render(preserveScroll = false) {
+      const scrollY = preserveScroll ? window.scrollY : null;
       let navLabel = '';
       let isCurrentPeriod = false;
 
@@ -164,6 +165,7 @@
         html += `</div>`;
         main.innerHTML = html;
         bindDayViewEvents();
+        if (scrollY != null) requestAnimationFrame(() => window.scrollTo(0, scrollY));
         return;
       }
 
@@ -180,17 +182,15 @@
         isCurrentPeriod = viewMonth === today.substring(0, 7);
       }
 
-      let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay });
       const controlsHtml = currentView === 'week' ? `
-        <div class="cal-controls">
           <button class="cal-controls__toggle${density === 'cozy' ? ' active' : ''}" data-ctl-density="${density === 'cozy' ? 'snug' : 'cozy'}" type="button" title="${density === 'cozy' ? 'Compact view' : 'Spacious view'}">
             ${density === 'cozy' ? '▤' : '▥'}
           </button>
           <button class="cal-controls__toggle${showDailyInWeek ? ' active' : ''}" data-ctl-daily="${showDailyInWeek ? 'false' : 'true'}" type="button" title="${showDailyInWeek ? 'Hide daily tasks' : 'Show daily tasks'}">
             Daily
-          </button>
-        </div>` : '';
-      html += renderPersonFilter(people, activePerson, controlsHtml);
+          </button>` : '';
+      let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml });
+      html += renderPersonFilter(people, activePerson);
 
       html += `<div class="cal-view-enter ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
       if (currentView === 'week') {
@@ -210,6 +210,8 @@
 
       if (currentView === 'week') bindWeekViewEvents();
       else bindMonthViewEvents();
+
+      if (scrollY != null) requestAnimationFrame(() => window.scrollTo(0, scrollY));
     }
 
     function getDayProgress(dateKey) {
@@ -404,8 +406,7 @@
             if (tapBlocked) {
               openTaskSheet(entryKey, dateKey);
             } else {
-              row.classList.add('cal-day__task--completing');
-              setTimeout(() => toggleTask(entryKey, dateKey), 200);
+              toggleTask(entryKey, dateKey);
             }
           }
         });
@@ -439,6 +440,21 @@
     async function toggleTask(entryKey, dateKey) {
       if (!entryKey) return;
       const wasComplete = isComplete(entryKey, completions);
+
+      // Optimistic inline DOM update — toggle visuals immediately
+      const taskRow = main.querySelector(`.cal-day__task[data-entry-key="${entryKey}"]`);
+      const weekCheck = main.querySelector(`.cal-week__task-check[data-entry-key="${entryKey}"]`);
+      if (taskRow) {
+        const check = taskRow.querySelector('.cal-day__task-check');
+        if (wasComplete) {
+          taskRow.classList.remove('cal-day__task--done');
+          check?.classList.remove('cal-day__task-check--done');
+        } else {
+          taskRow.classList.add('cal-day__task--done');
+          check?.classList.add('cal-day__task-check--done');
+        }
+      }
+      if (weekCheck) weekCheck.checked = !wasComplete;
 
       if (wasComplete) {
         delete completions[entryKey];
@@ -494,7 +510,7 @@
         }
       }
 
-      render();
+      render(true);
     }
 
     // ══════════════════════════════════════════

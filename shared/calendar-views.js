@@ -376,7 +376,7 @@ export function renderMonthView(opts) {
  * Render the calendar page header with view navigation.
  */
 export function renderCalendarNav(opts) {
-  const { currentView, viewLabel, isCurrentPeriod, weekStartDay } = opts;
+  const { currentView, viewLabel, isCurrentPeriod, weekStartDay, controlsHtml = '' } = opts;
   const switchLabel = currentView === 'week' ? 'Month' : 'Week';
   const switchIcon = currentView === 'week' ? '📅' : '📋';
 
@@ -388,6 +388,7 @@ export function renderCalendarNav(opts) {
         ${!isCurrentPeriod ? `<button class="cal-today-link" id="goToday" type="button">Today</button>` : ''}
       </div>
       <button class="date-nav__btn" id="nextPeriod" type="button" title="Next">&rsaquo;</button>
+      ${controlsHtml}
       <button class="cal-nav__view-btn" id="viewSwitcher" type="button" title="Switch to ${switchLabel}">${switchIcon}</button>
     </div>
   </div>`;

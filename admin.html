@@ -586,13 +586,12 @@
       const peopleName = (event.people || []).map(pid => peopleObj[pid]?.name || '?').join(', ');
       const timeStr = event.allDay ? 'All day' : [event.startTime, event.endTime].filter(Boolean).join(' – ') || '';
       const color = event.color || '#4285f4';
-      return `<div class="admin-list-item" data-event-id="${id}">
+      return `<div class="admin-list-item admin-list-item--clickable admin-event-row" data-event-id="${id}">
         <div class="admin-list-item__main" style="border-left:3px solid ${color};padding-left:var(--spacing-sm)">
           <span class="admin-list-item__name">${esc(event.name)}</span>
           <span class="admin-list-item__meta">${esc(event.date)} ${timeStr ? '· ' + esc(timeStr) : ''} ${peopleName ? '· ' + esc(peopleName) : ''}</span>
         </div>
         <div class="admin-list-item__actions">
-          <button class="btn btn--ghost btn--sm admin-event-edit" data-event-id="${id}" type="button">Edit</button>
           <button class="btn btn--ghost btn--sm admin-event-delete" data-event-id="${id}" type="button">Del</button>
         </div>
       </div>`;
@@ -1992,9 +1991,10 @@
         render();
       });
 
-      main.querySelectorAll('.admin-event-edit').forEach(btn => {
-        btn.addEventListener('click', () => {
-          editingEventId = btn.dataset.eventId;
+      main.querySelectorAll('.admin-event-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.admin-event-delete')) return;
+          editingEventId = row.dataset.eventId;
           render();
         });
       });

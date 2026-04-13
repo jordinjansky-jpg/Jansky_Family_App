@@ -1,5 +1,5 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -455,6 +455,11 @@ function bindEvents() {
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
   });
 
+  // Event bubbles — tap to open detail sheet
+  main.querySelectorAll('.event-bubble[data-event-id]').forEach(btn => {
+    btn.addEventListener('click', () => openEventDetailSheet(btn.dataset.eventId));
+  });
+
   // Overdue toggle
   const overdueBtn = document.getElementById('overdueToggle');
   if (overdueBtn) {
@@ -674,6 +679,34 @@ function checkCelebration() {
 // ══════════════════════════════════════════
 
 const taskSheetMount = document.getElementById('taskSheetMount');
+
+function openEventDetailSheet(eventId) {
+  const event = events[eventId];
+  if (!event) return;
+  const html = renderEventDetailSheet(eventId, event, people);
+  taskSheetMount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+  });
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+
+  document.getElementById('eventDelete')?.addEventListener('click', async () => {
+    if (!confirm('Delete this event?')) return;
+    await removeEvent(eventId);
+    delete events[eventId];
+    closeTaskSheet();
+    render();
+  });
+
+  // Edit redirects to calendar (dashboard doesn't have event form)
+  document.getElementById('eventEdit')?.addEventListener('click', () => {
+    window.location.href = `calendar.html`;
+  });
+}
 
 function openTaskSheet(entryKey, dateKey) {
   // Find entry in current view or overdue
