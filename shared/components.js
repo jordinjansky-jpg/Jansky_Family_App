@@ -471,8 +471,10 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       <input class="form-input" id="ef_date" type="date" value="${event.date || dateKey}">
     </div>
     <div class="admin-form__group">
-      <label class="form-label">
-        <input type="checkbox" id="ef_allDay" ${event.allDay ? 'checked' : ''}> All day
+      <label class="form-toggle">
+        <input type="checkbox" id="ef_allDay" ${event.allDay ? 'checked' : ''}>
+        <span class="form-toggle__track"></span>
+        <span class="form-toggle__label">All day</span>
       </label>
     </div>
     <div class="ef-time-row" id="ef_timeGroup" ${event.allDay ? 'style="display:none"' : ''}>

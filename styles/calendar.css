@@ -39,15 +39,8 @@
   font-weight: 800;
 }
 .cal-nav__view-btn {
-  width: 36px; height: 36px;
-  border: 1.5px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  font-size: 1rem;
+  /* Base styles — sizing overridden by .cal-nav__controls context */
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* ── Week View ── */
@@ -641,9 +634,10 @@
     min-height: 0;
     border-width: 1.5px;
   }
+  .cal-nav__controls .cal-nav__view-btn,
   .cal-controls__toggle {
-    padding: 2px 6px;
-    font-size: 10px;
+    width: 30px;
+    height: 24px;
   }
 }
 
@@ -722,40 +716,43 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0;
 }
-.cal-nav__controls .cal-nav__view-btn {
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  border-bottom: none;
-  width: 100%;
-  height: 28px;
-  font-size: 14px;
-}
-.cal-nav__controls .cal-nav__view-btn:only-child {
-  border-radius: var(--radius-sm);
-  border-bottom: 1.5px solid var(--border-color);
-}
+.cal-nav__controls .cal-nav__view-btn,
 .cal-controls__toggle {
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 600;
-  border: 1px solid var(--border-light);
-  border-top: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 26px;
+  border: 1.5px solid var(--border-color);
   background: var(--bg-card);
   color: var(--text-muted);
   cursor: pointer;
   border-radius: 0;
-  line-height: 1.4;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  padding: 0;
+  font-size: 0;
+  line-height: 0;
+}
+.cal-nav__controls .cal-nav__view-btn {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.cal-controls__toggle {
+  border-top: none;
 }
 .cal-controls__toggle:last-child {
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.cal-nav__controls .cal-nav__view-btn:only-child {
+  border-radius: var(--radius-sm);
 }
 .cal-controls__toggle.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+.cal-controls__toggle svg,
+.cal-nav__controls .cal-nav__view-btn svg {
+  display: block;
 }
 
 /* ── PWA standalone — padding already uses env() safe-area, no extra override needed ── */

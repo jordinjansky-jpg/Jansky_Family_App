@@ -182,12 +182,19 @@
         isCurrentPeriod = viewMonth === today.substring(0, 7);
       }
 
+      // Monoline SVG icons for density + daily toggles — matches view switcher style
+      const densityIcon = density === 'cozy'
+        ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>`
+        : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="2" y1="13.5" x2="14" y2="13.5"/></svg>`;
+      const dailyIcon = showDailyInWeek
+        ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M5.5 8l1.8 1.8 3.2-3.6"/></svg>`
+        : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><line x1="5.5" y1="5.5" x2="10.5" y2="10.5"/><line x1="10.5" y1="5.5" x2="5.5" y2="10.5"/></svg>`;
       const controlsHtml = currentView === 'week' ? `
           <button class="cal-controls__toggle${density === 'cozy' ? ' active' : ''}" data-ctl-density="${density === 'cozy' ? 'snug' : 'cozy'}" type="button" title="${density === 'cozy' ? 'Compact view' : 'Spacious view'}">
-            ${density === 'cozy' ? '▤' : '▥'}
+            ${densityIcon}
           </button>
           <button class="cal-controls__toggle${showDailyInWeek ? ' active' : ''}" data-ctl-daily="${showDailyInWeek ? 'false' : 'true'}" type="button" title="${showDailyInWeek ? 'Hide daily tasks' : 'Show daily tasks'}">
-            Daily
+            ${dailyIcon}
           </button>` : '';
       let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml });
       html += renderPersonFilter(people, activePerson);
@@ -441,26 +448,9 @@
       if (!entryKey) return;
       const wasComplete = isComplete(entryKey, completions);
 
-      // Optimistic inline DOM update — visuals toggle instantly, no re-render.
-      // The onCompletions listener will do a debounced re-render when Firebase confirms.
-      const taskRow = main.querySelector(`.cal-day__task[data-entry-key="${entryKey}"]`);
-      const weekCheck = main.querySelector(`.cal-week__task-check[data-entry-key="${entryKey}"]`);
-      if (taskRow) {
-        const check = taskRow.querySelector('.cal-day__task-check');
-        if (wasComplete) {
-          taskRow.classList.remove('cal-day__task--done');
-          check?.classList.remove('cal-day__task-check--done');
-        } else {
-          taskRow.classList.add('cal-day__task--done');
-          check?.classList.add('cal-day__task-check--done');
-        }
-      }
-      if (weekCheck) weekCheck.checked = !wasComplete;
-
-      // Update local state + write to Firebase (listener handles re-render)
       if (wasComplete) {
         delete completions[entryKey];
-        removeCompletion(entryKey);
+        await removeCompletion(entryKey);
       } else {
         const record = {
           completedAt: firebase.database.ServerValue.TIMESTAMP,
@@ -484,20 +474,21 @@
           }
         }
         completions[entryKey] = record;
-        writeCompletion(entryKey, record);
+        await writeCompletion(entryKey, record);
 
+        // Auto-archive one-time tasks
         const dayEntries = allSchedule[dateKey] || {};
         const entry = dayEntries[entryKey];
         if (entry) {
           const task = tasks[entry.taskId];
           if (task && task.rotation === 'once') {
             task.status = 'completed';
-            writeTask(entry.taskId, task);
+            await writeTask(entry.taskId, task);
           }
         }
       }
 
-      // Cooldown task rebuild (rare — only for cooldown tasks)
+      // Cooldown task rebuild
       const toggledEntry = (allSchedule[dateKey] || {})[entryKey];
       if (toggledEntry) {
         const toggledTask = tasks[toggledEntry.taskId];
@@ -512,7 +503,8 @@
           }
         }
       }
-      // No render() call — onCompletions listener handles debounced re-render
+
+      render(true);
     }
 
     // ══════════════════════════════════════════
