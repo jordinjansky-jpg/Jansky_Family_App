@@ -3,7 +3,7 @@
 // MAINTENANCE: When you add, rename, or remove any file in APP_SHELL below,
 // you MUST bump CACHE_NAME (e.g. v28 → v29) so existing clients fetch the new
 // shell. There is no build step generating this list.
-const CACHE_NAME = 'family-hub-v33';
+const CACHE_NAME = 'family-hub-v34';
 
 const APP_SHELL = [
   '/',
@@ -41,7 +41,8 @@ const APP_SHELL = [
   '/shared/calendar-views.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js'
+  'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js'
 ];
 
 self.addEventListener('install', (event) => {

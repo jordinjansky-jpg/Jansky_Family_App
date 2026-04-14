@@ -15,10 +15,13 @@ const ROOT = 'rundown';
 
 let db = null;
 let connectionListeners = [];
+let authReadyPromise = null;
 
 /**
- * Initialize Firebase. Must be called after Firebase SDK scripts are loaded.
- * Returns the database reference.
+ * Initialize Firebase. Must be called after Firebase SDK scripts are loaded
+ * (firebase-app-compat, firebase-database-compat, firebase-auth-compat).
+ * Returns the database reference. Anonymous sign-in starts in the background;
+ * all read/write helpers below await it before touching the DB.
  */
 export function initFirebase() {
   if (db) return db;
@@ -27,7 +30,24 @@ export function initFirebase() {
     firebase.initializeApp(FIREBASE_CONFIG);
   }
   db = firebase.database();
+
+  // Anonymous sign-in. Firebase Auth persists the user to localStorage,
+  // so subsequent loads reuse the same anon UID without a network round trip.
+  authReadyPromise = firebase.auth().signInAnonymously().catch((err) => {
+    console.error('[Firebase] Anonymous auth failed:', err);
+    throw err;
+  });
+
   return db;
+}
+
+/**
+ * Resolve when anonymous auth is ready. Pages don't need to call this directly —
+ * all read/write helpers await it internally — but it's exported for callers
+ * that want to gate UI on auth readiness.
+ */
+export function awaitAuth() {
+  return authReadyPromise || Promise.resolve();
 }
 
 /**
@@ -44,25 +64,40 @@ function ref(path) {
   return getDb().ref(`${ROOT}/${path}`);
 }
 
+// Internal: await auth before any DB op. Cheap once resolved.
+async function ready() {
+  if (authReadyPromise) await authReadyPromise;
+}
+
 // --- Read operations ---
 
 /**
  * Read a value once from a path under rundown/.
  */
 export async function readOnce(path) {
+  await ready();
   const snapshot = await ref(path).once('value');
   return snapshot.val();
 }
 
 /**
  * Subscribe to real-time changes at a path under rundown/.
- * Returns an unsubscribe function.
+ * Returns an unsubscribe function (safe to call before auth resolves).
  */
 export function onValue(path, callback) {
-  const r = ref(path);
-  const handler = (snapshot) => callback(snapshot.val());
-  r.on('value', handler);
-  return () => r.off('value', handler);
+  let cancelled = false;
+  let detach = () => {};
+  ready().then(() => {
+    if (cancelled) return;
+    const r = ref(path);
+    const handler = (snapshot) => callback(snapshot.val());
+    r.on('value', handler);
+    detach = () => r.off('value', handler);
+  });
+  return () => {
+    cancelled = true;
+    detach();
+  };
 }
 
 export function onCompletions(callback) {
@@ -83,6 +118,7 @@ export function onSettings(callback) {
  * Set a value at a path under rundown/.
  */
 export async function writeData(path, data) {
+  await ready();
   await ref(path).set(data);
 }
 
@@ -90,6 +126,7 @@ export async function writeData(path, data) {
  * Update multiple children at a path under rundown/.
  */
 export async function updateData(path, updates) {
+  await ready();
   await ref(path).update(updates);
 }
 
@@ -97,6 +134,7 @@ export async function updateData(path, updates) {
  * Push a new child with auto-generated key. Returns the key.
  */
 export async function pushData(path, data) {
+  await ready();
   const newRef = ref(path).push();
   await newRef.set(data);
   return newRef.key;
@@ -106,6 +144,7 @@ export async function pushData(path, data) {
  * Remove data at a path under rundown/.
  */
 export async function removeData(path) {
+  await ready();
   await ref(path).remove();
 }
 
@@ -113,6 +152,7 @@ export async function removeData(path) {
  * Perform a multi-path atomic update. Paths should be relative to rundown/.
  */
 export async function multiUpdate(updates) {
+  await ready();
   const prefixed = {};
   for (const [path, value] of Object.entries(updates)) {
     prefixed[`${ROOT}/${path}`] = value;
@@ -333,6 +373,7 @@ export async function pushDebugEvent(data) {
  * Delete all data under rundown/ (factory reset).
  */
 export async function factoryReset() {
+  await ready();
   await getDb().ref(ROOT).remove();
 }
 
