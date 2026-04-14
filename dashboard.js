@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -1431,8 +1431,37 @@ function openQuickAddSheet() {
   });
 }
 
+function openAddMenu() {
+  const options = [
+    { key: 'event', label: 'New Event', icon: '📅' },
+    { key: 'task', label: 'New Task', icon: '✅' }
+  ];
+  const html = renderAddMenu(options);
+  taskSheetMount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+  });
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+
+  taskSheetMount.querySelectorAll('.add-menu__item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      closeTaskSheet();
+      if (action === 'event') {
+        setTimeout(() => openEventForm(), 320);
+      } else if (action === 'task') {
+        setTimeout(() => openQuickAddSheet(), 320);
+      }
+    });
+  });
+}
+
 // Bind the header buttons
-document.getElementById('headerAddTask')?.addEventListener('click', openQuickAddSheet);
+document.getElementById('headerAddTask')?.addEventListener('click', openAddMenu);
 document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
   openDeviceThemeSheet(
     document.getElementById('taskSheetMount'),
