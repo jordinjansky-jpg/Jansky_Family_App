@@ -499,17 +499,61 @@
 }
 .cal-grid__cell--alldone .cal-grid__progress-fill { background: var(--success-text); }
 
-/* ── View transitions ── */
-.cal-view-enter {
-  animation: calViewFadeIn 200ms ease both;
+/* ── View transitions ──
+   .cal-view-enter is for intentional view changes (nav, view switch, person filter)
+   .cal-view-static is the same layout but with no fade — used for in-place updates
+   like task completion and Firebase listener echoes, where a fade would feel like a flash. */
+.cal-view-enter,
+.cal-view-static {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
+.cal-view-enter {
+  animation: calViewFadeIn 200ms ease both;
+}
 @keyframes calViewFadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Task completion press animation (mirrors dashboard's task-card--completing) ──
+   Played on the affected row during the 400ms window between tap and full re-render.
+   Provides tactile feedback so the in-place DOM swap doesn't feel abrupt. */
+@keyframes calTaskPress {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+.cal-task--completing {
+  animation: calTaskPress 0.3s ease;
+  background: color-mix(in srgb, var(--success-text) 10%, transparent);
+  border-radius: var(--radius-sm);
+}
+.cal-task--completing.cal-day__task .cal-day__task-check {
+  background: var(--success-text);
+  border-color: var(--success-text);
+  transform: scale(1.15);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease, border-color 0.15s ease;
+}
+.cal-task--completing.cal-day__task .cal-day__task-check::after {
+  content: '✓';
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+.cal-task--completing.cal-week__task .cal-week__task-check {
+  accent-color: var(--success-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-view-enter,
+  .cal-task--completing,
+  .cal-task--completing .cal-day__task-check {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* ── Add menu ── */

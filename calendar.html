@@ -137,8 +137,12 @@
     // Main render — dispatches to active view
     // ══════════════════════════════════════════
 
-    function render(preserveScroll = false) {
+    function render(opts = {}) {
+      // Backwards-compat: render(true) used to mean preserveScroll=true
+      if (opts === true) opts = { preserveScroll: true, animate: false };
+      const { preserveScroll = false, animate = true } = opts;
       const scrollY = preserveScroll ? window.scrollY : null;
+      const enterCls = animate ? 'cal-view-enter' : 'cal-view-static';
       let navLabel = '';
       let isCurrentPeriod = false;
 
@@ -158,7 +162,7 @@
         </div>`;
 
         html += renderPersonFilter(people, activePerson);
-        html += `<div class="cal-view-enter">`;
+        html += `<div class="${enterCls}">`;
         html += renderDayView({
           dateKey: viewDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings
         });
@@ -199,7 +203,7 @@
       let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml });
       html += renderPersonFilter(people, activePerson);
 
-      html += `<div class="cal-view-enter ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
+      html += `<div class="${enterCls} ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
       if (currentView === 'week') {
         html += renderWeekView({
           weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, showDailyInWeek
@@ -448,6 +452,17 @@
       if (!entryKey) return;
       const wasComplete = isComplete(entryKey, completions);
 
+      // Tactile press feedback on the affected row (week or day view) — mirrors dashboard.
+      // Only for completing (not un-completing) so undo feels snappy.
+      let pressEl = null;
+      if (!wasComplete) {
+        pressEl = main.querySelector(`.cal-day__task[data-entry-key="${entryKey}"], .cal-week__task[data-entry-key="${entryKey}"]`);
+        if (pressEl) {
+          pressEl.classList.add('cal-task--completing');
+          pressEl.style.pointerEvents = 'none';
+        }
+      }
+
       if (wasComplete) {
         delete completions[entryKey];
         await removeCompletion(entryKey);
@@ -504,7 +519,15 @@
         }
       }
 
-      render(true);
+      // Match dashboard: when completing, let the press animation play before swapping the DOM.
+      // The 400ms delay also coalesces the Firebase echo (debouncedRender at ~150-300ms) into
+      // a single render, eliminating the double-flash.
+      // animate:false suppresses the cal-view-enter fade so the row update feels in-place.
+      if (!wasComplete) {
+        setTimeout(() => render({ preserveScroll: true, animate: false }), 400);
+      } else {
+        render({ preserveScroll: true, animate: false });
+      }
     }
 
     // ══════════════════════════════════════════
@@ -1292,7 +1315,8 @@
     // Real-time listeners
     // ══════════════════════════════════════════
 
-    const debouncedRender = debounce(() => render(true), 100);
+    // Listener echoes are not user-initiated navigation — render silently, no fade.
+    const debouncedRender = debounce(() => render({ preserveScroll: true, animate: false }), 100);
 
     onCompletions((val) => {
       completions = val || {};
