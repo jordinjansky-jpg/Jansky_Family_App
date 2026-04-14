@@ -3,7 +3,7 @@
 // MAINTENANCE: When you add, rename, or remove any file in APP_SHELL below,
 // you MUST bump CACHE_NAME (e.g. v28 → v29) so existing clients fetch the new
 // shell. There is no build step generating this list.
-const CACHE_NAME = 'family-hub-v34';
+const CACHE_NAME = 'family-hub-v35';
 
 const APP_SHELL = [
   '/',

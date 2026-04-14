@@ -631,10 +631,26 @@
 .event-detail__row a { color: var(--accent); }
 
 /* ── Event form extras ── */
+.ef-date-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+.ef-date-field { flex: 0 0 auto; }
+.ef-date-input {
+  width: auto;
+  min-width: 9.5rem;
+  max-width: 11rem;
+}
+.ef-allday-toggle {
+  margin-bottom: 6px; /* align with date input baseline */
+}
+.ef-allday-toggle .form-toggle__label { font-size: var(--font-size-xs); }
 .ef-time-row {
   display: flex;
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
 }
 .ef-time-field { flex: 1; }
 .ef-time-field .form-label { font-size: var(--font-size-xs); margin-bottom: 2px; }

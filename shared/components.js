@@ -467,24 +467,26 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       <input class="form-input" id="ef_name" type="text" placeholder="Soccer practice, Dentist, etc." value="${esc(event.name || '')}" autocomplete="off">
     </div>
     <div class="admin-form__group">
-      <label class="form-label" for="ef_date">Date</label>
-      <input class="form-input" id="ef_date" type="date" value="${event.date || dateKey}">
-    </div>
-    <div class="admin-form__group">
-      <label class="form-toggle">
-        <input type="checkbox" id="ef_allDay" ${event.allDay ? 'checked' : ''}>
-        <span class="form-toggle__track"></span>
-        <span class="form-toggle__label">All day</span>
-      </label>
-    </div>
-    <div class="ef-time-row" id="ef_timeGroup" ${event.allDay ? 'style="display:none"' : ''}>
-      <div class="ef-time-field">
-        <label class="form-label" for="ef_startTime">Start</label>
-        <input class="form-input" id="ef_startTime" type="time" value="${event.startTime || ''}">
+      <div class="ef-date-row">
+        <div class="ef-date-field">
+          <label class="form-label" for="ef_date">Date</label>
+          <input class="form-input ef-date-input" id="ef_date" type="date" value="${event.date || dateKey}">
+        </div>
+        <label class="form-toggle ef-allday-toggle">
+          <input type="checkbox" id="ef_allDay" ${event.allDay ? 'checked' : ''}>
+          <span class="form-toggle__track"></span>
+          <span class="form-toggle__label">All day</span>
+        </label>
       </div>
-      <div class="ef-time-field">
-        <label class="form-label" for="ef_endTime">End</label>
-        <input class="form-input" id="ef_endTime" type="time" value="${event.endTime || ''}">
+      <div class="ef-time-row" id="ef_timeGroup" ${event.allDay ? 'style="display:none"' : ''}>
+        <div class="ef-time-field">
+          <label class="form-label" for="ef_startTime">Start</label>
+          <input class="form-input" id="ef_startTime" type="time" value="${event.startTime || ''}">
+        </div>
+        <div class="ef-time-field">
+          <label class="form-label" for="ef_endTime">End</label>
+          <input class="form-input" id="ef_endTime" type="time" value="${event.endTime || ''}">
+        </div>
       </div>
     </div>
     <div class="admin-form__group">
