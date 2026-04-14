@@ -556,33 +556,6 @@
   }
 }
 
-/* ── Add menu ── */
-.add-menu {
-  display: flex;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md);
-}
-.add-menu__item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-md);
-  border: 1.5px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.add-menu__item:active { background: var(--bg-hover); }
-.add-menu__icon { font-size: 1.5rem; }
-.add-menu__label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
 /* ── Today link ── */
 .cal-today-link {
   background: var(--accent-light);
