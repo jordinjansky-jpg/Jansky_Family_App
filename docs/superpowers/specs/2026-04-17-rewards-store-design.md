@@ -248,6 +248,8 @@ Unseen messages appear as a **card overlay** in kid mode — centered, one at a 
 - **`maxRedemptions` enforcement:** Count `redemption-approved` messages for a reward across all people. When count >= `maxRedemptions`, reward shows "Sold out" in store.
 - **Person deletion:** Cascade cleanup — delete `messages/{personId}/`, `balanceAnchors/{personId}`, `bank/{personId}`, and `wishlist/{personId}`. Remove personId from any `rewards/{id}/perPerson` arrays. Handled in the existing person-delete flow in admin.
 - **Offline redemption:** Firebase RTDB local cache includes pending writes. A second offline request sees the first pending write reflected in the local balance. No overspending risk.
+- **Kid cancels pending request:** "Cancel" button on pending requests in kid mode. Writes a system `bonus` refund message and marks the request as `redemption-denied` with `createdBy: 'system'`. Parent's bell clears the request.
+- **Limited reward stock:** Store cards show "X left" when `maxRedemptions` is set and partially used. Calculated from `redemption-approved` message count for that reward.
 
 ---
 
@@ -260,7 +262,7 @@ Unseen messages appear as a **card overlay** in kid mode — centered, one at a 
 ### Parent bell (dashboard, calendar, scoreboard, tracker, admin)
 
 Tap opens a dropdown sheet anchored to the bell:
-- **Pending requests** — redemption requests awaiting approval. Approve/Deny inline.
+- **Pending requests** — redemption requests awaiting approval. Shows kid's name, reward, cost, and **current balance** for context. Approve/Deny inline.
 - **Recent activity** — bonuses/deductions sent, redemptions fulfilled. Last 20 items.
 - "Send Message" button at the top
 
@@ -345,7 +347,51 @@ People tab (or subtab) in admin:
 
 ---
 
-## 10. Scoring Integration
+## 10. Bounty Tasks
+
+One-off tasks with a reward attached. Scoring-exempt — completing them doesn't affect grades or percentages. The reward is granted automatically on completion, no approval flow needed (the parent set it up, that's the approval).
+
+### How they work
+
+- Created in admin like any other task, but with a **Bounty** toggle that reveals reward configuration
+- Task fields: `exempt: true`, `rotation: 'once'`, plus new `bounty` object on the task definition
+- Two bounty types:
+  - **Points bounty** — parent sets a point amount. On completion, system writes a `bonus` message with `title: "Bounty: [task name]"`, `createdBy: 'system'`
+  - **Reward bounty** — parent picks a reward from the store. On completion, system writes a `redemption-approved` message and (for functional rewards) adds a token to the kid's bank. The reward's `maxRedemptions` counter is unaffected (bounty rewards are separate from store stock).
+
+### Multi-person assignment (first-come-first-served)
+
+- If assigned to multiple people, scheduler creates one entry per person (duplicate mode)
+- First person to complete it gets the bounty
+- On completion, all other schedule entries for that task are removed (cascade delete)
+- Other assignees see the task disappear with a toast: "[Name] got it first!"
+
+### Visual treatment
+
+- Task card shows a **bounty badge**: "🎯 200 pts" or "🎯 Movie Night"
+- Distinct from regular task cards — subtle highlight/border to draw attention
+- In kid mode, bounty tasks appear in a "Bounties" section above regular tasks (high visibility)
+- Dashboard shows bounty tasks in their normal time-of-day group but with the badge
+
+### Task schema addition
+
+```
+rundown/tasks/{pushId}
+  {
+    ...existing fields...,
+    bounty: {                         // null if not a bounty task
+      type: 'points' | 'reward',
+      amount: number | null,          // point value (for type: 'points')
+      rewardId: string | null         // reward reference (for type: 'reward')
+    } | null
+  }
+```
+
+No new Firebase nodes — bounty data lives on the task definition. Completion triggers are handled in dashboard.js and kid.html where completion toggling already happens.
+
+---
+
+## 11. Scoring Integration
 
 ### What the rewards system does NOT modify
 
