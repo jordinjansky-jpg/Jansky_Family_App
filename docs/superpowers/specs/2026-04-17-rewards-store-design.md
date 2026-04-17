@@ -14,7 +14,8 @@ A rewards system where family members earn normalized points from daily task com
 - The existing scoring engine (grades, percentages, streaks, snapshots) is untouched. The rewards balance is a layer on top.
 - Points are deducted at request time, refunded on denial. No complex timing/unwinding logic.
 - Functional rewards (task skip, penalty removal) are banked as tokens on purchase, used whenever the kid chooses. No second approval loop at usage time.
-- Everyone earns points (not just kids). Adults may never redeem, but the system doesn't discriminate.
+- Everyone earns points (not just kids). Adults may never redeem, but the system doesn't discriminate. Parents can send bonuses to themselves and each other.
+- Days with no scheduled tasks earn 0 points. No tasks = no earning. Parents can use bonus messages to handle edge cases (sick days, vacations, etc.).
 
 ---
 
@@ -94,6 +95,21 @@ rundown/bank/{personId}/{pushId}
     usedAt: number | null,       // timestamp when used
     targetEntryKey: string | null // schedule entry affected
   }
+
+rundown/wishlist/{personId}/{rewardId}
+  {
+    addedAt: number              // timestamp
+  }
+
+rundown/achievements/{personId}/{achievementKey}
+  {
+    unlockedAt: number,          // timestamp
+    seen: boolean                // shown to kid yet?
+  }
+  // achievementKey examples: 'streak-7', 'streak-30', 'streak-100',
+  // 'grade-a-plus-day', 'grade-a-plus-week', 'grade-a-plus-month',
+  // 'points-500', 'points-1000', 'points-5000', 'points-10000',
+  // 'tasks-100', 'tasks-500', 'first-redemption'
 ```
 
 ### What stays untouched
@@ -230,6 +246,8 @@ Unseen messages appear as a **card overlay** in kid mode — centered, one at a 
 - **Archived rewards with pending requests:** Pending request stays in parent bell with "(Archived)" badge. Still approvable/deniable.
 - **Multiple penalty removals:** Each targets the next-highest-damage penalized task.
 - **`maxRedemptions` enforcement:** Count `redemption-approved` messages for a reward across all people. When count >= `maxRedemptions`, reward shows "Sold out" in store.
+- **Person deletion:** Cascade cleanup — delete `messages/{personId}/`, `balanceAnchors/{personId}`, `bank/{personId}`, and `wishlist/{personId}`. Remove personId from any `rewards/{id}/perPerson` arrays. Handled in the existing person-delete flow in admin.
+- **Offline redemption:** Firebase RTDB local cache includes pending writes. A second offline request sees the first pending write reflected in the local balance. No overspending risk.
 
 ---
 
@@ -285,11 +303,20 @@ People tab (or subtab) in admin:
 **Bank ("Power-Ups")** — if kid has unused tokens: "Your Power-Ups: ⏭ Task Skip x2 | 🛡 Penalty Removal x1". Tap a token to use immediately.
 
 **Store access** — "🎁 Store" button in balance header area. Opens a bottom sheet with:
-- Available rewards grid
+- Available rewards sorted: affordable + streak-met first, then by price ascending
 - Progress bars, streak requirements, "Get it!" buttons
+- "Almost there" nudge: when within 1-2 days of affording a reward, card glows/highlights with "So close! 1 more day!"
 - Current balance at top for context
+- Wishlist star on each reward card — tap to mark as a goal
 
-**Message history** — "History" link in balance area. Opens scrollable sheet showing all past messages: icon, title, note, point change (+/-), date. Grouped by date, newest first. Read-only ledger.
+**Wishlist** — wishlisted rewards appear as a persistent progress tracker in the balance header area (below the balance number). Shows the reward emoji, name, and a progress bar toward the point cost. Multiple wishlisted rewards stack vertically. Tap to remove from wishlist.
+
+**Message history** — "History" link in balance area. Opens scrollable sheet showing a unified transaction ledger:
+- Daily earnings from snapshots: "+95 pts — Daily Score" with the date (system-generated at display time, not stored as messages)
+- Bonus/deduction messages with title, note, and point change
+- Redemption requests, approvals, denials
+- Token usage (task skips, penalty removals)
+- Grouped by date, newest first. Read-only.
 
 **Real-time updates** — `onValue` listener on `messages/{personId}` and `bank/{personId}`. New messages pop as overlays without page reload. Balance updates live.
 
@@ -309,9 +336,12 @@ People tab (or subtab) in admin:
 
 - No new HTML pages
 - No new CSS files
-- Reward card/store styles go in `components.css` (shared) and `kid.css` (kid-specific)
+- Reward card/store/achievement styles go in `components.css` (shared) and `kid.css` (kid-specific)
 - Bell styles go in `components.css`
 - Admin rewards tab styles go in `admin.css`
+- Balance calculation logic goes in `scoring.js` (pure function, no DOM)
+- Achievement checking logic goes in `scoring.js`
+- SW cache list (`sw.js`) does not need updating — no new files added
 
 ---
 
@@ -341,13 +371,63 @@ People tab (or subtab) in admin:
 
 ---
 
-## 11. Firebase CRUD Additions (shared/firebase.js)
+## 11. Achievements
+
+### Achievement types
+
+**Streak milestones:**
+- 🔥 7-Day Streak — "One full week!"
+- 🔥 14-Day Streak — "Two weeks strong!"
+- 🔥 30-Day Streak — "Monthly master!"
+- 🔥 60-Day Streak — "Unstoppable!"
+- 🔥 100-Day Streak — "Legendary!"
+
+**Grade milestones:**
+- ⭐ First A+ Day — "Perfect day!"
+- ⭐ First A+ Week — "Perfect week!"
+- ⭐ First A+ Month — "Perfect month!"
+
+**Points milestones (cumulative balance earned, not current balance):**
+- 💰 500 Points Earned
+- 💰 1,000 Points Earned
+- 💰 5,000 Points Earned
+- 💰 10,000 Points Earned
+
+**Rewards milestones:**
+- 🎁 First Redemption — "First reward claimed!"
+
+### How achievements unlock
+
+Checked at two moments:
+1. **Snapshot rollover** — when daily snapshots are created, check streak and grade milestones for each person.
+2. **Balance calculation** — when balance is computed, check point milestones.
+3. **Redemption approval** — check first-redemption milestone.
+
+When an achievement unlocks:
+- Write to `achievements/{personId}/{achievementKey}` with `seen: false`
+- In kid mode, unseen achievements appear as a special celebration overlay (distinct from bonus messages — bigger, with the badge icon prominently displayed)
+- Kid taps to acknowledge, marks `seen: true`
+- Achievements are permanent — they don't go away with balance resets or history clears
+
+### Display
+
+- **Kid mode:** Earned badges shown in a trophy case section (below balance, above tasks). Unearned badges shown grayed out so kids can see what they're working toward.
+- **Scoreboard:** Badge icons shown next to each person's name — small, non-intrusive, but visible.
+- **Admin:** Read-only view of who has unlocked what. No manual granting (achievements are earned, not given).
+
+---
+
+## 12. Firebase CRUD Additions (shared/firebase.js)
 
 New functions needed:
 - `readRewards()` / `writeReward()` / `archiveReward()`
 - `readMessages(personId)` / `writeMessage(personId, data)` / `markMessageSeen(personId, msgId)` / `clearMessages(personId, beforeTimestamp)`
 - `readBalanceAnchor(personId)` / `writeBalanceAnchor(personId, data)`
 - `readBank(personId)` / `writeBankToken(personId, data)` / `markBankTokenUsed(personId, tokenId, entryKey)`
+- `readWishlist(personId)` / `writeWishlistItem(personId, rewardId)` / `removeWishlistItem(personId, rewardId)`
+- `readAchievements(personId)` / `writeAchievement(personId, key, data)` / `markAchievementSeen(personId, key)`
 - `onMessages(personId, callback)` — real-time listener
 - `onBank(personId, callback)` — real-time listener
 - `calculateBalance(personId, snapshots, messages, anchor)` — pure helper (could live in scoring.js)
+- `deletePersonRewardsData(personId)` — cascade cleanup on person deletion (messages, anchor, bank, wishlist, achievements)
+- `checkAchievements(personId, context)` — checks and unlocks any newly earned achievements

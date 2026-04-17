@@ -157,32 +157,7 @@ Product direction: evolve Daily Rundown from a task manager into a **Skylight Ca
 
 ### Tier 1 — The Family Hub Transformation (build in order)
 
-**1.1 — Calendar Overhaul (Family Hub)** · High (~3-4 sessions) · No dependencies · Cost: $0
-
-The calendar becomes the central screen of the entire app — the thing on the wall, the thing everyone opens first. This is the single most important feature for the Skylight transformation.
-
-*Three unified views:*
-- **Month** — Clean grid. Each day cell shows color-coded dots/bars for people, truncated event names visible at a glance without tapping (not hidden behind a sheet like today). Meals shown as a subtle icon or text. Tap a day to drill into it.
-- **Week** — Dense 7-day view with time-slotted layout (morning/afternoon/evening or hourly). This is the primary "at a glance" view for the wall display. Shows tasks, events, and meals for the week. Swipe to navigate weeks (reuse existing swipe infra).
-- **Day/Agenda** — Scrollable timeline of everything happening today. Tasks grouped by time-of-day, events at their scheduled time, meals in their slots, weather at the top. This is the "drill in" view from month or week.
-
-*Events become first-class:*
-Right now events are tasks in an `isEvent` category. For the hub to work, event creation must be as fast as Google Calendar: tap a day (or tap "+" on any view) → type name → set time → optional: assign people, add location, set recurrence → done. This flow must NOT require admin/PIN access — anyone in the family can add "Soccer practice at 3:30" without unlocking anything. PIN protection stays for task/chore management and admin settings only.
-
-*Unified day content — every view shows all four content types in a clear visual hierarchy:*
-1. Weather (small, top)
-2. Events (time-specific appointments — bold, prominent)
-3. Meals (what we're eating — subtle but visible)
-4. Tasks/chores (who does what — grouped by person, checkable)
-
-*Design principles (critical — read these before building):*
-- **Information density matters.** A month view with empty gray boxes is useless. Show enough in each cell that you rarely need to drill in for basic questions ("do we have anything Thursday night?").
-- **Color is the primary visual language.** Each person's color should make it instantly obvious who's busy when, without reading text.
-- **Touch-first but not touch-only.** Works great on a 27" touchscreen, but also great on a phone.
-- **Transitions and polish.** View switching should animate smoothly. Drilling from month → day should feel like zooming in, not a page load. Swipe gestures for navigation across all views.
-- **This must look and feel like a real product the family will use as their primary calendar.** Study Skylight's calendar screenshots for visual cleanliness and Google Calendar's interaction patterns for usability. The goal is a calendar you'd be proud to show people — not "a developer built this."
-
-*What this replaces:* Absorbs the old "week view on calendar" backlog item. The existing calendar.html gets redesigned in place.
+~~**1.1 — Calendar Overhaul (Family Hub)** · DONE — shipped 2026-04-16. Three-view calendar (month/week/day), first-class events with quick-add, time-grid layout, swipe navigation, person filters.~~
 
 ---
 
