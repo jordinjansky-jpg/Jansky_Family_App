@@ -31,11 +31,13 @@ For the current day (no snapshot yet), `dailyScore()` is used live to show a rea
 
 ```
 balance = anchorAmount
-        + sum(snapshot.percentage for all snapshots after anchorDate)
+        + sum(snapshot.percentage × multiplier for all snapshots after anchorDate)
         + sum(bonus amounts from messages after anchorDate)
         - sum(deduction amounts from messages after anchorDate)
         - sum(redemption spend from messages after anchorDate)
 ```
+
+Where `multiplier` defaults to 1 and is read from `multipliers/{dateKey}/{personId}` if present.
 
 No stored balance value. Balance is always derivable from source data (snapshots + messages + anchor). At family scale, even a year of data is ~365 snapshots + a few hundred messages — trivial to sum.
 
@@ -63,7 +65,8 @@ rundown/rewards/{pushId}
     perPerson: [personId, ...] | null,  // null = available to everyone
     maxRedemptions: number | null,      // null = unlimited
     streakRequirement: number | null,   // null = no streak needed
-    status: 'active' | 'archived'
+    status: 'active' | 'archived',
+    expiresAt: number | null         // timestamp — auto-archives after this date
   }
 
 rundown/messages/{personId}/{pushId}
@@ -136,6 +139,7 @@ Position: between Categories and Settings. `{ id: 'rewards', icon: '🎁', label
 - **Available to** — person chips (reuse existing owner chip pattern). None selected = everyone.
 - **Max redemptions** — optional number input. Blank = unlimited.
 - **Streak requirement** — optional number input. Blank = no streak needed.
+- **Expires on** — optional date picker. Blank = no expiration. Reward auto-archives after this date. Store shows "Expires in X days" badge when within 7 days of expiration.
 
 ### Pricing helper (inline)
 
@@ -223,8 +227,9 @@ Unseen messages appear as a **card overlay** in kid mode — centered, one at a 
 
 **Penalty Removal:**
 - Kid taps a Penalty Removal token from bank
-- System auto-targets the **highest-damage penalized task** — largest `(basePoints - earnedPoints)` gap where `isLate: true`
-- Clears `isLate` and `pointsOverride` on that completion
+- System finds the **highest-damage penalized task** — largest `(basePoints - earnedPoints)` gap where `isLate: true`
+- Shows a **preview** before confirming: "Restore full points for 'Clean Kitchen' on Apr 12? (+18 pts)" — kid confirms or cancels
+- On confirm, clears `isLate` and `pointsOverride` on that completion
 - Recalculates and overwrites the snapshot for that date
 - If the restored day becomes 100%, streak updates via existing `updateStreaks()` logic
 - Kid sees: "Restored full points for 'Clean Kitchen' on Apr 12 (+18 pts)"
@@ -281,8 +286,8 @@ No new `role` field on people. The app uses **PIN authentication** as the role b
 
 ### What counts as "unseen" per role
 
-- **Parent (all non-kid pages):** `redemption-request` messages where `seen: false` across all people
-- **Kid (kid mode):** `bonus`, `deduction`, `redemption-approved`, `redemption-denied`, `task-skip-used`, `penalty-removed` messages where `seen: false` for their personId
+- **Parent (all non-kid pages):** `redemption-request` messages where `seen: false` across all people, plus unseen achievement unlocks (informational, no action needed — just awareness so parents can celebrate in person)
+- **Kid (kid mode):** `bonus`, `deduction`, `redemption-approved`, `redemption-denied`, `task-skip-used`, `penalty-removed` messages and unseen achievement unlocks where `seen: false` for their personId
 
 ### Admin message management
 
@@ -391,7 +396,32 @@ No new Firebase nodes — bounty data lives on the task definition. Completion t
 
 ---
 
-## 11. Scoring Integration
+## 11. Bonus Multiplier Days
+
+Parents can declare a **bonus multiplier** on a specific day for a specific person (or everyone). That day's earning is multiplied — a 2x day with a 90% score earns 180 pts instead of 90.
+
+### How it works
+
+- **Entry point:** Quick action in the notification bell dropdown — "🎉 Bonus Day" button alongside "Send Message"
+- **Creation flow:** Pick person(s) or "Everyone" → pick date (defaults to today) → pick multiplier (2x / 3x, segmented control) → optional note ("Happy Birthday!" / "Great report card!") → confirm
+- **Stored at:** `rundown/multipliers/{YYYY-MM-DD}/{personId}` — `{ multiplier: 2|3, note?, createdBy }`
+- **Balance calculation:** When summing snapshot percentages, check for a multiplier on that date for that person. If found, `dailyEarning = snapshot.percentage × multiplier`
+- **Display:** Day view in kid mode and dashboard shows a "2x Day! 🎉" banner. Calendar day cells could show a subtle sparkle or indicator.
+
+### Schema addition
+
+```
+rundown/multipliers/{YYYY-MM-DD}/{personId}
+  {
+    multiplier: number,             // 2 or 3
+    note: string | null,
+    createdBy: string               // personId of parent who set it
+  }
+```
+
+---
+
+## 12. Scoring Integration
 
 ### What the rewards system does NOT modify
 
@@ -477,3 +507,5 @@ New functions needed:
 - `calculateBalance(personId, snapshots, messages, anchor)` — pure helper (could live in scoring.js)
 - `deletePersonRewardsData(personId)` — cascade cleanup on person deletion (messages, anchor, bank, wishlist, achievements)
 - `checkAchievements(personId, context)` — checks and unlocks any newly earned achievements
+- `readMultipliers(dateRange)` / `writeMultiplier(dateKey, personId, data)` — bonus multiplier days
+- `deletePersonRewardsData` also cleans up multipliers referencing the deleted person
