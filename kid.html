@@ -50,13 +50,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
-    import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
+    import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
-    import { basePoints, dailyScore, gradeDisplay, calculateBalance, ACHIEVEMENTS, checkNewAchievements, findHighestDamagePenalty } from './shared/scoring.js';
+    import { basePoints, dailyScore, gradeDisplay, calculateBalance, ACHIEVEMENTS, checkNewAchievements, periodGrade, findHighestDamagePenalty } from './shared/scoring.js';
     import { rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
 
@@ -135,6 +135,43 @@
 
         // Calculate balance
         let { balance, totalEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers);
+
+        // ── Check for new achievements ──
+        const kidStreak = (await readStreaks(kid.id)) || { current: 0, best: 0 };
+        const weekS = weekStart(today);
+        const weekE = weekEnd(today);
+        const monthS = monthStart(today);
+        const monthE = monthEnd(today);
+
+        const weekAgg = periodGrade(allSnapshots, kid.id, weekS, weekE);
+        const monthAgg = periodGrade(allSnapshots, kid.id, monthS, monthE);
+
+        // Get today's grade for achievement checking
+        const todaySchedule = (await readOnce(`schedule/${today}`)) || {};
+        const todayEntries = {};
+        for (const [k, e] of Object.entries(todaySchedule)) {
+          if (e.ownerId === kid.id) todayEntries[k] = e;
+        }
+        const todayCompletions = (await readCompletions()) || {};
+        const todayScoreResult = dailyScore(todayEntries, todayCompletions, tasks, cats, settings, today, today);
+        const todayGrade = todayScoreResult.grade || 'F';
+
+        const hasRedeemed = Object.values(messages).some(m => m.type === 'redemption-approved');
+
+        const newAchievements = checkNewAchievements({
+          streak: kidStreak.current,
+          totalEarned,
+          existingAchievements: achievements,
+          weeklyGrade: weekAgg.grade,
+          monthlyGrade: monthAgg.grade,
+          dailyGrade: todayGrade,
+          hasRedeemed
+        });
+
+        for (const key of newAchievements) {
+          await writeAchievement(kid.id, key, { unlockedAt: Date.now(), seen: false });
+          achievements[key] = { unlockedAt: Date.now(), seen: false };
+        }
 
         // ── Emoji helper for pre-readers ──
         // Each entry: [regex, emoji1, emoji2?] — second emoji preferred for richer hints
@@ -417,6 +454,49 @@
           });
         }
 
+        function showUnseenAchievements() {
+          const unseen = Object.entries(achievements)
+            .filter(([, a]) => !a.seen)
+            .sort((a, b) => (b[1].unlockedAt || 0) - (a[1].unlockedAt || 0));
+
+          if (unseen.length === 0) return;
+
+          const [key, ach] = unseen[0];
+          const def = ACHIEVEMENTS[key];
+          if (!def) return;
+
+          const mount = document.getElementById('celebrationMount');
+          mount.innerHTML = `<div class="kid-msg-overlay kid-msg-overlay--positive">
+            <div class="kid-msg-overlay__card" style="border-color: gold;">
+              <div style="font-size: 4rem; margin-bottom: 8px;">${def.icon}</div>
+              <h3 class="kid-msg-overlay__title">Achievement Unlocked!</h3>
+              <div style="font-size: 1.25rem; font-weight: 700; margin-bottom: 4px;">${esc(def.label)}</div>
+              <div style="color: var(--text-secondary); margin-bottom: 16px;">${esc(def.description)}</div>
+              <button class="btn btn--primary kid-msg-overlay__dismiss" type="button">Awesome!</button>
+            </div>
+          </div>`;
+
+          mount.querySelector('.kid-msg-overlay__dismiss')?.addEventListener('click', async () => {
+            await markAchievementSeen(kid.id, key);
+            achievements[key].seen = true;
+            mount.innerHTML = '';
+            showUnseenAchievements(); // Show next unseen if any
+          });
+        }
+
+        function renderTrophyCase(achievements) {
+          let html = '<div class="kid-trophies"><h4 class="kid-trophies__title">Achievements</h4><div class="kid-trophies__grid">';
+          for (const [key, def] of Object.entries(ACHIEVEMENTS)) {
+            const unlocked = achievements[key];
+            html += `<div class="kid-trophy ${unlocked ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}" title="${esc(def.label)}: ${esc(def.description)}">
+              <span class="kid-trophy__icon">${def.icon}</span>
+              <span class="kid-trophy__label">${esc(def.label)}</span>
+            </div>`;
+          }
+          html += '</div></div>';
+          return html;
+        }
+
         function render() {
           // Filter out event schedule entries and future cooldown-suppressed tasks
           let displayEntries = {};
@@ -495,6 +575,9 @@
               </div>`;
             }
           }
+
+          // ── Trophy Case ──
+          html += renderTrophyCase(achievements);
 
           // ── Stats bar ──
           html += `<div class="kid-stats">
@@ -1975,8 +2058,9 @@
         // Listeners will trigger debouncedRender; run render immediately for first paint
         render();
 
-        // Show unseen messages after initial render
+        // Show unseen messages and achievements after initial render
         showUnseenMessages();
+        showUnseenAchievements();
 
         // Real-time message listener
         onMessages(kid.id, (newMsgs) => {

@@ -560,5 +560,49 @@
       margin-bottom: 12px;
     }
 
+    /* ── Trophy Case ── */
+    .kid-trophies {
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    .kid-trophies__title {
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .kid-trophies__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
+    }
+
+    .kid-trophy {
+      text-align: center;
+      padding: 8px 4px;
+      border-radius: var(--radius, 8px);
+      border: 1px solid var(--border);
+    }
+
+    .kid-trophy--unlocked {
+      background: var(--surface);
+    }
+
+    .kid-trophy--locked {
+      opacity: 0.35;
+      filter: grayscale(1);
+    }
+
+    .kid-trophy__icon { font-size: 1.5rem; display: block; }
+
+    .kid-trophy__label {
+      font-size: var(--font-size-xs, 0.75rem);
+      display: block;
+      margin-top: 2px;
+      color: var(--text-secondary);
+    }
+
     /* ── Toast (simple notification) ── */
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 8px); padding: 12px 20px; font-size: var(--font-size-sm); font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 3000; animation: kidFadeIn 0.2s ease; }
