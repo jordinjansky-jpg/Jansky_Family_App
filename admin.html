@@ -63,11 +63,12 @@
       readCategories, writeCategories,
       readEvents, pushEvent, writeEvent, removeEvent,
       readCompletions, readAllSchedule, readOnce,
-      multiUpdate, pushDebugEvent, factoryReset, onConnectionChange,
+      multiUpdate, updateData, pushDebugEvent, factoryReset, onConnectionChange,
       readRewards, pushReward, writeReward, archiveReward, removeReward,
       readMessages, readAllMessages, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
       readAllAchievements, writeAchievement, deleteAchievement,
-      readAchievementDefs, writeAchievementDef, deleteAchievementDef
+      readAchievementDefs, writeAchievementDef, deleteAchievementDef,
+      readBank, writeBankToken, removeBankToken
     } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
@@ -184,6 +185,7 @@
     let rewardsObj = (await readRewards()) || {};
     let allAchievements = (await readAllAchievements()) || {};
     let allMessagesObj = (await readAllMessages()) || {};
+    let allBankData = {};
     let achievementDefsObj = (await readAchievementDefs()) || {};
 
     const tz = settings?.timezone || 'America/Chicago';
@@ -330,6 +332,10 @@
           if (activeTab === 'rewards') {
             allAchievements = (await readAllAchievements()) || {};
             allMessagesObj = (await readAllMessages()) || {};
+            allBankData = {};
+            for (const pid of Object.keys(peopleObj)) {
+              allBankData[pid] = (await readBank(pid)) || {};
+            }
           }
           if (activeTab === 'achievements') {
             allAchievements = (await readAllAchievements()) || {};
@@ -1212,7 +1218,7 @@
         <div id="archiveStatus" class="mt-sm"></div>
 
         <h3 class="admin-form__title mt-lg">Reset Scoreboard</h3>
-        <p class="form-hint mb-md">Delete all snapshots, streaks, and completion records. Tasks and schedule are kept. Scores will rebuild from scratch.</p>
+        <p class="form-hint mb-md">Delete all snapshots, streaks, completions, reward balances, and banked tokens. Tasks, schedule, and achievements are kept. Scores will rebuild from scratch.</p>
         <div id="scoreResetSection">
           <button class="btn btn--danger btn--sm" id="showScoreResetBtn" type="button">Reset Scoreboard...</button>
         </div>
@@ -1441,8 +1447,48 @@
 
       html += `</div>`;
 
+      // ── Bank Management ──
+      const ppl = peopleArray();
+      const anyBankItems = ppl.some(p => {
+        const b = allBankData[p.id];
+        return b && Object.values(b).some(t => !t.used);
+      });
+      if (anyBankItems) {
+        html += `<div class="admin-section" style="margin-top: 24px;">
+          <div class="admin-section__header"><h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved Rewards</h3></div>`;
+        for (const p of ppl) {
+          const b = allBankData[p.id] || {};
+          const unused = Object.entries(b).filter(([, t]) => !t.used);
+          if (unused.length === 0) continue;
+          html += `<div style="margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+              <span class="sb-mini-dot" style="background:${p.color}"></span>
+              <span style="font-weight: 600; font-size: var(--font-size-sm);">${esc(p.name)}</span>
+              <span style="color: var(--text-muted); font-size: var(--font-size-xs, 0.75rem);">${unused.length} saved</span>
+            </div>`;
+          for (const [tokenId, token] of unused) {
+            const label = token.rewardType === 'task-skip' ? 'Task Skip'
+              : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
+              : (token.rewardName || 'Reward');
+            const icon = token.rewardIcon || (token.rewardType === 'task-skip' ? '⏭️' : token.rewardType === 'penalty-removal' ? '🛡️' : '🎁');
+            const date = new Date(token.acquiredAt).toLocaleDateString();
+            html += `<div class="reward-card--inline" style="margin-bottom: 4px;">
+              <span class="reward-card__icon--sm">${esc(icon)}</span>
+              <span class="reward-card__name">${esc(label)}</span>
+              <span style="color: var(--text-muted); font-size: var(--font-size-xs, 0.75rem); margin-left: auto;">${date}</span>
+              <button class="btn btn--ghost btn--xs admin-bank-remove" data-person-id="${p.id}" data-token-id="${esc(tokenId)}" data-token-name="${esc(label)}" type="button" style="color: var(--accent-danger, #e53e3e);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>`;
+          }
+          html += `</div>`;
+        }
+
+        // Add to bank button
+        html += `<button class="btn btn--sm btn--ghost" id="adminBankAdd" type="button" style="margin-top: 4px;">+ Add to Bank</button>`;
+        html += `</div>`;
+      }
+
       // ── Redemption History ──
-      const redemptionTypes = ['redemption-request', 'redemption-approved', 'redemption-denied'];
+      const redemptionTypes = ['redemption-request', 'redemption-approved', 'redemption-denied', 'use-request', 'use-approved', 'use-denied'];
       const allRedemptions = [];
       for (const [personId, msgs] of Object.entries(allMessagesObj)) {
         if (!msgs) continue;
@@ -1462,10 +1508,11 @@
         for (const r of shown) {
           const person = peopleObj[r.personId];
           const reward = r.rewardId ? rewardsObj[r.rewardId] : null;
-          const statusIcon = r.type === 'redemption-approved' ? '✅' :
-                             r.type === 'redemption-denied' ? '❌' : '⏳';
-          const statusLabel = r.type === 'redemption-approved' ? 'Approved' :
-                              r.type === 'redemption-denied' ? 'Denied' : 'Pending';
+          const statusIcon = (r.type === 'redemption-approved' || r.type === 'use-approved') ? '✅' :
+                             (r.type === 'redemption-denied' || r.type === 'use-denied') ? '❌' : '⏳';
+          const statusLabel = (r.type === 'redemption-approved' || r.type === 'use-approved') ? 'Approved' :
+                              (r.type === 'redemption-denied' || r.type === 'use-denied') ? 'Denied' :
+                              r.type === 'use-request' ? 'Use Request' : 'Pending';
           const date = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '';
           html += `<div class="redemption-row">
             <span class="redemption-row__status">${statusIcon}</span>
@@ -1606,6 +1653,80 @@
           editingRewardId = null;
           render();
         }
+      });
+
+      // Bank management — remove tokens
+      for (const btn of main.querySelectorAll('.admin-bank-remove')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const pid = btn.dataset.personId;
+          const tokenId = btn.dataset.tokenId;
+          const tokenName = btn.dataset.tokenName;
+          const person = peopleObj[pid];
+          if (!confirm(`Remove "${tokenName}" from ${person?.name}'s bank?`)) return;
+          await removeBankToken(pid, tokenId);
+          delete allBankData[pid]?.[tokenId];
+          render();
+        });
+      }
+
+      // Bank management — add to bank
+      main.querySelector('#adminBankAdd')?.addEventListener('click', () => {
+        const mount = document.getElementById('taskSheetMount');
+        const ppl = peopleArray();
+        const activeRewards = Object.entries(rewardsObj).filter(([, r]) => r.status !== 'archived');
+
+        let formHtml = `<h3 style="margin-bottom: 12px;">Add to Bank</h3>
+          <label class="form-label">Person</label>
+          <div class="chip-group" id="bankAdd_person">
+            ${ppl.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`).join('')}
+          </div>
+          <label class="form-label" style="margin-top: 12px;">Reward</label>
+          <select class="form-input" id="bankAdd_reward">
+            <option value="">Select a reward...</option>
+            ${activeRewards.map(([id, r]) => `<option value="${id}">${esc(r.icon || '🎁')} ${esc(r.name)} (${r.pointCost} pts)</option>`).join('')}
+          </select>
+          <div class="admin-form__actions" style="margin-top: 16px;">
+            <button class="btn btn--secondary" id="bankAdd_cancel" type="button">Cancel</button>
+            <button class="btn btn--primary" id="bankAdd_save" type="button">Add</button>
+          </div>`;
+
+        mount.innerHTML = renderBottomSheet(formHtml);
+        requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+        // Person chip toggle (exclusive)
+        for (const chip of mount.querySelectorAll('#bankAdd_person .chip--selectable')) {
+          chip.addEventListener('click', () => {
+            mount.querySelectorAll('#bankAdd_person .chip--selectable').forEach(c => c.classList.remove('chip--active'));
+            chip.classList.add('chip--active');
+          });
+        }
+
+        mount.querySelector('#bankAdd_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+        mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+          if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+        });
+
+        mount.querySelector('#bankAdd_save')?.addEventListener('click', async () => {
+          const selectedChip = mount.querySelector('#bankAdd_person .chip--active');
+          const rewardId = mount.querySelector('#bankAdd_reward').value;
+          if (!selectedChip || !rewardId) { alert('Select a person and reward'); return; }
+          const pid = selectedChip.dataset.personId;
+          const reward = rewardsObj[rewardId];
+          await writeBankToken(pid, {
+            rewardType: reward.rewardType || 'custom',
+            rewardId,
+            rewardName: reward.name || 'Reward',
+            rewardIcon: reward.icon || '🎁',
+            acquiredAt: Date.now(),
+            used: false,
+            usedAt: null,
+            targetEntryKey: null
+          });
+          allBankData[pid] = (await readBank(pid)) || {};
+          mount.innerHTML = '';
+          render();
+        });
       });
     }
 
@@ -1758,7 +1879,7 @@
 
       for (const p of ppl) {
         const pa = allAchievements[p.id] || {};
-        const unlocked = Object.keys(pa).filter(k => activeDefs[k]).length;
+        const unlocked = Object.keys(pa).filter(k => activeDefs[k] && !pa[k].revoked).length;
         const total = Object.keys(activeDefs).length;
         const isExpanded = achievementPersonExpanded[p.id];
 
@@ -1775,14 +1896,22 @@
           for (const [key, def] of Object.entries(activeDefs)) {
             if (def.perPerson && !def.perPerson.includes(p.id)) continue;
             const got = pa[key];
-            const date = got ? new Date(got.unlockedAt).toLocaleDateString() : '';
-            html += `<button class="ach-badge-btn ${got ? 'ach-badge-btn--unlocked' : ''}" data-key="${esc(key)}" data-person-id="${p.id}" type="button" title="${esc(def.label)}">
+            const isRevoked = got?.revoked;
+            const isUnlocked = got && !isRevoked;
+            const date = isUnlocked ? new Date(got.unlockedAt).toLocaleDateString() : '';
+            html += `<button class="ach-badge-btn ${isUnlocked ? 'ach-badge-btn--unlocked' : ''}" data-key="${esc(key)}" data-person-id="${p.id}" type="button" title="${esc(def.label)}">
               <span class="ach-badge-icon">${def.icon}</span>
               <span class="ach-badge-label">${esc(def.label)}</span>
+              ${isRevoked ? '<span class="ach-badge-date" style="color: var(--accent-danger, #e53e3e);">Revoked</span>' : ''}
               ${date ? `<span class="ach-badge-date">${date}</span>` : ''}
             </button>`;
           }
           html += `</div>`;
+          if (unlocked > 0 || Object.keys(pa).length > 0) {
+            html += `<div style="text-align: right; margin-top: var(--spacing-xs);">
+              <button class="btn btn--ghost btn--xs ach-reset-all" data-person-id="${p.id}" type="button" style="color: var(--accent-danger, #e53e3e);">Reset All</button>
+            </div>`;
+          }
         }
         html += `</div>`;
       }
@@ -1946,6 +2075,19 @@
     }
 
     function bindAchievementsTab() {
+      // Reset all achievements for a person
+      for (const btn of main.querySelectorAll('.ach-reset-all')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const pid = btn.dataset.personId;
+          const person = peopleObj[pid];
+          if (!confirm(`Reset all achievements for ${person?.name}? They can re-earn them when criteria are met again.`)) return;
+          await removeData(`achievements/${pid}`);
+          allAchievements = (await readAllAchievements()) || {};
+          render();
+        });
+      }
+
       // Person expand/collapse
       for (const btn of main.querySelectorAll('.ach-person-header')) {
         btn.addEventListener('click', () => {
@@ -1965,19 +2107,27 @@
           const def = allDefs[key] || {};
           const pa = allAchievements[pid] || {};
           const got = pa[key];
+          const isRevoked = got?.revoked;
+          const isUnlocked = got && !isRevoked;
           const person = peopleObj[pid];
 
           const mount = document.getElementById('taskSheetMount');
+          let statusHtml = isUnlocked
+            ? `<span style="color: var(--accent-success, #38a169);">Unlocked ${new Date(got.unlockedAt).toLocaleDateString()}</span>`
+            : isRevoked
+              ? `<span style="color: var(--accent-danger, #e53e3e);">Revoked</span>`
+              : `<span style="color: var(--text-muted);">Locked</span>`;
+
           let popupHtml = `<div style="padding: 8px 0; text-align: center;">
             <div style="font-size: 2.5rem; margin-bottom: 4px;">${def.icon || '🏆'}</div>
             <h3 style="margin-bottom: 4px;">${esc(def.label || key)}</h3>
             <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: 12px;">${esc(def.description || '')}</p>
             <p style="font-size: var(--font-size-sm); margin-bottom: 16px;">
               <span style="color: ${person?.color || 'inherit'}; font-weight: 600;">${esc(person?.name || '?')}</span> —
-              ${got ? `<span style="color: var(--accent-success, #38a169);">Unlocked ${new Date(got.unlockedAt).toLocaleDateString()}</span>` : `<span style="color: var(--text-muted);">Locked</span>`}
+              ${statusHtml}
             </p>
             <div style="display: flex; gap: 8px; justify-content: center;">
-              ${got
+              ${isUnlocked
                 ? `<button class="btn btn--sm btn--ghost" id="achPopupRevoke" type="button" style="color: var(--accent-danger, #e53e3e);">Revoke</button>`
                 : `<button class="btn btn--sm btn--primary" id="achPopupAward" type="button">Award</button>`}
               <button class="btn btn--sm btn--ghost" id="achPopupClose" type="button">Close</button>
@@ -1995,7 +2145,7 @@
           });
           mount.querySelector('#achPopupRevoke')?.addEventListener('click', async () => {
             if (!confirm(`Revoke "${def.label}" from ${person?.name}?`)) return;
-            await deleteAchievement(pid, key);
+            await updateData(`achievements/${pid}/${key}`, { revoked: true, revokedAt: Date.now() });
             allAchievements = (await readAllAchievements()) || {};
             mount.innerHTML = '';
             render();
@@ -3617,11 +3767,19 @@
         scoreResetBtn.addEventListener('click', async () => {
           scoreResetBtn.disabled = true;
           scoreResetBtn.textContent = 'Clearing...';
-          await multiUpdate({
+          const updates = {
             'snapshots': null,
             'streaks': null,
             'completions': null
-          });
+          };
+          // Reset all balance anchors so stale earnings don't persist
+          const now = Date.now();
+          for (const pid of Object.keys(peopleObj)) {
+            updates[`balanceAnchors/${pid}`] = { amount: 0, anchoredAt: now };
+            updates[`messages/${pid}`] = null;
+            updates[`bank/${pid}`] = null;
+          }
+          await multiUpdate(updates);
           scoreResetBtn.textContent = 'Done!';
           setTimeout(() => {
             main.querySelector('#scoreResetConfirm').style.display = 'none';

@@ -501,6 +501,10 @@ export async function markBankTokenUsed(personId, tokenId, entryKey) {
   });
 }
 
+export async function removeBankToken(personId, tokenId) {
+  await removeData(`bank/${personId}/${tokenId}`);
+}
+
 export function onBank(personId, callback) {
   return onValue(`bank/${personId}`, callback);
 }

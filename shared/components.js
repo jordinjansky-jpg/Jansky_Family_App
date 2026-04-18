@@ -1107,14 +1107,23 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
   for (const req of pendingRequests) {
     const reward = rewards[req.rewardId] || {};
     const archived = reward.status === 'archived' ? ' (Archived)' : '';
+    const isUseRequest = req.type === 'use-request';
+    const label = isUseRequest
+      ? `${personName(req.personId)} wants to use ${esc(req.rewardName || reward.name || 'a reward')}`
+      : `${personName(req.personId)} wants ${esc(reward.name || 'a reward')}${archived}`;
+    const subtitle = isUseRequest
+      ? 'From their saved rewards'
+      : `${Math.abs(req.amount)} pts &middot; Balance: ${req.balance} pts`;
+    const approveClass = isUseRequest ? 'bell-approve-use' : 'bell-approve';
+    const denyClass = isUseRequest ? 'bell-deny-use' : 'bell-deny';
     html += `<div class="bell-dropdown__item bell-dropdown__item--pending" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}">
-      <span class="bell-dropdown__icon">${esc(reward.icon || '🎁')}</span>
+      <span class="bell-dropdown__icon">${esc(isUseRequest ? (req.rewardIcon || reward.icon || '🎁') : (reward.icon || '🎁'))}</span>
       <div class="bell-dropdown__body">
-        <div class="bell-dropdown__item-title">${personName(req.personId)} wants ${esc(reward.name || 'a reward')}${archived}</div>
-        <div class="bell-dropdown__item-subtitle">${Math.abs(req.amount)} pts &middot; Balance: ${req.balance} pts</div>
+        <div class="bell-dropdown__item-title">${label}</div>
+        <div class="bell-dropdown__item-subtitle">${subtitle}</div>
         <div class="bell-dropdown__item-actions">
-          <button class="btn btn--sm btn--primary bell-approve" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}" type="button">Approve</button>
-          <button class="btn btn--sm btn--ghost bell-deny" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}" type="button">Deny</button>
+          <button class="btn btn--sm btn--primary ${approveClass}" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}" type="button">Approve</button>
+          <button class="btn btn--sm btn--ghost ${denyClass}" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}" type="button">Deny</button>
         </div>
       </div>
     </div>`;
@@ -1124,7 +1133,10 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
     const icon = item.type === 'bonus' ? '➕' :
                  item.type === 'deduction' ? '➖' :
                  item.type === 'redemption-approved' ? '✅' :
-                 item.type === 'redemption-denied' ? '❌' : '📋';
+                 item.type === 'redemption-denied' ? '❌' :
+                 item.type === 'use-approved' ? '✅' :
+                 item.type === 'use-denied' ? '❌' :
+                 item.type === 'reward-used' ? '🎉' : '📋';
     html += `<div class="bell-dropdown__item">
       <span class="bell-dropdown__icon">${icon}</span>
       <div class="bell-dropdown__body">
@@ -1323,7 +1335,7 @@ export function renderBonusDaySheet(people, todayDate) {
  * Initialize the notification bell on any page.
  * Sets up real-time listener and dropdown toggle.
  */
-export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, removeMessageFn, writeBankTokenFn, writeMultiplierFn, getTodayFn } = {}) {
+export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, removeMessageFn, writeBankTokenFn, markBankTokenUsedFn, readBankFn, writeMultiplierFn, getTodayFn } = {}) {
   let bellMessages = {};
 
   function closeBellDropdown() {
@@ -1337,7 +1349,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
     for (const [pid, msgs] of Object.entries(bellMessages)) {
       if (!msgs) continue;
       for (const msg of Object.values(msgs)) {
-        if (msg.type === 'redemption-request' && !msg.seen) count++;
+        if ((msg.type === 'redemption-request' || msg.type === 'use-request') && !msg.seen) count++;
       }
     }
     const bell = document.getElementById('headerBell');
@@ -1368,9 +1380,9 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const [pid, msgs] of Object.entries(bellMessages)) {
         if (!msgs) continue;
         for (const [msgId, msg] of Object.entries(msgs)) {
-          if (msg.type === 'redemption-request' && !msg.seen) {
+          if ((msg.type === 'redemption-request' || msg.type === 'use-request') && !msg.seen) {
             pendingRequests.push({ ...msg, id: msgId, personId: pid, balance: '\u2014' });
-          } else if (msg.type !== 'redemption-request') {
+          } else if (msg.type !== 'redemption-request' && msg.type !== 'use-request') {
             recentActivity.push({ ...msg, id: msgId, personId: pid });
           }
         }
@@ -1506,15 +1518,16 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             createdBy: 'parent'
           });
 
-          if (reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal') {
-            await writeBankTokenFn(personId, {
-              rewardType: reward.rewardType,
-              acquiredAt: Date.now(),
-              used: false,
-              usedAt: null,
-              targetEntryKey: null
-            });
-          }
+          await writeBankTokenFn(personId, {
+            rewardType: reward.rewardType || 'custom',
+            rewardId: msg.rewardId,
+            rewardName: reward.name || 'Reward',
+            rewardIcon: reward.icon || '🎁',
+            acquiredAt: Date.now(),
+            used: false,
+            usedAt: null,
+            targetEntryKey: null
+          });
 
           closeBellDropdown();
         });
@@ -1554,6 +1567,64 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             seen: true,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             createdBy: 'system'
+          });
+
+          closeBellDropdown();
+        });
+      }
+
+      // Wire use-request approve/deny buttons
+      for (const btn of document.querySelectorAll('.bell-approve-use')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const personId = btn.dataset.personId;
+          const msgId = btn.dataset.msgId;
+          const msg = bellMessages[personId]?.[msgId];
+          if (!msg) return;
+
+          await markMessageSeenFn(personId, msgId);
+
+          // Mark the bank token as used
+          if (msg.bankTokenId && markBankTokenUsedFn) {
+            await markBankTokenUsedFn(personId, msg.bankTokenId, null);
+          }
+
+          await writeMessageFn(personId, {
+            type: 'use-approved',
+            title: `${msg.rewardName || 'Reward'} — approved to use!`,
+            body: null,
+            amount: 0,
+            rewardId: msg.rewardId || null,
+            entryKey: null,
+            seen: false,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            createdBy: 'parent'
+          });
+
+          closeBellDropdown();
+        });
+      }
+
+      for (const btn of document.querySelectorAll('.bell-deny-use')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const personId = btn.dataset.personId;
+          const msgId = btn.dataset.msgId;
+          const msg = bellMessages[personId]?.[msgId];
+          if (!msg) return;
+
+          await markMessageSeenFn(personId, msgId);
+
+          await writeMessageFn(personId, {
+            type: 'use-denied',
+            title: `${msg.rewardName || 'Reward'} — not right now`,
+            body: null,
+            amount: 0,
+            rewardId: msg.rewardId || null,
+            entryKey: null,
+            seen: false,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            createdBy: 'parent'
           });
 
           closeBellDropdown();

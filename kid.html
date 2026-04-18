@@ -175,6 +175,7 @@
         });
 
         for (const key of newAchievements) {
+          if (achievements[key]?.revoked) continue;
           await writeAchievement(kid.id, key, { unlockedAt: Date.now(), seen: false });
           achievements[key] = { unlockedAt: Date.now(), seen: false };
         }
@@ -210,11 +211,14 @@
             achievementDefs: activeDefs
           });
 
+          let awarded = 0;
           for (const key of newKeys) {
+            if (achievements[key]?.revoked) continue;
             await writeAchievement(kid.id, key, { unlockedAt: Date.now(), seen: false });
             achievements[key] = { unlockedAt: Date.now(), seen: false };
+            awarded++;
           }
-          if (newKeys.length > 0) showUnseenAchievements();
+          if (awarded > 0) showUnseenAchievements();
         }
 
         // ── Emoji helper for pre-readers ──
@@ -468,17 +472,35 @@
         // Message overlay (unseen messages)
         // ══════════════════════════════════════════
 
+        const VISIBLE_MSG_TYPES = ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'use-approved', 'use-denied', 'task-skip-used', 'penalty-removed'];
+        const POSITIVE_MSG_TYPES = ['bonus', 'redemption-approved', 'use-approved', 'task-skip-used', 'penalty-removed'];
+
         function showUnseenMessages() {
           const unseen = Object.entries(messages)
-            .filter(([, m]) => !m.seen && ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'task-skip-used', 'penalty-removed'].includes(m.type))
+            .filter(([, m]) => !m.seen && VISIBLE_MSG_TYPES.includes(m.type))
             .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
 
           if (unseen.length === 0) return;
 
           const [msgId, msg] = unseen[0];
-          const isPositive = ['bonus', 'redemption-approved', 'task-skip-used', 'penalty-removed'].includes(msg.type);
+          const isPositive = POSITIVE_MSG_TYPES.includes(msg.type);
           const amountDisplay = msg.amount > 0 ? `+${msg.amount}` : msg.amount;
           const mount = document.getElementById('celebrationMount');
+
+          // For approved rewards, show Use Now / Save choice
+          const isApproval = msg.type === 'redemption-approved';
+          const reward = isApproval && msg.rewardId ? rewards[msg.rewardId] : null;
+          const isFunctional = reward && (reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal');
+
+          let buttonsHtml;
+          if (isApproval) {
+            buttonsHtml = `<div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
+              <button class="btn btn--primary kid-msg-overlay__use-now" type="button">Use Now</button>
+              <button class="btn btn--secondary kid-msg-overlay__save" type="button">Save for Later</button>
+            </div>`;
+          } else {
+            buttonsHtml = `<button class="btn btn--primary kid-msg-overlay__dismiss" type="button">Got it!</button>`;
+          }
 
           mount.innerHTML = `<div class="kid-msg-overlay ${isPositive ? 'kid-msg-overlay--positive' : 'kid-msg-overlay--negative'}">
             <div class="kid-msg-overlay__card">
@@ -486,24 +508,83 @@
               <h3 class="kid-msg-overlay__title">${esc(msg.title || msg.type)}</h3>
               ${msg.body ? `<p class="kid-msg-overlay__body">${esc(msg.body)}</p>` : ''}
               ${msg.amount ? `<div class="kid-msg-overlay__amount ${isPositive ? 'kid-msg-overlay__amount--positive' : 'kid-msg-overlay__amount--negative'}">${amountDisplay} pts</div>` : ''}
-              <button class="btn btn--primary kid-msg-overlay__dismiss" type="button">Got it!</button>
+              ${isApproval ? `<p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 8px;">Saved to your rewards bank</p>` : ''}
+              ${buttonsHtml}
             </div>
           </div>`;
 
-          mount.querySelector('.kid-msg-overlay__dismiss')?.addEventListener('click', async () => {
+          async function dismissAndContinue() {
             await markMessageSeen(kid.id, msgId);
             messages[msgId].seen = true;
             mount.innerHTML = renderCelebration();
-            showUnseenMessages(); // recurse; when no messages left, show achievements
-            if (!Object.values(messages).some(m => !m.seen && ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'task-skip-used', 'penalty-removed'].includes(m.type))) {
+            showUnseenMessages();
+            if (!Object.values(messages).some(m => !m.seen && VISIBLE_MSG_TYPES.includes(m.type))) {
               showUnseenAchievements();
+            }
+          }
+
+          mount.querySelector('.kid-msg-overlay__dismiss')?.addEventListener('click', dismissAndContinue);
+
+          // "Save for Later" — just dismiss, token stays in bank
+          mount.querySelector('.kid-msg-overlay__save')?.addEventListener('click', dismissAndContinue);
+
+          // "Use Now" — for functional rewards, apply immediately; for custom, send use-request
+          mount.querySelector('.kid-msg-overlay__use-now')?.addEventListener('click', async () => {
+            if (isFunctional) {
+              // Find the newest unused token of this type
+              const token = Object.entries(bank).find(([, t]) => t.rewardId === msg.rewardId && !t.used);
+              if (token) {
+                if (reward.rewardType === 'task-skip') {
+                  // Just dismiss — kid uses it from the bank when they pick a task
+                  await dismissAndContinue();
+                  return;
+                } else if (reward.rewardType === 'penalty-removal') {
+                  // Apply immediately to highest-damage penalty
+                  const freshSched = await readAllSchedule() || {};
+                  const freshComps = await readCompletions() || {};
+                  const penalty = findHighestDamagePenalty(freshComps, freshSched, tasks, settings, kid.id);
+                  if (penalty) {
+                    await markBankTokenUsed(kid.id, token[0], penalty.entryKey);
+                    await writeCompletion(penalty.entryKey, { ...(freshComps[penalty.entryKey] || {}), isLate: false, pointsOverride: null });
+                    bank[token[0]].used = true;
+                    await writeMessage(kid.id, { type: 'penalty-removed', title: `Restored: ${penalty.taskName}`, body: `Full points restored (+${penalty.pointsRestored} pts)`, amount: penalty.pointsRestored, rewardId: null, entryKey: penalty.entryKey, seen: false, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
+                  }
+                  await dismissAndContinue();
+                  return;
+                }
+              }
+              await dismissAndContinue();
+            } else {
+              // Custom reward — send use-request for parent approval
+              const token = Object.entries(bank).find(([, t]) => t.rewardId === msg.rewardId && !t.used);
+              if (token) {
+                // Guard against duplicate use-request if one is already pending
+                const alreadyPending = Object.values(messages).some(m =>
+                  m.type === 'use-request' && !m.seen && m.bankTokenId === token[0]);
+                if (alreadyPending) { await dismissAndContinue(); return; }
+                await writeMessage(kid.id, {
+                  type: 'use-request',
+                  title: reward?.name || msg.title || 'Reward',
+                  body: null,
+                  amount: 0,
+                  rewardId: msg.rewardId,
+                  rewardName: reward?.name || 'Reward',
+                  rewardIcon: reward?.icon || '🎁',
+                  bankTokenId: token[0],
+                  entryKey: null,
+                  seen: false,
+                  createdAt: firebase.database.ServerValue.TIMESTAMP,
+                  createdBy: kid.id
+                });
+              }
+              await dismissAndContinue();
             }
           });
         }
 
         function showUnseenAchievements() {
           const unseen = Object.entries(achievements)
-            .filter(([, a]) => !a.seen)
+            .filter(([, a]) => !a.seen && !a.revoked)
             .sort((a, b) => (b[1].unlockedAt || 0) - (a[1].unlockedAt || 0));
 
           if (unseen.length === 0) return;
@@ -533,18 +614,19 @@
 
         function renderTrophyCaseSheet(achievements) {
           const total = Object.keys(activeDefs).length;
-          const unlocked = Object.keys(achievements).filter(k => activeDefs[k]).length;
+          const unlocked = Object.keys(achievements).filter(k => activeDefs[k] && !achievements[k].revoked).length;
           let html = `<h3 style="margin-bottom: 4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg> Achievements</h3>
             <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: 16px;">${unlocked} of ${total} unlocked</p>
             <div class="kid-trophies__grid">`;
           for (const [key, def] of Object.entries(activeDefs)) {
             if (def.perPerson && !def.perPerson.includes(kid.id)) continue;
             const got = achievements[key];
-            const date = got ? new Date(got.unlockedAt).toLocaleDateString() : '';
-            html += `<div class="kid-trophy ${got ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}">
+            const isUnlocked = got && !got.revoked;
+            const date = isUnlocked ? new Date(got.unlockedAt).toLocaleDateString() : '';
+            html += `<div class="kid-trophy ${isUnlocked ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}">
               <span class="kid-trophy__icon">${def.icon}</span>
               <span class="kid-trophy__label">${esc(def.label)}</span>
-              ${got ? `<span class="kid-trophy__date">${date}</span>` : ''}
+              ${date ? `<span class="kid-trophy__date">${date}</span>` : ''}
             </div>`;
           }
           html += '</div>';
@@ -583,7 +665,7 @@
           // ── Kid header ──
           const dateLabel = formatDateLong(viewDate);
           const dayPrefix = isToday ? 'Today' : DAY_NAMES[new Date(viewDate + 'T12:00:00Z').getUTCDay()];
-          const unlockedCount = Object.keys(achievements).filter(k => achievements[k]).length;
+          const unlockedCount = Object.keys(achievements).filter(k => achievements[k] && !achievements[k].revoked).length;
           const totalAch = Object.keys(activeDefs).length;
           html += `<div class="kid-header">
             <div class="kid-header__icons">
@@ -632,20 +714,37 @@
 
           html += `</div>`;
 
-          // ── Bank (Power-Ups) ──
+          // ── Bank (Saved Rewards) ──
           const unusedTokens = Object.entries(bank).filter(([, t]) => !t.used);
           if (unusedTokens.length > 0) {
             const skips = unusedTokens.filter(([, t]) => t.rewardType === 'task-skip').length;
             const removals = unusedTokens.filter(([, t]) => t.rewardType === 'penalty-removal').length;
-            if (skips > 0 || removals > 0) {
-              html += `<div class="kid-bank">
-                <h4 class="kid-bank__title">Your Power-Ups</h4>
-                <div class="kid-bank__tokens">
-                  ${skips > 0 ? `<button class="kid-bank__token" id="useTaskSkip" type="button"><span class="kid-bank__token-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></span><span>Task Skip &times;${skips}</span></button>` : ''}
-                  ${removals > 0 ? `<button class="kid-bank__token" id="usePenaltyRemoval" type="button"><span class="kid-bank__token-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><span>Penalty Removal &times;${removals}</span></button>` : ''}
-                </div>
-              </div>`;
-            }
+            const customTokens = unusedTokens.filter(([, t]) => t.rewardType !== 'task-skip' && t.rewardType !== 'penalty-removal');
+            // Check for pending use-requests to prevent double-send
+            const pendingUseTokenIds = new Set(
+              Object.values(messages)
+                .filter(m => m.type === 'use-request' && !m.seen)
+                .map(m => m.bankTokenId)
+                .filter(Boolean)
+            );
+
+            html += `<div class="kid-bank">
+              <h4 class="kid-bank__title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved Rewards</h4>
+              <div class="kid-bank__tokens">
+                ${skips > 0 ? `<button class="kid-bank__token" id="useTaskSkip" type="button"><span class="kid-bank__token-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></span><span>Task Skip &times;${skips}</span></button>` : ''}
+                ${removals > 0 ? `<button class="kid-bank__token" id="usePenaltyRemoval" type="button"><span class="kid-bank__token-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><span>Penalty Removal &times;${removals}</span></button>` : ''}
+                ${customTokens.map(([tokenId, t]) => {
+                  const isPending = pendingUseTokenIds.has(tokenId);
+                  return `<div class="kid-bank__token kid-bank__token--custom${isPending ? ' kid-bank__token--pending' : ''}">
+                    <span class="kid-bank__token-icon">${esc(t.rewardIcon || '🎁')}</span>
+                    <span class="kid-bank__token-name">${esc(t.rewardName || 'Reward')}</span>
+                    ${isPending
+                      ? `<span class="kid-bank__token-status">Pending...</span>`
+                      : `<button class="btn btn--xs btn--primary kid-bank__use-btn" data-token-id="${esc(tokenId)}" type="button">Use</button>`}
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>`;
           }
 
           // ── Stats bar ──
@@ -1183,7 +1282,7 @@
 
             // Add messages
             for (const msg of Object.values(messages)) {
-              const icon = msg.type === 'bonus' ? '➕' : msg.type === 'deduction' ? '➖' : msg.type === 'redemption-request' ? '🛒' : msg.type === 'redemption-approved' ? '✅' : msg.type === 'redemption-denied' ? '❌' : msg.type === 'task-skip-used' ? '⏭️' : msg.type === 'penalty-removed' ? '🛡️' : '📋';
+              const icon = msg.type === 'bonus' ? '➕' : msg.type === 'deduction' ? '➖' : msg.type === 'redemption-request' ? '🛒' : msg.type === 'redemption-approved' ? '✅' : msg.type === 'redemption-denied' ? '❌' : msg.type === 'use-request' ? '📤' : msg.type === 'use-approved' ? '✅' : msg.type === 'use-denied' ? '❌' : msg.type === 'reward-used' ? '🎉' : msg.type === 'task-skip-used' ? '⏭️' : msg.type === 'penalty-removed' ? '🛡️' : '📋';
               entries.push({ date: msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : '?', timestamp: msg.createdAt || 0, icon, title: msg.title || msg.type, amount: msg.amount || 0, type: msg.type });
             }
 
@@ -1291,6 +1390,38 @@
             bank[token[0]].used = true;
             render();
           });
+
+          // ── Custom reward Use buttons (send use-request) ──
+          for (const btn of document.querySelectorAll('.kid-bank__use-btn')) {
+            btn.addEventListener('click', async () => {
+              const tokenId = btn.dataset.tokenId;
+              const token = bank[tokenId];
+              if (!token || token.used) return;
+              if (!confirm(`Use ${token.rewardName || 'this reward'}? A parent will need to approve.`)) return;
+
+              await writeMessage(kid.id, {
+                type: 'use-request',
+                title: token.rewardName || 'Reward',
+                body: null,
+                amount: 0,
+                rewardId: token.rewardId || null,
+                rewardName: token.rewardName || 'Reward',
+                rewardIcon: token.rewardIcon || '🎁',
+                bankTokenId: tokenId,
+                entryKey: null,
+                seen: false,
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                createdBy: kid.id
+              });
+
+              const toast = document.createElement('div');
+              toast.className = 'toast';
+              toast.textContent = `Requested to use ${token.rewardName}! Waiting for approval...`;
+              document.body.appendChild(toast);
+              setTimeout(() => toast.remove(), 3000);
+              render();
+            });
+          }
 
           // Overdue toggle
           const overdueBtn = document.getElementById('overdueToggle');
@@ -1450,9 +1581,12 @@
                     createdAt: firebase.database.ServerValue.TIMESTAMP,
                     createdBy: 'system'
                   });
-                  if (bReward?.rewardType === 'task-skip' || bReward?.rewardType === 'penalty-removal') {
+                  if (bReward) {
                     await writeBankToken(kid.id, {
-                      rewardType: bReward.rewardType,
+                      rewardType: bReward.rewardType || 'custom',
+                      rewardId: bTask.bounty.rewardId,
+                      rewardName: bReward.name || 'Reward',
+                      rewardIcon: bReward.icon || '🎁',
                       acquiredAt: Date.now(),
                       used: false,
                       usedAt: null,

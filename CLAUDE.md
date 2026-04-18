@@ -100,19 +100,22 @@ rundown/
 │                       rewardType: 'custom' | 'task-skip' | 'penalty-removal'
 ├── messages/
 │   └── {personId}/
-│       └── {pushId}  ← { type, title, body?, amount, rewardId?, entryKey?, seen, createdAt, createdBy }
+│       └── {pushId}  ← { type, title, body?, amount, rewardId?, entryKey?, seen, createdAt, createdBy,
+│                         rewardName?, rewardIcon?, bankTokenId? }
 │                       type: 'bonus' | 'deduction' | 'redemption-request' | 'redemption-approved' | 'redemption-denied'
+│                             | 'use-request' | 'use-approved' | 'use-denied' | 'task-skip-used' | 'penalty-removed'
 ├── balanceAnchors/
 │   └── {personId}    ← { amount, anchoredAt }
 ├── bank/
 │   └── {personId}/
-│       └── {pushId}  ← { rewardType, acquiredAt, used, usedAt?, targetEntryKey? }
+│       └── {pushId}  ← { rewardType, rewardId?, rewardName?, rewardIcon?,
+│                         acquiredAt, used, usedAt?, targetEntryKey? }
 ├── wishlist/
 │   └── {personId}/
 │       └── {rewardId} ← { addedAt }
 ├── achievements/
 │   └── {personId}/
-│       └── {achievementKey} ← { unlockedAt, seen }
+│       └── {achievementKey} ← { unlockedAt, seen, revoked?, revokedAt? }
 ├── multipliers/
 │   └── {YYYY-MM-DD}/
 │       └── {personId} ← { multiplier, note?, createdBy }
@@ -149,7 +152,9 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **Calendar sheet height:** Locks on open so person filter changes don't cause resize jitter.
 - **Rewards balance:** Normalized to 100 pts/day max from daily score percentage (read from snapshots). Balance = anchor + snapshot earnings × multipliers + bonuses − deductions − redemptions. Computed on-the-fly, never stored.
 - **Bounty tasks:** Scoring-exempt (`exempt: true`). Grant points or rewards automatically on completion. Multi-person bounties are first-come-first-served — completing removes other owners' schedule entries.
-- **Functional rewards:** Task Skip and Penalty Removal are banked as tokens (`bank/` node). Kids use them at their discretion from kid mode. Task Skip marks an entry exempt; Penalty Removal clears `isLate`/`pointsOverride` on the highest-damage penalty.
+- **Reward bank:** ALL approved rewards go to the bank (`bank/` node), not just functional ones. Custom rewards require a second parent approval via `use-request` when the kid wants to use them. Functional rewards (Task Skip, Penalty Removal) are used immediately from the bank without re-approval. Kid approval overlay shows "Use Now" / "Save for Later" buttons.
+- **Achievements revoke vs reset:** Revoking marks `{ revoked: true }` — achievement stays locked and won't re-fire. Resetting deletes the record entirely — achievement can be re-earned when criteria are met fresh (e.g., after scoreboard clear).
+- **Scoreboard clear cascade:** Clears snapshots, streaks, completions, balance anchors (reset to 0), messages, and bank tokens. Achievements and tasks/schedule are preserved.
 - **Notification bell:** Shared `initBell()` on all non-kid pages. Shows unseen count badge, pending approval requests, recent activity. Parents approve/deny redemptions, send bonus/deduction messages, and create bonus multiplier days from the bell dropdown.
 - **Achievements:** 13 milestone badges checked on kid mode load. Unseen achievements show full-screen unlock overlays. Trophy case displays in kid mode; badge icons show on scoreboard cards.
 - **Person delete cascade:** Removing a person in admin also cleans up messages, balance anchors, bank tokens, wishlist, and achievements via `deletePersonRewardsData()`.
@@ -172,6 +177,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Reward bank + fixes: All approved rewards banked (not just functional), custom rewards require parent approval to use, kid Use Now/Save overlay, bank visible in kid mode + scoreboard store + admin, achievement revoke (won't re-fire) vs reset (re-earnable), scoreboard clear now resets balances/messages/tokens
 - Rewards Store polish: Bounties section in kid store, animated balance count-up, "Skipped" badge on task cards, achievements re-check on task completion, admin achievements view, redemption history in admin, balance trend sparkline on scoreboard
 - Rewards Store (1.2): Points economy (100 pts/day), parent-defined rewards, bonus/deduction messages, notification bell on all pages, functional rewards (task skip, penalty removal), bounty tasks, 13 achievement badges, bonus multiplier days, balance on scoreboard, admin balance management
 - Calendar mobile week view: days reorder like dashboard (today first, future next, past at bottom via CSS `order`), "Today" tag pill, past days faded, dead auto-scroll code removed

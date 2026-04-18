@@ -556,7 +556,8 @@ export function checkNewAchievements(context) {
   const newKeys = [];
 
   for (const [key, def] of Object.entries(defs)) {
-    if (existingAchievements[key]) continue;
+    const existing = existingAchievements[key];
+    if (existing && !existing.revoked) continue; // already earned and not revoked
     if (def.status === 'hidden') continue;
     if (def.conditionType === 'manual') continue; // manual-only, never auto-fires
     if (def.perPerson && personId && !def.perPerson.includes(personId)) continue;
