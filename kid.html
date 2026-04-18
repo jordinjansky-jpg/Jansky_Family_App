@@ -50,13 +50,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
-    import { basePoints, dailyScore, gradeDisplay } from './shared/scoring.js';
+    import { basePoints, dailyScore, gradeDisplay, calculateBalance, ACHIEVEMENTS, checkNewAchievements, findHighestDamagePenalty } from './shared/scoring.js';
     import { rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
 
@@ -114,12 +114,27 @@
         // ── Offline/Online banner ──
         initOfflineBanner(onConnectionChange, { showConnectionDot: false });
 
-        const [tasksObj, catsObj] = await Promise.all([readTasks(), readCategories()]);
+        const [tasksObj, catsObj, rewardsObj, kidMessages, kidBank, kidWishlist, kidAchievements, allSnapshots, allAnchors, allMultipliers] = await Promise.all([
+          readTasks(), readCategories(),
+          readRewards(), readMessages(kid.id), readBank(kid.id), readWishlist(kid.id),
+          readAchievements(kid.id), readAllSnapshots(), readAllBalanceAnchors(), readMultipliers()
+        ]);
         const tasks = tasksObj || {};
         const cats = catsObj || {};
         const tz = settings?.timezone || 'America/Chicago';
         const today = todayKey(tz);
         const ks = kid.kidSettings || {};
+
+        let rewards = rewardsObj || {};
+        let messages = kidMessages || {};
+        let bank = kidBank || {};
+        let wishlist = kidWishlist || {};
+        let achievements = kidAchievements || {};
+        const anchor = allAnchors?.[kid.id] || null;
+        const multipliers = allMultipliers || {};
+
+        // Calculate balance
+        let { balance, totalEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers);
 
         // ── Emoji helper for pre-readers ──
         // Each entry: [regex, emoji1, emoji2?] — second emoji preferred for richer hints
@@ -368,6 +383,40 @@
         // Render
         // ══════════════════════════════════════════
 
+        // ══════════════════════════════════════════
+        // Message overlay (unseen messages)
+        // ══════════════════════════════════════════
+
+        function showUnseenMessages() {
+          const unseen = Object.entries(messages)
+            .filter(([, m]) => !m.seen && ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'task-skip-used', 'penalty-removed'].includes(m.type))
+            .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
+
+          if (unseen.length === 0) return;
+
+          const [msgId, msg] = unseen[0];
+          const isPositive = ['bonus', 'redemption-approved', 'task-skip-used', 'penalty-removed'].includes(msg.type);
+          const amountDisplay = msg.amount > 0 ? `+${msg.amount}` : msg.amount;
+          const mount = document.getElementById('celebrationMount');
+
+          mount.innerHTML = `<div class="kid-msg-overlay ${isPositive ? 'kid-msg-overlay--positive' : 'kid-msg-overlay--negative'}">
+            <div class="kid-msg-overlay__card">
+              <div class="kid-msg-overlay__icon">${isPositive ? '⭐' : '📋'}</div>
+              <h3 class="kid-msg-overlay__title">${esc(msg.title || msg.type)}</h3>
+              ${msg.body ? `<p class="kid-msg-overlay__body">${esc(msg.body)}</p>` : ''}
+              ${msg.amount ? `<div class="kid-msg-overlay__amount ${isPositive ? 'kid-msg-overlay__amount--positive' : 'kid-msg-overlay__amount--negative'}">${amountDisplay} pts</div>` : ''}
+              <button class="btn btn--primary kid-msg-overlay__dismiss" type="button">Got it!</button>
+            </div>
+          </div>`;
+
+          mount.querySelector('.kid-msg-overlay__dismiss')?.addEventListener('click', async () => {
+            await markMessageSeen(kid.id, msgId);
+            messages[msgId].seen = true;
+            mount.innerHTML = renderCelebration();
+            showUnseenMessages();
+          });
+        }
+
         function render() {
           // Filter out event schedule entries and future cooldown-suppressed tasks
           let displayEntries = {};
@@ -395,6 +444,51 @@
             </div>
             <div class="kid-header__date">${dayPrefix} &mdash; ${dateLabel}</div>
           </div>`;
+
+          // ── Balance header ──
+          html += `<div class="kid-balance">
+            <div class="kid-balance__main">
+              <span class="kid-balance__icon">💰</span>
+              <span class="kid-balance__amount ${balance < 0 ? 'kid-balance__amount--negative' : ''}">${balance.toLocaleString()}</span>
+              <span class="kid-balance__label">pts</span>
+            </div>
+            <div class="kid-balance__today">Today so far: +${score.percentage || 0} pts</div>
+            <div class="kid-balance__actions">
+              <button class="btn btn--sm btn--primary" id="kidStoreBtn" type="button">🎁 Store</button>
+              <button class="btn btn--sm btn--ghost" id="kidHistoryBtn" type="button">History</button>
+            </div>`;
+
+          // Wishlist progress
+          const wishlistItems = Object.keys(wishlist).map(rid => rewards[rid]).filter(Boolean);
+          if (wishlistItems.length > 0) {
+            for (const r of wishlistItems) {
+              const wProgress = Math.min(100, Math.round((balance / r.pointCost) * 100));
+              html += `<div class="wishlist-tracker">
+                <span class="wishlist-tracker__icon">${esc(r.icon || '🎁')}</span>
+                <span class="wishlist-tracker__name">${esc(r.name)}</span>
+                <div class="wishlist-tracker__bar"><div class="wishlist-tracker__fill" style="width: ${wProgress}%"></div></div>
+                <span class="wishlist-tracker__label">${balance}/${r.pointCost}</span>
+              </div>`;
+            }
+          }
+
+          html += `</div>`;
+
+          // ── Bank (Power-Ups) ──
+          const unusedTokens = Object.entries(bank).filter(([, t]) => !t.used);
+          if (unusedTokens.length > 0) {
+            const skips = unusedTokens.filter(([, t]) => t.rewardType === 'task-skip').length;
+            const removals = unusedTokens.filter(([, t]) => t.rewardType === 'penalty-removal').length;
+            if (skips > 0 || removals > 0) {
+              html += `<div class="kid-bank">
+                <h4 class="kid-bank__title">Your Power-Ups</h4>
+                <div class="kid-bank__tokens">
+                  ${skips > 0 ? `<button class="kid-bank__token" id="useTaskSkip" type="button"><span class="kid-bank__token-icon">⏭️</span><span>Task Skip &times;${skips}</span></button>` : ''}
+                  ${removals > 0 ? `<button class="kid-bank__token" id="usePenaltyRemoval" type="button"><span class="kid-bank__token-icon">🛡️</span><span>Penalty Removal &times;${removals}</span></button>` : ''}
+                </div>
+              </div>`;
+            }
+          }
 
           // ── Stats bar ──
           html += `<div class="kid-stats">
@@ -688,6 +782,293 @@
 
           // Gear icon opens settings
           document.getElementById('kidGearBtn')?.addEventListener('click', openKidSettings);
+
+          // ── Store button ──
+          document.getElementById('kidStoreBtn')?.addEventListener('click', () => {
+            const mount = document.getElementById('taskSheetMount');
+
+            // Count redemptions per reward
+            const redemptionCounts = {};
+            for (const msg of Object.values(messages)) {
+              if (msg.type === 'redemption-approved' && msg.rewardId) {
+                redemptionCounts[msg.rewardId] = (redemptionCounts[msg.rewardId] || 0) + 1;
+              }
+            }
+
+            const available = Object.entries(rewards)
+              .filter(([id, r]) => {
+                if (r.status !== 'active') return false;
+                if (r.expiresAt && Date.now() > r.expiresAt) return false;
+                if (r.perPerson && !r.perPerson.includes(kid.id)) return false;
+                if (r.maxRedemptions && (redemptionCounts[id] || 0) >= r.maxRedemptions) return false;
+                return true;
+              })
+              .map(([id, r]) => ({ id, ...r }));
+
+            available.sort((a, b) => {
+              const aOk = balance >= a.pointCost && streakData.current >= (a.streakRequirement || 0);
+              const bOk = balance >= b.pointCost && streakData.current >= (b.streakRequirement || 0);
+              if (aOk && !bOk) return -1;
+              if (!aOk && bOk) return 1;
+              return a.pointCost - b.pointCost;
+            });
+
+            // Pending requests
+            const pendingRequests = Object.entries(messages)
+              .filter(([, m]) => m.type === 'redemption-request' && !m.seen)
+              .map(([msgId, m]) => ({ msgId, reward: rewards[m.rewardId] || {}, amount: Math.abs(m.amount) }));
+
+            let storeHtml = `<div class="store-header"><span class="store-balance">💰 ${balance.toLocaleString()} pts</span></div>`;
+
+            if (pendingRequests.length > 0) {
+              storeHtml += `<div class="store-pending"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;">Pending Requests</h4>`;
+              for (const req of pendingRequests) {
+                storeHtml += `<div class="store-card store-card--pending" style="border-color: var(--accent-warning, #ecc94b); opacity: 0.8;">
+                  <div class="store-card__icon">${esc(req.reward.icon || '🎁')}</div>
+                  <div class="store-card__body">
+                    <div class="store-card__name">${esc(req.reward.name || 'Reward')}</div>
+                    <div class="store-card__cost">${req.amount} pts — waiting for approval</div>
+                  </div>
+                  <div class="store-card__actions">
+                    <button class="btn btn--sm btn--ghost store-cancel-btn" data-msg-id="${esc(req.msgId)}" data-reward-name="${esc(req.reward.name || 'Reward')}" data-amount="${req.amount}" type="button">Cancel</button>
+                  </div>
+                </div>`;
+              }
+              storeHtml += `</div>`;
+            }
+
+            if (available.length === 0 && pendingRequests.length === 0) {
+              storeHtml += `<div style="text-align: center; padding: 32px; color: var(--text-secondary);"><div style="font-size: 2rem; margin-bottom: 8px;">🏪</div><p>No rewards available yet!</p></div>`;
+            }
+
+            for (const reward of available) {
+              const canAfford = balance >= reward.pointCost;
+              const meetsStreak = streakData.current >= (reward.streakRequirement || 0);
+              const canRequest = canAfford && meetsStreak;
+              const isWishlisted = !!wishlist[reward.id];
+              const storeProgress = Math.min(100, Math.round((balance / reward.pointCost) * 100));
+              const daysNeeded = canAfford ? 0 : Math.ceil((reward.pointCost - balance) / 85);
+              const almostThere = !canAfford && daysNeeded <= 2;
+
+              let stockLabel = '';
+              if (reward.maxRedemptions) {
+                const used = redemptionCounts[reward.id] || 0;
+                stockLabel = `<span class="store-card__badge">${reward.maxRedemptions - used} left</span>`;
+              }
+
+              let expiryLabel = '';
+              if (reward.expiresAt) {
+                const daysLeft = Math.ceil((reward.expiresAt - Date.now()) / 86400000);
+                if (daysLeft <= 7) expiryLabel = `<span class="store-card__badge store-card__badge--warning">Expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}</span>`;
+              }
+
+              storeHtml += `<div class="store-card ${almostThere ? 'store-card--almost' : ''} ${canRequest ? 'store-card--available' : ''}" data-reward-id="${reward.id}">
+                <div class="store-card__icon">${esc(reward.icon || '🎁')}</div>
+                <div class="store-card__body">
+                  <div class="store-card__name">${esc(reward.name)}</div>
+                  <div class="store-card__cost">${reward.pointCost.toLocaleString()} pts</div>
+                  <div class="store-card__badges">
+                    ${reward.streakRequirement ? `<span class="store-card__badge">🔥 ${reward.streakRequirement}-day streak${!meetsStreak ? ` (need ${reward.streakRequirement - streakData.current} more)` : ''}</span>` : ''}
+                    ${stockLabel}${expiryLabel}
+                  </div>
+                  <div class="store-card__progress"><div class="store-card__progress-bar" style="width: ${storeProgress}%"></div></div>
+                  ${almostThere ? `<div class="store-card__nudge">So close! ${daysNeeded} more day${daysNeeded > 1 ? 's' : ''}!</div>` : ''}
+                  ${!canAfford && !almostThere ? `<div class="store-card__need">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
+                </div>
+                <div class="store-card__actions">
+                  <button class="wishlist-btn ${isWishlisted ? 'wishlist-btn--active' : ''}" data-reward-id="${reward.id}" type="button" title="Wishlist">☆</button>
+                  ${canRequest ? `<button class="btn btn--sm btn--primary store-get-btn" data-reward-id="${reward.id}" type="button">Get it!</button>` : ''}
+                </div>
+              </div>`;
+            }
+
+            mount.innerHTML = renderBottomSheet(storeHtml);
+
+            // Bind "Get it!" buttons
+            for (const btn of mount.querySelectorAll('.store-get-btn')) {
+              btn.addEventListener('click', async () => {
+                const rewardId = btn.dataset.rewardId;
+                const reward = rewards[rewardId];
+                if (!reward || !confirm(`Spend ${reward.pointCost} pts on ${reward.name}?`)) return;
+
+                await writeMessage(kid.id, {
+                  type: 'redemption-request',
+                  title: reward.name,
+                  body: null,
+                  amount: -reward.pointCost,
+                  rewardId,
+                  entryKey: null,
+                  seen: false,
+                  createdAt: firebase.database.ServerValue.TIMESTAMP,
+                  createdBy: kid.id
+                });
+
+                mount.innerHTML = '';
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = `Requested ${reward.name}! Waiting for approval...`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+              });
+            }
+
+            // Bind wishlist buttons
+            for (const btn of mount.querySelectorAll('.wishlist-btn')) {
+              btn.addEventListener('click', async () => {
+                const rewardId = btn.dataset.rewardId;
+                if (btn.classList.contains('wishlist-btn--active')) {
+                  await removeWishlistItem(kid.id, rewardId);
+                  delete wishlist[rewardId];
+                  btn.classList.remove('wishlist-btn--active');
+                } else {
+                  await writeWishlistItem(kid.id, rewardId);
+                  wishlist[rewardId] = { addedAt: Date.now() };
+                  btn.classList.add('wishlist-btn--active');
+                }
+              });
+            }
+
+            // Bind cancel buttons
+            for (const btn of mount.querySelectorAll('.store-cancel-btn')) {
+              btn.addEventListener('click', async () => {
+                const cancelMsgId = btn.dataset.msgId;
+                const rewardName = btn.dataset.rewardName;
+                const cancelAmount = parseInt(btn.dataset.amount) || 0;
+                if (!confirm(`Cancel request for ${rewardName}? Points will be refunded.`)) return;
+
+                await markMessageSeen(kid.id, cancelMsgId);
+                await writeMessage(kid.id, { type: 'redemption-denied', title: `${rewardName} — cancelled`, body: null, amount: 0, rewardId: null, entryKey: null, seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
+                await writeMessage(kid.id, { type: 'bonus', title: `Refund: ${rewardName}`, body: null, amount: cancelAmount, rewardId: null, entryKey: null, seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
+
+                mount.innerHTML = '';
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = `Cancelled — ${cancelAmount} pts refunded`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+              });
+            }
+
+            // Backdrop close
+            mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+              if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+            });
+          });
+
+          // ── History button ──
+          document.getElementById('kidHistoryBtn')?.addEventListener('click', () => {
+            const mount = document.getElementById('taskSheetMount');
+            const entries = [];
+
+            // Add snapshot daily earnings
+            if (allSnapshots) {
+              for (const [dateKey, snapshotPeople] of Object.entries(allSnapshots)) {
+                const snap = snapshotPeople?.[kid.id];
+                if (!snap) continue;
+                const mult = multipliers?.[dateKey]?.[kid.id]?.multiplier || 1;
+                const earned = Math.round((snap.percentage || 0) * mult);
+                entries.push({ date: dateKey, timestamp: new Date(dateKey + 'T23:59:59Z').getTime(), icon: '📊', title: 'Daily Score', amount: earned, type: 'earning' });
+              }
+            }
+
+            // Add messages
+            for (const msg of Object.values(messages)) {
+              const icon = msg.type === 'bonus' ? '➕' : msg.type === 'deduction' ? '➖' : msg.type === 'redemption-request' ? '🛒' : msg.type === 'redemption-approved' ? '✅' : msg.type === 'redemption-denied' ? '❌' : msg.type === 'task-skip-used' ? '⏭️' : msg.type === 'penalty-removed' ? '🛡️' : '📋';
+              entries.push({ date: msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : '?', timestamp: msg.createdAt || 0, icon, title: msg.title || msg.type, amount: msg.amount || 0, type: msg.type });
+            }
+
+            entries.sort((a, b) => b.timestamp - a.timestamp);
+
+            const grouped = {};
+            for (const entry of entries) { if (!grouped[entry.date]) grouped[entry.date] = []; grouped[entry.date].push(entry); }
+
+            let histHtml = '<h3 style="margin-bottom: 12px;">Point History</h3>';
+            if (entries.length === 0) {
+              histHtml += '<div style="text-align: center; padding: 32px; color: var(--text-secondary);">No history yet</div>';
+            } else {
+              for (const [date, items] of Object.entries(grouped)) {
+                histHtml += `<div class="history-date">${date}</div>`;
+                for (const item of items) {
+                  const amtClass = item.amount >= 0 ? 'history-item__amount--positive' : 'history-item__amount--negative';
+                  histHtml += `<div class="history-item"><span class="history-item__icon">${item.icon}</span><span class="history-item__title">${esc(item.title)}</span><span class="history-item__amount ${amtClass}">${item.amount >= 0 ? '+' : ''}${item.amount}</span></div>`;
+                }
+              }
+            }
+
+            mount.innerHTML = renderBottomSheet(histHtml);
+            mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+              if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+            });
+          });
+
+          // ── Task Skip button ──
+          document.getElementById('useTaskSkip')?.addEventListener('click', () => {
+            const skippable = Object.entries(viewEntries)
+              .filter(([key, entry]) => {
+                if (entry.ownerId !== kid.id) return false;
+                if (completions[key]) return false;
+                if (entry.exempt) return false;
+                const task = tasks[entry.taskId];
+                if (!task) return false;
+                const cat = task.category ? cats[task.category] : null;
+                if (cat?.isEvent) return false;
+                return true;
+              });
+
+            if (skippable.length === 0) { alert("All tasks done — nothing to skip!"); return; }
+
+            const mount = document.getElementById('taskSheetMount');
+            let skipHtml = '<h3 style="margin-bottom: 12px;">Pick a task to skip</h3>';
+            for (const [key, entry] of skippable) {
+              const task = tasks[entry.taskId];
+              skipHtml += `<button class="skip-pick-btn" data-entry-key="${key}" type="button" style="display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius, 8px); background: var(--surface); cursor: pointer;">${esc(task.name)}</button>`;
+            }
+            mount.innerHTML = renderBottomSheet(skipHtml);
+
+            for (const btn of mount.querySelectorAll('.skip-pick-btn')) {
+              btn.addEventListener('click', async () => {
+                const skipEntryKey = btn.dataset.entryKey;
+                const token = Object.entries(bank).find(([, t]) => t.rewardType === 'task-skip' && !t.used);
+                if (!token) return;
+
+                await updateData(`schedule/${viewDate}/${skipEntryKey}`, { exempt: true });
+                await markBankTokenUsed(kid.id, token[0], skipEntryKey);
+
+                const skipEntry = viewEntries[skipEntryKey];
+                const skipTask = tasks[skipEntry?.taskId];
+                await writeMessage(kid.id, { type: 'task-skip-used', title: `Skipped: ${skipTask?.name || 'task'}`, body: null, amount: 0, rewardId: null, entryKey: skipEntryKey, seen: false, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
+
+                mount.innerHTML = '';
+                bank[token[0]].used = true;
+                render();
+              });
+            }
+
+            mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+              if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+            });
+          });
+
+          // ── Penalty Removal button ──
+          document.getElementById('usePenaltyRemoval')?.addEventListener('click', async () => {
+            const allSched = await readAllSchedule();
+            const freshCompletions = await readCompletions();
+            const penalty = findHighestDamagePenalty(freshCompletions || {}, allSched || {}, tasks, settings);
+
+            if (!penalty) { alert("No penalties to remove right now"); return; }
+
+            if (!confirm(`Restore full points for "${penalty.taskName}" on ${penalty.dateKey}? (+${penalty.pointsRestored} pts)`)) return;
+
+            const token = Object.entries(bank).find(([, t]) => t.rewardType === 'penalty-removal' && !t.used);
+            if (!token) return;
+
+            await updateData(`completions/${penalty.entryKey}`, { isLate: null, pointsOverride: null });
+            await markBankTokenUsed(kid.id, token[0], penalty.entryKey);
+            await writeMessage(kid.id, { type: 'penalty-removed', title: `Restored: ${penalty.taskName}`, body: `Full points restored for ${penalty.dateKey} (+${penalty.pointsRestored} pts)`, amount: penalty.pointsRestored, rewardId: null, entryKey: penalty.entryKey, seen: false, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
+
+            bank[token[0]].used = true;
+            render();
+          });
 
           // Overdue toggle
           const overdueBtn = document.getElementById('overdueToggle');
@@ -1534,6 +1915,28 @@
         await loadData();
         // Listeners will trigger debouncedRender; run render immediately for first paint
         render();
+
+        // Show unseen messages after initial render
+        showUnseenMessages();
+
+        // Real-time message listener
+        onMessages(kid.id, (newMsgs) => {
+          messages = newMsgs || {};
+          const { balance: newBal, totalEarned: newEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers);
+          balance = newBal;
+          totalEarned = newEarned;
+          const balEl = document.querySelector('.kid-balance__amount');
+          if (balEl) {
+            balEl.textContent = newBal.toLocaleString();
+            balEl.classList.toggle('kid-balance__amount--negative', newBal < 0);
+          }
+          showUnseenMessages();
+        });
+
+        // Real-time bank listener
+        onBank(kid.id, (newBank) => {
+          bank = newBank || {};
+        });
       }
     }
   </script>

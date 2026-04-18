@@ -477,3 +477,76 @@
       margin-left: 4px;
       opacity: 0.7;
     }
+
+    /* ── Kid Balance Header ── */
+    .kid-balance { text-align: center; padding: 16px; margin-bottom: 16px; }
+    .kid-balance__main { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+    .kid-balance__icon { font-size: 2rem; }
+    .kid-balance__amount { font-size: 2.5rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); }
+    .kid-balance__amount--negative { color: var(--accent-danger, #e53e3e); }
+    .kid-balance__label { font-size: var(--font-size-base); color: var(--text-secondary); }
+    .kid-balance__today { font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 4px; }
+    .kid-balance__actions { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+
+    /* ── Message Overlay ── */
+    .kid-msg-overlay { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); animation: kidFadeIn 0.2s ease; }
+    .kid-msg-overlay__card { background: var(--surface); border-radius: var(--radius-lg, 16px); padding: 32px 24px; text-align: center; max-width: 340px; width: calc(100vw - 48px); animation: kidScaleIn 0.25s ease; }
+    .kid-msg-overlay--positive .kid-msg-overlay__card { border: 2px solid var(--accent-success, #38a169); }
+    .kid-msg-overlay--negative .kid-msg-overlay__card { border: 2px solid var(--text-secondary); }
+    .kid-msg-overlay__icon { font-size: 3rem; margin-bottom: 8px; }
+    .kid-msg-overlay__title { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
+    .kid-msg-overlay__body { color: var(--text-secondary); font-size: var(--font-size-base); margin-bottom: 12px; }
+    .kid-msg-overlay__amount { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-bottom: 16px; }
+    .kid-msg-overlay__amount--positive { color: var(--accent-success, #38a169); }
+    .kid-msg-overlay__amount--negative { color: var(--accent-danger, #e53e3e); }
+
+    @keyframes kidScaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes kidFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* ── Reward Store ── */
+    .store-header { text-align: center; padding: 8px 0 16px; font-size: 1.25rem; font-weight: 700; }
+    .store-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius, 8px); margin-bottom: 8px; transition: all 0.2s; }
+    .store-card--available { border-color: var(--accent); }
+    .store-card--almost { border-color: var(--accent-warning, #ecc94b); box-shadow: 0 0 8px rgba(236, 201, 75, 0.3); }
+    .store-card__icon { font-size: 2rem; flex-shrink: 0; }
+    .store-card__body { flex: 1; min-width: 0; }
+    .store-card__name { font-weight: 600; }
+    .store-card__cost { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .store-card__badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .store-card__badge { font-size: var(--font-size-xs, 0.75rem); padding: 1px 6px; border-radius: 4px; background: var(--surface-alt, var(--surface)); color: var(--text-secondary); }
+    .store-card__badge--warning { color: var(--accent-warning, #ecc94b); }
+    .store-card__progress { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+    .store-card__progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+    .store-card__nudge { font-size: var(--font-size-xs, 0.75rem); color: var(--accent-warning, #ecc94b); font-weight: 600; margin-top: 4px; }
+    .store-card__need { font-size: var(--font-size-xs, 0.75rem); color: var(--text-secondary); margin-top: 4px; }
+    .store-card__actions { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+    .wishlist-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-secondary); }
+    .wishlist-btn--active { color: var(--accent-warning, #ecc94b); }
+
+    /* ── History ── */
+    .history-date { font-weight: 600; font-size: var(--font-size-sm); color: var(--text-secondary); padding: 8px 0 4px; border-bottom: 1px solid var(--border); margin-top: 8px; }
+    .history-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+    .history-item__icon { font-size: 1.1rem; width: 24px; text-align: center; }
+    .history-item__title { flex: 1; font-size: var(--font-size-sm); }
+    .history-item__amount { font-weight: 700; font-variant-numeric: tabular-nums; font-size: var(--font-size-sm); }
+    .history-item__amount--positive { color: var(--accent-success, #38a169); }
+    .history-item__amount--negative { color: var(--accent-danger, #e53e3e); }
+
+    /* ── Wishlist Tracker ── */
+    .wishlist-tracker { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: var(--font-size-sm); }
+    .wishlist-tracker__icon { font-size: 1rem; }
+    .wishlist-tracker__name { flex-shrink: 0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wishlist-tracker__bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .wishlist-tracker__fill { height: 100%; background: var(--accent); border-radius: 2px; }
+    .wishlist-tracker__label { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-size: var(--font-size-xs, 0.75rem); }
+
+    /* ── Bank (Power-Ups) ── */
+    .kid-bank { padding: 12px 16px; margin-bottom: 16px; }
+    .kid-bank__title { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+    .kid-bank__tokens { display: flex; gap: 8px; }
+    .kid-bank__token { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius, 8px); cursor: pointer; font-size: var(--font-size-sm); font-weight: 600; transition: all 0.15s; }
+    .kid-bank__token:hover { background: var(--accent); color: #fff; }
+    .kid-bank__token-icon { font-size: 1.25rem; }
+
+    /* ── Toast (simple notification) ── */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 8px); padding: 12px 20px; font-size: var(--font-size-sm); font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 3000; animation: kidFadeIn 0.2s ease; }
