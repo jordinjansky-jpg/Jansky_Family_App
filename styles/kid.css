@@ -36,20 +36,11 @@
       justify-content: center;
       gap: var(--spacing-sm);
     }
-    .kid-header__gear {
-      position: absolute;
-      top: var(--spacing-xs);
-      right: var(--spacing-md);
-      background: none;
-      border: none;
-      font-size: 1.4rem;
-      cursor: pointer;
-      padding: 6px;
-      border-radius: 50%;
-      transition: background 0.15s;
-      color: var(--text-secondary);
+    .kid-trophy__date {
+      font-size: 0.6rem;
+      color: var(--text-muted, #999);
+      display: block;
     }
-    .kid-header__gear:active { background: var(--bg-hover); }
 
     /* ── Kid settings panel ── */
     .kid-settings-overlay {
@@ -564,24 +555,28 @@
     }
 
     /* ── Trophy Case ── */
-    .kid-trophies {
-      padding: 0 16px;
-      margin-bottom: 12px;
+    .kid-header__icons {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 4px;
     }
 
-    .kid-trophies__summary {
+    .kid-header__icon-btn {
+      background: none;
+      border: none;
+      font-size: 1.3rem;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 0;
+      justify-content: center;
+      border-radius: 50%;
       cursor: pointer;
-      list-style: none;
-      font-size: var(--font-size-sm);
+      transition: background 0.15s;
     }
-    .kid-trophies__summary::-webkit-details-marker { display: none; }
-
-    .kid-trophies__preview { font-size: 1.1rem; letter-spacing: 2px; }
-    .kid-trophies__count { font-weight: 600; color: var(--text-secondary); }
+    .kid-header__icon-btn:hover { background: var(--bg-secondary); }
 
     .kid-trophies__grid {
       display: grid;

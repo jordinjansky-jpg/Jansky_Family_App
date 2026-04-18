@@ -524,29 +524,22 @@
           });
         }
 
-        function renderTrophyCase(achievements) {
+        function renderTrophyCaseSheet(achievements) {
           const total = Object.keys(ACHIEVEMENTS).length;
           const unlocked = Object.keys(achievements).filter(k => achievements[k]).length;
-          const unlockedIcons = Object.entries(ACHIEVEMENTS)
-            .filter(([key]) => achievements[key])
-            .map(([, def]) => def.icon)
-            .slice(0, 6);
-          const preview = unlockedIcons.length > 0 ? unlockedIcons.join(' ') : '🏆';
-
-          let html = `<details class="kid-trophies">
-            <summary class="kid-trophies__summary">
-              <span class="kid-trophies__preview">${preview}</span>
-              <span class="kid-trophies__count">${unlocked}/${total} Achievements</span>
-            </summary>
+          let html = `<h3 style="margin-bottom: 4px;">🏆 Achievements</h3>
+            <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: 16px;">${unlocked} of ${total} unlocked</p>
             <div class="kid-trophies__grid">`;
           for (const [key, def] of Object.entries(ACHIEVEMENTS)) {
             const got = achievements[key];
-            html += `<div class="kid-trophy ${got ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}" title="${esc(def.label)}: ${esc(def.description)}">
+            const date = got ? new Date(got.unlockedAt).toLocaleDateString() : '';
+            html += `<div class="kid-trophy ${got ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}">
               <span class="kid-trophy__icon">${def.icon}</span>
               <span class="kid-trophy__label">${esc(def.label)}</span>
+              ${got ? `<span class="kid-trophy__date">${date}</span>` : ''}
             </div>`;
           }
-          html += '</div></details>';
+          html += '</div>';
           return html;
         }
 
@@ -582,8 +575,13 @@
           // ── Kid header ──
           const dateLabel = formatDateLong(viewDate);
           const dayPrefix = isToday ? 'Today' : DAY_NAMES[new Date(viewDate + 'T12:00:00Z').getUTCDay()];
+          const unlockedCount = Object.keys(achievements).filter(k => achievements[k]).length;
+          const totalAch = Object.keys(ACHIEVEMENTS).length;
           html += `<div class="kid-header">
-            ${ks.showGearIcon ? `<button class="kid-header__gear" id="kidGearBtn" type="button" aria-label="Settings">⚙️</button>` : ''}
+            <div class="kid-header__icons">
+              <button class="kid-header__icon-btn" id="kidTrophyBtn" type="button" aria-label="Achievements" title="${unlockedCount}/${totalAch}">🏆</button>
+              ${ks.showGearIcon ? `<button class="kid-header__icon-btn" id="kidGearBtn" type="button" aria-label="Settings">⚙️</button>` : ''}
+            </div>
             <div class="kid-header__greeting">
               <span class="kid-header__wave">👋</span>
               <h1 class="kid-header__name" style="color:${kid.color}">Hey, ${esc(kid.name)}!</h1>
@@ -641,9 +639,6 @@
               </div>`;
             }
           }
-
-          // ── Trophy Case ──
-          html += renderTrophyCase(achievements);
 
           // ── Stats bar ──
           html += `<div class="kid-stats">
@@ -944,6 +939,16 @@
 
           // Gear icon opens settings
           document.getElementById('kidGearBtn')?.addEventListener('click', openKidSettings);
+
+          // Trophy icon opens achievements sheet
+          document.getElementById('kidTrophyBtn')?.addEventListener('click', () => {
+            const mount = document.getElementById('taskSheetMount');
+            mount.innerHTML = renderBottomSheet(renderTrophyCaseSheet(achievements));
+            requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+            mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+              if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+            });
+          });
 
           // ── Store button ──
           document.getElementById('kidStoreBtn')?.addEventListener('click', async () => {

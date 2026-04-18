@@ -1169,7 +1169,7 @@
 
 /* ── Bell Dropdown ── */
 .bell-dropdown {
-  width: min(380px, calc(100vw - 32px));
+  max-width: 420px;
   max-height: 480px;
   overflow-y: auto;
   background: var(--surface);

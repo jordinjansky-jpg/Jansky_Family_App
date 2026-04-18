@@ -47,6 +47,7 @@
   </div>
   <div id="navMount"></div>
   <div id="toastMount"></div>
+  <div id="taskSheetMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -67,7 +68,7 @@
       readMessages, readAllMessages, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
       readAllAchievements
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, initOfflineBanner } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -1498,11 +1499,6 @@
         html += `</div></div>`;
       }
 
-      // Reward form (shown when editing)
-      if (editingRewardId !== null) {
-        html += renderRewardForm(editingRewardId === 'new' ? null : editingRewardId);
-      }
-
       return html;
     }
 
@@ -1584,19 +1580,23 @@
       </div>`;
     }
 
-    function bindRewardsTab() {
-      main.querySelector('#addRewardBtn')?.addEventListener('click', () => {
-        editingRewardId = 'new';
-        render();
-        document.getElementById('rewardForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    function openRewardSheet(rewardId) {
+      editingRewardId = rewardId || 'new';
+      const sheetMount = document.getElementById('taskSheetMount');
+      sheetMount.innerHTML = renderBottomSheet(renderRewardForm(rewardId === 'new' ? null : rewardId));
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+      bindRewardForm();
+      // Backdrop close
+      sheetMount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('bottom-sheet-overlay')) { sheetMount.innerHTML = ''; editingRewardId = null; }
       });
+    }
+
+    function bindRewardsTab() {
+      main.querySelector('#addRewardBtn')?.addEventListener('click', () => openRewardSheet('new'));
 
       for (const btn of main.querySelectorAll('.reward-edit')) {
-        btn.addEventListener('click', () => {
-          editingRewardId = btn.dataset.rewardId;
-          render();
-          document.getElementById('rewardForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+        btn.addEventListener('click', () => openRewardSheet(btn.dataset.rewardId));
       }
 
       for (const btn of main.querySelectorAll('.reward-archive')) {
@@ -1606,10 +1606,6 @@
           rewardsObj[id].status = 'archived';
           render();
         });
-      }
-
-      if (editingRewardId !== null) {
-        bindRewardForm();
       }
     }
 
@@ -1672,7 +1668,7 @@
       // Cancel
       form.querySelector('#rf_cancel').addEventListener('click', () => {
         editingRewardId = null;
-        render();
+        document.getElementById('taskSheetMount').innerHTML = '';
       });
 
       // Save
@@ -1714,6 +1710,7 @@
         }
 
         editingRewardId = null;
+        document.getElementById('taskSheetMount').innerHTML = '';
         render();
       });
     }

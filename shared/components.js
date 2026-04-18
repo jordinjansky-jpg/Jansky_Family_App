@@ -1390,11 +1390,14 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         people
       });
       const dropdown = dropdownContainer.firstElementChild;
-      // Position below the bell button
-      const bellRect = bellEl.getBoundingClientRect();
+      // Position below the header, centered on mobile
+      const header = document.querySelector('.app-header');
+      const headerBottom = header ? header.getBoundingClientRect().bottom : 56;
       dropdown.style.position = 'fixed';
-      dropdown.style.top = `${bellRect.bottom + 4}px`;
-      dropdown.style.right = `${window.innerWidth - bellRect.right}px`;
+      dropdown.style.top = `${headerBottom + 4}px`;
+      dropdown.style.left = '16px';
+      dropdown.style.right = '16px';
+      dropdown.style.width = 'auto';
       document.body.appendChild(dropdown);
 
       // Wire "Send Message" button
