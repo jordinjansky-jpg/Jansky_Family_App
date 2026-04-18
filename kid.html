@@ -50,7 +50,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
@@ -1197,6 +1197,58 @@
             }
             completions[entryKey] = record;
             await writeCompletion(entryKey, record);
+
+            // Bounty reward on completion
+            {
+              const bEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+              const bTask = bEntry ? tasks[bEntry.taskId] : null;
+              if (bTask?.bounty) {
+                if (bTask.bounty.type === 'points') {
+                  await writeMessage(kid.id, {
+                    type: 'bonus',
+                    title: `Bounty: ${bTask.name}`,
+                    body: null,
+                    amount: bTask.bounty.amount,
+                    rewardId: null,
+                    entryKey,
+                    seen: false,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    createdBy: 'system'
+                  });
+                } else if (bTask.bounty.type === 'reward' && bTask.bounty.rewardId) {
+                  const bReward = rewards[bTask.bounty.rewardId];
+                  await writeMessage(kid.id, {
+                    type: 'redemption-approved',
+                    title: `Bounty reward: ${bReward?.name || 'Reward'}`,
+                    body: null,
+                    amount: 0,
+                    rewardId: bTask.bounty.rewardId,
+                    entryKey,
+                    seen: false,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    createdBy: 'system'
+                  });
+                  if (bReward?.rewardType === 'task-skip' || bReward?.rewardType === 'penalty-removal') {
+                    await writeBankToken(kid.id, {
+                      rewardType: bReward.rewardType,
+                      acquiredAt: Date.now(),
+                      used: false,
+                      usedAt: null,
+                      targetEntryKey: null
+                    });
+                  }
+                }
+                // Multi-person bounty: first-come-first-served — remove other entries
+                if (bTask.ownerAssignmentMode === 'duplicate' && bTask.owners?.length > 1) {
+                  const bDateKey = bEntry.dateKey || viewDate;
+                  for (const [otherKey, otherEntry] of Object.entries(viewEntries)) {
+                    if (otherKey !== entryKey && otherEntry.taskId === bEntry.taskId) {
+                      await removeData(`schedule/${bDateKey}/${otherKey}`);
+                    }
+                  }
+                }
+              }
+            }
 
             // Auto-archive one-time tasks on completion
             const entry = viewEntries[entryKey];

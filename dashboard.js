@@ -1,4 +1,4 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, writeBankToken } from './shared/firebase.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, writeBankToken, readRewards, removeData } from './shared/firebase.js';
 import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -33,6 +33,7 @@ const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...
 const tasks = tasksObj || {};
 const cats = catsObj || {};
 let events = eventsObj || {};
+const rewardsData = await readRewards() || {};
 let activePressTimer = null;
 let pendingSliderOverride = null; // { entryKey, value } — set by slider, consumed by toggleTask/closeSheet
 
@@ -556,6 +557,57 @@ async function toggleTask(entryKey, dateKey) {
 
   // Look up the entry once for archive + cooldown logic
   const toggledEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+
+  // Bounty reward on completion
+  if (!wasComplete && toggledEntry) {
+    const bountyTask = tasks[toggledEntry.taskId];
+    if (bountyTask?.bounty) {
+      if (bountyTask.bounty.type === 'points') {
+        await writeMessage(toggledEntry.ownerId, {
+          type: 'bonus',
+          title: `Bounty: ${bountyTask.name}`,
+          body: null,
+          amount: bountyTask.bounty.amount,
+          rewardId: null,
+          entryKey,
+          seen: false,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          createdBy: 'system'
+        });
+      } else if (bountyTask.bounty.type === 'reward' && bountyTask.bounty.rewardId) {
+        const reward = rewardsData[bountyTask.bounty.rewardId];
+        await writeMessage(toggledEntry.ownerId, {
+          type: 'redemption-approved',
+          title: `Bounty reward: ${reward?.name || 'Reward'}`,
+          body: null,
+          amount: 0,
+          rewardId: bountyTask.bounty.rewardId,
+          entryKey,
+          seen: false,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          createdBy: 'system'
+        });
+        if (reward?.rewardType === 'task-skip' || reward?.rewardType === 'penalty-removal') {
+          await writeBankToken(toggledEntry.ownerId, {
+            rewardType: reward.rewardType,
+            acquiredAt: Date.now(),
+            used: false,
+            usedAt: null,
+            targetEntryKey: null
+          });
+        }
+      }
+      // Multi-person bounty: first-come-first-served — remove other entries
+      if (bountyTask.ownerAssignmentMode === 'duplicate' && bountyTask.owners?.length > 1) {
+        const dateKey2 = toggledEntry.dateKey || viewDate;
+        for (const [otherKey, otherEntry] of Object.entries(viewEntries)) {
+          if (otherKey !== entryKey && otherEntry.taskId === toggledEntry.taskId) {
+            await removeData(`schedule/${dateKey2}/${otherKey}`);
+          }
+        }
+      }
+    }
+  }
 
   // Auto-archive one-time tasks on completion
   let archivedTaskId = null;

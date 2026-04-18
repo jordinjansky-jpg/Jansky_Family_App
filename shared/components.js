@@ -274,6 +274,11 @@ export function renderTaskCard(options) {
   if (isPastDaily && !completed) {
     actionTags += `<span class="task-card__tag task-card__tag--late">Late</span>`;
   }
+  // Bounty badge
+  if (task?.bounty) {
+    const bountyLabel = task.bounty.type === 'points' ? `${task.bounty.amount} pts` : 'Reward';
+    actionTags += `<span class="task-card__tag task-card__bounty">🎯 ${bountyLabel}</span>`;
+  }
 
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
   const entryTod = entry.timeOfDay;
@@ -736,7 +741,7 @@ export function renderCelebration() {
  * @param {Array} opts.people - [{ id, name, color }]
  * @param {string} opts.prefix - ID prefix ('tf','qa','et')
  */
-export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create', categories = [], people = [], prefix = 'tf' }) {
+export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create', categories = [], people = [], prefix = 'tf', rewards = {} }) {
   const isEdit = mode === 'edit';
   const title = isEdit ? 'Edit Task' : 'New Task';
   const selectedOwners = task.owners || [];
@@ -821,6 +826,29 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
         <input type="number" id="${prefix}_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
       </div>
       <label class="admin-checkbox"><input type="checkbox" id="${prefix}_exempt"${task.exempt ? ' checked' : ''}> Exempt</label>
+    </div>
+    <div class="form-group" style="margin-top: 8px;">
+      <label class="admin-checkbox"><input type="checkbox" id="${prefix}_bountyToggle" ${task.bounty ? 'checked' : ''}> 🎯 Bounty Task</label>
+      <div id="${prefix}_bountyFields" style="${task.bounty ? '' : 'display: none;'}; margin-top: 8px; padding-left: 24px;">
+        <p class="form-hint" style="margin-bottom: 8px;">Scoring-exempt. Reward granted on completion.</p>
+        <div class="segmented-control" id="${prefix}_bountyType" style="margin-bottom: 8px;">
+          <button type="button" class="segmented-btn${(!task.bounty || task.bounty.type === 'points') ? ' segmented-btn--active' : ''}" data-value="points">Points</button>
+          <button type="button" class="segmented-btn${task.bounty?.type === 'reward' ? ' segmented-btn--active' : ''}" data-value="reward">Reward</button>
+        </div>
+        <div id="${prefix}_bountyPointsField" style="${task.bounty?.type === 'reward' ? 'display: none;' : ''}">
+          <label class="form-label">Bonus points</label>
+          <input type="number" id="${prefix}_bountyAmount" class="form-input" value="${task.bounty?.amount || 50}" min="1">
+        </div>
+        <div id="${prefix}_bountyRewardField" style="${task.bounty?.type !== 'reward' ? 'display: none;' : ''}">
+          <label class="form-label">Reward</label>
+          <select id="${prefix}_bountyReward" class="form-input">
+            <option value="">Select a reward...</option>
+            ${Object.entries(rewards).filter(([,r]) => r.status === 'active').map(([id, r]) =>
+              `<option value="${id}" ${task.bounty?.rewardId === id ? 'selected' : ''}>${esc(r.icon || '')} ${esc(r.name)} (${r.pointCost} pts)</option>`
+            ).join('')}
+          </select>
+        </div>
+      </div>
     </div>
     <div class="form-group" id="${prefix}_dedicatedDayGroup" style="display:${showDedicated ? '' : 'none'}">
       <label class="form-label" id="${prefix}_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Date') : 'Day'} <button type="button" id="${prefix}_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>

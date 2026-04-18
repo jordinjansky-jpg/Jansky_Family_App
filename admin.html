@@ -540,7 +540,8 @@
         mode: taskId ? 'edit' : 'create',
         categories: ca,
         people: pa,
-        prefix: 'tf'
+        prefix: 'tf',
+        rewards: rewardsObj
       })}</div>`;
     }
 
@@ -1941,6 +1942,27 @@
         }
       });
 
+      // Bounty toggle
+      const bountyToggle = root.querySelector('#tf_bountyToggle');
+      const bountyFields = root.querySelector('#tf_bountyFields');
+      if (bountyToggle) {
+        bountyToggle.addEventListener('change', () => {
+          bountyFields.style.display = bountyToggle.checked ? '' : 'none';
+          if (bountyToggle.checked) {
+            root.querySelector('#tf_exempt').checked = true;
+          }
+        });
+      }
+      // Bounty type segmented control
+      for (const btn of root.querySelectorAll('#tf_bountyType .segmented-btn')) {
+        btn.addEventListener('click', () => {
+          root.querySelectorAll('#tf_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+          btn.classList.add('segmented-btn--active');
+          root.querySelector('#tf_bountyPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
+          root.querySelector('#tf_bountyRewardField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+        });
+      }
+
       // Cancel
       root.querySelector('#tf_cancel')?.addEventListener('click', () => {
         editingTaskId = null;
@@ -1991,6 +2013,20 @@
           exempt: root.querySelector('#tf_exempt')?.checked || false,
           status: 'active'
         };
+
+        // Read bounty data
+        const isBounty = root.querySelector('#tf_bountyToggle')?.checked;
+        let bounty = null;
+        if (isBounty) {
+          const bountyType = root.querySelector('#tf_bountyType .segmented-btn--active')?.dataset?.value || 'points';
+          bounty = {
+            type: bountyType,
+            amount: bountyType === 'points' ? (parseInt(root.querySelector('#tf_bountyAmount')?.value) || 50) : null,
+            rewardId: bountyType === 'reward' ? (root.querySelector('#tf_bountyReward')?.value || null) : null
+          };
+          taskData.exempt = true;
+        }
+        taskData.bounty = bounty;
 
         if (editingTaskId === 'new') {
           taskData.createdDate = today;
