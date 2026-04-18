@@ -23,7 +23,7 @@ git push origin main
 ├── index.html            ← Dashboard shell — loads dashboard.js
 ├── dashboard.js          ← Dashboard logic — daily task list, completion toggling, progress, overdue banner
 ├── person.html           ← Per-person PWA entry (?person=Name) — installable home screen shortcut with unique manifest (served by sw.js)
-├── calendar.html         ← Single-month grid with swipe nav, day detail bottom sheet, event color bars
+├── calendar.html         ← Three-view calendar (month/week/day) with swipe nav, quick-add events, person filters
 ├── scoreboard.html       ← Leaderboard, grades table, trend sparklines, category breakdown
 ├── tracker.html          ← Weekly/monthly task status rows, filters, skipped task detection
 ├── admin.html            ← PIN-gated admin (tasks, people, categories, settings, theme, schedule, data, debug)
@@ -39,6 +39,7 @@ git push origin main
 │   ├── dom-helpers.js    ← Small DOM-binding helpers (initOwnerChips, getSelectedOwners). Only shared module besides theme.js permitted to touch DOM.
 │   ├── theme.js          ← 5 theme presets, CSS variable generation, localStorage cache (~260 lines)
 │   ├── utils.js          ← Date math, timezone handling, formatting, debounce (Intl-based, no libraries)
+│   └── calendar-views.js ← Month/week/day view renderers for calendar.html (~600 lines)
 └── styles/
     ├── base.css          ← CSS variables, reset, typography
     ├── layout.css        ← Header, nav bar, page-content, spacing
@@ -143,13 +144,11 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
-- Points system rescale: new formula `basePoints = max(estMin, 5) × difficultyMultiplier` replaces `round(mult × (1 + estMin/30))`. Produces larger integer values so late penalties actually land on small tasks (e.g. a 5-min easy task is now 5pt, so 75% late → 4pt instead of 1pt → 1pt). Difficulty multipliers are now configurable per-family via `settings.difficultyMultipliers` in the admin Settings tab (defaults `{easy:1, medium:2, hard:3}`, clamped 1–10, soft-warned if non-monotonic). Zero data migration — percentages and grades are identical pre/post because `earned` and `possible` both scale by the same factor. Tabular-nums added to stats displays so larger numbers don't jitter in place.
-- Late completion penalties: moved late penalty from scoring-time detection to completion-time recording. Past daily tasks tap-blocked (opens detail sheet instead). "Complete (Late)" button label on past-date tasks. `isLate` flag + `pointsOverride` set at completion time. "Late" chip on incomplete past daily cards. Slider shows penalty, parent-adjustable. Scoring simplified (removed `isOverdue` logic from `earnedPoints`, `dailyScore`, `buildSnapshot`).
-- Codebase audit fixes: XSS hardening (admin/kid name escaping), CSS variable fixes (kid PIN error, theme button), scheduler bug fixes (cooldown anchor leak in weekly/monthly, past-date one-time tasks now appear instead of vanishing), scoring late-completion detection in snapshots, calendar listener leak fix via AbortController, recovery PIN unconditional, parseIntOr/parseFloatOr helpers, DOM helpers extracted to dom-helpers.js, dead code removal
-- Bulk admin actions: multi-select mode in tasks tab, batch edit (rotation, assignment mode, category, status, difficulty, time of day, est. minutes, owners), batch delete with confirmation, floating action bar, auto schedule rebuild
-- Category-level daily limits: per-person and per-household minute caps on categories, scheduler defers/skips tasks over limit, admin UI with badges
-- `e841314` 7 bug fixes (scheduler shadowing, scoring exempt tasks, tracker skipped filter, duplicate listeners, calendar perf), calendar single-month view with swipe nav, SW v5
-- Add meta tags, manifest.json, favicon, PWA support, event time field, auto-rebuild on task edit
+- Calendar mobile week view: days reorder like dashboard (today first, future next, past at bottom via CSS `order`), "Today" tag pill, past days faded, dead auto-scroll code removed
+- Calendar overhaul (1.1): three-view calendar (month/week/day), first-class events with quick-add, time-grid day view, swipe navigation, person filters, `calendar-views.js` shared module
+- Points system rescale: new formula `basePoints = max(estMin, 5) × difficultyMultiplier` replaces `round(mult × (1 + estMin/30))`. Difficulty multipliers configurable per-family via `settings.difficultyMultipliers`. Zero data migration — percentages identical pre/post.
+- Late completion penalties: moved late penalty from scoring-time detection to completion-time recording. Past daily tasks tap-blocked. `isLate` flag + `pointsOverride` set at completion time. Slider shows penalty, parent-adjustable.
+- Codebase audit fixes: XSS hardening, CSS variable fixes, scheduler bug fixes (cooldown anchor leak, past-date one-time tasks), scoring late-completion detection, calendar listener leak fix, DOM helpers extracted
 
 ## Backlog
 

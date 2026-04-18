@@ -104,7 +104,18 @@ export function renderWeekView(opts) {
     return `<div class="cal-week__dow${dk === today ? ' cal-week__dow--today' : ''}">${DAY_NAMES_SHORT[dow]}<br><span class="cal-week__date-num">${parseInt(dk.split('-')[2], 10)}</span></div>`;
   }).join('');
 
-  const dayColumns = days.map(dk => {
+  // Mobile sort order: today first, future ascending, past at bottom (nearest-past first).
+  // When today isn't in this week, keep chronological order.
+  const todayPos = days.indexOf(today);
+  const mobileOrder = days.map((dk, i) => {
+    if (todayPos < 0) return i;
+    if (dk === today) return 0;
+    if (dk > today) return i - todayPos;
+    // Past: after all future days, nearest-past first
+    return (days.length - 1 - todayPos) + (todayPos - i);
+  });
+
+  const dayColumns = days.map((dk, dayIndex) => {
     const isToday = dk === today;
     const isPast = dk < today;
 
@@ -166,9 +177,10 @@ export function renderWeekView(opts) {
     const dow = dayOfWeek(dk);
     const dayNum = parseInt(dk.split('-')[2], 10);
     const monthIdx = parseInt(dk.split('-')[1], 10) - 1;
-    const colLabel = `<div class="cal-week__col-label"><span class="cal-week__col-day">${DAY_NAMES_FULL[dow]}</span><span class="cal-week__col-date">${MONTH_NAMES[monthIdx]} ${dayNum}</span></div>`;
+    const todayTag = isToday ? '<span class="cal-week__today-tag">Today</span>' : '';
+    const colLabel = `<div class="cal-week__col-label"><span class="cal-week__col-day">${DAY_NAMES_FULL[dow]}</span>${todayTag}<span class="cal-week__col-date">${MONTH_NAMES[monthIdx]} ${dayNum}</span></div>`;
 
-    return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}">
+    return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}" style="--mobile-order:${mobileOrder[dayIndex]}">
       ${colLabel}
       <div class="cal-week__events">${eventsHtml}</div>
       ${recurringHtml ? `<div class="cal-week__tasks">${recurringHtml}</div>` : ''}

@@ -326,11 +326,6 @@
         });
       });
 
-      // Mobile: auto-scroll to today's column
-      const todayCol = main.querySelector(`.cal-week__col[data-date="${today}"]`);
-      if (todayCol && window.innerWidth <= 600) {
-        todayCol.scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'instant' });
-      }
     }
 
     function bindMonthViewEvents() {

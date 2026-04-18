@@ -688,6 +688,16 @@
     padding: var(--spacing-sm) var(--spacing-md);
     gap: var(--spacing-xs);
     border-radius: var(--radius-md);
+    order: var(--mobile-order, 0);
+  }
+  /* Today card stands out — accent left border + subtle glow */
+  .cal-week__col--today {
+    border-left: 3px solid var(--accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  /* Past day cards faded */
+  .cal-week__col--past {
+    opacity: 0.55;
   }
   /* Daily tasks section scrolls within the card on mobile */
   .cal-week__tasks--daily {
@@ -715,6 +725,17 @@
     color: var(--text-muted);
   }
   .cal-week__col--today .cal-week__col-day { color: var(--accent); }
+  .cal-week__today-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #fff;
+    background: var(--accent);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    line-height: 1.4;
+  }
   .event-pill {
     font-size: var(--font-size-sm);
     padding: 5px 8px;
