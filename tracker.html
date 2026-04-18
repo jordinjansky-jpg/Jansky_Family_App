@@ -85,7 +85,8 @@
       if (activeView === 'weekly') {
         return { start: weekStart(periodAnchor), end: weekEnd(periodAnchor) };
       }
-      return { start: monthStart(periodAnchor), end: monthEnd(periodAnchor) };
+      // Expand to full calendar weeks so partial weeks at month edges are complete
+      return { start: weekStart(monthStart(periodAnchor)), end: weekEnd(monthEnd(periodAnchor)) };
     }
 
     function shiftPeriod(delta) {
