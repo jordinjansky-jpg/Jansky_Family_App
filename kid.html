@@ -50,13 +50,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, countGlobalRedemptions, writeSnapshot } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
-    import { basePoints, dailyScore, gradeDisplay, calculateBalance, ACHIEVEMENTS, checkNewAchievements, periodGrade, findHighestDamagePenalty } from './shared/scoring.js';
+    import { basePoints, dailyScore, gradeDisplay, calculateBalance, ACHIEVEMENTS, checkNewAchievements, periodGrade, findHighestDamagePenalty, buildSnapshot } from './shared/scoring.js';
     import { rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
 
@@ -450,7 +450,10 @@
             await markMessageSeen(kid.id, msgId);
             messages[msgId].seen = true;
             mount.innerHTML = renderCelebration();
-            showUnseenMessages();
+            showUnseenMessages(); // recurse; when no messages left, show achievements
+            if (!Object.values(messages).some(m => !m.seen && ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'task-skip-used', 'penalty-removed'].includes(m.type))) {
+              showUnseenAchievements();
+            }
           });
         }
 
@@ -873,22 +876,29 @@
           document.getElementById('kidGearBtn')?.addEventListener('click', openKidSettings);
 
           // ── Store button ──
-          document.getElementById('kidStoreBtn')?.addEventListener('click', () => {
+          document.getElementById('kidStoreBtn')?.addEventListener('click', async () => {
             const mount = document.getElementById('taskSheetMount');
 
-            // Count redemptions per reward
+            // Count redemptions per reward globally (across all people) for maxRedemptions check
             const redemptionCounts = {};
-            for (const msg of Object.values(messages)) {
-              if (msg.type === 'redemption-approved' && msg.rewardId) {
-                redemptionCounts[msg.rewardId] = (redemptionCounts[msg.rewardId] || 0) + 1;
-              }
+            const rewardsWithLimits = Object.entries(rewards).filter(([, r]) => r.maxRedemptions);
+            for (const [rid] of rewardsWithLimits) {
+              redemptionCounts[rid] = await countGlobalRedemptions(rid);
             }
+
+            // Track pending requests to prevent double-spend
+            const pendingRewardIds = new Set(
+              Object.values(messages)
+                .filter(m => m.type === 'redemption-request' && !m.seen)
+                .map(m => m.rewardId)
+            );
 
             const available = Object.entries(rewards)
               .filter(([id, r]) => {
                 if (r.status !== 'active') return false;
                 if (r.expiresAt && Date.now() > r.expiresAt) return false;
                 if (r.perPerson && !r.perPerson.includes(kid.id)) return false;
+                if (pendingRewardIds.has(id)) return false;
                 if (r.maxRedemptions && (redemptionCounts[id] || 0) >= r.maxRedemptions) return false;
                 return true;
               })
@@ -1142,7 +1152,7 @@
           document.getElementById('usePenaltyRemoval')?.addEventListener('click', async () => {
             const allSched = await readAllSchedule();
             const freshCompletions = await readCompletions();
-            const penalty = findHighestDamagePenalty(freshCompletions || {}, allSched || {}, tasks, settings);
+            const penalty = findHighestDamagePenalty(freshCompletions || {}, allSched || {}, tasks, settings, kid.id);
 
             if (!penalty) { alert("No penalties to remove right now"); return; }
 
@@ -1154,6 +1164,16 @@
             await updateData(`completions/${penalty.entryKey}`, { isLate: null, pointsOverride: null });
             await markBankTokenUsed(kid.id, token[0], penalty.entryKey);
             await writeMessage(kid.id, { type: 'penalty-removed', title: `Restored: ${penalty.taskName}`, body: `Full points restored for ${penalty.dateKey} (+${penalty.pointsRestored} pts)`, amount: penalty.pointsRestored, rewardId: null, entryKey: penalty.entryKey, seen: false, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
+
+            // Rebuild snapshot for the affected date so scoreboard reflects restored points
+            const freshComps = await readCompletions();
+            const penDaySched = allSched[penalty.dateKey] || {};
+            const penPersonEntries = {};
+            for (const [k, e] of Object.entries(penDaySched)) {
+              if (e.ownerId === kid.id) penPersonEntries[k] = e;
+            }
+            const newSnap = buildSnapshot(penPersonEntries, freshComps, tasks, cats, settings, penalty.dateKey);
+            if (newSnap) await writeSnapshot(penalty.dateKey, kid.id, newSnap);
 
             bank[token[0]].used = true;
             render();
@@ -1357,7 +1377,7 @@
               if (cdTask?.cooldownDays > 0) {
                 const allSched = await readAllSchedule() || {};
                 const cdUpdates = rebuildSingleTaskSchedule(
-                  cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks, catsObj
+                  cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks, cats
                 );
                 if (Object.keys(cdUpdates).length > 0) {
                   await multiUpdate(cdUpdates);
@@ -1382,6 +1402,18 @@
                 } else {
                   delete completions[entryKey];
                   await removeCompletion(entryKey);
+                  // Reverse bounty rewards on undo
+                  const undoBountyEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+                  const undoBountyTask = undoBountyEntry ? tasks[undoBountyEntry.taskId] : null;
+                  if (undoBountyTask?.bounty) {
+                    await removeMessagesByEntryKey(kid.id, entryKey);
+                    if (undoBountyTask.bounty.type === 'reward' && undoBountyTask.bounty.rewardId) {
+                      const bReward = rewards[undoBountyTask.bounty.rewardId];
+                      if (bReward?.rewardType === 'task-skip' || bReward?.rewardType === 'penalty-removal') {
+                        await removeLatestBankToken(kid.id, bReward.rewardType);
+                      }
+                    }
+                  }
                   // Restore archived one-time task
                   const entry = viewEntries[entryKey];
                   if (entry) {
@@ -1399,7 +1431,7 @@
                   if (undoTask?.cooldownDays > 0) {
                     const allSched = await readAllSchedule() || {};
                     const undoUpdates = rebuildSingleTaskSchedule(
-                      undoEntry.taskId, undoTask, today, allSched, completions, people, settings, tasks, catsObj
+                      undoEntry.taskId, undoTask, today, allSched, completions, people, settings, tasks, cats
                     );
                     if (Object.keys(undoUpdates).length > 0) {
                       await multiUpdate(undoUpdates);
@@ -2058,9 +2090,10 @@
         // Listeners will trigger debouncedRender; run render immediately for first paint
         render();
 
-        // Show unseen messages and achievements after initial render
+        // Show unseen messages first, then achievements (chained via dismiss callback)
+        const hasUnseenMsgs = Object.values(messages).some(m => !m.seen && ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'task-skip-used', 'penalty-removed'].includes(m.type));
         showUnseenMessages();
-        showUnseenAchievements();
+        if (!hasUnseenMsgs) showUnseenAchievements();
 
         // Real-time message listener
         onMessages(kid.id, (newMsgs) => {
@@ -2068,11 +2101,7 @@
           const { balance: newBal, totalEarned: newEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers);
           balance = newBal;
           totalEarned = newEarned;
-          const balEl = document.querySelector('.kid-balance__amount');
-          if (balEl) {
-            balEl.textContent = newBal.toLocaleString();
-            balEl.classList.toggle('kid-balance__amount--negative', newBal < 0);
-          }
+          debouncedRender(); // Re-render to update wishlist bars, store affordability, etc.
           showUnseenMessages();
         });
 

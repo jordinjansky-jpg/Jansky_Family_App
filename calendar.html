@@ -39,7 +39,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier, readRewards } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -58,8 +58,8 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load core data ──
-    const [settings, peopleObj, tasksObj, catsObj, eventsObj] = await Promise.all([
-      readSettings(), readPeople(), readTasks(), readCategories(), readEvents()
+    const [settings, peopleObj, tasksObj, catsObj, eventsObj, calRewards] = await Promise.all([
+      readSettings(), readPeople(), readTasks(), readCategories(), readEvents(), readRewards()
     ]);
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
@@ -118,7 +118,7 @@
     });
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
     initOfflineBanner(onConnectionChange);
-    initBell(() => people, () => ({}), onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier });
+    initBell(() => people, () => calRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier, getTodayFn: () => today });
 
     document.getElementById('loadingState').style.display = 'none';
     const main = document.getElementById('mainContent');

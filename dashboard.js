@@ -1,4 +1,4 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, writeBankToken, readRewards, removeData, writeMultiplier } from './shared/firebase.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, writeBankToken, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
 import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -99,7 +99,7 @@ document.getElementById('navMount').innerHTML = renderNavBar('home');
 initOfflineBanner(onConnectionChange);
 
 // ── Notification bell ──
-initBell(() => people, () => ({}), onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier });
+initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier, getTodayFn: () => today });
 
 // ── Hide loading, show content ──
 document.getElementById('loadingState').style.display = 'none';
@@ -650,6 +650,19 @@ async function toggleTask(entryKey, dateKey) {
         } else {
           delete completions[entryKey];
           await removeCompletion(entryKey);
+          // Reverse bounty rewards on undo
+          if (toggledEntry) {
+            const undoBountyTask = tasks[toggledEntry.taskId];
+            if (undoBountyTask?.bounty) {
+              await removeMessagesByEntryKey(toggledEntry.ownerId, entryKey);
+              if (undoBountyTask.bounty.type === 'reward' && undoBountyTask.bounty.rewardId) {
+                const bReward = rewardsData[undoBountyTask.bounty.rewardId];
+                if (bReward?.rewardType === 'task-skip' || bReward?.rewardType === 'penalty-removal') {
+                  await removeLatestBankToken(toggledEntry.ownerId, bReward.rewardType);
+                }
+              }
+            }
+          }
           // Restore archived one-time task
           if (archivedTaskId && tasks[archivedTaskId]) {
             tasks[archivedTaskId].status = 'active';

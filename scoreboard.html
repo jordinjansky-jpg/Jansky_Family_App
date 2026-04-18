@@ -38,7 +38,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
@@ -55,10 +55,10 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load all data ──
-    const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, allSnapshots, allStreaks, allAchievementsData, allAnchors, allMessages, allMultipliers] = await Promise.all([
+    const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, allSnapshots, allStreaks, allAchievementsData, allAnchors, allMessages, allMultipliers, sbRewards] = await Promise.all([
       readSettings(), readPeople(), readTasks(), readCategories(),
       readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks(), readAllAchievements(),
-      readAllBalanceAnchors(), readAllMessages(), readMultipliers()
+      readAllBalanceAnchors(), readAllMessages(), readMultipliers(), readRewards()
     ]);
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
@@ -105,7 +105,7 @@
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);
-    initBell(() => people, () => ({}), onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier });
+    initBell(() => people, () => sbRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier, getTodayFn: () => today });
 
     // ── Helpers ──
 

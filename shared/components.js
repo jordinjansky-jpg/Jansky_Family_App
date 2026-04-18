@@ -1279,8 +1279,8 @@ export function bindSendMessageSheet(mount, writeMessageFn) {
   });
 }
 
-export function renderBonusDaySheet(people) {
-  const today = new Date().toISOString().split('T')[0];
+export function renderBonusDaySheet(people, todayDate) {
+  const today = todayDate || new Date().toISOString().split('T')[0];
   return renderBottomSheet(`
     <h3 style="margin-bottom: 12px;">🎉 Bonus Day</h3>
 
@@ -1315,7 +1315,7 @@ export function renderBonusDaySheet(people) {
  * Initialize the notification bell on any page.
  * Sets up real-time listener and dropdown toggle.
  */
-export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, writeBankTokenFn, writeMultiplierFn } = {}) {
+export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, writeBankTokenFn, writeMultiplierFn, getTodayFn } = {}) {
   let bellMessages = {};
 
   function closeBellDropdown() {
@@ -1399,7 +1399,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         closeBellDropdown();
         const mount = document.getElementById('taskSheetMount') || document.getElementById('drilldownMount');
         if (!mount) return;
-        mount.innerHTML = renderBonusDaySheet(getPeople());
+        mount.innerHTML = renderBonusDaySheet(getPeople(), getTodayFn?.());
 
         // Person chip toggle (exclusive with "Everyone")
         for (const chip of mount.querySelectorAll('#bd_people .chip--selectable')) {
@@ -1441,7 +1441,9 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         });
 
         mount.querySelector('#bd_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
-        mount.querySelector('.bottom-sheet__backdrop')?.addEventListener('click', () => { mount.innerHTML = ''; });
+        mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+          if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+        });
       });
 
       // Wire approve/deny buttons

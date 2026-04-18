@@ -574,3 +574,50 @@ export async function deletePersonRewardsData(personId) {
 
   await multiUpdate(updates);
 }
+
+/**
+ * Remove messages matching an entryKey for a given person.
+ * Used to reverse bounty rewards on undo.
+ */
+export async function removeMessagesByEntryKey(personId, entryKey) {
+  const msgs = await readOnce(`messages/${personId}`);
+  if (!msgs) return;
+  const updates = {};
+  for (const [msgId, msg] of Object.entries(msgs)) {
+    if (msg.entryKey === entryKey) {
+      updates[`messages/${personId}/${msgId}`] = null;
+    }
+  }
+  if (Object.keys(updates).length > 0) await multiUpdate(updates);
+}
+
+/**
+ * Remove the most recent unused bank token of a given type for a person.
+ * Used to reverse bounty functional rewards on undo.
+ */
+export async function removeLatestBankToken(personId, rewardType) {
+  const tokens = await readOnce(`bank/${personId}`);
+  if (!tokens) return;
+  // Find the most recent unused token of this type
+  const candidates = Object.entries(tokens)
+    .filter(([, t]) => t.rewardType === rewardType && !t.used)
+    .sort((a, b) => (b[1].acquiredAt || 0) - (a[1].acquiredAt || 0));
+  if (candidates.length > 0) {
+    await removeData(`bank/${personId}/${candidates[0][0]}`);
+  }
+}
+
+/**
+ * Count redemption-approved messages for a reward across all people.
+ */
+export async function countGlobalRedemptions(rewardId) {
+  const allMsgs = await readOnce('messages');
+  if (!allMsgs) return 0;
+  let count = 0;
+  for (const personMsgs of Object.values(allMsgs)) {
+    for (const msg of Object.values(personMsgs)) {
+      if (msg.type === 'redemption-approved' && msg.rewardId === rewardId) count++;
+    }
+  }
+  return count;
+}

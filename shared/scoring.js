@@ -453,15 +453,16 @@ const POINTS_THRESHOLDS = [500, 1000, 5000, 10000];
 export function calculateBalance(personId, allSnapshots, messages, anchor, multipliers) {
   const anchorAmount = anchor?.amount || 0;
   const anchorDate = anchor?.anchoredAt || 0;
+  // Derive anchor date string (YYYY-MM-DD) for safe comparison — avoids timezone mismatch
+  // between Unix timestamp anchor and YYYY-MM-DD snapshot keys
+  const anchorDateKey = anchorDate ? new Date(anchorDate).toISOString().split('T')[0] : '';
 
   let snapshotEarning = 0;
   if (allSnapshots) {
     for (const [dateKey, people] of Object.entries(allSnapshots)) {
       const snap = people?.[personId];
       if (!snap) continue;
-      // Convert dateKey to timestamp for anchor comparison
-      const dateTs = new Date(dateKey + 'T00:00:00Z').getTime();
-      if (dateTs <= anchorDate) continue;
+      if (dateKey <= anchorDateKey) continue;
       const mult = multipliers?.[dateKey]?.[personId]?.multiplier || 1;
       snapshotEarning += (snap.percentage || 0) * mult;
     }
@@ -472,7 +473,7 @@ export function calculateBalance(personId, allSnapshots, messages, anchor, multi
   let spent = 0;
   if (messages) {
     for (const msg of Object.values(messages)) {
-      if (msg.createdAt && msg.createdAt <= anchorDate) continue;
+      if (anchorDate && msg.createdAt && msg.createdAt <= anchorDate) continue;
       const amt = msg.amount || 0;
       if (msg.type === 'bonus') bonuses += amt;
       else if (msg.type === 'deduction') deductions += Math.abs(amt);
@@ -548,14 +549,16 @@ export function checkNewAchievements(context) {
  * @param {object} schedule - all schedule entries { dateKey: { entryKey: entry } }
  * @param {object} tasks - all task definitions
  * @param {object} settings - app settings
+ * @param {string} [personId] - if provided, only consider entries for this person
  * @returns {{ entryKey, dateKey, taskName, pointsRestored } | null}
  */
-export function findHighestDamagePenalty(completions, schedule, tasks, settings) {
+export function findHighestDamagePenalty(completions, schedule, tasks, settings, personId) {
   const mults = settings?.difficultyMultipliers;
   let best = null;
 
   for (const [dateKey, dayEntries] of Object.entries(schedule)) {
     for (const [entryKey, entry] of Object.entries(dayEntries)) {
+      if (personId && entry.ownerId !== personId) continue;
       const completion = completions?.[entryKey];
       if (!completion?.isLate) continue;
       if (completion.pointsOverride == null) continue;
