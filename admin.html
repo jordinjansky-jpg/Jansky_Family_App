@@ -63,7 +63,8 @@
       readEvents, pushEvent, writeEvent, removeEvent,
       readCompletions, readAllSchedule, readOnce,
       multiUpdate, pushDebugEvent, factoryReset, onConnectionChange,
-      readRewards, pushReward, writeReward, archiveReward
+      readRewards, pushReward, writeReward, archiveReward,
+      readMessages, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers
     } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, initOfflineBanner } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
@@ -71,7 +72,7 @@
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
-    import { basePoints } from './shared/scoring.js';
+    import { basePoints, calculateBalance } from './shared/scoring.js';
 
     // ── Undo toast helper ──
     let undoTimer = null;
@@ -706,6 +707,10 @@
                 : `<a href="person.html?person=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--sm" title="Open personal dashboard" target="_blank" onclick="event.stopPropagation()">Link</a>`}
               <button class="btn btn--ghost btn--sm admin-edit-person" data-person-id="${p.id}" type="button">Edit</button>
               <button class="btn btn--ghost btn--sm admin-delete-person" data-person-id="${p.id}" type="button">✕</button>
+            </div>
+            <div style="padding: 2px 0 2px 28px; display: flex; gap: 6px; width: 100%;">
+              <button class="btn btn--ghost btn--xs admin-reset-balance" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Reset Balance</button>
+              <button class="btn btn--ghost btn--xs admin-clear-history" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Clear History</button>
             </div>
           </div>`;
         }
@@ -2477,6 +2482,7 @@
           const deleteTimer = setTimeout(async () => {
             if (cancelled) return;
             await removeData(`people/${id}`);
+            await deletePersonRewardsData(id);
           }, 5500);
 
           showUndoToast(`Removed "${name}"`, () => {
@@ -2485,6 +2491,33 @@
             peopleObj[id] = personBackup;
             render();
           });
+        });
+      }
+
+      // Reset balance
+      for (const btn of main.querySelectorAll('.admin-reset-balance')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm('Reset this person\'s rewards balance to 0?')) return;
+          await writeBalanceAnchor(btn.dataset.personId, { amount: 0, anchoredAt: Date.now() });
+          render();
+        });
+      }
+
+      // Clear history (preserve balance)
+      for (const btn of main.querySelectorAll('.admin-clear-history')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm('Clear message history? Balance will be preserved.')) return;
+          const pid = btn.dataset.personId;
+          const msgs = (await readMessages(pid)) || {};
+          const anchor = (await readBalanceAnchor(pid)) || null;
+          const snaps = (await readAllSnapshots()) || {};
+          const mults = (await readMultipliers()) || {};
+          const { balance } = calculateBalance(pid, snaps, msgs, anchor, mults);
+          await writeBalanceAnchor(pid, { amount: balance, anchoredAt: Date.now() });
+          await clearMessages(pid, Date.now());
+          render();
         });
       }
 

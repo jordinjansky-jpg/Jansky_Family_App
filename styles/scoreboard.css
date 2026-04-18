@@ -480,4 +480,10 @@
   margin-left: 4px;
   letter-spacing: 1px;
 }
+
+.sb-balance {
+  color: var(--accent, #6c63ff);
+  font-weight: 600;
+  font-size: var(--font-size-xs, 0.75rem);
+}
 

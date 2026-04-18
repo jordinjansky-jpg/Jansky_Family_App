@@ -38,13 +38,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, ACHIEVEMENTS } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, ACHIEVEMENTS, calculateBalance } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -55,9 +55,10 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load all data ──
-    const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, allSnapshots, allStreaks, allAchievementsData] = await Promise.all([
+    const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, allSnapshots, allStreaks, allAchievementsData, allAnchors, allMessages, allMultipliers] = await Promise.all([
       readSettings(), readPeople(), readTasks(), readCategories(),
-      readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks(), readAllAchievements()
+      readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks(), readAllAchievements(),
+      readAllBalanceAnchors(), readAllMessages(), readMultipliers()
     ]);
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
@@ -278,6 +279,10 @@
           .slice(0, 5)
           .join('');
 
+        const personMsgs = allMessages?.[b.person.id] || {};
+        const personAnchor = allAnchors?.[b.person.id] || null;
+        const { balance } = calculateBalance(b.person.id, allSnapshots, personMsgs, personAnchor, allMultipliers);
+
         html += `<button class="sb-card" data-person-id="${b.person.id}" type="button" style="--person-color: ${b.person.color}">
           <div class="sb-card__rank"></div>
           <div class="sb-card__left">
@@ -288,6 +293,7 @@
                 ${b.streak.current > 0 ? `<span class="sb-streak">🔥 ${b.streak.current}d</span>` : ''}
                 ${trendIcon ? `<span class="sb-trend ${trendClass}">${trendIcon}</span>` : ''}
                 <span class="sb-time">${formatMinutes(b.time)}</span>
+                <span class="sb-balance">💰 ${Math.round(balance).toLocaleString()}</span>
               </div>
             </div>
           </div>
