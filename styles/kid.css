@@ -594,5 +594,4 @@
       color: var(--text-secondary);
     }
 
-    /* ── Toast (simple notification) ── */
-    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 8px); padding: 12px 20px; font-size: var(--font-size-sm); font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 3000; animation: kidFadeIn 0.2s ease; }
+    /* Toast styles moved to components.css */

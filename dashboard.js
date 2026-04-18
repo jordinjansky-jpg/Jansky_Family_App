@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -482,7 +482,7 @@ function bindEvents() {
     const pre = main.querySelector('.debug-panel__pre');
     if (pre) {
       await navigator.clipboard.writeText(pre.textContent);
-      alert('Copied to clipboard!');
+      await showConfirm({ title: 'Copied to clipboard!', alert: true });
     }
   });
 }
@@ -765,7 +765,7 @@ function openEventDetailSheet(eventId) {
   });
 
   document.getElementById('eventDelete')?.addEventListener('click', async () => {
-    if (!confirm('Delete this event?')) return;
+    if (!await showConfirm({ title: 'Delete this event?', danger: true })) return;
     await removeEvent(eventId);
     delete events[eventId];
     closeTaskSheet();
@@ -876,7 +876,7 @@ function openEventForm(existingEventId = null) {
 
   document.getElementById('ef_delete')?.addEventListener('click', async () => {
     if (!existingEventId) return;
-    if (!confirm('Delete this event?')) return;
+    if (!await showConfirm({ title: 'Delete this event?', danger: true })) return;
     await removeEvent(existingEventId);
     delete events[existingEventId];
     closeTaskSheet();

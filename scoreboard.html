@@ -39,13 +39,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeSnapshot, updateData } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, findHighestDamagePenalty, buildSnapshot } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -681,6 +681,7 @@
 
       // Saved rewards section
       const savedTokens = Object.entries(personBank).filter(([, t]) => !t.used);
+      const isAdult = person.role !== 'child';
       if (savedTokens.length > 0) {
         html += `<div style="margin-bottom: 12px;"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved (${savedTokens.length})</h4>`;
         for (const [tokenId, token] of savedTokens) {
@@ -690,6 +691,7 @@
           const icon = token.rewardType === 'task-skip' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>'
             : token.rewardType === 'penalty-removal' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
             : esc(token.rewardIcon || '🎁');
+          const useBtn = isAdult ? `<button class="btn btn--xs btn--primary store-use-token" data-token-id="${esc(tokenId)}" data-reward-type="${esc(token.rewardType || 'custom')}" data-token-name="${esc(typeLabel)}" data-reward-id="${esc(token.rewardId || '')}" data-reward-icon="${esc(token.rewardIcon || '🎁')}" type="button">Use</button>` : '';
           html += `<div class="store-card" style="border-color: var(--accent);">
             <div class="store-card__icon">${icon}</div>
             <div class="store-card__body">
@@ -697,6 +699,7 @@
               <div class="store-card__cost" style="color: var(--text-secondary); font-size: var(--font-size-xs, 0.75rem);">Saved ${new Date(token.acquiredAt).toLocaleDateString()}</div>
             </div>
             <div class="store-card__actions">
+              ${useBtn}
               <button class="btn btn--xs btn--ghost store-remove-token" data-token-id="${esc(tokenId)}" data-token-name="${esc(typeLabel)}" type="button" style="color: var(--accent-danger, #e53e3e);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
           </div>`;
@@ -767,26 +770,50 @@
         btn.addEventListener('click', async () => {
           const rewardId = btn.dataset.rewardId;
           const reward = rewards[rewardId];
-          if (!reward || !confirm(`Spend ${reward.pointCost} pts on ${reward.name} for ${person.name}?`)) return;
+          if (!reward) return;
+          if (!await showConfirm({ title: `Spend ${reward.pointCost} pts on ${reward.name}?` })) return;
 
-          await writeMessage(personId, {
-            type: 'redemption-request',
-            title: reward.name,
-            body: null,
-            amount: -reward.pointCost,
-            rewardId,
-            entryKey: null,
-            seen: false,
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
-            createdBy: personId
-          });
-
-          mount.innerHTML = '';
-          const toast = document.createElement('div');
-          toast.className = 'toast';
-          toast.textContent = `Requested ${reward.name}! Waiting for approval...`;
-          document.body.appendChild(toast);
-          setTimeout(() => toast.remove(), 3000);
+          if (person.role !== 'child') {
+            // Adult: instant approve — seen:true suppresses bell, redemption-request deducts balance
+            await writeMessage(personId, {
+              type: 'redemption-request',
+              title: reward.name,
+              body: null,
+              amount: -reward.pointCost,
+              rewardId,
+              entryKey: null,
+              seen: true,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: 'self'
+            });
+            await writeBankToken(personId, {
+              rewardType: reward.rewardType || 'custom',
+              rewardId,
+              rewardName: reward.name,
+              rewardIcon: reward.icon || '🎁',
+              acquiredAt: Date.now(),
+              used: false,
+              usedAt: null,
+              targetEntryKey: null
+            });
+            mount.innerHTML = '';
+            showToast(`Got ${reward.name}!`);
+          } else {
+            // Child: send request for parent approval
+            await writeMessage(personId, {
+              type: 'redemption-request',
+              title: reward.name,
+              body: null,
+              amount: -reward.pointCost,
+              rewardId,
+              entryKey: null,
+              seen: false,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: personId
+            });
+            mount.innerHTML = '';
+            showToast(`Requested ${reward.name}! Waiting for approval...`);
+          }
         });
       }
 
@@ -795,10 +822,115 @@
         btn.addEventListener('click', async () => {
           const tokenId = btn.dataset.tokenId;
           const tokenName = btn.dataset.tokenName;
-          if (!confirm(`Remove "${tokenName}" from ${person.name}'s bank?`)) return;
+          if (!await showConfirm({ title: `Remove "${tokenName}" from ${person.name}'s bank?`, danger: true })) return;
           await removeBankToken(personId, tokenId);
           mount.innerHTML = '';
-          openStore(personId);
+          await openStore(personId);
+        });
+      }
+
+      // Bind "Use" buttons for adult saved tokens
+      for (const btn of mount.querySelectorAll('.store-use-token')) {
+        btn.addEventListener('click', async () => {
+          const tokenId = btn.dataset.tokenId;
+          const rewardType = btn.dataset.rewardType;
+          const tokenName = btn.dataset.tokenName;
+          const rewardId = btn.dataset.rewardId;
+
+          if (rewardType === 'custom' || rewardType === '' || !rewardType) {
+            // Custom reward: confirm and mark used
+            if (!await showConfirm({ title: `Use ${tokenName}?` })) return;
+            await markBankTokenUsed(personId, tokenId, null);
+            await writeMessage(personId, {
+              type: 'reward-used',
+              title: `Used: ${tokenName}`,
+              body: null,
+              amount: 0,
+              rewardId: rewardId || null,
+              entryKey: null,
+              seen: true,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: 'self'
+            });
+            mount.innerHTML = '';
+            showToast(`Used ${tokenName}!`);
+          } else if (rewardType === 'task-skip') {
+            // Task skip: show task picker bottom sheet
+            const todaySched = schedule[today] || {};
+            const skippable = Object.entries(todaySched).filter(([key, entry]) => {
+              if (entry.ownerId !== personId) return false;
+              if (comps[key]) return false;
+              const task = tasks[entry.taskId];
+              if (!task) return false;
+              const cat = cats[task.category];
+              if (cat?.isEvent) return false;
+              if (entry.exempt || entry.skipped) return false;
+              return true;
+            });
+
+            if (skippable.length === 0) {
+              await showConfirm({ title: 'No skippable tasks today!', alert: true });
+              return;
+            }
+
+            let skipHtml = '<h3 style="margin-bottom: 12px;">Pick a task to skip</h3>';
+            for (const [key, entry] of skippable) {
+              const task = tasks[entry.taskId];
+              skipHtml += `<button class="skip-pick-btn" data-entry-key="${key}" type="button" style="display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: var(--radius, 8px); background: var(--bg-card); cursor: pointer;">${esc(task.name)}</button>`;
+            }
+
+            mount.innerHTML = renderBottomSheet(skipHtml);
+            requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+            for (const skipBtn of mount.querySelectorAll('.skip-pick-btn')) {
+              skipBtn.addEventListener('click', async () => {
+                const skipEntryKey = skipBtn.dataset.entryKey;
+                await updateData(`schedule/${today}/${skipEntryKey}`, { exempt: true, skipped: true });
+                await markBankTokenUsed(personId, tokenId, skipEntryKey);
+                const skipEntry = todaySched[skipEntryKey];
+                const skipTask = tasks[skipEntry?.taskId];
+                await writeMessage(personId, { type: 'task-skip-used', title: `Skipped: ${skipTask?.name || 'task'}`, body: null, amount: 0, rewardId: null, entryKey: skipEntryKey, seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'self' });
+                mount.innerHTML = '';
+                showToast(`Skipped ${skipTask?.name}!`);
+              });
+            }
+
+            mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+              if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+            });
+          } else if (rewardType === 'penalty-removal') {
+            // Penalty removal: find and remove highest-damage penalty
+            const freshCompletions = await readCompletions();
+            const freshSchedule = await readAllSchedule();
+            const penalty = findHighestDamagePenalty(freshCompletions || {}, freshSchedule || {}, tasks, settings, personId);
+
+            if (!penalty) {
+              await showConfirm({ title: 'No penalties to remove right now', alert: true });
+              return;
+            }
+
+            if (!await showConfirm({ title: `Restore full points for "${penalty.taskName}"?`, message: `${penalty.dateKey} — +${penalty.pointsRestored} pts` })) return;
+
+            await updateData(`completions/${penalty.entryKey}`, { isLate: null, pointsOverride: null });
+            await markBankTokenUsed(personId, tokenId, penalty.entryKey);
+            await writeMessage(personId, { type: 'penalty-removed', title: `Restored: ${penalty.taskName}`, body: `Full points restored for ${penalty.dateKey} (+${penalty.pointsRestored} pts)`, amount: penalty.pointsRestored, rewardId: null, entryKey: penalty.entryKey, seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'self' });
+
+            // Rebuild snapshot for the affected date — apply mutation locally to avoid race
+            const freshComps = { ...(freshCompletions || {}) };
+            if (freshComps[penalty.entryKey]) {
+              freshComps[penalty.entryKey] = { ...freshComps[penalty.entryKey], isLate: null, pointsOverride: null };
+            }
+            const penDaySched = (freshSchedule || {})[penalty.dateKey] || {};
+            const penPersonEntries = {};
+            for (const [k, e] of Object.entries(penDaySched)) {
+              if (e.ownerId === personId) penPersonEntries[k] = e;
+            }
+            const newSnap = buildSnapshot(penPersonEntries, freshComps, tasks, cats, settings, penalty.dateKey);
+            if (newSnap) await writeSnapshot(penalty.dateKey, personId, newSnap);
+
+            mount.innerHTML = '';
+            showToast(`Restored full points for ${penalty.taskName}!`);
+          }
         });
       }
 

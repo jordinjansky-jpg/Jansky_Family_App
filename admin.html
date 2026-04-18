@@ -70,7 +70,7 @@
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
       readBank, writeBankToken, removeBankToken
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -1663,7 +1663,7 @@
           const tokenId = btn.dataset.tokenId;
           const tokenName = btn.dataset.tokenName;
           const person = peopleObj[pid];
-          if (!confirm(`Remove "${tokenName}" from ${person?.name}'s bank?`)) return;
+          if (!await showConfirm({ title: `Remove "${tokenName}" from ${person?.name}'s bank?`, danger: true })) return;
           await removeBankToken(pid, tokenId);
           delete allBankData[pid]?.[tokenId];
           render();
@@ -1710,7 +1710,7 @@
         mount.querySelector('#bankAdd_save')?.addEventListener('click', async () => {
           const selectedChip = mount.querySelector('#bankAdd_person .chip--active');
           const rewardId = mount.querySelector('#bankAdd_reward').value;
-          if (!selectedChip || !rewardId) { alert('Select a person and reward'); return; }
+          if (!selectedChip || !rewardId) { await showConfirm({ title: 'Select a person and reward', alert: true }); return; }
           const pid = selectedChip.dataset.personId;
           const reward = rewardsObj[rewardId];
           await writeBankToken(pid, {
@@ -1795,7 +1795,7 @@
       // Delete
       form.querySelector('#rf_delete')?.addEventListener('click', async () => {
         const reward = rewardsObj[editingRewardId];
-        if (!confirm(`Delete "${reward?.name || 'this reward'}"? This cannot be undone.`)) return;
+        if (!await showConfirm({ title: `Delete "${reward?.name || 'this reward'}"?`, message: 'This cannot be undone.', danger: true })) return;
         await removeReward(editingRewardId);
         delete rewardsObj[editingRewardId];
         editingRewardId = null;
@@ -2081,7 +2081,7 @@
           e.stopPropagation();
           const pid = btn.dataset.personId;
           const person = peopleObj[pid];
-          if (!confirm(`Reset all achievements for ${person?.name}? They can re-earn them when criteria are met again.`)) return;
+          if (!await showConfirm({ title: `Reset all achievements for ${person?.name}?`, message: 'They can re-earn them when criteria are met again.', danger: true })) return;
           await removeData(`achievements/${pid}`);
           allAchievements = (await readAllAchievements()) || {};
           render();
@@ -2144,7 +2144,7 @@
             render();
           });
           mount.querySelector('#achPopupRevoke')?.addEventListener('click', async () => {
-            if (!confirm(`Revoke "${def.label}" from ${person?.name}?`)) return;
+            if (!await showConfirm({ title: `Revoke "${def.label}" from ${person?.name}?`, danger: true })) return;
             await updateData(`achievements/${pid}/${key}`, { revoked: true, revokedAt: Date.now() });
             allAchievements = (await readAllAchievements()) || {};
             mount.innerHTML = '';
@@ -2203,7 +2203,7 @@
         btn.addEventListener('click', async () => {
           const key = btn.dataset.achKey;
           const allDefs = mergeAchievementDefs(achievementDefsObj);
-          if (!confirm(`Delete "${allDefs[key]?.label || key}"? This cannot be undone.`)) return;
+          if (!await showConfirm({ title: `Delete "${allDefs[key]?.label || key}"?`, message: 'This cannot be undone.', danger: true })) return;
           await deleteAchievementDef(key);
           // Also remove from all people
           for (const p of peopleArray()) {
@@ -2292,7 +2292,7 @@
       // Save
       form.querySelector('#af_save')?.addEventListener('click', async () => {
         const name = form.querySelector('#af_name')?.value?.trim();
-        if (!name) { alert('Name is required'); return; }
+        if (!name) { await showConfirm({ title: 'Name is required', alert: true }); return; }
 
         const selectedEmoji = form.querySelector('.emoji-btn--selected')?.dataset?.emoji;
         const customEmoji = form.querySelector('#af_customEmoji')?.value?.trim();
@@ -2307,7 +2307,7 @@
           if (stat) {
             const thresholdEl = form.querySelector('#af_threshold');
             const threshold = thresholdEl?.tagName === 'SELECT' ? thresholdEl.value : (parseInt(thresholdEl?.value) || null);
-            if (stat !== 'firstRedemption' && !threshold) { alert('Threshold is required'); return; }
+            if (stat !== 'firstRedemption' && !threshold) { await showConfirm({ title: 'Threshold is required', alert: true }); return; }
             condition = { stat, threshold: stat === 'firstRedemption' ? 1 : threshold };
           }
         }
@@ -3005,7 +3005,7 @@
 
     async function handleBulkDelete() {
       const count = selectedTaskIds.size;
-      if (!confirm(`Delete ${count} task${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+      if (!await showConfirm({ title: `Delete ${count} task${count !== 1 ? 's' : ''}?`, message: 'This cannot be undone.', danger: true })) return;
 
       const ids = [...selectedTaskIds];
 
@@ -3075,7 +3075,7 @@
         btn.addEventListener('click', async () => {
           const id = btn.dataset.eventId;
           const name = eventsObj[id]?.name || 'this event';
-          if (!confirm(`Delete "${name}"?`)) return;
+          if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
           await removeEvent(id);
           delete eventsObj[id];
           // Clean up schedule entries
@@ -3121,10 +3121,10 @@
 
       main.querySelector('#eventFormSave')?.addEventListener('click', async () => {
         const name = main.querySelector('#aef_name')?.value.trim();
-        if (!name) { alert('Event name is required.'); return; }
+        if (!name) { await showConfirm({ title: 'Event name is required', alert: true }); return; }
 
         const date = main.querySelector('#aef_date')?.value;
-        if (!date) { alert('Date is required.'); return; }
+        if (!date) { await showConfirm({ title: 'Date is required', alert: true }); return; }
 
         const allDay = main.querySelector('#aef_allDay')?.classList.contains('chip--active') || false;
         const startTime = allDay ? null : (main.querySelector('#aef_startTime')?.value || null);
@@ -3221,7 +3221,7 @@
       for (const btn of main.querySelectorAll('.admin-reset-balance')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          if (!confirm('Reset this person\'s rewards balance to 0?')) return;
+          if (!await showConfirm({ title: 'Reset rewards balance to 0?', danger: true })) return;
           await writeBalanceAnchor(btn.dataset.personId, { amount: 0, anchoredAt: Date.now() });
           render();
         });
@@ -3231,7 +3231,7 @@
       for (const btn of main.querySelectorAll('.admin-clear-history')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          if (!confirm('Clear message history? Balance will be preserved.')) return;
+          if (!await showConfirm({ title: 'Clear message history?', message: 'Balance will be preserved.', danger: true })) return;
           const pid = btn.dataset.personId;
           const msgs = (await readMessages(pid)) || {};
           const anchor = (await readBalanceAnchor(pid)) || null;
@@ -3345,14 +3345,14 @@
         btn.addEventListener('click', async () => {
           const key = btn.dataset.catKey;
           const ca = catsArray();
-          if (ca.length <= 1) { alert('Cannot delete the last category.'); return; }
+          if (ca.length <= 1) { await showConfirm({ title: 'Cannot delete the last category', alert: true }); return; }
 
           // Reassign tasks to the default category (or first remaining if none flagged)
           const defaultEntry = Object.entries(catsObj).find(([k, c]) => k !== key && c?.isDefault);
           const fallbackKey = defaultEntry ? defaultEntry[0] : (Object.keys(catsObj).find(k => k !== key) || 'chores');
           const fallbackLabel = catsObj[fallbackKey]?.label || fallbackKey;
 
-          if (!confirm(`Delete category "${catsObj[key]?.label}"? Tasks will be reassigned to "${fallbackLabel}".`)) return;
+          if (!await showConfirm({ title: `Delete category "${catsObj[key]?.label}"?`, message: `Tasks will be reassigned to "${fallbackLabel}".`, danger: true })) return;
 
           for (const [taskId, task] of Object.entries(tasksObj)) {
             if (task.category === key) {
@@ -3432,7 +3432,7 @@
 
         if (editingCatKey === 'new') {
           const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
-          if (catsObj[key]) { alert('A category with this key already exists.'); return; }
+          if (catsObj[key]) { await showConfirm({ title: 'A category with this key already exists', alert: true }); return; }
           catsObj[key] = catData;
         } else {
           catsObj[editingCatKey] = catData;
@@ -3461,11 +3461,11 @@
 
         // Soft warning on non-monotonic multipliers
         if (newDiffEasy > newDiffMedium || newDiffMedium > newDiffHard) {
-          const ok = confirm(
-            `Difficulty multipliers are usually increasing (easy ≤ medium ≤ hard).\n` +
-            `You entered: easy=${newDiffEasy}, medium=${newDiffMedium}, hard=${newDiffHard}.\n\n` +
-            `Save anyway?`
-          );
+          const ok = await showConfirm({
+            title: 'Difficulty multipliers are usually increasing (easy ≤ medium ≤ hard).',
+            message: `You entered: easy=${newDiffEasy}, medium=${newDiffMedium}, hard=${newDiffHard}. Save anyway?`,
+            danger: false
+          });
           if (!ok) return;
         }
 
@@ -3628,7 +3628,7 @@
           const hasKnownKeys = ['settings', 'people', 'tasks', 'categories', 'schedule'].some(k => k in data);
           if (!hasKnownKeys) throw new Error('File does not appear to be a Daily Rundown export');
 
-          if (!confirm('This will OVERWRITE all current data with the imported backup. Continue?')) {
+          if (!await showConfirm({ title: 'Overwrite all data?', message: 'This will replace everything with the imported backup.', confirmLabel: 'Overwrite', danger: true })) {
             statusEl.innerHTML = '';
             return;
           }
@@ -3732,7 +3732,7 @@
           if (totalPruned === 0) {
             statusEl.innerHTML = '<span class="text-muted">No data older than the cutoff to prune.</span>';
           } else {
-            if (!confirm(`Prune ${schedCount} schedule days, ${compCount} completions, ${snapCount} snapshot days older than ${months} months?`)) {
+            if (!await showConfirm({ title: 'Prune old data?', message: `${schedCount} schedule days, ${compCount} completions, ${snapCount} snapshot days older than ${months} months.`, confirmLabel: 'Prune', danger: true })) {
               statusEl.innerHTML = '';
               btn.disabled = false;
               btn.textContent = 'Prune Data';
@@ -3837,7 +3837,7 @@
         const el = main.querySelector('#eventLog');
         const text = el ? el.innerText : 'No events.';
         await navigator.clipboard.writeText(`== Event Log ==\n${text}`);
-        alert('Copied to clipboard!');
+        await showConfirm({ title: 'Copied to clipboard!', alert: true });
       });
 
       const inspectSelect = main.querySelector('#inspectTaskSelect');
@@ -3851,7 +3851,7 @@
         const el = main.querySelector('#inspectResult pre');
         const text = el ? el.textContent : 'No task selected.';
         await navigator.clipboard.writeText(`== Schedule Inspector ==\n${text}`);
-        alert('Copied to clipboard!');
+        await showConfirm({ title: 'Copied to clipboard!', alert: true });
       });
 
       // Past-due test entry

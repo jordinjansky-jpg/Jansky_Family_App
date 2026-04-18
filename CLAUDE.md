@@ -103,7 +103,7 @@ rundown/
 │       └── {pushId}  ← { type, title, body?, amount, rewardId?, entryKey?, seen, createdAt, createdBy,
 │                         rewardName?, rewardIcon?, bankTokenId? }
 │                       type: 'bonus' | 'deduction' | 'redemption-request' | 'redemption-approved' | 'redemption-denied'
-│                             | 'use-request' | 'use-approved' | 'use-denied' | 'task-skip-used' | 'penalty-removed'
+│                             | 'use-request' | 'use-approved' | 'use-denied' | 'task-skip-used' | 'penalty-removed' | 'reward-used'
 ├── balanceAnchors/
 │   └── {personId}    ← { amount, anchoredAt }
 ├── bank/
@@ -177,6 +177,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Adult rewards + confirm modals: Adults skip approval for buying/using rewards (instant). "Use" button on saved tokens in scoreboard store (custom, task-skip picker, penalty removal). All browser confirm()/alert() replaced with polished in-app showConfirm() modals. Toast styles shared across all pages.
 - Reward bank + fixes: All approved rewards banked (not just functional), custom rewards require parent approval to use, kid Use Now/Save overlay, bank visible in kid mode + scoreboard store + admin, achievement revoke (won't re-fire) vs reset (re-earnable), scoreboard clear now resets balances/messages/tokens
 - Rewards Store polish: Bounties section in kid store, animated balance count-up, "Skipped" badge on task cards, achievements re-check on task completion, admin achievements view, redemption history in admin, balance trend sparkline on scoreboard
 - Rewards Store (1.2): Points economy (100 pts/day), parent-defined rewards, bonus/deduction messages, notification bell on all pages, functional rewards (task skip, penalty removal), bounty tasks, 13 achievement badges, bonus multiplier days, balance on scoreboard, admin balance management

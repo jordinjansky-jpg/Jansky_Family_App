@@ -1291,11 +1291,7 @@ export function bindSendMessageSheet(mount, writeMessageFn) {
     }
 
     mount.innerHTML = '';
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = `${msgType === 'bonus' ? 'Bonus' : 'Deduction'} sent!`;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    showToast(`${msgType === 'bonus' ? 'Bonus' : 'Deduction'} sent!`);
   });
 }
 
@@ -1329,6 +1325,72 @@ export function renderBonusDaySheet(people, todayDate) {
       <button class="btn btn--primary" id="bd_save" type="button">Set Bonus Day</button>
     </div>
   `);
+}
+
+/**
+ * Show a polished in-app confirmation/alert modal. Replaces browser confirm()/alert().
+ * Returns a Promise<boolean> — true if confirmed, false if cancelled.
+ */
+export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false, alert: isAlert = false } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-modal';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML = `<div class="confirm-modal__card">
+      <div class="confirm-modal__title" id="confirmModalTitle">${escapeHtml(title)}</div>
+      ${message ? `<div class="confirm-modal__message">${escapeHtml(message)}</div>` : ''}
+      <div class="confirm-modal__actions">
+        ${!isAlert ? `<button class="btn btn--secondary confirm-modal__cancel" type="button">${escapeHtml(cancelLabel)}</button>` : ''}
+        <button class="btn ${danger ? 'btn--danger' : 'btn--primary'} confirm-modal__ok" type="button">${escapeHtml(confirmLabel)}</button>
+      </div>
+    </div>`;
+    overlay.setAttribute('aria-labelledby', 'confirmModalTitle');
+
+    const okBtn = overlay.querySelector('.confirm-modal__ok');
+    const cancelBtn = overlay.querySelector('.confirm-modal__cancel');
+
+    function close(result) {
+      document.removeEventListener('keydown', keyHandler);
+      overlay.classList.remove('confirm-modal--active');
+      setTimeout(() => { overlay.remove(); resolve(result); }, 200);
+    }
+
+    okBtn.addEventListener('click', () => close(true));
+    cancelBtn?.addEventListener('click', () => close(false));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(isAlert ? true : false); });
+
+    // Focus trap: Tab cycles between cancel and ok (or stays on ok for alerts)
+    function keyHandler(e) {
+      if (e.key === 'Escape') { e.preventDefault(); close(isAlert ? true : false); }
+      else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+      else if (e.key === 'Tab') {
+        const focusable = [cancelBtn, okBtn].filter(Boolean);
+        if (focusable.length <= 1) { e.preventDefault(); return; }
+        const idx = focusable.indexOf(document.activeElement);
+        e.preventDefault();
+        focusable[(idx + (e.shiftKey ? -1 : 1) + focusable.length) % focusable.length].focus();
+      }
+    }
+    document.addEventListener('keydown', keyHandler);
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => {
+      overlay.classList.add('confirm-modal--active');
+      okBtn.focus();
+    });
+  });
+}
+
+/**
+ * Show a brief toast notification at the bottom of the screen.
+ */
+export function showToast(message, duration = 3000) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), duration);
 }
 
 /**
@@ -1428,7 +1490,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
 
       // Wire "Clear All" button — deletes all messages
       document.getElementById('bellClearAll')?.addEventListener('click', async () => {
-        if (!confirm('Clear all notification history?')) return;
+        if (!await showConfirm({ title: 'Clear all notification history?', danger: true })) return;
         const people = getPeople();
         for (const p of people) {
           const msgs = bellMessages[p.id];

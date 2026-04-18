@@ -51,7 +51,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, countGlobalRedemptions, writeSnapshot, readAchievementDefs } from './shared/firebase.js';
-    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner } from './shared/components.js';
+    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -545,7 +545,7 @@
                   const penalty = findHighestDamagePenalty(freshComps, freshSched, tasks, settings, kid.id);
                   if (penalty) {
                     await markBankTokenUsed(kid.id, token[0], penalty.entryKey);
-                    await writeCompletion(penalty.entryKey, { ...(freshComps[penalty.entryKey] || {}), isLate: false, pointsOverride: null });
+                    await updateData(`completions/${penalty.entryKey}`, { isLate: null, pointsOverride: null });
                     bank[token[0]].used = true;
                     await writeMessage(kid.id, { type: 'penalty-removed', title: `Restored: ${penalty.taskName}`, body: `Full points restored (+${penalty.pointsRestored} pts)`, amount: penalty.pointsRestored, rewardId: null, entryKey: penalty.entryKey, seen: false, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
                   }
@@ -1198,7 +1198,7 @@
               btn.addEventListener('click', async () => {
                 const rewardId = btn.dataset.rewardId;
                 const reward = rewards[rewardId];
-                if (!reward || !confirm(`Spend ${reward.pointCost} pts on ${reward.name}?`)) return;
+                if (!reward || !await showConfirm({ title: `Spend ${reward.pointCost} pts on ${reward.name}?` })) return;
 
                 await writeMessage(kid.id, {
                   type: 'redemption-request',
@@ -1213,11 +1213,7 @@
                 });
 
                 mount.innerHTML = '';
-                const toast = document.createElement('div');
-                toast.className = 'toast';
-                toast.textContent = `Requested ${reward.name}! Waiting for approval...`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
+                showToast(`Requested ${reward.name}! Waiting for approval...`);
               });
             }
 
@@ -1243,18 +1239,14 @@
                 const cancelMsgId = btn.dataset.msgId;
                 const rewardName = btn.dataset.rewardName;
                 const cancelAmount = parseInt(btn.dataset.amount) || 0;
-                if (!confirm(`Cancel request for ${rewardName}? Points will be refunded.`)) return;
+                if (!await showConfirm({ title: `Cancel request for ${rewardName}?`, message: 'Points will be refunded.', danger: true })) return;
 
                 await markMessageSeen(kid.id, cancelMsgId);
                 await writeMessage(kid.id, { type: 'redemption-denied', title: `${rewardName} — cancelled`, body: null, amount: 0, rewardId: null, entryKey: null, seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
                 await writeMessage(kid.id, { type: 'bonus', title: `Refund: ${rewardName}`, body: null, amount: cancelAmount, rewardId: null, entryKey: null, seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
 
                 mount.innerHTML = '';
-                const toast = document.createElement('div');
-                toast.className = 'toast';
-                toast.textContent = `Cancelled — ${cancelAmount} pts refunded`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
+                showToast(`Cancelled — ${cancelAmount} pts refunded`);
               });
             }
 
@@ -1325,7 +1317,7 @@
                 return true;
               });
 
-            if (skippable.length === 0) { alert("All tasks done — nothing to skip!"); return; }
+            if (skippable.length === 0) { await showConfirm({ title: 'All tasks done — nothing to skip!', alert: true }); return; }
 
             const mount = document.getElementById('taskSheetMount');
             let skipHtml = '<h3 style="margin-bottom: 12px;">Pick a task to skip</h3>';
@@ -1366,9 +1358,9 @@
             const freshCompletions = await readCompletions();
             const penalty = findHighestDamagePenalty(freshCompletions || {}, allSched || {}, tasks, settings, kid.id);
 
-            if (!penalty) { alert("No penalties to remove right now"); return; }
+            if (!penalty) { await showConfirm({ title: 'No penalties to remove right now', alert: true }); return; }
 
-            if (!confirm(`Restore full points for "${penalty.taskName}" on ${penalty.dateKey}? (+${penalty.pointsRestored} pts)`)) return;
+            if (!await showConfirm({ title: `Restore full points for "${penalty.taskName}"?`, message: `${penalty.dateKey} — +${penalty.pointsRestored} pts` })) return;
 
             const token = Object.entries(bank).find(([, t]) => t.rewardType === 'penalty-removal' && !t.used);
             if (!token) return;
@@ -1377,8 +1369,11 @@
             await markBankTokenUsed(kid.id, token[0], penalty.entryKey);
             await writeMessage(kid.id, { type: 'penalty-removed', title: `Restored: ${penalty.taskName}`, body: `Full points restored for ${penalty.dateKey} (+${penalty.pointsRestored} pts)`, amount: penalty.pointsRestored, rewardId: null, entryKey: penalty.entryKey, seen: false, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system' });
 
-            // Rebuild snapshot for the affected date so scoreboard reflects restored points
-            const freshComps = await readCompletions();
+            // Rebuild snapshot — apply mutation locally to avoid race with Firebase propagation
+            const freshComps = { ...(freshCompletions || {}) };
+            if (freshComps[penalty.entryKey]) {
+              freshComps[penalty.entryKey] = { ...freshComps[penalty.entryKey], isLate: null, pointsOverride: null };
+            }
             const penDaySched = allSched[penalty.dateKey] || {};
             const penPersonEntries = {};
             for (const [k, e] of Object.entries(penDaySched)) {
@@ -1397,7 +1392,7 @@
               const tokenId = btn.dataset.tokenId;
               const token = bank[tokenId];
               if (!token || token.used) return;
-              if (!confirm(`Use ${token.rewardName || 'this reward'}? A parent will need to approve.`)) return;
+              if (!await showConfirm({ title: `Use ${token.rewardName || 'this reward'}?`, message: 'A parent will need to approve.' })) return;
 
               await writeMessage(kid.id, {
                 type: 'use-request',
@@ -1414,11 +1409,7 @@
                 createdBy: kid.id
               });
 
-              const toast = document.createElement('div');
-              toast.className = 'toast';
-              toast.textContent = `Requested to use ${token.rewardName}! Waiting for approval...`;
-              document.body.appendChild(toast);
-              setTimeout(() => toast.remove(), 3000);
+              showToast(`Requested to use ${token.rewardName}! Waiting for approval...`);
               render();
             });
           }
