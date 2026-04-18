@@ -62,7 +62,8 @@
       readCategories, writeCategories,
       readEvents, pushEvent, writeEvent, removeEvent,
       readCompletions, readAllSchedule, readOnce,
-      multiUpdate, pushDebugEvent, factoryReset, onConnectionChange
+      multiUpdate, pushDebugEvent, factoryReset, onConnectionChange,
+      readRewards, pushReward, writeReward, archiveReward
     } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, initOfflineBanner } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
@@ -176,6 +177,7 @@
     let tasksObj = await readTasks() || {};
     let catsObj = await readCategories() || {};
     let eventsObj = await readEvents() || {};
+    rewardsObj = (await readRewards()) || {};
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -255,6 +257,7 @@
       { id: 'events', icon: '📅', label: 'Events' },
       { id: 'people', icon: '👥', label: 'People' },
       { id: 'categories', icon: '📂', label: 'Categories' },
+      { id: 'rewards', icon: '🎁', label: 'Rewards' },
       { id: 'settings', icon: '⚙️', label: 'Settings' },
       { id: 'theme', icon: '🎨', label: 'Theme' },
       { id: 'schedule', icon: '📅', label: 'Schedule' },
@@ -263,6 +266,8 @@
     ];
 
     let activeTab = 'tasks';
+    let rewardsObj = {};
+    let editingRewardId = null; // null = not editing, 'new' = creating, pushId = editing
 
     // ── Helpers ──
     function peopleArray() {
@@ -294,6 +299,7 @@
         case 'events': html += renderEventsTab(); break;
         case 'people': html += renderPeopleTab(); break;
         case 'categories': html += renderCategoriesTab(); break;
+        case 'rewards': html += renderRewardsTab(); break;
         case 'settings': html += renderSettingsTab(); break;
         case 'theme': html += renderThemeTab(); break;
         case 'schedule': html += renderScheduleTab(); break;
@@ -1327,6 +1333,308 @@
     }
 
     // ══════════════════════════════════════════
+    // Rewards tab
+    // ══════════════════════════════════════════
+
+    const REWARD_EMOJIS = ['🍕', '🎮', '🍦', '⭐', '🎬', '📱', '🛹', '🧁', '🎯', '🏆', '🎪', '🏊', '🎨', '🎵', '🛍️', '🧸'];
+
+    const PRICING_AVERAGES = [
+      { label: 'A (95%)', value: 95 },
+      { label: 'B+ (88%)', value: 88 },
+      { label: 'B (85%)', value: 85 },
+      { label: 'C+ (78%)', value: 78 },
+      { label: 'C (75%)', value: 75 }
+    ];
+
+    function renderRewardsTab() {
+      const rewards = Object.entries(rewardsObj)
+        .filter(([, r]) => r.status !== 'archived')
+        .sort((a, b) => (a[1].pointCost || 0) - (b[1].pointCost || 0));
+
+      let html = `<div class="admin-section">
+        <div class="admin-section__header">
+          <h3>Rewards</h3>
+          <button class="btn btn--sm btn--primary" id="addRewardBtn" type="button">+ Add Reward</button>
+        </div>`;
+
+      if (rewards.length === 0) {
+        html += `<div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-secondary);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">🎁</div>
+          <p>No rewards yet. Add one to get started!</p>
+        </div>`;
+      } else {
+        html += `<div class="reward-list">`;
+        for (const [id, reward] of rewards) {
+          const typeLabel = reward.rewardType === 'task-skip' ? '⏭️ Task Skip' :
+                            reward.rewardType === 'penalty-removal' ? '🛡️ Penalty Removal' : '';
+          const streakBadge = reward.streakRequirement
+            ? `<span class="reward-card__badge">🔥 ${reward.streakRequirement}-day streak</span>` : '';
+          const expiry = reward.expiresAt
+            ? `<span class="reward-card__badge">Expires ${new Date(reward.expiresAt).toLocaleDateString()}</span>` : '';
+          const personNames = reward.perPerson
+            ? reward.perPerson.map(pid => esc(peopleObj[pid]?.name || '?')).join(', ')
+            : 'Everyone';
+
+          html += `<div class="reward-card" data-reward-id="${id}">
+            <div class="reward-card__icon">${esc(reward.icon || '🎁')}</div>
+            <div class="reward-card__body">
+              <div class="reward-card__name">${esc(reward.name)}</div>
+              <div class="reward-card__meta">
+                <span class="reward-card__cost">${reward.pointCost} pts</span>
+                ${typeLabel ? `<span class="reward-card__type">${typeLabel}</span>` : ''}
+                ${streakBadge}
+                ${expiry}
+              </div>
+              <div class="reward-card__availability">${personNames}</div>
+            </div>
+            <div class="reward-card__actions">
+              <button class="btn btn--ghost btn--sm reward-edit" data-reward-id="${id}" type="button">Edit</button>
+              <button class="btn btn--ghost btn--sm reward-archive" data-reward-id="${id}" type="button">Archive</button>
+            </div>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      // Archived rewards toggle
+      const archived = Object.entries(rewardsObj).filter(([, r]) => r.status === 'archived');
+      if (archived.length > 0) {
+        html += `<details class="admin-archived-rewards" style="margin-top: 16px;">
+          <summary style="cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-sm);">${archived.length} archived reward${archived.length > 1 ? 's' : ''}</summary>
+          <div class="reward-list" style="margin-top: 8px;">`;
+        for (const [id, reward] of archived) {
+          html += `<div class="reward-card reward-card--archived" data-reward-id="${id}">
+            <div class="reward-card__icon" style="opacity: 0.5;">${esc(reward.icon || '🎁')}</div>
+            <div class="reward-card__body">
+              <div class="reward-card__name" style="text-decoration: line-through;">${esc(reward.name)}</div>
+              <div class="reward-card__meta"><span class="reward-card__cost">${reward.pointCost} pts</span></div>
+            </div>
+          </div>`;
+        }
+        html += `</div></details>`;
+      }
+
+      html += `</div>`;
+
+      // Reward form (shown when editing)
+      if (editingRewardId !== null) {
+        html += renderRewardForm(editingRewardId === 'new' ? null : editingRewardId);
+      }
+
+      return html;
+    }
+
+    function renderRewardForm(rewardId) {
+      const reward = rewardId ? rewardsObj[rewardId] : {};
+      const isEdit = !!rewardId;
+      const title = isEdit ? 'Edit Reward' : 'New Reward';
+
+      return `<div class="admin-form-overlay">
+        <div class="admin-form" id="rewardForm">
+          <h3>${title}</h3>
+
+          <label class="form-label">Name</label>
+          <input type="text" id="rf_name" class="form-input" value="${esc(reward.name || '')}" placeholder="Movie Night">
+
+          <label class="form-label">Emoji</label>
+          <div class="emoji-picker" id="rf_emojiPicker">
+            ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn${reward.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+            <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="Custom" maxlength="2" style="width: 60px;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
+          </div>
+
+          <label class="form-label">Type</label>
+          <div class="segmented-control" id="rf_type">
+            <button type="button" class="segmented-btn${(reward.rewardType || 'custom') === 'custom' ? ' segmented-btn--active' : ''}" data-value="custom">Custom</button>
+            <button type="button" class="segmented-btn${reward.rewardType === 'task-skip' ? ' segmented-btn--active' : ''}" data-value="task-skip">Task Skip</button>
+            <button type="button" class="segmented-btn${reward.rewardType === 'penalty-removal' ? ' segmented-btn--active' : ''}" data-value="penalty-removal">Penalty Removal</button>
+          </div>
+          <div id="rf_typeHint" class="form-hint" style="margin-top: 4px;"></div>
+
+          <label class="form-label">Point Cost</label>
+          <input type="number" id="rf_pointCost" class="form-input" value="${reward.pointCost || ''}" min="1" placeholder="Enter or use helper below">
+
+          <div class="pricing-helper" style="background: var(--surface-alt, var(--surface)); padding: 12px; border-radius: var(--radius, 8px); margin-top: 8px;">
+            <label class="form-label" style="margin-bottom: 4px;">How long should this take to earn?</label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="range" id="rf_daysSlider" min="1" max="30" value="7" style="flex: 1;">
+              <input type="number" id="rf_daysInput" class="form-input form-input--sm" value="7" min="1" style="width: 60px;">
+              <span>days</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+              <label class="form-label" style="margin: 0;">Assumed average:</label>
+              <select id="rf_avgSelect" class="form-input form-input--sm" style="width: auto;">
+                ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
+              </select>
+            </div>
+            <div id="rf_suggestion" class="form-hint" style="margin-top: 8px; cursor: pointer; color: var(--accent);">
+              7 days at B+ average &rarr; <strong>615 pts</strong> (click to apply)
+            </div>
+          </div>
+
+          <label class="form-label" style="margin-top: 12px;">Available to</label>
+          <div class="chip-group" id="rf_people">
+            ${peopleArray().map(p => {
+              const selected = reward.perPerson && reward.perPerson.includes(p.id);
+              return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+            }).join('')}
+            <span class="form-hint" style="margin-left: 4px;">None = everyone</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+            <div>
+              <label class="form-label">Max redemptions</label>
+              <input type="number" id="rf_maxRedemptions" class="form-input" value="${reward.maxRedemptions || ''}" min="1" placeholder="Unlimited">
+            </div>
+            <div>
+              <label class="form-label">Streak requirement</label>
+              <input type="number" id="rf_streakReq" class="form-input" value="${reward.streakRequirement || ''}" min="1" placeholder="None">
+            </div>
+          </div>
+
+          <label class="form-label" style="margin-top: 12px;">Expires on</label>
+          <input type="date" id="rf_expiresAt" class="form-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toISOString().split('T')[0] : ''}">
+
+          <div class="admin-form__actions" style="margin-top: 16px;">
+            <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create'}</button>
+            <button class="btn btn--ghost" id="rf_cancel" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function bindRewardsTab() {
+      main.querySelector('#addRewardBtn')?.addEventListener('click', () => {
+        editingRewardId = 'new';
+        render();
+      });
+
+      for (const btn of main.querySelectorAll('.reward-edit')) {
+        btn.addEventListener('click', () => {
+          editingRewardId = btn.dataset.rewardId;
+          render();
+        });
+      }
+
+      for (const btn of main.querySelectorAll('.reward-archive')) {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.rewardId;
+          await archiveReward(id);
+          rewardsObj[id].status = 'archived';
+          render();
+        });
+      }
+
+      if (editingRewardId !== null) {
+        bindRewardForm();
+      }
+    }
+
+    function bindRewardForm() {
+      const form = document.getElementById('rewardForm');
+      if (!form) return;
+
+      // Emoji picker
+      for (const btn of form.querySelectorAll('.emoji-btn')) {
+        btn.addEventListener('click', () => {
+          form.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
+          btn.classList.add('emoji-btn--selected');
+          form.querySelector('#rf_customEmoji').value = '';
+        });
+      }
+
+      // Type segmented control
+      for (const btn of form.querySelectorAll('#rf_type .segmented-btn')) {
+        btn.addEventListener('click', () => {
+          form.querySelectorAll('#rf_type .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+          btn.classList.add('segmented-btn--active');
+          const hint = form.querySelector('#rf_typeHint');
+          const val = btn.dataset.value;
+          hint.textContent = val === 'task-skip' ? 'Person picks a task to skip for the day'
+            : val === 'penalty-removal' ? 'Removes the late penalty from a past task' : '';
+        });
+      }
+
+      // Pricing helper
+      const slider = form.querySelector('#rf_daysSlider');
+      const daysInput = form.querySelector('#rf_daysInput');
+      const avgSelect = form.querySelector('#rf_avgSelect');
+      const suggestion = form.querySelector('#rf_suggestion');
+      const pointCost = form.querySelector('#rf_pointCost');
+
+      function updateSuggestion() {
+        const days = parseInt(daysInput.value) || 7;
+        const avg = parseInt(avgSelect.value) || 88;
+        const cost = Math.round((days * avg) / 5) * 5;
+        const avgLabel = PRICING_AVERAGES.find(a => a.value === avg)?.label || avg + '%';
+        suggestion.innerHTML = `${days} day${days > 1 ? 's' : ''} at ${avgLabel} average &rarr; <strong>${cost} pts</strong> (click to apply)`;
+        suggestion.dataset.cost = cost;
+      }
+
+      slider.addEventListener('input', () => { daysInput.value = slider.value; updateSuggestion(); });
+      daysInput.addEventListener('input', () => {
+        const v = parseInt(daysInput.value);
+        if (v && v <= 30) slider.value = v;
+        updateSuggestion();
+      });
+      avgSelect.addEventListener('change', updateSuggestion);
+      suggestion.addEventListener('click', () => { pointCost.value = suggestion.dataset.cost; });
+      updateSuggestion();
+
+      // Person chips
+      for (const chip of form.querySelectorAll('#rf_people .chip--selectable')) {
+        chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
+      }
+
+      // Cancel
+      form.querySelector('#rf_cancel').addEventListener('click', () => {
+        editingRewardId = null;
+        render();
+      });
+
+      // Save
+      form.querySelector('#rf_save').addEventListener('click', async () => {
+        const name = form.querySelector('#rf_name').value.trim();
+        if (!name) return;
+
+        const selectedEmoji = form.querySelector('.emoji-btn--selected')?.dataset?.emoji
+          || form.querySelector('#rf_customEmoji').value.trim() || '🎁';
+        const rewardType = form.querySelector('#rf_type .segmented-btn--active')?.dataset?.value || 'custom';
+        const cost = parseInt(form.querySelector('#rf_pointCost').value) || 0;
+        if (cost <= 0) return;
+
+        const selectedPeople = [...form.querySelectorAll('#rf_people .chip--active')]
+          .map(c => c.dataset.personId);
+        const maxRedemptions = parseInt(form.querySelector('#rf_maxRedemptions').value) || null;
+        const streakReq = parseInt(form.querySelector('#rf_streakReq').value) || null;
+        const expiresDate = form.querySelector('#rf_expiresAt').value;
+        const expiresAt = expiresDate ? new Date(expiresDate + 'T23:59:59').getTime() : null;
+
+        const data = {
+          name,
+          icon: selectedEmoji,
+          pointCost: cost,
+          rewardType,
+          perPerson: selectedPeople.length > 0 ? selectedPeople : null,
+          maxRedemptions,
+          streakRequirement: streakReq,
+          expiresAt,
+          status: 'active'
+        };
+
+        if (editingRewardId && editingRewardId !== 'new') {
+          await writeReward(editingRewardId, data);
+          rewardsObj[editingRewardId] = data;
+        } else {
+          const ref = await pushReward(data);
+          rewardsObj[ref.key] = data;
+        }
+
+        editingRewardId = null;
+        render();
+      });
+    }
+
+    // ══════════════════════════════════════════
     // Tab-specific event binding
     // ══════════════════════════════════════════
 
@@ -1336,6 +1644,7 @@
         case 'events': bindEventsTab(); break;
         case 'people': bindPeopleTab(); break;
         case 'categories': bindCategoriesTab(); break;
+        case 'rewards': bindRewardsTab(); break;
         case 'settings': bindSettingsTab(); break;
         case 'theme': bindThemeTab(); break;
         case 'schedule': bindScheduleTab(); break;

@@ -689,4 +689,89 @@
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* ── Reward Cards ── */
+.reward-list { display: flex; flex-direction: column; gap: 8px; }
+
+.reward-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+}
+
+.reward-card--archived { opacity: 0.6; }
+.reward-card__icon { font-size: 1.75rem; flex-shrink: 0; }
+.reward-card__body { flex: 1; min-width: 0; }
+.reward-card__name { font-weight: 600; font-size: var(--font-size-base); }
+
+.reward-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: var(--font-size-sm);
+}
+
+.reward-card__cost { font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+.reward-card__type { color: var(--text-secondary); }
+
+.reward-card__badge {
+  background: var(--surface-alt, var(--surface));
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--text-secondary);
+}
+
+.reward-card__availability {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.reward-card__actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+/* ── Emoji Picker ── */
+.emoji-picker { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+.emoji-btn {
+  font-size: 1.5rem;
+  padding: 4px 6px;
+  border: 2px solid transparent;
+  border-radius: var(--radius, 8px);
+  background: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.emoji-btn:hover { border-color: var(--border); }
+.emoji-btn--selected { border-color: var(--accent); background: var(--surface-highlight, rgba(var(--accent-rgb, 108, 99, 255), 0.1)); }
+
+/* ── Segmented Control ── */
+.segmented-control {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  overflow: hidden;
+}
+
+.segmented-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition: background 0.15s, color 0.15s;
+}
+
+.segmented-btn + .segmented-btn { border-left: 1px solid var(--border); }
+.segmented-btn--active { background: var(--accent); color: #fff; }
+
+/* ── Pricing Helper ── */
+.pricing-helper input[type="range"] { accent-color: var(--accent); }
 
