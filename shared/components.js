@@ -1279,11 +1279,43 @@ export function bindSendMessageSheet(mount, writeMessageFn) {
   });
 }
 
+export function renderBonusDaySheet(people) {
+  const today = new Date().toISOString().split('T')[0];
+  return renderBottomSheet(`
+    <h3 style="margin-bottom: 12px;">🎉 Bonus Day</h3>
+
+    <label class="form-label">Who</label>
+    <div class="chip-group" id="bd_people">
+      <button class="chip chip--selectable chip--active" data-person-id="everyone" type="button">Everyone</button>
+      ${people.map(p =>
+        `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`
+      ).join('')}
+    </div>
+
+    <label class="form-label" style="margin-top: 12px;">Date</label>
+    <input type="date" id="bd_date" class="form-input" value="${today}">
+
+    <label class="form-label" style="margin-top: 12px;">Multiplier</label>
+    <div class="segmented-control" id="bd_mult">
+      <button type="button" class="segmented-btn segmented-btn--active" data-value="2">2x</button>
+      <button type="button" class="segmented-btn" data-value="3">3x</button>
+    </div>
+
+    <label class="form-label" style="margin-top: 12px;">Note (optional)</label>
+    <input type="text" id="bd_note" class="form-input" placeholder="Happy Birthday!">
+
+    <div style="margin-top: 16px; display: flex; gap: 8px;">
+      <button class="btn btn--primary" id="bd_save" type="button" style="flex: 1;">Set Bonus Day</button>
+      <button class="btn btn--ghost" id="bd_cancel" type="button">Cancel</button>
+    </div>
+  `);
+}
+
 /**
  * Initialize the notification bell on any page.
  * Sets up real-time listener and dropdown toggle.
  */
-export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, writeBankTokenFn } = {}) {
+export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, writeBankTokenFn, writeMultiplierFn } = {}) {
   let bellMessages = {};
 
   function closeBellDropdown() {
@@ -1360,6 +1392,56 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         if (!mount) return;
         mount.innerHTML = renderSendMessageSheet(getPeople());
         bindSendMessageSheet(mount, writeMessageFn);
+      });
+
+      // Wire "Bonus Day" button
+      document.getElementById('bellBonusDay')?.addEventListener('click', () => {
+        closeBellDropdown();
+        const mount = document.getElementById('taskSheetMount') || document.getElementById('drilldownMount');
+        if (!mount) return;
+        mount.innerHTML = renderBonusDaySheet(getPeople());
+
+        // Person chip toggle (exclusive with "Everyone")
+        for (const chip of mount.querySelectorAll('#bd_people .chip--selectable')) {
+          chip.addEventListener('click', () => {
+            if (chip.dataset.personId === 'everyone') {
+              mount.querySelectorAll('#bd_people .chip--selectable').forEach(c => c.classList.remove('chip--active'));
+              chip.classList.add('chip--active');
+            } else {
+              mount.querySelector('[data-person-id="everyone"]')?.classList.remove('chip--active');
+              chip.classList.toggle('chip--active');
+            }
+          });
+        }
+
+        // Multiplier toggle
+        for (const btn of mount.querySelectorAll('#bd_mult .segmented-btn')) {
+          btn.addEventListener('click', () => {
+            mount.querySelectorAll('#bd_mult .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+            btn.classList.add('segmented-btn--active');
+          });
+        }
+
+        // Save
+        mount.querySelector('#bd_save')?.addEventListener('click', async () => {
+          const dateKey = mount.querySelector('#bd_date').value;
+          const mult = parseInt(mount.querySelector('#bd_mult .segmented-btn--active')?.dataset?.value) || 2;
+          const note = mount.querySelector('#bd_note').value.trim() || null;
+          const isEveryone = mount.querySelector('[data-person-id="everyone"]')?.classList.contains('chip--active');
+          const selectedIds = isEveryone
+            ? getPeople().map(p => p.id)
+            : [...mount.querySelectorAll('#bd_people .chip--active')].map(c => c.dataset.personId).filter(id => id !== 'everyone');
+
+          if (writeMultiplierFn) {
+            for (const pid of selectedIds) {
+              await writeMultiplierFn(dateKey, pid, { multiplier: mult, note, createdBy: 'parent' });
+            }
+          }
+          mount.innerHTML = '';
+        });
+
+        mount.querySelector('#bd_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+        mount.querySelector('.bottom-sheet__backdrop')?.addEventListener('click', () => { mount.innerHTML = ''; });
       });
 
       // Wire approve/deny buttons

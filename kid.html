@@ -445,6 +445,12 @@
             <div class="kid-header__date">${dayPrefix} &mdash; ${dateLabel}</div>
           </div>`;
 
+          // ── Multiplier banner ──
+          const todayMult = multipliers?.[viewDate]?.[kid.id];
+          if (todayMult) {
+            html += `<div class="kid-multiplier-banner">${todayMult.multiplier}x Day! 🎉${todayMult.note ? ` — ${esc(todayMult.note)}` : ''}</div>`;
+          }
+
           // ── Balance header ──
           html += `<div class="kid-balance">
             <div class="kid-balance__main">
