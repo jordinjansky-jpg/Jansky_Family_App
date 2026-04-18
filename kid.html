@@ -1304,7 +1304,7 @@
           });
 
           // ── Task Skip button ──
-          document.getElementById('useTaskSkip')?.addEventListener('click', () => {
+          document.getElementById('useTaskSkip')?.addEventListener('click', async () => {
             const skippable = Object.entries(viewEntries)
               .filter(([key, entry]) => {
                 if (entry.ownerId !== kid.id) return false;
