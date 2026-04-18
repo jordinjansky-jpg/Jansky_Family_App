@@ -710,8 +710,10 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
     if (task.createdDate && weekDates[weekDates.length - 1] < task.createdDate) continue;
     if (isCompletedThisWeek(taskId, weekDates[0], completions, existingSchedule)) continue;
     if (isScheduledThisWeek(taskId, weekDates[0], newSchedule, existingSchedule)) continue;
-    if (isInCooldown(task, taskId, weekDates[0], completions, existingSchedule)) continue;
 
+    // Per-day cooldown filtering: check each candidate day individually instead of
+    // gating the entire week on the first day. A 4-day cooldown task completed on
+    // Saturday should still be eligible later the following week (e.g. Thursday+).
     // 1. Pick the DAY first (global load + weekend weight)
     let targetDay;
     if (task.dedicatedDay != null) {
@@ -726,7 +728,10 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
           if (!newSchedule[targetDay]) newSchedule[targetDay] = {};
         }
       }
-      // Dedicated-day tasks: if over category limit, skip this period
+      // Skip if dedicated day is in cooldown or over category limit
+      if (targetDay && isInCooldown(task, taskId, targetDay, completions, existingSchedule)) {
+        targetDay = null;
+      }
       if (targetDay && !canPlaceUnderCategoryLimit(task, targetDay, balanceCtx.categories, newSchedule, existingSchedule, allTasks)) {
         continue;
       }
@@ -743,6 +748,7 @@ function placeWeeklyTask(taskId, task, futureDates, newSchedule, existingSchedul
       targetDay = null;
       for (const dk of sortedDays) {
         if (task.createdDate && dk < task.createdDate) continue;
+        if (isInCooldown(task, taskId, dk, completions, existingSchedule)) continue;
         if (canPlaceUnderCategoryLimit(task, dk, balanceCtx.categories, newSchedule, existingSchedule, allTasks)) {
           targetDay = dk;
           break;
@@ -778,8 +784,9 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
     if (task.createdDate && monthDates[monthDates.length - 1] < task.createdDate) continue;
     if (isCompletedThisMonth(taskId, monthDates[0], completions, existingSchedule)) continue;
     if (isScheduledThisMonth(taskId, monthDates[0], newSchedule, existingSchedule)) continue;
-    if (isInCooldown(task, taskId, monthDates[0], completions, existingSchedule)) continue;
 
+    // Per-day cooldown filtering (same fix as placeWeeklyTask — check individual
+    // days instead of gating the entire month on the first day)
     // 1. Pick the DAY first (global load + weekend weight)
     let targetDay;
     if (task.dedicatedDay != null) {
@@ -795,13 +802,16 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
           if (!newSchedule[targetDay]) newSchedule[targetDay] = {};
         }
       }
-      // Dedicated-day tasks: if over category limit, skip this period
+      // Skip if dedicated day is in cooldown or over category limit
+      if (targetDay && isInCooldown(task, taskId, targetDay, completions, existingSchedule)) {
+        targetDay = null;
+      }
       if (targetDay && !canPlaceUnderCategoryLimit(task, targetDay, balanceCtx.categories, newSchedule, existingSchedule, allTasks)) {
         continue;
       }
     }
     if (!targetDay) {
-      // Try days sorted by load, pick first that passes category limit
+      // Try days sorted by load, pick first that passes cooldown + category limit
       // Apply weekend weighting to match findLightestDay behavior
       const sortedDays = [...monthDates].sort((a, b) => {
         const rawA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
@@ -812,6 +822,7 @@ function placeMonthlyTask(taskId, task, futureDates, newSchedule, existingSchedu
       });
       for (const dk of sortedDays) {
         if (task.createdDate && dk < task.createdDate) continue;
+        if (isInCooldown(task, taskId, dk, completions, existingSchedule)) continue;
         if (canPlaceUnderCategoryLimit(task, dk, balanceCtx.categories, newSchedule, existingSchedule, allTasks)) {
           targetDay = dk;
           break;

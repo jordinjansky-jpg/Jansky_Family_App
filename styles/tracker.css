@@ -164,11 +164,17 @@
 .tracker-summary__count--late { color: var(--warning-text); }
 .tracker-summary__count--overdue { color: var(--danger-text); }
 .tracker-summary__count--upcoming { color: var(--text-secondary); }
+.tracker-summary__count--cooldown { color: var(--accent, #6c63ff); }
 .tracker-summary__count--skipped { color: var(--text-muted); }
 
 /* Week group headers (monthly view) */
 .tracker-week-group {
   margin-bottom: var(--spacing-md);
+}
+
+.tracker-week-group--current {
+  border-left: 3px solid var(--accent, #6c63ff);
+  padding-left: var(--spacing-sm);
 }
 
 .tracker-week-label {
@@ -178,6 +184,15 @@
   padding: var(--spacing-sm) 0 var(--spacing-xs);
   border-bottom: 1px solid var(--border-light);
   margin-bottom: var(--spacing-xs);
+}
+
+.tracker-week-current-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent, #6c63ff);
+  margin-left: var(--spacing-xs);
 }
 
 /* Tracker rows */
@@ -291,6 +306,11 @@
 .tracker-status--upcoming {
   background: var(--bg-secondary);
   color: var(--text-secondary);
+}
+
+.tracker-status--cooldown {
+  background: color-mix(in srgb, var(--accent, #6c63ff) 12%, transparent);
+  color: var(--accent, #6c63ff);
 }
 
 .tracker-status--skipped {

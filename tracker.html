@@ -45,6 +45,7 @@
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete } from './shared/state.js';
+    import { isInCooldown } from './shared/scheduler.js';
 
     // ── Cached theme ──
     applyTheme(resolveTheme());
@@ -222,21 +223,32 @@
       for (const [taskId, task] of Object.entries(tasks)) {
         if (task.rotation !== rotationType || task.status !== 'active') continue;
         if (scheduledTaskIds.has(taskId)) continue;
-        // Task is active but wasn't scheduled in this period
-        if (task.createdDate && task.createdDate > endDate) continue; // Created after period
+        if (task.createdDate && task.createdDate > endDate) continue;
 
-        for (const ownerId of (task.owners || [])) {
-          const person = people.find(p => p.id === ownerId);
+        // Detect cooldown: check if the end of the period is still in cooldown
+        const isCooldownSkip = task.cooldownDays > 0 &&
+          isInCooldown(task, taskId, endDate, comps, schedule);
+        const status = isCooldownSkip ? 'cooldown' : 'skipped';
+
+        const mode = task.ownerAssignmentMode || 'rotate';
+        if (mode === 'duplicate') {
+          // Duplicate mode: show per-owner since each owner gets the task
+          for (const ownerId of (task.owners || [])) {
+            const person = people.find(p => p.id === ownerId);
+            const cat = task.category ? cats[task.category] : null;
+            skipped.push({
+              entryKey: null, dateKey: null,
+              entry: { taskId, ownerId, rotationType, timeOfDay: task.timeOfDay },
+              task, person, category: cat, status, completionDate: null
+            });
+          }
+        } else {
+          // Rotate/fixed: one row per task (only one person gets it per period)
           const cat = task.category ? cats[task.category] : null;
           skipped.push({
-            entryKey: null,
-            dateKey: null,
-            entry: { taskId, ownerId, rotationType, timeOfDay: task.timeOfDay },
-            task,
-            person,
-            category: cat,
-            status: 'skipped',
-            completionDate: null
+            entryKey: null, dateKey: null,
+            entry: { taskId, ownerId: null, rotationType, timeOfDay: task.timeOfDay },
+            task, person: null, category: cat, status, completionDate: null
           });
         }
       }
@@ -249,7 +261,15 @@
      */
     function filterRows(rows) {
       return rows.filter(row => {
-        if (activePerson && row.entry.ownerId !== activePerson) return false;
+        // For rotate-mode skipped/cooldown rows (ownerId is null), check if the
+        // filtered person is one of the task's owners
+        if (activePerson) {
+          if (row.entry.ownerId) {
+            if (row.entry.ownerId !== activePerson) return false;
+          } else if (!row.task.owners?.includes(activePerson)) {
+            return false;
+          }
+        }
         if (activeCategory && row.task.category !== activeCategory) return false;
         if (activeStatus && row.status !== activeStatus) return false;
         return true;
@@ -263,6 +283,7 @@
       late:     { label: 'Done Late', class: 'tracker-status--late' },
       overdue:  { label: 'Overdue',  class: 'tracker-status--overdue' },
       upcoming: { label: 'Upcoming', class: 'tracker-status--upcoming' },
+      cooldown: { label: 'Cooldown', class: 'tracker-status--cooldown' },
       skipped:  { label: 'Skipped',  class: 'tracker-status--skipped' }
     };
 
@@ -277,8 +298,8 @@
       const showIcon = row.category?.showIcon !== false;
       const catIcon = showIcon ? (row.category?.icon || '') : '';
       const ownerColor = row.person?.color || 'var(--text-secondary)';
-      const ownerInitial = (row.person?.name || '?')[0].toUpperCase();
-      const ownerName = row.person?.name || 'Unknown';
+      const ownerInitial = row.person ? row.person.name[0].toUpperCase() : '↻';
+      const ownerName = row.person?.name || 'Rotates';
       const taskName = catIcon ? `${catIcon} ${esc(row.task.name)}` : esc(row.task.name);
       const dateLabel = row.dateKey ? formatDateShort(row.dateKey) : '—';
       const completionInfo = row.completionDate ? `<span class="tracker-row__completed">${row.completionDate}</span>` : '';
@@ -301,7 +322,7 @@
     // ── Summary bar ──
 
     function renderSummary(rows) {
-      const counts = { done: 0, late: 0, overdue: 0, upcoming: 0, skipped: 0 };
+      const counts = { done: 0, late: 0, overdue: 0, upcoming: 0, cooldown: 0, skipped: 0 };
       for (const r of rows) counts[r.status] = (counts[r.status] || 0) + 1;
       const total = rows.length;
       const completed = counts.done + counts.late;
@@ -316,6 +337,7 @@
           ${counts.late > 0 ? `<span class="tracker-summary__count tracker-summary__count--late">${counts.late} Late</span>` : ''}
           <span class="tracker-summary__count tracker-summary__count--overdue">${counts.overdue} Overdue</span>
           <span class="tracker-summary__count tracker-summary__count--upcoming">${counts.upcoming} Upcoming</span>
+          ${counts.cooldown > 0 ? `<span class="tracker-summary__count tracker-summary__count--cooldown">${counts.cooldown} Cooldown</span>` : ''}
           ${counts.skipped > 0 ? `<span class="tracker-summary__count tracker-summary__count--skipped">${counts.skipped} Skipped</span>` : ''}
         </div>
       </div>`;
@@ -345,6 +367,7 @@
         { value: 'late', label: 'Done Late' },
         { value: 'overdue', label: 'Overdue' },
         { value: 'upcoming', label: 'Upcoming' },
+        { value: 'cooldown', label: 'Cooldown' },
         { value: 'skipped', label: 'Skipped' }
       ];
       let html = `<select class="tracker-select" id="statusFilter">`;
@@ -366,7 +389,7 @@
       const filtered = filterRows(allRows);
 
       // Sort: overdue first, then upcoming, then done/late, then skipped
-      const statusOrder = { overdue: 0, upcoming: 1, late: 2, done: 3, skipped: 4 };
+      const statusOrder = { overdue: 0, upcoming: 1, late: 2, done: 3, cooldown: 4, skipped: 5 };
       filtered.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
 
       let html = renderSummary(filtered);
@@ -399,29 +422,42 @@
         return html;
       }
 
-      // Group by ISO week
+      // Group by week start date key for proper sorting
       const weekGroups = {};
+      const todayWeekStart = weekStart(today);
       for (const row of filtered) {
-        const wk = row.dateKey ? isoWeekNumber(row.dateKey) : 0;
+        const wkStart = row.dateKey ? weekStart(row.dateKey) : '0000-00-00';
         const wkLabel = row.dateKey
           ? `Week of ${formatDateShort(weekStart(row.dateKey))}`
           : 'Unscheduled';
-        if (!weekGroups[wk]) weekGroups[wk] = { label: wkLabel, rows: [] };
-        weekGroups[wk].rows.push(row);
+        if (!weekGroups[wkStart]) weekGroups[wkStart] = { label: wkLabel, rows: [], isCurrent: wkStart === todayWeekStart };
+        weekGroups[wkStart].rows.push(row);
       }
 
-      // Sort week groups
-      const sortedWeeks = Object.keys(weekGroups).sort((a, b) => Number(a) - Number(b));
+      // Sort: current week first, then future weeks, then past weeks (descending)
+      const sortedWeeks = Object.keys(weekGroups).sort((a, b) => {
+        const aIsCurrent = a === todayWeekStart ? 1 : 0;
+        const bIsCurrent = b === todayWeekStart ? 1 : 0;
+        if (aIsCurrent !== bIsCurrent) return bIsCurrent - aIsCurrent; // current first
+        const aIsFuture = a > todayWeekStart ? 1 : 0;
+        const bIsFuture = b > todayWeekStart ? 1 : 0;
+        if (aIsFuture !== bIsFuture) return bIsFuture - aIsFuture; // future before past
+        if (aIsFuture) return a < b ? -1 : 1; // future: ascending
+        return a > b ? -1 : 1; // past: descending (most recent first)
+      });
 
       let html = renderSummary(filtered);
 
-      for (const wk of sortedWeeks) {
-        const group = weekGroups[wk];
-        const statusOrder = { overdue: 0, upcoming: 1, late: 2, done: 3, skipped: 4 };
+      for (const wkKey of sortedWeeks) {
+        const group = weekGroups[wkKey];
+        const statusOrder = { overdue: 0, upcoming: 1, late: 2, done: 3, cooldown: 4, skipped: 5 };
         group.rows.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
 
-        html += `<div class="tracker-week-group">
-          <div class="tracker-week-label">${group.label}</div>
+        const currentClass = group.isCurrent ? ' tracker-week-group--current' : '';
+        const currentTag = group.isCurrent ? ' <span class="tracker-week-current-tag">This Week</span>' : '';
+
+        html += `<div class="tracker-week-group${currentClass}">
+          <div class="tracker-week-label">${group.label}${currentTag}</div>
           <div class="tracker-rows">`;
         for (const row of group.rows) {
           html += renderRow(row);
