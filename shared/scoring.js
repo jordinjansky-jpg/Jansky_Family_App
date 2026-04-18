@@ -415,3 +415,163 @@ export function computeRollover(today, schedule, completions, tasks, categories,
 export function gradeDisplay(pct) {
   return { grade: letterGrade(pct), tier: gradeTier(pct) };
 }
+
+// ── Rewards Balance ──
+
+/**
+ * Achievement definitions — thresholds and metadata.
+ */
+export const ACHIEVEMENTS = {
+  'streak-7':    { icon: '🔥', label: '7-Day Streak', description: 'One full week!' },
+  'streak-14':   { icon: '🔥', label: '14-Day Streak', description: 'Two weeks strong!' },
+  'streak-30':   { icon: '🔥', label: '30-Day Streak', description: 'Monthly master!' },
+  'streak-60':   { icon: '🔥', label: '60-Day Streak', description: 'Unstoppable!' },
+  'streak-100':  { icon: '🔥', label: '100-Day Streak', description: 'Legendary!' },
+  'grade-a-plus-day':   { icon: '⭐', label: 'First A+ Day', description: 'Perfect day!' },
+  'grade-a-plus-week':  { icon: '⭐', label: 'First A+ Week', description: 'Perfect week!' },
+  'grade-a-plus-month': { icon: '⭐', label: 'First A+ Month', description: 'Perfect month!' },
+  'points-500':   { icon: '💰', label: '500 Points', description: 'Getting started!' },
+  'points-1000':  { icon: '💰', label: '1,000 Points', description: 'On a roll!' },
+  'points-5000':  { icon: '💰', label: '5,000 Points', description: 'Point machine!' },
+  'points-10000': { icon: '💰', label: '10,000 Points', description: 'Unstoppable earner!' },
+  'first-redemption': { icon: '🎁', label: 'First Redemption', description: 'First reward claimed!' }
+};
+
+const STREAK_THRESHOLDS = [7, 14, 30, 60, 100];
+const POINTS_THRESHOLDS = [500, 1000, 5000, 10000];
+
+/**
+ * Calculate a person's spendable rewards balance.
+ *
+ * @param {string} personId
+ * @param {object} allSnapshots - { dateKey: { personId: snapshot } }
+ * @param {object} messages - { msgId: message } for this person (already filtered)
+ * @param {object|null} anchor - { amount, anchoredAt } or null
+ * @param {object|null} multipliers - { dateKey: { personId: { multiplier } } }
+ * @returns {{ balance: number, totalEarned: number }}
+ */
+export function calculateBalance(personId, allSnapshots, messages, anchor, multipliers) {
+  const anchorAmount = anchor?.amount || 0;
+  const anchorDate = anchor?.anchoredAt || 0;
+
+  let snapshotEarning = 0;
+  if (allSnapshots) {
+    for (const [dateKey, people] of Object.entries(allSnapshots)) {
+      const snap = people?.[personId];
+      if (!snap) continue;
+      // Convert dateKey to timestamp for anchor comparison
+      const dateTs = new Date(dateKey + 'T00:00:00Z').getTime();
+      if (dateTs <= anchorDate) continue;
+      const mult = multipliers?.[dateKey]?.[personId]?.multiplier || 1;
+      snapshotEarning += (snap.percentage || 0) * mult;
+    }
+  }
+
+  let bonuses = 0;
+  let deductions = 0;
+  let spent = 0;
+  if (messages) {
+    for (const msg of Object.values(messages)) {
+      if (msg.createdAt && msg.createdAt <= anchorDate) continue;
+      const amt = msg.amount || 0;
+      if (msg.type === 'bonus') bonuses += amt;
+      else if (msg.type === 'deduction') deductions += Math.abs(amt);
+      else if (msg.type === 'redemption-request') spent += Math.abs(amt);
+    }
+  }
+
+  const balance = anchorAmount + snapshotEarning + bonuses - deductions - spent;
+  const totalEarned = anchorAmount + snapshotEarning + bonuses;
+
+  return { balance: Math.round(balance), totalEarned: Math.round(totalEarned) };
+}
+
+/**
+ * Check which achievements a person has newly earned.
+ * Returns an array of achievement keys that should be unlocked.
+ *
+ * @param {object} context - { streak, totalEarned, existingAchievements, weeklyGrade, monthlyGrade, dailyGrade, hasRedeemed }
+ * @returns {string[]} newly unlocked achievement keys
+ */
+export function checkNewAchievements(context) {
+  const {
+    streak = 0,
+    totalEarned = 0,
+    existingAchievements = {},
+    weeklyGrade = '--',
+    monthlyGrade = '--',
+    dailyGrade = '--',
+    hasRedeemed = false
+  } = context;
+
+  const newKeys = [];
+
+  // Streak milestones
+  for (const threshold of STREAK_THRESHOLDS) {
+    const key = `streak-${threshold}`;
+    if (streak >= threshold && !existingAchievements[key]) {
+      newKeys.push(key);
+    }
+  }
+
+  // Grade milestones
+  if (dailyGrade === 'A+' && !existingAchievements['grade-a-plus-day']) {
+    newKeys.push('grade-a-plus-day');
+  }
+  if (weeklyGrade === 'A+' && !existingAchievements['grade-a-plus-week']) {
+    newKeys.push('grade-a-plus-week');
+  }
+  if (monthlyGrade === 'A+' && !existingAchievements['grade-a-plus-month']) {
+    newKeys.push('grade-a-plus-month');
+  }
+
+  // Points milestones
+  for (const threshold of POINTS_THRESHOLDS) {
+    const key = `points-${threshold}`;
+    if (totalEarned >= threshold && !existingAchievements[key]) {
+      newKeys.push(key);
+    }
+  }
+
+  // First redemption
+  if (hasRedeemed && !existingAchievements['first-redemption']) {
+    newKeys.push('first-redemption');
+  }
+
+  return newKeys;
+}
+
+/**
+ * Find the highest-damage penalized task for penalty removal.
+ *
+ * @param {object} completions - all completions
+ * @param {object} schedule - all schedule entries { dateKey: { entryKey: entry } }
+ * @param {object} tasks - all task definitions
+ * @param {object} settings - app settings
+ * @returns {{ entryKey, dateKey, taskName, pointsRestored } | null}
+ */
+export function findHighestDamagePenalty(completions, schedule, tasks, settings) {
+  const mults = settings?.difficultyMultipliers;
+  let best = null;
+
+  for (const [dateKey, dayEntries] of Object.entries(schedule)) {
+    for (const [entryKey, entry] of Object.entries(dayEntries)) {
+      const completion = completions?.[entryKey];
+      if (!completion?.isLate) continue;
+      if (completion.pointsOverride == null) continue;
+
+      const task = tasks?.[entry.taskId];
+      if (!task) continue;
+
+      const base = basePoints(task, mults);
+      const earned = Math.round(base * (completion.pointsOverride / 100));
+      const damage = base - earned;
+
+      if (!best || damage > best.pointsRestored) {
+        best = { entryKey, dateKey, taskName: task.name, pointsRestored: damage };
+      }
+    }
+  }
+
+  return best;
+}
