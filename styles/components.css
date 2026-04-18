@@ -1132,3 +1132,103 @@
   width: 8px; height: 8px;
   border-radius: 50%;
 }
+
+/* ── Notification Bell ── */
+.header__bell {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.header__bell:hover { color: var(--text-primary); }
+
+.bell__badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  background: var(--accent-danger, #e53e3e);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Bell Dropdown ── */
+.bell-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: min(380px, calc(100vw - 32px));
+  max-height: 480px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  z-index: 1000;
+  padding: 0;
+}
+
+.bell-dropdown__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+
+.bell-dropdown__title { font-weight: 600; font-size: var(--font-size-base); }
+
+.bell-dropdown__actions { display: flex; gap: 8px; }
+
+.bell-dropdown__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light, var(--border));
+}
+
+.bell-dropdown__item:last-child { border-bottom: none; }
+
+.bell-dropdown__item--pending {
+  background: var(--surface-highlight, rgba(var(--accent-rgb, 108, 99, 255), 0.05));
+}
+
+.bell-dropdown__icon { font-size: 1.5rem; flex-shrink: 0; width: 36px; text-align: center; }
+
+.bell-dropdown__body { flex: 1; min-width: 0; }
+
+.bell-dropdown__item-title { font-weight: 600; font-size: var(--font-size-sm); }
+
+.bell-dropdown__item-subtitle {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs, 0.75rem);
+  margin-top: 2px;
+}
+
+.bell-dropdown__item-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+.bell-dropdown__empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.bell-overlay { position: fixed; inset: 0; z-index: 999; }

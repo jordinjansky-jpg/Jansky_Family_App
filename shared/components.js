@@ -61,8 +61,24 @@ export function renderNavBar(activePage) {
 }
 
 /**
+ * Render the notification bell icon with optional badge count.
+ */
+export function renderBellIcon(count = 0) {
+  const badge = count > 0
+    ? `<span class="bell__badge">${count > 99 ? '99+' : count}</span>`
+    : '';
+  return `<button class="header__bell" id="headerBell" title="Notifications" type="button">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+    ${badge}
+  </button>`;
+}
+
+/**
  * Render the page header.
- * options: { appName, subtitle, showAdmin, showDebug, rightContent }
+ * options: { appName, subtitle, showAdmin, showDebug, rightContent, showBell, bellCount }
  * Returns an HTML string.
  */
 export function renderHeader(options = {}) {
@@ -74,6 +90,8 @@ export function renderHeader(options = {}) {
     showDebug = false,
     showAddTask = false,
     showThemePicker = false,
+    showBell = false,
+    bellCount = 0,
     rightContent = ''
   } = options;
 
@@ -81,6 +99,7 @@ export function renderHeader(options = {}) {
   const adminLink = showAdmin ? '<a href="admin.html" class="header__admin" title="Admin">⚙️</a>' : '';
   const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">📝</button>' : '';
   const themeBtn = showThemePicker ? '<button class="header__theme" id="headerThemeBtn" title="Device Theme" type="button">🎨</button>' : '';
+  const bellBtn = showBell ? renderBellIcon(bellCount) : '';
 
   return `<header class="app-header">
     <div class="header__left">
@@ -91,6 +110,7 @@ export function renderHeader(options = {}) {
     <div class="header__right">
       ${rightContent}
       ${addTaskBtn}
+      ${bellBtn}
       ${themeBtn}
       ${debugIcon}
       ${adminLink}
@@ -1021,6 +1041,144 @@ export function initOfflineBanner(onConnectionChange, options = {}) {
       mount.innerHTML = renderOfflineBanner('Back online');
       mount.querySelector('.offline-banner')?.classList.add('offline-banner--online');
       timer = setTimeout(() => { mount.innerHTML = ''; }, 2000);
+    }
+  });
+}
+
+/**
+ * Render the notification bell dropdown content for parents.
+ */
+export function renderBellDropdown({ pendingRequests = [], recentActivity = [], rewards = {}, people = [] }) {
+  const personName = (id) => {
+    const p = people.find(p => p.id === id);
+    return p ? esc(p.name) : 'Unknown';
+  };
+
+  let html = `<div class="bell-dropdown">
+    <div class="bell-dropdown__header">
+      <span class="bell-dropdown__title">Notifications</span>
+      <div class="bell-dropdown__actions">
+        <button class="btn btn--sm btn--ghost" id="bellSendMessage" type="button">Send Message</button>
+        <button class="btn btn--sm btn--ghost" id="bellBonusDay" type="button">🎉 Bonus Day</button>
+      </div>
+    </div>`;
+
+  if (pendingRequests.length === 0 && recentActivity.length === 0) {
+    html += `<div class="bell-dropdown__empty">No notifications</div>`;
+  }
+
+  for (const req of pendingRequests) {
+    const reward = rewards[req.rewardId] || {};
+    const archived = reward.status === 'archived' ? ' (Archived)' : '';
+    html += `<div class="bell-dropdown__item bell-dropdown__item--pending" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}">
+      <span class="bell-dropdown__icon">${esc(reward.icon || '🎁')}</span>
+      <div class="bell-dropdown__body">
+        <div class="bell-dropdown__item-title">${personName(req.personId)} wants ${esc(reward.name || 'a reward')}${archived}</div>
+        <div class="bell-dropdown__item-subtitle">${Math.abs(req.amount)} pts &middot; Balance: ${req.balance} pts</div>
+        <div class="bell-dropdown__item-actions">
+          <button class="btn btn--sm btn--primary bell-approve" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}" type="button">Approve</button>
+          <button class="btn btn--sm btn--ghost bell-deny" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}" type="button">Deny</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  for (const item of recentActivity.slice(0, 20)) {
+    const icon = item.type === 'bonus' ? '➕' :
+                 item.type === 'deduction' ? '➖' :
+                 item.type === 'redemption-approved' ? '✅' :
+                 item.type === 'redemption-denied' ? '❌' : '📋';
+    html += `<div class="bell-dropdown__item">
+      <span class="bell-dropdown__icon">${icon}</span>
+      <div class="bell-dropdown__body">
+        <div class="bell-dropdown__item-title">${esc(item.title)}</div>
+        <div class="bell-dropdown__item-subtitle">${personName(item.personId)} &middot; ${item.amount > 0 ? '+' : ''}${item.amount} pts</div>
+      </div>
+    </div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+/**
+ * Initialize the notification bell on any page.
+ * Sets up real-time listener and dropdown toggle.
+ */
+export function initBell(getPeople, getRewards, onAllMessagesFn, options = {}) {
+  let bellMessages = {};
+
+  function closeBellDropdown() {
+    document.querySelector('.bell-overlay')?.remove();
+    document.querySelector('.bell-dropdown')?.remove();
+  }
+
+  onAllMessagesFn((allMsgs) => {
+    bellMessages = allMsgs || {};
+    let count = 0;
+    for (const [pid, msgs] of Object.entries(bellMessages)) {
+      if (!msgs) continue;
+      for (const msg of Object.values(msgs)) {
+        if (msg.type === 'redemption-request' && !msg.seen) count++;
+      }
+    }
+    const bell = document.getElementById('headerBell');
+    if (!bell) return;
+    const badge = bell.querySelector('.bell__badge');
+    if (count > 0) {
+      if (badge) { badge.textContent = count > 99 ? '99+' : count; }
+      else { bell.insertAdjacentHTML('beforeend', `<span class="bell__badge">${count > 99 ? '99+' : count}</span>`); }
+    } else if (badge) {
+      badge.remove();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    const bellBtn = e.target.closest('#headerBell');
+    if (bellBtn) {
+      e.stopPropagation();
+      const existing = document.querySelector('.bell-overlay');
+      if (existing) {
+        closeBellDropdown();
+        return;
+      }
+
+      const people = getPeople();
+      const pendingRequests = [];
+      const recentActivity = [];
+
+      for (const [pid, msgs] of Object.entries(bellMessages)) {
+        if (!msgs) continue;
+        for (const [msgId, msg] of Object.entries(msgs)) {
+          if (msg.type === 'redemption-request' && !msg.seen) {
+            pendingRequests.push({ ...msg, id: msgId, personId: pid, balance: '\u2014' });
+          } else if (msg.type !== 'redemption-request') {
+            recentActivity.push({ ...msg, id: msgId, personId: pid });
+          }
+        }
+      }
+      recentActivity.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      const headerRight = document.querySelector('.header__right');
+      if (!headerRight) return;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'bell-overlay';
+      overlay.addEventListener('click', closeBellDropdown);
+      document.body.appendChild(overlay);
+
+      headerRight.style.position = 'relative';
+      headerRight.insertAdjacentHTML('beforeend', renderBellDropdown({
+        pendingRequests,
+        recentActivity,
+        rewards: getRewards(),
+        people
+      }));
+      return;
+    }
+
+    if (!e.target.closest('.bell-dropdown') && !e.target.closest('#headerBell')) {
+      closeBellDropdown();
     }
   });
 }

@@ -38,8 +38,8 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, onConnectionChange, writePerson } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, onConnectionChange, writePerson, onAllMessages } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -93,7 +93,8 @@
       dateLine: formatDateLong(today),
       showAdmin: true,
       showDebug: debugActive,
-      showThemePicker: true
+      showThemePicker: true,
+      showBell: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('scoreboard');
 
@@ -103,6 +104,7 @@
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);
+    initBell(() => people, () => ({}), onAllMessages);
 
     // ── Helpers ──
 
