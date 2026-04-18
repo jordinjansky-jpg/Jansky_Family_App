@@ -1502,7 +1502,7 @@
 
         let undoTimer = null;
 
-        async function toggleTask(entryKey, dateKey) {
+        async function toggleTask(entryKey, dateKey, { noPenalty = false } = {}) {
           if (!entryKey) return;
           const wasComplete = isComplete(entryKey, completions);
 
@@ -1530,7 +1530,7 @@
             pendingSliderOverride = null;
             // Late completion: apply penalty if completing a past-date task with no prior override
             const entryDateKey = dateKey || viewDate;
-            if (entryDateKey < today && record.pointsOverride == null) {
+            if (!noPenalty && entryDateKey < today && record.pointsOverride == null) {
               const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
               const task = entry ? tasks[entry.taskId] : null;
               const cat = task?.category ? cats[task.category] : null;
@@ -1954,13 +1954,20 @@
             </div>`;
           }
 
-          // Complete/uncomplete button
+          // Complete/uncomplete button(s)
           const isPastDate = entry.dateKey && entry.dateKey < today;
           const isLateEligible = isPastDate && !completed && !cat?.isEvent && !task.exempt;
           const isPinLocked = !completed && !isLateEligible && isTaskPinProtected(entryKey);
-          const toggleLabel = completed ? 'Mark Incomplete' : (isLateEligible ? 'Complete (Late)' : (isPinLocked ? '🔒 Mark Complete' : 'Mark Complete'));
-          const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
-          html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+          if (isLateEligible) {
+            html += `<div class="task-detail__late-buttons mt-md">
+              <button class="btn btn--primary btn--full" id="sheetCompleteNoPenalty" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Complete (Full Credit)</button>
+              <button class="btn btn--secondary btn--full" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Complete (Late)</button>
+            </div>`;
+          } else {
+            const toggleLabel = completed ? 'Mark Incomplete' : (isPinLocked ? '🔒 Mark Complete' : 'Mark Complete');
+            const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
+            html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+          }
 
           // Action buttons row (conditional)
           const showDelegate = ks.canDelegate;
@@ -2049,6 +2056,12 @@
           document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
             await closeTaskSheet();
             await toggleTask(entryKey, dateKey);
+          });
+
+          // Complete without penalty (full credit for late task)
+          document.getElementById('sheetCompleteNoPenalty')?.addEventListener('click', async () => {
+            await closeTaskSheet();
+            await toggleTask(entryKey, dateKey, { noPenalty: true });
           });
 
           // Points slider — stores pending override, saved on sheet close or toggle-complete

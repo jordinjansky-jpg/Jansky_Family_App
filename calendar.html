@@ -446,7 +446,7 @@
     // Completion toggle
     // ══════════════════════════════════════════
 
-    async function toggleTask(entryKey, dateKey) {
+    async function toggleTask(entryKey, dateKey, { noPenalty = false } = {}) {
       if (!entryKey) return;
       const wasComplete = isComplete(entryKey, completions);
 
@@ -477,7 +477,7 @@
         }
         pendingSliderOverride = null;
 
-        if (dateKey < today && record.pointsOverride == null) {
+        if (!noPenalty && dateKey < today && record.pointsOverride == null) {
           const entry = (allSchedule[dateKey] || {})[entryKey];
           const task = entry ? tasks[entry.taskId] : null;
           const cat = task?.category ? cats[task.category] : null;
@@ -815,6 +815,12 @@
       document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
         await closeTaskSheet();
         await toggleTask(entryKey, dateKey);
+      });
+
+      // Complete without penalty (full credit for late task)
+      document.getElementById('sheetCompleteNoPenalty')?.addEventListener('click', async () => {
+        await closeTaskSheet();
+        await toggleTask(entryKey, dateKey, { noPenalty: true });
       });
 
       // Notes inline editing

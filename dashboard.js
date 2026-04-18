@@ -516,7 +516,7 @@ main.addEventListener('touchend', (e) => {
 
 let undoTimer = null;
 
-async function toggleTask(entryKey, dateKey) {
+async function toggleTask(entryKey, dateKey, { noPenalty = false } = {}) {
   if (!entryKey) return;
   const wasComplete = isComplete(entryKey, completions);
 
@@ -541,7 +541,7 @@ async function toggleTask(entryKey, dateKey) {
 
     // Late completion: apply penalty if completing a past-date task with no prior override
     const entryDateKey = dateKey || viewDate;
-    if (entryDateKey < today && record.pointsOverride == null) {
+    if (!noPenalty && entryDateKey < today && record.pointsOverride == null) {
       const entry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
       const task = entry ? tasks[entry.taskId] : null;
       const cat = task?.category ? cats[task.category] : null;
@@ -970,6 +970,12 @@ function bindTaskSheetEvents(entryKey, dateKey) {
   document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
     await closeTaskSheet();
     await toggleTask(entryKey, dateKey);
+  });
+
+  // Complete without penalty (full credit for late task)
+  document.getElementById('sheetCompleteNoPenalty')?.addEventListener('click', async () => {
+    await closeTaskSheet();
+    await toggleTask(entryKey, dateKey, { noPenalty: true });
   });
 
   // Points slider — stores pending override, saved on sheet close or toggle-complete

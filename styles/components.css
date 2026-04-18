@@ -1138,6 +1138,14 @@
   margin-top: 0.25rem;
 }
 
+.task-detail__late-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+.task-detail__late-buttons .btn {
+  flex: 1;
+}
+
 .task-detail__notes-editor {
   display: flex;
   flex-direction: column;

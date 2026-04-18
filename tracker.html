@@ -676,6 +676,12 @@
         await toggleCompletion(entryKey, dateKey);
       });
 
+      // Complete without penalty (full credit for late task)
+      document.getElementById('sheetCompleteNoPenalty')?.addEventListener('click', async () => {
+        await closeTaskSheet();
+        await toggleCompletion(entryKey, dateKey);
+      });
+
       // Points slider — stores pending override, saved on sheet close or toggle-complete
       const slider = document.getElementById('pointsSlider');
       if (slider) {

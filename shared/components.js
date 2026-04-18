@@ -642,11 +642,18 @@ export function renderTaskDetailSheet(options) {
     }
   }
 
-  // Complete/uncomplete button
+  // Complete/uncomplete button(s)
   const isLateEligible = isPastDate && !completed && !isEvent && !task.exempt;
-  const toggleLabel = completed ? 'Mark Incomplete' : (isLateEligible ? 'Complete (Late)' : 'Mark Complete');
-  const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
-  html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+  if (isLateEligible) {
+    html += `<div class="task-detail__late-buttons mt-md">
+      <button class="btn btn--primary btn--full" id="sheetCompleteNoPenalty" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Complete (Full Credit)</button>
+      <button class="btn btn--secondary btn--full" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Complete (Late)</button>
+    </div>`;
+  } else {
+    const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
+    const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
+    html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+  }
 
   // Action buttons row: Delegate, Move, Edit
   const hasActions = showDelegate || showMove || showEdit;
