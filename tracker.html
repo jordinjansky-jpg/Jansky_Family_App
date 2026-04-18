@@ -153,15 +153,8 @@
     function entryStatus(entryKey, dateKey) {
       const completion = comps[entryKey];
       if (completion) {
-        // Done: completed. "Late" if completed after the scheduled date.
-        // Compare using timezone-aware date to avoid UTC offset misclassification.
-        if (completion.completedAt) {
-          const completedDateKey = new Intl.DateTimeFormat('en-CA', {
-            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
-          }).format(new Date(completion.completedAt));
-          return completedDateKey > dateKey ? 'late' : 'done';
-        }
-        return 'done';
+        // Done: completed. "Late" only if isLate flag was set at completion time.
+        return completion.isLate ? 'late' : 'done';
       }
       // Not completed
       return dateKey < today ? 'overdue' : 'upcoming';
