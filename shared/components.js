@@ -1101,11 +1101,161 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
   return html;
 }
 
+const POSITIVE_TEMPLATES = [
+  'Awesome Job!', 'Super Star', 'Great Teamwork', 'Above & Beyond',
+  'So Proud of You', 'Way to Go!', 'Amazing Effort', 'Kindness Award',
+  'Helping Hand', 'You Crushed It!', 'Keep It Up!', 'Big Improvement'
+];
+
+const NEGATIVE_TEMPLATES = [
+  'Room Check', 'Reminder Needed', "Let's Do Better", 'Responsibility Check',
+  'Try Again Tomorrow', 'Needs Attention', 'Not Your Best', 'We Talked About This'
+];
+
+/**
+ * Render the send message bottom sheet.
+ */
+export function renderSendMessageSheet(people, preselectedPersonId = null) {
+  return renderBottomSheet(`
+    <h3 style="margin-bottom: 12px;">Send Message</h3>
+
+    <label class="form-label">To</label>
+    <div class="chip-group" id="msg_people">
+      ${people.map(p => {
+        const selected = p.id === preselectedPersonId;
+        return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+      }).join('')}
+    </div>
+
+    <label class="form-label" style="margin-top: 12px;">Type</label>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn--bonus msg-type-btn msg-type-btn--active" data-type="bonus" type="button" style="flex:1;">+ Bonus</button>
+      <button class="btn btn--deduction msg-type-btn" data-type="deduction" type="button" style="flex:1;">&#8722; Deduction</button>
+    </div>
+
+    <label class="form-label" style="margin-top: 12px;">Title</label>
+    <div class="template-grid" id="msg_templates">
+      ${POSITIVE_TEMPLATES.map(t => `<button class="template-chip" data-title="${esc(t)}" type="button">${esc(t)}</button>`).join('')}
+      <button class="template-chip template-chip--custom" data-title="custom" type="button">Custom...</button>
+    </div>
+    <input type="text" id="msg_customTitle" class="form-input" style="display:none; margin-top: 8px;" placeholder="Enter custom title">
+
+    <label class="form-label" style="margin-top: 12px;">Personal note (optional)</label>
+    <textarea id="msg_body" class="form-input" rows="2" placeholder="Great job helping your sister!"></textarea>
+
+    <label class="form-label" style="margin-top: 12px;">Points</label>
+    <input type="number" id="msg_points" class="form-input" value="25" min="1">
+
+    <div style="margin-top: 16px; display: flex; gap: 8px;">
+      <button class="btn btn--primary" id="msg_send" type="button" style="flex:1;">Send</button>
+      <button class="btn btn--ghost" id="msg_cancel" type="button">Cancel</button>
+    </div>
+  `);
+}
+
+/**
+ * Bind event listeners for the send message sheet.
+ */
+export function bindSendMessageSheet(mount, writeMessageFn) {
+  const sheet = mount.querySelector('.bottom-sheet');
+  if (!sheet) return;
+
+  let msgType = 'bonus';
+  let selectedTitle = '';
+
+  // Person chips
+  for (const chip of sheet.querySelectorAll('#msg_people .chip--selectable')) {
+    chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
+  }
+
+  // Type toggle
+  for (const btn of sheet.querySelectorAll('.msg-type-btn')) {
+    btn.addEventListener('click', () => {
+      sheet.querySelectorAll('.msg-type-btn').forEach(b => b.classList.remove('msg-type-btn--active'));
+      btn.classList.add('msg-type-btn--active');
+      msgType = btn.dataset.type;
+
+      // Swap templates
+      const grid = sheet.querySelector('#msg_templates');
+      const templates = msgType === 'bonus' ? POSITIVE_TEMPLATES : NEGATIVE_TEMPLATES;
+      grid.innerHTML = templates.map(t =>
+        `<button class="template-chip" data-title="${esc(t)}" type="button">${esc(t)}</button>`
+      ).join('') + `<button class="template-chip template-chip--custom" data-title="custom" type="button">Custom...</button>`;
+      bindTemplateChips(sheet);
+
+      // Update defaults
+      sheet.querySelector('#msg_points').value = msgType === 'bonus' ? 25 : 15;
+      selectedTitle = '';
+    });
+  }
+
+  function bindTemplateChips(container) {
+    for (const chip of container.querySelectorAll('.template-chip')) {
+      chip.addEventListener('click', () => {
+        container.querySelectorAll('.template-chip').forEach(c => c.classList.remove('template-chip--selected'));
+        chip.classList.add('template-chip--selected');
+        const customInput = container.querySelector('#msg_customTitle');
+        if (chip.dataset.title === 'custom') {
+          customInput.style.display = '';
+          customInput.focus();
+          selectedTitle = '';
+        } else {
+          customInput.style.display = 'none';
+          selectedTitle = chip.dataset.title;
+        }
+      });
+    }
+  }
+  bindTemplateChips(sheet);
+
+  // Cancel
+  sheet.querySelector('#msg_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+    if (e.target === mount.querySelector('.bottom-sheet-overlay')) mount.innerHTML = '';
+  });
+
+  // Send
+  sheet.querySelector('#msg_send')?.addEventListener('click', async () => {
+    const personIds = [...sheet.querySelectorAll('#msg_people .chip--active')].map(c => c.dataset.personId);
+    if (personIds.length === 0) return;
+
+    const title = selectedTitle || sheet.querySelector('#msg_customTitle').value.trim();
+    if (!title) return;
+
+    const points = parseInt(sheet.querySelector('#msg_points').value) || 0;
+    if (points <= 0) return;
+
+    const body = sheet.querySelector('#msg_body').value.trim() || null;
+    const amount = msgType === 'deduction' ? -points : points;
+
+    for (const pid of personIds) {
+      await writeMessageFn(pid, {
+        type: msgType,
+        title,
+        body,
+        amount,
+        rewardId: null,
+        entryKey: null,
+        seen: false,
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        createdBy: 'parent'
+      });
+    }
+
+    mount.innerHTML = '';
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = `${msgType === 'bonus' ? 'Bonus' : 'Deduction'} sent!`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  });
+}
+
 /**
  * Initialize the notification bell on any page.
  * Sets up real-time listener and dropdown toggle.
  */
-export function initBell(getPeople, getRewards, onAllMessagesFn, options = {}) {
+export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, writeBankTokenFn } = {}) {
   let bellMessages = {};
 
   function closeBellDropdown() {
@@ -1174,6 +1324,94 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, options = {}) {
         rewards: getRewards(),
         people
       }));
+
+      // Wire "Send Message" button
+      document.getElementById('bellSendMessage')?.addEventListener('click', () => {
+        closeBellDropdown();
+        const mount = document.getElementById('taskSheetMount') || document.getElementById('drilldownMount');
+        if (!mount) return;
+        mount.innerHTML = renderSendMessageSheet(getPeople());
+        bindSendMessageSheet(mount, writeMessageFn);
+      });
+
+      // Wire approve/deny buttons
+      for (const btn of document.querySelectorAll('.bell-approve')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const personId = btn.dataset.personId;
+          const msgId = btn.dataset.msgId;
+          const msg = bellMessages[personId]?.[msgId];
+          if (!msg) return;
+
+          await markMessageSeenFn(personId, msgId);
+
+          const reward = getRewards()[msg.rewardId] || {};
+          await writeMessageFn(personId, {
+            type: 'redemption-approved',
+            title: `${reward.name || 'Reward'} approved!`,
+            body: null,
+            amount: 0,
+            rewardId: msg.rewardId,
+            entryKey: null,
+            seen: false,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            createdBy: 'parent'
+          });
+
+          if (reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal') {
+            await writeBankTokenFn(personId, {
+              rewardType: reward.rewardType,
+              acquiredAt: Date.now(),
+              used: false,
+              usedAt: null,
+              targetEntryKey: null
+            });
+          }
+
+          closeBellDropdown();
+        });
+      }
+
+      for (const btn of document.querySelectorAll('.bell-deny')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const personId = btn.dataset.personId;
+          const msgId = btn.dataset.msgId;
+          const msg = bellMessages[personId]?.[msgId];
+          if (!msg) return;
+
+          await markMessageSeenFn(personId, msgId);
+
+          const reward = getRewards()[msg.rewardId] || {};
+          await writeMessageFn(personId, {
+            type: 'redemption-denied',
+            title: `${reward.name || 'Reward'} denied`,
+            body: null,
+            amount: 0,
+            rewardId: msg.rewardId,
+            entryKey: null,
+            seen: false,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            createdBy: 'parent'
+          });
+
+          // Refund points
+          await writeMessageFn(personId, {
+            type: 'bonus',
+            title: `Refund: ${reward.name || 'Reward'}`,
+            body: null,
+            amount: Math.abs(msg.amount),
+            rewardId: null,
+            entryKey: null,
+            seen: true,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            createdBy: 'system'
+          });
+
+          closeBellDropdown();
+        });
+      }
+
       return;
     }
 
