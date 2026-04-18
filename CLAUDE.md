@@ -97,7 +97,7 @@ rundown/
 ├── rewards/
 │   └── {pushId}      ← { name, icon, pointCost, rewardType, perPerson?, maxRedemptions?,
 │                         streakRequirement?, expiresAt?, status: 'active'|'archived' }
-│                       rewardType: 'standard' | 'task-skip' | 'penalty-removal'
+│                       rewardType: 'custom' | 'task-skip' | 'penalty-removal'
 ├── messages/
 │   └── {personId}/
 │       └── {pushId}  ← { type, title, body?, amount, rewardId?, entryKey?, seen, createdAt, createdBy }
@@ -172,6 +172,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Rewards Store polish: Bounties section in kid store, animated balance count-up, "Skipped" badge on task cards, achievements re-check on task completion, admin achievements view, redemption history in admin, balance trend sparkline on scoreboard
 - Rewards Store (1.2): Points economy (100 pts/day), parent-defined rewards, bonus/deduction messages, notification bell on all pages, functional rewards (task skip, penalty removal), bounty tasks, 13 achievement badges, bonus multiplier days, balance on scoreboard, admin balance management
 - Calendar mobile week view: days reorder like dashboard (today first, future next, past at bottom via CSS `order`), "Today" tag pill, past days faded, dead auto-scroll code removed
 - Calendar overhaul (1.1): three-view calendar (month/week/day), first-class events with quick-add, time-grid day view, swipe navigation, person filters, `calendar-views.js` shared module
@@ -271,7 +272,7 @@ rundown/lists/{listId}/items/{id}   ← { name, checked, category?, addedBy?, ad
 
 **2.1 — Push Notifications** · High (~2-3 sessions) · Depends on 1.1 · Cost: $0 (FCM is free unlimited; Cloudflare Workers free tier is 100K req/day)
 
-Daily reminders, upcoming event alerts (15/30/60 min before), task nudges. Requires FCM (Firebase Cloud Messaging) + Cloudflare Worker for server-side scheduling. Per-person notification preferences (what types, quiet hours). This is the feature that enables "replace Google Calendar" — without buzzing your phone before the dentist appointment, people will keep Google Calendar alongside this app. See notifications uplift assessment from 2026-04-03.
+Daily reminders, upcoming event alerts (15/30/60 min before), task nudges. Requires FCM (Firebase Cloud Messaging) + Cloudflare Worker for server-side scheduling. Per-person notification preferences (what types, quiet hours). Include in-app notification sound/vibration for the notification bell (achievement unlocks, reward approvals, bounty grants) using Web Audio API or `navigator.vibrate()`. This is the feature that enables "replace Google Calendar" — without buzzing your phone before the dentist appointment, people will keep Google Calendar alongside this app. See notifications uplift assessment from 2026-04-03.
 
 ---
 

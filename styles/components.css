@@ -849,6 +849,11 @@
   background: var(--warning-bg);
   color: var(--warning-text);
 }
+.task-card__tag--skipped {
+  background: var(--surface-alt, var(--surface));
+  color: var(--text-secondary);
+  font-style: italic;
+}
 .task-card__bounty {
   background: var(--accent-warning, #ecc94b);
   color: #000;

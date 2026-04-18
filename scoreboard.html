@@ -386,6 +386,50 @@
       }
       html += `</div>`;
 
+      // ── Balance Trends (last 7 days) ──
+      html += `<div class="sb-section-label">Balance Trends</div>`;
+      html += `<div class="sb-trends">`;
+      for (const b of board) {
+        const personMsgs = allMessages?.[b.person.id] || {};
+        const personAnchor = allAnchors?.[b.person.id] || null;
+        // Compute balance at end of each of last 7 days by filtering snapshots
+        const balanceDays = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = addDays(today, -i);
+          // Build filtered snapshots up to date d
+          const filteredSnaps = {};
+          if (allSnapshots) {
+            for (const [dk, ppl] of Object.entries(allSnapshots)) {
+              if (dk <= d) filteredSnaps[dk] = ppl;
+            }
+          }
+          // Filter messages up to date d (approximate by midnight)
+          const dEnd = new Date(d + 'T23:59:59Z').getTime();
+          const filteredMsgs = {};
+          for (const [mk, m] of Object.entries(personMsgs)) {
+            if (m.createdAt && m.createdAt <= dEnd) filteredMsgs[mk] = m;
+          }
+          const { balance: bal } = calculateBalance(b.person.id, filteredSnaps, filteredMsgs, personAnchor, allMultipliers);
+          balanceDays.push({ date: d, balance: bal });
+        }
+        const maxBal = Math.max(...balanceDays.map(d => Math.abs(d.balance)), 1);
+        html += `<div class="sb-trend-row">
+          <span class="sb-trend-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
+          <div class="sb-sparkline">`;
+        for (let i = 0; i < balanceDays.length; i++) {
+          const bd = balanceDays[i];
+          const pct = Math.round(Math.abs(bd.balance) / maxBal * 100);
+          const label = i === 6 ? 'Today' : formatDateShort(bd.date);
+          html += `<div class="sb-spark-bar" title="${label}: ${bd.balance.toLocaleString()} pts">
+            <div class="sb-spark-fill sb-spark-fill--${bd.balance >= 0 ? 'a' : 'f'}" style="height:${Math.max(pct, 4)}%"></div>
+          </div>`;
+        }
+        html += `</div>
+          <span class="sb-balance-label" style="font-size: var(--font-size-sm); color: var(--text-secondary); min-width: 50px; text-align: right;">${balanceDays[6].balance.toLocaleString()}</span>
+        </div>`;
+      }
+      html += `</div>`;
+
       // ── Streaks ──
       html += `<div class="sb-section-label">Streaks</div>`;
       html += `<div class="sb-streaks">`;

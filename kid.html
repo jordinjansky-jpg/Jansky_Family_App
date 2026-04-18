@@ -135,6 +135,7 @@
 
         // Calculate balance
         let { balance, totalEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers);
+        let prevBalance = balance;
 
         // ── Check for new achievements ──
         const kidStreak = (await readStreaks(kid.id)) || { current: 0, best: 0 };
@@ -171,6 +172,42 @@
         for (const key of newAchievements) {
           await writeAchievement(kid.id, key, { unlockedAt: Date.now(), seen: false });
           achievements[key] = { unlockedAt: Date.now(), seen: false };
+        }
+
+        // ── Re-check achievements after events (task completion, bounty, redemption) ──
+        async function recheckAchievements() {
+          const freshStreak = (await readStreaks(kid.id)) || { current: 0, best: 0 };
+          streakData = freshStreak;
+          const freshMessages = (await readMessages(kid.id)) || {};
+          messages = freshMessages;
+          const { balance: freshBal, totalEarned: freshTotal } = calculateBalance(kid.id, allSnapshots, freshMessages, anchor, multipliers);
+          balance = freshBal;
+          const freshHasRedeemed = Object.values(freshMessages).some(m => m.type === 'redemption-approved');
+          const freshSched = (await readOnce(`schedule/${today}`)) || {};
+          const freshKidEntries = {};
+          for (const [k, e] of Object.entries(freshSched)) {
+            if (e.ownerId === kid.id) freshKidEntries[k] = e;
+          }
+          const freshComps = await readCompletions();
+          const freshScore = dailyScore(freshKidEntries, freshComps, tasks, cats, settings, today, today);
+          const freshWeek = periodGrade(allSnapshots, kid.id, weekS, weekE);
+          const freshMonth = periodGrade(allSnapshots, kid.id, monthS, monthE);
+
+          const newKeys = checkNewAchievements({
+            streak: freshStreak.current,
+            totalEarned: freshTotal,
+            existingAchievements: achievements,
+            weeklyGrade: freshWeek.grade,
+            monthlyGrade: freshMonth.grade,
+            dailyGrade: freshScore.grade || 'F',
+            hasRedeemed: freshHasRedeemed
+          });
+
+          for (const key of newKeys) {
+            await writeAchievement(kid.id, key, { unlockedAt: Date.now(), seen: false });
+            achievements[key] = { unlockedAt: Date.now(), seen: false };
+          }
+          if (newKeys.length > 0) showUnseenAchievements();
         }
 
         // ── Emoji helper for pre-readers ──
@@ -500,6 +537,19 @@
           return html;
         }
 
+        function animateBalance(el, from, to) {
+          if (from === to || !el) return;
+          const duration = 600;
+          const start = performance.now();
+          const step = (now) => {
+            const t = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+            el.textContent = Math.round(from + (to - from) * eased).toLocaleString();
+            if (t < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        }
+
         function render() {
           // Filter out event schedule entries and future cooldown-suppressed tasks
           let displayEntries = {};
@@ -794,6 +844,13 @@
 
           main.innerHTML = html;
 
+          // Animate balance count-up if changed
+          if (prevBalance !== balance) {
+            const balEl = main.querySelector('.kid-balance__amount');
+            animateBalance(balEl, prevBalance, balance);
+            prevBalance = balance;
+          }
+
           // Add lock icon to pin-protected task cards
           main.querySelectorAll('.task-card').forEach(card => {
             const ek = card.dataset.entryKey;
@@ -918,6 +975,33 @@
               .map(([msgId, m]) => ({ msgId, reward: rewards[m.rewardId] || {}, amount: Math.abs(m.amount) }));
 
             let storeHtml = `<div class="store-header"><span class="store-balance">💰 ${balance.toLocaleString()} pts</span></div>`;
+
+            // Bounty tasks section — show available bounties the kid can earn today
+            const bountyTasks = Object.entries(viewEntries)
+              .filter(([key, entry]) => {
+                if (entry.ownerId !== kid.id) return false;
+                if (completions[key]) return false;
+                const t = tasks[entry.taskId];
+                return t?.bounty;
+              })
+              .map(([key, entry]) => ({ entryKey: key, entry, task: tasks[entry.taskId] }));
+
+            if (bountyTasks.length > 0) {
+              storeHtml += `<div class="store-bounties"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;">🎯 Earn Extra</h4>`;
+              for (const bt of bountyTasks) {
+                const bountyValue = bt.task.bounty.type === 'points'
+                  ? `+${bt.task.bounty.amount} pts`
+                  : `🎁 ${rewards[bt.task.bounty.rewardId]?.name || 'Reward'}`;
+                storeHtml += `<div class="store-card store-card--bounty" style="border-color: var(--accent-success, #48bb78);">
+                  <div class="store-card__icon">🎯</div>
+                  <div class="store-card__body">
+                    <div class="store-card__name">${esc(bt.task.name)}</div>
+                    <div class="store-card__cost" style="color: var(--accent-success, #48bb78);">${bountyValue}</div>
+                  </div>
+                </div>`;
+              }
+              storeHtml += `</div>`;
+            }
 
             if (pendingRequests.length > 0) {
               storeHtml += `<div class="store-pending"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;">Pending Requests</h4>`;
@@ -1130,7 +1214,7 @@
                 const token = Object.entries(bank).find(([, t]) => t.rewardType === 'task-skip' && !t.used);
                 if (!token) return;
 
-                await updateData(`schedule/${viewDate}/${skipEntryKey}`, { exempt: true });
+                await updateData(`schedule/${viewDate}/${skipEntryKey}`, { exempt: true, skipped: true });
                 await markBankTokenUsed(kid.id, token[0], skipEntryKey);
 
                 const skipEntry = viewEntries[skipEntryKey];
@@ -1388,6 +1472,9 @@
 
             // Per-task celebration
             triggerCelebration(entryKey, 'task');
+
+            // Re-check achievements after completion
+            recheckAchievements();
           }
 
           const doRenderAndToast = () => {

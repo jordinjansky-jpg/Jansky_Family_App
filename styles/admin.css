@@ -735,6 +735,41 @@
 
 .reward-card__actions { display: flex; gap: 4px; flex-shrink: 0; }
 
+/* ── Redemption History ── */
+.redemption-history { display: flex; flex-direction: column; gap: 4px; }
+.redemption-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: var(--font-size-sm);
+  background: var(--surface);
+  border-radius: var(--radius, 8px);
+}
+.redemption-row__status { flex-shrink: 0; }
+.redemption-row__person { font-weight: 600; min-width: 60px; }
+.redemption-row__reward { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.redemption-row__cost { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.redemption-row__date { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.redemption-row__label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); }
+
+/* ── Achievements Grid ── */
+.achievements-grid { display: flex; flex-direction: column; gap: 12px; }
+.achievement-person__header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.achievement-person__badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.achievement-badge {
+  font-size: 1.25rem;
+  padding: 4px;
+  border-radius: var(--radius, 8px);
+  opacity: 0.2;
+  filter: grayscale(1);
+  cursor: default;
+}
+.achievement-badge--unlocked {
+  opacity: 1;
+  filter: none;
+}
+
 /* ── Emoji Picker ── */
 .emoji-picker { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 

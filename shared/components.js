@@ -274,6 +274,10 @@ export function renderTaskCard(options) {
   if (isPastDaily && !completed) {
     actionTags += `<span class="task-card__tag task-card__tag--late">Late</span>`;
   }
+  // Skipped badge (task skip power-up used)
+  if (entry?.skipped) {
+    actionTags += `<span class="task-card__tag task-card__tag--skipped">⏭️ Skipped</span>`;
+  }
   // Bounty badge
   if (task?.bounty) {
     const bountyLabel = task.bounty.type === 'points' ? `${task.bounty.amount} pts` : 'Reward';
