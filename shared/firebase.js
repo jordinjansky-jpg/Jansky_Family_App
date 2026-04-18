@@ -402,3 +402,175 @@ export async function isFirstRun() {
   const settings = await readSettings();
   return settings === null;
 }
+
+// ── Rewards Store ──
+
+export async function readRewards() {
+  return readOnce('rewards');
+}
+
+export async function writeReward(rewardId, data) {
+  await writeData(`rewards/${rewardId}`, data);
+}
+
+export async function pushReward(data) {
+  return pushData('rewards', data);
+}
+
+export async function archiveReward(rewardId) {
+  await updateData(`rewards/${rewardId}`, { status: 'archived' });
+}
+
+// ── Messages ──
+
+export async function readMessages(personId) {
+  return readOnce(`messages/${personId}`);
+}
+
+export async function readAllMessages() {
+  return readOnce('messages');
+}
+
+export async function writeMessage(personId, data) {
+  return pushData(`messages/${personId}`, data);
+}
+
+export async function markMessageSeen(personId, msgId) {
+  await updateData(`messages/${personId}/${msgId}`, { seen: true });
+}
+
+export async function clearMessages(personId, beforeTimestamp) {
+  const msgs = await readOnce(`messages/${personId}`);
+  if (!msgs) return;
+  const updates = {};
+  for (const [id, msg] of Object.entries(msgs)) {
+    if (msg.createdAt && msg.createdAt < beforeTimestamp) {
+      updates[`messages/${personId}/${id}`] = null;
+    }
+  }
+  if (Object.keys(updates).length > 0) {
+    await multiUpdate(updates);
+  }
+}
+
+export function onMessages(personId, callback) {
+  return onValue(`messages/${personId}`, callback);
+}
+
+export function onAllMessages(callback) {
+  return onValue('messages', callback);
+}
+
+// ── Balance Anchors ──
+
+export async function readBalanceAnchor(personId) {
+  return readOnce(`balanceAnchors/${personId}`);
+}
+
+export async function readAllBalanceAnchors() {
+  return readOnce('balanceAnchors');
+}
+
+export async function writeBalanceAnchor(personId, data) {
+  await writeData(`balanceAnchors/${personId}`, data);
+}
+
+// ── Reward Bank (functional reward tokens) ──
+
+export async function readBank(personId) {
+  return readOnce(`bank/${personId}`);
+}
+
+export async function writeBankToken(personId, data) {
+  return pushData(`bank/${personId}`, data);
+}
+
+export async function markBankTokenUsed(personId, tokenId, entryKey) {
+  await updateData(`bank/${personId}/${tokenId}`, {
+    used: true,
+    usedAt: firebase.database.ServerValue.TIMESTAMP,
+    targetEntryKey: entryKey
+  });
+}
+
+export function onBank(personId, callback) {
+  return onValue(`bank/${personId}`, callback);
+}
+
+// ── Wishlist ──
+
+export async function readWishlist(personId) {
+  return readOnce(`wishlist/${personId}`);
+}
+
+export async function writeWishlistItem(personId, rewardId) {
+  await writeData(`wishlist/${personId}/${rewardId}`, {
+    addedAt: firebase.database.ServerValue.TIMESTAMP
+  });
+}
+
+export async function removeWishlistItem(personId, rewardId) {
+  await removeData(`wishlist/${personId}/${rewardId}`);
+}
+
+// ── Achievements ──
+
+export async function readAchievements(personId) {
+  return readOnce(`achievements/${personId}`);
+}
+
+export async function readAllAchievements() {
+  return readOnce('achievements');
+}
+
+export async function writeAchievement(personId, key, data) {
+  await writeData(`achievements/${personId}/${key}`, data);
+}
+
+export async function markAchievementSeen(personId, key) {
+  await updateData(`achievements/${personId}/${key}`, { seen: true });
+}
+
+// ── Bonus Multiplier Days ──
+
+export async function readMultipliers() {
+  return readOnce('multipliers');
+}
+
+export async function writeMultiplier(dateKey, personId, data) {
+  await writeData(`multipliers/${dateKey}/${personId}`, data);
+}
+
+// ── Person Rewards Data Cleanup ──
+
+export async function deletePersonRewardsData(personId) {
+  const updates = {};
+  updates[`messages/${personId}`] = null;
+  updates[`balanceAnchors/${personId}`] = null;
+  updates[`bank/${personId}`] = null;
+  updates[`wishlist/${personId}`] = null;
+  updates[`achievements/${personId}`] = null;
+
+  // Clean up multipliers referencing this person
+  const multipliers = await readOnce('multipliers');
+  if (multipliers) {
+    for (const [dateKey, people] of Object.entries(multipliers)) {
+      if (people[personId]) {
+        updates[`multipliers/${dateKey}/${personId}`] = null;
+      }
+    }
+  }
+
+  // Clean up perPerson arrays in rewards
+  const rewards = await readOnce('rewards');
+  if (rewards) {
+    for (const [rewardId, reward] of Object.entries(rewards)) {
+      if (Array.isArray(reward.perPerson) && reward.perPerson.includes(personId)) {
+        const filtered = reward.perPerson.filter(id => id !== personId);
+        updates[`rewards/${rewardId}/perPerson`] = filtered.length > 0 ? filtered : null;
+      }
+    }
+  }
+
+  await multiUpdate(updates);
+}
