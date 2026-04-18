@@ -419,26 +419,68 @@ export function gradeDisplay(pct) {
 // ── Rewards Balance ──
 
 /**
- * Achievement definitions — thresholds and metadata.
+ * Default achievement definitions — built-in, can be hidden but not deleted.
+ * condition: { stat, threshold } where stat is one of:
+ *   'streak', 'bestStreak', 'totalEarned', 'perfectDays', 'tasksCompleted',
+ *   'gradeDay', 'gradeWeek', 'gradeMonth', 'firstRedemption'
+ * conditionType: 'stat' (auto-trigger) | 'manual' (parent grants) | 'hybrid' (either)
  */
-export const ACHIEVEMENTS = {
-  'streak-7':    { icon: '🔥', label: '7-Day Streak', description: 'One full week!' },
-  'streak-14':   { icon: '🔥', label: '14-Day Streak', description: 'Two weeks strong!' },
-  'streak-30':   { icon: '🔥', label: '30-Day Streak', description: 'Monthly master!' },
-  'streak-60':   { icon: '🔥', label: '60-Day Streak', description: 'Unstoppable!' },
-  'streak-100':  { icon: '🔥', label: '100-Day Streak', description: 'Legendary!' },
-  'grade-a-plus-day':   { icon: '⭐', label: 'First A+ Day', description: 'Perfect day!' },
-  'grade-a-plus-week':  { icon: '⭐', label: 'First A+ Week', description: 'Perfect week!' },
-  'grade-a-plus-month': { icon: '⭐', label: 'First A+ Month', description: 'Perfect month!' },
-  'points-500':   { icon: '💰', label: '500 Points', description: 'Getting started!' },
-  'points-1000':  { icon: '💰', label: '1,000 Points', description: 'On a roll!' },
-  'points-5000':  { icon: '💰', label: '5,000 Points', description: 'Point machine!' },
-  'points-10000': { icon: '💰', label: '10,000 Points', description: 'Unstoppable earner!' },
-  'first-redemption': { icon: '🎁', label: 'First Redemption', description: 'First reward claimed!' }
+export const DEFAULT_ACHIEVEMENTS = {
+  'streak-7':    { icon: '🔥', label: '7-Day Streak', description: 'Complete all tasks for 7 days straight', conditionType: 'hybrid', condition: { stat: 'streak', threshold: 7 }, isDefault: true },
+  'streak-14':   { icon: '🔥', label: '14-Day Streak', description: 'Complete all tasks for 14 days straight', conditionType: 'hybrid', condition: { stat: 'streak', threshold: 14 }, isDefault: true },
+  'streak-30':   { icon: '🔥', label: '30-Day Streak', description: 'Complete all tasks for 30 days straight', conditionType: 'hybrid', condition: { stat: 'streak', threshold: 30 }, isDefault: true },
+  'streak-60':   { icon: '🔥', label: '60-Day Streak', description: 'Complete all tasks for 60 days straight', conditionType: 'hybrid', condition: { stat: 'streak', threshold: 60 }, isDefault: true },
+  'streak-100':  { icon: '🔥', label: '100-Day Streak', description: 'Complete all tasks for 100 days straight', conditionType: 'hybrid', condition: { stat: 'streak', threshold: 100 }, isDefault: true },
+  'grade-a-plus-day':   { icon: '⭐', label: 'Perfect Day', description: 'Score A+ on a single day', conditionType: 'hybrid', condition: { stat: 'gradeDay', threshold: 'A+' }, isDefault: true },
+  'grade-a-plus-week':  { icon: '⭐', label: 'Perfect Week', description: 'Score A+ for the whole week', conditionType: 'hybrid', condition: { stat: 'gradeWeek', threshold: 'A+' }, isDefault: true },
+  'grade-a-plus-month': { icon: '⭐', label: 'Perfect Month', description: 'Score A+ for the whole month', conditionType: 'hybrid', condition: { stat: 'gradeMonth', threshold: 'A+' }, isDefault: true },
+  'points-500':   { icon: '💰', label: '500 Points', description: 'Earn 500 total points', conditionType: 'hybrid', condition: { stat: 'totalEarned', threshold: 500 }, isDefault: true },
+  'points-1000':  { icon: '💰', label: '1,000 Points', description: 'Earn 1,000 total points', conditionType: 'hybrid', condition: { stat: 'totalEarned', threshold: 1000 }, isDefault: true },
+  'points-5000':  { icon: '💰', label: '5,000 Points', description: 'Earn 5,000 total points', conditionType: 'hybrid', condition: { stat: 'totalEarned', threshold: 5000 }, isDefault: true },
+  'points-10000': { icon: '💰', label: '10,000 Points', description: 'Earn 10,000 total points', conditionType: 'hybrid', condition: { stat: 'totalEarned', threshold: 10000 }, isDefault: true },
+  'first-redemption': { icon: '🎁', label: 'First Purchase', description: 'Redeem your first reward from the store', conditionType: 'hybrid', condition: { stat: 'firstRedemption', threshold: 1 }, isDefault: true }
 };
 
-const STREAK_THRESHOLDS = [7, 14, 30, 60, 100];
-const POINTS_THRESHOLDS = [500, 1000, 5000, 10000];
+/** @deprecated Use mergeAchievementDefs() instead. Kept for backward compatibility. */
+export const ACHIEVEMENTS = DEFAULT_ACHIEVEMENTS;
+
+/**
+ * Merge default achievements with custom definitions from Firebase.
+ * Custom defs can override defaults (e.g. hide them) or add new ones.
+ * @param {object|null} customDefs - from readAchievementDefs()
+ * @returns {object} merged { key: def }
+ */
+export function mergeAchievementDefs(customDefs) {
+  const merged = {};
+  // Start with defaults
+  for (const [key, def] of Object.entries(DEFAULT_ACHIEVEMENTS)) {
+    merged[key] = { ...def };
+  }
+  // Apply custom defs (overrides + new)
+  if (customDefs) {
+    for (const [key, def] of Object.entries(customDefs)) {
+      if (def === null) continue; // deleted
+      if (merged[key]) {
+        // Override default — keep isDefault flag
+        merged[key] = { ...merged[key], ...def };
+      } else {
+        merged[key] = { ...def };
+      }
+    }
+  }
+  return merged;
+}
+
+/**
+ * Get only active (non-hidden) achievements.
+ */
+export function getActiveAchievements(allDefs) {
+  const active = {};
+  for (const [key, def] of Object.entries(allDefs)) {
+    if (def.status !== 'hidden') active[key] = def;
+  }
+  return active;
+}
 
 /**
  * Calculate a person's spendable rewards balance.
@@ -489,54 +531,53 @@ export function calculateBalance(personId, allSnapshots, messages, anchor, multi
 
 /**
  * Check which achievements a person has newly earned.
- * Returns an array of achievement keys that should be unlocked.
+ * Supports both default and custom achievement definitions.
  *
- * @param {object} context - { streak, totalEarned, existingAchievements, weeklyGrade, monthlyGrade, dailyGrade, hasRedeemed }
+ * @param {object} context - { streak, bestStreak, totalEarned, tasksCompleted, perfectDays, existingAchievements, weeklyGrade, monthlyGrade, dailyGrade, hasRedeemed, personId, achievementDefs }
  * @returns {string[]} newly unlocked achievement keys
  */
 export function checkNewAchievements(context) {
   const {
     streak = 0,
+    bestStreak = 0,
     totalEarned = 0,
+    tasksCompleted = 0,
+    perfectDays = 0,
     existingAchievements = {},
     weeklyGrade = '--',
     monthlyGrade = '--',
     dailyGrade = '--',
-    hasRedeemed = false
+    hasRedeemed = false,
+    personId = null,
+    achievementDefs = null
   } = context;
 
+  const defs = achievementDefs || DEFAULT_ACHIEVEMENTS;
   const newKeys = [];
 
-  // Streak milestones
-  for (const threshold of STREAK_THRESHOLDS) {
-    const key = `streak-${threshold}`;
-    if (streak >= threshold && !existingAchievements[key]) {
-      newKeys.push(key);
+  for (const [key, def] of Object.entries(defs)) {
+    if (existingAchievements[key]) continue;
+    if (def.status === 'hidden') continue;
+    if (def.conditionType === 'manual') continue; // manual-only, never auto-fires
+    if (def.perPerson && personId && !def.perPerson.includes(personId)) continue;
+    if (!def.condition) continue;
+
+    const { stat, threshold } = def.condition;
+    let met = false;
+
+    switch (stat) {
+      case 'streak': met = streak >= threshold; break;
+      case 'bestStreak': met = Math.max(streak, bestStreak) >= threshold; break;
+      case 'totalEarned': met = totalEarned >= threshold; break;
+      case 'tasksCompleted': met = tasksCompleted >= threshold; break;
+      case 'perfectDays': met = perfectDays >= threshold; break;
+      case 'gradeDay': met = dailyGrade === threshold; break;
+      case 'gradeWeek': met = weeklyGrade === threshold; break;
+      case 'gradeMonth': met = monthlyGrade === threshold; break;
+      case 'firstRedemption': met = hasRedeemed; break;
     }
-  }
 
-  // Grade milestones
-  if (dailyGrade === 'A+' && !existingAchievements['grade-a-plus-day']) {
-    newKeys.push('grade-a-plus-day');
-  }
-  if (weeklyGrade === 'A+' && !existingAchievements['grade-a-plus-week']) {
-    newKeys.push('grade-a-plus-week');
-  }
-  if (monthlyGrade === 'A+' && !existingAchievements['grade-a-plus-month']) {
-    newKeys.push('grade-a-plus-month');
-  }
-
-  // Points milestones
-  for (const threshold of POINTS_THRESHOLDS) {
-    const key = `points-${threshold}`;
-    if (totalEarned >= threshold && !existingAchievements[key]) {
-      newKeys.push(key);
-    }
-  }
-
-  // First redemption
-  if (hasRedeemed && !existingAchievements['first-redemption']) {
-    newKeys.push('first-redemption');
+    if (met) newKeys.push(key);
   }
 
   return newKeys;

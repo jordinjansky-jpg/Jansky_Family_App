@@ -66,7 +66,8 @@
       multiUpdate, pushDebugEvent, factoryReset, onConnectionChange,
       readRewards, pushReward, writeReward, archiveReward,
       readMessages, readAllMessages, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
-      readAllAchievements
+      readAllAchievements, writeAchievement, deleteAchievement,
+      readAchievementDefs, writeAchievementDef, deleteAchievementDef
     } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
@@ -74,7 +75,7 @@
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
-    import { basePoints, calculateBalance, ACHIEVEMENTS } from './shared/scoring.js';
+    import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
 
     // ── Undo toast helper ──
     let undoTimer = null;
@@ -183,6 +184,7 @@
     let rewardsObj = (await readRewards()) || {};
     let allAchievements = (await readAllAchievements()) || {};
     let allMessagesObj = (await readAllMessages()) || {};
+    let achievementDefsObj = (await readAchievementDefs()) || {};
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -263,6 +265,7 @@
       { id: 'people', icon: '👥', label: 'People' },
       { id: 'categories', icon: '📂', label: 'Categories' },
       { id: 'rewards', icon: '🎁', label: 'Rewards' },
+      { id: 'achievements', icon: '🏆', label: 'Badges' },
       { id: 'settings', icon: '⚙️', label: 'Settings' },
       { id: 'theme', icon: '🎨', label: 'Theme' },
       { id: 'schedule', icon: '📅', label: 'Schedule' },
@@ -304,6 +307,7 @@
         case 'people': html += renderPeopleTab(); break;
         case 'categories': html += renderCategoriesTab(); break;
         case 'rewards': html += renderRewardsTab(); break;
+        case 'achievements': html += renderAchievementsTab(); break;
         case 'settings': html += renderSettingsTab(); break;
         case 'theme': html += renderThemeTab(); break;
         case 'schedule': html += renderScheduleTab(); break;
@@ -326,6 +330,10 @@
           if (activeTab === 'rewards') {
             allAchievements = (await readAllAchievements()) || {};
             allMessagesObj = (await readAllMessages()) || {};
+          }
+          if (activeTab === 'achievements') {
+            allAchievements = (await readAllAchievements()) || {};
+            achievementDefsObj = (await readAchievementDefs()) || {};
           }
           render();
         });
@@ -1370,7 +1378,11 @@
           <button class="btn btn--sm btn--primary" id="addRewardBtn" type="button">+ Add Reward</button>
         </div>`;
 
-      if (rewards.length === 0) {
+      if (editingRewardId === 'new') {
+        html += `<div class="admin-form-overlay">${renderRewardForm(null)}</div>`;
+      }
+
+      if (rewards.length === 0 && editingRewardId !== 'new') {
         html += `<div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-secondary);">
           <div style="font-size: 2rem; margin-bottom: 8px;">🎁</div>
           <p>No rewards yet. Add one to get started!</p>
@@ -1388,7 +1400,8 @@
             ? reward.perPerson.map(pid => esc(peopleObj[pid]?.name || '?')).join(', ')
             : 'Everyone';
 
-          html += `<div class="reward-card" data-reward-id="${id}">
+          const isEditingReward = editingRewardId === id;
+          html += `<div class="reward-card${isEditingReward ? ' admin-list-item--editing' : ''}" data-reward-id="${id}" style="cursor: pointer;">
             <div class="reward-card__icon">${esc(reward.icon || '🎁')}</div>
             <div class="reward-card__body">
               <div class="reward-card__name">${esc(reward.name)}</div>
@@ -1401,10 +1414,12 @@
               <div class="reward-card__availability">${personNames}</div>
             </div>
             <div class="reward-card__actions">
-              <button class="btn btn--ghost btn--sm reward-edit" data-reward-id="${id}" type="button">Edit</button>
               <button class="btn btn--ghost btn--sm reward-archive" data-reward-id="${id}" type="button">Archive</button>
             </div>
           </div>`;
+          if (isEditingReward) {
+            html += `<div class="admin-form-overlay">${renderRewardForm(id)}</div>`;
+          }
         }
         html += `</div>`;
       }
@@ -1470,35 +1485,6 @@
         html += `</div></details>`;
       }
 
-      // ── Achievements overview ──
-      const ppl = peopleArray();
-      if (ppl.length > 0) {
-        html += `<div class="admin-section" style="margin-top: 24px;">
-          <div class="admin-section__header"><h3>Achievements</h3></div>
-          <div class="achievements-grid">`;
-        for (const p of ppl) {
-          const pa = allAchievements[p.id] || {};
-          const unlocked = Object.keys(pa).length;
-          const total = Object.keys(ACHIEVEMENTS).length;
-          html += `<div class="achievement-person">
-            <div class="achievement-person__header">
-              <span class="sb-mini-dot" style="background:${p.color}"></span>
-              <strong>${esc(p.name)}</strong>
-              <span style="color: var(--text-secondary); font-size: var(--font-size-sm);">${unlocked}/${total}</span>
-            </div>
-            <div class="achievement-person__badges">`;
-          for (const [key, def] of Object.entries(ACHIEVEMENTS)) {
-            const got = pa[key];
-            const date = got ? new Date(got.unlockedAt).toLocaleDateString() : '';
-            html += `<span class="achievement-badge ${got ? 'achievement-badge--unlocked' : ''}" title="${esc(def.label)}: ${esc(def.description)}${date ? ' — ' + date : ''}">
-              ${def.icon}
-            </span>`;
-          }
-          html += `</div></div>`;
-        }
-        html += `</div></div>`;
-      }
-
       return html;
     }
 
@@ -1507,96 +1493,101 @@
       const isEdit = !!rewardId;
       const title = isEdit ? 'Edit Reward' : 'New Reward';
 
-      return `<div class="admin-form-overlay">
-        <div class="admin-form" id="rewardForm">
-          <h3>${title}</h3>
+      return `<div class="form-compact" id="rewardForm">
+          <h3 class="admin-form__title">${title}</h3>
 
-          <label class="form-label">Name</label>
-          <input type="text" id="rf_name" class="form-input" value="${esc(reward.name || '')}" placeholder="Movie Night">
-
-          <label class="form-label">Emoji</label>
-          <div class="emoji-picker" id="rf_emojiPicker">
-            ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn${reward.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
-            <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="Custom" maxlength="2" style="width: 60px;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
-          </div>
-
-          <label class="form-label">Type</label>
-          <div class="segmented-control" id="rf_type">
-            <button type="button" class="segmented-btn${(reward.rewardType || 'custom') === 'custom' ? ' segmented-btn--active' : ''}" data-value="custom">Custom</button>
-            <button type="button" class="segmented-btn${reward.rewardType === 'task-skip' ? ' segmented-btn--active' : ''}" data-value="task-skip">Task Skip</button>
-            <button type="button" class="segmented-btn${reward.rewardType === 'penalty-removal' ? ' segmented-btn--active' : ''}" data-value="penalty-removal">Penalty Removal</button>
-          </div>
-          <div id="rf_typeHint" class="form-hint" style="margin-top: 4px;"></div>
-
-          <label class="form-label">Point Cost</label>
-          <input type="number" id="rf_pointCost" class="form-input" value="${reward.pointCost || ''}" min="1" placeholder="Enter or use helper below">
-
-          <div class="pricing-helper" style="background: var(--surface-alt, var(--surface)); padding: 12px; border-radius: var(--radius, 8px); margin-top: 8px;">
-            <label class="form-label" style="margin-bottom: 4px;">How long should this take to earn?</label>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <input type="range" id="rf_daysSlider" min="1" max="30" value="7" style="flex: 1;">
-              <input type="number" id="rf_daysInput" class="form-input form-input--sm" value="7" min="1" style="width: 60px;">
-              <span>days</span>
+          <div class="form-row-2">
+            <div class="form-group form-group--2fr">
+              <label class="form-label">Name</label>
+              <input type="text" id="rf_name" class="form-input" value="${esc(reward.name || '')}" placeholder="Movie Night">
             </div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-              <label class="form-label" style="margin: 0;">Assumed average:</label>
-              <select id="rf_avgSelect" class="form-input form-input--sm" style="width: auto;">
-                ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
-              </select>
-            </div>
-            <div id="rf_suggestion" class="form-hint" style="margin-top: 8px; cursor: pointer; color: var(--accent);">
-              7 days at B+ average &rarr; <strong>615 pts</strong> (click to apply)
+            <div class="form-group form-group--1fr">
+              <label class="form-label">Emoji</label>
+              <div class="emoji-picker-compact" id="rf_emojiPicker">
+                ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn${reward.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+                <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
+              </div>
             </div>
           </div>
 
-          <label class="form-label" style="margin-top: 12px;">Available to</label>
-          <div class="chip-group" id="rf_people">
-            ${peopleArray().map(p => {
-              const selected = reward.perPerson && reward.perPerson.includes(p.id);
-              return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
-            }).join('')}
-            <span class="form-hint" style="margin-left: 4px;">None = everyone</span>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <div class="segmented-control" id="rf_type">
+              <button type="button" class="segmented-btn${(reward.rewardType || 'custom') === 'custom' ? ' segmented-btn--active' : ''}" data-value="custom">Custom</button>
+              <button type="button" class="segmented-btn${reward.rewardType === 'task-skip' ? ' segmented-btn--active' : ''}" data-value="task-skip">Task Skip</button>
+              <button type="button" class="segmented-btn${reward.rewardType === 'penalty-removal' ? ' segmented-btn--active' : ''}" data-value="penalty-removal">No Penalty</button>
+            </div>
+            <div id="rf_typeHint" class="form-hint" style="margin-top: 2px;"></div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
-            <div>
-              <label class="form-label">Max redemptions</label>
-              <input type="number" id="rf_maxRedemptions" class="form-input" value="${reward.maxRedemptions || ''}" min="1" placeholder="Unlimited">
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Point Cost</label>
+              <input type="number" id="rf_pointCost" class="form-input" value="${reward.pointCost || ''}" min="1" placeholder="e.g. 500">
             </div>
-            <div>
-              <label class="form-label">Streak requirement</label>
+            <div class="form-group">
+              <label class="form-label">Earn in ~</label>
+              <div style="display: flex; gap: 4px; align-items: center;">
+                <input type="number" id="rf_daysInput" class="form-input" value="7" min="1" style="width: 56px;">
+                <span style="font-size: var(--font-size-sm);">days</span>
+                <select id="rf_avgSelect" class="form-input" style="flex: 1; font-size: var(--font-size-xs);">
+                  ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
+                </select>
+              </div>
+              <div id="rf_suggestion" class="form-hint" style="margin-top: 2px; cursor: pointer; color: var(--accent);">
+                → <strong>615 pts</strong> (tap to apply)
+              </div>
+            </div>
+          </div>
+          <input type="range" id="rf_daysSlider" min="1" max="30" value="7" style="width: 100%; margin-top: -4px;">
+
+          <div class="form-group">
+            <label class="form-label">Available to</label>
+            <div class="chip-group" id="rf_people">
+              ${peopleArray().map(p => {
+                const selected = reward.perPerson && reward.perPerson.includes(p.id);
+                return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+              }).join('')}
+              <span class="form-hint" style="margin-left: 4px;">None = all</span>
+            </div>
+          </div>
+
+          <div class="form-row-3">
+            <div class="form-group">
+              <label class="form-label">Max uses</label>
+              <input type="number" id="rf_maxRedemptions" class="form-input" value="${reward.maxRedemptions || ''}" min="1" placeholder="∞">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Streak req.</label>
               <input type="number" id="rf_streakReq" class="form-input" value="${reward.streakRequirement || ''}" min="1" placeholder="None">
             </div>
+            <div class="form-group">
+              <label class="form-label">Expires</label>
+              <input type="date" id="rf_expiresAt" class="form-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toISOString().split('T')[0] : ''}">
+            </div>
           </div>
 
-          <label class="form-label" style="margin-top: 12px;">Expires on</label>
-          <input type="date" id="rf_expiresAt" class="form-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toISOString().split('T')[0] : ''}">
-
-          <div class="admin-form__actions" style="margin-top: 16px;">
+          <div class="admin-form__actions">
+            <button class="btn btn--secondary" id="rf_cancel" type="button">Cancel</button>
             <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create'}</button>
-            <button class="btn btn--ghost" id="rf_cancel" type="button">Cancel</button>
           </div>
-        </div>
-      </div>`;
-    }
-
-    function openRewardSheet(rewardId) {
-      editingRewardId = rewardId || 'new';
-      const sheetMount = document.getElementById('taskSheetMount');
-      sheetMount.innerHTML = renderBottomSheet(renderRewardForm(rewardId === 'new' ? null : rewardId));
-      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-      bindRewardForm();
-      // Backdrop close
-      sheetMount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
-        if (e.target.classList.contains('bottom-sheet-overlay')) { sheetMount.innerHTML = ''; editingRewardId = null; }
-      });
+        </div>`;
     }
 
     function bindRewardsTab() {
-      main.querySelector('#addRewardBtn')?.addEventListener('click', () => openRewardSheet('new'));
+      main.querySelector('#addRewardBtn')?.addEventListener('click', () => {
+        editingRewardId = 'new';
+        render();
+      });
 
-      for (const btn of main.querySelectorAll('.reward-edit')) {
-        btn.addEventListener('click', () => openRewardSheet(btn.dataset.rewardId));
+      // Row click to open/close inline edit (like tasks list)
+      for (const card of main.querySelectorAll('.reward-card[data-reward-id]')) {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.reward-archive')) return;
+          const id = card.dataset.rewardId;
+          editingRewardId = editingRewardId === id ? null : id;
+          render();
+        });
       }
 
       for (const btn of main.querySelectorAll('.reward-archive')) {
@@ -1604,13 +1595,18 @@
           const id = btn.dataset.rewardId;
           await archiveReward(id);
           rewardsObj[id].status = 'archived';
+          editingRewardId = null;
           render();
         });
       }
+
+      // Bind inline form if visible
+      const form = main.querySelector('#rewardForm');
+      if (form) bindRewardForm();
     }
 
     function bindRewardForm() {
-      const form = document.getElementById('rewardForm');
+      const form = main.querySelector('#rewardForm') || document.getElementById('rewardForm');
       if (!form) return;
 
       // Emoji picker
@@ -1668,7 +1664,7 @@
       // Cancel
       form.querySelector('#rf_cancel').addEventListener('click', () => {
         editingRewardId = null;
-        document.getElementById('taskSheetMount').innerHTML = '';
+        render();
       });
 
       // Save
@@ -1705,12 +1701,489 @@
           await writeReward(editingRewardId, data);
           rewardsObj[editingRewardId] = data;
         } else {
-          const ref = await pushReward(data);
-          rewardsObj[ref.key] = data;
+          const newKey = await pushReward(data);
+          rewardsObj[newKey] = data;
         }
 
         editingRewardId = null;
-        document.getElementById('taskSheetMount').innerHTML = '';
+        render();
+      });
+    }
+
+    // ══════════════════════════════════════════
+    // Achievements Tab
+    // ══════════════════════════════════════════
+
+    let editingAchievementId = null;
+    let achievementPersonExpanded = {};
+
+    const ACHIEVEMENT_STATS = [
+      { value: 'streak', label: 'Current Streak (days)' },
+      { value: 'bestStreak', label: 'Best Streak (days)' },
+      { value: 'totalEarned', label: 'Total Points Earned' },
+      { value: 'tasksCompleted', label: 'Tasks Completed' },
+      { value: 'perfectDays', label: 'Perfect Days (100%)' },
+      { value: 'gradeDay', label: 'Daily Grade' },
+      { value: 'gradeWeek', label: 'Weekly Grade' },
+      { value: 'gradeMonth', label: 'Monthly Grade' },
+      { value: 'firstRedemption', label: 'First Store Purchase' }
+    ];
+
+    const ACHIEVEMENT_EMOJIS = ['🏆','⭐','🔥','💎','🎯','🏅','👑','💪','🌟','🚀','🎖️','💰','🎁','📚','🧹','🏠','⚡','🌈'];
+
+    function renderAchievementsTab() {
+      const allDefs = mergeAchievementDefs(achievementDefsObj);
+      const activeDefs = getActiveAchievements(allDefs);
+      const ppl = peopleArray();
+
+      let html = '';
+
+      // ── Per-person status (collapsible) ──
+      html += `<div class="admin-section">
+        <div class="admin-section__header"><h3>Status by Person</h3></div>`;
+
+      for (const p of ppl) {
+        const pa = allAchievements[p.id] || {};
+        const unlocked = Object.keys(pa).filter(k => activeDefs[k]).length;
+        const total = Object.keys(activeDefs).length;
+        const isExpanded = achievementPersonExpanded[p.id];
+
+        html += `<div class="ach-person-row">
+          <button class="ach-person-header" data-person-id="${p.id}" type="button">
+            <span class="sb-mini-dot" style="background:${p.color}"></span>
+            <span class="ach-person-name">${esc(p.name)}</span>
+            <span class="ach-person-count">${unlocked}/${total}</span>
+            <span class="ach-person-chevron">${isExpanded ? '▾' : '▸'}</span>
+          </button>`;
+
+        if (isExpanded) {
+          html += `<div class="ach-person-badges">`;
+          for (const [key, def] of Object.entries(activeDefs)) {
+            if (def.perPerson && !def.perPerson.includes(p.id)) continue;
+            const got = pa[key];
+            const date = got ? new Date(got.unlockedAt).toLocaleDateString() : '';
+            html += `<button class="ach-badge-btn ${got ? 'ach-badge-btn--unlocked' : ''}" data-key="${esc(key)}" data-person-id="${p.id}" type="button" title="${esc(def.label)}">
+              <span class="ach-badge-icon">${def.icon}</span>
+              <span class="ach-badge-label">${esc(def.label)}</span>
+              ${date ? `<span class="ach-badge-date">${date}</span>` : ''}
+            </button>`;
+          }
+          html += `</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+
+      // ── Achievement definitions list ──
+      html += `<div class="admin-section" style="margin-top: 16px;">
+        <div class="admin-section__header">
+          <h3>Achievement Definitions</h3>
+          <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
+        </div>`;
+
+      if (editingAchievementId === 'new') {
+        html += renderAchievementForm(null);
+      }
+
+      const defsEntries = Object.entries(allDefs).sort((a, b) => {
+        if (a[1].isDefault && !b[1].isDefault) return -1;
+        if (!a[1].isDefault && b[1].isDefault) return 1;
+        return (a[1].label || '').localeCompare(b[1].label || '');
+      });
+
+      html += `<div class="admin-list">`;
+      for (const [key, def] of defsEntries) {
+        const isHidden = def.status === 'hidden';
+        const condLabel = def.condition?.stat ? ACHIEVEMENT_STATS.find(s => s.value === def.condition.stat)?.label || def.condition.stat : 'Manual';
+        const threshLabel = def.condition?.threshold != null ? ` ≥ ${def.condition.threshold}` : '';
+        const typeIcon = def.conditionType === 'manual' ? '✋' : def.conditionType === 'hybrid' ? '⚡' : '🤖';
+        const rewardLabel = def.reward?.type === 'points' ? `+${def.reward.amount} pts` : def.reward?.type === 'reward' ? '🎁 Reward' : '';
+
+        const isEditing = editingAchievementId === key;
+        html += `<div class="admin-list-item admin-list-item--clickable${isHidden ? ' admin-list-item--paused' : ''}${isEditing ? ' admin-list-item--editing' : ''}" data-ach-key="${esc(key)}">
+          <div class="admin-list-item__row">
+            <span class="admin-list-item__name">${def.icon} ${esc(def.label)}</span>
+            <span class="admin-list-item__tags">
+              <span class="admin-badge">${typeIcon} ${def.conditionType || 'hybrid'}</span>
+              ${isHidden ? '<span class="admin-badge admin-badge--muted">Hidden</span>' : ''}
+              ${def.isDefault ? '<span class="admin-badge admin-badge--muted">Default</span>' : ''}
+            </span>
+          </div>
+          <div class="admin-list-item__row">
+            <span class="admin-list-item__meta">${condLabel}${threshLabel}${rewardLabel ? ' · ' + rewardLabel : ''}</span>
+            <div class="admin-list-item__actions">
+              ${def.isDefault
+                ? `<button class="btn btn--ghost btn--sm ach-toggle" data-ach-key="${esc(key)}" type="button">${isHidden ? 'Show' : 'Hide'}</button>`
+                : `<button class="btn btn--ghost btn--sm ach-delete" data-ach-key="${esc(key)}" type="button">✕</button>`}
+            </div>
+          </div>
+          <div class="admin-list-item__meta" style="padding-top: 2px; color: var(--text-muted);">${esc(def.description || '')}</div>
+        </div>`;
+        if (isEditing) {
+          html += `<div class="admin-form-overlay">${renderAchievementForm(key)}</div>`;
+        }
+      }
+      html += `</div></div>`;
+
+      return html;
+    }
+
+    function renderAchievementForm(achKey) {
+      const allDefs = mergeAchievementDefs(achievementDefsObj);
+      const def = achKey ? allDefs[achKey] || {} : {};
+      const isEdit = !!achKey;
+      const title = isEdit ? 'Edit Badge' : 'New Badge';
+      const cType = def.conditionType || 'hybrid';
+      const cStat = def.condition?.stat || '';
+      const cThreshold = def.condition?.threshold ?? '';
+      const isGradeStat = ['gradeDay', 'gradeWeek', 'gradeMonth'].includes(cStat);
+      const rType = def.reward?.type || 'none';
+
+      return `<div class="form-compact" id="achForm">
+        <h3 class="admin-form__title">${title}</h3>
+
+        <div class="form-row-2">
+          <div class="form-group form-group--2fr">
+            <label class="form-label">Name</label>
+            <input type="text" id="af_name" value="${esc(def.label || '')}" placeholder="e.g. 7-Day Streak">
+          </div>
+          <div class="form-group form-group--1fr">
+            <label class="form-label">Icon</label>
+            <div class="emoji-picker-compact" id="af_emojiPicker">
+              ${ACHIEVEMENT_EMOJIS.map(e => `<button type="button" class="emoji-btn${def.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+              <input type="text" id="af_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${def.icon && !ACHIEVEMENT_EMOJIS.includes(def.icon) ? esc(def.icon) : ''}">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input type="text" id="af_desc" value="${esc(def.description || '')}" placeholder="What does this badge celebrate?">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Trigger</label>
+          <div class="segmented-control" id="af_condType">
+            <button type="button" class="segmented-btn${cType === 'stat' ? ' segmented-btn--active' : ''}" data-value="stat">Auto</button>
+            <button type="button" class="segmented-btn${cType === 'hybrid' ? ' segmented-btn--active' : ''}" data-value="hybrid">Either</button>
+            <button type="button" class="segmented-btn${cType === 'manual' ? ' segmented-btn--active' : ''}" data-value="manual">Manual</button>
+          </div>
+        </div>
+
+        <div id="af_condFields" style="${cType === 'manual' ? 'display:none;' : ''}">
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Condition</label>
+              <select id="af_stat">
+                <option value="">Select...</option>
+                ${ACHIEVEMENT_STATS.map(s => `<option value="${s.value}"${cStat === s.value ? ' selected' : ''}>${s.label}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group" id="af_thresholdGroup">
+              <label class="form-label">Threshold</label>
+              ${isGradeStat
+                ? `<select id="af_threshold">
+                    <option value="A+"${cThreshold === 'A+' ? ' selected' : ''}>A+</option>
+                    <option value="A"${cThreshold === 'A' ? ' selected' : ''}>A</option>
+                    <option value="B+"${cThreshold === 'B+' ? ' selected' : ''}>B+</option>
+                    <option value="B"${cThreshold === 'B' ? ' selected' : ''}>B</option>
+                  </select>`
+                : `<input type="number" id="af_threshold" value="${cThreshold}" min="1" placeholder="e.g. 7">`}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Reward on unlock</label>
+          <div class="segmented-control" id="af_rewardType">
+            <button type="button" class="segmented-btn${rType === 'none' ? ' segmented-btn--active' : ''}" data-value="none">Badge Only</button>
+            <button type="button" class="segmented-btn${rType === 'points' ? ' segmented-btn--active' : ''}" data-value="points">+ Points</button>
+            <button type="button" class="segmented-btn${rType === 'reward' ? ' segmented-btn--active' : ''}" data-value="reward">Store Item</button>
+          </div>
+        </div>
+
+        <div id="af_rewardPointsField" style="${rType === 'points' ? '' : 'display:none;'}">
+          <div class="form-group">
+            <label class="form-label">Bonus points</label>
+            <input type="number" id="af_rewardAmount" class="form-input" value="${def.reward?.amount || 50}" min="1">
+          </div>
+        </div>
+
+        <div id="af_rewardItemField" style="${rType === 'reward' ? '' : 'display:none;'}">
+          <div class="form-group">
+            <label class="form-label">Store reward</label>
+            <select id="af_rewardId" class="form-input">
+              <option value="">Select...</option>
+              ${Object.entries(rewardsObj).filter(([,r]) => r.status === 'active').map(([id, r]) =>
+                `<option value="${id}" ${def.reward?.rewardId === id ? 'selected' : ''}>${esc(r.icon || '')} ${esc(r.name)}</option>`
+              ).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Available to</label>
+          <div class="chip-group" id="af_people">
+            ${peopleArray().map(p => {
+              const selected = def.perPerson && def.perPerson.includes(p.id);
+              return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+            }).join('')}
+            <span class="form-hint" style="margin-left: 4px;">None = all</span>
+          </div>
+        </div>
+
+        <div class="admin-form__actions">
+          <button class="btn btn--secondary" id="af_cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="af_save" type="button"${achKey ? ` data-ach-key="${esc(achKey)}"` : ''}>${isEdit ? 'Save' : 'Create'}</button>
+        </div>
+      </div>`;
+    }
+
+    function bindAchievementsTab() {
+      // Person expand/collapse
+      for (const btn of main.querySelectorAll('.ach-person-header')) {
+        btn.addEventListener('click', () => {
+          const pid = btn.dataset.personId;
+          achievementPersonExpanded[pid] = !achievementPersonExpanded[pid];
+          render();
+        });
+      }
+
+      // Badge long-press in person view — opens popup to award/revoke
+      for (const btn of main.querySelectorAll('.ach-badge-btn')) {
+        let pressTimer = null;
+        const openPopup = () => {
+          const key = btn.dataset.key;
+          const pid = btn.dataset.personId;
+          const allDefs = mergeAchievementDefs(achievementDefsObj);
+          const def = allDefs[key] || {};
+          const pa = allAchievements[pid] || {};
+          const got = pa[key];
+          const person = peopleObj[pid];
+
+          const mount = document.getElementById('taskSheetMount');
+          let popupHtml = `<div style="padding: 8px 0; text-align: center;">
+            <div style="font-size: 2.5rem; margin-bottom: 4px;">${def.icon || '🏆'}</div>
+            <h3 style="margin-bottom: 4px;">${esc(def.label || key)}</h3>
+            <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: 12px;">${esc(def.description || '')}</p>
+            <p style="font-size: var(--font-size-sm); margin-bottom: 16px;">
+              <span style="color: ${person?.color || 'inherit'}; font-weight: 600;">${esc(person?.name || '?')}</span> —
+              ${got ? `<span style="color: var(--accent-success, #38a169);">Unlocked ${new Date(got.unlockedAt).toLocaleDateString()}</span>` : `<span style="color: var(--text-muted);">Locked</span>`}
+            </p>
+            <div style="display: flex; gap: 8px; justify-content: center;">
+              ${got
+                ? `<button class="btn btn--sm btn--ghost" id="achPopupRevoke" type="button" style="color: var(--accent-danger, #e53e3e);">Revoke</button>`
+                : `<button class="btn btn--sm btn--primary" id="achPopupAward" type="button">Award</button>`}
+              <button class="btn btn--sm btn--ghost" id="achPopupClose" type="button">Close</button>
+            </div>
+          </div>`;
+
+          mount.innerHTML = renderBottomSheet(popupHtml);
+          requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+          mount.querySelector('#achPopupAward')?.addEventListener('click', async () => {
+            await writeAchievement(pid, key, { unlockedAt: Date.now(), seen: false });
+            allAchievements = (await readAllAchievements()) || {};
+            mount.innerHTML = '';
+            render();
+          });
+          mount.querySelector('#achPopupRevoke')?.addEventListener('click', async () => {
+            if (!confirm(`Revoke "${def.label}" from ${person?.name}?`)) return;
+            await deleteAchievement(pid, key);
+            allAchievements = (await readAllAchievements()) || {};
+            mount.innerHTML = '';
+            render();
+          });
+          mount.querySelector('#achPopupClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+          mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+            if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+          });
+        };
+
+        let longPressFired = false;
+        btn.addEventListener('pointerdown', () => {
+          longPressFired = false;
+          pressTimer = setTimeout(() => { longPressFired = true; openPopup(); }, 500);
+        });
+        btn.addEventListener('pointerup', () => {
+          clearTimeout(pressTimer);
+          if (!longPressFired) openPopup();
+        });
+        btn.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
+        btn.addEventListener('contextmenu', (e) => e.preventDefault());
+      }
+
+      // Add badge button
+      main.querySelector('#addAchBtn')?.addEventListener('click', () => {
+        editingAchievementId = 'new';
+        render();
+      });
+
+      // Row click to open/close (like tasks list)
+      for (const row of main.querySelectorAll('.admin-list-item[data-ach-key]')) {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.ach-toggle, .ach-delete')) return;
+          const key = row.dataset.achKey;
+          editingAchievementId = editingAchievementId === key ? null : key;
+          render();
+        });
+      }
+
+      // Hide/Show toggle for defaults
+      for (const btn of main.querySelectorAll('.ach-toggle')) {
+        btn.addEventListener('click', async () => {
+          const key = btn.dataset.achKey;
+          const allDefs = mergeAchievementDefs(achievementDefsObj);
+          const def = allDefs[key] || {};
+          const newStatus = def.status === 'hidden' ? 'active' : 'hidden';
+          await writeAchievementDef(key, { status: newStatus });
+          achievementDefsObj = (await readAchievementDefs()) || {};
+          render();
+        });
+      }
+
+      // Delete custom achievements
+      for (const btn of main.querySelectorAll('.ach-delete')) {
+        btn.addEventListener('click', async () => {
+          const key = btn.dataset.achKey;
+          const allDefs = mergeAchievementDefs(achievementDefsObj);
+          if (!confirm(`Delete "${allDefs[key]?.label || key}"? This cannot be undone.`)) return;
+          await deleteAchievementDef(key);
+          // Also remove from all people
+          for (const p of peopleArray()) {
+            if (allAchievements[p.id]?.[key]) {
+              await deleteAchievement(p.id, key);
+            }
+          }
+          achievementDefsObj = (await readAchievementDefs()) || {};
+          allAchievements = (await readAllAchievements()) || {};
+          render();
+        });
+      }
+
+      // Bind form if visible (inline below the row)
+      const form = main.querySelector('#achForm');
+      if (form) bindAchievementForm(form);
+    }
+
+    function bindAchievementForm(form) {
+      // Emoji picker
+      for (const btn of form.querySelectorAll('.emoji-btn')) {
+        btn.addEventListener('click', () => {
+          form.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
+          btn.classList.add('emoji-btn--selected');
+          form.querySelector('#af_customEmoji').value = '';
+        });
+      }
+      form.querySelector('#af_customEmoji')?.addEventListener('input', () => {
+        form.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
+      });
+
+      // Condition type toggle
+      for (const btn of form.querySelectorAll('#af_condType .segmented-btn')) {
+        btn.addEventListener('click', () => {
+          form.querySelectorAll('#af_condType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+          btn.classList.add('segmented-btn--active');
+          form.querySelector('#af_condFields').style.display = btn.dataset.value === 'manual' ? 'none' : '';
+        });
+      }
+
+      // Stat change — swap threshold input for grade selects
+      form.querySelector('#af_stat')?.addEventListener('change', () => {
+        const stat = form.querySelector('#af_stat').value;
+        const isGrade = ['gradeDay', 'gradeWeek', 'gradeMonth'].includes(stat);
+        const isBool = stat === 'firstRedemption';
+        const group = form.querySelector('#af_thresholdGroup');
+        if (isBool) {
+          group.style.display = 'none';
+        } else {
+          group.style.display = '';
+          group.innerHTML = `<label class="form-label">Threshold</label>` + (isGrade
+            ? `<select id="af_threshold"><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B">B</option></select>`
+            : `<input type="number" id="af_threshold" value="" min="1" placeholder="e.g. 7">`);
+        }
+      });
+
+      // Reward type toggle
+      for (const btn of form.querySelectorAll('#af_rewardType .segmented-btn')) {
+        btn.addEventListener('click', () => {
+          form.querySelectorAll('#af_rewardType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+          btn.classList.add('segmented-btn--active');
+          form.querySelector('#af_rewardPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
+          form.querySelector('#af_rewardItemField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+        });
+      }
+
+      // Person chips
+      for (const chip of form.querySelectorAll('#af_people .chip--selectable')) {
+        chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
+      }
+
+      // Cancel
+      form.querySelector('#af_cancel')?.addEventListener('click', () => {
+        editingAchievementId = null;
+        render();
+      });
+
+      // Save
+      form.querySelector('#af_save')?.addEventListener('click', async () => {
+        const name = form.querySelector('#af_name')?.value?.trim();
+        if (!name) { alert('Name is required'); return; }
+
+        const selectedEmoji = form.querySelector('.emoji-btn--selected')?.dataset?.emoji;
+        const customEmoji = form.querySelector('#af_customEmoji')?.value?.trim();
+        const icon = customEmoji || selectedEmoji || '🏆';
+
+        const description = form.querySelector('#af_desc')?.value?.trim() || '';
+        const conditionType = form.querySelector('#af_condType .segmented-btn--active')?.dataset?.value || 'hybrid';
+
+        let condition = null;
+        if (conditionType !== 'manual') {
+          const stat = form.querySelector('#af_stat')?.value;
+          if (stat) {
+            const thresholdEl = form.querySelector('#af_threshold');
+            const threshold = thresholdEl?.tagName === 'SELECT' ? thresholdEl.value : (parseInt(thresholdEl?.value) || null);
+            if (stat !== 'firstRedemption' && !threshold) { alert('Threshold is required'); return; }
+            condition = { stat, threshold: stat === 'firstRedemption' ? 1 : threshold };
+          }
+        }
+
+        let reward = null;
+        const rType = form.querySelector('#af_rewardType .segmented-btn--active')?.dataset?.value || 'none';
+        if (rType === 'points') {
+          reward = { type: 'points', amount: parseInt(form.querySelector('#af_rewardAmount')?.value) || 50 };
+        } else if (rType === 'reward') {
+          const rid = form.querySelector('#af_rewardId')?.value;
+          if (rid) reward = { type: 'reward', rewardId: rid };
+        }
+
+        const perPerson = [...form.querySelectorAll('#af_people .chip--active')].map(c => c.dataset.personId);
+
+        const data = {
+          label: name,
+          icon,
+          description,
+          conditionType,
+          condition,
+          reward,
+          perPerson: perPerson.length > 0 ? perPerson : null,
+          status: 'active'
+        };
+
+        const existingKey = form.querySelector('#af_save')?.dataset?.achKey;
+        if (existingKey) {
+          // Editing existing
+          const allDefs = mergeAchievementDefs(achievementDefsObj);
+          if (allDefs[existingKey]?.isDefault) data.isDefault = true;
+          await writeAchievementDef(existingKey, data);
+        } else {
+          // New — generate key
+          const key = 'custom-' + Date.now();
+          await writeAchievementDef(key, data);
+        }
+
+        achievementDefsObj = (await readAchievementDefs()) || {};
+        editingAchievementId = null;
         render();
       });
     }
@@ -1726,6 +2199,7 @@
         case 'people': bindPeopleTab(); break;
         case 'categories': bindCategoriesTab(); break;
         case 'rewards': bindRewardsTab(); break;
+        case 'achievements': bindAchievementsTab(); break;
         case 'settings': bindSettingsTab(); break;
         case 'theme': bindThemeTab(); break;
         case 'schedule': bindScheduleTab(); break;

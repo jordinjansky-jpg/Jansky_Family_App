@@ -50,13 +50,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, countGlobalRedemptions, writeSnapshot } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, countGlobalRedemptions, writeSnapshot, readAchievementDefs } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
-    import { basePoints, dailyScore, gradeDisplay, calculateBalance, ACHIEVEMENTS, checkNewAchievements, periodGrade, findHighestDamagePenalty, buildSnapshot } from './shared/scoring.js';
+    import { basePoints, dailyScore, gradeDisplay, calculateBalance, checkNewAchievements, mergeAchievementDefs, getActiveAchievements, periodGrade, findHighestDamagePenalty, buildSnapshot } from './shared/scoring.js';
     import { rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
 
@@ -114,10 +114,11 @@
         // ── Offline/Online banner ──
         initOfflineBanner(onConnectionChange, { showConnectionDot: false });
 
-        const [tasksObj, catsObj, rewardsObj, kidMessages, kidBank, kidWishlist, kidAchievements, allSnapshots, allAnchors, allMultipliers] = await Promise.all([
+        const [tasksObj, catsObj, rewardsObj, kidMessages, kidBank, kidWishlist, kidAchievements, allSnapshots, allAnchors, allMultipliers, achDefsObj] = await Promise.all([
           readTasks(), readCategories(),
           readRewards(), readMessages(kid.id), readBank(kid.id), readWishlist(kid.id),
-          readAchievements(kid.id), readAllSnapshots(), readAllBalanceAnchors(), readMultipliers()
+          readAchievements(kid.id), readAllSnapshots(), readAllBalanceAnchors(), readMultipliers(),
+          readAchievementDefs()
         ]);
         const tasks = tasksObj || {};
         const cats = catsObj || {};
@@ -132,6 +133,8 @@
         let achievements = kidAchievements || {};
         const anchor = allAnchors?.[kid.id] || null;
         const multipliers = allMultipliers || {};
+        const allAchDefs = mergeAchievementDefs(achDefsObj || {});
+        const activeDefs = getActiveAchievements(allAchDefs);
 
         // Calculate balance
         let { balance, totalEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers);
@@ -166,7 +169,9 @@
           weeklyGrade: weekAgg.grade,
           monthlyGrade: monthAgg.grade,
           dailyGrade: todayGrade,
-          hasRedeemed
+          hasRedeemed,
+          personId: kid.id,
+          achievementDefs: activeDefs
         });
 
         for (const key of newAchievements) {
@@ -200,7 +205,9 @@
             weeklyGrade: freshWeek.grade,
             monthlyGrade: freshMonth.grade,
             dailyGrade: freshScore.grade || 'F',
-            hasRedeemed: freshHasRedeemed
+            hasRedeemed: freshHasRedeemed,
+            personId: kid.id,
+            achievementDefs: activeDefs
           });
 
           for (const key of newKeys) {
@@ -502,7 +509,7 @@
           if (unseen.length === 0) return;
 
           const [key, ach] = unseen[0];
-          const def = ACHIEVEMENTS[key];
+          const def = activeDefs[key];
           if (!def) return;
 
           const mount = document.getElementById('celebrationMount');
@@ -525,12 +532,13 @@
         }
 
         function renderTrophyCaseSheet(achievements) {
-          const total = Object.keys(ACHIEVEMENTS).length;
-          const unlocked = Object.keys(achievements).filter(k => achievements[k]).length;
+          const total = Object.keys(activeDefs).length;
+          const unlocked = Object.keys(achievements).filter(k => activeDefs[k]).length;
           let html = `<h3 style="margin-bottom: 4px;">🏆 Achievements</h3>
             <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: 16px;">${unlocked} of ${total} unlocked</p>
             <div class="kid-trophies__grid">`;
-          for (const [key, def] of Object.entries(ACHIEVEMENTS)) {
+          for (const [key, def] of Object.entries(activeDefs)) {
+            if (def.perPerson && !def.perPerson.includes(kid.id)) continue;
             const got = achievements[key];
             const date = got ? new Date(got.unlockedAt).toLocaleDateString() : '';
             html += `<div class="kid-trophy ${got ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}">
@@ -576,7 +584,7 @@
           const dateLabel = formatDateLong(viewDate);
           const dayPrefix = isToday ? 'Today' : DAY_NAMES[new Date(viewDate + 'T12:00:00Z').getUTCDay()];
           const unlockedCount = Object.keys(achievements).filter(k => achievements[k]).length;
-          const totalAch = Object.keys(ACHIEVEMENTS).length;
+          const totalAch = Object.keys(activeDefs).length;
           html += `<div class="kid-header">
             <div class="kid-header__icons">
               <button class="kid-header__icon-btn" id="kidTrophyBtn" type="button" aria-label="Achievements" title="${unlockedCount}/${totalAch}">🏆</button>

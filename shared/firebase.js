@@ -527,8 +527,26 @@ export async function writeAchievement(personId, key, data) {
   await writeData(`achievements/${personId}/${key}`, data);
 }
 
+export async function deleteAchievement(personId, key) {
+  await writeData(`achievements/${personId}/${key}`, null);
+}
+
 export async function markAchievementSeen(personId, key) {
   await updateData(`achievements/${personId}/${key}`, { seen: true });
+}
+
+// ── Achievement Definitions ──
+
+export async function readAchievementDefs() {
+  return readOnce('achievementDefs');
+}
+
+export async function writeAchievementDef(key, data) {
+  await updateData(`achievementDefs/${key}`, data);
+}
+
+export async function deleteAchievementDef(key) {
+  await writeData(`achievementDefs/${key}`, null);
 }
 
 // ── Bonus Multiplier Days ──

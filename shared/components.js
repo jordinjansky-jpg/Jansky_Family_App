@@ -824,31 +824,34 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
         <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
       </div>
     </div>
-    <div class="inline-row">
-      <div class="form-group" style="flex:1">
+    <div class="form-row-3">
+      <div class="form-group">
         <label class="form-label">Cooldown</label>
         <input type="number" id="${prefix}_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
       </div>
-      <label class="admin-checkbox"><input type="checkbox" id="${prefix}_exempt"${task.exempt ? ' checked' : ''}> Exempt</label>
+      <label class="admin-checkbox" style="align-self: end; padding-bottom: 8px;"><input type="checkbox" id="${prefix}_exempt"${task.exempt ? ' checked' : ''}> Exempt</label>
+      <label class="admin-checkbox" style="align-self: end; padding-bottom: 8px;"><input type="checkbox" id="${prefix}_bountyToggle" ${task.bounty ? 'checked' : ''}> 🎯 Bounty</label>
     </div>
-    <div class="form-group" style="margin-top: 8px;">
-      <label class="admin-checkbox"><input type="checkbox" id="${prefix}_bountyToggle" ${task.bounty ? 'checked' : ''}> 🎯 Bounty Task</label>
-      <div id="${prefix}_bountyFields" style="${task.bounty ? '' : 'display: none;'}; margin-top: 8px; padding-left: 24px;">
-        <p class="form-hint" style="margin-bottom: 8px;">Scoring-exempt. Reward granted on completion.</p>
-        <div class="segmented-control" id="${prefix}_bountyType" style="margin-bottom: 8px;">
-          <button type="button" class="segmented-btn${(!task.bounty || task.bounty.type === 'points') ? ' segmented-btn--active' : ''}" data-value="points">Points</button>
-          <button type="button" class="segmented-btn${task.bounty?.type === 'reward' ? ' segmented-btn--active' : ''}" data-value="reward">Reward</button>
+    <div id="${prefix}_bountyFields" style="${task.bounty ? '' : 'display: none;'}">
+      <div class="form-hint" style="margin-bottom: 8px;">Scoring-exempt. Reward granted on completion.</div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <div class="segmented-control" id="${prefix}_bountyType">
+            <button type="button" class="segmented-btn${(!task.bounty || task.bounty.type === 'points') ? ' segmented-btn--active' : ''}" data-value="points">Points</button>
+            <button type="button" class="segmented-btn${task.bounty?.type === 'reward' ? ' segmented-btn--active' : ''}" data-value="reward">Reward</button>
+          </div>
         </div>
-        <div id="${prefix}_bountyPointsField" style="${task.bounty?.type === 'reward' ? 'display: none;' : ''}">
-          <label class="form-label">Bonus points</label>
+        <div class="form-group" id="${prefix}_bountyPointsField" style="${task.bounty?.type === 'reward' ? 'display: none;' : ''}">
+          <label class="form-label">Bonus pts</label>
           <input type="number" id="${prefix}_bountyAmount" class="form-input" value="${task.bounty?.amount || 50}" min="1">
         </div>
-        <div id="${prefix}_bountyRewardField" style="${task.bounty?.type !== 'reward' ? 'display: none;' : ''}">
+        <div class="form-group" id="${prefix}_bountyRewardField" style="${task.bounty?.type !== 'reward' ? 'display: none;' : ''}">
           <label class="form-label">Reward</label>
           <select id="${prefix}_bountyReward" class="form-input">
-            <option value="">Select a reward...</option>
+            <option value="">Select...</option>
             ${Object.entries(rewards).filter(([,r]) => r.status === 'active').map(([id, r]) =>
-              `<option value="${id}" ${task.bounty?.rewardId === id ? 'selected' : ''}>${esc(r.icon || '')} ${esc(r.name)} (${r.pointCost} pts)</option>`
+              `<option value="${id}" ${task.bounty?.rewardId === id ? 'selected' : ''}>${esc(r.icon || '')} ${esc(r.name)}</option>`
             ).join('')}
           </select>
         </div>
@@ -1086,12 +1089,14 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
     return p ? esc(p.name) : 'Unknown';
   };
 
+  const hasItems = pendingRequests.length > 0 || recentActivity.length > 0;
   let html = `<div class="bell-dropdown">
     <div class="bell-dropdown__header">
       <span class="bell-dropdown__title">Notifications</span>
       <div class="bell-dropdown__actions">
-        <button class="btn btn--sm btn--ghost" id="bellSendMessage" type="button">Send Message</button>
-        <button class="btn btn--sm btn--ghost" id="bellBonusDay" type="button">🎉 Bonus Day</button>
+        <button class="btn btn--xs btn--ghost" id="bellSendMessage" type="button">Message</button>
+        <button class="btn btn--xs btn--ghost" id="bellBonusDay" type="button">Bonus</button>
+        ${hasItems ? `<button class="btn btn--xs btn--ghost" id="bellClearAll" type="button" style="color: var(--text-muted);">Clear</button>` : ''}
       </div>
     </div>`;
 
@@ -1160,9 +1165,9 @@ export function renderSendMessageSheet(people, preselectedPersonId = null) {
     </div>
 
     <label class="form-label" style="margin-top: 12px;">Type</label>
-    <div style="display: flex; gap: 8px;">
-      <button class="btn btn--bonus msg-type-btn msg-type-btn--active" data-type="bonus" type="button" style="flex:1;">+ Bonus</button>
-      <button class="btn btn--deduction msg-type-btn" data-type="deduction" type="button" style="flex:1;">&#8722; Deduction</button>
+    <div class="segmented-control msg-type-toggle">
+      <button class="segmented-btn msg-type-btn msg-type-btn--active" data-type="bonus" type="button" style="color: var(--accent-success, #38a169);">+ Bonus</button>
+      <button class="segmented-btn msg-type-btn" data-type="deduction" type="button">− Deduction</button>
     </div>
 
     <label class="form-label" style="margin-top: 12px;">Title</label>
@@ -1215,7 +1220,6 @@ export function bindSendMessageSheet(mount, writeMessageFn) {
       ).join('') + `<button class="template-chip template-chip--custom" data-title="custom" type="button">Custom...</button>`;
       bindTemplateChips(sheet);
 
-      // Update defaults
       sheet.querySelector('#msg_points').value = msgType === 'bonus' ? 25 : 15;
       selectedTitle = '';
     });
@@ -1408,6 +1412,20 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         mount.innerHTML = renderSendMessageSheet(getPeople());
         requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
         bindSendMessageSheet(mount, writeMessageFn);
+      });
+
+      // Wire "Clear All" button
+      document.getElementById('bellClearAll')?.addEventListener('click', async () => {
+        if (!confirm('Clear all notification history?')) return;
+        const people = getPeople();
+        for (const p of people) {
+          const msgs = bellMessages[p.id];
+          if (!msgs) continue;
+          for (const [msgId, msg] of Object.entries(msgs)) {
+            if (!msg.seen) await markMessageSeenFn(p.id, msgId);
+          }
+        }
+        closeBellDropdown();
       });
 
       // Wire "Bonus Day" button

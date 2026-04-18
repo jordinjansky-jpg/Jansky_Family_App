@@ -10,7 +10,10 @@
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
   padding: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.sb-period-tabs::-webkit-scrollbar { display: none; }
 
 .sb-tab {
   flex: 1;
@@ -29,6 +32,14 @@
   background: var(--bg-primary);
   color: var(--text-primary);
   box-shadow: var(--shadow-sm);
+}
+
+.sb-tab--store {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  font-size: 1rem;
+  border-left: 1px solid var(--border);
+  margin-left: 2px;
 }
 
 /* Person grade cards (leaderboard) */

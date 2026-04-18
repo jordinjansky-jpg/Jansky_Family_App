@@ -85,6 +85,12 @@
   font-size: var(--font-size-xs);
 }
 
+.btn--xs {
+  padding: 4px 8px;
+  min-height: 28px;
+  font-size: var(--font-size-xs, 0.75rem);
+}
+
 /* ============ Owner Chips ============ */
 .owner-chips {
   display: flex;
@@ -1184,22 +1190,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   background: var(--surface);
+  gap: 8px;
 }
 
-.bell-dropdown__title { font-weight: 600; font-size: var(--font-size-base); }
+.bell-dropdown__title { font-weight: 600; font-size: var(--font-size-sm); white-space: nowrap; }
 
-.bell-dropdown__actions { display: flex; gap: 8px; }
+.bell-dropdown__actions { display: flex; gap: 4px; }
 
 .bell-dropdown__item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border-light, var(--border));
 }
 
@@ -1209,7 +1216,7 @@
   background: var(--surface-highlight, rgba(var(--accent-rgb, 108, 99, 255), 0.05));
 }
 
-.bell-dropdown__icon { font-size: 1.5rem; flex-shrink: 0; width: 36px; text-align: center; }
+.bell-dropdown__icon { font-size: 1.25rem; flex-shrink: 0; width: 28px; text-align: center; }
 
 .bell-dropdown__body { flex: 1; min-width: 0; }
 
@@ -1231,22 +1238,48 @@
 
 .bell-overlay { position: fixed; inset: 0; z-index: 999; }
 
-/* ── Send Message Sheet ── */
-.btn--bonus {
-  background: var(--accent-success, #38a169);
-  color: #fff;
+/* ── Segmented Control (shared) ── */
+.segmented-control {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  overflow: hidden;
+}
+.segmented-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition: background 0.15s, color 0.15s;
+}
+.segmented-btn + .segmented-btn { border-left: 1px solid var(--border); }
+.segmented-btn--active { background: var(--accent); color: #fff; }
+
+/* ── Chip Styles (shared across bell, message sheets, bonus day) ── */
+.chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip--selectable {
+  cursor: pointer;
+  transition: all 0.15s;
   border: 2px solid transparent;
 }
-.btn--deduction {
-  background: var(--surface);
-  color: var(--accent-danger, #e53e3e);
-  border: 2px solid var(--accent-danger, #e53e3e);
+.chip--selectable:hover { border-color: var(--accent); }
+.chip--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
-.msg-type-btn--active.btn--bonus { box-shadow: 0 0 0 2px var(--accent-success, #38a169); }
-.msg-type-btn--active.btn--deduction {
+
+/* ── Send Message Sheet ── */
+.msg-type-toggle .msg-type-btn--active {
+  background: var(--accent);
+  color: #fff;
+}
+.msg-type-toggle .msg-type-btn--active[data-type="deduction"] {
   background: var(--accent-danger, #e53e3e);
   color: #fff;
-  box-shadow: 0 0 0 2px var(--accent-danger, #e53e3e);
 }
 
 .template-grid { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1263,3 +1296,27 @@
 .template-chip:hover { border-color: var(--accent); }
 .template-chip--selected { background: var(--accent); color: #fff; border-color: var(--accent); }
 .template-chip--custom { font-style: italic; }
+
+/* ── Reward Store (shared across kid + scoreboard) ── */
+.store-header { display: flex; align-items: center; gap: 8px; padding: 8px 0 16px; font-size: 1.1rem; font-weight: 700; }
+.store-balance { margin-left: auto; color: var(--accent); font-variant-numeric: tabular-nums; }
+.store-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius, 8px); margin-bottom: 8px; transition: all 0.2s; }
+.store-bounties { margin-bottom: 16px; }
+.store-card--bounty { cursor: default; }
+.store-pending { margin-bottom: 16px; }
+.store-card--available { border-color: var(--accent); }
+.store-card--almost { border-color: var(--accent-warning, #ecc94b); box-shadow: 0 0 8px rgba(236, 201, 75, 0.3); }
+.store-card__icon { font-size: 2rem; flex-shrink: 0; }
+.store-card__body { flex: 1; min-width: 0; }
+.store-card__name { font-weight: 600; }
+.store-card__cost { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.store-card__badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.store-card__badge { font-size: var(--font-size-xs, 0.75rem); padding: 1px 6px; border-radius: 4px; background: var(--surface-alt, var(--surface)); color: var(--text-secondary); }
+.store-card__badge--warning { color: var(--accent-warning, #ecc94b); }
+.store-card__progress { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.store-card__progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+.store-card__nudge { font-size: var(--font-size-xs, 0.75rem); color: var(--accent-warning, #ecc94b); font-weight: 600; margin-top: 4px; }
+.store-card__need { font-size: var(--font-size-xs, 0.75rem); color: var(--text-secondary); margin-top: 4px; }
+.store-card__actions { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+.wishlist-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-secondary); }
+.wishlist-btn--active { color: var(--accent-warning, #ecc94b); }

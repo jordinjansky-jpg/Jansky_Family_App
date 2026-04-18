@@ -29,6 +29,7 @@
   </div>
   <div id="navMount"></div>
   <div id="drilldownMount"></div>
+  <div id="storeMount"></div>
   <div id="themeSheetMount"></div>
 
   <!-- Firebase SDK -->
@@ -38,13 +39,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, ACHIEVEMENTS, calculateBalance } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -55,11 +56,12 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load all data ──
-    const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, allSnapshots, allStreaks, allAchievementsData, allAnchors, allMessages, allMultipliers, sbRewards] = await Promise.all([
+    const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, allSnapshots, allStreaks, allAchievementsData, allAnchors, allMessages, allMultipliers, sbRewards, achDefsObj] = await Promise.all([
       readSettings(), readPeople(), readTasks(), readCategories(),
       readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks(), readAllAchievements(),
-      readAllBalanceAnchors(), readAllMessages(), readMultipliers(), readRewards()
+      readAllBalanceAnchors(), readAllMessages(), readMultipliers(), readRewards(), readAchievementDefs()
     ]);
+    const activeDefs = getActiveAchievements(mergeAchievementDefs(achDefsObj || {}));
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 
@@ -240,12 +242,14 @@
 
       let html = '';
 
-      // Period selector tabs
+      // Period selector tabs + store button
+      const hasRewards = sbRewards && Object.values(sbRewards).some(r => r.status === 'active');
       html += `<div class="sb-period-tabs">
         <button class="sb-tab${selectedPeriod === 'today' ? ' sb-tab--active' : ''}" data-period="today">Today</button>
         <button class="sb-tab${selectedPeriod === 'week' ? ' sb-tab--active' : ''}" data-period="week">Week</button>
         <button class="sb-tab${selectedPeriod === 'month' ? ' sb-tab--active' : ''}" data-period="month">Month</button>
         <button class="sb-tab${selectedPeriod === 'year' ? ' sb-tab--active' : ''}" data-period="year">12 Mo</button>
+        ${hasRewards ? `<button class="sb-tab sb-tab--store" id="sbStoreBtn" type="button">🏪</button>` : ''}
       </div>`;
 
       // Build person data for leaderboard
@@ -274,7 +278,7 @@
 
         const personAchievements = allAchievementsData?.[b.person.id] || {};
         const badgeIcons = Object.keys(personAchievements)
-          .map(key => ACHIEVEMENTS[key]?.icon)
+          .map(key => activeDefs[key]?.icon)
           .filter(Boolean)
           .slice(0, 5)
           .join('');
@@ -452,7 +456,7 @@
 
     function bindEvents() {
       // Period tabs
-      document.querySelectorAll('.sb-tab').forEach(btn => {
+      document.querySelectorAll('.sb-tab[data-period]').forEach(btn => {
         btn.addEventListener('click', () => {
           selectedPeriod = btn.dataset.period;
           if (linkedPerson) {
@@ -464,6 +468,9 @@
           render();
         });
       });
+
+      // Store button
+      document.getElementById('sbStoreBtn')?.addEventListener('click', openStorePicker);
 
       // Person card long-press for drill-down
       document.querySelectorAll('.sb-card').forEach(btn => {
@@ -614,6 +621,186 @@
           document.getElementById('drilldownMount').innerHTML = '';
         }, 300);
       }
+    }
+
+    // ── Store ──
+
+    async function openStore(personId) {
+      const person = people.find(p => p.id === personId);
+      if (!person) return;
+      const rewards = sbRewards || {};
+      const personMsgs = allMessages?.[personId] || {};
+      const personAnchor = allAnchors?.[personId] || null;
+      const { balance } = calculateBalance(personId, allSnapshots, personMsgs, personAnchor, allMultipliers);
+      const personStreak = streaks[personId] || { current: 0, best: 0 };
+
+      // Count redemptions for max-limit rewards
+      const redemptionCounts = {};
+      for (const [rid, r] of Object.entries(rewards)) {
+        if (r.maxRedemptions) redemptionCounts[rid] = await countGlobalRedemptions(rid);
+      }
+
+      // Track pending requests
+      const pendingRewardIds = new Set(
+        Object.values(personMsgs)
+          .filter(m => m.type === 'redemption-request' && !m.seen)
+          .map(m => m.rewardId)
+      );
+
+      const available = Object.entries(rewards)
+        .filter(([id, r]) => {
+          if (r.status !== 'active') return false;
+          if (r.expiresAt && Date.now() > r.expiresAt) return false;
+          if (r.perPerson && !r.perPerson.includes(personId)) return false;
+          if (pendingRewardIds.has(id)) return false;
+          if (r.maxRedemptions && (redemptionCounts[id] || 0) >= r.maxRedemptions) return false;
+          return true;
+        })
+        .map(([id, r]) => ({ id, ...r }));
+
+      available.sort((a, b) => {
+        const aOk = balance >= a.pointCost && personStreak.current >= (a.streakRequirement || 0);
+        const bOk = balance >= b.pointCost && personStreak.current >= (b.streakRequirement || 0);
+        if (aOk && !bOk) return -1;
+        if (!aOk && bOk) return 1;
+        return a.pointCost - b.pointCost;
+      });
+
+      // Pending requests
+      const pendingRequests = Object.entries(personMsgs)
+        .filter(([, m]) => m.type === 'redemption-request' && !m.seen)
+        .map(([msgId, m]) => ({ msgId, reward: rewards[m.rewardId] || {}, amount: Math.abs(m.amount) }));
+
+      let html = `<div class="store-header">
+        <span class="sb-card__initial" style="background: ${person.color}; width: 28px; height: 28px; font-size: 0.875rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff;">${person.name[0].toUpperCase()}</span>
+        <span style="font-weight: 600;">${esc(person.name)}'s Store</span>
+        <span class="store-balance">💰 ${Math.round(balance).toLocaleString()} pts</span>
+      </div>`;
+
+      if (pendingRequests.length > 0) {
+        html += `<div style="margin-bottom: 12px;"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;">Pending Requests</h4>`;
+        for (const req of pendingRequests) {
+          html += `<div class="store-card store-card--pending" style="border-color: var(--accent-warning, #ecc94b); opacity: 0.8;">
+            <div class="store-card__icon">${esc(req.reward.icon || '🎁')}</div>
+            <div class="store-card__body">
+              <div class="store-card__name">${esc(req.reward.name || 'Reward')}</div>
+              <div class="store-card__cost">${req.amount} pts — waiting for approval</div>
+            </div>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      if (available.length === 0 && pendingRequests.length === 0) {
+        html += `<div style="text-align: center; padding: 32px; color: var(--text-secondary);"><div style="font-size: 2rem; margin-bottom: 8px;">🏪</div><p>No rewards available!</p></div>`;
+      }
+
+      for (const reward of available) {
+        const canAfford = balance >= reward.pointCost;
+        const meetsStreak = personStreak.current >= (reward.streakRequirement || 0);
+        const canRequest = canAfford && meetsStreak;
+        const storeProgress = Math.min(100, Math.round((balance / reward.pointCost) * 100));
+
+        let stockLabel = '';
+        if (reward.maxRedemptions) {
+          const used = redemptionCounts[reward.id] || 0;
+          stockLabel = `<span class="store-card__badge">${reward.maxRedemptions - used} left</span>`;
+        }
+
+        let expiryLabel = '';
+        if (reward.expiresAt) {
+          const daysLeft = Math.ceil((reward.expiresAt - Date.now()) / 86400000);
+          if (daysLeft <= 7) expiryLabel = `<span class="store-card__badge store-card__badge--warning">Expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}</span>`;
+        }
+
+        html += `<div class="store-card ${canRequest ? 'store-card--available' : ''}" data-reward-id="${reward.id}">
+          <div class="store-card__icon">${esc(reward.icon || '🎁')}</div>
+          <div class="store-card__body">
+            <div class="store-card__name">${esc(reward.name)}</div>
+            <div class="store-card__cost">${reward.pointCost.toLocaleString()} pts</div>
+            <div class="store-card__badges">
+              ${reward.streakRequirement ? `<span class="store-card__badge">🔥 ${reward.streakRequirement}-day streak${!meetsStreak ? ` (need ${reward.streakRequirement - personStreak.current} more)` : ''}</span>` : ''}
+              ${stockLabel}${expiryLabel}
+            </div>
+            <div class="store-card__progress"><div class="store-card__progress-bar" style="width: ${storeProgress}%"></div></div>
+            ${!canAfford ? `<div class="store-card__need">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
+          </div>
+          <div class="store-card__actions">
+            ${canRequest ? `<button class="btn btn--sm btn--primary store-get-btn" data-reward-id="${reward.id}" type="button">Get it!</button>` : ''}
+          </div>
+        </div>`;
+      }
+
+      const mount = document.getElementById('storeMount');
+      mount.innerHTML = renderBottomSheet(html);
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      // Bind "Get it!" buttons
+      for (const btn of mount.querySelectorAll('.store-get-btn')) {
+        btn.addEventListener('click', async () => {
+          const rewardId = btn.dataset.rewardId;
+          const reward = rewards[rewardId];
+          if (!reward || !confirm(`Spend ${reward.pointCost} pts on ${reward.name} for ${person.name}?`)) return;
+
+          await writeMessage(personId, {
+            type: 'redemption-request',
+            title: reward.name,
+            body: null,
+            amount: -reward.pointCost,
+            rewardId,
+            entryKey: null,
+            seen: false,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            createdBy: personId
+          });
+
+          mount.innerHTML = '';
+          const toast = document.createElement('div');
+          toast.className = 'toast';
+          toast.textContent = `Requested ${reward.name}! Waiting for approval...`;
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 3000);
+        });
+      }
+
+      // Backdrop close
+      mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+      });
+    }
+
+    function openStorePicker() {
+      if (people.length === 1) {
+        openStore(people[0].id);
+        return;
+      }
+      let html = `<div style="padding: 8px 0;">
+        <h3 style="margin-bottom: 12px;">Who's shopping?</h3>`;
+      for (const p of people) {
+        const personMsgs = allMessages?.[p.id] || {};
+        const personAnchor = allAnchors?.[p.id] || null;
+        const { balance } = calculateBalance(p.id, allSnapshots, personMsgs, personAnchor, allMultipliers);
+        html += `<button class="store-person-btn" data-person-id="${p.id}" type="button" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); cursor: pointer; margin-bottom: 8px; font-size: var(--font-size-base);">
+          <span style="background: ${p.color}; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 600;">${p.name[0].toUpperCase()}</span>
+          <span style="flex: 1; text-align: left; font-weight: 500;">${esc(p.name)}</span>
+          <span style="color: var(--text-secondary); font-size: var(--font-size-sm);">💰 ${Math.round(balance).toLocaleString()}</span>
+        </button>`;
+      }
+      html += `</div>`;
+
+      const mount = document.getElementById('storeMount');
+      mount.innerHTML = renderBottomSheet(html);
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      for (const btn of mount.querySelectorAll('.store-person-btn')) {
+        btn.addEventListener('click', () => {
+          mount.innerHTML = '';
+          openStore(btn.dataset.personId);
+        });
+      }
+      mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
+      });
     }
 
     // ── Init ──
