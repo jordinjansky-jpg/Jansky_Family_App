@@ -600,7 +600,8 @@ async function toggleTask(entryKey, dateKey) {
       // Multi-person bounty: first-come-first-served — remove other entries
       if (bountyTask.ownerAssignmentMode === 'duplicate' && bountyTask.owners?.length > 1) {
         const dateKey2 = toggledEntry.dateKey || viewDate;
-        for (const [otherKey, otherEntry] of Object.entries(viewEntries)) {
+        const daySchedule = await readOnce(`schedule/${dateKey2}`) || {};
+        for (const [otherKey, otherEntry] of Object.entries(daySchedule)) {
           if (otherKey !== entryKey && otherEntry.taskId === toggledEntry.taskId) {
             await removeData(`schedule/${dateKey2}/${otherKey}`);
           }

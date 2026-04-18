@@ -1241,7 +1241,8 @@
                 // Multi-person bounty: first-come-first-served — remove other entries
                 if (bTask.ownerAssignmentMode === 'duplicate' && bTask.owners?.length > 1) {
                   const bDateKey = bEntry.dateKey || viewDate;
-                  for (const [otherKey, otherEntry] of Object.entries(viewEntries)) {
+                  const bDaySched = await readOnce(`schedule/${bDateKey}`) || {};
+                  for (const [otherKey, otherEntry] of Object.entries(bDaySched)) {
                     if (otherKey !== entryKey && otherEntry.taskId === bEntry.taskId) {
                       await removeData(`schedule/${bDateKey}/${otherKey}`);
                     }
