@@ -534,7 +534,7 @@
         function renderTrophyCaseSheet(achievements) {
           const total = Object.keys(activeDefs).length;
           const unlocked = Object.keys(achievements).filter(k => activeDefs[k]).length;
-          let html = `<h3 style="margin-bottom: 4px;">🏆 Achievements</h3>
+          let html = `<h3 style="margin-bottom: 4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg> Achievements</h3>
             <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: 16px;">${unlocked} of ${total} unlocked</p>
             <div class="kid-trophies__grid">`;
           for (const [key, def] of Object.entries(activeDefs)) {
@@ -587,8 +587,8 @@
           const totalAch = Object.keys(activeDefs).length;
           html += `<div class="kid-header">
             <div class="kid-header__icons">
-              <button class="kid-header__icon-btn" id="kidTrophyBtn" type="button" aria-label="Achievements" title="${unlockedCount}/${totalAch}">🏆</button>
-              ${ks.showGearIcon ? `<button class="kid-header__icon-btn" id="kidGearBtn" type="button" aria-label="Settings">⚙️</button>` : ''}
+              <button class="kid-header__icon-btn" id="kidTrophyBtn" type="button" aria-label="Achievements" title="${unlockedCount}/${totalAch}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></button>
+              ${ks.showGearIcon ? `<button class="kid-header__icon-btn" id="kidGearBtn" type="button" aria-label="Settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg></button>` : ''}
             </div>
             <div class="kid-header__greeting">
               <span class="kid-header__wave">👋</span>
@@ -612,7 +612,7 @@
             </div>
             <div class="kid-balance__today">Today so far: +${score.percentage || 0} pts</div>
             <div class="kid-balance__actions">
-              <button class="btn btn--sm btn--primary" id="kidStoreBtn" type="button">🎁 Store</button>
+              <button class="btn btn--sm btn--primary" id="kidStoreBtn" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg> Store</button>
               <button class="btn btn--sm btn--ghost" id="kidHistoryBtn" type="button">History</button>
             </div>`;
 
@@ -641,8 +641,8 @@
               html += `<div class="kid-bank">
                 <h4 class="kid-bank__title">Your Power-Ups</h4>
                 <div class="kid-bank__tokens">
-                  ${skips > 0 ? `<button class="kid-bank__token" id="useTaskSkip" type="button"><span class="kid-bank__token-icon">⏭️</span><span>Task Skip &times;${skips}</span></button>` : ''}
-                  ${removals > 0 ? `<button class="kid-bank__token" id="usePenaltyRemoval" type="button"><span class="kid-bank__token-icon">🛡️</span><span>Penalty Removal &times;${removals}</span></button>` : ''}
+                  ${skips > 0 ? `<button class="kid-bank__token" id="useTaskSkip" type="button"><span class="kid-bank__token-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></span><span>Task Skip &times;${skips}</span></button>` : ''}
+                  ${removals > 0 ? `<button class="kid-bank__token" id="usePenaltyRemoval" type="button"><span class="kid-bank__token-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><span>Penalty Removal &times;${removals}</span></button>` : ''}
                 </div>
               </div>`;
             }
@@ -1085,7 +1085,7 @@
                   ${!canAfford && !almostThere ? `<div class="store-card__need">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
                 </div>
                 <div class="store-card__actions">
-                  <button class="wishlist-btn ${isWishlisted ? 'wishlist-btn--active' : ''}" data-reward-id="${reward.id}" type="button" title="Wishlist">☆</button>
+                  <button class="wishlist-btn ${isWishlisted ? 'wishlist-btn--active' : ''}" data-reward-id="${reward.id}" type="button" title="Wishlist"><svg width="16" height="16" viewBox="0 0 24 24" fill="${isWishlisted ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
                   ${canRequest ? `<button class="btn btn--sm btn--primary store-get-btn" data-reward-id="${reward.id}" type="button">Get it!</button>` : ''}
                 </div>
               </div>`;
@@ -1817,7 +1817,7 @@
               <span class="chip">${pts}pt</span>
             </div>
             ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></div>` : ''}
-            ${entry.movedFromDate ? `<div class="task-detail__source-info">📅 Moved from <strong>${(() => { const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; const d = new Date(entry.movedFromDate + 'T12:00:00'); return isNaN(d) ? entry.movedFromDate : days[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate(); })()}</strong></div>` : ''}
+            ${entry.movedFromDate ? `<div class="task-detail__source-info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Moved from <strong>${(() => { const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; const d = new Date(entry.movedFromDate + 'T12:00:00'); return isNaN(d) ? entry.movedFromDate : days[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate(); })()}</strong></div>` : ''}
           </div>`;
 
           // Event notes (read-only)
@@ -1843,10 +1843,10 @@
           if (showDelegate || showMove) {
             html += `<div class="task-detail__actions mt-md">`;
             if (showDelegate) {
-              html += `<button class="btn btn--secondary btn--sm" id="sheetDelegate" type="button">👤 Delegate</button>`;
+              html += `<button class="btn btn--secondary btn--sm" id="sheetDelegate" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Delegate</button>`;
             }
             if (showMove) {
-              html += `<button class="btn btn--secondary btn--sm" id="sheetMove" type="button">📅 Move</button>`;
+              html += `<button class="btn btn--secondary btn--sm" id="sheetMove" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Move</button>`;
             }
             html += `</div>`;
           }
@@ -2075,7 +2075,7 @@
 
           let html = `<div class="kid-settings-overlay" id="kidSettingsOverlay">
             <div class="kid-settings-panel">
-              <div class="kid-settings__title">⚙️ My Settings</div>
+              <div class="kid-settings__title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> My Settings</div>
 
               <div class="kid-settings__section">
                 <div class="kid-settings__label">Theme</div>

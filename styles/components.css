@@ -484,6 +484,16 @@
   font-size: var(--font-size-sm);
 }
 
+/* ============ Form Actions (shared save/cancel button layout) ============ */
+.admin-form__actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--spacing-xs);
+}
+.admin-form__actions .btn {
+  width: 100%;
+}
+
 /* ============ Add Menu (universal + button sheet) ============ */
 .add-menu {
   display: flex;
@@ -504,7 +514,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 .add-menu__item:active { background: var(--bg-hover); }
-.add-menu__icon { font-size: 1.5rem; }
+.add-menu__icon { font-size: 1.5rem; color: var(--accent); }
 .add-menu__label {
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -1264,7 +1274,9 @@
   cursor: pointer;
   transition: all 0.15s;
   border: 2px solid transparent;
+  outline: none;
 }
+.chip--selectable:focus-visible { box-shadow: 0 0 0 2px var(--accent-light); }
 .chip--selectable:hover { border-color: var(--accent); }
 .chip--active {
   border-color: var(--accent);

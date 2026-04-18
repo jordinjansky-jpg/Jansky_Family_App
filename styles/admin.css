@@ -123,7 +123,7 @@
   transition: all var(--transition-fast);
   text-align: center;
 }
-.admin-tab__icon { font-size: 1.1rem; }
+.admin-tab__icon { font-size: 1.1rem; display: flex; align-items: center; justify-content: center; color: inherit; }
 .admin-tab__label { font-weight: 500; white-space: nowrap; }
 .admin-tab--active {
   background: var(--accent);
@@ -275,12 +275,7 @@
   font-weight: 700;
   margin-bottom: var(--spacing-md);
 }
-.admin-form__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
-  justify-content: flex-end;
-}
+/* admin-form__actions defined in components.css (shared across pages) */
 
 /* Task Form Modal Overlay */
 .task-form-backdrop {

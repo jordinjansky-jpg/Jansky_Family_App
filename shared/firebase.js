@@ -421,6 +421,10 @@ export async function archiveReward(rewardId) {
   await updateData(`rewards/${rewardId}`, { status: 'archived' });
 }
 
+export async function removeReward(rewardId) {
+  await removeData(`rewards/${rewardId}`);
+}
+
 // ── Messages ──
 
 export async function readMessages(personId) {

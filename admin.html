@@ -64,7 +64,7 @@
       readEvents, pushEvent, writeEvent, removeEvent,
       readCompletions, readAllSchedule, readOnce,
       multiUpdate, pushDebugEvent, factoryReset, onConnectionChange,
-      readRewards, pushReward, writeReward, archiveReward,
+      readRewards, pushReward, writeReward, archiveReward, removeReward,
       readMessages, readAllMessages, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
       readAllAchievements, writeAchievement, deleteAchievement,
       readAchievementDefs, writeAchievementDef, deleteAchievementDef
@@ -260,17 +260,17 @@
     // ══════════════════════════════════════════
 
     const TABS = [
-      { id: 'tasks', icon: '✅', label: 'Tasks' },
-      { id: 'events', icon: '📅', label: 'Events' },
-      { id: 'people', icon: '👥', label: 'People' },
-      { id: 'categories', icon: '📂', label: 'Categories' },
-      { id: 'rewards', icon: '🎁', label: 'Rewards' },
-      { id: 'achievements', icon: '🏆', label: 'Badges' },
-      { id: 'settings', icon: '⚙️', label: 'Settings' },
-      { id: 'theme', icon: '🎨', label: 'Theme' },
-      { id: 'schedule', icon: '📅', label: 'Schedule' },
-      { id: 'data', icon: '💾', label: 'Data' },
-      { id: 'debug', icon: '🐛', label: 'Debug' }
+      { id: 'tasks', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', label: 'Tasks' },
+      { id: 'events', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', label: 'Events' },
+      { id: 'people', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', label: 'People' },
+      { id: 'categories', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>', label: 'Categories' },
+      { id: 'rewards', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>', label: 'Rewards' },
+      { id: 'achievements', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>', label: 'Badges' },
+      { id: 'settings', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg>', label: 'Settings' },
+      { id: 'theme', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>', label: 'Theme' },
+      { id: 'schedule', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', label: 'Schedule' },
+      { id: 'data', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', label: 'Data' },
+      { id: 'debug', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v1h4"/><path d="M18 8h-2V6a4 4 0 0 0-4-4"/><path d="M20 10v1a2 2 0 0 1-2 2"/><rect x="8" y="10" width="8" height="10" rx="4"/><path d="M4 16h4"/><path d="M16 16h4"/><path d="M12 10v10"/></svg>', label: 'Debug' }
     ];
 
     let activeTab = 'tasks';
@@ -460,7 +460,7 @@
           <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
           <div>
             <button class="btn btn--secondary btn--sm" id="selectModeBtn" type="button">Select</button>
-            <button class="btn btn--secondary btn--sm" id="templateBtn" type="button">📋 Templates</button>
+            <button class="btn btn--secondary btn--sm" id="templateBtn" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Templates</button>
             <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
           </div>
         </div>`;
@@ -505,19 +505,19 @@
           const checkboxHtml = selectMode ? `<input type="checkbox" class="bulk-checkbox" ${selectedTaskIds.has(id) ? 'checked' : ''}>` : '';
           const actionsHtml = selectMode ? '' : `<div class="admin-list-item__actions">
                 <button class="btn btn--ghost btn--sm admin-edit-task" data-task-id="${id}" type="button">Edit</button>
-                <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '▶' : '⏸'}</button>
-                <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button">✕</button>
+                <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'}</button>
+                <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
               </div>`;
-          html += `<div class="admin-list-item admin-list-item--clickable${pausedClass}${selectedClass}" data-task-id="${id}">
+          html += `<div class="admin-list-item admin-list-item--clickable admin-list-item--compact${pausedClass}${selectedClass}" data-task-id="${id}">
             <div class="admin-list-item__row">
               ${checkboxHtml}<span class="admin-list-item__name">${esc(task.name)}${cat?.icon ? ' ' + cat.icon : ''}</span>
               <span class="admin-list-item__tags">
                 <span class="admin-badge">${task.rotation}</span>
                 <span class="admin-badge">${diffLabel}</span>
                 ${pausedBadge}
+                ${detailBadges}
               </span>
             </div>
-            <div class="admin-list-item__tags" style="padding:0 0 2px">${detailBadges}</div>
             <div class="admin-list-item__row">
               <span class="admin-list-item__meta">${owners || 'Unassigned'}${cat ? ' · ' + cat.label : ''}</span>
               ${actionsHtml}
@@ -643,13 +643,15 @@
           <input type="text" id="aef_name" value="${esc(event.name || '')}" placeholder="Soccer practice, Dentist, etc.">
         </div>
         <div class="form-group">
-          <label class="form-label">Date</label>
-          <input type="date" id="aef_date" value="${event.date || today}">
+          <div style="display: flex; align-items: end; gap: var(--spacing-sm);">
+            <div style="flex: 1;">
+              <label class="form-label">Date</label>
+              <input type="date" id="aef_date" value="${event.date || today}">
+            </div>
+            <button type="button" class="chip chip--selectable${event.allDay ? ' chip--active' : ''}" id="aef_allDay" style="margin-bottom: 2px;">All Day</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="admin-checkbox"><input type="checkbox" id="aef_allDay" ${event.allDay ? 'checked' : ''}> All day</label>
-        </div>
-        <div class="form-row" id="aef_timeGroup" ${event.allDay ? 'style="display:none"' : ''}>
+        <div style="display: ${event.allDay ? 'none' : 'flex'}; gap: var(--spacing-sm);" id="aef_timeGroup">
           <div class="form-group" style="flex:1">
             <label class="form-label">Start</label>
             <input type="time" id="aef_startTime" value="${event.startTime || ''}">
@@ -708,22 +710,23 @@
           const kidFlags = p.role === 'child' && p.kidSettings
             ? [p.kidSettings.canDelegate && 'delegate', p.kidSettings.canMoveTasks && 'move', p.kidSettings.showSlider && 'slider', p.kidSettings.showTaskEmoji && 'emoji', p.kidSettings.showGearIcon && 'gear', p.kidSettings.canSwipeDays && 'swipe'].filter(Boolean).join(', ')
             : '';
-          html += `<div class="admin-list-item admin-list-item--clickable" data-person-id="${p.id}">
-            <div class="admin-person-row">
-              <div class="admin-person-dot" style="background:${p.color}"></div>
-              <div class="admin-person-info">
-                <span class="admin-list-item__name">${esc(p.name)}</span>
-                <span class="admin-list-item__meta">${roleLabel}${kidFlags ? ' · ' + kidFlags : ''}</span>
+          html += `<div class="admin-list-item admin-list-item--clickable admin-list-item--compact" data-person-id="${p.id}">
+            <div class="admin-list-item__row">
+              <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color}"></div>
+              <span class="admin-list-item__name">${esc(p.name)}</span>
+              <span class="admin-list-item__tags">
+                <span class="admin-badge">${roleLabel}</span>
+                ${kidFlags ? `<span class="admin-badge">${kidFlags}</span>` : ''}
+              </span>
+              <div class="admin-list-item__actions">
+                ${p.role === 'child'
+                  ? `<a href="kid.html?kid=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--xs" title="Open kid page" target="_blank" onclick="event.stopPropagation()">Link</a>`
+                  : `<a href="person.html?person=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--xs" title="Open personal dashboard" target="_blank" onclick="event.stopPropagation()">Link</a>`}
+                <button class="btn btn--ghost btn--xs admin-edit-person" data-person-id="${p.id}" type="button">Edit</button>
+                <button class="btn btn--ghost btn--xs admin-delete-person" data-person-id="${p.id}" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
               </div>
             </div>
-            <div class="admin-list-item__actions">
-              ${p.role === 'child'
-                ? `<a href="kid.html?kid=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--sm" title="Open kid page" target="_blank" onclick="event.stopPropagation()">Link</a>`
-                : `<a href="person.html?person=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--sm" title="Open personal dashboard" target="_blank" onclick="event.stopPropagation()">Link</a>`}
-              <button class="btn btn--ghost btn--sm admin-edit-person" data-person-id="${p.id}" type="button">Edit</button>
-              <button class="btn btn--ghost btn--sm admin-delete-person" data-person-id="${p.id}" type="button">✕</button>
-            </div>
-            <div style="padding: 2px 0 2px 28px; display: flex; gap: 6px; width: 100%;">
+            <div class="admin-list-item__row" style="padding-left: 28px;">
               <button class="btn btn--ghost btn--xs admin-reset-balance" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Reset Balance</button>
               <button class="btn btn--ghost btn--xs admin-clear-history" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Clear History</button>
             </div>
@@ -765,8 +768,8 @@
         <div class="form-group">
           <label class="form-label">Role</label>
           <div class="form-row">
-            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'adult' ? ' admin-mode-btn--active' : ''}" data-role="adult" type="button">👤 Adult</button>
-            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'child' ? ' admin-mode-btn--active' : ''}" data-role="child" type="button">👦 Child</button>
+            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'adult' ? ' admin-mode-btn--active' : ''}" data-role="adult" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Adult</button>
+            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'child' ? ' admin-mode-btn--active' : ''}" data-role="child" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Child</button>
           </div>
         </div>
         <div id="kidSettingsSection" style="display:${role === 'child' ? '' : 'none'}">
@@ -839,7 +842,7 @@
           </div>
           <div class="admin-list-item__actions">
             <button class="btn btn--ghost btn--sm admin-edit-cat" data-cat-key="${c.key}" type="button">Edit</button>
-            <button class="btn btn--ghost btn--sm admin-delete-cat" data-cat-key="${c.key}" type="button">✕</button>
+            <button class="btn btn--ghost btn--sm admin-delete-cat" data-cat-key="${c.key}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
         </div>`;
       }
@@ -1092,9 +1095,9 @@
         <div id="scheduleStats" class="admin-schedule-stats">
           <div class="loading-inline"><div class="loading-spinner loading-spinner--small"></div><span>Loading schedule...</span></div>
         </div>
-        <div class="admin-form__actions mt-md" style="flex-wrap:wrap;gap:8px">
-          <button class="btn btn--primary" id="rebuildScheduleBtn" type="button">Rebuild Schedule</button>
+        <div class="admin-form__actions mt-md">
           <button class="btn btn--secondary" id="resetScheduleBtn" type="button">Clear Past &amp; Rebuild</button>
+          <button class="btn btn--primary" id="rebuildScheduleBtn" type="button">Rebuild Schedule</button>
         </div>
         <p class="form-hint mt-sm">Rebuild regenerates today + future. Clear Past also removes uncompleted past entries.</p>
         <div id="scheduleMsg" class="admin-msg mt-sm"></div>
@@ -1526,12 +1529,12 @@
                   ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
                 </select>
               </div>
-              <div id="rf_suggestion" class="form-hint" style="margin-top: 2px; cursor: pointer; color: var(--accent);">
-                → <strong>615 pts</strong> (tap to apply)
-              </div>
             </div>
           </div>
           <input type="range" id="rf_daysSlider" min="1" max="30" value="7" style="width: 100%; margin-top: -4px;">
+          <div id="rf_suggestion" class="form-hint" style="cursor: pointer; color: var(--accent);">
+            → <strong>615 pts</strong> (tap to apply)
+          </div>
 
           <div class="form-group">
             <label class="form-label">Available to</label>
@@ -1560,6 +1563,7 @@
           </div>
 
           <div class="admin-form__actions">
+            ${isEdit ? `<button class="btn btn--danger" id="rf_delete" type="button">Delete Reward</button>` : ''}
             <button class="btn btn--secondary" id="rf_cancel" type="button">Cancel</button>
             <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create'}</button>
           </div>
@@ -1663,6 +1667,16 @@
 
       // Cancel
       form.querySelector('#rf_cancel').addEventListener('click', () => {
+        editingRewardId = null;
+        render();
+      });
+
+      // Delete
+      form.querySelector('#rf_delete')?.addEventListener('click', async () => {
+        const reward = rewardsObj[editingRewardId];
+        if (!confirm(`Delete "${reward?.name || 'this reward'}"? This cannot be undone.`)) return;
+        await removeReward(editingRewardId);
+        delete rewardsObj[editingRewardId];
         editingRewardId = null;
         render();
       });
@@ -1805,7 +1819,7 @@
           <div style="margin-left: auto; flex-shrink: 0;">
             ${def.isDefault
               ? `<button class="btn btn--ghost btn--sm ach-toggle" data-ach-key="${esc(key)}" type="button">${isHidden ? 'Show' : 'Hide'}</button>`
-              : `<button class="btn btn--ghost btn--sm ach-delete" data-ach-key="${esc(key)}" type="button">✕</button>`}
+              : `<button class="btn btn--ghost btn--sm ach-delete" data-ach-key="${esc(key)}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`}
           </div>
         </div>`;
       }
@@ -2934,10 +2948,12 @@
         render();
       });
 
-      // All-day toggle
-      main.querySelector('#aef_allDay')?.addEventListener('change', (e) => {
+      // All-day chip toggle
+      main.querySelector('#aef_allDay')?.addEventListener('click', () => {
+        const btn = main.querySelector('#aef_allDay');
+        btn.classList.toggle('chip--active');
         const timeGroup = main.querySelector('#aef_timeGroup');
-        if (timeGroup) timeGroup.style.display = e.target.checked ? 'none' : '';
+        if (timeGroup) timeGroup.style.display = btn.classList.contains('chip--active') ? 'none' : 'flex';
       });
 
       // People chips
@@ -2960,7 +2976,7 @@
         const date = main.querySelector('#aef_date')?.value;
         if (!date) { alert('Date is required.'); return; }
 
-        const allDay = main.querySelector('#aef_allDay')?.checked || false;
+        const allDay = main.querySelector('#aef_allDay')?.classList.contains('chip--active') || false;
         const startTime = allDay ? null : (main.querySelector('#aef_startTime')?.value || null);
         const endTime = allDay ? null : (main.querySelector('#aef_endTime')?.value || null);
         const selectedPeople = [...main.querySelectorAll('#aef_people .chip--active')].map(c => c.dataset.personId);

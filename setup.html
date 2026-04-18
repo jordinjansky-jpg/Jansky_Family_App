@@ -356,8 +356,8 @@
           <div class="form-group">
             <label class="form-label">Role</label>
             <div class="form-row">
-              <button class="btn btn--secondary role-btn selected" data-role="adult" onclick="selectRole('adult')">👤 Adult</button>
-              <button class="btn btn--secondary role-btn" data-role="child" onclick="selectRole('child')">👦 Child</button>
+              <button class="btn btn--secondary role-btn selected" data-role="adult" onclick="selectRole('adult')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Adult</button>
+              <button class="btn btn--secondary role-btn" data-role="child" onclick="selectRole('child')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Child</button>
             </div>
           </div>
           <button class="btn btn--primary btn--full" onclick="addPerson()">Add Person</button>
@@ -564,7 +564,7 @@
             <div class="person-card__name">${esc(p.name)}</div>
             <div class="person-card__role">${esc(p.role)}</div>
           </div>
-          <button class="person-card__remove" onclick="removePerson(${i})">✕</button>
+          <button class="person-card__remove" onclick="removePerson(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
       `).join('');
 
@@ -649,7 +649,7 @@
           <span class="category-card__icon">${esc(c.icon)}</span>
           <span class="category-card__label">${esc(c.label)}</span>
           <div class="category-card__actions">
-            <button class="category-card__btn" onclick="removeCategory(${i})">✕</button>
+            <button class="category-card__btn" onclick="removeCategory(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
         </div>
       `).join('');

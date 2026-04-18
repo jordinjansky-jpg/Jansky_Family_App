@@ -276,7 +276,7 @@ export function renderTaskCard(options) {
   }
   // Skipped badge (task skip power-up used)
   if (entry?.skipped) {
-    actionTags += `<span class="task-card__tag task-card__tag--skipped">⏭️ Skipped</span>`;
+    actionTags += `<span class="task-card__tag task-card__tag--skipped"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg> Skipped</span>`;
   }
   // Bounty badge
   if (task?.bounty) {
@@ -465,7 +465,9 @@ export function renderAddMenu(options) {
  * currentView: 'week' | 'month'
  */
 export function renderViewSwitcher(currentView) {
-  const icon = currentView === 'week' ? '📅' : '📋';
+  const icon = currentView === 'week'
+    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>';
   const label = currentView === 'week' ? 'Month' : 'Week';
   return `<button class="view-switcher" id="viewSwitcher" type="button" title="Switch to ${label} view">${icon}</button>`;
 }
@@ -496,23 +498,19 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       <input class="form-input" id="ef_name" type="text" placeholder="Soccer practice, Dentist, etc." value="${esc(event.name || '')}" autocomplete="off">
     </div>
     <div class="admin-form__group">
-      <div class="ef-date-row">
-        <div class="ef-date-field">
+      <div style="display: flex; align-items: end; gap: var(--spacing-sm);">
+        <div style="flex: 1;">
           <label class="form-label" for="ef_date">Date</label>
           <input class="form-input ef-date-input" id="ef_date" type="date" value="${event.date || dateKey}">
         </div>
-        <label class="form-toggle ef-allday-toggle">
-          <input type="checkbox" id="ef_allDay" ${event.allDay ? 'checked' : ''}>
-          <span class="form-toggle__track"></span>
-          <span class="form-toggle__label">All day</span>
-        </label>
+        <button type="button" class="chip chip--selectable${event.allDay ? ' chip--active' : ''}" id="ef_allDay" style="margin-bottom: 2px;">All Day</button>
       </div>
-      <div class="ef-time-row" id="ef_timeGroup" ${event.allDay ? 'style="display:none"' : ''}>
-        <div class="ef-time-field">
+      <div style="display: ${event.allDay ? 'none' : 'flex'}; gap: var(--spacing-sm); margin-top: var(--spacing-sm);" id="ef_timeGroup">
+        <div style="flex: 1;">
           <label class="form-label" for="ef_startTime">Start</label>
           <input class="form-input" id="ef_startTime" type="time" value="${event.startTime || ''}">
         </div>
-        <div class="ef-time-field">
+        <div style="flex: 1;">
           <label class="form-label" for="ef_endTime">End</label>
           <input class="form-input" id="ef_endTime" type="time" value="${event.endTime || ''}">
         </div>
@@ -542,10 +540,10 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       </div>
     </details>
     <div class="admin-form__actions mt-md">
+      ${isEdit ? `<button class="btn btn--danger" id="ef_delete" type="button" data-event-id="${eventId}">Delete Event</button>` : ''}
       <button class="btn btn--secondary" id="ef_cancel" type="button">Cancel</button>
       <button class="btn btn--primary" id="ef_save" type="button" ${eventId ? `data-event-id="${eventId}"` : ''}>${saveLabel}</button>
     </div>
-    ${isEdit ? `<button class="btn btn--danger btn--small mt-md" id="ef_delete" type="button" data-event-id="${eventId}">Delete Event</button>` : ''}
   </div>`;
 }
 
@@ -611,7 +609,7 @@ export function renderTaskDetailSheet(options) {
       ${points && !task.exempt && showPoints ? `<span class="chip">${points.possible}pt</span>` : ''}
     </div>
     ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></div>` : ''}
-    ${entry.movedFromDate ? `<div class="task-detail__source-info">📅 Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
+    ${entry.movedFromDate ? `<div class="task-detail__source-info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
   </div>`;
 
   // Event notes
@@ -656,14 +654,14 @@ export function renderTaskDetailSheet(options) {
     html += `<div class="task-detail__actions mt-md">`;
 
     if (showDelegate) {
-      html += `<button class="btn btn--secondary btn--sm" id="sheetDelegate" type="button">👤 Delegate</button>`;
+      html += `<button class="btn btn--secondary btn--sm" id="sheetDelegate" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Delegate</button>`;
     }
     if (showMove) {
-      html += `<button class="btn btn--secondary btn--sm" id="sheetMove" type="button">📅 Move</button>`;
-      html += `<button class="btn btn--ghost btn--sm" id="moveSkip" type="button">⏭ Skip</button>`;
+      html += `<button class="btn btn--secondary btn--sm" id="sheetMove" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Move</button>`;
+      html += `<button class="btn btn--ghost btn--sm" id="moveSkip" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg> Skip</button>`;
     }
     if (showEdit) {
-      html += `<button class="btn btn--secondary btn--sm" id="sheetEdit" data-task-id="${entry.taskId}" type="button">✏️ Edit</button>`;
+      html += `<button class="btn btn--secondary btn--sm" id="sheetEdit" data-task-id="${entry.taskId}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>`;
     }
 
     html += `</div>`;
@@ -860,7 +858,7 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
       </div>
     </div>
     <div class="form-group" id="${prefix}_dedicatedDayGroup" style="display:${showDedicated ? '' : 'none'}">
-      <label class="form-label" id="${prefix}_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Date') : 'Day'} <button type="button" id="${prefix}_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date">📅</button></label>
+      <label class="form-label" id="${prefix}_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Date') : 'Day'} <button type="button" id="${prefix}_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></label>
       <input type="date" id="${prefix}_eventDate" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);" value="${task.dedicatedDate || ''}">
       <select id="${prefix}_daySelect" class="dedicated-day-select" style="display:${task.rotation === 'once' ? 'none' : ''}">
         <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
@@ -1185,9 +1183,9 @@ export function renderSendMessageSheet(people, preselectedPersonId = null) {
     <label class="form-label" style="margin-top: 12px;">Points</label>
     <input type="number" id="msg_points" class="form-input" value="25" min="1">
 
-    <div style="margin-top: 16px; display: flex; gap: 8px;">
-      <button class="btn btn--primary" id="msg_send" type="button" style="flex:1;">Send</button>
-      <button class="btn btn--ghost" id="msg_cancel" type="button">Cancel</button>
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="msg_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="msg_send" type="button">Send</button>
     </div>
   `);
 }
@@ -1314,9 +1312,9 @@ export function renderBonusDaySheet(people, todayDate) {
     <label class="form-label" style="margin-top: 12px;">Note (optional)</label>
     <input type="text" id="bd_note" class="form-input" placeholder="Happy Birthday!">
 
-    <div style="margin-top: 16px; display: flex; gap: 8px;">
-      <button class="btn btn--primary" id="bd_save" type="button" style="flex: 1;">Set Bonus Day</button>
-      <button class="btn btn--ghost" id="bd_cancel" type="button">Cancel</button>
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="bd_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="bd_save" type="button">Set Bonus Day</button>
     </div>
   `);
 }
