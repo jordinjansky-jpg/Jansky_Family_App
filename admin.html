@@ -179,7 +179,7 @@
     let tasksObj = await readTasks() || {};
     let catsObj = await readCategories() || {};
     let eventsObj = await readEvents() || {};
-    rewardsObj = (await readRewards()) || {};
+    let rewardsObj = (await readRewards()) || {};
     let allAchievements = (await readAllAchievements()) || {};
     let allMessagesObj = (await readAllMessages()) || {};
 
@@ -270,7 +270,6 @@
     ];
 
     let activeTab = 'tasks';
-    let rewardsObj = {};
     let editingRewardId = null; // null = not editing, 'new' = creating, pushId = editing
 
     // ── Helpers ──

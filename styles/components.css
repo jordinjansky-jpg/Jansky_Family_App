@@ -1146,16 +1146,7 @@
 /* ── Notification Bell ── */
 .header__bell {
   position: relative;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  transition: color 0.15s;
 }
-.header__bell:hover { color: var(--text-primary); }
 
 .bell__badge {
   position: absolute;
@@ -1178,9 +1169,6 @@
 
 /* ── Bell Dropdown ── */
 .bell-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
   width: min(380px, calc(100vw - 32px));
   max-height: 480px;
   overflow-y: auto;
@@ -1188,7 +1176,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg, 12px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-  z-index: 1000;
+  z-index: 1001;
   padding: 0;
 }
 

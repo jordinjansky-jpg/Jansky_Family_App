@@ -1373,21 +1373,29 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       }
       recentActivity.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-      const headerRight = document.querySelector('.header__right');
-      if (!headerRight) return;
+      const bellEl = document.getElementById('headerBell');
+      if (!bellEl) return;
 
       const overlay = document.createElement('div');
       overlay.className = 'bell-overlay';
       overlay.addEventListener('click', closeBellDropdown);
       document.body.appendChild(overlay);
 
-      headerRight.style.position = 'relative';
-      headerRight.insertAdjacentHTML('beforeend', renderBellDropdown({
+      // Append dropdown to body so it shares the same stacking context as the overlay
+      const dropdownContainer = document.createElement('div');
+      dropdownContainer.innerHTML = renderBellDropdown({
         pendingRequests,
         recentActivity,
         rewards: getRewards(),
         people
-      }));
+      });
+      const dropdown = dropdownContainer.firstElementChild;
+      // Position below the bell button
+      const bellRect = bellEl.getBoundingClientRect();
+      dropdown.style.position = 'fixed';
+      dropdown.style.top = `${bellRect.bottom + 4}px`;
+      dropdown.style.right = `${window.innerWidth - bellRect.right}px`;
+      document.body.appendChild(dropdown);
 
       // Wire "Send Message" button
       document.getElementById('bellSendMessage')?.addEventListener('click', () => {

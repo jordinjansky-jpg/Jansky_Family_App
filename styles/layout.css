@@ -28,7 +28,6 @@
   z-index: 100;
   box-shadow: 0 1px 8px rgba(0,0,0,0.06);
   gap: var(--spacing-sm);
-  flex-wrap: wrap;
 }
 
 .header__left {
@@ -78,7 +77,8 @@
 .header__admin,
 .header__debug,
 .header__theme,
-.header__add-task {
+.header__add-task,
+.header__bell {
   font-size: 1.2rem;
   width: 34px;
   height: 34px;
@@ -93,19 +93,22 @@
   cursor: pointer;
   line-height: 1;
   transition: all var(--transition-fast);
+  color: var(--text-primary);
 }
 
 .header__admin:hover,
 .header__debug:hover,
 .header__theme:hover,
-.header__add-task:hover {
+.header__add-task:hover,
+.header__bell:hover {
   background: var(--bg-secondary);
   transform: scale(1.05);
 }
 .header__admin:active,
 .header__debug:active,
 .header__theme:active,
-.header__add-task:active { transform: scale(0.9); background: var(--bg-tertiary, var(--bg-secondary)); }
+.header__add-task:active,
+.header__bell:active { transform: scale(0.9); background: var(--bg-tertiary, var(--bg-secondary)); }
 
 .header__stats {
   display: flex;
