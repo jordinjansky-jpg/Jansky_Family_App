@@ -1378,11 +1378,7 @@
           <button class="btn btn--sm btn--primary" id="addRewardBtn" type="button">+ Add Reward</button>
         </div>`;
 
-      if (editingRewardId === 'new') {
-        html += `<div class="admin-form-overlay">${renderRewardForm(null)}</div>`;
-      }
-
-      if (rewards.length === 0 && editingRewardId !== 'new') {
+      if (rewards.length === 0) {
         html += `<div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-secondary);">
           <div style="font-size: 2rem; margin-bottom: 8px;">🎁</div>
           <p>No rewards yet. Add one to get started!</p>
@@ -1400,28 +1396,26 @@
             ? reward.perPerson.map(pid => esc(peopleObj[pid]?.name || '?')).join(', ')
             : 'Everyone';
 
-          const isEditingReward = editingRewardId === id;
-          html += `<div class="reward-card${isEditingReward ? ' admin-list-item--editing' : ''}" data-reward-id="${id}" style="cursor: pointer;">
-            <div class="reward-card__icon">${esc(reward.icon || '🎁')}</div>
-            <div class="reward-card__body">
-              <div class="reward-card__name">${esc(reward.name)}</div>
-              <div class="reward-card__meta">
-                <span class="reward-card__cost">${reward.pointCost} pts</span>
-                ${typeLabel ? `<span class="reward-card__type">${typeLabel}</span>` : ''}
-                ${streakBadge}
-                ${expiry}
-              </div>
-              <div class="reward-card__availability">${personNames}</div>
-            </div>
-            <div class="reward-card__actions">
-              <button class="btn btn--ghost btn--sm reward-archive" data-reward-id="${id}" type="button">Archive</button>
-            </div>
+          html += `<div class="reward-card reward-card--inline admin-list-item--clickable" data-reward-id="${id}">
+            <span class="reward-card__icon--sm">${esc(reward.icon || '🎁')}</span>
+            <span class="reward-card__name">${esc(reward.name)}</span>
+            <span class="reward-card__cost">${reward.pointCost} pts</span>
+            ${typeLabel ? `<span class="reward-card__type">${typeLabel}</span>` : ''}
+            ${streakBadge}
+            ${expiry}
+            <span class="reward-card__availability--inline">${personNames}</span>
+            <button class="btn btn--ghost btn--sm reward-archive" data-reward-id="${id}" type="button" style="margin-left: auto;">Archive</button>
           </div>`;
-          if (isEditingReward) {
-            html += `<div class="admin-form-overlay">${renderRewardForm(id)}</div>`;
-          }
         }
         html += `</div>`;
+      }
+
+      // Reward form modal
+      if (editingRewardId) {
+        const modalRewardId = editingRewardId === 'new' ? null : editingRewardId;
+        html += `<div class="task-form-backdrop" id="rewardFormBackdrop">
+          <div class="task-form-modal">${renderRewardForm(modalRewardId)}</div>
+        </div>`;
       }
 
       // Archived rewards toggle
@@ -1496,17 +1490,15 @@
       return `<div class="form-compact" id="rewardForm">
           <h3 class="admin-form__title">${title}</h3>
 
-          <div class="form-row-2">
-            <div class="form-group form-group--2fr">
-              <label class="form-label">Name</label>
-              <input type="text" id="rf_name" class="form-input" value="${esc(reward.name || '')}" placeholder="Movie Night">
-            </div>
-            <div class="form-group form-group--1fr">
-              <label class="form-label">Emoji</label>
-              <div class="emoji-picker-compact" id="rf_emojiPicker">
-                ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn${reward.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
-                <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
-              </div>
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input type="text" id="rf_name" class="form-input" value="${esc(reward.name || '')}" placeholder="Movie Night">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Emoji</label>
+            <div class="emoji-picker" id="rf_emojiPicker">
+              ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn${reward.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+              <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
             </div>
           </div>
 
@@ -1580,12 +1572,12 @@
         render();
       });
 
-      // Row click to open/close inline edit (like tasks list)
+      // Row click to open modal edit
       for (const card of main.querySelectorAll('.reward-card[data-reward-id]')) {
         card.addEventListener('click', (e) => {
           if (e.target.closest('.reward-archive')) return;
           const id = card.dataset.rewardId;
-          editingRewardId = editingRewardId === id ? null : id;
+          editingRewardId = id;
           render();
         });
       }
@@ -1600,9 +1592,17 @@
         });
       }
 
-      // Bind inline form if visible
+      // Bind modal form if visible
       const form = main.querySelector('#rewardForm');
       if (form) bindRewardForm();
+
+      // Backdrop close
+      document.querySelector('#rewardFormBackdrop')?.addEventListener('click', (e) => {
+        if (e.target.id === 'rewardFormBackdrop') {
+          editingRewardId = null;
+          render();
+        }
+      });
     }
 
     function bindRewardForm() {
@@ -1781,49 +1781,43 @@
           <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
         </div>`;
 
-      if (editingAchievementId === 'new') {
-        html += renderAchievementForm(null);
-      }
-
       const defsEntries = Object.entries(allDefs).sort((a, b) => {
         if (a[1].isDefault && !b[1].isDefault) return -1;
         if (!a[1].isDefault && b[1].isDefault) return 1;
         return (a[1].label || '').localeCompare(b[1].label || '');
       });
 
-      html += `<div class="admin-list">`;
+      html += `<div class="admin-list" style="margin-top: var(--spacing-sm);">`;
       for (const [key, def] of defsEntries) {
         const isHidden = def.status === 'hidden';
-        const condLabel = def.condition?.stat ? ACHIEVEMENT_STATS.find(s => s.value === def.condition.stat)?.label || def.condition.stat : 'Manual';
-        const threshLabel = def.condition?.threshold != null ? ` ≥ ${def.condition.threshold}` : '';
         const typeIcon = def.conditionType === 'manual' ? '✋' : def.conditionType === 'hybrid' ? '⚡' : '🤖';
         const rewardLabel = def.reward?.type === 'points' ? `+${def.reward.amount} pts` : def.reward?.type === 'reward' ? '🎁 Reward' : '';
+        const condLabel = def.condition?.stat ? ACHIEVEMENT_STATS.find(s => s.value === def.condition.stat)?.label || def.condition.stat : 'Manual';
+        const threshLabel = def.condition?.threshold != null ? ` ≥ ${def.condition.threshold}` : '';
 
-        const isEditing = editingAchievementId === key;
-        html += `<div class="admin-list-item admin-list-item--clickable${isHidden ? ' admin-list-item--paused' : ''}${isEditing ? ' admin-list-item--editing' : ''}" data-ach-key="${esc(key)}">
-          <div class="admin-list-item__row">
-            <span class="admin-list-item__name">${def.icon} ${esc(def.label)}</span>
-            <span class="admin-list-item__tags">
-              <span class="admin-badge">${typeIcon} ${def.conditionType || 'hybrid'}</span>
-              ${isHidden ? '<span class="admin-badge admin-badge--muted">Hidden</span>' : ''}
-              ${def.isDefault ? '<span class="admin-badge admin-badge--muted">Default</span>' : ''}
-            </span>
+        html += `<div class="reward-card--inline admin-list-item--clickable${isHidden ? ' admin-list-item--paused' : ''}" data-ach-key="${esc(key)}">
+          <span class="reward-card__icon--sm">${def.icon}</span>
+          <span class="reward-card__name">${esc(def.label)}</span>
+          <span class="admin-badge">${typeIcon} ${def.conditionType || 'hybrid'}</span>
+          ${isHidden ? '<span class="admin-badge admin-badge--muted">Hidden</span>' : ''}
+          ${def.isDefault ? '<span class="admin-badge admin-badge--muted">Default</span>' : ''}
+          ${rewardLabel ? `<span class="reward-card__cost">${rewardLabel}</span>` : ''}
+          <div style="margin-left: auto; flex-shrink: 0;">
+            ${def.isDefault
+              ? `<button class="btn btn--ghost btn--sm ach-toggle" data-ach-key="${esc(key)}" type="button">${isHidden ? 'Show' : 'Hide'}</button>`
+              : `<button class="btn btn--ghost btn--sm ach-delete" data-ach-key="${esc(key)}" type="button">✕</button>`}
           </div>
-          <div class="admin-list-item__row">
-            <span class="admin-list-item__meta">${condLabel}${threshLabel}${rewardLabel ? ' · ' + rewardLabel : ''}</span>
-            <div class="admin-list-item__actions">
-              ${def.isDefault
-                ? `<button class="btn btn--ghost btn--sm ach-toggle" data-ach-key="${esc(key)}" type="button">${isHidden ? 'Show' : 'Hide'}</button>`
-                : `<button class="btn btn--ghost btn--sm ach-delete" data-ach-key="${esc(key)}" type="button">✕</button>`}
-            </div>
-          </div>
-          <div class="admin-list-item__meta" style="padding-top: 2px; color: var(--text-muted);">${esc(def.description || '')}</div>
         </div>`;
-        if (isEditing) {
-          html += `<div class="admin-form-overlay">${renderAchievementForm(key)}</div>`;
-        }
       }
       html += `</div></div>`;
+
+      // Achievement form modal
+      if (editingAchievementId) {
+        const modalAchKey = editingAchievementId === 'new' ? null : editingAchievementId;
+        html += `<div class="task-form-backdrop" id="achFormBackdrop">
+          <div class="task-form-modal">${renderAchievementForm(modalAchKey)}</div>
+        </div>`;
+      }
 
       return html;
     }
@@ -1842,17 +1836,15 @@
       return `<div class="form-compact" id="achForm">
         <h3 class="admin-form__title">${title}</h3>
 
-        <div class="form-row-2">
-          <div class="form-group form-group--2fr">
-            <label class="form-label">Name</label>
-            <input type="text" id="af_name" value="${esc(def.label || '')}" placeholder="e.g. 7-Day Streak">
-          </div>
-          <div class="form-group form-group--1fr">
-            <label class="form-label">Icon</label>
-            <div class="emoji-picker-compact" id="af_emojiPicker">
-              ${ACHIEVEMENT_EMOJIS.map(e => `<button type="button" class="emoji-btn${def.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
-              <input type="text" id="af_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${def.icon && !ACHIEVEMENT_EMOJIS.includes(def.icon) ? esc(def.icon) : ''}">
-            </div>
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" id="af_name" value="${esc(def.label || '')}" placeholder="e.g. 7-Day Streak">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Icon</label>
+          <div class="emoji-picker" id="af_emojiPicker">
+            ${ACHIEVEMENT_EMOJIS.map(e => `<button type="button" class="emoji-btn${def.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+            <input type="text" id="af_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${def.icon && !ACHIEVEMENT_EMOJIS.includes(def.icon) ? esc(def.icon) : ''}">
           </div>
         </div>
 
@@ -2019,12 +2011,12 @@
         render();
       });
 
-      // Row click to open/close (like tasks list)
-      for (const row of main.querySelectorAll('.admin-list-item[data-ach-key]')) {
+      // Row click to open modal
+      for (const row of main.querySelectorAll('[data-ach-key].admin-list-item--clickable')) {
         row.addEventListener('click', (e) => {
           if (e.target.closest('.ach-toggle, .ach-delete')) return;
           const key = row.dataset.achKey;
-          editingAchievementId = editingAchievementId === key ? null : key;
+          editingAchievementId = key;
           render();
         });
       }
@@ -2061,9 +2053,17 @@
         });
       }
 
-      // Bind form if visible (inline below the row)
+      // Bind modal form if visible
       const form = main.querySelector('#achForm');
       if (form) bindAchievementForm(form);
+
+      // Backdrop close
+      document.querySelector('#achFormBackdrop')?.addEventListener('click', (e) => {
+        if (e.target.id === 'achFormBackdrop') {
+          editingAchievementId = null;
+          render();
+        }
+      });
     }
 
     function bindAchievementForm(form) {
@@ -2496,14 +2496,22 @@
         }
       });
 
-      // Bounty toggle
+      // Exempt chip toggle
+      const exemptChip = root.querySelector('#tf_exempt');
+      if (exemptChip) {
+        exemptChip.addEventListener('click', () => exemptChip.classList.toggle('chip--active'));
+      }
+
+      // Bounty chip toggle
       const bountyToggle = root.querySelector('#tf_bountyToggle');
       const bountyFields = root.querySelector('#tf_bountyFields');
       if (bountyToggle) {
-        bountyToggle.addEventListener('change', () => {
-          bountyFields.style.display = bountyToggle.checked ? '' : 'none';
-          if (bountyToggle.checked) {
-            root.querySelector('#tf_exempt').checked = true;
+        bountyToggle.addEventListener('click', () => {
+          bountyToggle.classList.toggle('chip--active');
+          const isActive = bountyToggle.classList.contains('chip--active');
+          bountyFields.style.display = isActive ? '' : 'none';
+          if (isActive) {
+            exemptChip?.classList.add('chip--active');
           }
         });
       }
@@ -2564,12 +2572,12 @@
           eventTime,
           notes,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
-          exempt: root.querySelector('#tf_exempt')?.checked || false,
+          exempt: root.querySelector('#tf_exempt')?.classList.contains('chip--active') || false,
           status: 'active'
         };
 
         // Read bounty data
-        const isBounty = root.querySelector('#tf_bountyToggle')?.checked;
+        const isBounty = root.querySelector('#tf_bountyToggle')?.classList.contains('chip--active');
         let bounty = null;
         if (isBounty) {
           const bountyType = root.querySelector('#tf_bountyType .segmented-btn--active')?.dataset?.value || 'points';

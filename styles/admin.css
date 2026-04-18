@@ -685,20 +685,33 @@
 }
 
 /* ── Reward Cards ── */
-.reward-list { display: flex; flex-direction: column; gap: 6px; }
+.reward-list { display: flex; flex-direction: column; gap: 4px; margin-top: var(--spacing-sm); }
 
 .reward-card {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius, 8px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+
+.reward-card--inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
 }
 
 .reward-card--archived { opacity: 0.6; }
 .reward-card__icon { font-size: 1.5rem; flex-shrink: 0; }
+.reward-card__icon--sm { font-size: 1.1rem; flex-shrink: 0; }
 .reward-card__body { flex: 1; min-width: 0; }
 .reward-card__name { font-weight: 600; font-size: var(--font-size-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -710,8 +723,8 @@
   font-size: var(--font-size-xs, 0.75rem);
 }
 
-.reward-card__cost { font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
-.reward-card__type { color: var(--text-secondary); }
+.reward-card__cost { font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; font-size: var(--font-size-xs); }
+.reward-card__type { color: var(--text-secondary); font-size: var(--font-size-xs); }
 
 .reward-card__badge {
   background: var(--surface-alt, var(--bg-secondary));
@@ -725,6 +738,11 @@
   font-size: var(--font-size-xs, 0.75rem);
   color: var(--text-muted);
   margin-top: 1px;
+}
+
+.reward-card__availability--inline {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--text-muted);
 }
 
 .reward-card__actions {

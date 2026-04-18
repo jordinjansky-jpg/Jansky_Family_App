@@ -95,10 +95,10 @@ export function renderHeader(options = {}) {
     rightContent = ''
   } = options;
 
-  const debugIcon = showDebug ? '<span class="header__debug" title="Debug mode active">🐛</span>' : '';
-  const adminLink = showAdmin ? '<a href="admin.html" class="header__admin" title="Admin">⚙️</a>' : '';
-  const addTaskBtn = showAddTask ? '<button class="header__add-task" id="headerAddTask" title="Add Task" type="button">📝</button>' : '';
-  const themeBtn = showThemePicker ? '<button class="header__theme" id="headerThemeBtn" title="Device Theme" type="button">🎨</button>' : '';
+  const debugIcon = showDebug ? '<span class="header__debug" title="Debug mode active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v1h4"/><path d="M18 8h-2V6a4 4 0 0 0-4-4"/><path d="M20 10v1a2 2 0 0 1-2 2"/><rect x="8" y="10" width="8" height="10" rx="4"/><path d="M4 16h4"/><path d="M16 16h4"/><path d="M12 10v10"/></svg></span>' : '';
+  const adminLink = showAdmin ? `<a href="admin.html" class="header__admin" title="Admin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg></a>` : '';
+  const addTaskBtn = showAddTask ? `<button class="header__add-task" id="headerAddTask" title="Add Task" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></button>` : '';
+  const themeBtn = showThemePicker ? `<button class="header__theme" id="headerThemeBtn" title="Device Theme" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></button>` : '';
   const bellBtn = showBell ? renderBellIcon(bellCount) : '';
 
   return `<header class="app-header">
@@ -824,13 +824,15 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
         <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
       </div>
     </div>
-    <div class="form-row-3">
-      <div class="form-group">
+    <div class="form-row" style="align-items: end; gap: var(--spacing-sm);">
+      <div class="form-group" style="flex: 1;">
         <label class="form-label">Cooldown</label>
         <input type="number" id="${prefix}_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
       </div>
-      <label class="admin-checkbox" style="align-self: end; padding-bottom: 8px;"><input type="checkbox" id="${prefix}_exempt"${task.exempt ? ' checked' : ''}> Exempt</label>
-      <label class="admin-checkbox" style="align-self: end; padding-bottom: 8px;"><input type="checkbox" id="${prefix}_bountyToggle" ${task.bounty ? 'checked' : ''}> 🎯 Bounty</label>
+      <div class="chip-group" style="padding-bottom: 6px; flex: 0 0 auto; min-width: 0;">
+        <button type="button" class="chip chip--selectable${task.exempt ? ' chip--active' : ''}" id="${prefix}_exempt">Exempt</button>
+        <button type="button" class="chip chip--selectable${task.bounty ? ' chip--active' : ''}" id="${prefix}_bountyToggle">Bounty</button>
+      </div>
     </div>
     <div id="${prefix}_bountyFields" style="${task.bounty ? '' : 'display: none;'}">
       <div class="form-hint" style="margin-bottom: 8px;">Scoring-exempt. Reward granted on completion.</div>
@@ -1323,7 +1325,7 @@ export function renderBonusDaySheet(people, todayDate) {
  * Initialize the notification bell on any page.
  * Sets up real-time listener and dropdown toggle.
  */
-export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, writeBankTokenFn, writeMultiplierFn, getTodayFn } = {}) {
+export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, removeMessageFn, writeBankTokenFn, writeMultiplierFn, getTodayFn } = {}) {
   let bellMessages = {};
 
   function closeBellDropdown() {
@@ -1414,15 +1416,16 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         bindSendMessageSheet(mount, writeMessageFn);
       });
 
-      // Wire "Clear All" button
+      // Wire "Clear All" button — deletes all messages
       document.getElementById('bellClearAll')?.addEventListener('click', async () => {
         if (!confirm('Clear all notification history?')) return;
         const people = getPeople();
         for (const p of people) {
           const msgs = bellMessages[p.id];
           if (!msgs) continue;
-          for (const [msgId, msg] of Object.entries(msgs)) {
-            if (!msg.seen) await markMessageSeenFn(p.id, msgId);
+          for (const msgId of Object.keys(msgs)) {
+            if (removeMessageFn) await removeMessageFn(p.id, msgId);
+            else await markMessageSeenFn(p.id, msgId);
           }
         }
         closeBellDropdown();

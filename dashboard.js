@@ -1,4 +1,4 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, writeBankToken, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
 import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -99,7 +99,7 @@ document.getElementById('navMount').innerHTML = renderNavBar('home');
 initOfflineBanner(onConnectionChange);
 
 // ── Notification bell ──
-initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier, getTodayFn: () => today });
+initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier, getTodayFn: () => today });
 
 // ── Hide loading, show content ──
 document.getElementById('loadingState').style.display = 'none';
@@ -1273,6 +1273,15 @@ function openEditTaskSheet(taskId) {
     if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
   });
 
+  // Exempt / Bounty chip toggles
+  document.getElementById('et_exempt')?.addEventListener('click', (e) => e.currentTarget.classList.toggle('chip--active'));
+  document.getElementById('et_bountyToggle')?.addEventListener('click', (e) => {
+    e.currentTarget.classList.toggle('chip--active');
+    const bountyFields = document.getElementById('et_bountyFields');
+    if (bountyFields) bountyFields.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
+    if (e.currentTarget.classList.contains('chip--active')) document.getElementById('et_exempt')?.classList.add('chip--active');
+  });
+
   document.getElementById('et_save')?.addEventListener('click', async () => {
     const name = document.getElementById('et_name')?.value.trim();
     if (!name) { document.getElementById('et_name')?.focus(); return; }
@@ -1306,7 +1315,7 @@ function openEditTaskSheet(taskId) {
       eventTime,
       notes,
       cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
-      exempt: document.getElementById('et_exempt')?.checked || false
+      exempt: document.getElementById('et_exempt')?.classList.contains('chip--active') || false
     };
 
     await writeTask(taskId, updated);
@@ -1412,6 +1421,15 @@ function openQuickAddSheet() {
 
   document.getElementById('qa_cancel')?.addEventListener('click', closeTaskSheet);
 
+  // Exempt / Bounty chip toggles for quick-add
+  document.getElementById('qa_exempt')?.addEventListener('click', (e) => e.currentTarget.classList.toggle('chip--active'));
+  document.getElementById('qa_bountyToggle')?.addEventListener('click', (e) => {
+    e.currentTarget.classList.toggle('chip--active');
+    const bountyFields = document.getElementById('qa_bountyFields');
+    if (bountyFields) bountyFields.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
+    if (e.currentTarget.classList.contains('chip--active')) document.getElementById('qa_exempt')?.classList.add('chip--active');
+  });
+
   document.getElementById('qa_save')?.addEventListener('click', async () => {
     const name = document.getElementById('qa_name')?.value.trim();
     if (!name) { document.getElementById('qa_name')?.focus(); return; }
@@ -1447,7 +1465,7 @@ function openQuickAddSheet() {
       eventTime,
       notes,
       cooldownDays: parseInt(document.getElementById('qa_cooldown')?.value, 10) || null,
-      exempt: !!document.getElementById('qa_exempt')?.checked,
+      exempt: !!document.getElementById('qa_exempt')?.classList.contains('chip--active'),
       status: 'active',
       createdDate: today
     };

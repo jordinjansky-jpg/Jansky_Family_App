@@ -37,7 +37,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, writeBankToken, writeMultiplier, readRewards } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, writeMultiplier, readRewards } from './shared/firebase.js';
     import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner, initBell } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
@@ -142,7 +142,7 @@
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);
-    initBell(() => people, () => trkRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier, getTodayFn: () => today });
+    initBell(() => people, () => trkRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, writeMultiplierFn: writeMultiplier, getTodayFn: () => today });
 
     // ── Helpers ──
 
@@ -929,6 +929,15 @@
         if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
       });
 
+      // Exempt / Bounty chip toggles
+      document.getElementById('et_exempt')?.addEventListener('click', (e) => e.currentTarget.classList.toggle('chip--active'));
+      document.getElementById('et_bountyToggle')?.addEventListener('click', (e) => {
+        e.currentTarget.classList.toggle('chip--active');
+        const bf = document.getElementById('et_bountyFields');
+        if (bf) bf.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
+        if (e.currentTarget.classList.contains('chip--active')) document.getElementById('et_exempt')?.classList.add('chip--active');
+      });
+
       document.getElementById('et_save')?.addEventListener('click', async () => {
         const name = document.getElementById('et_name')?.value.trim();
         if (!name) { document.getElementById('et_name')?.focus(); return; }
@@ -957,7 +966,7 @@
           eventTime,
           notes,
           cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
-          exempt: document.getElementById('et_exempt')?.checked || false
+          exempt: document.getElementById('et_exempt')?.classList.contains('chip--active') || false
         };
         await writeTask(taskId, updated);
         tasks[taskId] = updated;

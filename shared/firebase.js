@@ -439,6 +439,10 @@ export async function markMessageSeen(personId, msgId) {
   await updateData(`messages/${personId}/${msgId}`, { seen: true });
 }
 
+export async function removeMessage(personId, msgId) {
+  await removeData(`messages/${personId}/${msgId}`);
+}
+
 export async function clearMessages(personId, beforeTimestamp) {
   const msgs = await readOnce(`messages/${personId}`);
   if (!msgs) return;
