@@ -1403,6 +1403,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         const mount = document.getElementById('taskSheetMount') || document.getElementById('drilldownMount');
         if (!mount) return;
         mount.innerHTML = renderSendMessageSheet(getPeople());
+        requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
         bindSendMessageSheet(mount, writeMessageFn);
       });
 
@@ -1412,6 +1413,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         const mount = document.getElementById('taskSheetMount') || document.getElementById('drilldownMount');
         if (!mount) return;
         mount.innerHTML = renderBonusDaySheet(getPeople(), getTodayFn?.());
+        requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
         // Person chip toggle (exclusive with "Everyone")
         for (const chip of mount.querySelectorAll('#bd_people .chip--selectable')) {

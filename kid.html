@@ -525,15 +525,28 @@
         }
 
         function renderTrophyCase(achievements) {
-          let html = '<div class="kid-trophies"><h4 class="kid-trophies__title">Achievements</h4><div class="kid-trophies__grid">';
+          const total = Object.keys(ACHIEVEMENTS).length;
+          const unlocked = Object.keys(achievements).filter(k => achievements[k]).length;
+          const unlockedIcons = Object.entries(ACHIEVEMENTS)
+            .filter(([key]) => achievements[key])
+            .map(([, def]) => def.icon)
+            .slice(0, 6);
+          const preview = unlockedIcons.length > 0 ? unlockedIcons.join(' ') : '🏆';
+
+          let html = `<details class="kid-trophies">
+            <summary class="kid-trophies__summary">
+              <span class="kid-trophies__preview">${preview}</span>
+              <span class="kid-trophies__count">${unlocked}/${total} Achievements</span>
+            </summary>
+            <div class="kid-trophies__grid">`;
           for (const [key, def] of Object.entries(ACHIEVEMENTS)) {
-            const unlocked = achievements[key];
-            html += `<div class="kid-trophy ${unlocked ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}" title="${esc(def.label)}: ${esc(def.description)}">
+            const got = achievements[key];
+            html += `<div class="kid-trophy ${got ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}" title="${esc(def.label)}: ${esc(def.description)}">
               <span class="kid-trophy__icon">${def.icon}</span>
               <span class="kid-trophy__label">${esc(def.label)}</span>
             </div>`;
           }
-          html += '</div></div>';
+          html += '</div></details>';
           return html;
         }
 
@@ -1066,6 +1079,7 @@
             }
 
             mount.innerHTML = renderBottomSheet(storeHtml);
+            requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
             // Bind "Get it!" buttons
             for (const btn of mount.querySelectorAll('.store-get-btn')) {
@@ -1179,6 +1193,7 @@
             }
 
             mount.innerHTML = renderBottomSheet(histHtml);
+            requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
             mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
               if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
             });
@@ -1207,6 +1222,7 @@
               skipHtml += `<button class="skip-pick-btn" data-entry-key="${key}" type="button" style="display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius, 8px); background: var(--surface); cursor: pointer;">${esc(task.name)}</button>`;
             }
             mount.innerHTML = renderBottomSheet(skipHtml);
+            requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
             for (const btn of mount.querySelectorAll('.skip-pick-btn')) {
               btn.addEventListener('click', async () => {

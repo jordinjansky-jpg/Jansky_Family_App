@@ -1588,12 +1588,14 @@
       main.querySelector('#addRewardBtn')?.addEventListener('click', () => {
         editingRewardId = 'new';
         render();
+        document.getElementById('rewardForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
 
       for (const btn of main.querySelectorAll('.reward-edit')) {
         btn.addEventListener('click', () => {
           editingRewardId = btn.dataset.rewardId;
           render();
+          document.getElementById('rewardForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       }
 

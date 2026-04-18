@@ -252,6 +252,13 @@
   }
 }
 
+/* Admin Form Overlay */
+.admin-form-overlay {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 2px solid var(--accent);
+}
+
 /* Admin Form */
 .admin-form {
   position: relative;
