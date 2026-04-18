@@ -94,6 +94,28 @@ rundown/
 │   └── {YYYY-MM-DD}/{personId}  ← { earned, possible, percentage, grade, missedKeys[] }
 ├── streaks/
 │   └── {personId}               ← { current, best, lastCompleteDate }
+├── rewards/
+│   └── {pushId}      ← { name, icon, pointCost, rewardType, perPerson?, maxRedemptions?,
+│                         streakRequirement?, expiresAt?, status: 'active'|'archived' }
+│                       rewardType: 'standard' | 'task-skip' | 'penalty-removal'
+├── messages/
+│   └── {personId}/
+│       └── {pushId}  ← { type, title, body?, amount, rewardId?, entryKey?, seen, createdAt, createdBy }
+│                       type: 'bonus' | 'deduction' | 'redemption-request' | 'redemption-approved' | 'redemption-denied'
+├── balanceAnchors/
+│   └── {personId}    ← { amount, anchoredAt }
+├── bank/
+│   └── {personId}/
+│       └── {pushId}  ← { rewardType, acquiredAt, used, usedAt?, targetEntryKey? }
+├── wishlist/
+│   └── {personId}/
+│       └── {rewardId} ← { addedAt }
+├── achievements/
+│   └── {personId}/
+│       └── {achievementKey} ← { unlockedAt, seen }
+├── multipliers/
+│   └── {YYYY-MM-DD}/
+│       └── {personId} ← { multiplier, note?, createdBy }
 └── debug/eventLog/    ← { ...data, timestamp }
 ```
 
@@ -125,6 +147,12 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **Kid mode:** Isolated view at `kid.html?kid=Name`. No nav bar, no admin access, no task editing. Per-child settings control features.
 - **Admin PIN:** 4-digit PIN with 30-min session cache in sessionStorage. Recovery PIN is always `2522`.
 - **Calendar sheet height:** Locks on open so person filter changes don't cause resize jitter.
+- **Rewards balance:** Normalized to 100 pts/day max from daily score percentage (read from snapshots). Balance = anchor + snapshot earnings × multipliers + bonuses − deductions − redemptions. Computed on-the-fly, never stored.
+- **Bounty tasks:** Scoring-exempt (`exempt: true`). Grant points or rewards automatically on completion. Multi-person bounties are first-come-first-served — completing removes other owners' schedule entries.
+- **Functional rewards:** Task Skip and Penalty Removal are banked as tokens (`bank/` node). Kids use them at their discretion from kid mode. Task Skip marks an entry exempt; Penalty Removal clears `isLate`/`pointsOverride` on the highest-damage penalty.
+- **Notification bell:** Shared `initBell()` on all non-kid pages. Shows unseen count badge, pending approval requests, recent activity. Parents approve/deny redemptions, send bonus/deduction messages, and create bonus multiplier days from the bell dropdown.
+- **Achievements:** 13 milestone badges checked on kid mode load. Unseen achievements show full-screen unlock overlays. Trophy case displays in kid mode; badge icons show on scoreboard cards.
+- **Person delete cascade:** Removing a person in admin also cleans up messages, balance anchors, bank tokens, wishlist, and achievements via `deletePersonRewardsData()`.
 
 ## Gotchas (Critical)
 - Firebase RTDB compat SDK (not modular) — all access via `firebase.` global after CDN load
@@ -144,6 +172,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Rewards Store (1.2): Points economy (100 pts/day), parent-defined rewards, bonus/deduction messages, notification bell on all pages, functional rewards (task skip, penalty removal), bounty tasks, 13 achievement badges, bonus multiplier days, balance on scoreboard, admin balance management
 - Calendar mobile week view: days reorder like dashboard (today first, future next, past at bottom via CSS `order`), "Today" tag pill, past days faded, dead auto-scroll code removed
 - Calendar overhaul (1.1): three-view calendar (month/week/day), first-class events with quick-add, time-grid day view, swipe navigation, person filters, `calendar-views.js` shared module
 - Points system rescale: new formula `basePoints = max(estMin, 5) × difficultyMultiplier` replaces `round(mult × (1 + estMin/30))`. Difficulty multipliers configurable per-family via `settings.difficultyMultipliers`. Zero data migration — percentages identical pre/post.
@@ -160,25 +189,7 @@ Product direction: evolve Daily Rundown from a task manager into a **Skylight Ca
 
 ---
 
-**1.2 — Rewards Store** · Medium (~2 sessions) · No dependencies · Cost: $0
-
-Points-based rewards system. Kids earn points from the existing scoring engine and redeem them for parent-defined rewards.
-
-*Core mechanics:*
-- Parents define rewards in admin: name, point cost, optional emoji/icon, optional per-person availability, optional quantity limits.
-- Kids see available rewards and their point balance in kid mode and on the scoreboard.
-- Redemption: kid taps a reward → confirmation → points deducted → redemption logged.
-- Parents see redemption history and can approve/deny if configured to require approval.
-- Achievement badges for milestones: streak thresholds (10-day, 30-day, 100-day), grade milestones (first A+ day, first A+ week), cumulative point thresholds.
-
-*Schema:*
-```
-rundown/rewards/{pushId}       ← { name, pointCost, icon?, perPerson?, maxRedemptions?, requiresApproval? }
-rundown/redemptions/{pushId}   ← { rewardId, personId, pointsSpent, redeemedAt, status: 'completed'|'pending' }
-rundown/achievements/{personId}/{achievementKey} ← { unlockedAt, seen? }
-```
-
-*UI:* New section on scoreboard (rewards shelf with progress bars toward each reward). In kid mode: prominent rewards display with visual progress. In admin: rewards management tab.
+~~**1.2 — Rewards Store** · DONE — shipped 2026-04-18. Points economy (100 pts/day), parent-defined rewards with emoji/pricing helper, notification bell on all pages, bonus/deduction messages, approval flow, kid mode store/history/wishlist, functional rewards (task skip, penalty removal), bounty tasks, 13 achievement badges with trophy case, bonus multiplier days, balance on scoreboard, admin balance management and person delete cascade.~~
 
 ---
 
