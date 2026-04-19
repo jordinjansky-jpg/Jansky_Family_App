@@ -1214,7 +1214,8 @@ export function renderSendMessageSheet(people, preselectedPersonId = null) {
 /**
  * Bind event listeners for the send message sheet.
  */
-export function bindSendMessageSheet(mount, writeMessageFn) {
+export function bindSendMessageSheet(mount, writeMessageFn, approverName) {
+  const approver = approverName || 'Parent';
   const sheet = mount.querySelector('.bottom-sheet');
   if (!sheet) return;
 
@@ -1495,7 +1496,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         if (!mount) return;
         mount.innerHTML = renderSendMessageSheet(getPeople());
         requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-        bindSendMessageSheet(mount, writeMessageFn);
+        bindSendMessageSheet(mount, writeMessageFn, approver);
       });
 
       // Wire "Clear All" button — deletes all messages
