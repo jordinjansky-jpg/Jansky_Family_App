@@ -551,8 +551,8 @@
     /* ── Trophy Case ── */
     .kid-header__icons {
       position: absolute;
-      top: calc(12px + env(safe-area-inset-top, 0px));
-      right: calc(12px + env(safe-area-inset-right, 0px));
+      top: calc(var(--spacing-xs) + env(safe-area-inset-top, 20px));
+      right: 12px;
       display: flex;
       gap: 4px;
     }
