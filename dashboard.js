@@ -99,7 +99,7 @@ document.getElementById('navMount').innerHTML = renderNavBar('home');
 initOfflineBanner(onConnectionChange);
 
 // ── Notification bell ──
-initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today });
+initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
 
 // ── Hide loading, show content ──
 document.getElementById('loadingState').style.display = 'none';
@@ -1205,7 +1205,7 @@ function openEditTaskSheet(taskId) {
   if (!task) return;
 
   const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
-  const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people);
+  const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people, rewardsData);
   taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
   initOwnerChips('et_owners');
 
@@ -1289,6 +1289,14 @@ function openEditTaskSheet(taskId) {
     if (bountyFields) bountyFields.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
     if (e.currentTarget.classList.contains('chip--active')) document.getElementById('et_exempt')?.classList.add('chip--active');
   });
+  for (const btn of document.querySelectorAll('#et_bountyType .segmented-btn')) {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#et_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+      btn.classList.add('segmented-btn--active');
+      document.getElementById('et_bountyPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
+      document.getElementById('et_bountyRewardField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+    });
+  }
 
   document.getElementById('et_save')?.addEventListener('click', async () => {
     const name = document.getElementById('et_name')?.value.trim();
@@ -1325,6 +1333,20 @@ function openEditTaskSheet(taskId) {
       cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
       exempt: document.getElementById('et_exempt')?.classList.contains('chip--active') || false
     };
+
+    // Read bounty data
+    const isBounty = document.getElementById('et_bountyToggle')?.classList.contains('chip--active');
+    if (isBounty) {
+      const bountyType = document.querySelector('#et_bountyType .segmented-btn--active')?.dataset?.value || 'points';
+      updated.bounty = {
+        type: bountyType,
+        amount: bountyType === 'points' ? (parseInt(document.getElementById('et_bountyAmount')?.value) || 50) : null,
+        rewardId: bountyType === 'reward' ? (document.getElementById('et_bountyReward')?.value || null) : null
+      };
+      updated.exempt = true;
+    } else {
+      updated.bounty = null;
+    }
 
     await writeTask(taskId, updated);
     tasks[taskId] = updated;
@@ -1437,6 +1459,14 @@ function openQuickAddSheet() {
     if (bountyFields) bountyFields.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
     if (e.currentTarget.classList.contains('chip--active')) document.getElementById('qa_exempt')?.classList.add('chip--active');
   });
+  for (const btn of document.querySelectorAll('#qa_bountyType .segmented-btn')) {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#qa_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+      btn.classList.add('segmented-btn--active');
+      document.getElementById('qa_bountyPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
+      document.getElementById('qa_bountyRewardField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+    });
+  }
 
   document.getElementById('qa_save')?.addEventListener('click', async () => {
     const name = document.getElementById('qa_name')?.value.trim();
@@ -1477,6 +1507,20 @@ function openQuickAddSheet() {
       status: 'active',
       createdDate: today
     };
+
+    // Read bounty data
+    const isBounty = document.getElementById('qa_bountyToggle')?.classList.contains('chip--active');
+    if (isBounty) {
+      const bountyType = document.querySelector('#qa_bountyType .segmented-btn--active')?.dataset?.value || 'points';
+      taskData.bounty = {
+        type: bountyType,
+        amount: bountyType === 'points' ? (parseInt(document.getElementById('qa_bountyAmount')?.value) || 50) : null,
+        rewardId: bountyType === 'reward' ? (document.getElementById('qa_bountyReward')?.value || null) : null
+      };
+      taskData.exempt = true;
+    } else {
+      taskData.bounty = null;
+    }
 
     const newId = await pushTask(taskData);
     tasks[newId] = taskData;

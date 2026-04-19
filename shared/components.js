@@ -911,14 +911,15 @@ export function renderQuickAddSheet(people, categories, defaultCategoryKey, rewa
  * Render an inline edit task form inside a bottom sheet.
  * task: the task object, categories: [{key, label, icon}], people: [{id, name, color}]
  */
-export function renderEditTaskSheet(taskId, task, categories, people) {
+export function renderEditTaskSheet(taskId, task, categories, people, rewards = {}) {
   return `<div class="task-detail-sheet">${renderTaskFormCompact({
     task,
     taskId,
     mode: 'edit',
     categories,
     people,
-    prefix: 'et'
+    prefix: 'et',
+    rewards
   })}</div>`;
 }
 
@@ -1294,7 +1295,7 @@ export function bindSendMessageSheet(mount, writeMessageFn) {
         entryKey: null,
         seen: false,
         createdAt: firebase.database.ServerValue.TIMESTAMP,
-        createdBy: 'parent'
+        createdBy: approver
       });
     }
 
@@ -1405,7 +1406,8 @@ export function showToast(message, duration = 3000) {
  * Initialize the notification bell on any page.
  * Sets up real-time listener and dropdown toggle.
  */
-export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, removeMessageFn, writeBankTokenFn, markBankTokenUsedFn, readBankFn, writeMultiplierFn, getTodayFn } = {}) {
+export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, removeMessageFn, writeBankTokenFn, markBankTokenUsedFn, readBankFn, writeMultiplierFn, getTodayFn, approverName } = {}) {
+  const approver = approverName || 'Parent';
   let bellMessages = {};
 
   function closeBellDropdown() {
@@ -1552,7 +1554,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
 
           if (writeMultiplierFn) {
             for (const pid of selectedIds) {
-              await writeMultiplierFn(dateKey, pid, { multiplier: mult, note, createdBy: 'parent' });
+              await writeMultiplierFn(dateKey, pid, { multiplier: mult, note, createdBy: approver });
             }
           }
           mount.innerHTML = '';
@@ -1578,14 +1580,14 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
           const reward = getRewards()[msg.rewardId] || {};
           await writeMessageFn(personId, {
             type: 'redemption-approved',
-            title: `${reward.name || 'Reward'} approved!`,
+            title: `${reward.name || 'Reward'} approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
             body: null,
             amount: 0,
             rewardId: msg.rewardId,
             entryKey: null,
             seen: false,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
-            createdBy: 'parent'
+            createdBy: approver
           });
 
           await writeBankTokenFn(personId, {
@@ -1616,14 +1618,14 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
           const reward = getRewards()[msg.rewardId] || {};
           await writeMessageFn(personId, {
             type: 'redemption-denied',
-            title: `${reward.name || 'Reward'} denied`,
+            title: `${reward.name || 'Reward'} denied${approver !== 'Parent' ? ` by ${approver}` : ''}`,
             body: null,
             amount: 0,
             rewardId: msg.rewardId,
             entryKey: null,
             seen: false,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
-            createdBy: 'parent'
+            createdBy: approver
           });
 
           // Refund points
@@ -1661,14 +1663,14 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
 
           await writeMessageFn(personId, {
             type: 'use-approved',
-            title: `${msg.rewardName || 'Reward'} — approved to use!`,
+            title: `${msg.rewardName || 'Reward'} — approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
             body: null,
             amount: 0,
             rewardId: msg.rewardId || null,
             entryKey: null,
             seen: false,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
-            createdBy: 'parent'
+            createdBy: approver
           });
 
           closeBellDropdown();
@@ -1687,14 +1689,14 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
 
           await writeMessageFn(personId, {
             type: 'use-denied',
-            title: `${msg.rewardName || 'Reward'} — not right now`,
+            title: `${msg.rewardName || 'Reward'} — not right now (${approver})`,
             body: null,
             amount: 0,
             rewardId: msg.rewardId || null,
             entryKey: null,
             seen: false,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
-            createdBy: 'parent'
+            createdBy: approver
           });
 
           closeBellDropdown();
