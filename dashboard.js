@@ -1347,7 +1347,7 @@ function openEditTaskSheet(taskId) {
 function openQuickAddSheet() {
   const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
   const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
-  const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey);
+  const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey, rewardsData);
   taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
   initOwnerChips('qa_owners');
 

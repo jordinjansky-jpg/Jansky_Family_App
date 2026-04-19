@@ -895,14 +895,15 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
  * people: array of { id, name, color }
  * categories: array of { key, label, icon }
  */
-export function renderQuickAddSheet(people, categories, defaultCategoryKey) {
+export function renderQuickAddSheet(people, categories, defaultCategoryKey, rewards = {}) {
   const task = defaultCategoryKey ? { category: defaultCategoryKey } : {};
   return `<div class="task-detail-sheet">${renderTaskFormCompact({
     task,
     mode: 'create',
     categories,
     people,
-    prefix: 'qa'
+    prefix: 'qa',
+    rewards
   })}</div>`;
 }
 

@@ -516,8 +516,13 @@
 
     /* ── Bank (Saved Rewards) ── */
     .kid-bank { padding: 12px 16px; margin-bottom: 16px; }
-    .kid-bank__title { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
-    .kid-bank__tokens { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kid-bank__title { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-secondary); cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+    .kid-bank__title::-webkit-details-marker { display: none; }
+    .kid-bank__title::after { content: '▸'; font-size: 0.75rem; color: var(--text-muted); transition: transform 0.2s; margin-left: auto; }
+    .kid-bank[open] > .kid-bank__title::after { transform: rotate(90deg); }
+    .kid-bank__count-badge { font-size: var(--font-size-xs, 0.75rem); background: var(--accent); color: #fff; border-radius: 10px; padding: 1px 7px; font-weight: 700; min-width: 18px; text-align: center; }
+    .kid-bank__count { font-size: var(--font-size-xs, 0.75rem); color: var(--text-muted); font-weight: 400; }
+    .kid-bank__tokens { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
     .kid-bank__token { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius, 8px); cursor: pointer; font-size: var(--font-size-sm); font-weight: 600; transition: all 0.15s; }
     .kid-bank__token:hover { background: var(--accent); color: #fff; }
     .kid-bank__token-icon { font-size: 1.25rem; }

@@ -1138,7 +1138,7 @@
     function openQuickAddSheet() {
       const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
       const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
-      const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey);
+      const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey, calRewards);
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
       initOwnerChips('qa_owners');
 

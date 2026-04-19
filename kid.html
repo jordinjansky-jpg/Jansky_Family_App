@@ -728,23 +728,34 @@
                 .filter(Boolean)
             );
 
-            html += `<div class="kid-bank">
-              <h4 class="kid-bank__title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved Rewards</h4>
+            html += `<details class="kid-bank">
+              <summary class="kid-bank__title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved Rewards <span class="kid-bank__count-badge">${unusedTokens.length}</span></summary>
               <div class="kid-bank__tokens">
                 ${skips > 0 ? `<button class="kid-bank__token" id="useTaskSkip" type="button"><span class="kid-bank__token-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></span><span>Task Skip &times;${skips}</span></button>` : ''}
                 ${removals > 0 ? `<button class="kid-bank__token" id="usePenaltyRemoval" type="button"><span class="kid-bank__token-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><span>Penalty Removal &times;${removals}</span></button>` : ''}
-                ${customTokens.map(([tokenId, t]) => {
-                  const isPending = pendingUseTokenIds.has(tokenId);
-                  return `<div class="kid-bank__token kid-bank__token--custom${isPending ? ' kid-bank__token--pending' : ''}">
-                    <span class="kid-bank__token-icon">${esc(t.rewardIcon || '🎁')}</span>
-                    <span class="kid-bank__token-name">${esc(t.rewardName || 'Reward')}</span>
-                    ${isPending
-                      ? `<span class="kid-bank__token-status">Pending...</span>`
-                      : `<button class="btn btn--xs btn--primary kid-bank__use-btn" data-token-id="${esc(tokenId)}" type="button">Use</button>`}
-                  </div>`;
-                }).join('')}
+                ${(() => {
+                  // Group custom tokens by rewardName+rewardIcon
+                  const groups = new Map();
+                  for (const [tokenId, t] of customTokens) {
+                    const key = (t.rewardName || 'Reward') + '|' + (t.rewardIcon || '🎁');
+                    if (!groups.has(key)) groups.set(key, { name: t.rewardName || 'Reward', icon: t.rewardIcon || '🎁', tokens: [] });
+                    groups.get(key).tokens.push({ tokenId, isPending: pendingUseTokenIds.has(tokenId) });
+                  }
+                  return Array.from(groups.values()).map(g => {
+                    const count = g.tokens.length;
+                    const allPending = g.tokens.every(t => t.isPending);
+                    const firstUsable = g.tokens.find(t => !t.isPending);
+                    return `<div class="kid-bank__token kid-bank__token--custom${allPending ? ' kid-bank__token--pending' : ''}">
+                      <span class="kid-bank__token-icon">${esc(g.icon)}</span>
+                      <span class="kid-bank__token-name">${esc(g.name)}${count > 1 ? ` <span class="kid-bank__count">&times;${count}</span>` : ''}</span>
+                      ${allPending
+                        ? `<span class="kid-bank__token-status">Pending...</span>`
+                        : `<button class="btn btn--xs btn--primary kid-bank__use-btn" data-token-id="${esc(firstUsable.tokenId)}" type="button">Use</button>`}
+                    </div>`;
+                  }).join('');
+                })()}
               </div>
-            </div>`;
+            </details>`;
           }
 
           // ── Stats bar ──
