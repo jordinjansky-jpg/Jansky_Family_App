@@ -2145,7 +2145,7 @@
               await writeMessage(pid, {
                 type: 'bonus', title: `🏅 ${def.label}`, body: `Achievement reward: +${def.reward.amount} pts`,
                 amount: def.reward.amount, rewardId: null, entryKey: null,
-                seen: false, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system'
+                seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system'
               });
             }
             allAchievements = (await readAllAchievements()) || {};
