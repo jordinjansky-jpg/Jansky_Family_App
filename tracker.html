@@ -471,7 +471,8 @@
       if (activeView === 'weekly') {
         return `${formatDateShort(start)} – ${formatDateShort(end)}`;
       }
-      const monthName = new Date(start + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      const anchor = monthStart(periodAnchor);
+      const monthName = new Date(anchor + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
       return monthName;
     }
 
