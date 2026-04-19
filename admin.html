@@ -733,6 +733,7 @@
               </div>
             </div>
             <div class="admin-list-item__row" style="padding-left: 28px;">
+              <button class="btn btn--ghost btn--xs admin-adjust-balance" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Adjust Points</button>
               <button class="btn btn--ghost btn--xs admin-reset-balance" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Reset Balance</button>
               <button class="btn btn--ghost btn--xs admin-clear-history" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Clear History</button>
             </div>
@@ -1322,7 +1323,7 @@
 
       let html = `<div class="admin-list admin-list--compact">`;
       for (const e of entries) {
-        const time = e.timestamp ? new Date(e.timestamp).toLocaleString() : '—';
+        const time = e.timestamp ? new Date(e.timestamp).toLocaleString('en-US', { timeZone: tz }) : '—';
         const payload = e.payload ? JSON.stringify(e.payload).slice(0, 100) : '';
         html += `<div class="admin-list-item admin-list-item--compact">
           <div class="admin-list-item__main">
@@ -1400,7 +1401,7 @@
           const streakBadge = reward.streakRequirement
             ? `<span class="reward-card__badge">🔥 ${reward.streakRequirement}-day streak</span>` : '';
           const expiry = reward.expiresAt
-            ? `<span class="reward-card__badge">Expires ${new Date(reward.expiresAt).toLocaleDateString()}</span>` : '';
+            ? `<span class="reward-card__badge">Expires ${new Date(reward.expiresAt).toLocaleDateString('en-US', { timeZone: tz })}</span>` : '';
           const personNames = reward.perPerson
             ? reward.perPerson.map(pid => esc(peopleObj[pid]?.name || '?')).join(', ')
             : 'Everyone';
@@ -1471,7 +1472,7 @@
               : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
               : (token.rewardName || 'Reward');
             const icon = token.rewardIcon || (token.rewardType === 'task-skip' ? '⏭️' : token.rewardType === 'penalty-removal' ? '🛡️' : '🎁');
-            const date = new Date(token.acquiredAt).toLocaleDateString();
+            const date = new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz });
             html += `<div class="reward-card--inline" style="margin-bottom: 4px;">
               <span class="reward-card__icon--sm">${esc(icon)}</span>
               <span class="reward-card__name">${esc(label)}</span>
@@ -1513,7 +1514,7 @@
           const statusLabel = (r.type === 'redemption-approved' || r.type === 'use-approved') ? 'Approved' :
                               (r.type === 'redemption-denied' || r.type === 'use-denied') ? 'Denied' :
                               r.type === 'use-request' ? 'Use Request' : 'Pending';
-          const date = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '';
+          const date = r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-US', { timeZone: tz }) : '';
           html += `<div class="redemption-row">
             <span class="redemption-row__status">${statusIcon}</span>
             <span class="redemption-row__person" style="color: ${person?.color || 'inherit'}">${esc(person?.name || '?')}</span>
@@ -1605,7 +1606,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">Expires</label>
-              <input type="date" id="rf_expiresAt" class="form-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toISOString().split('T')[0] : ''}">
+              <input type="date" id="rf_expiresAt" class="form-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz }) : ''}">
             </div>
           </div>
 
@@ -1898,7 +1899,7 @@
             const got = pa[key];
             const isRevoked = got?.revoked;
             const isUnlocked = got && !isRevoked;
-            const date = isUnlocked ? new Date(got.unlockedAt).toLocaleDateString() : '';
+            const date = isUnlocked ? new Date(got.unlockedAt).toLocaleDateString('en-US', { timeZone: tz }) : '';
             html += `<button class="ach-badge-btn ${isUnlocked ? 'ach-badge-btn--unlocked' : ''}" data-key="${esc(key)}" data-person-id="${p.id}" type="button" title="${esc(def.label)}">
               <span class="ach-badge-icon">${def.icon}</span>
               <span class="ach-badge-label">${esc(def.label)}</span>
@@ -2113,7 +2114,7 @@
 
           const mount = document.getElementById('taskSheetMount');
           let statusHtml = isUnlocked
-            ? `<span style="color: var(--accent-success, #38a169);">Unlocked ${new Date(got.unlockedAt).toLocaleDateString()}</span>`
+            ? `<span style="color: var(--accent-success, #38a169);">Unlocked ${new Date(got.unlockedAt).toLocaleDateString('en-US', { timeZone: tz })}</span>`
             : isRevoked
               ? `<span style="color: var(--accent-danger, #e53e3e);">Revoked</span>`
               : `<span style="color: var(--text-muted);">Locked</span>`;
@@ -3217,6 +3218,80 @@
         });
       }
 
+      // Silent balance adjustment (no message sent to person)
+      for (const btn of main.querySelectorAll('.admin-adjust-balance')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const pid = btn.dataset.personId;
+          const person = peopleObj[pid];
+          const msgs = (await readMessages(pid)) || {};
+          const anchor = (await readBalanceAnchor(pid)) || null;
+          const snaps = (await readAllSnapshots()) || {};
+          const mults = (await readMultipliers()) || {};
+          const { balance } = calculateBalance(pid, snaps, msgs, anchor, mults, tz);
+
+          // Build prompt modal
+          const overlay = document.createElement('div');
+          overlay.className = 'confirm-modal';
+          overlay.setAttribute('role', 'dialog');
+          overlay.innerHTML = `<div class="confirm-modal__card">
+            <div class="confirm-modal__title">Adjust ${esc(person?.name || '?')}'s Points</div>
+            <div class="confirm-modal__message" style="margin-bottom: 12px;">Current balance: <strong>${balance.toLocaleString()} pts</strong></div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px;">
+              <button class="btn btn--xs admin-adj-minus" type="button" style="font-size: 1.25rem; padding: 4px 12px;">−</button>
+              <input type="number" class="form-input admin-adj-input" value="0" style="text-align: center; flex: 1; font-size: var(--font-size-base); font-weight: 600;">
+              <button class="btn btn--xs admin-adj-plus" type="button" style="font-size: 1.25rem; padding: 4px 12px;">+</button>
+            </div>
+            <div class="confirm-modal__message admin-adj-preview" style="font-size: var(--font-size-sm); margin-bottom: 12px;"></div>
+            <div class="confirm-modal__actions">
+              <button class="btn btn--secondary confirm-modal__cancel" type="button">Cancel</button>
+              <button class="btn btn--primary confirm-modal__ok" type="button">Apply</button>
+            </div>
+          </div>`;
+
+          const input = overlay.querySelector('.admin-adj-input');
+          const preview = overlay.querySelector('.admin-adj-preview');
+          const minusBtn = overlay.querySelector('.admin-adj-minus');
+          const plusBtn = overlay.querySelector('.admin-adj-plus');
+
+          function updatePreview() {
+            const val = parseInt(input.value) || 0;
+            const newBal = balance + val;
+            const sign = val > 0 ? '+' : val < 0 ? '' : '±';
+            preview.textContent = val === 0 ? '' : `New balance: ${newBal.toLocaleString()} pts (${sign}${val})`;
+            preview.style.color = val > 0 ? 'var(--accent-success, #38a169)' : val < 0 ? 'var(--accent-danger, #e53e3e)' : '';
+          }
+          input.addEventListener('input', updatePreview);
+          minusBtn.addEventListener('click', () => { input.value = (parseInt(input.value) || 0) - 10; updatePreview(); });
+          plusBtn.addEventListener('click', () => { input.value = (parseInt(input.value) || 0) + 10; updatePreview(); });
+
+          document.body.appendChild(overlay);
+          requestAnimationFrame(() => { overlay.classList.add('confirm-modal--active'); input.focus(); input.select(); });
+
+          const result = await new Promise((resolve) => {
+            overlay.querySelector('.confirm-modal__ok').addEventListener('click', () => resolve(parseInt(input.value) || 0));
+            overlay.querySelector('.confirm-modal__cancel').addEventListener('click', () => resolve(null));
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) resolve(null); });
+            overlay.addEventListener('keydown', (e) => {
+              if (e.key === 'Escape') resolve(null);
+              else if (e.key === 'Enter') resolve(parseInt(input.value) || 0);
+            });
+          });
+
+          overlay.classList.remove('confirm-modal--active');
+          setTimeout(() => overlay.remove(), 200);
+
+          if (result === null || result === 0) return;
+
+          // Silently adjust: freeze current balance + adjustment into anchor
+          const newBalance = balance + result;
+          await writeBalanceAnchor(pid, { amount: newBalance, anchoredAt: Date.now() });
+          await clearMessages(pid, Date.now());
+          showUndoToast(`${result > 0 ? '+' : ''}${result} pts → ${esc(person?.name || '?')}`, () => {});
+          render();
+        });
+      }
+
       // Reset balance
       for (const btn of main.querySelectorAll('.admin-reset-balance')) {
         btn.addEventListener('click', async (e) => {
@@ -3237,7 +3312,7 @@
           const anchor = (await readBalanceAnchor(pid)) || null;
           const snaps = (await readAllSnapshots()) || {};
           const mults = (await readMultipliers()) || {};
-          const { balance } = calculateBalance(pid, snaps, msgs, anchor, mults);
+          const { balance } = calculateBalance(pid, snaps, msgs, anchor, mults, tz);
           await writeBalanceAnchor(pid, { amount: balance, anchoredAt: Date.now() });
           await clearMessages(pid, Date.now());
           render();

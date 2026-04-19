@@ -286,7 +286,7 @@
 
         const personMsgs = allMessages?.[b.person.id] || {};
         const personAnchor = allAnchors?.[b.person.id] || null;
-        const { balance } = calculateBalance(b.person.id, allSnapshots, personMsgs, personAnchor, allMultipliers);
+        const { balance } = calculateBalance(b.person.id, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
         // Add today's live earnings (not yet snapshotted) to the displayed balance
         const todayMult = allMultipliers?.[today]?.[b.person.id]?.multiplier || 1;
         const liveBalance = Math.round(balance + (b.today.percentage || 0) * todayMult);
@@ -417,7 +417,7 @@
           for (const [mk, m] of Object.entries(personMsgs)) {
             if (m.createdAt && m.createdAt <= dEnd) filteredMsgs[mk] = m;
           }
-          const { balance: bal } = calculateBalance(b.person.id, filteredSnaps, filteredMsgs, personAnchor, allMultipliers);
+          const { balance: bal } = calculateBalance(b.person.id, filteredSnaps, filteredMsgs, personAnchor, allMultipliers, tz);
           balanceDays.push({ date: d, balance: bal });
         }
         const maxBal = Math.max(...balanceDays.map(d => Math.abs(d.balance)), 1);
@@ -635,7 +635,7 @@
       const rewards = sbRewards || {};
       const personMsgs = allMessages?.[personId] || {};
       const personAnchor = allAnchors?.[personId] || null;
-      const { balance } = calculateBalance(personId, allSnapshots, personMsgs, personAnchor, allMultipliers);
+      const { balance } = calculateBalance(personId, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
       const personStreak = streaks[personId] || { current: 0, best: 0 };
       const personBank = (await readBank(personId)) || {};
 
@@ -699,7 +699,7 @@
             <div class="store-card__icon">${icon}</div>
             <div class="store-card__body">
               <div class="store-card__name">${esc(typeLabel)}</div>
-              <div class="store-card__cost" style="color: var(--text-secondary); font-size: var(--font-size-xs, 0.75rem);">Saved ${new Date(token.acquiredAt).toLocaleDateString()}</div>
+              <div class="store-card__cost" style="color: var(--text-secondary); font-size: var(--font-size-xs, 0.75rem);">Saved ${new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz })}</div>
             </div>
             <div class="store-card__actions">
               ${useBtn}
@@ -953,7 +953,7 @@
       for (const p of people) {
         const personMsgs = allMessages?.[p.id] || {};
         const personAnchor = allAnchors?.[p.id] || null;
-        const { balance } = calculateBalance(p.id, allSnapshots, personMsgs, personAnchor, allMultipliers);
+        const { balance } = calculateBalance(p.id, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
         html += `<button class="store-person-btn" data-person-id="${p.id}" type="button" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); cursor: pointer; margin-bottom: 8px; font-size: var(--font-size-base);">
           <span style="background: ${p.color}; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 600;">${p.name[0].toUpperCase()}</span>
           <span style="flex: 1; text-align: left; font-weight: 500;">${esc(p.name)}</span>

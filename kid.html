@@ -75,11 +75,11 @@
     const params = new URLSearchParams(window.location.search);
     const kidName = params.get('kid');
 
-    document.getElementById('loadingState').style.display = 'none';
     const main = document.getElementById('mainContent');
-    main.style.display = '';
 
     if (!kidName) {
+      document.getElementById('loadingState').style.display = 'none';
+      main.style.display = '';
       main.innerHTML = `
         <div class="kid-error">
           <div class="kid-error__emoji">🔒</div>
@@ -93,6 +93,8 @@
       const kid = people.find(p => p.name.toLowerCase() === kidName.toLowerCase() && p.role === 'child');
 
       if (!kid) {
+        document.getElementById('loadingState').style.display = 'none';
+        main.style.display = '';
         main.innerHTML = `
           <div class="kid-error">
             <div class="kid-error__emoji">🤔</div>
@@ -137,7 +139,7 @@
         const activeDefs = getActiveAchievements(allAchDefs);
 
         // Calculate balance
-        let { balance, totalEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers);
+        let { balance, totalEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers, tz);
         let prevBalance = balance;
 
         // ── Check for new achievements ──
@@ -186,7 +188,7 @@
           streakData = freshStreak;
           const freshMessages = (await readMessages(kid.id)) || {};
           messages = freshMessages;
-          const { balance: freshBal, totalEarned: freshTotal } = calculateBalance(kid.id, allSnapshots, freshMessages, anchor, multipliers);
+          const { balance: freshBal, totalEarned: freshTotal } = calculateBalance(kid.id, allSnapshots, freshMessages, anchor, multipliers, tz);
           balance = freshBal;
           const freshHasRedeemed = Object.values(freshMessages).some(m => m.type === 'redemption-approved');
           const freshSched = (await readOnce(`schedule/${today}`)) || {};
@@ -622,7 +624,7 @@
             if (def.perPerson && !def.perPerson.includes(kid.id)) continue;
             const got = achievements[key];
             const isUnlocked = got && !got.revoked;
-            const date = isUnlocked ? new Date(got.unlockedAt).toLocaleDateString() : '';
+            const date = isUnlocked ? new Date(got.unlockedAt).toLocaleDateString('en-US', { timeZone: tz }) : '';
             html += `<div class="kid-trophy ${isUnlocked ? 'kid-trophy--unlocked' : 'kid-trophy--locked'}">
               <span class="kid-trophy__icon">${def.icon}</span>
               <span class="kid-trophy__label">${esc(def.label)}</span>
@@ -1286,7 +1288,7 @@
             // Add messages
             for (const msg of Object.values(messages)) {
               const icon = msg.type === 'bonus' ? '➕' : msg.type === 'deduction' ? '➖' : msg.type === 'redemption-request' ? '🛒' : msg.type === 'redemption-approved' ? '✅' : msg.type === 'redemption-denied' ? '❌' : msg.type === 'use-request' ? '📤' : msg.type === 'use-approved' ? '✅' : msg.type === 'use-denied' ? '❌' : msg.type === 'reward-used' ? '🎉' : msg.type === 'task-skip-used' ? '⏭️' : msg.type === 'penalty-removed' ? '🛡️' : '📋';
-              entries.push({ date: msg.createdAt ? new Date(msg.createdAt).toISOString().split('T')[0] : '?', timestamp: msg.createdAt || 0, icon, title: msg.title || msg.type, amount: msg.amount || 0, type: msg.type });
+              entries.push({ date: msg.createdAt ? new Date(msg.createdAt).toLocaleDateString('en-CA', { timeZone: tz }) : '?', timestamp: msg.createdAt || 0, icon, title: msg.title || msg.type, amount: msg.amount || 0, type: msg.type });
             }
 
             entries.sort((a, b) => b.timestamp - a.timestamp);
@@ -2352,18 +2354,22 @@
         subscribeSchedule(viewDate);
         // Load overdue items and streaks (one-shot)
         await loadData();
-        // Listeners will trigger debouncedRender; run render immediately for first paint
+        // Render content (still hidden behind loading spinner)
         render();
 
-        // Show unseen messages first, then achievements (chained via dismiss callback)
+        // Mount overlays BEFORE revealing content to avoid flash
         const hasUnseenMsgs = Object.values(messages).some(m => !m.seen && ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'task-skip-used', 'penalty-removed'].includes(m.type));
         showUnseenMessages();
         if (!hasUnseenMsgs) showUnseenAchievements();
 
+        // Now reveal content (overlays are already in place)
+        document.getElementById('loadingState').style.display = 'none';
+        main.style.display = '';
+
         // Real-time message listener
         onMessages(kid.id, (newMsgs) => {
           messages = newMsgs || {};
-          const { balance: newBal, totalEarned: newEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers);
+          const { balance: newBal, totalEarned: newEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers, tz);
           balance = newBal;
           totalEarned = newEarned;
           debouncedRender(); // Re-render to update wishlist bars, store affordability, etc.

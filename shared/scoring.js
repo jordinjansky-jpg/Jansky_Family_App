@@ -492,19 +492,22 @@ export function getActiveAchievements(allDefs) {
  * @param {object|null} multipliers - { dateKey: { personId: { multiplier } } }
  * @returns {{ balance: number, totalEarned: number }}
  */
-export function calculateBalance(personId, allSnapshots, messages, anchor, multipliers) {
+export function calculateBalance(personId, allSnapshots, messages, anchor, multipliers, timezone) {
   const anchorAmount = anchor?.amount || 0;
   const anchorDate = anchor?.anchoredAt || 0;
-  // Derive anchor date string (YYYY-MM-DD) for safe comparison — avoids timezone mismatch
-  // between Unix timestamp anchor and YYYY-MM-DD snapshot keys
-  const anchorDateKey = anchorDate ? new Date(anchorDate).toISOString().split('T')[0] : '';
+  // Convert anchor timestamp to YYYY-MM-DD in the family timezone (not UTC)
+  // so it matches snapshot date keys which are also in the family timezone.
+  const tz = timezone || 'America/Chicago';
+  const anchorDateKey = anchorDate
+    ? new Date(anchorDate).toLocaleDateString('en-CA', { timeZone: tz })
+    : '';
 
   let snapshotEarning = 0;
   if (allSnapshots) {
     for (const [dateKey, people] of Object.entries(allSnapshots)) {
       const snap = people?.[personId];
       if (!snap) continue;
-      if (dateKey <= anchorDateKey) continue;
+      if (dateKey < anchorDateKey) continue;
       const mult = multipliers?.[dateKey]?.[personId]?.multiplier || 1;
       snapshotEarning += (snap.percentage || 0) * mult;
     }

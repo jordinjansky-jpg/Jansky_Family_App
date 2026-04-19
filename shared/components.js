@@ -1306,7 +1306,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName) {
 }
 
 export function renderBonusDaySheet(people, todayDate) {
-  const today = todayDate || new Date().toISOString().split('T')[0];
+  const today = todayDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
   return renderBottomSheet(`
     <h3 style="margin-bottom: 12px;">🎉 Bonus Day</h3>
 
