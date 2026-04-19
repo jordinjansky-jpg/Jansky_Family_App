@@ -287,6 +287,9 @@
         const personMsgs = allMessages?.[b.person.id] || {};
         const personAnchor = allAnchors?.[b.person.id] || null;
         const { balance } = calculateBalance(b.person.id, allSnapshots, personMsgs, personAnchor, allMultipliers);
+        // Add today's live earnings (not yet snapshotted) to the displayed balance
+        const todayMult = allMultipliers?.[today]?.[b.person.id]?.multiplier || 1;
+        const liveBalance = Math.round(balance + (b.today.percentage || 0) * todayMult);
 
         html += `<button class="sb-card" data-person-id="${b.person.id}" type="button" style="--person-color: ${b.person.color}">
           <div class="sb-card__rank"></div>
@@ -298,7 +301,7 @@
                 ${b.streak.current > 0 ? `<span class="sb-streak">🔥 ${b.streak.current}d</span>` : ''}
                 ${trendIcon ? `<span class="sb-trend ${trendClass}">${trendIcon}</span>` : ''}
                 <span class="sb-time">${formatMinutes(b.time)}</span>
-                <span class="sb-balance">💰 ${Math.round(balance).toLocaleString()}</span>
+                <span class="sb-balance">💰 ${liveBalance.toLocaleString()}</span>
               </div>
             </div>
           </div>
