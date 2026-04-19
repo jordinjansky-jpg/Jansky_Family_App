@@ -4,6 +4,10 @@
     body {
       padding-bottom: 0;
     }
+    /* Progress bar needs horizontal padding (kid mode doesn't load layout.css) */
+    .progress-section {
+      padding: 0 var(--spacing-md);
+    }
     /* Kid mode has no nav bar, lower the undo toast */
     .undo-toast {
       bottom: var(--spacing-md);
