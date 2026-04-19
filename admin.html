@@ -65,7 +65,7 @@
       readCompletions, readAllSchedule, readOnce,
       multiUpdate, updateData, pushDebugEvent, factoryReset, onConnectionChange,
       readRewards, pushReward, writeReward, archiveReward, removeReward,
-      readMessages, readAllMessages, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
+      readMessages, readAllMessages, writeMessage, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
       readAllAchievements, writeAchievement, deleteAchievement,
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
       readBank, writeBankToken, removeBankToken
@@ -2140,6 +2140,14 @@
 
           mount.querySelector('#achPopupAward')?.addEventListener('click', async () => {
             await writeAchievement(pid, key, { unlockedAt: Date.now(), seen: false });
+            // Grant point reward if configured
+            if (def.reward?.type === 'points' && def.reward.amount > 0) {
+              await writeMessage(pid, {
+                type: 'bonus', title: `🏅 ${def.label}`, body: `Achievement reward: +${def.reward.amount} pts`,
+                amount: def.reward.amount, rewardId: null, entryKey: null,
+                seen: false, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system'
+              });
+            }
             allAchievements = (await readAllAchievements()) || {};
             mount.innerHTML = '';
             render();

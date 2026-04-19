@@ -180,6 +180,16 @@
           if (achievements[key]?.revoked) continue;
           await writeAchievement(kid.id, key, { unlockedAt: Date.now(), seen: false });
           achievements[key] = { unlockedAt: Date.now(), seen: false };
+          // Grant point reward immediately as bonus message
+          const achDef = activeDefs[key];
+          if (achDef?.reward?.type === 'points' && achDef.reward.amount > 0) {
+            await writeMessage(kid.id, {
+              type: 'bonus', title: `🏅 ${achDef.label}`, body: `Achievement reward: +${achDef.reward.amount} pts`,
+              amount: achDef.reward.amount, rewardId: null, entryKey: null,
+              seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system'
+            });
+            balance += achDef.reward.amount;
+          }
         }
 
         // ── Re-check achievements after events (task completion, bounty, redemption) ──
@@ -218,6 +228,16 @@
             if (achievements[key]?.revoked) continue;
             await writeAchievement(kid.id, key, { unlockedAt: Date.now(), seen: false });
             achievements[key] = { unlockedAt: Date.now(), seen: false };
+            // Grant point reward immediately as bonus message
+            const achDef = activeDefs[key];
+            if (achDef?.reward?.type === 'points' && achDef.reward.amount > 0) {
+              await writeMessage(kid.id, {
+                type: 'bonus', title: `🏅 ${achDef.label}`, body: `Achievement reward: +${achDef.reward.amount} pts`,
+                amount: achDef.reward.amount, rewardId: null, entryKey: null,
+                seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'system'
+              });
+              balance += achDef.reward.amount;
+            }
             awarded++;
           }
           if (awarded > 0) showUnseenAchievements();
@@ -596,12 +616,16 @@
           if (!def) return;
 
           const mount = document.getElementById('celebrationMount');
+          const rewardLine = def.reward?.type === 'points' && def.reward.amount > 0
+            ? `<div style="color: var(--accent-success, #38a169); font-weight: 700; font-size: 1.1rem; margin-bottom: 12px;">+${def.reward.amount} pts earned!</div>`
+            : '';
           mount.innerHTML = `<div class="kid-msg-overlay kid-msg-overlay--positive">
             <div class="kid-msg-overlay__card" style="border-color: gold;">
               <div style="font-size: 4rem; margin-bottom: 8px;">${def.icon}</div>
               <h3 class="kid-msg-overlay__title">Achievement Unlocked!</h3>
               <div style="font-size: 1.25rem; font-weight: 700; margin-bottom: 4px;">${esc(def.label)}</div>
-              <div style="color: var(--text-secondary); margin-bottom: 16px;">${esc(def.description)}</div>
+              <div style="color: var(--text-secondary); margin-bottom: ${rewardLine ? '8px' : '16px'};">${esc(def.description)}</div>
+              ${rewardLine}
               <button class="btn btn--primary kid-msg-overlay__dismiss" type="button">Awesome!</button>
             </div>
           </div>`;
