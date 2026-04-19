@@ -550,18 +550,19 @@
 
     /* ── Trophy Case ── */
     .kid-header__icons {
+      position: absolute;
+      top: 12px;
+      right: 12px;
       display: flex;
-      justify-content: flex-end;
       gap: 4px;
-      margin-bottom: -8px;
     }
 
     .kid-header__icon-btn {
       background: none;
       border: none;
       font-size: 1.3rem;
-      width: 44px;
-      height: 44px;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
