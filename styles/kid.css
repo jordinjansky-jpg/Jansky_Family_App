@@ -550,11 +550,10 @@
 
     /* ── Trophy Case ── */
     .kid-header__icons {
-      position: absolute;
-      top: calc(var(--spacing-xs) + env(safe-area-inset-top, 20px));
-      right: 12px;
       display: flex;
+      justify-content: flex-end;
       gap: 4px;
+      margin-bottom: -8px;
     }
 
     .kid-header__icon-btn {
