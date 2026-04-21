@@ -236,7 +236,7 @@ export function renderTaskCard(options) {
   const eventClass = isEvent ? ' task-card--event' : '';
   const showIcon = category?.showIcon !== false;
   const catIcon = showIcon ? (category?.icon || '') : '';
-  const ownerColor = person?.color || 'var(--text-secondary)';
+  const ownerColor = person?.color || 'var(--text-faint)';
   const ownerInitial = (person?.name || '?')[0].toUpperCase();
   const estLabel = task.estMin ? `${task.estMin}m` : '';
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
@@ -585,7 +585,7 @@ export function renderTaskDetailSheet(options) {
     isEvent = false, readOnly = false, isPastDate = false
   } = options;
   const catIcon = category?.icon || '';
-  const ownerColor = person?.color || 'var(--text-secondary)';
+  const ownerColor = person?.color || 'var(--text-faint)';
   const diffLabel = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[task.difficulty] || 'Medium';
   const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-Time' }[entry.rotationType] || '';
   const todLabel = { am: 'Morning', pm: 'Afternoon', anytime: 'Anytime' }[entry.timeOfDay] || '';
@@ -1105,7 +1105,7 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
       <div class="bell-dropdown__actions">
         <button class="btn btn--xs btn--ghost" id="bellSendMessage" type="button">Message</button>
         <button class="btn btn--xs btn--ghost" id="bellBonusDay" type="button">Bonus</button>
-        ${hasItems ? `<button class="btn btn--xs btn--ghost" id="bellClearAll" type="button" style="color: var(--text-muted);">Clear</button>` : ''}
+        ${hasItems ? `<button class="btn btn--xs btn--ghost" id="bellClearAll" type="button" style="color: var(--text-faint);">Clear</button>` : ''}
       </div>
     </div>`;
 
