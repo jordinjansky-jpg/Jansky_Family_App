@@ -3,38 +3,18 @@
 /* ============ CSS Variables (defaults — overridden by theme.js) ============ */
 :root {
   /* Colors — set by theme */
-  --bg-primary: #faf8f5;
-  --bg-secondary: #f0ece6;
-  --bg-card: #ffffff;
   --surface: #ffffff;
-  --bg-nav: #ffffff;
-  --text-primary: #2c2c2c;
-  --text-secondary: #6b6b6b;
-  --text-muted: #999999;
-  --border-color: #e8e4de;
+  --text-muted: #6b6b6b;
   --border: #e8e4de;
-  --border-light: #f0ece6;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.1);
   --shadow-md: 0 2px 8px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06);
   --shadow-lg: 0 4px 12px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.12);
-  --border-subtle: #f3f0eb;
   --bg-hover: rgba(0,0,0,0.04);
   --overlay-bg: rgba(0,0,0,0.4);
 
   /* Accent — set by theme */
   --accent: #5b7fd6;
-  --accent-light: #5b7fd620;
   --accent-hover: #5b7fd6dd;
-
-  /* Semantic colors */
-  --success-bg: #e8f5e9;
-  --success-text: #2e7d32;
-  --warning-bg: #fff3e0;
-  --warning-text: #e65100;
-  --danger-bg: #ffebee;
-  --danger-text: #c62828;
-  --info-bg: #e3f2fd;
-  --info-text: #1565c0;
 
   /* Grade colors */
   --grade-a: #2e7d32;
@@ -44,9 +24,8 @@
   --grade-f: #c62828;
 
   /* Layout */
-  --nav-height: 60px;
-  --header-height: 56px;
-  --max-width: 600px;
+  --nav-height: 68px;
+  --header-height: 64px;
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
@@ -55,13 +34,6 @@
 
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.8125rem;
-  --font-size-base: 0.9375rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.5rem;
-  --font-size-md: 1rem;
-  --font-size-2xl: 2rem;
 
   /* Border radius */
   --radius-sm: 6px;
@@ -69,10 +41,6 @@
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-full: 9999px;
-
-  /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-normal: 250ms ease;
 
   /* Accent pressed */
   --accent-pressed: color-mix(in srgb, var(--accent) 85%, #000);
@@ -136,9 +104,7 @@
   --z-toast: 50;
   --z-celebration: 60;
 
-  /* Structural — updated values per DESIGN.md and mockup */
-  /* NOTE: --nav-height and --header-height will get their new values
-     in Task 6 (the retirement commit). For now, old values stay. */
+  /* Structural — spec-aligned values per DESIGN.md */
   --max-content: 600px;
 }
 
@@ -149,7 +115,7 @@
     --surface: #1d1d1b;
     --surface-2: #262523;
     --text: #ececeb;
-    --text-muted-dark: #a6a6a3;  /* bridge; renamed in Task 6 */
+    --text-muted: #a6a6a3;
     --text-faint: #6e6d6a;
     --border: #2f2e2b;
     --accent: #64b7a8;
@@ -182,9 +148,9 @@ html {
 
 body {
   font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  color: var(--text-primary);
-  background: var(--bg-primary);
+  font-size: var(--font-md);
+  color: var(--text);
+  background: var(--bg);
   line-height: 1.5;
   min-height: 100dvh;
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
@@ -208,21 +174,21 @@ button {
 
 input, select, textarea {
   font-family: inherit;
-  font-size: var(--font-size-base);
-  color: var(--text-primary);
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  font-size: var(--font-md);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   width: 100%;
   max-width: 100%;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--t-fast);
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-light);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 select {
