@@ -76,6 +76,94 @@
 
   /* Accent pressed */
   --accent-pressed: color-mix(in srgb, var(--accent) 85%, #000);
+
+  /* ============ Spec-aligned tokens (DESIGN.md §3) ============ */
+
+  /* Surfaces */
+  --bg: #f7f6f2;
+  --surface-2: #f2f1ec;
+  --text: #171717;
+  --text-faint: #9a9a9a;
+
+  /* Border (aliased to existing --border) */
+  /* --border already exists, no new addition needed */
+
+  /* Accent-ink and accent-soft emitted per-preset by theme.js; default to fallback */
+  --accent-ink: #0f3d36;
+  --accent-soft: #e4f1ee;
+
+  /* Semantic — soft + solid pairs */
+  --success: #166534;
+  --success-soft: #dcfce7;
+  --warning: #9a6b0c;
+  --warning-soft: #faecd0;
+  --danger: #b4491c;
+  --danger-soft: #fae5d6;
+  --info: #1d4f7a;
+  --info-soft: #dfecf7;
+
+  /* Owner palette (static defaults; per-person color still comes via --owner-color) */
+  --owner-a: #3e6b9f;
+  --owner-b: #b8577d;
+  --owner-c: #7d6bb8;
+  --owner-d: #5a9466;
+
+  /* Spacing */
+  --spacing-2xl: 48px;
+
+  /* Type */
+  --font-xs: 0.75rem;
+  --font-sm: 0.875rem;
+  --font-md: 1rem;
+  --font-lg: 1.125rem;
+  --font-xl: 1.375rem;
+  --font-2xl: 1.75rem;
+  --font-3xl: 2.25rem;
+
+  /* Motion */
+  --t-fast: 120ms ease-out;
+  --t-base: 200ms ease-out;
+  --t-slow: 320ms ease-out;
+
+  /* Z-index */
+  --z-header: 10;
+  --z-fab: 15;
+  --z-nav: 20;
+  --z-sheet-backdrop: 30;
+  --z-sheet: 31;
+  --z-modal-backdrop: 40;
+  --z-modal: 41;
+  --z-toast: 50;
+  --z-celebration: 60;
+
+  /* Structural — updated values per DESIGN.md and mockup */
+  /* NOTE: --nav-height and --header-height will get their new values
+     in Task 6 (the retirement commit). For now, old values stay. */
+  --max-content: 600px;
+}
+
+/* ============ Dark mode defaults (theme-independent surfaces) ============ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413;
+    --surface: #1d1d1b;
+    --surface-2: #262523;
+    --text: #ececeb;
+    --text-muted-dark: #a6a6a3;  /* bridge; renamed in Task 6 */
+    --text-faint: #6e6d6a;
+    --border: #2f2e2b;
+    --accent: #64b7a8;
+    --accent-ink: #c7ebe3;
+    --accent-soft: #1f3734;
+    --danger: #e28a5c;
+    --danger-soft: #3a2418;
+    --success: #7fc49a;
+    --success-soft: #1f3527;
+    --warning: #d4aa60;
+    --warning-soft: #3a2e18;
+    --info: #86b8e0;
+    --info-soft: #1a2a3a;
+  }
 }
 
 /* ============ Reset ============ */
