@@ -23,20 +23,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  transition: all var(--transition-fast);
+  background: var(--surface-2);
+  color: var(--text-faint);
+  transition: all var(--t-fast);
   flex-shrink: 0;
 }
 
 .date-nav__btn:hover {
-  background: var(--accent-light);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
 .date-nav__btn:active {
   transform: scale(0.92);
-  background: var(--accent-light);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -45,15 +45,15 @@
 }
 
 .date-header__day {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-2xl);
   font-weight: 800;
   display: block;
   letter-spacing: -0.02em;
 }
 
 .date-header__full {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  color: var(--text-faint);
 }
 
 .date-header__grade {
@@ -68,23 +68,23 @@
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  color: var(--text-faint);
   flex-wrap: wrap;
 }
 
 .date-header__sep {
-  color: var(--text-muted);
+  color: var(--text-faint);
   margin: 0 2px;
 }
 
 /* ============ Time of Day Section ============ */
 .time-header {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted);
+  color: var(--text-faint);
   margin-top: var(--spacing-lg);
   margin-bottom: var(--spacing-sm);
   padding-left: var(--spacing-xs);
@@ -97,7 +97,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--border-light);
+  background: var(--border);
 }
 
 .time-header:first-child {
@@ -113,7 +113,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-lg);
   font-weight: 700;
 }
 
@@ -136,7 +136,7 @@
 }
 
 .task-detail__slider-value {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-sm);
   font-weight: 700;
   color: var(--accent);
 }
@@ -153,8 +153,8 @@
 }
 
 .task-detail__grade-preview {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  color: var(--text-faint);
   margin-top: var(--spacing-xs);
   text-align: right;
 }
@@ -167,7 +167,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 250;
+  z-index: var(--z-celebration);
   background: var(--overlay-bg);
   opacity: 0;
   visibility: hidden;
@@ -191,14 +191,14 @@
 }
 
 .celebration__title {
-  font-size: var(--font-size-xl);
-  color: var(--bg-primary);
+  font-size: var(--font-xl);
+  color: var(--bg);
   margin-bottom: var(--spacing-xs);
 }
 
 .celebration__subtitle {
-  font-size: var(--font-size-sm);
-  color: var(--bg-secondary);
+  font-size: var(--font-sm);
+  color: var(--surface-2);
 }
 
 @keyframes celebrationPop {
@@ -221,7 +221,7 @@
   border-radius: 2px;
   animation: confettiFall 2.5s ease-in forwards;
   pointer-events: none;
-  z-index: 251;
+  z-index: var(--z-celebration); /* z-index audit: was 251 -> mapped to celebration (confetti, stacks via DOM order) */
 }
 
 .celebration--dismiss {
@@ -237,4 +237,4 @@
 .date-header__stats {
   font-variant-numeric: tabular-nums;
 }
-
+

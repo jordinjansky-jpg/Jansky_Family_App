@@ -5,7 +5,7 @@
 .tracker-tabs {
   display: flex;
   gap: var(--spacing-xs);
-  background: var(--bg-secondary);
+  background: var(--surface-2);
   border-radius: var(--radius-md);
   padding: 3px;
 }
@@ -14,16 +14,16 @@
   flex: 1;
   padding: 8px 0;
   border-radius: calc(var(--radius-md) - 2px);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-sm);
   font-weight: 600;
   background: transparent;
-  color: var(--text-secondary);
-  transition: all var(--transition-fast);
+  color: var(--text-faint);
+  transition: all var(--t-fast);
 }
 
 .tracker-tab--active {
-  background: var(--bg-card);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--text);
   box-shadow: var(--shadow-sm);
 }
 
@@ -33,8 +33,8 @@
   align-items: center;
   gap: 0.125rem;
   margin: 0.5rem 0 0.75rem;
-  font-size: var(--font-size-md);
-  color: var(--text-secondary);
+  font-size: var(--font-md);
+  color: var(--text-faint);
 }
 
 .tracker-period__row {
@@ -48,13 +48,13 @@
   min-width: 10ch;
   text-align: center;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .tracker-period__nav {
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-faint);
   font-size: 1rem;
   padding: 0.25rem 0.5rem;
   cursor: pointer;
@@ -68,20 +68,20 @@
 }
 
 .tracker-period__nav:hover {
-  background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
-  color: var(--text-primary);
+  background: var(--surface-2, rgba(0, 0, 0, 0.05));
+  color: var(--text);
 }
 
 .tracker-period__nav:focus-visible {
   outline: none;
-  color: var(--text-primary);
+  color: var(--text);
   box-shadow: 0 0 0 2px var(--accent, #6c63ff);
 }
 
 .tracker-period__today {
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-faint);
   font-size: 0.8125rem;
   font-weight: 500;
   padding: 0.25rem 0.6rem;
@@ -94,13 +94,13 @@
 }
 
 .tracker-period__today:hover {
-  background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
-  color: var(--text-primary);
+  background: var(--surface-2, rgba(0, 0, 0, 0.05));
+  color: var(--text);
 }
 
 .tracker-period__today:focus-visible {
   outline: none;
-  color: var(--text-primary);
+  color: var(--text);
   box-shadow: 0 0 0 2px var(--accent, #6c63ff);
 }
 
@@ -114,10 +114,10 @@
   flex: 1;
   padding: 8px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--font-sm);
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b6b6b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -136,7 +136,7 @@
 
 .tracker-summary__bar {
   height: 6px;
-  background: var(--bg-secondary);
+  background: var(--surface-2);
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: var(--spacing-sm);
@@ -144,7 +144,7 @@
 
 .tracker-summary__fill {
   height: 100%;
-  background: var(--success-text);
+  background: var(--success);
   border-radius: 3px;
   transition: width 0.3s ease;
 }
@@ -156,16 +156,16 @@
 }
 
 .tracker-summary__count {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-xs);
   font-weight: 500;
 }
 
-.tracker-summary__count--done { color: var(--success-text); }
-.tracker-summary__count--late { color: var(--warning-text); }
-.tracker-summary__count--overdue { color: var(--danger-text); }
-.tracker-summary__count--upcoming { color: var(--text-secondary); }
+.tracker-summary__count--done { color: var(--success); }
+.tracker-summary__count--late { color: var(--warning); }
+.tracker-summary__count--overdue { color: var(--danger); }
+.tracker-summary__count--upcoming { color: var(--text-faint); }
 .tracker-summary__count--cooldown { color: var(--accent, #6c63ff); }
-.tracker-summary__count--skipped { color: var(--text-muted); }
+.tracker-summary__count--skipped { color: var(--text-faint); }
 
 /* Week group headers (monthly view) */
 .tracker-week-group {
@@ -178,11 +178,11 @@
 }
 
 .tracker-week-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-sm);
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-faint);
   padding: var(--spacing-sm) 0 var(--spacing-xs);
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border);
   margin-bottom: var(--spacing-xs);
 }
 
@@ -207,9 +207,9 @@
   align-items: center;
   gap: var(--spacing-sm);
   padding: 10px var(--spacing-md);
-  background: var(--bg-card);
+  background: var(--surface);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border);
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
@@ -217,8 +217,8 @@
 }
 
 .tracker-row--overdue {
-  border-left: 3px solid var(--danger-text);
-  background: var(--danger-bg);
+  border-left: 3px solid var(--danger);
+  background: var(--danger-soft);
 }
 
 .tracker-row--done {
@@ -234,7 +234,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-xs);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -248,9 +248,9 @@
 }
 
 .tracker-row__name {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-sm);
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -258,12 +258,12 @@
 
 .tracker-row--done .tracker-row__name {
   text-decoration: line-through;
-  color: var(--text-muted);
+  color: var(--text-faint);
 }
 
 .tracker-row__meta {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  font-size: var(--font-xs);
+  color: var(--text-faint);
 }
 
 .tracker-row__right {
@@ -276,7 +276,7 @@
 
 .tracker-row__completed {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-faint);
 }
 
 /* Status badges */
@@ -289,23 +289,23 @@
 }
 
 .tracker-status--done {
-  background: var(--success-bg);
-  color: var(--success-text);
+  background: var(--success-soft);
+  color: var(--success);
 }
 
 .tracker-status--late {
-  background: var(--warning-bg);
-  color: var(--warning-text);
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .tracker-status--overdue {
-  background: var(--danger-bg);
-  color: var(--danger-text);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .tracker-status--upcoming {
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
+  background: var(--surface-2);
+  color: var(--text-faint);
 }
 
 .tracker-status--cooldown {
@@ -314,7 +314,7 @@
 }
 
 .tracker-status--skipped {
-  background: var(--bg-secondary);
-  color: var(--text-muted);
+  background: var(--surface-2);
+  color: var(--text-faint);
 }
-
+
