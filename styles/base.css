@@ -70,6 +70,9 @@
   --info: #1d4f7a;
   --info-soft: #dfecf7;
 
+  /* Ink color used on filled accent/danger/warning surfaces */
+  --on-accent: #ffffff;
+
   /* Owner palette (static defaults; per-person color still comes via --owner-color) */
   --owner-a: #3e6b9f;
   --owner-b: #b8577d;
@@ -129,6 +132,7 @@
     --warning-soft: #3a2e18;
     --info: #86b8e0;
     --info-soft: #1a2a3a;
+    --on-accent: #ffffff;
   }
 }
 

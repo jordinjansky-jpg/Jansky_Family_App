@@ -101,7 +101,7 @@
 }
 .owner-chip--selected {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 
@@ -282,7 +282,7 @@
 .person-pill[data-person-id]:not([data-person-id=""]).person-pill--active {
   border-color: var(--person-color);
   background: var(--person-color);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 @keyframes pillPop {
@@ -439,13 +439,14 @@
 }
 
 .btn--danger {
-  background: var(--accent-danger, #e53e3e);
-  color: #fff;
+  background: var(--danger);
+  color: var(--on-accent);
   border: none;
 }
 
 .btn--danger:hover {
-  background: color-mix(in srgb, var(--accent-danger, #e53e3e), #000 10%);
+  /* color-mix anchor: darken 10% toward black */
+  background: color-mix(in srgb, var(--danger), #000 10%);
 }
 
 /* ============ Toast ============ */
@@ -625,7 +626,7 @@
   left: 2px;
   width: 16px;
   height: 16px;
-  background: #fff;
+  background: var(--on-accent);
   border-radius: 50%;
   transition: transform 0.2s ease;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
@@ -706,6 +707,7 @@
 
 .progress-bar__fill {
   height: 100%;
+  /* color-mix anchor: lighten 25% toward white */
   background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #fff));
   border-radius: var(--radius-full);
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -777,7 +779,7 @@
   height: 28px;
   border-radius: 50%;
   background: var(--owner-color, var(--text-faint));
-  color: #fff;
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -952,8 +954,8 @@
   font-style: italic;
 }
 .task-card__bounty {
-  background: var(--accent-warning, #ecc94b);
-  color: #000;
+  background: var(--warning);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -1257,8 +1259,8 @@
   position: absolute;
   top: -2px;
   right: -4px;
-  background: var(--accent-danger, #e53e3e);
-  color: #fff;
+  background: var(--danger);
+  color: var(--on-accent);
   font-size: 0.65rem;
   font-weight: 700;
   min-width: 16px;
@@ -1355,7 +1357,7 @@
   transition: background 0.15s, color 0.15s;
 }
 .segmented-btn + .segmented-btn { border-left: 1px solid var(--border); }
-.segmented-btn--active { background: var(--accent); color: #fff; }
+.segmented-btn--active { background: var(--accent); color: var(--on-accent); }
 
 /* ── Chip Styles (shared across bell, message sheets, bonus day) ── */
 .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1370,17 +1372,17 @@
 .chip--active {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* ── Send Message Sheet ── */
 .msg-type-toggle .msg-type-btn--active {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .msg-type-toggle .msg-type-btn--active[data-type="deduction"] {
-  background: var(--accent-danger, #e53e3e);
-  color: #fff;
+  background: var(--danger);
+  color: var(--on-accent);
 }
 
 .template-grid { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1395,7 +1397,7 @@
   transition: all 0.15s;
 }
 .template-chip:hover { border-color: var(--accent); }
-.template-chip--selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.template-chip--selected { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .template-chip--custom { font-style: italic; }
 
 /* ── Reward Store (shared across kid + scoreboard) ── */
@@ -1406,18 +1408,18 @@
 .store-card--bounty { cursor: default; }
 .store-pending { margin-bottom: 16px; }
 .store-card--available { border-color: var(--accent); }
-.store-card--almost { border-color: var(--accent-warning, #ecc94b); box-shadow: 0 0 8px rgba(236, 201, 75, 0.3); }
+.store-card--almost { border-color: var(--warning); box-shadow: 0 0 8px rgba(236, 201, 75, 0.3); }
 .store-card__icon { font-size: 2rem; flex-shrink: 0; }
 .store-card__body { flex: 1; min-width: 0; }
 .store-card__name { font-weight: 600; }
 .store-card__cost { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 .store-card__badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .store-card__badge { font-size: var(--font-xs, 0.75rem); padding: 1px 6px; border-radius: 4px; background: var(--surface-alt, var(--surface)); color: var(--text-faint); }
-.store-card__badge--warning { color: var(--accent-warning, #ecc94b); }
+.store-card__badge--warning { color: var(--warning); }
 .store-card__progress { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
 .store-card__progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
-.store-card__nudge { font-size: var(--font-xs, 0.75rem); color: var(--accent-warning, #ecc94b); font-weight: 600; margin-top: 4px; }
+.store-card__nudge { font-size: var(--font-xs, 0.75rem); color: var(--warning); font-weight: 600; margin-top: 4px; }
 .store-card__need { font-size: var(--font-xs, 0.75rem); color: var(--text-faint); margin-top: 4px; }
 .store-card__actions { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
 .wishlist-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-faint); }
-.wishlist-btn--active { color: var(--accent-warning, #ecc94b); }
+.wishlist-btn--active { color: var(--warning); }
