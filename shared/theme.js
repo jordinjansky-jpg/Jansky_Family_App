@@ -181,11 +181,26 @@ export function getPresets() {
 export function getThemeVars(themeConfig) {
   const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
   const vars = { ...preset.vars };
+  const isDark = (preset.mode || themeConfig.mode) === 'dark';
 
   if (themeConfig.accentColor) {
-    vars['--accent'] = themeConfig.accentColor;
-    vars['--accent-light'] = themeConfig.accentColor + '20';
-    vars['--accent-hover'] = themeConfig.accentColor + 'dd';
+    const accent = themeConfig.accentColor;
+    // Legacy emissions (retained; removed in a later cleanup pass).
+    vars['--accent'] = accent;
+    vars['--accent-light'] = accent + '20';
+    vars['--accent-hover'] = accent + 'dd';
+
+    // New spec-aligned tokens. color-mix(in srgb, X% accent, white/black)
+    // — X is how much accent remains, so lower X = more of the other color.
+    if (isDark) {
+      // Dark mode: brighter accent, even brighter ink, darker soft surface.
+      vars['--accent'] = `color-mix(in srgb, ${accent} 75%, #fff)`;
+      vars['--accent-ink'] = `color-mix(in srgb, ${accent} 40%, #fff)`;
+      vars['--accent-soft'] = `color-mix(in srgb, ${accent} 30%, #000)`;
+    } else {
+      vars['--accent-ink'] = `color-mix(in srgb, ${accent} 60%, #000)`;
+      vars['--accent-soft'] = `color-mix(in srgb, ${accent} 12%, #fff)`;
+    }
   }
 
   return vars;
@@ -217,9 +232,22 @@ export function applyTheme(themeConfig) {
 
   // Set accent if not in vars
   if (!vars['--accent']) {
-    root.style.setProperty('--accent', '#5b7fd6');
-    root.style.setProperty('--accent-light', '#5b7fd620');
-    root.style.setProperty('--accent-hover', '#5b7fd6dd');
+    const fallbackAccent = '#5b7fd6';
+    const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
+    const isDark = (preset.mode || themeConfig.mode) === 'dark';
+    // Legacy emissions (retained; removed in a later cleanup pass).
+    root.style.setProperty('--accent', fallbackAccent);
+    root.style.setProperty('--accent-light', fallbackAccent + '20');
+    root.style.setProperty('--accent-hover', fallbackAccent + 'dd');
+    // New spec-aligned tokens.
+    if (isDark) {
+      root.style.setProperty('--accent', `color-mix(in srgb, ${fallbackAccent} 75%, #fff)`);
+      root.style.setProperty('--accent-ink', `color-mix(in srgb, ${fallbackAccent} 40%, #fff)`);
+      root.style.setProperty('--accent-soft', `color-mix(in srgb, ${fallbackAccent} 30%, #000)`);
+    } else {
+      root.style.setProperty('--accent-ink', `color-mix(in srgb, ${fallbackAccent} 60%, #000)`);
+      root.style.setProperty('--accent-soft', `color-mix(in srgb, ${fallbackAccent} 12%, #fff)`);
+    }
   }
 
   // Set data attribute for CSS selectors
