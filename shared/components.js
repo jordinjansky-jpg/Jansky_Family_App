@@ -7,6 +7,66 @@ import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyThe
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
+/**
+ * After innerHTML is set on a container, propagate data-*-color attributes
+ * onto their elements as CSS custom properties. Lets us avoid inline
+ * style attributes for per-record runtime colors.
+ *
+ * Reads: data-owner-color, data-person-color, data-event-color, data-bg-color.
+ * Sets the matching CSS custom property on the element via Element.style.setProperty.
+ */
+export function applyDataColors(root) {
+  if (!root) return;
+  root.querySelectorAll('[data-owner-color]').forEach(el => {
+    el.style.setProperty('--owner-color', el.dataset.ownerColor);
+  });
+  root.querySelectorAll('[data-person-color]').forEach(el => {
+    el.style.setProperty('--person-color', el.dataset.personColor);
+  });
+  root.querySelectorAll('[data-event-color]').forEach(el => {
+    el.style.setProperty('--event-color', el.dataset.eventColor);
+  });
+  root.querySelectorAll('[data-bg-color]').forEach(el => {
+    el.style.setProperty('background', el.dataset.bgColor);
+  });
+  root.querySelectorAll('[data-confetti]').forEach(el => {
+    // Parse a compact descriptor so the confetti renderer needn't inject raw style.
+    // Format: "L|C|D|S" where L=left%, C=color, D=delay-seconds, S=size-px
+    const [left, color, delay, size] = el.dataset.confetti.split('|');
+    if (left) el.style.setProperty('left', `${left}%`);
+    if (color) el.style.setProperty('background', color);
+    if (delay) el.style.setProperty('animation-delay', `${delay}s`);
+    if (size) {
+      el.style.setProperty('width', `${size}px`);
+      el.style.setProperty('height', `${size}px`);
+    }
+  });
+  root.querySelectorAll('[data-progress]').forEach(el => {
+    el.style.setProperty('width', `${el.dataset.progress}%`);
+  });
+  root.querySelectorAll('[data-timegrid-pos]').forEach(el => {
+    // Format: "top|height|left|width" (top/height in px, left/width in %)
+    const [top, height, left, width] = el.dataset.timegridPos.split('|');
+    if (top) el.style.setProperty('top', `${top}px`);
+    if (height) el.style.setProperty('height', `${height}px`);
+    if (left) el.style.setProperty('left', `${left}%`);
+    if (width) el.style.setProperty('width', `${width}%`);
+  });
+  root.querySelectorAll('[data-timegrid-height]').forEach(el => {
+    el.style.setProperty('height', `${el.dataset.timegridHeight}px`);
+  });
+  root.querySelectorAll('[data-mobile-order]').forEach(el => {
+    el.style.setProperty('--mobile-order', el.dataset.mobileOrder);
+  });
+  root.querySelectorAll('[data-event-bg]').forEach(el => {
+    el.style.setProperty('--event-bg', el.dataset.eventBg);
+  });
+  root.querySelectorAll('[data-event-border-image]').forEach(el => {
+    el.style.setProperty('border-image', `${el.dataset.eventBorderImage} 1`);
+    el.style.setProperty('border-image-slice', '1');
+  });
+}
+
 function formatEventTime(time24) {
   if (!time24) return '';
   const [h, m] = time24.split(':').map(Number);
@@ -190,6 +250,7 @@ export function renderBottomSheet(content) {
  * people: array of { id, name, color }
  * activePerson: id of selected person or null for "All"
  * Returns an HTML string.
+ * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --person-color and dot bg).
  */
 export function renderPersonFilter(people, activePerson, trailingHtml = '') {
   const allActive = !activePerson ? ' person-pill--active' : '';
@@ -198,7 +259,7 @@ export function renderPersonFilter(people, activePerson, trailingHtml = '') {
 
   for (const p of people) {
     const active = activePerson === p.id ? ' person-pill--active' : '';
-    html += `<button class="person-pill${active}" data-person-id="${p.id}" style="--person-color: ${p.color}" aria-pressed="${activePerson === p.id}"><span class="person-pill__dot" style="background:${p.color}"></span>${esc(p.name)}</button>`;
+    html += `<button class="person-pill${active}" data-person-id="${p.id}" data-person-color="${esc(p.color)}" aria-pressed="${activePerson === p.id}"><span class="person-pill__dot" data-bg-color="${esc(p.color)}"></span>${esc(p.name)}</button>`;
   }
 
   html += trailingHtml;
@@ -209,6 +270,7 @@ export function renderPersonFilter(people, activePerson, trailingHtml = '') {
 /**
  * Render a progress bar with label.
  * done: number completed, total: number total
+ * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates fill width).
  */
 export function renderProgressBar(done, total) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -219,7 +281,7 @@ export function renderProgressBar(done, total) {
       <span class="progress-pct">${pct}%</span>
     </div>
     <div class="progress-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${label}">
-      <div class="progress-bar__fill" style="width:${pct}%"></div>
+      <div class="progress-bar__fill" data-progress="${pct}"></div>
     </div>
   </div>`;
 }
@@ -228,6 +290,7 @@ export function renderProgressBar(done, total) {
  * Render a single task card.
  * options: { entryKey, entry, task, person, category, completed, overdue, dateLabel, points }
  * points: optional { possible, override } — override is the pointsOverride percentage (null = no override)
+ * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --owner-color / --event-color).
  */
 export function renderTaskCard(options) {
   const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, showPoints = true, isPastDaily = false } = options;
@@ -294,10 +357,10 @@ export function renderTaskCard(options) {
   const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
   const eventPrefix = isEvent ? '📅 ' : '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
-  const eventStyle = eventColor ? `;--event-color:${eventColor}` : '';
+  const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
   const tagsRow = actionTags ? `<div class="task-card__tags">${actionTags}</div>` : '';
 
-  return `<button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" style="--owner-color:${ownerColor}${eventStyle}">
+  return `<button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" data-owner-color="${esc(ownerColor)}"${eventColorAttr}>
       <span class="task-card__avatar">${ownerInitial}</span>
       <div class="task-card__body">
         <span class="task-card__name">${taskName}</span>
@@ -392,6 +455,10 @@ function eventTimedBorderGradient(colors) {
   return `linear-gradient(180deg, ${stops.join(', ')})`;
 }
 
+/**
+ * @caller Must call `applyDataColors(container)` after inserting this HTML
+ * (propagates --event-bg, border-image, and bg gradients).
+ */
 export function renderEventPill(event, people = []) {
   const isTimed = !event.allDay && event.startTime;
   const colors = eventPersonColors(event, people);
@@ -399,7 +466,7 @@ export function renderEventPill(event, people = []) {
 
   // Person color dots for multi-person events
   const dotsHtml = isMulti
-    ? `<span class="event-pill__people">${colors.map(c => `<span class="event-pill__dot" style="background:${c}"></span>`).join('')}</span>`
+    ? `<span class="event-pill__people">${colors.map(c => `<span class="event-pill__dot" data-bg-color="${esc(c)}"></span>`).join('')}</span>`
     : '';
 
   if (isTimed) {
@@ -408,10 +475,10 @@ export function renderEventPill(event, people = []) {
     const isShort = !event.endTime;
     const cls = `event-pill event-pill--timed${isShort ? ' event-pill--short' : ''}${isMulti ? ' event-pill--multi' : ''}`;
     // Multi-person timed: segmented left border via gradient
-    const borderStyle = isMulti
-      ? `--event-bg:${barColor};border-image:${eventTimedBorderGradient(colors)} 1;border-image-slice:1`
-      : `--event-bg:${barColor}`;
-    return `<div class="${cls}" style="${borderStyle}">
+    const borderImgAttr = isMulti
+      ? ` data-event-border-image="${esc(eventTimedBorderGradient(colors))}"`
+      : '';
+    return `<div class="${cls}" data-event-bg="${esc(barColor)}"${borderImgAttr}>
       <span class="event-pill__time">${esc(timeStr)}</span>
       <span class="event-pill__text">${esc(event.name)}</span>
       ${dotsHtml}
@@ -420,7 +487,7 @@ export function renderEventPill(event, people = []) {
 
   // All-day: solid or gradient blend + dots
   const bg = eventAllDayBg(event, people);
-  return `<div class="event-pill${isMulti ? ' event-pill--multi' : ''}" style="background:${bg}">
+  return `<div class="event-pill${isMulti ? ' event-pill--multi' : ''}" data-bg-color="${esc(bg)}">
     <span class="event-pill__text">${esc(event.name)}</span>
     ${dotsHtml}
   </div>`;
@@ -428,17 +495,18 @@ export function renderEventPill(event, people = []) {
 
 /**
  * Render an event bubble for day view (larger, more detail than pill).
+ * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --event-color and dot bgs).
  */
 export function renderEventBubble(eventId, event, people = []) {
   const bg = event.color || '#5b7fd6';
   const timeStr = event.allDay ? 'All Day' : formatTimeRange(event.startTime, event.endTime);
   const assignedPeople = (event.people || []).map(pid => people.find(p => p.id === pid)).filter(Boolean);
   const peopleDots = assignedPeople.map(p =>
-    `<span class="event-bubble__dot" style="background:${p.color}" title="${esc(p.name)}"></span>`
+    `<span class="event-bubble__dot" data-bg-color="${esc(p.color)}" title="${esc(p.name)}"></span>`
   ).join('');
   const locationHtml = event.location ? `<span class="event-bubble__location">${esc(event.location)}</span>` : '';
 
-  return `<button class="event-bubble" data-event-id="${eventId}" style="--event-color:${bg}" type="button">
+  return `<button class="event-bubble" data-event-id="${eventId}" data-event-color="${esc(bg)}" type="button">
     <div class="event-bubble__time">${esc(timeStr)}</div>
     <div class="event-bubble__name">${esc(event.name)}</div>
     ${locationHtml}
@@ -482,14 +550,16 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   const saveLabel = isEdit ? 'Save' : 'Create';
   const peoplePills = people.map(p => {
     const selected = (event.people || []).includes(p.id);
-    return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+    return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" data-person-color="${esc(p.color)}" type="button">${esc(p.name)}</button>`;
   }).join('');
 
   const colorPalette = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#ff6d01', '#46bdc6', '#7baaf7', '#f07b72', '#fdd663', '#57bb8a', '#e8710a', '#795548', '#9e9e9e', '#607d8b'];
   const currentColor = event.color || people[0]?.color || '#4285f4';
   const colorDots = colorPalette.map(c =>
-    `<button class="dt-color-btn${c === currentColor ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`
+    `<button class="dt-color-btn${c === currentColor ? ' dt-color-btn--active' : ''}" data-color="${c}" data-bg-color="${esc(c)}" type="button"></button>`
   ).join('');
+
+  const timeGroupHiddenClass = event.allDay ? ' ef-time-row--hidden' : '';
 
   return `<div class="task-detail-sheet">
     <h3 class="admin-form__title">${title}</h3>
@@ -498,19 +568,19 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       <input class="form-input" id="ef_name" type="text" placeholder="Soccer practice, Dentist, etc." value="${esc(event.name || '')}" autocomplete="off">
     </div>
     <div class="admin-form__group">
-      <div style="display: flex; align-items: end; gap: var(--spacing-sm);">
-        <div style="flex: 1;">
+      <div class="ef-date-row">
+        <div class="ef-date-field">
           <label class="form-label" for="ef_date">Date</label>
           <input class="form-input ef-date-input" id="ef_date" type="date" value="${event.date || dateKey}">
         </div>
-        <button type="button" class="chip chip--selectable${event.allDay ? ' chip--active' : ''}" id="ef_allDay" style="margin-bottom: 2px;">All Day</button>
+        <button type="button" class="chip chip--selectable ef-allday-toggle${event.allDay ? ' chip--active' : ''}" id="ef_allDay">All Day</button>
       </div>
-      <div style="display: ${event.allDay ? 'none' : 'flex'}; gap: var(--spacing-sm); margin-top: var(--spacing-sm);" id="ef_timeGroup">
-        <div style="flex: 1;">
+      <div class="ef-time-row${timeGroupHiddenClass}" id="ef_timeGroup">
+        <div class="ef-time-field">
           <label class="form-label" for="ef_startTime">Start</label>
           <input class="form-input" id="ef_startTime" type="time" value="${event.startTime || ''}">
         </div>
-        <div style="flex: 1;">
+        <div class="ef-time-field">
           <label class="form-label" for="ef_endTime">End</label>
           <input class="form-input" id="ef_endTime" type="time" value="${event.endTime || ''}">
         </div>
@@ -549,16 +619,17 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
 /**
  * Render event detail sheet (shown on tap in day view).
+ * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --person-color chips + color bar).
  */
 export function renderEventDetailSheet(eventId, event, people = []) {
   const timeStr = event.allDay ? 'All Day' : formatTimeRange(event.startTime, event.endTime);
   const assignedPeople = (event.people || []).map(pid => people.find(p => p.id === pid)).filter(Boolean);
   const peopleHtml = assignedPeople.map(p =>
-    `<span class="chip" style="--person-color:${p.color}">${esc(p.name)}</span>`
+    `<span class="chip" data-person-color="${esc(p.color)}">${esc(p.name)}</span>`
   ).join(' ');
 
   return `<div class="task-detail-sheet">
-    <div class="event-detail__color-bar" style="background:${event.color || '#5b7fd6'}"></div>
+    <div class="event-detail__color-bar" data-bg-color="${esc(event.color || '#5b7fd6')}"></div>
     <h3 class="event-detail__name">${esc(event.name)}</h3>
     <div class="event-detail__time">${esc(timeStr)}</div>
     <div class="event-detail__date">${formatDateShort(event.date)}</div>
@@ -576,6 +647,7 @@ export function renderEventDetailSheet(eventId, event, people = []) {
 /**
  * Render a task detail bottom sheet (long-press actions).
  * options: { entryKey, entry, task, person, category, completed, points, sliderMin, sliderMax, currentOverride, gradePreview }
+ * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --owner-color / --person-color).
  */
 export function renderTaskDetailSheet(options) {
   const {
@@ -595,12 +667,12 @@ export function renderTaskDetailSheet(options) {
 
   // Task info
   html += `<div class="task-detail__info">
-    <div class="task-detail__name" style="--owner-color:${ownerColor}">
+    <div class="task-detail__name" data-owner-color="${esc(ownerColor)}">
       <span class="task-card__avatar">${(person?.name || '?')[0].toUpperCase()}</span>
       <span>${esc(task.name)}${catIcon ? ' ' + catIcon : ''}</span>
     </div>
     <div class="task-detail__meta">
-      ${person ? `<span class="chip" style="--person-color:${person.color}">${esc(person.name)}</span>` : ''}
+      ${person ? `<span class="chip" data-person-color="${esc(person.color)}">${esc(person.name)}</span>` : ''}
       <span class="chip">${rotLabel}</span>
       <span class="chip">${diffLabel}</span>
       ${todLabel ? `<span class="chip">${todLabel}</span>` : ''}
@@ -609,7 +681,7 @@ export function renderTaskDetailSheet(options) {
       ${points && !task.exempt && showPoints ? `<span class="chip">${points.possible}pt</span>` : ''}
     </div>
     ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></div>` : ''}
-    ${entry.movedFromDate ? `<div class="task-detail__source-info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
+    ${entry.movedFromDate ? `<div class="task-detail__source-info"><svg class="task-detail__source-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
   </div>`;
 
   // Event notes
@@ -626,12 +698,12 @@ export function renderTaskDetailSheet(options) {
     } else {
       html += `<div class="task-detail__notes mt-md">
         <span class="form-label">Notes</span>
-        <div class="task-detail__notes-display" id="notesDisplay" style="display:${noteText ? '' : 'none'}">
+        <div class="task-detail__notes-display${noteText ? '' : ' is-hidden'}" id="notesDisplay">
           <div class="task-detail__notes-text" id="notesText">${esc(noteText)}</div>
           <button class="btn btn--ghost btn--sm" id="notesEditBtn" type="button">Edit</button>
         </div>
-        <button class="btn btn--ghost btn--sm" id="notesAddBtn" type="button" style="display:${noteText ? 'none' : ''}">+ Add Note</button>
-        <div class="task-detail__notes-editor" id="notesEditor" style="display:none">
+        <button class="btn btn--ghost btn--sm${noteText ? ' is-hidden' : ''}" id="notesAddBtn" type="button">+ Add Note</button>
+        <div class="task-detail__notes-editor is-hidden" id="notesEditor">
           <textarea class="task-detail__notes-input" id="notesInput" rows="3" placeholder="Add notes for this event...">${esc(noteText)}</textarea>
           <div class="task-detail__notes-actions">
             <button class="btn btn--secondary btn--sm" id="notesCancelBtn" type="button">Cancel</button>
@@ -677,21 +749,21 @@ export function renderTaskDetailSheet(options) {
   // Delegate panel (hidden by default, shown when Delegate clicked)
   if (showDelegate && people) {
     const otherPeople = people.filter(p => p.id !== entry.ownerId);
-    html += `<div class="task-detail__delegate-panel" id="delegatePanel" style="display:none;">
+    html += `<div class="task-detail__delegate-panel is-hidden" id="delegatePanel">
       <div class="task-detail__delegate-header">
         <span class="form-label">Reassign to:</span>
         ${showMove ? `<label class="task-detail__move-toggle"><input type="checkbox" id="delegateMoveToggle"> 📅 Move too</label>` : ''}
       </div>
       <div class="task-detail__person-chips">
-        ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`).join('')}
+        ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" data-person-color="${esc(p.color)}" type="button">${esc(p.name)}</button>`).join('')}
       </div>
-      <input type="date" id="delegateMoveDatePicker" class="task-detail__date-input" style="position:absolute;opacity:0;pointer-events:none;">
+      <input type="date" id="delegateMoveDatePicker" class="task-detail__date-input task-detail__date-input--hidden">
     </div>`;
   }
 
   // Move date picker (hidden input, triggered by Move button)
   if (showMove) {
-    html += `<input type="date" id="moveDatePicker" class="task-detail__date-input" style="position:absolute;opacity:0;pointer-events:none;">`;
+    html += `<input type="date" id="moveDatePicker" class="task-detail__date-input task-detail__date-input--hidden">`;
   }
 
   // Points slider — always visible regardless of showPoints (that only hides card labels)
@@ -719,6 +791,7 @@ export function renderTaskDetailSheet(options) {
 
 /**
  * Render the day-complete celebration overlay.
+ * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates confetti positions/colors).
  */
 export function renderCelebration() {
   const colors = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff922b','#cc5de8','#20c997','#ff6b6b'];
@@ -728,7 +801,7 @@ export function renderCelebration() {
     const left = 5 + Math.round((i * 6.5) % 90);
     const delay = (i * 0.12).toFixed(2);
     const size = 8 + (i % 3) * 4;
-    confetti += `<span class="celebration__confetti" style="left:${left}%;background:${color};animation-delay:${delay}s;width:${size}px;height:${size}px;"></span>`;
+    confetti += `<span class="celebration__confetti" data-confetti="${left}|${esc(color)}|${delay}|${size}"></span>`;
   }
   return `<div class="celebration" id="celebration">
     ${confetti}
@@ -829,18 +902,18 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
         <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
       </div>
     </div>
-    <div class="form-row" style="align-items: end; gap: var(--spacing-sm);">
-      <div class="form-group" style="flex: 1;">
+    <div class="form-row form-row--cooldown">
+      <div class="form-group form-group--grow">
         <label class="form-label">Cooldown</label>
         <input type="number" id="${prefix}_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
       </div>
-      <div class="chip-group" style="padding-bottom: 6px; flex: 0 0 auto; min-width: 0;">
+      <div class="chip-group chip-group--cooldown">
         <button type="button" class="chip chip--selectable${task.exempt ? ' chip--active' : ''}" id="${prefix}_exempt">Exempt</button>
         <button type="button" class="chip chip--selectable${task.bounty ? ' chip--active' : ''}" id="${prefix}_bountyToggle">Bounty</button>
       </div>
     </div>
-    <div id="${prefix}_bountyFields" style="${task.bounty ? '' : 'display: none;'}">
-      <div class="form-hint" style="margin-bottom: 8px;">Scoring-exempt. Reward granted on completion.</div>
+    <div id="${prefix}_bountyFields"${task.bounty ? '' : ' class="is-hidden"'}>
+      <div class="form-hint form-compact__bounty-hint">Scoring-exempt. Reward granted on completion.</div>
       <div class="form-row-2">
         <div class="form-group">
           <label class="form-label">Type</label>
@@ -849,11 +922,11 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
             <button type="button" class="segmented-btn${task.bounty?.type === 'reward' ? ' segmented-btn--active' : ''}" data-value="reward">Reward</button>
           </div>
         </div>
-        <div class="form-group" id="${prefix}_bountyPointsField" style="${task.bounty?.type === 'reward' ? 'display: none;' : ''}">
+        <div class="form-group${task.bounty?.type === 'reward' ? ' is-hidden' : ''}" id="${prefix}_bountyPointsField">
           <label class="form-label">Bonus pts</label>
           <input type="number" id="${prefix}_bountyAmount" class="form-input" value="${task.bounty?.amount || 50}" min="1">
         </div>
-        <div class="form-group" id="${prefix}_bountyRewardField" style="${task.bounty?.type !== 'reward' ? 'display: none;' : ''}">
+        <div class="form-group${task.bounty?.type !== 'reward' ? ' is-hidden' : ''}" id="${prefix}_bountyRewardField">
           <label class="form-label">Reward</label>
           <select id="${prefix}_bountyReward" class="form-input">
             <option value="">Select...</option>
@@ -864,22 +937,22 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
         </div>
       </div>
     </div>
-    <div class="form-group" id="${prefix}_dedicatedDayGroup" style="display:${showDedicated ? '' : 'none'}">
-      <label class="form-label" id="${prefix}_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Date') : 'Day'} <button type="button" id="${prefix}_eventDateBtn" class="btn btn--ghost btn--sm" style="display:${isEvent ? 'inline' : 'none'};padding:0 4px;font-size:1.1em;vertical-align:middle" title="Pick event date"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></label>
-      <input type="date" id="${prefix}_eventDate" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);" value="${task.dedicatedDate || ''}">
-      <select id="${prefix}_daySelect" class="dedicated-day-select" style="display:${task.rotation === 'once' ? 'none' : ''}">
+    <div class="form-group${showDedicated ? '' : ' is-hidden'}" id="${prefix}_dedicatedDayGroup">
+      <label class="form-label" id="${prefix}_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Date') : 'Day'} <button type="button" id="${prefix}_eventDateBtn" class="btn btn--ghost btn--sm form-compact__date-calendar-btn${isEvent ? '' : ' is-hidden'}" title="Pick event date"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></label>
+      <input type="date" id="${prefix}_eventDate" class="form-compact__date-hidden" value="${task.dedicatedDate || ''}">
+      <select id="${prefix}_daySelect" class="dedicated-day-select${task.rotation === 'once' ? ' is-hidden' : ''}">
         <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
         ${dayOptions}
       </select>
-      <div id="${prefix}_dedicatedDateRow" style="display:${task.rotation === 'once' && !isEvent ? '' : 'none'}">
-        <input type="date" id="${prefix}_dedicatedDate" class="task-detail__date-input" style="width:100%" value="${task.dedicatedDate || ''}">
+      <div id="${prefix}_dedicatedDateRow"${task.rotation === 'once' && !isEvent ? '' : ' class="is-hidden"'}>
+        <input type="date" id="${prefix}_dedicatedDate" class="task-detail__date-input task-detail__date-input--fill" value="${task.dedicatedDate || ''}">
       </div>
     </div>
-    <div class="form-group" id="${prefix}_eventTimeGroup" style="display:${isEvent ? '' : 'none'}">
+    <div class="form-group${isEvent ? '' : ' is-hidden'}" id="${prefix}_eventTimeGroup">
       <label class="form-label">Event Time</label>
       <input type="time" id="${prefix}_eventTime" value="${task.eventTime || ''}">
     </div>
-    <div class="form-group" id="${prefix}_notesGroup" style="display:${isEvent ? '' : 'none'}">
+    <div class="form-group${isEvent ? '' : ' is-hidden'}" id="${prefix}_notesGroup">
       <label class="form-label">Notes</label>
       <textarea id="${prefix}_notes" class="task-detail__notes-input" rows="3" placeholder="Add notes for this event...">${esc(task.notes || '')}</textarea>
     </div>
@@ -961,7 +1034,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     <div class="dt-section">
       <label class="form-label">${personOpts ? 'My Color' : 'Accent Color'}</label>
       <div class="dt-colors">
-        ${colorPalette.map(c => `<button class="dt-color-btn${c === currentAccent ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`).join('')}
+        ${colorPalette.map(c => `<button class="dt-color-btn${c === currentAccent ? ' dt-color-btn--active' : ''}" data-color="${c}" data-bg-color="${c}" type="button"></button>`).join('')}
       </div>
     </div>
     <div class="admin-form__actions mt-md">
@@ -970,6 +1043,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
   </div>`);
 
   mountEl.innerHTML = html;
+  applyDataColors(mountEl);
 
   requestAnimationFrame(() => {
     const overlay = document.getElementById('bottomSheet');
@@ -1105,7 +1179,7 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
       <div class="bell-dropdown__actions">
         <button class="btn btn--xs btn--ghost" id="bellSendMessage" type="button">Message</button>
         <button class="btn btn--xs btn--ghost" id="bellBonusDay" type="button">Bonus</button>
-        ${hasItems ? `<button class="btn btn--xs btn--ghost" id="bellClearAll" type="button" style="color: var(--text-faint);">Clear</button>` : ''}
+        ${hasItems ? `<button class="btn btn--xs btn--ghost bell-clear-btn" id="bellClearAll" type="button">Clear</button>` : ''}
       </div>
     </div>`;
 
@@ -1175,33 +1249,33 @@ const NEGATIVE_TEMPLATES = [
  */
 export function renderSendMessageSheet(people, preselectedPersonId = null) {
   return renderBottomSheet(`
-    <h3 style="margin-bottom: 12px;">Send Message</h3>
+    <h3 class="sheet-section-title">Send Message</h3>
 
     <label class="form-label">To</label>
     <div class="chip-group" id="msg_people">
       ${people.map(p => {
         const selected = p.id === preselectedPersonId;
-        return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+        return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" data-person-color="${p.color}" type="button">${esc(p.name)}</button>`;
       }).join('')}
     </div>
 
-    <label class="form-label" style="margin-top: 12px;">Type</label>
+    <label class="form-label sheet-label--spaced">Type</label>
     <div class="segmented-control msg-type-toggle">
-      <button class="segmented-btn msg-type-btn msg-type-btn--active" data-type="bonus" type="button" style="color: var(--accent-success, #38a169);">+ Bonus</button>
+      <button class="segmented-btn msg-type-btn msg-type-btn--active msg-type-btn--positive" data-type="bonus" type="button">+ Bonus</button>
       <button class="segmented-btn msg-type-btn" data-type="deduction" type="button">− Deduction</button>
     </div>
 
-    <label class="form-label" style="margin-top: 12px;">Title</label>
+    <label class="form-label sheet-label--spaced">Title</label>
     <div class="template-grid" id="msg_templates">
       ${POSITIVE_TEMPLATES.map(t => `<button class="template-chip" data-title="${esc(t)}" type="button">${esc(t)}</button>`).join('')}
       <button class="template-chip template-chip--custom" data-title="custom" type="button">Custom...</button>
     </div>
-    <input type="text" id="msg_customTitle" class="form-input" style="display:none; margin-top: 8px;" placeholder="Enter custom title">
+    <input type="text" id="msg_customTitle" class="form-input msg-custom-input is-hidden" placeholder="Enter custom title">
 
-    <label class="form-label" style="margin-top: 12px;">Personal note (optional)</label>
+    <label class="form-label sheet-label--spaced">Personal note (optional)</label>
     <textarea id="msg_body" class="form-input" rows="2" placeholder="Great job helping your sister!"></textarea>
 
-    <label class="form-label" style="margin-top: 12px;">Points</label>
+    <label class="form-label sheet-label--spaced">Points</label>
     <input type="number" id="msg_points" class="form-input" value="25" min="1">
 
     <div class="admin-form__actions mt-md">
@@ -1254,11 +1328,11 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName) {
         chip.classList.add('template-chip--selected');
         const customInput = container.querySelector('#msg_customTitle');
         if (chip.dataset.title === 'custom') {
-          customInput.style.display = '';
+          customInput.classList.remove('is-hidden');
           customInput.focus();
           selectedTitle = '';
         } else {
-          customInput.style.display = 'none';
+          customInput.classList.add('is-hidden');
           selectedTitle = chip.dataset.title;
         }
       });
@@ -1308,26 +1382,26 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName) {
 export function renderBonusDaySheet(people, todayDate) {
   const today = todayDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
   return renderBottomSheet(`
-    <h3 style="margin-bottom: 12px;">🎉 Bonus Day</h3>
+    <h3 class="sheet-section-title">🎉 Bonus Day</h3>
 
     <label class="form-label">Who</label>
     <div class="chip-group" id="bd_people">
       <button class="chip chip--selectable chip--active" data-person-id="everyone" type="button">Everyone</button>
       ${people.map(p =>
-        `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`
+        `<button class="chip chip--selectable" data-person-id="${p.id}" data-person-color="${p.color}" type="button">${esc(p.name)}</button>`
       ).join('')}
     </div>
 
-    <label class="form-label" style="margin-top: 12px;">Date</label>
+    <label class="form-label sheet-label--spaced">Date</label>
     <input type="date" id="bd_date" class="form-input" value="${today}">
 
-    <label class="form-label" style="margin-top: 12px;">Multiplier</label>
+    <label class="form-label sheet-label--spaced">Multiplier</label>
     <div class="segmented-control" id="bd_mult">
       <button type="button" class="segmented-btn segmented-btn--active" data-value="2">2x</button>
       <button type="button" class="segmented-btn" data-value="3">3x</button>
     </div>
 
-    <label class="form-label" style="margin-top: 12px;">Note (optional)</label>
+    <label class="form-label sheet-label--spaced">Note (optional)</label>
     <input type="text" id="bd_note" class="form-input" placeholder="Happy Birthday!">
 
     <div class="admin-form__actions mt-md">

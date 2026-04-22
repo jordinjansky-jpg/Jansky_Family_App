@@ -51,7 +51,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, countGlobalRedemptions, writeSnapshot, readAchievementDefs } from './shared/firebase.js';
-    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast } from './shared/components.js';
+    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -466,7 +466,11 @@
         let streakData = { current: 0, best: 0 };
 
         // ── Celebration mount ──
-        document.getElementById('celebrationMount').innerHTML = renderCelebration();
+        {
+          const _cm = document.getElementById('celebrationMount');
+          _cm.innerHTML = renderCelebration();
+          applyDataColors(_cm);
+        }
 
         // No connection status indicator in kid mode (no header bar)
 
@@ -539,6 +543,7 @@
             await markMessageSeen(kid.id, msgId);
             messages[msgId].seen = true;
             mount.innerHTML = renderCelebration();
+            applyDataColors(mount);
             showUnseenMessages();
             if (!Object.values(messages).some(m => !m.seen && VISIBLE_MSG_TYPES.includes(m.type))) {
               showUnseenAchievements();
@@ -1001,6 +1006,7 @@
           html += `</div>`;
 
           main.innerHTML = html;
+          applyDataColors(main);
 
           // Animate balance count-up if changed
           if (prevBalance !== balance) {

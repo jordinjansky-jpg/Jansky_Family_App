@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
@@ -171,6 +171,7 @@
         });
         html += `</div>`;
         main.innerHTML = html;
+        applyDataColors(main);
         bindDayViewEvents();
         if (scrollY != null) requestAnimationFrame(() => window.scrollTo(0, scrollY));
         return;
@@ -219,6 +220,7 @@
       html += `</div>`;
 
       main.innerHTML = html;
+      applyDataColors(main);
       bindNavEvents();
       bindPersonFilterEvents();
 
@@ -539,6 +541,7 @@
       ];
       const html = renderAddMenu(options);
       taskSheetMount.innerHTML = renderBottomSheet(html);
+      applyDataColors(taskSheetMount);
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
       });
@@ -573,6 +576,7 @@
       const dateKey = viewDay || today;
       const html = renderEventForm({ event, eventId: existingEventId, people, dateKey, mode });
       taskSheetMount.innerHTML = renderBottomSheet(html);
+      applyDataColors(taskSheetMount);
 
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
@@ -588,8 +592,8 @@
         const btn = document.getElementById('ef_allDay');
         btn.classList.toggle('chip--active');
         const hide = btn.classList.contains('chip--active');
-        document.getElementById('ef_timeGroup').style.display = hide ? 'none' : 'flex';
-        if (document.getElementById('ef_endTimeGroup')) document.getElementById('ef_endTimeGroup').style.display = hide ? 'none' : 'flex';
+        document.getElementById('ef_timeGroup')?.classList.toggle('ef-time-row--hidden', hide);
+        document.getElementById('ef_endTimeGroup')?.classList.toggle('ef-time-row--hidden', hide);
       });
 
       document.querySelectorAll('#ef_colors .dt-color-btn').forEach(btn => {
@@ -700,6 +704,7 @@
       if (!event) return;
       const html = renderEventDetailSheet(eventId, event, people);
       taskSheetMount.innerHTML = renderBottomSheet(html);
+      applyDataColors(taskSheetMount);
 
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
@@ -800,6 +805,7 @@
       });
 
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+      applyDataColors(taskSheetMount);
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
       });
@@ -833,17 +839,17 @@
       const notesInput = document.getElementById('notesInput');
 
       function openNotesEditor() {
-        if (notesEditor) notesEditor.style.display = '';
-        if (notesDisplay) notesDisplay.style.display = 'none';
-        if (notesAddBtn) notesAddBtn.style.display = 'none';
+        notesEditor?.classList.remove('is-hidden');
+        notesDisplay?.classList.add('is-hidden');
+        notesAddBtn?.classList.add('is-hidden');
         if (notesInput) notesInput.focus();
       }
       function closeNotesEditor() {
-        if (notesEditor) notesEditor.style.display = 'none';
+        notesEditor?.classList.add('is-hidden');
         const originalText = document.getElementById('notesText')?.textContent?.trim() || '';
         if (notesInput) notesInput.value = originalText;
-        if (notesDisplay) notesDisplay.style.display = originalText ? '' : 'none';
-        if (notesAddBtn) notesAddBtn.style.display = originalText ? 'none' : '';
+        notesDisplay?.classList.toggle('is-hidden', !originalText);
+        notesAddBtn?.classList.toggle('is-hidden', !!originalText);
       }
       notesAddBtn?.addEventListener('click', openNotesEditor);
       notesEditBtn?.addEventListener('click', openNotesEditor);
@@ -899,8 +905,7 @@
 
       // Delegate
       document.getElementById('sheetDelegate')?.addEventListener('click', () => {
-        const panel = document.getElementById('delegatePanel');
-        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+        document.getElementById('delegatePanel')?.classList.toggle('is-hidden');
       });
 
       let pendingDelegateOwnerId = null;
@@ -1012,6 +1017,7 @@
       const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
       const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people, calRewards);
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+      applyDataColors(taskSheetMount);
       initOwnerChips('et_owners');
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
@@ -1039,18 +1045,18 @@
         const catOpt = document.getElementById('et_category')?.selectedOptions[0];
         const isEvent = catOpt?.dataset.event === '1';
         if (rot === 'daily') {
-          group.style.display = 'none';
+          group.classList.add('is-hidden');
         } else {
-          group.style.display = '';
+          group.classList.remove('is-hidden');
           const eventBtn = label?.querySelector('#et_eventDateBtn');
           const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
-            daySelect.style.display = 'none';
-            dateRow.style.display = isEvent ? 'none' : '';
+            daySelect.classList.add('is-hidden');
+            dateRow.classList.toggle('is-hidden', isEvent);
             label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
           } else {
-            daySelect.style.display = '';
-            dateRow.style.display = 'none';
+            daySelect.classList.remove('is-hidden');
+            dateRow.classList.add('is-hidden');
             label.innerHTML = 'Dedicated Day ' + btnHtml;
           }
           label?.querySelector('#et_eventDateBtn')?.addEventListener('click', () => {
@@ -1063,11 +1069,11 @@
       document.getElementById('et_category')?.addEventListener('change', (e) => {
         const isEvent = e.target.selectedOptions[0]?.dataset.event === '1';
         const eventBtn = document.getElementById('et_eventDateBtn');
-        if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+        if (eventBtn) eventBtn.classList.toggle('is-hidden', !isEvent);
         const eventTimeGroup = document.getElementById('et_eventTimeGroup');
-        if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+        if (eventTimeGroup) eventTimeGroup.classList.toggle('is-hidden', !isEvent);
         const notesGroup = document.getElementById('et_notesGroup');
-        if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
+        if (notesGroup) notesGroup.classList.toggle('is-hidden', !isEvent);
         if (isEvent) {
           const rotSelect = document.getElementById('et_rotation');
           if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -1084,15 +1090,15 @@
       document.getElementById('et_bountyToggle')?.addEventListener('click', (e) => {
         e.currentTarget.classList.toggle('chip--active');
         const bf = document.getElementById('et_bountyFields');
-        if (bf) bf.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
+        if (bf) bf.classList.toggle('is-hidden', !e.currentTarget.classList.contains('chip--active'));
         if (e.currentTarget.classList.contains('chip--active')) document.getElementById('et_exempt')?.classList.add('chip--active');
       });
       for (const btn of document.querySelectorAll('#et_bountyType .segmented-btn')) {
         btn.addEventListener('click', () => {
           document.querySelectorAll('#et_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
           btn.classList.add('segmented-btn--active');
-          document.getElementById('et_bountyPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
-          document.getElementById('et_bountyRewardField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+          document.getElementById('et_bountyPointsField').classList.toggle('is-hidden', btn.dataset.value !== 'points');
+          document.getElementById('et_bountyRewardField').classList.toggle('is-hidden', btn.dataset.value !== 'reward');
         });
       }
 
@@ -1160,6 +1166,7 @@
       const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
       const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey, calRewards);
       taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+      applyDataColors(taskSheetMount);
       initOwnerChips('qa_owners');
 
       requestAnimationFrame(() => {
@@ -1174,11 +1181,11 @@
         const opt = e.target.selectedOptions[0];
         const isEvent = opt?.dataset.event === '1';
         const eventBtn = document.getElementById('qa_eventDateBtn');
-        if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+        if (eventBtn) eventBtn.classList.toggle('is-hidden', !isEvent);
         const eventTimeGroup = document.getElementById('qa_eventTimeGroup');
-        if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+        if (eventTimeGroup) eventTimeGroup.classList.toggle('is-hidden', !isEvent);
         const notesGroup = document.getElementById('qa_notesGroup');
-        if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
+        if (notesGroup) notesGroup.classList.toggle('is-hidden', !isEvent);
         if (isEvent) {
           const rotSelect = document.getElementById('qa_rotation');
           if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -1199,18 +1206,18 @@
         const catOpt = document.getElementById('qa_category')?.selectedOptions[0];
         const isEvent = catOpt?.dataset.event === '1';
         if (rot === 'daily') {
-          group.style.display = 'none';
+          group.classList.add('is-hidden');
         } else {
-          group.style.display = '';
+          group.classList.remove('is-hidden');
           const eventBtn = label?.querySelector('#qa_eventDateBtn');
           const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
-            daySelect.style.display = 'none';
-            dateRow.style.display = isEvent ? 'none' : '';
+            daySelect.classList.add('is-hidden');
+            dateRow.classList.toggle('is-hidden', isEvent);
             label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
           } else {
-            daySelect.style.display = '';
-            dateRow.style.display = 'none';
+            daySelect.classList.remove('is-hidden');
+            dateRow.classList.add('is-hidden');
             label.innerHTML = 'Dedicated Day ' + btnHtml;
           }
           label?.querySelector('#qa_eventDateBtn')?.addEventListener('click', () => {
@@ -1237,15 +1244,15 @@
       document.getElementById('qa_bountyToggle')?.addEventListener('click', (e) => {
         e.currentTarget.classList.toggle('chip--active');
         const bf = document.getElementById('qa_bountyFields');
-        if (bf) bf.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
+        if (bf) bf.classList.toggle('is-hidden', !e.currentTarget.classList.contains('chip--active'));
         if (e.currentTarget.classList.contains('chip--active')) document.getElementById('qa_exempt')?.classList.add('chip--active');
       });
       for (const btn of document.querySelectorAll('#qa_bountyType .segmented-btn')) {
         btn.addEventListener('click', () => {
           document.querySelectorAll('#qa_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
           btn.classList.add('segmented-btn--active');
-          document.getElementById('qa_bountyPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
-          document.getElementById('qa_bountyRewardField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+          document.getElementById('qa_bountyPointsField').classList.toggle('is-hidden', btn.dataset.value !== 'points');
+          document.getElementById('qa_bountyRewardField').classList.toggle('is-hidden', btn.dataset.value !== 'reward');
         });
       }
 

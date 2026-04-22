@@ -714,6 +714,7 @@
   position: relative;
 }
 
+.progress-bar__fill[data-progress="100"]::after,
 .progress-bar__fill[style*="width:100%"]::after,
 .progress-bar__fill[style*="width: 100%"]::after {
   content: '';
@@ -1423,3 +1424,78 @@
 .store-card__actions { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
 .wishlist-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-faint); }
 .wishlist-btn--active { color: var(--warning); }
+
+/* ============ Utility: visibility ============ */
+.is-hidden { display: none !important; }
+
+/* Utility spacing — narrow use; prefer component-scoped classes */
+.u-mt-md { margin-top: var(--spacing-md); }
+.u-mb-md { margin-bottom: var(--spacing-md); }
+
+/* ============ Task detail sheet extras ============ */
+/* Hidden native date input used for delegate/move flows — positioned offscreen. */
+.task-detail__date-input--hidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.task-detail__date-input--fill { width: 100%; }
+.task-detail__source-icon { vertical-align: -2px; }
+.task-detail__delegate-panel { /* no-op; `.is-hidden` toggles visibility */ }
+
+/* ============ Form-compact inline layout ============ */
+.form-row--cooldown { align-items: end; gap: var(--spacing-sm); }
+.form-row--cooldown .form-group--grow { flex: 1; }
+.form-row--cooldown .chip-group--cooldown {
+  padding-bottom: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.form-compact__bounty-hint { margin-bottom: 8px; }
+.form-compact__date-calendar-btn {
+  padding: 0 4px;
+  font-size: 1.1em;
+  vertical-align: middle;
+}
+.form-compact__date-hidden {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+/* ============ Send message / Bonus day sheet ============ */
+.sheet-section-title { margin-bottom: 12px; }
+.sheet-label--spaced { margin-top: 12px; }
+.msg-type-btn--positive { color: var(--success); }
+.msg-custom-input { margin-top: 8px; }
+.bell-clear-btn { color: var(--text-faint); }
+
+/* ============ Error placeholder (missing-person) ============ */
+.error-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  text-align: center;
+  padding: var(--spacing-lg);
+}
+.error-placeholder__icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+}
+.error-placeholder__title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+}
+.error-placeholder__body {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}

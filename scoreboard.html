@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeSnapshot, updateData } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -453,6 +453,7 @@
       html += `</div>`;
 
       main.innerHTML = html;
+      applyDataColors(main);
       bindEvents();
     }
 
@@ -605,6 +606,7 @@
       // Mount bottom sheet
       const mount = document.getElementById('drilldownMount');
       mount.innerHTML = renderBottomSheet(html);
+      applyDataColors(mount);
 
       requestAnimationFrame(() => {
         const overlay = document.getElementById('bottomSheet');
@@ -766,6 +768,7 @@
 
       const mount = document.getElementById('storeMount');
       mount.innerHTML = renderBottomSheet(html);
+      applyDataColors(mount);
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
       // Bind "Get it!" buttons
@@ -883,6 +886,7 @@
             }
 
             mount.innerHTML = renderBottomSheet(skipHtml);
+            applyDataColors(mount);
             requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
             for (const skipBtn of mount.querySelectorAll('.skip-pick-btn')) {
@@ -964,6 +968,7 @@
 
       const mount = document.getElementById('storeMount');
       mount.innerHTML = renderBottomSheet(html);
+      applyDataColors(mount);
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
       for (const btn of mount.querySelectorAll('.store-person-btn')) {

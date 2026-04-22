@@ -70,7 +70,7 @@
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
       readBank, writeBankToken, removeBankToken
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -319,6 +319,7 @@
 
       html += `</div>`;
       main.innerHTML = html;
+      applyDataColors(main);
       bindTabEvents();
       bindTabContent();
     }
@@ -1693,6 +1694,7 @@
           </div>`;
 
         mount.innerHTML = renderBottomSheet(formHtml);
+        applyDataColors(mount);
         requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
         // Person chip toggle (exclusive)
@@ -2136,6 +2138,7 @@
           </div>`;
 
           mount.innerHTML = renderBottomSheet(popupHtml);
+          applyDataColors(mount);
           requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
           mount.querySelector('#achPopupAward')?.addEventListener('click', async () => {
@@ -2619,11 +2622,11 @@
         const opt = e.target.selectedOptions[0];
         const isEvent = opt?.dataset.event === '1';
         const eventBtn = root.querySelector('#tf_eventDateBtn');
-        if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+        if (eventBtn) eventBtn.classList.toggle('is-hidden', !isEvent);
         const eventTimeGroup = root.querySelector('#tf_eventTimeGroup');
-        if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+        if (eventTimeGroup) eventTimeGroup.classList.toggle('is-hidden', !isEvent);
         const notesGroup = root.querySelector('#tf_notesGroup');
-        if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
+        if (notesGroup) notesGroup.classList.toggle('is-hidden', !isEvent);
         // If event, force rotation to once
         if (isEvent) {
           const rotSelect = root.querySelector('#tf_rotation');
@@ -2647,18 +2650,18 @@
         const catOpt = root.querySelector('#tf_category')?.selectedOptions[0];
         const isEvent = catOpt?.dataset.event === '1';
         if (rot === 'daily') {
-          group.style.display = 'none';
+          group.classList.add('is-hidden');
         } else {
-          group.style.display = '';
+          group.classList.remove('is-hidden');
           const eventBtn = label?.querySelector('#tf_eventDateBtn');
           const btnHtml = eventBtn ? eventBtn.outerHTML : '';
           if (rot === 'once') {
-            daySelect.style.display = 'none';
-            dateRow.style.display = isEvent ? 'none' : '';
+            daySelect.classList.add('is-hidden');
+            dateRow.classList.toggle('is-hidden', isEvent);
             label.innerHTML = (isEvent ? 'Event Date ' : 'Date ') + btnHtml;
           } else {
-            daySelect.style.display = '';
-            dateRow.style.display = 'none';
+            daySelect.classList.remove('is-hidden');
+            dateRow.classList.add('is-hidden');
             label.innerHTML = 'Day ' + btnHtml;
           }
           // Re-bind event date button after innerHTML replace
@@ -2682,7 +2685,7 @@
         bountyToggle.addEventListener('click', () => {
           bountyToggle.classList.toggle('chip--active');
           const isActive = bountyToggle.classList.contains('chip--active');
-          bountyFields.style.display = isActive ? '' : 'none';
+          bountyFields.classList.toggle('is-hidden', !isActive);
           if (isActive) {
             exemptChip?.classList.add('chip--active');
           }
@@ -2693,8 +2696,8 @@
         btn.addEventListener('click', () => {
           root.querySelectorAll('#tf_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
           btn.classList.add('segmented-btn--active');
-          root.querySelector('#tf_bountyPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
-          root.querySelector('#tf_bountyRewardField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+          root.querySelector('#tf_bountyPointsField').classList.toggle('is-hidden', btn.dataset.value !== 'points');
+          root.querySelector('#tf_bountyRewardField').classList.toggle('is-hidden', btn.dataset.value !== 'reward');
         });
       }
 
