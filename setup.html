@@ -467,7 +467,7 @@
     import { getTimezoneOptions, detectTimezone, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { getPresets, getColorPalette, applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { applyDataColors } from './shared/components.js';
+    import { applyDataColors, showConfirm } from './shared/components.js';
 
     // --- State ---
     let currentStep = 1;
@@ -848,7 +848,7 @@
         console.error('Setup failed:', err);
         btn.disabled = false;
         btn.textContent = 'Try Again';
-        alert('Setup failed. Check your connection and try again.');
+        await showConfirm({ title: 'Setup failed', message: 'Check your connection and try again.', alert: true });
       }
     };
 

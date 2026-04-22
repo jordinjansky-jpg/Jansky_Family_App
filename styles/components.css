@@ -1491,7 +1491,7 @@
   margin-bottom: var(--spacing-md);
 }
 .error-placeholder__title {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-lg);
   font-weight: 700;
   margin-bottom: var(--spacing-sm);
 }
