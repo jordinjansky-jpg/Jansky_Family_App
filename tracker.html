@@ -293,7 +293,7 @@
     function renderRow(row) {
       const showIcon = row.category?.showIcon !== false;
       const catIcon = showIcon ? (row.category?.icon || '') : '';
-      const ownerColor = row.person?.color || 'var(--text-secondary)';
+      const ownerColor = row.person?.color || 'var(--text-muted)';
       const ownerInitial = row.person ? row.person.name[0].toUpperCase() : '↻';
       const ownerName = row.person?.name || 'Rotates';
       const taskName = catIcon ? `${catIcon} ${esc(row.task.name)}` : esc(row.task.name);

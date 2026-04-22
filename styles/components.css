@@ -1496,6 +1496,6 @@
   margin-bottom: var(--spacing-sm);
 }
 .error-placeholder__body {
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }

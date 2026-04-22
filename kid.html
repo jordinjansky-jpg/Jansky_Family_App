@@ -534,7 +534,7 @@
               <h3 class="kid-msg-overlay__title">${esc(msg.title || msg.type)}</h3>
               ${msg.body ? `<p class="kid-msg-overlay__body">${esc(msg.body)}</p>` : ''}
               ${msg.amount ? `<div class="kid-msg-overlay__amount ${isPositive ? 'kid-msg-overlay__amount--positive' : 'kid-msg-overlay__amount--negative'}">${amountDisplay} pts</div>` : ''}
-              ${isApproval ? `<p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 8px;">Saved to your rewards bank</p>` : ''}
+              ${isApproval ? `<p style="color: var(--text-muted); font-size: var(--font-sm); margin-top: 8px;">Saved to your rewards bank</p>` : ''}
               ${buttonsHtml}
             </div>
           </div>`;
@@ -629,7 +629,7 @@
               <div style="font-size: 4rem; margin-bottom: 8px;">${def.icon}</div>
               <h3 class="kid-msg-overlay__title">Achievement Unlocked!</h3>
               <div style="font-size: 1.25rem; font-weight: 700; margin-bottom: 4px;">${esc(def.label)}</div>
-              <div style="color: var(--text-secondary); margin-bottom: ${rewardLine ? '8px' : '16px'};">${esc(def.description)}</div>
+              <div style="color: var(--text-muted); margin-bottom: ${rewardLine ? '8px' : '16px'};">${esc(def.description)}</div>
               ${rewardLine}
               <button class="btn btn--primary kid-msg-overlay__dismiss" type="button">Awesome!</button>
             </div>
@@ -647,7 +647,7 @@
           const total = Object.keys(activeDefs).length;
           const unlocked = Object.keys(achievements).filter(k => activeDefs[k] && !achievements[k].revoked).length;
           let html = `<h3 style="margin-bottom: 4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg> Achievements</h3>
-            <p style="color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: 16px;">${unlocked} of ${total} unlocked</p>
+            <p style="color: var(--text-muted); font-size: var(--font-sm); margin-bottom: 16px;">${unlocked} of ${total} unlocked</p>
             <div class="kid-trophies__grid">`;
           for (const [key, def] of Object.entries(activeDefs)) {
             if (def.perPerson && !def.perPerson.includes(kid.id)) continue;
@@ -1161,7 +1161,7 @@
               .map(([key, entry]) => ({ entryKey: key, entry, task: tasks[entry.taskId] }));
 
             if (bountyTasks.length > 0) {
-              storeHtml += `<div class="store-bounties"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;">🎯 Earn Extra</h4>`;
+              storeHtml += `<div class="store-bounties"><h4 style="font-size: var(--font-sm); color: var(--text-muted); margin-bottom: 8px;">🎯 Earn Extra</h4>`;
               for (const bt of bountyTasks) {
                 const bountyValue = bt.task.bounty.type === 'points'
                   ? `+${bt.task.bounty.amount} pts`
@@ -1178,7 +1178,7 @@
             }
 
             if (pendingRequests.length > 0) {
-              storeHtml += `<div class="store-pending"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;">Pending Requests</h4>`;
+              storeHtml += `<div class="store-pending"><h4 style="font-size: var(--font-sm); color: var(--text-muted); margin-bottom: 8px;">Pending Requests</h4>`;
               for (const req of pendingRequests) {
                 storeHtml += `<div class="store-card store-card--pending" style="border-color: var(--accent-warning, #ecc94b); opacity: 0.8;">
                   <div class="store-card__icon">${esc(req.reward.icon || '🎁')}</div>
@@ -1195,7 +1195,7 @@
             }
 
             if (available.length === 0 && pendingRequests.length === 0) {
-              storeHtml += `<div style="text-align: center; padding: 32px; color: var(--text-secondary);"><div style="font-size: 2rem; margin-bottom: 8px;">🏪</div><p>No rewards available yet!</p></div>`;
+              storeHtml += `<div style="text-align: center; padding: 32px; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 8px;">🏪</div><p>No rewards available yet!</p></div>`;
             }
 
             for (const reward of available) {
@@ -1334,7 +1334,7 @@
 
             let histHtml = '<h3 style="margin-bottom: 12px;">Point History</h3>';
             if (entries.length === 0) {
-              histHtml += '<div style="text-align: center; padding: 32px; color: var(--text-secondary);">No history yet</div>';
+              histHtml += '<div style="text-align: center; padding: 32px; color: var(--text-muted);">No history yet</div>';
             } else {
               for (const [date, items] of Object.entries(grouped)) {
                 histHtml += `<div class="history-date">${date}</div>`;
