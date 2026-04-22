@@ -93,15 +93,15 @@ This register is the hand-off from Phase 0 to every later phase. Each row become
 | Inline styles | 33 | `kid.html` | Phase 4 |
 | Inline styles | 32 | `scoreboard.html` | Phase 5 |
 | Inline styles | 3 | `tracker.html` | Phase 5 |
-| Hex literals | TBC (fill during PR) | `styles/dashboard.css` | Phase 1 |
-| Hex literals | TBC | `styles/calendar.css` | Phase 2 |
-| Hex literals | TBC | `styles/admin.css` | Phase 3 |
-| Hex literals | TBC | `styles/kid.css` | Phase 4 |
-| Hex literals | TBC | `styles/scoreboard.css` | Phase 5 |
-| Hex literals | TBC | `styles/tracker.css` | Phase 5 |
+| Hex literals | 0 | `styles/dashboard.css` | Phase 1 |
+| Hex literals | 5 | `styles/calendar.css` | Phase 2 |
+| Hex literals | 6 | `styles/admin.css` | Phase 3 |
+| Hex literals | 15 | `styles/kid.css` | Phase 4 |
+| Hex literals | 2 | `styles/scoreboard.css` | Phase 5 |
+| Hex literals | 8 | `styles/tracker.css` | Phase 5 |
 | Icon-tile tokens | 8 tokens | `styles/base.css`, `shared/theme.js` | Phase 3 |
 
-"TBC" counts get filled in during the Phase 0 PR using the grep recipe in §6.1.
+Hex counts captured 2026-04-21 per §6.1 recipe. Each phase must reduce its owning row to 0 (or document a color-mix anchor exception per DESIGN.md §A.3).
 
 ---
 
