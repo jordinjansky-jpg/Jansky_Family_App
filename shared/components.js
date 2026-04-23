@@ -397,6 +397,100 @@ export function renderOverdueBanner(count) {
 }
 
 /**
+ * Single-slot banner. Variants: overdue | multiplier | vacation | freeze | info.
+ * Called by dashboard.js resolveBanner(); caller is responsible for mounting the
+ * returned HTML into #bannerMount and wiring any action button via click delegation.
+ */
+export function renderBanner(variant, { title, message, action } = {}) {
+  const iconMap = { overdue: '!', multiplier: '*', vacation: 'V', freeze: '-', info: 'i' };
+  const icon = iconMap[variant] ?? 'i';
+  const actionHtml = action
+    ? `<button class="banner__action" data-banner-action="1" type="button">${esc(action.label)}</button>`
+    : '';
+  const msgHtml = message ? `<div class="banner__message">${esc(message)}</div>` : '';
+  return `<div class="banner banner--${esc(variant)}" role="status">
+    <div class="banner__icon" aria-hidden="true">${icon}</div>
+    <div class="banner__body">
+      <div class="banner__title">${esc(title)}</div>
+      ${msgHtml}
+    </div>
+    ${actionHtml}
+  </div>`;
+}
+
+/**
+ * Floating Action Button. Default icon is a plus (24x24 SVG, strokeWidth via CSS).
+ * Caller provides id + aria-label; click is bound by the page (dashboard.js) via
+ * addEventListener on the returned element after it is mounted.
+ */
+export function renderFab({ id = 'fabAdd', label = 'Add', icon } = {}) {
+  const plus = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+  return `<button class="fab" id="${esc(id)}" aria-label="${esc(label)}" type="button">${icon ?? plus}</button>`;
+}
+
+/**
+ * Section head used by dashboard Events + Today sections. Exposed so Calendar,
+ * Scoreboard, Tracker can reuse in their own phases.
+ */
+export function renderSectionHead(title, meta) {
+  const metaHtml = meta ? `<div class="section__meta">${esc(meta)}</div>` : '';
+  return `<div class="section__head">
+    <div class="section__title">${esc(title)}</div>
+    ${metaHtml}
+  </div>`;
+}
+
+/**
+ * Items: Array<{ id, label, icon?: string (HTML/SVG), variant?: 'default'|'danger' }>.
+ * Rendered inside a bottom sheet (the page calls renderBottomSheet(renderOverflowMenu(items))).
+ * The page binds clicks via delegation: data-item-id attribute identifies the chosen row.
+ */
+export function renderOverflowMenu(items) {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  const rows = items.map(it => {
+    const iconHtml = it.icon ? `<span class="overflow-menu__icon" aria-hidden="true">${it.icon}</span>` : '';
+    const variantCls = it.variant === 'danger' ? ' overflow-menu__item--danger' : '';
+    return `<button class="overflow-menu__item${variantCls}" data-item-id="${esc(it.id)}" type="button">
+      ${iconHtml}
+      <span class="overflow-menu__label">${esc(it.label)}</span>
+    </button>`;
+  }).join('');
+  return `<div class="overflow-menu" role="menu">${rows}</div>`;
+}
+
+/**
+ * A single chip that opens the person filter sheet. Rendered only when
+ * people.length >= 2 AND not in ?person= link mode. See spec §3.6 / §5.7.
+ */
+export function renderFilterChip({ id = 'openFilterSheet', label = 'All' } = {}) {
+  const caret = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+  return `<button class="filter-chip" id="${esc(id)}" type="button" aria-haspopup="dialog">
+    <span class="filter-chip__label">${esc(label)}</span>
+    <span class="filter-chip__caret" aria-hidden="true">${caret}</span>
+  </button>`;
+}
+
+/**
+ * List-group sheet body: All row + one per person, with the active row checked.
+ * Rendered inside renderBottomSheet by the page. Rows carry data-person-id
+ * (empty string = All). Page binds click delegation.
+ */
+export function renderPersonFilterSheet(people, activePersonId) {
+  const rows = [
+    { id: '', name: 'All', active: !activePersonId },
+    ...people.map(p => ({ id: p.id, name: p.name, active: p.id === activePersonId }))
+  ];
+  const check = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  const body = rows.map(r => `
+    <button class="list-row${r.active ? ' is-active' : ''}" data-person-id="${esc(r.id)}" type="button">
+      <span class="list-row__label">${esc(r.name)}</span>
+      <span class="list-row__trailing" aria-hidden="true">${r.active ? check : ''}</span>
+    </button>
+  `).join('');
+  return `<div class="list-group" role="menu">${body}</div>`;
+}
+
+/**
  * Render a grade badge.
  * grade: letter string (e.g., 'A+', 'B-'), tier: 'a'|'b'|'c'|'d'|'f'
  */
