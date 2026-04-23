@@ -95,29 +95,39 @@ const NAV_ITEMS = [
 ];
 
 /**
- * Render the bottom navigation bar.
- * activePage: the id of the current page (e.g., 'home', 'calendar')
- * Returns an HTML string.
+ * Bottom navigation. 5 items: Home, Calendar, Scores, Tracker, More.
+ * More is a button (opens a sheet in-page); the first four are anchors.
+ *
+ * Signatures:
+ *   renderNavBar(activePage)                       // legacy — More is rendered
+ *                                                  //   but unbound (no-op)
+ *   renderNavBar(activePage, { onMoreClick })      // Phase 1+ — dashboard binds More
+ *
+ * Person-link mode: the page rewrites href values after render (existing behavior).
  */
-export function renderNavBar(activePage) {
-  const personHome = sessionStorage.getItem('dr-person-home');
-  const items = NAV_ITEMS.map(item => {
-    let href;
-    if (item.id === 'home' && personHome) {
-      href = `person.html?person=${encodeURIComponent(personHome)}`;
-    } else if (personHome && item.id !== 'home') {
-      href = `${item.href}?person=${encodeURIComponent(personHome)}`;
-    } else {
-      href = item.href;
-    }
-    const active = item.id === activePage ? ' nav-item--active' : '';
-    return `<a href="${href}" class="nav-item${active}" data-page="${item.id}" aria-label="${item.label}"${active ? ' aria-current="page"' : ''}>
-      <span class="nav-item__icon" aria-hidden="true">${item.icon}</span>
-      <span class="nav-item__label">${item.label}</span>
+export function renderNavBar(activePage, options = {}) {
+  const items = [
+    { page: 'home', href: 'index.html', label: 'Home', svg: `<path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path>` },
+    { page: 'calendar', href: 'calendar.html', label: 'Calendar', svg: `<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>` },
+    { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores', svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
+    { page: 'tracker', href: 'tracker.html', label: 'Tracker', svg: `<polyline points="3 12 8 7 13 12 17 8 21 12"></polyline><polyline points="3 18 8 13 13 18 17 14 21 18"></polyline>` }
+  ];
+  const linkItems = items.map(it => {
+    const isActive = it.page === activePage;
+    return `<a class="bottom-nav__item nav-item${isActive ? ' is-active nav-item--active' : ''}" href="${it.href}" data-page="${it.page}">
+      <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${it.svg}</svg>
+      <span class="nav-item__label">${it.label}</span>
     </a>`;
   }).join('');
-
-  return `<nav class="bottom-nav" role="navigation" aria-label="Main navigation">${items}</nav>`;
+  const moreItem = `<button class="bottom-nav__item nav-item" id="navMore" type="button"${options.onMoreClick ? '' : ' data-more-unbound="1"'}>
+    <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.5"></circle>
+      <circle cx="12" cy="12" r="1.5"></circle>
+      <circle cx="19" cy="12" r="1.5"></circle>
+    </svg>
+    <span class="nav-item__label">More</span>
+  </button>`;
+  return `<nav class="bottom-nav" role="navigation" aria-label="Main navigation">${linkItems}${moreItem}</nav>`;
 }
 
 /**
@@ -137,11 +147,56 @@ export function renderBellIcon(count = 0) {
 }
 
 /**
- * Render the page header.
- * options: { appName, subtitle, showAdmin, showDebug, rightContent, showBell, bellCount }
- * Returns an HTML string.
+ * Header renderer. Supports TWO call shapes during Phase 1:
+ *
+ *  NEW (dashboard):
+ *    renderHeader({ title, subtitle, showBell, overflowItems })
+ *
+ *  LEGACY (all other pages, until their own phase):
+ *    renderHeader({ appName, subtitle, dateLine, showAdmin, showDebug,
+ *                   showAddTask, showThemePicker, showBell, bellCount, rightContent })
+ *
+ * Detection: new shape has `title`; legacy has `appName`.
  */
 export function renderHeader(options = {}) {
+  if (options.title !== undefined) {
+    return _renderHeaderV2(options);
+  }
+  return _renderHeaderLegacy(options);
+}
+
+function _renderHeaderV2({ title, subtitle, showBell, overflowItems }) {
+  const bellHtml = showBell
+    ? `<button class="btn-icon" id="headerBell" aria-label="Notifications" type="button">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+           <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+         </svg>
+         <span class="btn-icon__dot is-hidden" id="headerBellDot" aria-hidden="true"></span>
+       </button>`
+    : '';
+  const overflowHtml = (Array.isArray(overflowItems) && overflowItems.length)
+    ? `<button class="btn-icon" id="headerOverflow" aria-label="More" type="button">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+           <circle cx="12" cy="5" r="1.4"></circle>
+           <circle cx="12" cy="12" r="1.4"></circle>
+           <circle cx="12" cy="19" r="1.4"></circle>
+         </svg>
+       </button>`
+    : '';
+  return `<header class="app-header">
+    <div class="app-header__text">
+      <div class="app-header__title">${esc(title)}</div>
+      ${subtitle ? `<div class="app-header__subtitle">${esc(subtitle)}</div>` : ''}
+    </div>
+    <div class="app-header__actions">
+      ${bellHtml}
+      ${overflowHtml}
+    </div>
+  </header>`;
+}
+
+function _renderHeaderLegacy(options) {
   const {
     appName = 'Daily Rundown',
     subtitle = '',
