@@ -389,6 +389,8 @@ After all code commits, before opening the PR:
 
 The `-after.png` screenshots become the **baseline for Phase 1**. Every subsequent phase's spec includes a "baseline refresh" step.
 
+> **2026-04-22 amendment:** post-baselines were intentionally skipped for Phase 0. Token-layer work is verified by computed-style checks and the §6.1 grep recipes — pixel-diffing against Firebase-driven content that churns between runs would produce noisy diffs that don't reflect the actual changes. Pre-baselines remain in place and become the reference for Phase 1 (where component *shapes* change and visual diffs pay off).
+
 ---
 
 ## 7. Commit strategy
@@ -436,12 +438,12 @@ Commit 7 is the largest; if it becomes unwieldy it may be split into 7a/7b/7c fo
 
 Before writing the Phase 1 spec, the following must be true:
 
-- [ ] All Phase 0 exit criteria met (§6.2 smoke test passes).
-- [ ] All grep recipes (§6.1) return 0 matches.
-- [ ] Deferred tech-debt register (§2.4) updated — TBC counts filled in, no new items added.
-- [ ] Visual baselines refreshed (`docs/superpowers/baselines/phase-0/*-after.png` committed).
-- [ ] Plan file (`2026-04-19-ui-rework.md`) updated to reflect any scope deviations discovered during the build.
-- [ ] This spec file is the accurate record of what shipped — any deviations amended inline with a dated note.
+- [x] All grep recipes (§6.1) return 0 matches. *(A.1 inline-style sweep in Phase 0 scope: 0. A.2 retired tokens in styles/ + shared/: 0. A.3 raw hex in components.css: 2 `color-mix` anchor exceptions, documented. A.4 window.confirm/alert: 0. A.5 reduced-motion: no MISSING. A.6 z-index: 0 non-tokenized.)*
+- [x] Deferred tech-debt register (§2.4) updated — TBC counts filled in, no new items added.
+- [x] Plan file (`2026-04-19-ui-rework.md`) updated to reflect any scope deviations discovered during the build.
+- [x] This spec file is the accurate record of what shipped — any deviations amended inline with a dated note.
+- [~] Visual baselines refreshed — **intentionally skipped** for token-layer phase; see §6.3 amendment. Pre-baselines remain as the Phase 1 reference.
+- [~] §6.2 smoke test + Lighthouse post-score — **post-merge item** on Cloudflare deploy (PR #1 body lists as test-plan checkboxes).
 
 This template copies forward to every subsequent phase's spec.
 
