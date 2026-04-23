@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -45,14 +45,17 @@ const linkedPerson = personParam
 
 // Show error if person param given but not found
 if (personParam && !linkedPerson) {
-  document.getElementById('loadingState').style.display = 'none';
+  const loadingEl = document.getElementById('loadingState');
+  loadingEl.classList.add('is-hidden');
+  loadingEl.style.display = 'none';
   const errMain = document.getElementById('mainContent');
+  errMain.classList.remove('is-hidden');
   errMain.style.display = '';
   errMain.innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:var(--spacing-lg);">
-      <div style="font-size:3rem;margin-bottom:var(--spacing-md);">🤔</div>
-      <h2 style="font-size:var(--font-size-lg);font-weight:700;margin-bottom:var(--spacing-sm);">Who's ${esc(personParam)}?</h2>
-      <p style="color:var(--text-secondary);font-size:var(--font-size-sm);">We couldn't find anyone with that name.<br>Check the link or ask an admin.</p>
+    <div class="error-placeholder">
+      <div class="error-placeholder__icon">🤔</div>
+      <h2 class="error-placeholder__title">Who's ${esc(personParam)}?</h2>
+      <p class="error-placeholder__body">We couldn't find anyone with that name.<br>Check the link or ask an admin.</p>
       <a href="index.html" class="btn btn--secondary mt-md">Go to Dashboard</a>
     </div>`;
   // Skip rest of init — error message is displayed
@@ -102,12 +105,16 @@ initOfflineBanner(onConnectionChange);
 initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
 
 // ── Hide loading, show content ──
-document.getElementById('loadingState').style.display = 'none';
+const loadingStateEl = document.getElementById('loadingState');
+loadingStateEl.classList.add('is-hidden');
+loadingStateEl.style.display = 'none';
 const main = document.getElementById('mainContent');
+main.classList.remove('is-hidden');
 main.style.display = '';
 
 // ── Celebration mount ──
 document.getElementById('celebrationMount').innerHTML = renderCelebration();
+applyDataColors(document.getElementById('celebrationMount'));
 
 // ══════════════════════════════════════════
 // Render the dashboard
@@ -200,7 +207,7 @@ function render() {
       if (ownerCmp !== 0) return ownerCmp;
       return a.dateKey.localeCompare(b.dateKey);
     });
-    html += `<div class="overdue-list" id="overdueList" style="display:${overdueExpanded ? 'block' : 'none'};">`;
+    html += `<div class="overdue-list${overdueExpanded ? '' : ' is-hidden'}" id="overdueList">`;
     for (const item of sortedOverdue) {
       const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
       const person = people.find(p => p.id === item.ownerId);
@@ -341,6 +348,7 @@ function render() {
   }
 
   main.innerHTML = html;
+  applyDataColors(main);
   bindEvents();
 
   // Update header stats
@@ -472,7 +480,7 @@ function bindEvents() {
       overdueExpanded = !overdueExpanded;
       const list = document.getElementById('overdueList');
       const arrow = document.getElementById('overdueArrow');
-      if (list) list.style.display = overdueExpanded ? 'block' : 'none';
+      if (list) list.classList.toggle('is-hidden', !overdueExpanded);
       if (arrow) arrow.classList.toggle('expanded', overdueExpanded);
     });
   }
@@ -755,6 +763,7 @@ function openEventDetailSheet(eventId) {
   if (!event) return;
   const html = renderEventDetailSheet(eventId, event, people);
   taskSheetMount.innerHTML = renderBottomSheet(html);
+  applyDataColors(taskSheetMount);
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
   });
@@ -783,6 +792,7 @@ function openEventForm(existingEventId = null) {
   const mode = existingEventId ? 'edit' : 'create';
   const html = renderEventForm({ event, eventId: existingEventId, people, dateKey: viewDate, mode });
   taskSheetMount.innerHTML = renderBottomSheet(html);
+  applyDataColors(taskSheetMount);
 
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
@@ -798,8 +808,8 @@ function openEventForm(existingEventId = null) {
     const btn = document.getElementById('ef_allDay');
     btn.classList.toggle('chip--active');
     const hide = btn.classList.contains('chip--active');
-    document.getElementById('ef_timeGroup').style.display = hide ? 'none' : 'flex';
-    if (document.getElementById('ef_endTimeGroup')) document.getElementById('ef_endTimeGroup').style.display = hide ? 'none' : 'flex';
+    document.getElementById('ef_timeGroup')?.classList.toggle('ef-time-row--hidden', hide);
+    document.getElementById('ef_endTimeGroup')?.classList.toggle('ef-time-row--hidden', hide);
   });
 
   document.querySelectorAll('#ef_colors .dt-color-btn').forEach(btn => {
@@ -926,6 +936,7 @@ function openTaskSheet(entryKey, dateKey) {
   });
 
   taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+  applyDataColors(taskSheetMount);
 
   requestAnimationFrame(() => {
     const overlay = document.getElementById('bottomSheet');
@@ -1020,8 +1031,7 @@ function bindTaskSheetEvents(entryKey, dateKey) {
 
   // Delegate
   document.getElementById('sheetDelegate')?.addEventListener('click', () => {
-    const panel = document.getElementById('delegatePanel');
-    if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    document.getElementById('delegatePanel')?.classList.toggle('is-hidden');
   });
 
   // Delegate person chips
@@ -1164,18 +1174,18 @@ function bindTaskSheetEvents(entryKey, dateKey) {
   const notesInput = document.getElementById('notesInput');
 
   function openNotesEditor() {
-    if (notesEditor) notesEditor.style.display = '';
-    if (notesDisplay) notesDisplay.style.display = 'none';
-    if (notesAddBtn) notesAddBtn.style.display = 'none';
+    notesEditor?.classList.remove('is-hidden');
+    notesDisplay?.classList.add('is-hidden');
+    notesAddBtn?.classList.add('is-hidden');
     if (notesInput) notesInput.focus();
   }
 
   function closeNotesEditor() {
-    if (notesEditor) notesEditor.style.display = 'none';
+    notesEditor?.classList.add('is-hidden');
     const originalText = document.getElementById('notesText')?.textContent?.trim() || '';
     if (notesInput) notesInput.value = originalText;
-    if (notesDisplay) notesDisplay.style.display = originalText ? '' : 'none';
-    if (notesAddBtn) notesAddBtn.style.display = originalText ? 'none' : '';
+    notesDisplay?.classList.toggle('is-hidden', !originalText);
+    notesAddBtn?.classList.toggle('is-hidden', !!originalText);
   }
 
   notesAddBtn?.addEventListener('click', openNotesEditor);
@@ -1207,6 +1217,7 @@ function openEditTaskSheet(taskId) {
   const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
   const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people, rewardsData);
   taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+  applyDataColors(taskSheetMount);
   initOwnerChips('et_owners');
 
   requestAnimationFrame(() => {
@@ -1239,18 +1250,18 @@ function openEditTaskSheet(taskId) {
     const catOpt = document.getElementById('et_category')?.selectedOptions[0];
     const isEvent = catOpt?.dataset.event === '1';
     if (rot === 'daily') {
-      group.style.display = 'none';
+      group.classList.add('is-hidden');
     } else {
-      group.style.display = '';
+      group.classList.remove('is-hidden');
       const eventBtn = label?.querySelector('#et_eventDateBtn');
       const btnHtml = eventBtn ? eventBtn.outerHTML : '';
       if (rot === 'once') {
-        daySelect.style.display = 'none';
-        dateRow.style.display = isEvent ? 'none' : '';
+        daySelect.classList.add('is-hidden');
+        dateRow.classList.toggle('is-hidden', isEvent);
         label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
       } else {
-        daySelect.style.display = '';
-        dateRow.style.display = 'none';
+        daySelect.classList.remove('is-hidden');
+        dateRow.classList.add('is-hidden');
         label.innerHTML = 'Dedicated Day ' + btnHtml;
       }
       label?.querySelector('#et_eventDateBtn')?.addEventListener('click', () => {
@@ -1264,11 +1275,11 @@ function openEditTaskSheet(taskId) {
   document.getElementById('et_category')?.addEventListener('change', (e) => {
     const isEvent = e.target.selectedOptions[0]?.dataset.event === '1';
     const eventBtn = document.getElementById('et_eventDateBtn');
-    if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+    if (eventBtn) eventBtn.classList.toggle('is-hidden', !isEvent);
     const eventTimeGroup = document.getElementById('et_eventTimeGroup');
-    if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+    if (eventTimeGroup) eventTimeGroup.classList.toggle('is-hidden', !isEvent);
     const notesGroup = document.getElementById('et_notesGroup');
-    if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
+    if (notesGroup) notesGroup.classList.toggle('is-hidden', !isEvent);
     if (isEvent) {
       const rotSelect = document.getElementById('et_rotation');
       if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -1286,15 +1297,15 @@ function openEditTaskSheet(taskId) {
   document.getElementById('et_bountyToggle')?.addEventListener('click', (e) => {
     e.currentTarget.classList.toggle('chip--active');
     const bountyFields = document.getElementById('et_bountyFields');
-    if (bountyFields) bountyFields.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
+    if (bountyFields) bountyFields.classList.toggle('is-hidden', !e.currentTarget.classList.contains('chip--active'));
     if (e.currentTarget.classList.contains('chip--active')) document.getElementById('et_exempt')?.classList.add('chip--active');
   });
   for (const btn of document.querySelectorAll('#et_bountyType .segmented-btn')) {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#et_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
       btn.classList.add('segmented-btn--active');
-      document.getElementById('et_bountyPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
-      document.getElementById('et_bountyRewardField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+      document.getElementById('et_bountyPointsField').classList.toggle('is-hidden', btn.dataset.value !== 'points');
+      document.getElementById('et_bountyRewardField').classList.toggle('is-hidden', btn.dataset.value !== 'reward');
     });
   }
 
@@ -1371,6 +1382,7 @@ function openQuickAddSheet() {
   const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
   const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey, rewardsData);
   taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+  applyDataColors(taskSheetMount);
   initOwnerChips('qa_owners');
 
   requestAnimationFrame(() => {
@@ -1387,11 +1399,11 @@ function openQuickAddSheet() {
     const opt = e.target.selectedOptions[0];
     const isEvent = opt?.dataset.event === '1';
     const eventBtn = document.getElementById('qa_eventDateBtn');
-    if (eventBtn) eventBtn.style.display = isEvent ? 'inline' : 'none';
+    if (eventBtn) eventBtn.classList.toggle('is-hidden', !isEvent);
     const eventTimeGroup = document.getElementById('qa_eventTimeGroup');
-    if (eventTimeGroup) eventTimeGroup.style.display = isEvent ? '' : 'none';
+    if (eventTimeGroup) eventTimeGroup.classList.toggle('is-hidden', !isEvent);
     const notesGroup = document.getElementById('qa_notesGroup');
-    if (notesGroup) notesGroup.style.display = isEvent ? '' : 'none';
+    if (notesGroup) notesGroup.classList.toggle('is-hidden', !isEvent);
     if (isEvent) {
       const rotSelect = document.getElementById('qa_rotation');
       if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
@@ -1415,19 +1427,19 @@ function openQuickAddSheet() {
     const catOpt = document.getElementById('qa_category')?.selectedOptions[0];
     const isEvent = catOpt?.dataset.event === '1';
     if (rot === 'daily') {
-      group.style.display = 'none';
+      group.classList.add('is-hidden');
     } else {
-      group.style.display = '';
+      group.classList.remove('is-hidden');
       const eventBtn = label?.querySelector('#qa_eventDateBtn');
       const btnHtml = eventBtn ? eventBtn.outerHTML : '';
       if (rot === 'once') {
-        daySelect.style.display = 'none';
+        daySelect.classList.add('is-hidden');
         // Events: only show 📅 icon, no date input row
-        dateRow.style.display = isEvent ? 'none' : '';
+        dateRow.classList.toggle('is-hidden', isEvent);
         label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
       } else {
-        daySelect.style.display = '';
-        dateRow.style.display = 'none';
+        daySelect.classList.remove('is-hidden');
+        dateRow.classList.add('is-hidden');
         label.innerHTML = 'Dedicated Day ' + btnHtml;
       }
       // Re-bind event date button after innerHTML replace
@@ -1456,15 +1468,15 @@ function openQuickAddSheet() {
   document.getElementById('qa_bountyToggle')?.addEventListener('click', (e) => {
     e.currentTarget.classList.toggle('chip--active');
     const bountyFields = document.getElementById('qa_bountyFields');
-    if (bountyFields) bountyFields.style.display = e.currentTarget.classList.contains('chip--active') ? '' : 'none';
+    if (bountyFields) bountyFields.classList.toggle('is-hidden', !e.currentTarget.classList.contains('chip--active'));
     if (e.currentTarget.classList.contains('chip--active')) document.getElementById('qa_exempt')?.classList.add('chip--active');
   });
   for (const btn of document.querySelectorAll('#qa_bountyType .segmented-btn')) {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#qa_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
       btn.classList.add('segmented-btn--active');
-      document.getElementById('qa_bountyPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
-      document.getElementById('qa_bountyRewardField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+      document.getElementById('qa_bountyPointsField').classList.toggle('is-hidden', btn.dataset.value !== 'points');
+      document.getElementById('qa_bountyRewardField').classList.toggle('is-hidden', btn.dataset.value !== 'reward');
     });
   }
 
@@ -1578,6 +1590,7 @@ function openAddMenu() {
   ];
   const html = renderAddMenu(options);
   taskSheetMount.innerHTML = renderBottomSheet(html);
+  applyDataColors(taskSheetMount);
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
   });

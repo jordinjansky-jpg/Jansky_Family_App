@@ -6,93 +6,66 @@ const PRESETS = {
     mode: 'light',
     label: 'Light Warm',
     vars: {
-      '--bg-primary': '#faf8f5',
-      '--bg-secondary': '#f0ece6',
-      '--bg-card': '#ffffff',
       '--surface': '#ffffff',
-      '--bg-nav': '#ffffff',
-      '--text-primary': '#2c2c2c',
-      '--text-secondary': '#6b6b6b',
-      '--text-muted': '#999999',
-      '--border-color': '#e8e4de',
+      '--text-muted': '#6b6b6b',
       '--border': '#e8e4de',
-      '--border-light': '#f0ece6',
-      '--border-subtle': '#f3f0eb',
       '--shadow-sm': '0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.1)',
       '--shadow-md': '0 2px 8px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06)',
       '--shadow-lg': '0 4px 12px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.12)',
       '--overlay-bg': 'rgba(0,0,0,0.4)',
-      '--bg-hover': 'rgba(0,0,0,0.04)',
-      '--success-bg': '#e8f5e9',
-      '--success-text': '#2e7d32',
-      '--warning-bg': '#fff3e0',
-      '--warning-text': '#e65100',
-      '--danger-bg': '#ffebee',
-      '--danger-text': '#c62828',
-      '--info-bg': '#e3f2fd',
-      '--info-text': '#1565c0'
+      '--bg-hover': 'rgba(0,0,0,0.04)'
     }
   },
   'dark': {
     mode: 'dark',
     label: 'Dark',
     vars: {
-      '--bg-primary': '#1a1a2e',
-      '--bg-secondary': '#16213e',
-      '--bg-card': '#222244',
+      '--bg': '#1a1a2e',
       '--surface': '#222244',
-      '--bg-nav': '#16213e',
-      '--text-primary': '#e8e8e8',
-      '--text-secondary': '#a0a0b0',
+      '--surface-2': '#16213e',
+      '--text': '#e8e8e8',
       '--text-muted': '#707080',
-      '--border-color': '#2a2a4a',
+      '--text-faint': '#5a5a6a',
       '--border': '#2a2a4a',
-      '--border-light': '#222244',
-      '--border-subtle': '#1e1e3a',
+      '--success': '#66bb6a',
+      '--success-soft': '#1b3a1b',
+      '--warning': '#ffa726',
+      '--warning-soft': '#3a2a1b',
+      '--danger': '#ef5350',
+      '--danger-soft': '#3a1b1b',
+      '--info': '#42a5f5',
+      '--info-soft': '#1b2a3a',
       '--shadow-sm': '0 1px 2px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.25)',
       '--shadow-md': '0 2px 8px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.3)',
       '--shadow-lg': '0 4px 12px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35)',
       '--overlay-bg': 'rgba(0,0,0,0.6)',
-      '--bg-hover': 'rgba(255,255,255,0.06)',
-      '--success-bg': '#1b3a1b',
-      '--success-text': '#66bb6a',
-      '--warning-bg': '#3a2a1b',
-      '--warning-text': '#ffa726',
-      '--danger-bg': '#3a1b1b',
-      '--danger-text': '#ef5350',
-      '--info-bg': '#1b2a3a',
-      '--info-text': '#42a5f5'
+      '--bg-hover': 'rgba(255,255,255,0.06)'
     }
   },
   'dark-warm': {
     mode: 'dark',
     label: 'Dark Warm',
     vars: {
-      '--bg-primary': '#1e1a17',
-      '--bg-secondary': '#2a2420',
-      '--bg-card': '#332d28',
+      '--bg': '#1e1a17',
       '--surface': '#332d28',
-      '--bg-nav': '#2a2420',
-      '--text-primary': '#e8e0d8',
-      '--text-secondary': '#b0a898',
+      '--surface-2': '#2a2420',
+      '--text': '#e8e0d8',
       '--text-muted': '#807868',
-      '--border-color': '#3d3530',
+      '--text-faint': '#625a4e',
       '--border': '#3d3530',
-      '--border-light': '#332d28',
-      '--border-subtle': '#2f2924',
+      '--success': '#81c784',
+      '--success-soft': '#1b2e1b',
+      '--warning': '#ffb74d',
+      '--warning-soft': '#2e2a1b',
+      '--danger': '#e57373',
+      '--danger-soft': '#2e1b1b',
+      '--info': '#64b5f6',
+      '--info-soft': '#1b2a33',
       '--shadow-sm': '0 1px 2px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.25)',
       '--shadow-md': '0 2px 8px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.3)',
       '--shadow-lg': '0 4px 12px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35)',
       '--overlay-bg': 'rgba(0,0,0,0.6)',
-      '--bg-hover': 'rgba(255,255,255,0.06)',
-      '--success-bg': '#1b2e1b',
-      '--success-text': '#81c784',
-      '--warning-bg': '#2e2a1b',
-      '--warning-text': '#ffb74d',
-      '--danger-bg': '#2e1b1b',
-      '--danger-text': '#e57373',
-      '--info-bg': '#1b2a33',
-      '--info-text': '#64b5f6'
+      '--bg-hover': 'rgba(255,255,255,0.06)'
     }
   },
   'light-vivid': {
@@ -100,31 +73,14 @@ const PRESETS = {
     label: 'Light Vivid',
     coloredCells: true,
     vars: {
-      '--bg-primary': '#faf7f2',
-      '--bg-secondary': '#f3ede4',
-      '--bg-card': '#ffffff',
       '--surface': '#ffffff',
-      '--bg-nav': '#ffffff',
-      '--text-primary': '#2c2c2c',
-      '--text-secondary': '#6b6b6b',
-      '--text-muted': '#999999',
-      '--border-color': '#e8e4de',
+      '--text-muted': '#6b6b6b',
       '--border': '#e8e4de',
-      '--border-light': '#f0ece6',
-      '--border-subtle': '#f5f1ec',
       '--shadow-sm': '0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.1)',
       '--shadow-md': '0 2px 8px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06)',
       '--shadow-lg': '0 4px 12px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.12)',
       '--overlay-bg': 'rgba(0,0,0,0.4)',
-      '--bg-hover': 'rgba(0,0,0,0.04)',
-      '--success-bg': '#e8f5e9',
-      '--success-text': '#2e7d32',
-      '--warning-bg': '#fff3e0',
-      '--warning-text': '#e65100',
-      '--danger-bg': '#ffebee',
-      '--danger-text': '#c62828',
-      '--info-bg': '#e3f2fd',
-      '--info-text': '#1565c0'
+      '--bg-hover': 'rgba(0,0,0,0.04)'
     }
   },
   'dark-vivid': {
@@ -132,31 +88,26 @@ const PRESETS = {
     label: 'Dark Vivid',
     coloredCells: true,
     vars: {
-      '--bg-primary': '#1e1a17',
-      '--bg-secondary': '#2a2420',
-      '--bg-card': '#332d28',
+      '--bg': '#1e1a17',
       '--surface': '#332d28',
-      '--bg-nav': '#2a2420',
-      '--text-primary': '#e8e0d8',
-      '--text-secondary': '#b0a898',
+      '--surface-2': '#2a2420',
+      '--text': '#e8e0d8',
       '--text-muted': '#807868',
-      '--border-color': '#3d3530',
+      '--text-faint': '#625a4e',
       '--border': '#3d3530',
-      '--border-light': '#332d28',
-      '--border-subtle': '#2f2924',
+      '--success': '#81c784',
+      '--success-soft': '#1b2e1b',
+      '--warning': '#ffb74d',
+      '--warning-soft': '#2e2a1b',
+      '--danger': '#e57373',
+      '--danger-soft': '#2e1b1b',
+      '--info': '#64b5f6',
+      '--info-soft': '#1b2a33',
       '--shadow-sm': '0 1px 2px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.25)',
       '--shadow-md': '0 2px 8px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.3)',
       '--shadow-lg': '0 4px 12px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35)',
       '--overlay-bg': 'rgba(0,0,0,0.6)',
-      '--bg-hover': 'rgba(255,255,255,0.06)',
-      '--success-bg': '#1b2e1b',
-      '--success-text': '#81c784',
-      '--warning-bg': '#2e2a1b',
-      '--warning-text': '#ffb74d',
-      '--danger-bg': '#2e1b1b',
-      '--danger-text': '#e57373',
-      '--info-bg': '#1b2a33',
-      '--info-text': '#64b5f6'
+      '--bg-hover': 'rgba(255,255,255,0.06)'
     }
   }
 };
@@ -181,11 +132,24 @@ export function getPresets() {
 export function getThemeVars(themeConfig) {
   const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
   const vars = { ...preset.vars };
+  const isDark = (preset.mode || themeConfig.mode) === 'dark';
 
   if (themeConfig.accentColor) {
-    vars['--accent'] = themeConfig.accentColor;
-    vars['--accent-light'] = themeConfig.accentColor + '20';
-    vars['--accent-hover'] = themeConfig.accentColor + 'dd';
+    const accent = themeConfig.accentColor;
+    vars['--accent'] = accent;
+    vars['--accent-hover'] = accent + 'dd';
+
+    // Spec-aligned tokens. color-mix(in srgb, X% accent, white/black)
+    // — X is how much accent remains, so lower X = more of the other color.
+    if (isDark) {
+      // Dark mode: brighter accent, even brighter ink, darker soft surface.
+      vars['--accent'] = `color-mix(in srgb, ${accent} 75%, #fff)`;
+      vars['--accent-ink'] = `color-mix(in srgb, ${accent} 40%, #fff)`;
+      vars['--accent-soft'] = `color-mix(in srgb, ${accent} 30%, #000)`;
+    } else {
+      vars['--accent-ink'] = `color-mix(in srgb, ${accent} 60%, #000)`;
+      vars['--accent-soft'] = `color-mix(in srgb, ${accent} 12%, #fff)`;
+    }
   }
 
   return vars;
@@ -217,9 +181,20 @@ export function applyTheme(themeConfig) {
 
   // Set accent if not in vars
   if (!vars['--accent']) {
-    root.style.setProperty('--accent', '#5b7fd6');
-    root.style.setProperty('--accent-light', '#5b7fd620');
-    root.style.setProperty('--accent-hover', '#5b7fd6dd');
+    const fallbackAccent = '#5b7fd6';
+    const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
+    const isDark = (preset.mode || themeConfig.mode) === 'dark';
+    root.style.setProperty('--accent', fallbackAccent);
+    root.style.setProperty('--accent-hover', fallbackAccent + 'dd');
+    // Spec-aligned tokens.
+    if (isDark) {
+      root.style.setProperty('--accent', `color-mix(in srgb, ${fallbackAccent} 75%, #fff)`);
+      root.style.setProperty('--accent-ink', `color-mix(in srgb, ${fallbackAccent} 40%, #fff)`);
+      root.style.setProperty('--accent-soft', `color-mix(in srgb, ${fallbackAccent} 30%, #000)`);
+    } else {
+      root.style.setProperty('--accent-ink', `color-mix(in srgb, ${fallbackAccent} 60%, #000)`);
+      root.style.setProperty('--accent-soft', `color-mix(in srgb, ${fallbackAccent} 12%, #fff)`);
+    }
   }
 
   // Set data attribute for CSS selectors

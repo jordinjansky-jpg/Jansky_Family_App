@@ -3,7 +3,20 @@
 // MAINTENANCE: When you add, rename, or remove any file in APP_SHELL below,
 // you MUST bump CACHE_NAME (e.g. v28 → v29) so existing clients fetch the new
 // shell. There is no build step generating this list.
-const CACHE_NAME = 'family-hub-v44';
+//
+// CACHE_BUMPS
+// -----------
+// Record every CACHE_NAME bump here so future readers can correlate cache
+// versions to phases/PRs.
+//
+// v45 (2026-04-21) — Phase 0 foundation: token layer rewrite, hex purge in
+//                    components.css, inline-style sweep in stable modules,
+//                    reduced-motion guards on all animating CSS, retired-
+//                    token sweep in HTML files.
+// v44 (2026-04-xx) — prior rename to 'family-hub' branding.
+// v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
+// (older bumps not recorded retroactively)
+const CACHE_NAME = 'family-hub-v45';
 
 const APP_SHELL = [
   '/',

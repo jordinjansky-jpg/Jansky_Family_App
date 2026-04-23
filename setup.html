@@ -23,7 +23,7 @@
     }
 
     .setup-container {
-      max-width: var(--max-width);
+      max-width: var(--max-content);
       margin: 0 auto;
       padding: var(--spacing-md);
       min-height: 100dvh;
@@ -42,13 +42,13 @@
     }
 
     .setup-header__title {
-      font-size: var(--font-size-xl);
+      font-size: var(--font-xl);
       font-weight: 700;
     }
 
     .setup-header__subtitle {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
+      color: var(--text-muted);
+      font-size: var(--font-sm);
       margin-top: var(--spacing-xs);
     }
 
@@ -63,14 +63,14 @@
     }
 
     .setup-step__title {
-      font-size: var(--font-size-lg);
+      font-size: var(--font-lg);
       font-weight: 700;
       margin-bottom: var(--spacing-xs);
     }
 
     .setup-step__desc {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
+      color: var(--text-muted);
+      font-size: var(--font-sm);
       margin-bottom: var(--spacing-lg);
     }
 
@@ -101,9 +101,9 @@
       align-items: center;
       gap: var(--spacing-md);
       padding: var(--spacing-md);
-      background: var(--bg-card);
+      background: var(--surface);
       border-radius: var(--radius-md);
-      border: 1px solid var(--border-light);
+      border: 1px solid var(--border);
     }
 
     .person-card__color {
@@ -123,25 +123,25 @@
     }
 
     .person-card__role {
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
+      font-size: var(--font-xs);
+      color: var(--text-muted);
       text-transform: capitalize;
     }
 
     .person-card__remove {
-      color: var(--text-muted);
+      color: var(--text-faint);
       font-size: 1.2rem;
       padding: var(--spacing-xs);
     }
 
     /* Role toggle buttons */
     .role-btn {
-      border: 2px solid var(--border-color) !important;
-      transition: all var(--transition-fast);
+      border: 2px solid var(--border) !important;
+      transition: all var(--t-fast);
     }
 
     .role-btn.selected {
-      background: var(--accent-light) !important;
+      background: var(--accent-soft) !important;
       border-color: var(--accent) !important;
       color: var(--accent) !important;
       font-weight: 700;
@@ -178,9 +178,9 @@
       align-items: center;
       gap: var(--spacing-md);
       padding: var(--spacing-sm) var(--spacing-md);
-      background: var(--bg-card);
+      background: var(--surface);
       border-radius: var(--radius-md);
-      border: 1px solid var(--border-light);
+      border: 1px solid var(--border);
       min-height: 48px;
     }
 
@@ -200,8 +200,8 @@
 
     .category-card__btn {
       padding: var(--spacing-xs);
-      color: var(--text-muted);
-      font-size: var(--font-size-sm);
+      color: var(--text-faint);
+      font-size: var(--font-sm);
     }
 
     /* Theme preview */
@@ -215,32 +215,39 @@
     .theme-option {
       padding: var(--spacing-md);
       border-radius: var(--radius-md);
-      border: 2px solid var(--border-color);
+      border: 2px solid var(--border);
       cursor: pointer;
-      transition: all var(--transition-fast);
+      transition: all var(--t-fast);
       text-align: center;
     }
 
     .theme-option.selected {
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px var(--accent-light);
+      box-shadow: 0 0 0 2px var(--accent-soft);
     }
 
     .theme-option__preview {
       height: 48px;
       border-radius: var(--radius-sm);
       margin-bottom: var(--spacing-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      background: var(--theme-preview-bg, var(--surface));
+      color: var(--theme-preview-fg, var(--text));
+      border: 1px solid var(--theme-preview-border, var(--border));
     }
 
     .theme-option__label {
-      font-size: var(--font-size-sm);
+      font-size: var(--font-sm);
       font-weight: 500;
     }
 
     /* Add person form */
     .add-person-form {
       padding: var(--spacing-md);
-      background: var(--bg-secondary);
+      background: var(--surface-2);
       border-radius: var(--radius-md);
       margin-top: var(--spacing-sm);
     }
@@ -259,13 +266,18 @@
       border-radius: 50%;
       border: 3px solid transparent;
       cursor: pointer;
-      transition: all var(--transition-fast);
+      transition: all var(--t-fast);
     }
 
     .accent-swatch.selected {
-      border-color: var(--text-primary);
+      border-color: var(--text);
       transform: scale(1.15);
     }
+
+    /* Form helpers */
+    .setup-form__icon-input { width: 80px; }
+    .color-swatch--positioned { position: relative; }
+    .is-hidden { display: none !important; }
 
     /* PIN input */
     .pin-input-group {
@@ -279,7 +291,7 @@
       width: 48px;
       height: 56px;
       text-align: center;
-      font-size: var(--font-size-xl);
+      font-size: var(--font-xl);
       font-weight: 700;
       border-radius: var(--radius-md);
       letter-spacing: 0;
@@ -297,8 +309,8 @@
     }
 
     .finish-screen__summary {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
+      color: var(--text-muted);
+      font-size: var(--font-sm);
       margin: var(--spacing-md) 0;
     }
   </style>
@@ -375,10 +387,10 @@
       <p class="setup-step__desc">Organize tasks into groups. Defaults are provided — customize as needed.</p>
       <div class="setup-step__body">
         <div class="category-list" id="categoryList"></div>
-        <div class="add-person-form mt-md" id="addCategoryForm" style="display:none;">
+        <div class="add-person-form mt-md is-hidden" id="addCategoryForm">
           <div class="form-group">
             <label class="form-label" for="catIcon">Emoji Icon</label>
-            <input type="text" id="catIcon" placeholder="🧹" maxlength="4" style="width:80px;">
+            <input type="text" id="catIcon" placeholder="🧹" maxlength="4" class="setup-form__icon-input">
           </div>
           <div class="form-group">
             <label class="form-label" for="catLabel">Label</label>
@@ -455,6 +467,7 @@
     import { getTimezoneOptions, detectTimezone, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { getPresets, getColorPalette, applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
+    import { applyDataColors, showConfirm } from './shared/components.js';
 
     // --- State ---
     let currentStep = 1;
@@ -559,7 +572,7 @@
       const list = document.getElementById('peopleList');
       list.innerHTML = people.map((p, i) => `
         <div class="person-card">
-          <div class="person-card__color" style="background:${p.color}"></div>
+          <div class="person-card__color" data-bg-color="${p.color}"></div>
           <div class="person-card__info">
             <div class="person-card__name">${esc(p.name)}</div>
             <div class="person-card__role">${esc(p.role)}</div>
@@ -567,6 +580,7 @@
           <button class="person-card__remove" onclick="removePerson(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
       `).join('');
+      applyDataColors(list);
 
       document.getElementById('peopleNext').disabled = people.length === 0;
       renderPersonColorGrid();
@@ -579,8 +593,9 @@
         const used = usedColors.includes(c);
         const sel = selectedColor === c ? ' selected' : '';
         const usedCls = used ? ' color-swatch--used' : '';
-        return `<div class="color-swatch${sel}${usedCls}" style="background:${c};position:relative;" ${used ? '' : `onclick="selectColor('${c}')"`}></div>`;
+        return `<div class="color-swatch color-swatch--positioned${sel}${usedCls}" data-bg-color="${c}" ${used ? '' : `onclick="selectColor('${c}')"`}></div>`;
       }).join('');
+      applyDataColors(grid);
     }
 
     window.selectColor = function(color) {
@@ -656,14 +671,14 @@
     }
 
     window.showAddCategory = function() {
-      document.getElementById('addCategoryForm').style.display = '';
-      document.getElementById('addCategoryBtn').style.display = 'none';
+      document.getElementById('addCategoryForm').classList.remove('is-hidden');
+      document.getElementById('addCategoryBtn').classList.add('is-hidden');
       document.getElementById('catIcon').focus();
     };
 
     window.cancelAddCategory = function() {
-      document.getElementById('addCategoryForm').style.display = 'none';
-      document.getElementById('addCategoryBtn').style.display = '';
+      document.getElementById('addCategoryForm').classList.add('is-hidden');
+      document.getElementById('addCategoryBtn').classList.remove('is-hidden');
       document.getElementById('catIcon').value = '';
       document.getElementById('catLabel').value = '';
     };
@@ -703,17 +718,25 @@
         const bgColor = p.mode === 'dark' ? '#1a1a2e' : '#faf8f5';
         const fgColor = p.mode === 'dark' ? '#e8e8e8' : '#2c2c2c';
         return `<div class="theme-option${sel}" onclick="selectTheme('${p.key}')">
-          <div class="theme-option__preview" style="background:${bgColor};border:1px solid ${fgColor}20;display:flex;align-items:center;justify-content:center;color:${fgColor};font-size:0.8rem;">${p.label}</div>
+          <div class="theme-option__preview" data-theme-preview="${bgColor}|${fgColor}">${p.label}</div>
           <div class="theme-option__label">${p.label}</div>
         </div>`;
       }).join('');
+      // Apply theme-preview custom props — local (not shared applyDataColors) since this is setup-only.
+      grid.querySelectorAll('[data-theme-preview]').forEach(el => {
+        const [bg, fg] = el.dataset.themePreview.split('|');
+        el.style.setProperty('--theme-preview-bg', bg);
+        el.style.setProperty('--theme-preview-fg', fg);
+        el.style.setProperty('--theme-preview-border', `${fg}20`);
+      });
 
       const accentColors = ['#5b7fd6', '#e85d75', '#43a047', '#ff9800', '#8e24aa', '#00acc1', '#ef5350', '#ffa726'];
       const accentGrid = document.getElementById('accentGrid');
       accentGrid.innerHTML = accentColors.map(c => {
         const sel = selectedAccent === c ? ' selected' : '';
-        return `<div class="accent-swatch${sel}" style="background:${c}" onclick="selectAccent('${c}')"></div>`;
+        return `<div class="accent-swatch${sel}" data-bg-color="${c}" onclick="selectAccent('${c}')"></div>`;
       }).join('');
+      applyDataColors(accentGrid);
     }
 
     window.selectTheme = function(preset) {
@@ -825,7 +848,7 @@
         console.error('Setup failed:', err);
         btn.disabled = false;
         btn.textContent = 'Try Again';
-        alert('Setup failed. Check your connection and try again.');
+        await showConfirm({ title: 'Setup failed', message: 'Check your connection and try again.', alert: true });
       }
     };
 

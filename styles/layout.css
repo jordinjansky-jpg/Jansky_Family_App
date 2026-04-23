@@ -2,7 +2,7 @@
 /* layout.css — Page layout, header, bottom navigation */
 /* ============ Layout ============ */
 .page-content {
-  max-width: var(--max-width);
+  max-width: var(--max-content);
   margin: 0 auto;
   padding: var(--spacing-md);
   padding-top: calc(var(--header-height) + var(--spacing-md) + env(safe-area-inset-top, 0px));
@@ -18,14 +18,14 @@
   left: 0;
   right: 0;
   min-height: var(--header-height);
-  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
-  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--spacing-sm) var(--spacing-md);
   padding-top: calc(var(--spacing-sm) + env(safe-area-inset-top, 0px));
-  z-index: 100;
+  z-index: var(--z-header);
   box-shadow: 0 1px 8px rgba(0,0,0,0.06);
   gap: var(--spacing-sm);
 }
@@ -39,21 +39,21 @@
 }
 
 .header__title {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-lg);
   font-weight: 800;
   letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .header__subtitle {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  font-size: var(--font-xs);
+  color: var(--text-faint);
   white-space: nowrap;
   font-weight: 500;
   letter-spacing: 0.03em;
@@ -61,8 +61,8 @@
 }
 
 .header__date {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  color: var(--text-faint);
   white-space: nowrap;
   font-weight: 500;
 }
@@ -92,8 +92,8 @@
   text-decoration: none;
   cursor: pointer;
   line-height: 1;
-  transition: all var(--transition-fast);
-  color: var(--text-primary);
+  transition: all var(--t-fast);
+  color: var(--text);
 }
 
 .header__admin:hover,
@@ -101,27 +101,27 @@
 .header__theme:hover,
 .header__add-task:hover,
 .header__bell:hover {
-  background: var(--bg-secondary);
+  background: var(--surface-2);
   transform: scale(1.05);
 }
 .header__admin:active,
 .header__debug:active,
 .header__theme:active,
 .header__add-task:active,
-.header__bell:active { transform: scale(0.9); background: var(--bg-tertiary, var(--bg-secondary)); }
+.header__bell:active { transform: scale(0.9); background: var(--bg-tertiary, var(--surface-2)); }
 
 .header__stats {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  color: var(--text-faint);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 400px) {
-  .header__title { font-size: var(--font-size-base); }
+  .header__title { font-size: var(--font-md); }
   .header__subtitle {
     font-size: 9px;
     letter-spacing: 0.04em;
@@ -138,12 +138,12 @@
   right: 0;
   height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--bg-nav);
-  border-top: 1px solid var(--border-color);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-around;
   align-items: center;
-  z-index: 100;
+  z-index: var(--z-nav);
   box-shadow: 0 -2px 12px rgba(0,0,0,0.06), 0 -1px 4px rgba(0,0,0,0.04);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -158,10 +158,10 @@
   padding: var(--spacing-xs) var(--spacing-sm);
   min-width: 64px;
   min-height: 44px;
-  color: var(--text-muted);
+  color: var(--text-faint);
   text-decoration: none;
   border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
+  transition: color var(--t-fast);
   position: relative;
 }
 
@@ -185,7 +185,20 @@
 }
 
 .nav-item__label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-xs);
   font-weight: 500;
 }
-
+
+/* ============ Reduced motion ============ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--t-fast) !important;
+    transition-property: opacity !important;
+    scroll-behavior: auto !important;
+  }
+}
+

@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeSnapshot, updateData } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -433,7 +433,7 @@
           </div>`;
         }
         html += `</div>
-          <span class="sb-balance-label" style="font-size: var(--font-size-sm); color: var(--text-secondary); min-width: 50px; text-align: right;">${balanceDays[6].balance.toLocaleString()}</span>
+          <span class="sb-balance-label" style="font-size: var(--font-sm); color: var(--text-muted); min-width: 50px; text-align: right;">${balanceDays[6].balance.toLocaleString()}</span>
         </div>`;
       }
       html += `</div>`;
@@ -453,6 +453,7 @@
       html += `</div>`;
 
       main.innerHTML = html;
+      applyDataColors(main);
       bindEvents();
     }
 
@@ -605,6 +606,7 @@
       // Mount bottom sheet
       const mount = document.getElementById('drilldownMount');
       mount.innerHTML = renderBottomSheet(html);
+      applyDataColors(mount);
 
       requestAnimationFrame(() => {
         const overlay = document.getElementById('bottomSheet');
@@ -686,7 +688,7 @@
       const savedTokens = Object.entries(personBank).filter(([, t]) => !t.used);
       const isAdult = person.role !== 'child';
       if (savedTokens.length > 0) {
-        html += `<div style="margin-bottom: 12px;"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved (${savedTokens.length})</h4>`;
+        html += `<div style="margin-bottom: 12px;"><h4 style="font-size: var(--font-sm); color: var(--text-muted); margin-bottom: 8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved (${savedTokens.length})</h4>`;
         for (const [tokenId, token] of savedTokens) {
           const typeLabel = token.rewardType === 'task-skip' ? 'Task Skip'
             : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
@@ -699,7 +701,7 @@
             <div class="store-card__icon">${icon}</div>
             <div class="store-card__body">
               <div class="store-card__name">${esc(typeLabel)}</div>
-              <div class="store-card__cost" style="color: var(--text-secondary); font-size: var(--font-size-xs, 0.75rem);">Saved ${new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz })}</div>
+              <div class="store-card__cost" style="color: var(--text-muted); font-size: var(--font-xs, 0.75rem);">Saved ${new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz })}</div>
             </div>
             <div class="store-card__actions">
               ${useBtn}
@@ -711,7 +713,7 @@
       }
 
       if (pendingRequests.length > 0) {
-        html += `<div style="margin-bottom: 12px;"><h4 style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: 8px;">Pending Requests</h4>`;
+        html += `<div style="margin-bottom: 12px;"><h4 style="font-size: var(--font-sm); color: var(--text-muted); margin-bottom: 8px;">Pending Requests</h4>`;
         for (const req of pendingRequests) {
           html += `<div class="store-card store-card--pending" style="border-color: var(--accent-warning, #ecc94b); opacity: 0.8;">
             <div class="store-card__icon">${esc(req.reward.icon || '🎁')}</div>
@@ -725,7 +727,7 @@
       }
 
       if (available.length === 0 && pendingRequests.length === 0) {
-        html += `<div style="text-align: center; padding: 32px; color: var(--text-secondary);"><div style="font-size: 2rem; margin-bottom: 8px;">🏪</div><p>No rewards available!</p></div>`;
+        html += `<div style="text-align: center; padding: 32px; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 8px;">🏪</div><p>No rewards available!</p></div>`;
       }
 
       for (const reward of available) {
@@ -766,6 +768,7 @@
 
       const mount = document.getElementById('storeMount');
       mount.innerHTML = renderBottomSheet(html);
+      applyDataColors(mount);
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
       // Bind "Get it!" buttons
@@ -879,10 +882,11 @@
             let skipHtml = '<h3 style="margin-bottom: 12px;">Pick a task to skip</h3>';
             for (const [key, entry] of skippable) {
               const task = tasks[entry.taskId];
-              skipHtml += `<button class="skip-pick-btn" data-entry-key="${key}" type="button" style="display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: var(--radius, 8px); background: var(--bg-card); cursor: pointer;">${esc(task.name)}</button>`;
+              skipHtml += `<button class="skip-pick-btn" data-entry-key="${key}" type="button" style="display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius, 8px); background: var(--surface); cursor: pointer;">${esc(task.name)}</button>`;
             }
 
             mount.innerHTML = renderBottomSheet(skipHtml);
+            applyDataColors(mount);
             requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
             for (const skipBtn of mount.querySelectorAll('.skip-pick-btn')) {
@@ -954,16 +958,17 @@
         const personMsgs = allMessages?.[p.id] || {};
         const personAnchor = allAnchors?.[p.id] || null;
         const { balance } = calculateBalance(p.id, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
-        html += `<button class="store-person-btn" data-person-id="${p.id}" type="button" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); cursor: pointer; margin-bottom: 8px; font-size: var(--font-size-base);">
+        html += `<button class="store-person-btn" data-person-id="${p.id}" type="button" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; margin-bottom: 8px; font-size: var(--font-md);">
           <span style="background: ${p.color}; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 600;">${p.name[0].toUpperCase()}</span>
           <span style="flex: 1; text-align: left; font-weight: 500;">${esc(p.name)}</span>
-          <span style="color: var(--text-secondary); font-size: var(--font-size-sm);">💰 ${Math.round(balance).toLocaleString()}</span>
+          <span style="color: var(--text-muted); font-size: var(--font-sm);">💰 ${Math.round(balance).toLocaleString()}</span>
         </button>`;
       }
       html += `</div>`;
 
       const mount = document.getElementById('storeMount');
       mount.innerHTML = renderBottomSheet(html);
+      applyDataColors(mount);
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
       for (const btn of mount.querySelectorAll('.store-person-btn')) {

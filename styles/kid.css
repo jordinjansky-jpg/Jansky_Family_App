@@ -24,8 +24,8 @@
       padding: var(--spacing-lg);
     }
     .kid-error__emoji { font-size: 3rem; margin-bottom: var(--spacing-md); }
-    .kid-error__title { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--spacing-sm); }
-    .kid-error__desc { color: var(--text-secondary); font-size: var(--font-size-sm); }
+    .kid-error__title { font-size: var(--font-lg); font-weight: 700; margin-bottom: var(--spacing-sm); }
+    .kid-error__desc { color: var(--text-faint); font-size: var(--font-sm); }
 
     /* ── Kid header ── */
     .kid-header {
@@ -42,7 +42,7 @@
     }
     .kid-trophy__date {
       font-size: 0.6rem;
-      color: var(--text-muted, #999);
+      color: var(--text-faint, #999);
       display: block;
     }
 
@@ -50,7 +50,7 @@
     .kid-settings-overlay {
       position: fixed;
       inset: 0;
-      z-index: 300;
+      z-index: var(--z-sheet-backdrop);
       background: var(--overlay-bg);
       opacity: 0;
       visibility: hidden;
@@ -65,8 +65,8 @@
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 301;
-      background: var(--bg-primary);
+      z-index: var(--z-sheet);
+      background: var(--bg);
       border-radius: 16px 16px 0 0;
       padding: var(--spacing-lg) var(--spacing-md) calc(var(--spacing-lg) + env(safe-area-inset-bottom, 0px));
       transform: translateY(100%);
@@ -78,7 +78,7 @@
       transform: translateY(0);
     }
     .kid-settings__title {
-      font-size: var(--font-size-lg);
+      font-size: var(--font-lg);
       font-weight: 700;
       margin-bottom: var(--spacing-md);
       text-align: center;
@@ -87,9 +87,9 @@
       margin-bottom: var(--spacing-md);
     }
     .kid-settings__label {
-      font-size: var(--font-size-sm);
+      font-size: var(--font-sm);
       font-weight: 600;
-      color: var(--text-secondary);
+      color: var(--text-faint);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: var(--spacing-xs);
@@ -102,9 +102,9 @@
     .kid-settings__theme-btn {
       padding: 10px 8px;
       border-radius: var(--radius-md);
-      border: 2px solid var(--border-light);
-      background: var(--bg-card);
-      font-size: var(--font-size-sm);
+      border: 2px solid var(--border);
+      background: var(--surface);
+      font-size: var(--font-sm);
       font-weight: 600;
       cursor: pointer;
       text-align: center;
@@ -113,7 +113,7 @@
     .kid-settings__theme-btn:active { transform: scale(0.95); }
     .kid-settings__theme-btn--active {
       border-color: var(--accent);
-      background: var(--accent-light);
+      background: var(--accent-soft);
     }
     .kid-settings__colors {
       display: flex;
@@ -131,21 +131,21 @@
     }
     .kid-settings__color-btn:active { transform: scale(0.9); }
     .kid-settings__color-btn--active {
-      border-color: var(--text-primary);
-      box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-primary);
+      border-color: var(--text);
+      box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
     }
     .kid-header__wave {
       font-size: 2rem;
       animation: kidWave 1s ease-in-out;
     }
     .kid-header__name {
-      font-size: var(--font-size-xl);
+      font-size: var(--font-xl);
       font-weight: 800;
       margin: 0;
     }
     .kid-header__date {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
+      color: var(--text-faint);
+      font-size: var(--font-sm);
       margin-top: var(--spacing-xs);
     }
 
@@ -164,9 +164,9 @@
       gap: var(--spacing-lg);
       padding: var(--spacing-sm) var(--spacing-md);
       margin: var(--spacing-xs) var(--spacing-md);
-      background: var(--bg-card);
+      background: var(--surface);
       border-radius: 12px;
-      border: 1px solid var(--border-light);
+      border: 1px solid var(--border);
     }
     .kid-stats__item {
       display: flex;
@@ -176,12 +176,12 @@
       gap: 2px;
     }
     .kid-stats__value {
-      font-size: var(--font-size-lg);
+      font-size: var(--font-lg);
       font-weight: 700;
     }
     .kid-stats__label {
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
+      font-size: var(--font-xs);
+      color: var(--text-faint);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -205,8 +205,8 @@
       gap: 2px;
       padding: var(--spacing-xs) var(--spacing-sm);
       border-radius: 10px;
-      border: 1px solid var(--border-light);
-      background: var(--bg-card);
+      border: 1px solid var(--border);
+      background: var(--surface);
       cursor: pointer;
       transition: all 0.15s;
       position: relative;
@@ -231,12 +231,12 @@
       background: rgba(255,255,255,0.8);
     }
     .kid-week-tab__day {
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
+      font-size: var(--font-xs);
+      color: var(--text-faint);
       font-weight: 600;
     }
     .kid-week-tab__num {
-      font-size: var(--font-size-base);
+      font-size: var(--font-md);
       font-weight: 700;
     }
 
@@ -248,7 +248,7 @@
       width: 100%;
       height: 0;
       pointer-events: none;
-      z-index: 9999;
+      z-index: var(--z-celebration); /* z-index audit: was 9999 -> mapped to celebration */
       overflow: visible;
     }
     .kid-emoji-rain__drop {
@@ -282,7 +282,7 @@
       width: 100%;
       height: 0;
       pointer-events: none;
-      z-index: 100;
+      z-index: var(--z-celebration); /* z-index audit: was 100 -> mapped to celebration (kid-sparkle-rain, stacks via DOM order) */
       overflow: visible;
     }
     .kid-sparkle-rain__drop {
@@ -306,13 +306,13 @@
       top: 0;
       left: 0;
       right: 0;
-      z-index: 10000;
+      z-index: var(--z-celebration); /* z-index audit: was 10000 -> mapped to celebration (all-done toast, stacks via DOM order) */
       text-align: center;
       padding: var(--spacing-md) var(--spacing-lg);
-      background: var(--success-bg, #d4edda);
-      color: var(--success-text, #155724);
+      background: var(--success-soft, #d4edda);
+      color: var(--success, #155724);
       font-weight: 700;
-      font-size: var(--font-size-lg);
+      font-size: var(--font-lg);
       animation: kidToastSlide 3s ease-in-out forwards;
     }
 
@@ -337,12 +337,12 @@
       -webkit-touch-callout: none;
     }
     .kid-tasks .task-card__name {
-      font-size: var(--font-size-md);
+      font-size: var(--font-md);
     }
     .kid-tasks .task-card__avatar {
       width: 32px;
       height: 32px;
-      font-size: var(--font-size-sm);
+      font-size: var(--font-sm);
     }
     .kid-tasks .task-card__check {
       width: 26px;
@@ -368,7 +368,7 @@
       animation: kidVictoryBounce 2s ease-in-out infinite;
     }
     .kid-victory__title {
-      font-size: var(--font-size-xl);
+      font-size: var(--font-xl);
       font-weight: 800;
       margin-bottom: var(--spacing-sm);
       background: linear-gradient(135deg, var(--accent), #e85d75, #ff9800);
@@ -377,15 +377,15 @@
       background-clip: text;
     }
     .kid-victory__subtitle {
-      color: var(--text-secondary);
-      font-size: var(--font-size-base);
+      color: var(--text-faint);
+      font-size: var(--font-md);
       margin-bottom: var(--spacing-lg);
     }
     .kid-victory__completed-label {
-      font-size: var(--font-size-xs);
+      font-size: var(--font-xs);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: var(--text-muted);
+      color: var(--text-faint);
       margin-bottom: var(--spacing-sm);
     }
 
@@ -403,7 +403,7 @@
       position: fixed;
       top: -30px;
       pointer-events: none;
-      z-index: 10001;
+      z-index: var(--z-celebration); /* z-index audit: was 10001 -> mapped to celebration (confetti, stacks via DOM order) */
       font-size: 2rem;
       animation: kidConfettiFall linear forwards;
     }
@@ -417,7 +417,7 @@
     .kid-pin-overlay {
       position: fixed;
       inset: 0;
-      z-index: 400;
+      z-index: var(--z-modal); /* z-index audit: was 400 -> mapped to modal (kid-pin-overlay) */
       background: var(--overlay-bg);
       display: flex;
       align-items: center;
@@ -425,7 +425,7 @@
       animation: fadeIn 0.2s ease;
     }
     .kid-pin-dialog {
-      background: var(--bg-primary);
+      background: var(--bg);
       border-radius: var(--radius-lg);
       padding: var(--spacing-lg);
       width: min(320px, 90vw);
@@ -433,8 +433,8 @@
       box-shadow: var(--shadow-lg);
     }
     .kid-pin-dialog__icon { font-size: 2.5rem; margin-bottom: var(--spacing-sm); }
-    .kid-pin-dialog__title { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--spacing-xs); }
-    .kid-pin-dialog__desc { color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: var(--spacing-md); }
+    .kid-pin-dialog__title { font-size: var(--font-lg); font-weight: 700; margin-bottom: var(--spacing-xs); }
+    .kid-pin-dialog__desc { color: var(--text-faint); font-size: var(--font-sm); margin-bottom: var(--spacing-md); }
     .kid-pin-dialog__inputs {
       display: flex;
       gap: var(--spacing-sm);
@@ -445,25 +445,25 @@
       width: 48px;
       height: 56px;
       text-align: center;
-      font-size: var(--font-size-xl);
+      font-size: var(--font-xl);
       font-weight: 700;
-      border: 2px solid var(--border-light);
+      border: 2px solid var(--border);
       border-radius: var(--radius-md);
-      background: var(--bg-card);
-      color: var(--text-primary);
+      background: var(--surface);
+      color: var(--text);
     }
     .kid-pin-digit:focus { border-color: var(--accent); outline: none; }
     .kid-pin-dialog__error {
-      color: var(--danger-text);
-      font-size: var(--font-size-sm);
+      color: var(--danger);
+      font-size: var(--font-sm);
       min-height: 1.4em;
     }
     .kid-pin-dialog__cancel {
       margin-top: var(--spacing-sm);
       background: none;
       border: none;
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
+      color: var(--text-faint);
+      font-size: var(--font-sm);
       cursor: pointer;
       padding: var(--spacing-xs) var(--spacing-md);
     }
@@ -479,18 +479,18 @@
     .kid-balance__icon { font-size: 2rem; }
     .kid-balance__amount { font-size: 2.5rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); }
     .kid-balance__amount--negative { color: var(--accent-danger, #e53e3e); }
-    .kid-balance__label { font-size: var(--font-size-base); color: var(--text-secondary); }
-    .kid-balance__today { font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 4px; }
+    .kid-balance__label { font-size: var(--font-md); color: var(--text-faint); }
+    .kid-balance__today { font-size: var(--font-sm); color: var(--text-faint); margin-top: 4px; }
     .kid-balance__actions { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
 
     /* ── Message Overlay ── */
-    .kid-msg-overlay { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); animation: kidFadeIn 0.2s ease; }
+    .kid-msg-overlay { position: fixed; inset: 0; z-index: var(--z-modal); /* z-index audit: was 2000 -> mapped to modal (kid-msg-overlay) */ display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); animation: kidFadeIn 0.2s ease; }
     .kid-msg-overlay__card { background: var(--surface); border-radius: var(--radius-lg, 16px); padding: 32px 24px; text-align: center; max-width: 340px; width: calc(100vw - 48px); animation: kidScaleIn 0.25s ease; }
     .kid-msg-overlay--positive .kid-msg-overlay__card { border: 2px solid var(--accent-success, #38a169); }
-    .kid-msg-overlay--negative .kid-msg-overlay__card { border: 2px solid var(--text-secondary); }
+    .kid-msg-overlay--negative .kid-msg-overlay__card { border: 2px solid var(--text-faint); }
     .kid-msg-overlay__icon { font-size: 3rem; margin-bottom: 8px; }
     .kid-msg-overlay__title { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
-    .kid-msg-overlay__body { color: var(--text-secondary); font-size: var(--font-size-base); margin-bottom: 12px; }
+    .kid-msg-overlay__body { color: var(--text-faint); font-size: var(--font-md); margin-bottom: 12px; }
     .kid-msg-overlay__amount { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-bottom: 16px; }
     .kid-msg-overlay__amount--positive { color: var(--accent-success, #38a169); }
     .kid-msg-overlay__amount--negative { color: var(--accent-danger, #e53e3e); }
@@ -502,38 +502,38 @@
     .store-header { text-align: center; font-size: 1.25rem; }
 
     /* ── History ── */
-    .history-date { font-weight: 600; font-size: var(--font-size-sm); color: var(--text-secondary); padding: 8px 0 4px; border-bottom: 1px solid var(--border); margin-top: 8px; }
+    .history-date { font-weight: 600; font-size: var(--font-sm); color: var(--text-faint); padding: 8px 0 4px; border-bottom: 1px solid var(--border); margin-top: 8px; }
     .history-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
     .history-item__icon { font-size: 1.1rem; width: 24px; text-align: center; }
-    .history-item__title { flex: 1; font-size: var(--font-size-sm); }
-    .history-item__amount { font-weight: 700; font-variant-numeric: tabular-nums; font-size: var(--font-size-sm); }
+    .history-item__title { flex: 1; font-size: var(--font-sm); }
+    .history-item__amount { font-weight: 700; font-variant-numeric: tabular-nums; font-size: var(--font-sm); }
     .history-item__amount--positive { color: var(--accent-success, #38a169); }
     .history-item__amount--negative { color: var(--accent-danger, #e53e3e); }
 
     /* ── Wishlist Tracker ── */
-    .wishlist-tracker { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: var(--font-size-sm); }
+    .wishlist-tracker { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: var(--font-sm); }
     .wishlist-tracker__icon { font-size: 1rem; }
     .wishlist-tracker__name { flex-shrink: 0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .wishlist-tracker__bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
     .wishlist-tracker__fill { height: 100%; background: var(--accent); border-radius: 2px; }
-    .wishlist-tracker__label { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-size: var(--font-size-xs, 0.75rem); }
+    .wishlist-tracker__label { font-variant-numeric: tabular-nums; color: var(--text-faint); font-size: var(--font-xs, 0.75rem); }
 
     /* ── Bank (Saved Rewards) ── */
     .kid-bank { padding: 12px 16px; margin-bottom: 16px; }
-    .kid-bank__title { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-secondary); cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+    .kid-bank__title { font-size: var(--font-sm); font-weight: 600; color: var(--text-faint); cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; padding: 4px 0; }
     .kid-bank__title::-webkit-details-marker { display: none; }
-    .kid-bank__title::after { content: '▸'; font-size: 0.75rem; color: var(--text-muted); transition: transform 0.2s; margin-left: auto; }
+    .kid-bank__title::after { content: '▸'; font-size: 0.75rem; color: var(--text-faint); transition: transform 0.2s; margin-left: auto; }
     .kid-bank[open] > .kid-bank__title::after { transform: rotate(90deg); }
-    .kid-bank__count-badge { font-size: var(--font-size-xs, 0.75rem); background: var(--accent); color: #fff; border-radius: 10px; padding: 1px 7px; font-weight: 700; min-width: 18px; text-align: center; }
-    .kid-bank__count { font-size: var(--font-size-xs, 0.75rem); color: var(--text-muted); font-weight: 400; }
+    .kid-bank__count-badge { font-size: var(--font-xs, 0.75rem); background: var(--accent); color: #fff; border-radius: 10px; padding: 1px 7px; font-weight: 700; min-width: 18px; text-align: center; }
+    .kid-bank__count { font-size: var(--font-xs, 0.75rem); color: var(--text-faint); font-weight: 400; }
     .kid-bank__tokens { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
-    .kid-bank__token { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius, 8px); cursor: pointer; font-size: var(--font-size-sm); font-weight: 600; transition: all 0.15s; }
+    .kid-bank__token { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius, 8px); cursor: pointer; font-size: var(--font-sm); font-weight: 600; transition: all 0.15s; }
     .kid-bank__token:hover { background: var(--accent); color: #fff; }
     .kid-bank__token-icon { font-size: 1.25rem; }
     .kid-bank__token--custom { cursor: default; gap: 8px; }
     .kid-bank__token--custom:hover { background: var(--surface); color: inherit; }
     .kid-bank__token-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .kid-bank__token-status { font-size: var(--font-size-xs, 0.75rem); color: var(--text-muted); font-weight: 400; }
+    .kid-bank__token-status { font-size: var(--font-xs, 0.75rem); color: var(--text-faint); font-weight: 400; }
     .kid-bank__token--pending { opacity: 0.6; border-style: dashed; }
 
     /* ── Multiplier Banner ── */
@@ -543,7 +543,7 @@
       text-align: center;
       padding: 8px 16px;
       font-weight: 700;
-      font-size: var(--font-size-base);
+      font-size: var(--font-md);
       border-radius: var(--radius, 8px);
       margin-bottom: 12px;
     }
@@ -570,7 +570,7 @@
       cursor: pointer;
       transition: background 0.15s;
     }
-    .kid-header__icon-btn:hover { background: var(--bg-secondary); }
+    .kid-header__icon-btn:hover { background: var(--surface-2); }
 
     .kid-trophies__grid {
       display: grid;
@@ -597,10 +597,24 @@
     .kid-trophy__icon { font-size: 1.5rem; display: block; }
 
     .kid-trophy__label {
-      font-size: var(--font-size-xs, 0.75rem);
+      font-size: var(--font-xs, 0.75rem);
       display: block;
       margin-top: 2px;
-      color: var(--text-secondary);
+      color: var(--text-faint);
     }
 
     /* Toast styles moved to components.css */
+
+    /* ============ Reduced motion ============ */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: var(--t-fast) !important;
+        transition-property: opacity !important;
+        scroll-behavior: auto !important;
+      }
+    }
+

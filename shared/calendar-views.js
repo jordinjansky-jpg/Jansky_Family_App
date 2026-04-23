@@ -69,12 +69,12 @@ function buildTimeGrid(timedEvents, people, { scale = 1.5, minHeight = 28, wrapp
       const left = (col / totalCols) * 100;
       const width = (1 / totalCols) * 100;
       const pill = renderEventPill(ev.evt, people);
-      html += `<div class="${itemClass}" data-event-id="${ev.id}" style="top:${yOffset.toFixed(1)}px;height:${height.toFixed(1)}px;left:${left.toFixed(1)}%;width:${width.toFixed(1)}%">${pill}</div>`;
+      html += `<div class="${itemClass}" data-event-id="${ev.id}" data-timegrid-pos="${yOffset.toFixed(1)}|${height.toFixed(1)}|${left.toFixed(1)}|${width.toFixed(1)}">${pill}</div>`;
     }
     yOffset += groupHeight + groupGap;
   }
   const gridHeight = Math.max(yOffset - groupGap, 0);
-  return `<div class="${wrapperClass}" style="height:${gridHeight.toFixed(1)}px">${html}</div>`;
+  return `<div class="${wrapperClass}" data-timegrid-height="${gridHeight.toFixed(1)}">${html}</div>`;
 }
 
 /**
@@ -163,7 +163,7 @@ export function renderWeekView(opts) {
       const done = isComplete(entryKey, completions);
       return `<label class="cal-week__task${done ? ' cal-week__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}">
         <input type="checkbox" class="cal-week__task-check" ${done ? 'checked' : ''} data-entry-key="${entryKey}" data-date-key="${dk}">
-        ${person ? `<span class="cal-week__task-dot" style="background:${person.color}"></span>` : ''}
+        ${person ? `<span class="cal-week__task-dot" data-bg-color="${person.color}"></span>` : ''}
         <span class="cal-week__task-name">${esc(task.name)}</span>
       </label>`;
     }
@@ -180,7 +180,7 @@ export function renderWeekView(opts) {
     const todayTag = isToday ? '<span class="cal-week__today-tag">Today</span>' : '';
     const colLabel = `<div class="cal-week__col-label"><span class="cal-week__col-day">${DAY_NAMES_FULL[dow]}</span>${todayTag}<span class="cal-week__col-date">${MONTH_NAMES[monthIdx]} ${dayNum}</span></div>`;
 
-    return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}" style="--mobile-order:${mobileOrder[dayIndex]}">
+    return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}" data-mobile-order="${mobileOrder[dayIndex]}">
       ${colLabel}
       <div class="cal-week__events">${eventsHtml}</div>
       ${recurringHtml ? `<div class="cal-week__tasks">${recurringHtml}</div>` : ''}
@@ -260,8 +260,8 @@ export function renderDayView(opts) {
       const completed = sorted.filter(([k]) => isComplete(k, completions));
 
       tasksHtml += `<div class="cal-day__person">
-        <div class="cal-day__person-header" style="--person-color:${person.color}">
-          <span class="cal-day__person-dot" style="background:${person.color}"></span>
+        <div class="cal-day__person-header" data-person-color="${person.color}">
+          <span class="cal-day__person-dot" data-bg-color="${person.color}"></span>
           ${esc(person.name)}
           <span class="cal-day__person-count">${completed.length}/${sorted.length}</span>
         </div>`;
@@ -365,7 +365,7 @@ export function renderMonthView(opts) {
     let progressHtml = '';
     if (prog.total > 0) {
       const pct = Math.round((prog.done / prog.total) * 100);
-      progressHtml = `<div class="cal-grid__progress"><div class="cal-grid__progress-fill" style="width:${pct}%"></div></div>`;
+      progressHtml = `<div class="cal-grid__progress"><div class="cal-grid__progress-fill" data-progress="${pct}"></div></div>`;
     }
 
     return `<button class="${cls}" data-date="${dk}" type="button">

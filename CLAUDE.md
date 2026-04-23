@@ -255,7 +255,13 @@ A dedicated full-screen mode (`display.html`) designed for a 27" wall-mounted to
 
 ---
 
-**1.6 — Shopping Lists** · Medium (~1-2 sessions) · No dependencies · Cost: $0
+**1.6 — Activities** · Medium-high (~3-4 sessions, two phases) · No dependencies · Cost: $0
+
+Family activity tracker — shared library of optional activities (walk, read, jog, etc.) anyone can do on-demand with a persistent stopwatch. Weekly goals with tiered point payouts into the rewards store. Separate activity scoreboard (time leaderboard + goal achievement views). Shares categories with tasks; timer built as shared component (`shared/timer.js`) reusable by backlog 3.1. Two phases: Phase 1 is core loop (library, stopwatch, session logging, time scoreboard), Phase 2 adds goals, points, goal scoreboard, kid mode, admin. See full spec: `docs/superpowers/specs/2026-04-19-activities-design.md`.
+
+---
+
+**1.7 — Shopping Lists** · Medium (~1-2 sessions) · No dependencies · Cost: $0
 
 Shared grocery/shopping lists with real-time Firebase sync. Two people at the store see the same list — items checked off by one update instantly for both.
 
@@ -303,9 +309,9 @@ Mark a person as "away" for a date range. Schema: `rundown/people/{id}/away: [{ 
 
 ### Tier 3 — Polish & Engagement
 
-**3.1 — Task Timer / Stopwatch** · Medium (~1-2 sessions) · No dependencies · Cost: $0
+**3.1 — Task Timer / Stopwatch** · Medium (~1-2 sessions) · Depends on 1.6 (shared timer component) · Cost: $0
 
-Visible countdown in kid mode and dashboard using `estMin`. Start button on task card launches timer overlay. Optional auto-complete on finish. Sounds/vibration. Persist across page nav via sessionStorage. Purely client-side, no schema changes.
+Visible countdown in kid mode and dashboard using `estMin`. Uses shared timer component from Activities (`shared/timer.js`). Start button on task card launches timer overlay. Optional auto-complete on finish. Sounds/vibration. Timer-based bounties: countdown to expiration (unclaimed = gone) and countdown to completion (read for X min).
 
 ---
 
