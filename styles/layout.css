@@ -11,24 +11,48 @@
   animation: pageFadeIn 0.3s ease-out;
 }
 
-/* ============ Header ============ */
+/* ============ Header (Phase 1 — mockup-aligned) ============ */
 .app-header {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  min-height: var(--header-height);
-  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
-  border-bottom: 1px solid var(--border);
+  z-index: var(--z-header);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-md);
-  padding-top: calc(var(--spacing-sm) + env(safe-area-inset-top, 0px));
-  z-index: var(--z-header);
-  box-shadow: 0 1px 8px rgba(0,0,0,0.06);
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+  padding-top: calc(var(--spacing-md) + env(safe-area-inset-top, 0px));
+  background: var(--bg);
+  min-height: var(--header-height);
 }
+.app-header__text {
+  flex: 1;
+  min-width: 0;
+}
+.app-header__title {
+  font-size: var(--font-xl);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-header__subtitle {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-weight: 400;
+}
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+}
+
+/* ============ Legacy header (kept during Phase 1 transition) ============ */
 
 .header__left {
   display: flex;
@@ -130,24 +154,49 @@
   .header__stats { font-size: 10px; }
 }
 
-/* ============ Bottom Navigation ============ */
+/* ============ Bottom Navigation (Phase 1 — 5-slot frosted) ============ */
 .bottom-nav {
   position: fixed;
-  bottom: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
   border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   z-index: var(--z-nav);
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.06), 0 -1px 4px rgba(0,0,0,0.04);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
+.bottom-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 4px;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+}
+.bottom-nav__item svg { width: 22px; height: 22px; stroke-width: 1.75; }
+.bottom-nav__item.is-active { color: var(--accent); }
+.bottom-nav__item.is-active svg { stroke-width: 2; }
+
+/* Tablet: centered single column (spec §3.1). Kiosk is separate (display.html). */
+@media (min-width: 768px) {
+  .app-shell { max-width: 560px; margin: 0 auto; }
+}
+
+/* ============ Legacy nav (kept during Phase 1 transition) ============ */
 
 .nav-item {
   display: flex;
