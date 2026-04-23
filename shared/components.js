@@ -112,11 +112,18 @@ export function renderNavBar(activePage, options = {}) {
     { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores', svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
     { page: 'tracker', href: 'tracker.html', label: 'Tracker', svg: `<polyline points="3 12 8 7 13 12 17 8 21 12"></polyline><polyline points="3 18 8 13 13 18 17 14 21 18"></polyline>` }
   ];
+  const personHome = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('dr-person-home') : null;
   const linkItems = items.map(it => {
     const isActive = it.page === activePage;
-    return `<a class="bottom-nav__item nav-item${isActive ? ' is-active nav-item--active' : ''}" href="${it.href}" data-page="${it.page}">
+    let href = it.href;
+    if (personHome) {
+      href = it.page === 'home'
+        ? `person.html?person=${encodeURIComponent(personHome)}`
+        : `${it.href}?person=${encodeURIComponent(personHome)}`;
+    }
+    return `<a class="bottom-nav__item nav-item${isActive ? ' is-active nav-item--active' : ''}" href="${href}" data-page="${it.page}">
       <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${it.svg}</svg>
-      <span class="nav-item__label">${it.label}</span>
+      <span class="nav-item__label">${esc(it.label)}</span>
     </a>`;
   }).join('');
   const moreItem = `<button class="bottom-nav__item nav-item" id="navMore" type="button"${options.onMoreClick ? '' : ' data-more-unbound="1"'}>
