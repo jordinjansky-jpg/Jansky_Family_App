@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Admin — Settings</title>
+<link rel="stylesheet" href="./design-system.css" />
+<style>
+  body { padding: 20px 0; }
+  @media (min-width: 700px) {
+    .app-shell {
+      box-shadow: var(--shadow-lg);
+      border-radius: 28px;
+      overflow: hidden;
+      min-height: 844px;
+      max-height: 844px;
+    }
+  }
+
+  /* Reuse admin styles */
+  .section-tabs-wrap {
+    padding: 0 var(--spacing-md) var(--spacing-md);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .section-tabs-wrap::-webkit-scrollbar { display: none; }
+  .section-tabs {
+    display: inline-flex;
+    padding: 4px;
+    background: var(--surface-2);
+    border-radius: var(--radius-full);
+    gap: 2px;
+    min-width: 100%;
+  }
+  .section-tabs .tab { white-space: nowrap; }
+
+  .sub-tabs-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .list-group {
+    margin: 0 var(--spacing-md) var(--spacing-lg);
+  }
+  .list-group__label {
+    font-size: var(--font-xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 var(--spacing-md) var(--spacing-sm);
+  }
+  .list-group__help {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    margin: var(--spacing-sm) var(--spacing-md) 0;
+    line-height: 1.5;
+  }
+  .list-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    min-height: 56px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    transition: background var(--t-fast);
+  }
+  .list-row:last-child { border-bottom: none; }
+  .list-row:hover { background: var(--surface-2); }
+  .list-row__icon {
+    width: 30px; height: 30px;
+    border-radius: var(--radius-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+  }
+  .list-row__icon svg { width: 16px; height: 16px; stroke-width: 2; }
+  .list-row__body { flex: 1; min-width: 0; }
+  .list-row__title { font-size: var(--font-md); color: var(--text); }
+  .list-row__sub { font-size: var(--font-sm); color: var(--text-muted); margin-top: 2px; }
+  .list-row__value { color: var(--text-muted); font-size: var(--font-sm); font-weight: 500; }
+  .list-row__chev { color: var(--text-faint); }
+
+  .ic-blue { background: #3e6b9f; }
+  .ic-teal { background: var(--accent); }
+  .ic-amber { background: #c8963e; }
+  .ic-purple { background: #7d6bb8; }
+  .ic-rose { background: var(--owner-b); }
+  .ic-green { background: var(--success); }
+  .ic-gray { background: #848280; }
+
+  .switch {
+    width: 44px; height: 26px;
+    border-radius: var(--radius-full);
+    background: var(--border);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--t-fast);
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    left: 3px; top: 3px;
+    width: 20px; height: 20px;
+    border-radius: var(--radius-full);
+    background: white;
+    box-shadow: var(--shadow-sm);
+    transition: left var(--t-fast);
+  }
+  .switch.is-on { background: var(--accent); }
+  .switch.is-on::after { left: 21px; }
+
+  /* Theme swatches */
+  .theme-swatches {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    scrollbar-width: none;
+  }
+  .theme-swatches::-webkit-scrollbar { display: none; }
+  .theme-swatch {
+    flex-shrink: 0;
+    width: 72px;
+    padding: var(--spacing-sm);
+    text-align: center;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color var(--t-fast);
+  }
+  .theme-swatch.is-selected { border-color: var(--accent); background: var(--accent-soft); }
+  .theme-swatch__dot {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-full);
+    margin: 0 auto var(--spacing-xs);
+  }
+  .theme-swatch__label { font-size: var(--font-xs); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="app-header">
+    <button class="btn-icon" aria-label="Back" style="margin-left:-8px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="app-header__text" style="text-align:center">
+      <div class="app-header__title">Admin</div>
+    </div>
+    <button class="btn-icon" aria-label="Search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+  </header>
+
+  <div class="section-tabs-wrap">
+    <div class="section-tabs">
+      <button class="tab">Library</button>
+      <button class="tab">People</button>
+      <button class="tab">Rewards</button>
+      <button class="tab is-active">Settings</button>
+      <button class="tab">Advanced</button>
+    </div>
+  </div>
+
+  <div class="sub-tabs-wrap">
+    <div class="tabs">
+      <button class="tab is-active">Family</button>
+      <button class="tab">Scoring</button>
+      <button class="tab">Appearance</button>
+    </div>
+  </div>
+
+  <!-- Family -->
+  <div class="list-group">
+    <div class="list-group__label">Family</div>
+    <div class="list-card">
+      <div class="list-row">
+        <div class="list-row__icon ic-blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div class="list-row__body"><div class="list-row__title">Family name</div></div>
+        <span class="list-row__value">The Janskys</span>
+        <div class="list-row__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+      <div class="list-row">
+        <div class="list-row__icon ic-teal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="list-row__body"><div class="list-row__title">Time zone</div></div>
+        <span class="list-row__value">America/Chicago</span>
+        <div class="list-row__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+      <div class="list-row">
+        <div class="list-row__icon ic-gray">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="list-row__body"><div class="list-row__title">Week starts on</div></div>
+        <span class="list-row__value">Sunday</span>
+        <div class="list-row__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin PIN -->
+  <div class="list-group">
+    <div class="list-group__label">Admin access</div>
+    <div class="list-card">
+      <div class="list-row">
+        <div class="list-row__icon ic-rose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="list-row__body">
+          <div class="list-row__title">Admin PIN</div>
+          <div class="list-row__sub">Required to edit tasks and settings</div>
+        </div>
+        <span class="list-row__value">••••</span>
+        <div class="list-row__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+      <div class="list-row">
+        <div class="list-row__icon ic-gray">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="list-row__body">
+          <div class="list-row__title">Session timeout</div>
+          <div class="list-row__sub">Auto-lock after inactivity</div>
+        </div>
+        <span class="list-row__value">30 min</span>
+        <div class="list-row__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weather & location (for ambient strip + backlog weather widget) -->
+  <div class="list-group">
+    <div class="list-group__label">Location & weather</div>
+    <div class="list-card">
+      <div class="list-row">
+        <div class="list-row__icon ic-amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <div class="list-row__body"><div class="list-row__title">Location</div></div>
+        <span class="list-row__value">Austin, TX</span>
+        <div class="list-row__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+      <div class="list-row">
+        <div class="list-row__icon ic-teal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+        </div>
+        <div class="list-row__body"><div class="list-row__title">Temperature</div></div>
+        <span class="list-row__value">Fahrenheit</span>
+        <div class="list-row__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ambient dashboard -->
+  <div class="list-group">
+    <div class="list-group__label">Dashboard extras</div>
+    <div class="list-card">
+      <div class="list-row">
+        <div class="list-row__icon ic-amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/></svg>
+        </div>
+        <div class="list-row__body">
+          <div class="list-row__title">Show weather chip</div>
+        </div>
+        <div class="switch is-on"></div>
+      </div>
+      <div class="list-row">
+        <div class="list-row__icon ic-rose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="6" width="18" height="16" rx="2"/><path d="M3 12h18"/></svg>
+        </div>
+        <div class="list-row__body">
+          <div class="list-row__title">Show tonight's dinner</div>
+        </div>
+        <div class="switch is-on"></div>
+      </div>
+      <div class="list-row">
+        <div class="list-row__icon ic-gray">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+        </div>
+        <div class="list-row__body">
+          <div class="list-row__title">Celebration confetti</div>
+        </div>
+        <div class="switch is-on"></div>
+      </div>
+    </div>
+    <div class="list-group__help">These options appear in quiet slots above your task list on the Home screen.</div>
+  </div>
+
+  <!-- Theme -->
+  <div class="list-group">
+    <div class="list-group__label">Theme</div>
+    <div class="theme-swatches">
+      <div class="theme-swatch is-selected">
+        <div class="theme-swatch__dot" style="background: linear-gradient(135deg, #2d7a6e, #e4f1ee);"></div>
+        <div class="theme-swatch__label">Sage</div>
+      </div>
+      <div class="theme-swatch">
+        <div class="theme-swatch__dot" style="background: linear-gradient(135deg, #3e6b9f, #dfecf7);"></div>
+        <div class="theme-swatch__label">Ocean</div>
+      </div>
+      <div class="theme-swatch">
+        <div class="theme-swatch__dot" style="background: linear-gradient(135deg, #b8577d, #fae5ed);"></div>
+        <div class="theme-swatch__label">Rose</div>
+      </div>
+      <div class="theme-swatch">
+        <div class="theme-swatch__dot" style="background: linear-gradient(135deg, #c8963e, #faecd0);"></div>
+        <div class="theme-swatch__label">Amber</div>
+      </div>
+      <div class="theme-swatch">
+        <div class="theme-swatch__dot" style="background: linear-gradient(135deg, #7d6bb8, #ece4f7);"></div>
+        <div class="theme-swatch__label">Iris</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="spacer-lg"></div>
+  <div class="spacer-lg"></div>
+
+</div>
+
+</body>
+</html>

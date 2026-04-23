@@ -318,3 +318,79 @@ Visible countdown in kid mode and dashboard using `estMin`. Uses shared timer co
 **3.2 — Task Delegation / Swaps** · Medium-high (~2 sessions) · Depends on 2.1 · Cost: $0
 
 Family members propose trades ("I'll do your dishes if you do my laundry"). Schema: `rundown/trades/{pushId}` with `{ proposerId, proposerTaskKey, targetId, targetTaskKey, status: 'pending'|'accepted'|'declined', createdAt }`. Accepting swaps `ownerId` on schedule entries. UI: notification badge, trade proposal from detail sheet, accept/decline list.
+
+## Design Rules (digest)
+
+**Full spec:** [docs/DESIGN.md](docs/DESIGN.md) — single source of truth for all UI decisions. Read it before designing, building, or reviewing anything visual. Mockups live in [mockups/](mockups/).
+
+This digest exists so that if context gets compacted mid-task, the non-negotiables survive. It is not a substitute for the full spec.
+
+### Core principles (8)
+1. **Calm, confident, quiet.** No dev-tool vibes. No gradient text in chrome. No "designed for a design reel" moments.
+2. **One component per shape.** One Card, one Tabs, one Sheet, one Modal, one Banner, one Timer. Variants, not forks.
+3. **Mobile is the default.** Tablet is a deliberate two-pane redesign. Kiosk is a separate layout file (`display.html`). Desktop is not a target.
+4. **Every area budgets for growth.** Reserve room for the backlog features that map to it. Don't ship screens with no room for what's already planned.
+5. **Design the whole flow.** Every feature ships with empty, loading, error, and success states.
+6. **Consistency beats cleverness.** The product should feel like one designer made it in one sitting.
+7. **Accessibility is not optional.** 44×44 tap targets (56×56 kid mode). Keyboard-navigable. `prefers-reduced-motion` respected. Contrast verified.
+8. **No dev-tool vibes.** No inline styles, no raw hex in component CSS, no console-flavored debug chrome, no `window.confirm`/`window.alert`.
+
+### Feature-home map (hard rules)
+Every feature (current + backlog) has a named home — see §2 in DESIGN.md. Enforced:
+- Phone tab bar is capped at 5 slots: **Home · Calendar · Scores · Tracker · More**.
+- Meals, Weather, Kiosk, Vacation, Recurrence, Timer, School-lunch import, Delegation **never** become tabs.
+- Activities and Shopping are the only backlog features that earn nav placement (inside More on phone).
+- No new top-level tab without retiring capacity elsewhere.
+
+### Hard do-not rules (non-negotiable)
+- ❌ No fifth tab style; no seventh card pattern — add a variant.
+- ❌ No emoji in nav, tabs, buttons, banners, status chips, headers, form labels. Emoji only in user-authored content (task names, reward icons, meal labels).
+- ❌ No `overflow:hidden; height:100dvh` page-locking outside kiosk.
+- ❌ No Theme/Debug/Add icons in the header — they live in overflow, admin, or a FAB.
+- ❌ No gradient text in chrome.
+- ❌ No `window.confirm` / `window.alert` — use `showConfirm()`.
+- ❌ No hardcoded colors in component CSS — tokens only.
+- ❌ No new top-level nav tab without retiring capacity elsewhere.
+- ❌ No shipping a feature without empty, loading, and error states.
+- ❌ No kid-only components when a modifier will do (`.card.kid`, not `.kid-card`).
+- ❌ No tablet as stretched phone.
+- ❌ No inline styles in HTML.
+- ❌ No primary actions in the top bar on phone — use a FAB.
+- ❌ No shipping a feature that doesn't declare its Kiosk appearance.
+- ❌ No second timer/stopwatch — use `shared/timer.js` (built in 1.6).
+- ❌ No new notification surface — route through the Bell.
+- ❌ No two banners at once — use the queue (priority: vacation > freeze > overdue > multiplier > info).
+- ❌ No multiple action buttons inline next to an item's name in a list — **one chevron**, detail page owns the actions.
+- ❌ No breaking the `rundown/` Firebase root into subapp paths.
+- ❌ No CSS framework or bundler — vanilla ES modules + hand-written CSS only.
+
+### Component reuse rule
+Before building any new visual element, search §5 of DESIGN.md. The catalog already covers: Card (+ variants), Tabs, Sheet, Modal, Button, Icon button, Chip, Field, Banner, Timer, Avatar, Check, FAB, Bottom nav, List group/row, Switch, Empty state, Loading skeleton, Error state, Toast, Celebration, Progress bar. If the right shape exists, **use it or add a variant** — don't fork.
+
+### Layout cheatsheet
+- **≤600px (phone):** single column, bottom nav, FAB for primary action.
+- **≥768px (tablet):** two-pane (left rail 280px + main), not stretched phone.
+- **≥1400px (kiosk):** `display.html` — separate layout, own CSS, large touch targets, full interactivity (not read-only).
+
+### Long-press & gestures
+- Tap = primary action. Long-press = detail sheet. Horizontal swipe = day/month nav.
+- Timings: **500ms tracker**, **800ms calendar/kid/dashboard**.
+- Every gesture has a non-gesture fallback (visible button).
+
+### Pre-PR checklist (abbreviated — full list in DESIGN.md §11)
+- [ ] Feature-home map updated if the feature is new or moved.
+- [ ] Tested at 375px, 768px, 1024px, and 1920×1080 if touching kiosk.
+- [ ] 44×44 tap targets (56×56 kid mode).
+- [ ] No inline styles, no raw hex in component CSS, no `window.confirm`/`window.alert`.
+- [ ] Any new pattern is a variant of an existing component (or spec updated in the same PR).
+- [ ] Empty, loading, error, success states designed.
+- [ ] Tested in ≥2 themes, light + dark.
+- [ ] `prefers-reduced-motion` respected. Focus rings visible.
+- [ ] Header not gaining icons. Bottom nav not exceeding 5 tabs.
+- [ ] Kid mode and kiosk appearance considered.
+- [ ] Notifications routed through Bell, not ad-hoc surfaces.
+- [ ] Banner budget respected (one at a time).
+- [ ] Gestures have non-gesture fallbacks.
+
+### When spec is silent
+If a situation isn't covered: **stop, update DESIGN.md in the same PR that adds the pattern.** Don't improvise in the component code and skip the spec — drift compounds. Deviation from the spec requires a named exception in the PR description.

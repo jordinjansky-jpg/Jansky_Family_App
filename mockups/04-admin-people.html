@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Admin — People</title>
+<link rel="stylesheet" href="./design-system.css" />
+<style>
+  body { padding: 20px 0; }
+  @media (min-width: 700px) {
+    .app-shell {
+      box-shadow: var(--shadow-lg);
+      border-radius: 28px;
+      overflow: hidden;
+      min-height: 844px;
+      max-height: 844px;
+    }
+    .bottom-nav, .fab { position: absolute; }
+  }
+
+  /* 5-section horizontal tabs under header */
+  .section-tabs-wrap {
+    padding: 0 var(--spacing-md) var(--spacing-md);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .section-tabs-wrap::-webkit-scrollbar { display: none; }
+  .section-tabs {
+    display: inline-flex;
+    padding: 4px;
+    background: var(--surface-2);
+    border-radius: var(--radius-full);
+    gap: 2px;
+    min-width: 100%;
+  }
+  .section-tabs .tab { white-space: nowrap; }
+
+  /* Sub-tabs inside a section */
+  .sub-tabs-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--spacing-md);
+  }
+
+  /* People row — ONE chevron, that's it */
+  .person-row {
+    min-height: 72px;
+    padding: var(--spacing-md);
+  }
+  .person-row__badges {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    letter-spacing: 0.02em;
+  }
+  .pill--parent { background: var(--accent-soft); color: var(--accent-ink); }
+  .pill--kid { background: var(--info-soft); color: var(--info); }
+  .pill--away { background: var(--warning-soft); color: var(--warning); }
+
+  .chev {
+    color: var(--text-faint);
+  }
+
+  .add-row {
+    min-height: 64px;
+    padding: var(--spacing-md);
+    border: 1.5px dashed var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+  }
+  .add-row:hover { background: var(--surface); color: var(--text); border-color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="app-header">
+    <button class="btn-icon" aria-label="Back" style="margin-left:-8px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="app-header__text" style="text-align:center">
+      <div class="app-header__title">Admin</div>
+    </div>
+    <button class="btn-icon" aria-label="Search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+  </header>
+
+  <!-- 5 sections, collapsed from old 11 tabs -->
+  <div class="section-tabs-wrap">
+    <div class="section-tabs">
+      <button class="tab">Library</button>
+      <button class="tab is-active">People</button>
+      <button class="tab">Rewards</button>
+      <button class="tab">Settings</button>
+      <button class="tab">Advanced</button>
+    </div>
+  </div>
+
+  <!-- Sub-tabs within People -->
+  <div class="sub-tabs-wrap">
+    <div class="tabs">
+      <button class="tab is-active">People</button>
+      <button class="tab">Schedule</button>
+    </div>
+  </div>
+
+  <!-- People list — one row per person, one chevron, actions live inside -->
+  <section class="section">
+    <div class="section__head">
+      <div class="section__title">Family · 4 people</div>
+    </div>
+
+    <article class="card person-row">
+      <div class="card__leading"><span class="avatar avatar--lg avatar--a">JJ</span></div>
+      <div class="card__body">
+        <div class="card__title">Jordan</div>
+        <div class="person-row__badges">
+          <span class="pill pill--parent">Parent</span>
+          <span class="pill">PIN set</span>
+        </div>
+      </div>
+      <div class="card__trailing chev">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </article>
+
+    <article class="card person-row">
+      <div class="card__leading"><span class="avatar avatar--lg avatar--b">EL</span></div>
+      <div class="card__body">
+        <div class="card__title">Ellie</div>
+        <div class="person-row__badges">
+          <span class="pill pill--parent">Parent</span>
+        </div>
+      </div>
+      <div class="card__trailing chev">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </article>
+
+    <article class="card person-row">
+      <div class="card__leading"><span class="avatar avatar--lg avatar--c">NK</span></div>
+      <div class="card__body">
+        <div class="card__title">Noah</div>
+        <div class="person-row__badges">
+          <span class="pill pill--kid">Kid</span>
+          <span class="pill">240 pts</span>
+          <span class="pill">7-day streak</span>
+        </div>
+      </div>
+      <div class="card__trailing chev">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </article>
+
+    <article class="card person-row">
+      <div class="card__leading"><span class="avatar avatar--lg avatar--d">KI</span></div>
+      <div class="card__body">
+        <div class="card__title">Kai</div>
+        <div class="person-row__badges">
+          <span class="pill pill--kid">Kid</span>
+          <span class="pill">180 pts</span>
+          <span class="pill pill--away">Away · Apr 23–25</span>
+        </div>
+      </div>
+      <div class="card__trailing chev">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </article>
+
+    <button class="add-row">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add person
+    </button>
+  </section>
+
+</div>
+
+</body>
+</html>

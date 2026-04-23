@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Calendar week — Mockup</title>
+<link rel="stylesheet" href="./design-system.css" />
+<style>
+  body { padding: 20px 0; }
+  @media (min-width: 700px) {
+    .app-shell {
+      box-shadow: var(--shadow-lg);
+      border-radius: 28px;
+      overflow: hidden;
+      min-height: 844px;
+      max-height: 844px;
+    }
+    .bottom-nav, .fab { position: absolute; }
+  }
+
+  .view-tabs-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .week-nav {
+    margin: 0 var(--spacing-md) var(--spacing-md);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+  }
+  .week-nav__arrow {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text);
+  }
+  .week-nav__label {
+    font-size: var(--font-lg);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-align: center;
+    flex: 1;
+  }
+
+  /* Day block in week agenda */
+  .day-block { margin: 0 var(--spacing-md) var(--spacing-lg); }
+  .day-block--today .day-head__date { color: var(--accent); }
+  .day-block--past { opacity: 0.55; }
+
+  .day-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-xs) var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border);
+  }
+  .day-head__date {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+  }
+  .day-head__num {
+    font-size: var(--font-xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .day-head__dow {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .day-head__pill {
+    background: var(--accent);
+    color: white;
+    font-size: var(--font-xs);
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    letter-spacing: 0.05em;
+  }
+  .day-head__weather {
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .day-empty {
+    font-size: var(--font-sm);
+    color: var(--text-faint);
+    padding: var(--spacing-sm) var(--spacing-xs);
+    font-style: italic;
+  }
+
+  /* Compact card used inside week agenda */
+  .card.compact {
+    min-height: 52px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: 6px;
+    border-radius: var(--radius-md);
+  }
+  .card.compact .card__title { font-size: var(--font-sm); font-weight: 500; }
+  .card.compact .card__meta { font-size: var(--font-xs); margin-top: 2px; }
+  .card.compact.card--event .card__leading {
+    font-size: var(--font-xs);
+    min-width: 44px;
+  }
+  .card.compact .avatar { width: 28px; height: 28px; font-size: var(--font-xs); }
+  .card.compact .check { width: 24px; height: 24px; }
+  .card.compact .check--done svg { width: 12px; height: 12px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="app-header">
+    <div class="app-header__text">
+      <div class="app-header__title">Calendar</div>
+      <div class="app-header__subtitle">April 13 — 19</div>
+    </div>
+    <div class="app-header__actions">
+      <button class="btn-icon" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="btn-icon" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- View switcher -->
+  <div class="view-tabs-wrap">
+    <div class="tabs">
+      <button class="tab">Month</button>
+      <button class="tab is-active">Week</button>
+      <button class="tab">Day</button>
+    </div>
+  </div>
+
+  <!-- Week nav -->
+  <div class="week-nav">
+    <button class="week-nav__arrow" aria-label="Previous week">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="week-nav__label">This week</div>
+    <button class="week-nav__arrow" aria-label="Next week">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+
+  <!-- SUNDAY (today) -->
+  <section class="day-block day-block--today">
+    <div class="day-head">
+      <div class="day-head__date">
+        <span class="day-head__num">19</span>
+        <span class="day-head__dow">Sun</span>
+        <span class="day-head__pill">Today</span>
+      </div>
+      <span class="day-head__weather">☀ 72°</span>
+    </div>
+
+    <article class="card compact card--event">
+      <div class="card__leading">10:30</div>
+      <div class="card__body">
+        <div class="card__title">Swim lessons</div>
+        <div class="card__meta"><span>Noah</span></div>
+      </div>
+    </article>
+    <article class="card compact card--event">
+      <div class="card__leading">6:00</div>
+      <div class="card__body">
+        <div class="card__title">Dinner at Grandma's</div>
+      </div>
+    </article>
+    <article class="card compact">
+      <div class="card__leading"><span class="avatar avatar--a">JJ</span></div>
+      <div class="card__body">
+        <div class="card__title">Take out the trash</div>
+      </div>
+      <div class="card__trailing"><button class="check" aria-label="Mark complete"></button></div>
+    </article>
+    <article class="card compact card--meal">
+      <div class="card__leading">🍝</div>
+      <div class="card__body">
+        <div class="card__title">Spaghetti · Dinner</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- MONDAY -->
+  <section class="day-block">
+    <div class="day-head">
+      <div class="day-head__date">
+        <span class="day-head__num">20</span>
+        <span class="day-head__dow">Mon</span>
+      </div>
+      <span class="day-head__weather">⛅ 68°</span>
+    </div>
+
+    <article class="card compact card--event">
+      <div class="card__leading">8:00</div>
+      <div class="card__body">
+        <div class="card__title">School drop-off</div>
+        <div class="card__meta"><span>Jordan</span></div>
+      </div>
+    </article>
+    <article class="card compact card--event">
+      <div class="card__leading">3:45</div>
+      <div class="card__body">
+        <div class="card__title">Soccer practice</div>
+        <div class="card__meta"><span>Kai</span></div>
+      </div>
+    </article>
+    <article class="card compact card--meal">
+      <div class="card__leading">🏫</div>
+      <div class="card__body">
+        <div class="card__title">Chicken nuggets · School lunch</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- TUESDAY -->
+  <section class="day-block">
+    <div class="day-head">
+      <div class="day-head__date">
+        <span class="day-head__num">21</span>
+        <span class="day-head__dow">Tue</span>
+      </div>
+      <span class="day-head__weather">🌧 61°</span>
+    </div>
+
+    <article class="card compact card--event">
+      <div class="card__leading">5:00</div>
+      <div class="card__body">
+        <div class="card__title">Dentist — Ellie</div>
+      </div>
+    </article>
+    <article class="card compact card--meal">
+      <div class="card__leading">🌮</div>
+      <div class="card__body">
+        <div class="card__title">Taco Tuesday · Dinner</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- WEDNESDAY — empty day -->
+  <section class="day-block">
+    <div class="day-head">
+      <div class="day-head__date">
+        <span class="day-head__num">22</span>
+        <span class="day-head__dow">Wed</span>
+      </div>
+      <span class="day-head__weather">☀ 70°</span>
+    </div>
+    <div class="day-empty">Nothing scheduled</div>
+  </section>
+
+  <!-- THURSDAY — vacation shaded -->
+  <section class="day-block">
+    <div class="day-head">
+      <div class="day-head__date">
+        <span class="day-head__num">23</span>
+        <span class="day-head__dow">Thu</span>
+      </div>
+      <span class="day-head__weather">☀ 72°</span>
+    </div>
+
+    <article class="card compact card--event">
+      <div class="card__leading">—</div>
+      <div class="card__body">
+        <div class="card__title">Jordan away (vacation)</div>
+        <div class="card__meta"><span>Until Apr 25</span></div>
+      </div>
+    </article>
+    <article class="card compact card--event">
+      <div class="card__leading">7:00</div>
+      <div class="card__body">
+        <div class="card__title">Parent-teacher conf.</div>
+      </div>
+    </article>
+  </section>
+
+  <button class="fab" aria-label="Add">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+  <nav class="bottom-nav">
+    <button class="bottom-nav__item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
+      Home
+    </button>
+    <button class="bottom-nav__item is-active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Calendar
+    </button>
+    <button class="bottom-nav__item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/></svg>
+      Scores
+    </button>
+    <button class="bottom-nav__item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 12 8 7 13 12 17 8 21 12"/><polyline points="3 18 8 13 13 18 17 14 21 18"/></svg>
+      Tracker
+    </button>
+    <button class="bottom-nav__item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+      More
+    </button>
+  </nav>
+
+</div>
+
+</body>
+</html>

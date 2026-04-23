@@ -18,12 +18,13 @@ A family activity tracker where anyone can browse a shared library of optional a
 
 ## Pages & Navigation
 
-### `activities.html` — Main Activities Page (nav bar entry)
+### `activities.html` — Main Activities Page
 
 Browse the activity library, start/stop timers, view personal goals and progress. Contains a header link to the activity scoreboard.
 
-- **Nav bar:** Added as a new entry alongside Dashboard, Calendar, Scoreboard, Tracker, Admin.
+- **Nav placement (per DESIGN.md §2 Feature-home map):** Activities lives **inside the More tab** on phone (the 5-slot tab bar is capped at Home · Calendar · Scores · Tracker · More and is non-negotiable), and in the **left rail** on tablet. It never becomes a top-level phone tab.
 - **Kid mode variant:** `activities.html?kid=Name` — simplified kid-friendly version, same pattern as `kid.html?kid=Name`. Access controlled by a per-kid toggle in people settings (`allowActivities`). When enabled, a link appears on the kid's `kid.html` page.
+- **Component reuse:** page is built from the shared catalog (Card variants, Tabs, Sheet, Timer, FAB, List group). No bespoke `.activities-*` classes that duplicate existing components.
 
 ### `activity-scores.html` — Activity Scoreboard (linked from activities page, NOT in nav)
 

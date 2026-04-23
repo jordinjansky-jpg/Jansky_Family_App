@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Kid mode — Mockup</title>
+<link rel="stylesheet" href="./design-system.css" />
+<style>
+  body { padding: 20px 0; }
+  @media (min-width: 700px) {
+    .app-shell {
+      box-shadow: var(--shadow-lg);
+      border-radius: 28px;
+      overflow: hidden;
+      min-height: 844px;
+      max-height: 844px;
+    }
+    .kid-gear { position: absolute !important; }
+  }
+
+  /* Kid mode overrides — modifiers, not parallel components */
+  .app-shell.kid { padding-bottom: var(--spacing-2xl); background: var(--bg); }
+
+  .kid-header {
+    padding: var(--spacing-lg) var(--spacing-md) var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    position: relative;
+  }
+  .kid-header__hello {
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .kid-header__name {
+    font-size: var(--font-2xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-top: 2px;
+  }
+  .kid-gear {
+    position: fixed;
+    top: calc(var(--spacing-md) + 20px); /* accounts for desktop frame */
+    right: var(--spacing-md);
+    width: 40px; height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    z-index: 10;
+  }
+
+  /* Stat row */
+  .kid-stats {
+    margin: 0 var(--spacing-md) var(--spacing-lg);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--spacing-sm);
+  }
+  .kid-stat {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  .kid-stat__icon { font-size: 22px; margin-bottom: 4px; }
+  .kid-stat__value {
+    font-size: var(--font-xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .kid-stat__label {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* Multiplier banner — kid variant of shared banner */
+  .kid-mult {
+    margin: 0 var(--spacing-md) var(--spacing-lg);
+    background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--warning-soft) 60%, transparent));
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+  .kid-mult__star { font-size: 28px; }
+  .kid-mult__title { font-weight: 700; font-size: var(--font-md); }
+  .kid-mult__sub { font-size: var(--font-sm); color: var(--text-muted); }
+
+  /* Kid task card — modifier on .card */
+  .card.kid {
+    min-height: 84px;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--radius-xl);
+    border-width: 1.5px;
+  }
+  .card.kid .card__title { font-size: var(--font-lg); font-weight: 600; }
+  .card.kid .card__meta { font-size: var(--font-md); }
+  .card.kid .avatar { width: 44px; height: 44px; font-size: var(--font-md); }
+  .card.kid .check { width: 44px; height: 44px; }
+  .card.kid .check svg { width: 20px; height: 20px; }
+
+  /* Tiles grid for Meals / Weather / Activity */
+  .kid-tiles {
+    margin: 0 var(--spacing-md) var(--spacing-lg);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+  }
+  .kid-tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    min-height: 96px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .kid-tile__icon { font-size: 28px; }
+  .kid-tile__value { font-size: var(--font-md); font-weight: 600; }
+  .kid-tile__label {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+  }
+  .kid-tile--activity {
+    background: var(--accent-soft);
+    border-color: transparent;
+  }
+  .kid-tile--activity .kid-tile__cta {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--accent-ink);
+  }
+
+  .section__title.kid { font-size: var(--font-sm); }
+
+  /* Trophy row */
+  .kid-trophies {
+    margin: 0 var(--spacing-md) var(--spacing-xl);
+    display: flex;
+    gap: var(--spacing-sm);
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: var(--spacing-xs);
+  }
+  .kid-trophies::-webkit-scrollbar { display: none; }
+  .kid-trophy {
+    flex-shrink: 0;
+    width: 80px;
+    height: 92px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .kid-trophy__icon { font-size: 32px; }
+  .kid-trophy__label { font-size: var(--font-xs); color: var(--text-muted); font-weight: 600; }
+  .kid-trophy--locked { opacity: 0.35; }
+</style>
+</head>
+<body>
+
+<div class="app-shell kid">
+
+  <!-- Always-visible parent escape (fixed top-right) -->
+  <button class="kid-gear" aria-label="Parent settings">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+
+  <!-- Kid header -->
+  <header class="kid-header">
+    <span class="avatar avatar--xl avatar--c">NK</span>
+    <div>
+      <div class="kid-header__hello">Good morning,</div>
+      <div class="kid-header__name">Noah</div>
+    </div>
+  </header>
+
+  <!-- Stats row -->
+  <div class="kid-stats">
+    <div class="kid-stat">
+      <div class="kid-stat__icon">⭐</div>
+      <div class="kid-stat__value">240</div>
+      <div class="kid-stat__label">Points</div>
+    </div>
+    <div class="kid-stat">
+      <div class="kid-stat__icon">🔥</div>
+      <div class="kid-stat__value">7</div>
+      <div class="kid-stat__label">Day streak</div>
+    </div>
+    <div class="kid-stat">
+      <div class="kid-stat__icon">🏆</div>
+      <div class="kid-stat__value">9</div>
+      <div class="kid-stat__label">Badges</div>
+    </div>
+  </div>
+
+  <!-- Multiplier banner -->
+  <div class="kid-mult">
+    <div class="kid-mult__star">✦</div>
+    <div>
+      <div class="kid-mult__title">Double-points day!</div>
+      <div class="kid-mult__sub">Every task counts 2× today.</div>
+    </div>
+  </div>
+
+  <!-- TASKS -->
+  <section class="section">
+    <div class="section__head">
+      <div class="section__title kid">Your tasks</div>
+      <div class="section__meta">2 of 5 done</div>
+    </div>
+
+    <article class="card kid">
+      <div class="card__leading"><span class="avatar avatar--c">NK</span></div>
+      <div class="card__body">
+        <div class="card__title">Read 20 minutes</div>
+        <div class="card__meta"><span>Learning</span></div>
+      </div>
+      <div class="card__trailing"><button class="check check--lg" aria-label="Mark complete"></button></div>
+    </article>
+
+    <article class="card kid">
+      <div class="card__leading"><span class="avatar avatar--c">NK</span></div>
+      <div class="card__body">
+        <div class="card__title">Brush teeth</div>
+        <div class="card__meta"><span>Self-care</span></div>
+      </div>
+      <div class="card__trailing"><button class="check check--lg" aria-label="Mark complete"></button></div>
+    </article>
+
+    <article class="card kid">
+      <div class="card__leading"><span class="avatar avatar--c">NK</span></div>
+      <div class="card__body">
+        <div class="card__title">Tidy your room</div>
+        <div class="card__meta"><span>Household</span></div>
+      </div>
+      <div class="card__trailing"><button class="check check--lg" aria-label="Mark complete"></button></div>
+    </article>
+
+    <article class="card kid card--done">
+      <div class="card__leading"><span class="avatar avatar--c">NK</span></div>
+      <div class="card__body">
+        <div class="card__title">Make your bed</div>
+        <div class="card__meta"><span>Household</span></div>
+      </div>
+      <div class="card__trailing">
+        <button class="check check--lg check--done" aria-label="Undo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+    </article>
+
+    <article class="card kid card--done">
+      <div class="card__leading"><span class="avatar avatar--c">NK</span></div>
+      <div class="card__body">
+        <div class="card__title">Morning hug 🤗</div>
+        <div class="card__meta"><span>Family</span></div>
+      </div>
+      <div class="card__trailing">
+        <button class="check check--lg check--done" aria-label="Undo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+    </article>
+  </section>
+
+  <!-- TILES: backlog features have a home here -->
+  <section class="section">
+    <div class="section__head">
+      <div class="section__title kid">Today</div>
+    </div>
+
+    <div class="kid-tiles">
+      <div class="kid-tile">
+        <div>
+          <div class="kid-tile__icon">🍝</div>
+          <div class="kid-tile__label" style="margin-top:var(--spacing-sm)">Dinner</div>
+        </div>
+        <div class="kid-tile__value">Spaghetti</div>
+      </div>
+
+      <div class="kid-tile">
+        <div>
+          <div class="kid-tile__icon">☀️</div>
+          <div class="kid-tile__label" style="margin-top:var(--spacing-sm)">Weather</div>
+        </div>
+        <div class="kid-tile__value">72° · Sunny</div>
+      </div>
+
+      <div class="kid-tile kid-tile--activity" style="grid-column: span 2;">
+        <div style="display:flex; align-items:center; gap:var(--spacing-md)">
+          <div class="kid-tile__icon">🚶</div>
+          <div>
+            <div class="kid-tile__label">Activity goal</div>
+            <div class="kid-tile__value">Walk 30 min · 18 left</div>
+          </div>
+          <div style="flex:1"></div>
+          <button class="btn btn--primary btn--sm">Start</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trophy case -->
+  <section class="section">
+    <div class="section__head">
+      <div class="section__title kid">Trophies</div>
+      <div class="section__meta">9 of 13</div>
+    </div>
+
+    <div class="kid-trophies">
+      <div class="kid-trophy"><div class="kid-trophy__icon">🏆</div><div class="kid-trophy__label">First task</div></div>
+      <div class="kid-trophy"><div class="kid-trophy__icon">🔥</div><div class="kid-trophy__label">3-day</div></div>
+      <div class="kid-trophy"><div class="kid-trophy__icon">💪</div><div class="kid-trophy__label">7-day</div></div>
+      <div class="kid-trophy"><div class="kid-trophy__icon">⭐</div><div class="kid-trophy__label">100 pts</div></div>
+      <div class="kid-trophy"><div class="kid-trophy__icon">🎯</div><div class="kid-trophy__label">Perfect day</div></div>
+      <div class="kid-trophy"><div class="kid-trophy__icon">📚</div><div class="kid-trophy__label">Reader</div></div>
+      <div class="kid-trophy kid-trophy--locked"><div class="kid-trophy__icon">👑</div><div class="kid-trophy__label">30-day</div></div>
+      <div class="kid-trophy kid-trophy--locked"><div class="kid-trophy__icon">🌟</div><div class="kid-trophy__label">500 pts</div></div>
+      <div class="kid-trophy kid-trophy--locked"><div class="kid-trophy__icon">🦸</div><div class="kid-trophy__label">Helper</div></div>
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>
