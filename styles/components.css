@@ -1526,17 +1526,19 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
   display: flex; align-items: center; gap: var(--spacing-md);
-  min-height: 68px;
-  margin-bottom: var(--spacing-sm);
+  min-height: 56px;
+  margin-bottom: var(--spacing-xs);
+  box-shadow: none;
   cursor: pointer;
+  overflow: hidden;
   transition: transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
 }
 .card::before {
   content: "";
   position: absolute; inset: 0 auto 0 0;
-  width: 3px; border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  width: 4px; border-radius: 0;
   background: var(--owner-color, transparent);
   pointer-events: none;
 }
@@ -1565,7 +1567,7 @@
 }
 
 /* Event variant — uses event color for the left stripe + leading time label */
-.card--event::before { background: var(--event-color, var(--accent)); width: 3px; }
+.card--event::before { background: var(--event-color, var(--accent)); width: 4px; }
 .card--event .card__leading {
   color: var(--event-color, var(--accent));
   font-weight: 600; font-size: var(--font-sm);

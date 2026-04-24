@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v47 (2026-04-23) — Phase 1 polish hotfix: light theme contrast
+//                    (data-theme guard), Back-to-Today centering,
+//                    card density + stripe geometry + shadow leak.
 // v46 (2026-04-23) — Phase 1 dashboard rework: mockup-aligned header,
 //                    card slot DOM, priority banner queue, FAB + 5-tab
 //                    nav with More sheet, person filter chip, owner
@@ -20,7 +23,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v46';
+const CACHE_NAME = 'family-hub-v47';
 
 const APP_SHELL = [
   '/',
