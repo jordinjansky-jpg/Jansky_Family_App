@@ -9,6 +9,13 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v52 (2026-04-24) — Fix: person.html was missing <div id="fabMount">,
+//                    causing dashboard.js to throw on
+//                    document.getElementById('fabMount').innerHTML and
+//                    halt module init — stuck loading spinner on PWA
+//                    person shortcut. That was the Phase 1+1.5 mobile
+//                    bug (bell/overflow buttons looked dead because the
+//                    module never finished wiring them).
 // v51 (2026-04-24) — Diagnostic: on-page error overlay in index.html +
 //                    /test.html sanity check page. Temp — removed once
 //                    the Phase 1+1.5 mobile load bug is understood.
@@ -39,7 +46,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v51';
+const CACHE_NAME = 'family-hub-v52';
 
 const APP_SHELL = [
   '/',
