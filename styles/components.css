@@ -1724,18 +1724,19 @@
   width: 56px; height: 56px;
   border-radius: var(--radius-full);
   background: var(--accent); color: var(--on-accent);
-  border: 0; box-shadow: var(--shadow-md);
+  border: 0;
+  box-shadow: var(--shadow-md);
   display: inline-flex; align-items: center; justify-content: center;
   z-index: var(--z-fab);
   cursor: pointer;
   transition: transform var(--t-fast), box-shadow var(--t-fast);
 }
-.fab:hover  { box-shadow: var(--shadow-lg); }
-.fab:active { transform: scale(0.96); }
+.fab:hover  { box-shadow: var(--shadow-lg); transform: scale(1.04); }
+.fab:active { transform: scale(0.96); box-shadow: var(--shadow-md); }
 .fab svg    { width: 22px; height: 22px; stroke-width: 2; }
+
 @media (prefers-reduced-motion: reduce) {
-  .fab { transition: none; }
-  .fab:active { transform: none; }
+  .fab, .fab:hover, .fab:active { transition: none; transform: none; }
 }
 
 /* Overflow menu (shared by header 3-dot + bottom-nav More) */
