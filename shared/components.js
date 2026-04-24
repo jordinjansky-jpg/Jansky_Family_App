@@ -547,12 +547,22 @@ export function renderOverflowMenu(items) {
 }
 
 /**
- * A single chip that opens the person filter sheet. Rendered only when
- * people.length >= 2 AND not in ?person= link mode. See spec §3.6 / §5.7.
+ * Filter chip.
+ * - When `activePersonName` is falsy: renders `Filter` (verb), no dot.
+ * - When `activePersonName` is a name: renders `<dot> Name`, dot colored
+ *   via data-person-color (applyDataColors propagates it to --person-color).
+ * The chip always opens the filter sheet on click.
  */
-export function renderFilterChip({ id = 'openFilterSheet', label = 'All' } = {}) {
+export function renderFilterChip({ id = 'openFilterSheet', activePersonName = '', activePersonColor = '' } = {}) {
   const caret = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
-  return `<button class="filter-chip" id="${esc(id)}" type="button" aria-haspopup="dialog">
+  const isActive = !!activePersonName;
+  const dot = isActive
+    ? `<span class="filter-chip__dot" data-person-color="${esc(activePersonColor)}" aria-hidden="true"></span>`
+    : '';
+  const label = isActive ? activePersonName : 'Filter';
+  const activeCls = isActive ? ' filter-chip--active' : '';
+  return `<button class="filter-chip${activeCls}" id="${esc(id)}" type="button" aria-haspopup="dialog">
+    ${dot}
     <span class="filter-chip__label">${esc(label)}</span>
     <span class="filter-chip__caret" aria-hidden="true">${caret}</span>
   </button>`;

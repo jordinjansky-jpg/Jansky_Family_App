@@ -170,10 +170,12 @@ function updateHeaderSubtitle() {
 function getTodayFilterChipHtml() {
   const showChip = (!linkedPerson) && people.length >= 2;
   if (!showChip) return '';
-  const chipLabel = activePerson
-    ? (people.find(p => p.id === activePerson)?.name || 'All')
-    : 'All';
-  return renderFilterChip({ id: 'openFilterSheet', label: chipLabel });
+  const activePersonObj = activePerson ? people.find(p => p.id === activePerson) : null;
+  return renderFilterChip({
+    id: 'openFilterSheet',
+    activePersonName: activePersonObj?.name || '',
+    activePersonColor: activePersonObj?.color || '',
+  });
 }
 
 // 5-tab bottom nav with More → openMoreSheet
@@ -285,8 +287,9 @@ function render() {
   // Today section — flat list, incomplete first then completed
   const totalCount = prog.total;
   const doneCount = prog.done;
+  const todaySectionCls = activePerson ? 'section section--filtered' : 'section';
   if (totalCount === 0 && sortedEvents.length === 0) {
-    html += `<section class="section">`;
+    html += `<section class="${todaySectionCls}">`;
     html += renderSectionHead('Today', null, {
       divider: firstSectionRendered,
       trailingHtml: getTodayFilterChipHtml(),
@@ -303,7 +306,7 @@ function render() {
     html += `</section>`;
   } else if (totalCount > 0) {
     const sectionMeta = (doneCount === totalCount) ? 'All done' : `${doneCount} of ${totalCount} done`;
-    html += `<section class="section">`;
+    html += `<section class="${todaySectionCls}">`;
     html += renderSectionHead('Today', sectionMeta, {
       divider: firstSectionRendered,
       trailingHtml: getTodayFilterChipHtml(),

@@ -1782,17 +1782,57 @@
 
 /* Filter chip */
 .filter-chip {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 10px 4px 12px;
   border-radius: var(--radius-full);
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border);
   font-size: var(--font-xs); font-weight: 500;
   cursor: pointer;
-  min-height: 28px;
+  min-height: 32px;
+  min-width: 44px;
 }
 .filter-chip:hover { background: var(--bg-hover); }
+.filter-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .filter-chip__caret svg { width: 14px; height: 14px; }
+.filter-chip__dot {
+  width: 10px; height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--person-color, var(--accent));
+  flex-shrink: 0;
+}
+.filter-chip--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Active-filter cue — the Today section gets a left accent border
+   when a person filter is applied. Subtle by design (Phase 1.5 Q2). */
+.section.section--filtered {
+  position: relative;
+}
+.section.section--filtered::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--spacing-md) - var(--spacing-xs));
+  top: var(--spacing-md);
+  bottom: var(--spacing-md);
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .section.section--filtered::before {
+    animation: filterCueFade 200ms ease-out both;
+  }
+}
+@keyframes filterCueFade {
+  from { opacity: 0; }
+  to   { opacity: 0.5; }
+}
 
 /* List group (person filter sheet body, etc.) */
 .list-group { padding: var(--spacing-sm); }
