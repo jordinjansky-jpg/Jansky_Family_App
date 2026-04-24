@@ -79,6 +79,7 @@ let overdueItems = [];
 let multipliers = {};
 let suppressedCooldownTaskIds = new Set();
 let celebrationShown = false;
+let lastRenderedIsToday = true; // tracks viewDate==today across renders so Back-to-Today pill only animates on the transition away from today, not on passive re-renders
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
@@ -253,16 +254,20 @@ function render() {
   // Banner mount (filled in Task 7 — overdue/multiplier queue)
   html += `<div id="bannerMount"></div>`;
 
-  // Back-to-Today pill (non-today only)
+  // Back-to-Today pill (non-today only). Animate only on the transition away
+  // from today — not on every Firebase-driven re-render of the same past day.
   if (!isToday) {
+    const isEntering = lastRenderedIsToday;
+    const wrapperCls = isEntering ? 'back-to-today is-entering' : 'back-to-today';
     const chevronSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
-    html += `<div class="back-to-today">
+    html += `<div class="${wrapperCls}">
       <button class="btn btn--secondary btn--sm back-to-today__btn" id="goToday" type="button">
         <span class="back-to-today__chevron" aria-hidden="true">${chevronSvg}</span>
         <span>Back to Today</span>
       </button>
     </div>`;
   }
+  lastRenderedIsToday = isToday;
 
   let firstSectionRendered = false;
 

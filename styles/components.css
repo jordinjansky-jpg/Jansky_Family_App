@@ -1713,6 +1713,8 @@
   display: flex;
   justify-content: center;
   padding: var(--spacing-sm) var(--spacing-md);
+}
+.back-to-today.is-entering {
   animation: backToTodayEnter 200ms ease-out both;
 }
 .back-to-today__btn {
@@ -1733,7 +1735,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .back-to-today { animation: none; }
+  .back-to-today.is-entering { animation: none; }
 }
 
 /* FAB */
