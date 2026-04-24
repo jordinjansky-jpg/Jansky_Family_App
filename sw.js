@@ -9,6 +9,13 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v56 (2026-04-24) — Fix: v55 edited the wrong rule. Task cards
+//                    render with class="card task-card ...", so the
+//                    later-in-file .card rule (line 1541) wins over
+//                    .task-card (line 733) for shared properties.
+//                    Applied the density/radius/min-height alignment
+//                    to .card itself: padding 8/16 → 16 all around,
+//                    min-height 56 → 68, margin-bottom xs → sm.
 // v55 (2026-04-24) — Align .task-card with mockup spec: radius-md→lg,
 //                    gap sm→md, owner stripe 4px→3px, min-height 64→68,
 //                    avatar 28→36px, title font-weight 600→500, body
@@ -67,7 +74,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v55';
+const CACHE_NAME = 'family-hub-v56';
 
 const APP_SHELL = [
   '/',

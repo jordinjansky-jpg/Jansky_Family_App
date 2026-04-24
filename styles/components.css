@@ -1543,10 +1543,10 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md);
   display: flex; align-items: center; gap: var(--spacing-md);
-  min-height: 56px;
-  margin-bottom: var(--spacing-xs);
+  min-height: 68px;
+  margin-bottom: var(--spacing-sm);
   box-shadow: none;
   cursor: pointer;
   overflow: hidden;
