@@ -1713,8 +1713,28 @@
   display: flex;
   justify-content: center;
   padding: var(--spacing-sm) var(--spacing-md);
+  animation: backToTodayEnter 200ms ease-out both;
 }
-.back-to-today .btn { max-width: 320px; }
+.back-to-today__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 320px;
+}
+.back-to-today__chevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+.back-to-today__chevron svg { width: 14px; height: 14px; stroke-width: 2; }
+
+@keyframes backToTodayEnter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .back-to-today { animation: none; }
+}
 
 /* FAB */
 .fab {

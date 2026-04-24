@@ -255,8 +255,12 @@ function render() {
 
   // Back-to-Today pill (non-today only)
   if (!isToday) {
+    const chevronSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
     html += `<div class="back-to-today">
-      <button class="btn btn--secondary btn--sm btn--full" id="goToday" type="button">Back to Today</button>
+      <button class="btn btn--secondary btn--sm back-to-today__btn" id="goToday" type="button">
+        <span class="back-to-today__chevron" aria-hidden="true">${chevronSvg}</span>
+        <span>Back to Today</span>
+      </button>
     </div>`;
   }
 
