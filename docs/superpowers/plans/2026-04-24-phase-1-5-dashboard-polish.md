@@ -1237,6 +1237,86 @@ No gaps found. Plan is ready.
 
 ---
 
+## Post-merge amendments (2026-04-24, SW v49 → v59)
+
+The ten tasks above shipped. During visual review on the live site a handful of regressions and gaps surfaced that weren't predicted by the plan. Recording them here so a future reader doesn't conclude the plan is "what was built" — these amendments are part of Phase 1.5 as it actually shipped.
+
+### A. `.page-content` double-counted the header height (SW v53)
+
+**Symptom:** Every page using `.page-content` (calendar, scoreboard, tracker, admin, kid, person) rendered with a large blank gap below the sticky header.
+
+**Root cause:** [styles/layout.css](../../../styles/layout.css) `.page-content` had `padding-top: calc(var(--header-height) + var(--spacing-md))`. But `.app-header` is `position: sticky; top: 0` — it already reserves its own height in flow. Stacking `header-height` into the wrapper's padding-top added the height a second time.
+
+**Fix:** `.page-content { padding: var(--spacing-md); }` — wrappers use normal spacing; the header's own `padding-top` handles `safe-area-inset-top`. Calendar's `.cal-page .page-content` override rewritten to the same shape. Codified as a Do-not rule in [docs/DESIGN.md](../../DESIGN.md) §12 and the [CLAUDE.md](../../../CLAUDE.md) design digest.
+
+### B. `.section` horizontal margin stacked on `.page-content` padding (SW v57)
+
+**Symptom:** Cards sat ~32px in from each screen edge on phone — a visibly large gap between the card's owner stripe and the viewport left edge.
+
+**Root cause:** `.section` had `margin: 0 var(--spacing-md) var(--spacing-lg)` on top of `.page-content`'s `padding: var(--spacing-md)`. Two elements owned the horizontal gutter. Inner `.section__head` also added its own horizontal padding, making the problem worse at the head row.
+
+**Fix:** `.section { margin: 0 0 var(--spacing-lg); }`. Inner heads no longer pad horizontally. One element owns the gutter. Codified as a Do-not rule in [docs/DESIGN.md](../../DESIGN.md) §12.
+
+### C. Card density settled at different values than the plan (SW v55 → v57)
+
+**Symptom:** Task cards felt "squat and heavy" after the Phase 1.5 density pass — short vertical, dense padding, tight radius. Mockup spec in [mockups/design-system.css](../../../mockups/design-system.css) showed a taller, airier card.
+
+**Discovery:** The live markup is `class="card task-card …"`. Both rules exist in [styles/components.css](../../../styles/components.css); the later `.card` rule wins at equal specificity. Density edits made on `.task-card` alone were dead. The v55 fix had to land on `.card` itself (line 1541), not `.task-card` (line 733).
+
+**Values shipped:**
+
+| Property | Plan / mockup | Shipped | Notes |
+|---|---|---|---|
+| `padding` | `var(--spacing-md)` all around | `var(--spacing-sm) var(--spacing-md)` | Full spec felt too tall for list context; narrower vertical padding restores a scannable rhythm. |
+| `min-height` | 68px | 60px | Walked back from 68 after cards felt too tall. |
+| `gap` | `var(--spacing-md)` | `var(--spacing-md)` | Matched mockup. |
+| `border-radius` | `var(--radius-lg)` | `var(--radius-lg)` | Matched mockup. |
+| `margin-bottom` | `var(--spacing-sm)` | `var(--spacing-sm)` | Matched mockup. |
+| Avatar | 36px | 36px | Matched mockup. |
+| Owner stripe | 3px | 3px | Matched mockup. |
+
+Future density changes should target `.card`, not `.task-card` — the dual-class markup means `.task-card` alone will be overridden.
+
+### D. Filter cue retired (SW v59)
+
+**Symptom:** Filtering to a person drew a stray blue vertical bar behind the cards on the left edge.
+
+**Root cause:** `.section--filtered::before` was positioned for the old 16px `.section` margin gutter (amendment B). After v57 removed that margin, the cue rendered inside the section's content area, overlapping card left edges.
+
+**Fix:** Cue retired entirely rather than re-positioned. The filter chip (verb + person dot, Task 7 Step 1) and the owner-color stripe on each card already carry the "this is filtered" signal — the section cue was redundant once those shipped together. CSS block replaced with a comment noting the retirement; no markup change.
+
+### E. Person-link mode was missing core controls (SW v52, v54, v58)
+
+**Symptom:** On the adult PWA shortcut (`person.html?person=Name`):
+- v52: Stuck on loading spinner — `document.getElementById('fabMount').innerHTML = …` threw because [person.html](../../../person.html) was missing `<div id="fabMount"></div>`.
+- v54: Overflow menu showed only "Theme" — Rewards and Admin were gated behind `!linkedPerson`.
+- v58: Notification bell was hidden — also gated behind `!linkedPerson`. Person filter chip was suppressed too.
+
+**Root cause:** Person mode is the adult PWA shortcut, not a restricted variant — kid mode is the restricted variant. The `!linkedPerson` guards were copy-paste from an older assumption that "linked" meant "locked-down."
+
+**Fix:** [person.html](../../../person.html) shell brought to parity with [index.html](../../../index.html) (all six mount points present). `!linkedPerson` guards removed from `buildHeaderOverflow()`, `renderHeader({ showBell })`, and the filter-chip render. Codified as a Do-not rule in [docs/DESIGN.md](../../DESIGN.md) §6.9 and §12.
+
+### SW cache version trail
+
+| Version | Fix |
+|---|---|
+| v48 | Ten Phase 1.5 polish tasks (as planned). |
+| v49 | Theme fix: `data-theme` now follows preset.mode. |
+| v50 | Theme fix #2: `applyTheme` strips stale inline var overrides on preset switch. |
+| v51 | Diagnostic overlay for mobile load bug (temporary). |
+| v52 | Person.html missing `#fabMount` (amendment E). |
+| v53 | `.page-content` header-height double-count (amendment A). |
+| v54 | Person overflow missing Rewards + Admin; task-card padding bumped (amendment C, wrong selector). |
+| v55 | Task card aligned to mockup spec — but on `.task-card` (still dead, amendment C). |
+| v56 | Realized `.card` wins; applied the alignment to `.card` (amendment C). |
+| v57 | Walked `.card` back: min-height 68 → 60, padding tightened; removed `.section` horizontal margin (amendment C, B). |
+| v58 | Bell + filter chip restored on person mode (amendment E). |
+| v59 | Retired `.section--filtered::before` cue (amendment D). |
+
+The diagnostic overlay from v51 ([index.html](../../../index.html), `/test.html`) can be removed now that the load bug is understood and fixed — flagged here so a future pass can clean it up.
+
+---
+
 Plan complete and saved to [docs/superpowers/plans/2026-04-24-phase-1-5-dashboard-polish.md](2026-04-24-phase-1-5-dashboard-polish.md).
 
 ## Execution handoff

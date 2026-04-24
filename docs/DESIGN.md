@@ -759,9 +759,19 @@ The Store is a **first-class destination**, not an annex of the Scoreboard. Adul
 
 ### 6.9 Person-link mode (`person.html?person=X`)
 
-**Purpose:** Home-screen shortcut PWA for one specific person.
+**Purpose:** Home-screen shortcut PWA for one specific person. This is the **adult** per-person shortcut — kid mode (`kid.html`) is the restricted variant, not this one.
 
 **Rule:** Visually identical to dashboard, but shows a persistent `Viewing as {Name}` pill in the header below the subtitle.
+
+**Parity with Home (non-negotiable):** the person shortcut must expose the same header/nav controls as `index.html`:
+- Notification bell (with unseen-count badge and approval dropdown).
+- Overflow menu with **Rewards**, **Admin**, **Theme** (plus Debug when enabled).
+- Person filter chip (when the family has ≥ 2 people), so the adult can switch to another person's view.
+- 5-slot bottom nav + FAB.
+
+Person-specific behavior is limited to: title = person's name, saved filter persisted to `people/{id}/prefs/dashboard/personFilter`, and an optional per-person theme override. Anything else is a regression — do not add `!linkedPerson` guards around core controls.
+
+**Shell parity:** `person.html` must include the same mount points as `index.html` (`#headerMount`, `#app`/`.app-shell`, `#fabMount`, `#navMount`, `#toastMount`, `#celebrationMount`, `#taskSheetMount`). Missing mount points cause `dashboard.js` to throw on `document.getElementById(...).innerHTML` and halt init.
 
 ### 6.10 Shopping (new page, 1.7)
 
@@ -993,6 +1003,9 @@ Themes redefine color tokens at `:root[data-theme="sage"]` etc. Never redefine s
 - ❌ Do not render multiple action buttons inline next to an item's name in a list — one chevron, detail page owns the actions.
 - ❌ Do not break the `rundown/` Firebase root into subapp paths.
 - ❌ Do not introduce a CSS framework or bundler — vanilla ES modules + hand-written CSS only.
+- ❌ Do not gate core controls (bell, overflow Rewards/Admin, person filter chip, FAB) behind `!linkedPerson` — person mode is the adult PWA shortcut and has parity with Home. Kid mode is the restricted variant.
+- ❌ Do not add `var(--header-height)` to a page wrapper's `padding-top`. `.app-header` is `position: sticky` and reserves its own height in flow; wrappers that also add header-height produce a large blank gap below the header. Safe-area-inset-top belongs on the header's `padding-top`, not the wrapper's.
+- ❌ Do not add horizontal margin or padding to inner groups (`.section`, section heads, list groups) when a page wrapper (`.page-content` / `.app-shell`) already supplies it. One element owns the horizontal gutter — stacking produces a doubled side gap that detaches content from the card edge.
 
 ---
 
@@ -1178,6 +1191,7 @@ Violations: tablet-as-wider-phone, no layout change, no density change, no left 
 | Date | Change | Reason |
 |---|---|---|
 | 2026-04-19 | v1.0 initial spec | Design audit + rework planning |
+| 2026-04-24 | §6.9 person-mode parity rule + mount-point shell parity; §12 added three non-negotiables (no `!linkedPerson` core-control gates, no `header-height` on wrapper padding, single-gutter rule) | Phase 1 + 1.5 shipped with `!linkedPerson` hiding bell/overflow/filter chip and a missing `#fabMount` in `person.html`; also surfaced double-counted header-height and double horizontal gutter after the card density pass. Codifying so future work doesn't regress. |
 
 Updates to this doc require the PR description to cite the section changed and the reason.
 

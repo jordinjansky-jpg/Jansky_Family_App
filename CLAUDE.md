@@ -371,6 +371,9 @@ Every feature (current + backlog) has a named home — see §2 in DESIGN.md. Enf
 - ❌ No multiple action buttons inline next to an item's name in a list — **one chevron**, detail page owns the actions.
 - ❌ No breaking the `rundown/` Firebase root into subapp paths.
 - ❌ No CSS framework or bundler — vanilla ES modules + hand-written CSS only.
+- ❌ No `!linkedPerson` guards around core controls (bell, overflow Rewards/Admin, person filter chip, FAB). Person mode is the adult PWA shortcut with Home parity. Kid mode is the restricted variant.
+- ❌ No `var(--header-height)` in a page wrapper's `padding-top`. `.app-header` is `position: sticky` and reserves its own height in flow — double-counting it leaves a large blank gap below the header.
+- ❌ No horizontal margin/padding on `.section` and similar inner groups. The page wrapper (`.page-content` / `.app-shell`) owns the single horizontal gutter.
 
 ### Component reuse rule
 Before building any new visual element, search §5 of DESIGN.md. The catalog already covers: Card (+ variants), Tabs, Sheet, Modal, Button, Icon button, Chip, Field, Banner, Timer, Avatar, Check, FAB, Bottom nav, List group/row, Switch, Empty state, Loading skeleton, Error state, Toast, Celebration, Progress bar. If the right shape exists, **use it or add a variant** — don't fork.
