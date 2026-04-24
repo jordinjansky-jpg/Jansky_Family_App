@@ -1878,5 +1878,15 @@
   border-radius: var(--radius-full);
   background: var(--danger);
   border: 2px solid var(--bg);
+  animation: bellDotPulse 600ms ease-out 1 both;
 }
-.btn-icon__dot.is-hidden { display: none; }
+.btn-icon__dot.is-hidden { display: none; animation: none; }
+
+@keyframes bellDotPulse {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-icon__dot { animation: none; }
+}
