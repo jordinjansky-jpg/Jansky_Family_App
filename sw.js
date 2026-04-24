@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v51 (2026-04-24) — Diagnostic: on-page error overlay in index.html +
+//                    /test.html sanity check page. Temp — removed once
+//                    the Phase 1+1.5 mobile load bug is understood.
 // v50 (2026-04-24) — Theme fix #2: applyTheme now strips stale inline
 //                    var overrides on switch, so a previous dark preset's
 //                    --text/--bg/etc. can't linger on root when switching
@@ -36,7 +39,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v50';
+const CACHE_NAME = 'family-hub-v51';
 
 const APP_SHELL = [
   '/',

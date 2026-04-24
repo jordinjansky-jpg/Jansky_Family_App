@@ -17,6 +17,47 @@
   <link rel="stylesheet" href="styles/components.css">
   <link rel="stylesheet" href="styles/dashboard.css">
   <link rel="stylesheet" href="styles/responsive.css">
+  <script>
+    // TEMP diagnostic overlay — capture errors and stuck-load state visibly on
+    // the page so mobile clients can surface problems without a USB console.
+    // Safe to remove once the Phase 1+1.5 mobile load bug is understood.
+    (function () {
+      var box = null;
+      function show(label, msg) {
+        if (!box) {
+          box = document.createElement('pre');
+          box.id = '__errOverlay';
+          box.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#b4491c;color:#fff;padding:12px;font:11px/1.3 ui-monospace,Menlo,Consolas,monospace;max-height:70vh;overflow:auto;white-space:pre-wrap;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.4);word-break:break-word;';
+          (document.body || document.documentElement).appendChild(box);
+        }
+        box.textContent += '[' + label + '] ' + msg + '\n\n';
+      }
+      window.addEventListener('error', function (e) {
+        show('error',
+          (e.message || e.type) + ' @ ' +
+          (e.filename || '?') + ':' + (e.lineno || '?') + ':' + (e.colno || '?') +
+          (e.error && e.error.stack ? '\n' + e.error.stack : '')
+        );
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        var r = e.reason;
+        show('unhandled', r && r.stack ? r.stack : String(r));
+      });
+      setTimeout(function () {
+        var loading = document.getElementById('loadingState');
+        var main = document.getElementById('mainContent');
+        if (loading && !loading.classList.contains('is-hidden')) {
+          show('stuck',
+            'Still loading after 8s.\n' +
+            'mainContent=' + (main ? main.innerHTML.length + ' chars' : 'null') + '\n' +
+            'headerMount=' + (document.getElementById('headerMount')?.innerHTML.length || 0) + ' chars\n' +
+            'navMount=' + (document.getElementById('navMount')?.innerHTML.length || 0) + ' chars\n' +
+            'UA=' + navigator.userAgent + '\n' +
+            'online=' + navigator.onLine);
+        }
+      }, 8000);
+    })();
+  </script>
 </head>
 <body>
   <div id="headerMount"></div>
