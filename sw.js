@@ -9,6 +9,10 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v46 (2026-04-23) — Phase 1 dashboard rework: mockup-aligned header,
+//                    card slot DOM, priority banner queue, FAB + 5-tab
+//                    nav with More sheet, person filter chip, owner
+//                    left-stripe, empty state.
 // v45 (2026-04-21) — Phase 0 foundation: token layer rewrite, hex purge in
 //                    components.css, inline-style sweep in stable modules,
 //                    reduced-motion guards on all animating CSS, retired-
@@ -16,7 +20,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v45';
+const CACHE_NAME = 'family-hub-v46';
 
 const APP_SHELL = [
   '/',
