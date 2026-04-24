@@ -9,6 +9,10 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v50 (2026-04-24) — Theme fix #2: applyTheme now strips stale inline
+//                    var overrides on switch, so a previous dark preset's
+//                    --text/--bg/etc. can't linger on root when switching
+//                    to a light preset that doesn't redeclare them.
 // v49 (2026-04-24) — Theme fix: data-theme now follows preset.mode, not
 //                    themeConfig.mode, so a light preset can never inherit
 //                    dark base.css token overrides (and vice versa).
@@ -32,7 +36,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v49';
+const CACHE_NAME = 'family-hub-v50';
 
 const APP_SHELL = [
   '/',

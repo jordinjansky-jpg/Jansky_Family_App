@@ -112,6 +112,16 @@ const PRESETS = {
   }
 };
 
+// Union of all CSS variable names any preset can set. Used by applyTheme
+// to strip stale inline overrides on theme switch — without this, switching
+// dark → light leaves dark-only vars (--text, --bg, --text-faint, etc.) on
+// the root element, and since inline styles beat base.css :root defaults,
+// the new light preset gets dark text on light surfaces.
+const PRESET_VAR_KEYS = new Set();
+for (const _preset of Object.values(PRESETS)) {
+  for (const _key of Object.keys(_preset.vars)) PRESET_VAR_KEYS.add(_key);
+}
+
 /**
  * Get all available theme presets.
  */
@@ -175,6 +185,13 @@ export function applyTheme(themeConfig) {
   const vars = getThemeVars(themeConfig);
   const root = document.documentElement;
   const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
+
+  // Strip stale inline overrides from any previously-applied preset so the
+  // new preset can fall through to base.css :root / [data-theme="dark"]
+  // defaults for any vars it doesn't explicitly set.
+  for (const prop of PRESET_VAR_KEYS) {
+    if (!(prop in vars)) root.style.removeProperty(prop);
+  }
 
   for (const [prop, value] of Object.entries(vars)) {
     root.style.setProperty(prop, value);
