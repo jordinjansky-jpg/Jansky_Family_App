@@ -1619,22 +1619,37 @@
 .avatar--sm { width: 28px; height: 28px; font-size: var(--font-xs); }
 .avatar--lg { width: 52px; height: 52px; font-size: var(--font-md); }
 
-/* Check button */
+/* Check button — 32px circle, hover fills with accent-soft, press scales 0.95 */
 .check {
-  width: 30px; height: 30px;
+  width: 32px; height: 32px;
   border-radius: var(--radius-full);
   border: 1.75px solid var(--border);
   background: transparent;
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   color: var(--text-muted);
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast),
+              color var(--t-fast), transform var(--t-fast);
 }
-.check:hover { border-color: var(--text-muted); }
+.check:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.card:active .check,
+.check:active {
+  transform: scale(0.92);
+}
 .check--done {
-  background: var(--accent); border-color: var(--accent); color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 .check--done svg { width: 16px; height: 16px; stroke-width: 3; }
+
+@media (prefers-reduced-motion: reduce) {
+  .check, .card:active .check, .check:active { transition: none; transform: none; }
+}
 
 /* Banner (single slot) */
 .banner {
