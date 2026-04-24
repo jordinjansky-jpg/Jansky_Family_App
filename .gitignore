@@ -5,3 +5,4 @@ Thumbs.db
 node_modules/
 .env
 .tmp/
+.claude/settings.local.json
