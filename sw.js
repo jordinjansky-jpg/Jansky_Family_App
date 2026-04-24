@@ -9,6 +9,13 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v60 (2026-04-24) — Remove v51 diagnostic overlay from index.html and
+//                    delete /test.html. The mobile load bug (person.html
+//                    missing #fabMount) has been understood and fixed in
+//                    v52; the diagnostic scaffolding has served its
+//                    purpose. No behavior change for users — just
+//                    removes an orange error-overlay script that only
+//                    rendered when something was already broken.
 // v59 (2026-04-24) — Fix: Phase 1.5 .section--filtered ::before accent
 //                    bar was positioned inside the section's old 16px
 //                    margin gutter; v57 removed that margin so the
@@ -93,7 +100,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v59';
+const CACHE_NAME = 'family-hub-v60';
 
 const APP_SHELL = [
   '/',
