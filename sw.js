@@ -9,6 +9,14 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v54 (2026-04-24) — Fix: calendar still had the header-height double-count
+//                    via .cal-page .page-content override; person mode
+//                    overflow menu was missing Rewards + Admin (guarded
+//                    on !linkedPerson with no good reason — the person
+//                    shortcut is for adults); task-card padding bumped
+//                    from 10px/16px to 16px all around with min-height
+//                    48→64 so cards feel less compressed next to their
+//                    avatar/check tokens.
 // v53 (2026-04-24) — Fix: .page-content double-counted header-height in
 //                    padding-top. .app-header is position:sticky and
 //                    already reserves its own height in flow, so the

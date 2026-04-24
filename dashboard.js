@@ -87,10 +87,8 @@ if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appN
 // ── Header & Nav ──
 function buildHeaderOverflow() {
   const items = [];
-  if (!linkedPerson) {
-    items.push({ id: 'rewards', label: 'Rewards' });
-    items.push({ id: 'admin', label: 'Admin' });
-  }
+  items.push({ id: 'rewards', label: 'Rewards' });
+  items.push({ id: 'admin', label: 'Admin' });
   items.push({ id: 'theme', label: 'Theme' });
   if (localStorage.getItem('dr-debug') === 'true') {
     items.push({ id: 'debug', label: 'Debug (turn off)' });

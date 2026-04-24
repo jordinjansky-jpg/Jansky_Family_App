@@ -5,10 +5,10 @@
 .cal-page .page-content {
   height: 100dvh;
   max-width: 100%;
-  padding: 0 var(--spacing-sm);
-  /* header actual height can exceed --header-height (56px) due to subtitle+date wrapping;
-     use a generous top pad so nav arrows never clip under the header */
-  padding-top: calc(var(--header-height) + 28px + env(safe-area-inset-top, 0px));
+  padding: var(--spacing-sm);
+  /* .app-header is position:sticky and reserves its own height in flow —
+     do not add header-height again here, it produces a large gap below
+     the header on calendar. */
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   display: flex;

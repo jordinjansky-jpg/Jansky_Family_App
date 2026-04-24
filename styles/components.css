@@ -736,7 +736,7 @@
   gap: var(--spacing-sm);
   width: 100%;
   text-align: left;
-  padding: 10px var(--spacing-md);
+  padding: var(--spacing-md);
   background: var(--surface);
   border: 1px solid var(--border, var(--border));
   border-left: 4px solid var(--owner-color, var(--border));
@@ -745,11 +745,11 @@
   transition: all var(--t-fast);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  min-height: 48px;
+  min-height: 64px;
 }
 
 .task-card + .task-card {
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .task-card:active {
