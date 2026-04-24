@@ -30,11 +30,11 @@
   min-width: 0;
 }
 .app-header__title {
-  font-size: var(--font-xl);
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text);
-  line-height: 1.2;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -44,7 +44,12 @@
   color: var(--text-muted);
   margin-top: 2px;
   font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.app-header__subtitle-long { display: inline; }
+.app-header__subtitle-short { display: none; }
 .app-header__actions {
   display: flex;
   align-items: center;

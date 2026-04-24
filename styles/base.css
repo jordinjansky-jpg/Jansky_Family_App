@@ -88,7 +88,7 @@
   --font-md: 1rem;
   --font-lg: 1.125rem;
   --font-xl: 1.375rem;
-  --font-2xl: 1.75rem;
+  --font-2xl: 1.5rem; /* 24px — used by header title */
   --font-3xl: 2.25rem;
 
   /* Motion */

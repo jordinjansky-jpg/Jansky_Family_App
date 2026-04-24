@@ -154,12 +154,16 @@ function renderHeaderMount() {
   });
   applyDataColors(document.getElementById('headerMount'));
   wireHeaderActions();
+  updateHeaderSubtitle();
 }
 renderHeaderMount();
 
 function updateHeaderSubtitle() {
   const el = document.querySelector('.app-header__subtitle');
-  if (el) el.textContent = formatDateLong(viewDate);
+  if (!el) return;
+  const longText = formatDateLong(viewDate);
+  const shortText = formatDateShort(viewDate);
+  el.innerHTML = `<span class="app-header__subtitle-long">${esc(longText)}</span><span class="app-header__subtitle-short">${esc(shortText)}</span>`;
 }
 
 function getTodayFilterChipHtml() {
