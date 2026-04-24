@@ -1811,32 +1811,11 @@
   color: var(--accent-ink);
 }
 
-/* Active-filter cue — the Today section gets a left accent border
-   when a person filter is applied. Subtle by design (Phase 1.5 Q2). */
-.section.section--filtered {
-  position: relative;
-}
-.section.section--filtered::before {
-  content: "";
-  position: absolute;
-  left: calc(var(--spacing-md) - var(--spacing-xs));
-  top: var(--spacing-md);
-  bottom: var(--spacing-md);
-  width: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-  opacity: 0.5;
-  pointer-events: none;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .section.section--filtered::before {
-    animation: filterCueFade 200ms ease-out both;
-  }
-}
-@keyframes filterCueFade {
-  from { opacity: 0; }
-  to   { opacity: 0.5; }
-}
+/* Phase 1.5 left-accent "section filter cue" retired — it was
+   positioned inside the section's padding gutter (which used to be
+   16px of .section margin). Removing that margin made the cue
+   overlap the cards. The filter chip and the per-card owner-color
+   stripe already carry the filter signal, so the cue is redundant. */
 
 /* List group (person filter sheet body, etc.) */
 .list-group { padding: var(--spacing-sm); }

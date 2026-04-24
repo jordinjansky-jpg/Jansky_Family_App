@@ -9,6 +9,12 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v59 (2026-04-24) — Fix: Phase 1.5 .section--filtered ::before accent
+//                    bar was positioned inside the section's old 16px
+//                    margin gutter; v57 removed that margin so the
+//                    cue now overlapped the cards (the "random blue
+//                    line behind pills"). Retired the cue — filter
+//                    chip + owner-color stripe already carry signal.
 // v58 (2026-04-24) — Fix: notification bell + person filter chip were
 //                    both hidden in person link mode (!linkedPerson
 //                    guards). Person shortcut is for adults and
@@ -87,7 +93,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v58';
+const CACHE_NAME = 'family-hub-v59';
 
 const APP_SHELL = [
   '/',
