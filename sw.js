@@ -9,6 +9,13 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v57 (2026-04-24) — Fix: .section had a 16px horizontal margin on
+//                    top of the 16px .page-content padding, so cards
+//                    sat 32px in from each edge. Dropped horizontal
+//                    margin on .section and .section__head inner
+//                    padding. Also walked card min-height back from
+//                    68 → 60 and padding to spacing-sm/spacing-md
+//                    after the 68 felt too tall.
 // v56 (2026-04-24) — Fix: v55 edited the wrong rule. Task cards
 //                    render with class="card task-card ...", so the
 //                    later-in-file .card rule (line 1541) wins over
@@ -74,7 +81,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v56';
+const CACHE_NAME = 'family-hub-v57';
 
 const APP_SHELL = [
   '/',
