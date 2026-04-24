@@ -9,6 +9,13 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v53 (2026-04-24) — Fix: .page-content double-counted header-height in
+//                    padding-top. .app-header is position:sticky and
+//                    already reserves its own height in flow, so the
+//                    extra header-height in .page-content produced a
+//                    large blank gap below the header on every page
+//                    that uses .page-content (calendar, scoreboard,
+//                    tracker, admin, kid, person).
 // v52 (2026-04-24) — Fix: person.html was missing <div id="fabMount">,
 //                    causing dashboard.js to throw on
 //                    document.getElementById('fabMount').innerHTML and
@@ -46,7 +53,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v52';
+const CACHE_NAME = 'family-hub-v53';
 
 const APP_SHELL = [
   '/',
