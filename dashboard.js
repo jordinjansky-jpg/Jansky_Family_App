@@ -148,7 +148,7 @@ function renderHeaderMount() {
   document.getElementById('headerMount').innerHTML = renderHeader({
     title,
     subtitle,
-    showBell: !linkedPerson,
+    showBell: true,
     overflowItems: buildHeaderOverflow()
   });
   applyDataColors(document.getElementById('headerMount'));
@@ -166,8 +166,7 @@ function updateHeaderSubtitle() {
 }
 
 function getTodayFilterChipHtml() {
-  const showChip = (!linkedPerson) && people.length >= 2;
-  if (!showChip) return '';
+  if (people.length < 2) return '';
   const activePersonObj = activePerson ? people.find(p => p.id === activePerson) : null;
   return renderFilterChip({
     id: 'openFilterSheet',

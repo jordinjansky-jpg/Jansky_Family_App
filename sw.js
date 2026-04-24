@@ -9,6 +9,12 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v58 (2026-04-24) — Fix: notification bell + person filter chip were
+//                    both hidden in person link mode (!linkedPerson
+//                    guards). Person shortcut is for adults and
+//                    should have the same controls as Home. Also
+//                    fixed the remaining !linkedPerson guards
+//                    elsewhere in dashboard.js header.
 // v57 (2026-04-24) — Fix: .section had a 16px horizontal margin on
 //                    top of the 16px .page-content padding, so cards
 //                    sat 32px in from each edge. Dropped horizontal
@@ -81,7 +87,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v57';
+const CACHE_NAME = 'family-hub-v58';
 
 const APP_SHELL = [
   '/',
