@@ -273,7 +273,7 @@ function render() {
 
     for (const sec of sections) {
       const entries = groups[sec.key];
-      const sorted = sortEntries(entries, completions);
+      const sorted = sortEntries(entries, completions, tasks, people, today);
       if (sorted.length === 0) continue;
 
       if (showHeaders) html += renderTimeHeader(sec.label);
@@ -312,7 +312,7 @@ function render() {
 
       for (const sec of sections) {
         const entries = compGroups[sec.key];
-        const sorted = sortEntries(entries, completions);
+        const sorted = sortEntries(entries, completions, tasks, people, today);
         if (sorted.length === 0) continue;
 
         if (showCompHeaders) html += renderTimeHeader(sec.label);
