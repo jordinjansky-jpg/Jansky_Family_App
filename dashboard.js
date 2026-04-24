@@ -162,22 +162,13 @@ function updateHeaderSubtitle() {
   if (el) el.textContent = formatDateLong(viewDate);
 }
 
-function renderTodaySectionHead(meta) {
+function getTodayFilterChipHtml() {
   const showChip = (!linkedPerson) && people.length >= 2;
+  if (!showChip) return '';
   const chipLabel = activePerson
     ? (people.find(p => p.id === activePerson)?.name || 'All')
     : 'All';
-  const chip = showChip
-    ? renderFilterChip({ id: 'openFilterSheet', label: chipLabel })
-    : '';
-  const metaHtml = meta ? `<div class="section__meta">${esc(meta)}</div>` : '';
-  return `<div class="section__head">
-    <div class="section__title">Today</div>
-    <div class="section__head-trailing">
-      ${metaHtml}
-      ${chip}
-    </div>
-  </div>`;
+  return renderFilterChip({ id: 'openFilterSheet', label: chipLabel });
 }
 
 // 5-tab bottom nav with More → openMoreSheet
@@ -265,10 +256,13 @@ function render() {
     </div>`;
   }
 
+  let firstSectionRendered = false;
+
   // Events section
   if (sortedEvents.length > 0) {
     html += `<section class="section">`;
-    html += renderSectionHead('Events');
+    html += renderSectionHead('Events', null, { divider: firstSectionRendered });
+    firstSectionRendered = true;
     for (const [eventId, event] of sortedEvents) {
       html += renderEventBubble(eventId, event, people);
     }
@@ -280,7 +274,11 @@ function render() {
   const doneCount = prog.done;
   if (totalCount === 0 && sortedEvents.length === 0) {
     html += `<section class="section">`;
-    html += renderTodaySectionHead();
+    html += renderSectionHead('Today', null, {
+      divider: firstSectionRendered,
+      trailingHtml: getTodayFilterChipHtml(),
+    });
+    firstSectionRendered = true;
     if (activePerson) {
       html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
     } else {
@@ -293,7 +291,11 @@ function render() {
   } else if (totalCount > 0) {
     const sectionMeta = (doneCount === totalCount) ? 'All done' : `${doneCount} of ${totalCount} done`;
     html += `<section class="section">`;
-    html += renderTodaySectionHead(sectionMeta);
+    html += renderSectionHead('Today', sectionMeta, {
+      divider: firstSectionRendered,
+      trailingHtml: getTodayFilterChipHtml(),
+    });
+    firstSectionRendered = true;
 
     // Sort all entries together with the new sort rule (incomplete before complete,
     // owner -> late-today-first -> TOD -> name).

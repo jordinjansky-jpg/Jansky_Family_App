@@ -516,11 +516,15 @@ export function renderFab({ id = 'fabAdd', label = 'Add', icon } = {}) {
  * Section head used by dashboard Events + Today sections. Exposed so Calendar,
  * Scoreboard, Tracker can reuse in their own phases.
  */
-export function renderSectionHead(title, meta) {
+export function renderSectionHead(title, meta, options = {}) {
+  const { divider = false, trailingHtml = '' } = options;
   const metaHtml = meta ? `<div class="section__meta">${esc(meta)}</div>` : '';
-  return `<div class="section__head">
+  const trailing = trailingHtml ? `<div class="section__head-trailing">${trailingHtml}</div>` : '';
+  const dividerCls = divider ? ' section__head--divider' : '';
+  return `<div class="section__head${dividerCls}">
     <div class="section__title">${esc(title)}</div>
     ${metaHtml}
+    ${trailing}
   </div>`;
 }
 

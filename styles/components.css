@@ -1508,16 +1508,33 @@
 /* Section */
 .section { margin: 0 var(--spacing-md) var(--spacing-lg); }
 .section__head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  margin: 0 var(--spacing-xs) var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md);
+  margin: var(--spacing-md) 0 var(--spacing-sm);
+}
+.section__head--divider {
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing-md);
 }
 .section__title {
-  font-size: var(--font-xs); font-weight: 600; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.09em;
+  flex: 1;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
-.section__meta { font-size: var(--font-sm); color: var(--text-faint); }
+.section__meta {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
 .section__head-trailing {
-  display: flex; align-items: center; gap: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 /* Card (slot-based, mockup-aligned) */
@@ -1562,8 +1579,9 @@
   gap: var(--spacing-sm);
 }
 .card__meta-dot {
-  width: 3px; height: 3px; border-radius: var(--radius-full);
+  width: 4px; height: 4px; border-radius: var(--radius-full);
   background: var(--text-faint);
+  flex-shrink: 0;
 }
 
 /* Event variant — uses event color for the left stripe + leading time label */
