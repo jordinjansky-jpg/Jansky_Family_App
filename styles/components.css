@@ -1603,7 +1603,7 @@
   font-weight: 400;
 }
 .card--done .card__meta {
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 .card--done::before {
   background: color-mix(in srgb, var(--owner-color, transparent) 35%, transparent);
@@ -1657,6 +1657,7 @@
 .card:active .check,
 .check:active {
   transform: scale(0.92);
+  transition-delay: 60ms;
 }
 .check--done {
   background: var(--accent);
@@ -1722,6 +1723,7 @@
   align-items: center;
   gap: 6px;
   max-width: 320px;
+  min-height: 44px;
 }
 .back-to-today__chevron {
   display: inline-flex;
