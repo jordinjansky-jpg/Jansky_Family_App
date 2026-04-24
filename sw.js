@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v49 (2026-04-24) — Theme fix: data-theme now follows preset.mode, not
+//                    themeConfig.mode, so a light preset can never inherit
+//                    dark base.css token overrides (and vice versa).
 // v48 (2026-04-24) — Phase 1.5 dashboard polish: completed-card mute
 //                    (no strikethrough), check hover+press, section
 //                    head grid + divider + muted meta, larger header
@@ -29,7 +32,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v48';
+const CACHE_NAME = 'family-hub-v49';
 
 const APP_SHELL = [
   '/',

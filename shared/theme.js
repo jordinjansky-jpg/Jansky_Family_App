@@ -174,6 +174,7 @@ export function defaultThemeConfig() {
 export function applyTheme(themeConfig) {
   const vars = getThemeVars(themeConfig);
   const root = document.documentElement;
+  const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
 
   for (const [prop, value] of Object.entries(vars)) {
     root.style.setProperty(prop, value);
@@ -182,7 +183,6 @@ export function applyTheme(themeConfig) {
   // Set accent if not in vars
   if (!vars['--accent']) {
     const fallbackAccent = '#5b7fd6';
-    const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
     const isDark = (preset.mode || themeConfig.mode) === 'dark';
     root.style.setProperty('--accent', fallbackAccent);
     root.style.setProperty('--accent-hover', fallbackAccent + 'dd');
@@ -197,12 +197,15 @@ export function applyTheme(themeConfig) {
     }
   }
 
-  // Set data attribute for CSS selectors
-  root.setAttribute('data-theme', themeConfig.mode || 'light');
+  // Set data attribute for CSS selectors. Use the preset's mode (not
+  // themeConfig.mode) — otherwise a stale themeConfig.mode='dark' paired
+  // with a light preset like light-warm makes [data-theme="dark"] rules
+  // in base.css override --text/--bg while the preset keeps --surface
+  // white, producing near-white text on white cards.
+  root.setAttribute('data-theme', preset.mode || themeConfig.mode || 'light');
 
   // Set colored cells attribute based on preset
-  const preset = PRESETS[themeConfig.preset];
-  if (preset?.coloredCells) {
+  if (preset.coloredCells) {
     root.setAttribute('data-colored-cells', 'true');
   } else {
     root.removeAttribute('data-colored-cells');
