@@ -1677,6 +1677,12 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         if ((msg.type === 'redemption-request' || msg.type === 'use-request') && !msg.seen) count++;
       }
     }
+    // v2 header uses a single dot (no count); legacy header keeps the numeric badge.
+    const dot = document.getElementById('headerBellDot');
+    if (dot) {
+      dot.classList.toggle('is-hidden', count === 0);
+      return;
+    }
     const bell = document.getElementById('headerBell');
     if (!bell) return;
     const badge = bell.querySelector('.bell__badge');

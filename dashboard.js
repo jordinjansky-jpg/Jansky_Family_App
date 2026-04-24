@@ -1,5 +1,5 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead } from './shared/components.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -76,17 +76,71 @@ let activePerson = linkedPerson
 let completions = {};
 let viewEntries = {};     // entries for viewDate
 let overdueItems = [];
+let multipliers = {};
 let suppressedCooldownTaskIds = new Set();
-let overdueExpanded = false;
 let celebrationShown = false;
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
 
 // ── Header & Nav ──
-function buildHeaderOverflow() { return []; } // filled in Task 7
-function wireHeaderActions() { /* filled in Task 7 */ }
-function openMoreSheet() { /* filled in Task 7 */ }
+function buildHeaderOverflow() {
+  const items = [];
+  if (!linkedPerson) {
+    items.push({ id: 'rewards', label: 'Rewards' });
+    items.push({ id: 'admin', label: 'Admin' });
+  }
+  items.push({ id: 'theme', label: 'Theme' });
+  if (localStorage.getItem('dr-debug') === 'true') {
+    items.push({ id: 'debug', label: 'Debug (turn off)' });
+  }
+  return items;
+}
+
+function openOverflowOrMoreSheet() {
+  const items = buildHeaderOverflow();
+  if (items.length === 0) return;
+  taskSheetMount.innerHTML = renderBottomSheet(
+    `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(items)}`
+  );
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+  });
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+  taskSheetMount.querySelector('.overflow-menu')?.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-item-id]');
+    if (!btn) return;
+    const itemId = btn.dataset.itemId;
+    closeTaskSheet();
+    setTimeout(() => {
+      if (itemId === 'rewards') {
+        // Rewards store currently lives on scoreboard; dedicated sheet lands in Phase 6.
+        location.href = 'scoreboard.html';
+      } else if (itemId === 'admin') {
+        location.href = 'admin.html';
+      } else if (itemId === 'theme') {
+        openDeviceThemeSheet(
+          document.getElementById('taskSheetMount'),
+          settings?.theme,
+          linkedPerson ? () => render() : undefined,
+          linkedPerson ? { person: linkedPerson, writePerson } : undefined
+        );
+      } else if (itemId === 'debug') {
+        localStorage.setItem('dr-debug', 'false');
+        render();
+      }
+    }, 320);
+  });
+}
+
+function wireHeaderActions() {
+  document.getElementById('headerOverflow')?.addEventListener('click', openOverflowOrMoreSheet);
+}
+
+function openMoreSheet() { openOverflowOrMoreSheet(); }
 function openAddMenuFromFab() { openAddMenu?.(); }
 
 function renderHeaderMount() {
@@ -106,6 +160,24 @@ renderHeaderMount();
 function updateHeaderSubtitle() {
   const el = document.querySelector('.app-header__subtitle');
   if (el) el.textContent = formatDateLong(viewDate);
+}
+
+function renderTodaySectionHead(meta) {
+  const showChip = (!linkedPerson) && people.length >= 2;
+  const chipLabel = activePerson
+    ? (people.find(p => p.id === activePerson)?.name || 'All')
+    : 'All';
+  const chip = showChip
+    ? renderFilterChip({ id: 'openFilterSheet', label: chipLabel })
+    : '';
+  const metaHtml = meta ? `<div class="section__meta">${esc(meta)}</div>` : '';
+  return `<div class="section__head">
+    <div class="section__title">Today</div>
+    <div class="section__head-trailing">
+      ${metaHtml}
+      ${chip}
+    </div>
+  </div>`;
 }
 
 // 5-tab bottom nav with More → openMoreSheet
@@ -208,7 +280,7 @@ function render() {
   const doneCount = prog.done;
   if (totalCount === 0 && sortedEvents.length === 0) {
     html += `<section class="section">`;
-    html += renderSectionHead('Today');
+    html += renderTodaySectionHead();
     if (activePerson) {
       html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
     } else {
@@ -221,7 +293,7 @@ function render() {
   } else if (totalCount > 0) {
     const sectionMeta = (doneCount === totalCount) ? 'All done' : `${doneCount} of ${totalCount} done`;
     html += `<section class="section">`;
-    html += renderSectionHead('Today', sectionMeta);
+    html += renderTodaySectionHead(sectionMeta);
 
     // Sort all entries together with the new sort rule (incomplete before complete,
     // owner -> late-today-first -> TOD -> name).
@@ -261,26 +333,117 @@ function render() {
   applyDataColors(main);
   bindEvents();
 
-  // Mount banner queue (Task 7 owns the actual queue logic).
-  mountBannerQueue({ overdueCount: overdueFiltered.length });
+  // Mount banner queue (priority: overdue > multiplier).
+  mountBannerQueue({ overdueItems: overdueFiltered });
 }
 
 // Banner queue — priority: vacation > freeze > overdue > multiplier > info.
-// Task 7 fills multiplier + vacation surfacing; Task 6 wires only overdue.
-function mountBannerQueue({ overdueCount }) {
+// Phase 1 surfaces overdue + multiplier. Vacation/freeze land in Phase 2.4.
+function resolveBanner(overdueIncomplete) {
+  if (overdueIncomplete.length > 0) {
+    const n = overdueIncomplete.length;
+    return {
+      variant: 'overdue',
+      title: `${n} overdue ${n === 1 ? 'task' : 'tasks'}`,
+      message: 'Tap to review.',
+      action: { label: 'Review', onClick: () => openOverdueSheet(overdueIncomplete) }
+    };
+  }
+  const todayMultipliers = multipliers?.[today] || {};
+  const scope = activePerson || 'all';
+  const m = todayMultipliers[scope] || todayMultipliers.all;
+  if (m && Number(m.multiplier) !== 1) {
+    const n = Number(m.multiplier);
+    const label = n === 2 ? 'Double-points day' : `${n}× points today`;
+    const msg = m.note || `All tasks count ${n}× until midnight.`;
+    return { variant: 'multiplier', title: label, message: msg };
+  }
+  return null;
+}
+
+function mountBannerQueue({ overdueItems: overdueIncomplete }) {
   const mount = document.getElementById('bannerMount');
   if (!mount) return;
-  let html = '';
-  if (overdueCount > 0) {
-    html = renderBanner({
-      variant: 'overdue',
-      title: `${overdueCount} overdue ${overdueCount === 1 ? 'task' : 'tasks'}`,
-      message: 'Tap to review.',
-      actionId: 'overdueOpen',
-      actionLabel: 'Review'
-    });
+  const b = resolveBanner(overdueIncomplete);
+  if (!b) { mount.innerHTML = ''; return; }
+  mount.innerHTML = renderBanner(b.variant, {
+    title: b.title,
+    message: b.message,
+    action: b.action ? { label: b.action.label } : undefined
+  });
+  if (b.action) {
+    mount.querySelector('[data-banner-action]')?.addEventListener('click', b.action.onClick);
   }
-  mount.innerHTML = html;
+}
+
+function openOverdueSheet(items) {
+  const cards = items.map(e => {
+    const task = tasks[e.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+    const person = people.find(p => p.id === e.ownerId);
+    const cat = task.category ? cats[task.category] : null;
+    const pts = basePoints(task, settings?.difficultyMultipliers);
+    return renderTaskCard({
+      entryKey: e.entryKey,
+      entry: { ...e, dateKey: e.dateKey },
+      task,
+      person,
+      category: cat,
+      completed: false,
+      overdue: true,
+      points: { possible: pts, override: e.pointsOverride ?? null },
+      isEvent: !!cat?.isEvent,
+      showPoints: settings?.showPoints !== false,
+      showTodIconBoth: !!settings?.showTodIconBoth,
+      showTodIconSingle: !!settings?.showTodIconSingle,
+      isPastDaily: false
+    });
+  }).join('');
+  const body = `<h3 class="sheet-section-title">Overdue tasks</h3>${cards || '<div class="empty empty--calm"><div class="empty__message">Nothing overdue.</div></div>'}`;
+  taskSheetMount.innerHTML = renderBottomSheet(body);
+  applyDataColors(taskSheetMount);
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+  });
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+  taskSheetMount.querySelectorAll('.task-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ek = btn.dataset.entryKey;
+      const dk = btn.dataset.dateKey;
+      closeTaskSheet();
+      setTimeout(() => openTaskSheet(ek, dk), 320);
+    });
+  });
+}
+
+function openPersonFilterSheet() {
+  const body = `<h3 class="sheet-section-title">Show tasks for</h3>${renderPersonFilterSheet(people, activePerson)}`;
+  taskSheetMount.innerHTML = renderBottomSheet(body);
+  applyDataColors(taskSheetMount);
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+  });
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+  taskSheetMount.querySelector('.list-group')?.addEventListener('click', async (ev) => {
+    const row = ev.target.closest('[data-person-id]');
+    if (!row) return;
+    const personId = row.dataset.personId || null;
+    activePerson = personId;
+    if (linkedPerson) {
+      const prefs = { ...(linkedPerson.prefs || {}), dashboard: { personFilter: activePerson } };
+      linkedPerson.prefs = prefs;
+      linkedPerson.savedFilter = activePerson || null;
+      const { id, ...data } = linkedPerson;
+      await writePerson(id, data);
+    }
+    celebrationShown = false;
+    closeTaskSheet();
+  });
 }
 
 function renderDebugPanel(filtered, score) {
@@ -321,22 +484,6 @@ function bindEvents() {
     updateHeaderSubtitle();
     subscribeSchedule(viewDate);
     loadData();
-  });
-
-  // Person filter
-  main.querySelectorAll('.person-pill').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      activePerson = btn.dataset.personId || null;
-      if (linkedPerson) {
-        const prefs = { ...(linkedPerson.prefs || {}), dashboard: { personFilter: activePerson } };
-        linkedPerson.prefs = prefs;
-        linkedPerson.savedFilter = activePerson || null; // backward compat
-        const { id, ...data } = linkedPerson;
-        await writePerson(id, data);
-      }
-      celebrationShown = false;
-      render();
-    });
   });
 
   // Task card: tap to toggle, long-press to open detail sheet
@@ -394,18 +541,6 @@ function bindEvents() {
     btn.addEventListener('click', () => openEventDetailSheet(btn.dataset.eventId));
   });
 
-  // Overdue toggle
-  const overdueBtn = document.getElementById('overdueToggle');
-  if (overdueBtn) {
-    overdueBtn.addEventListener('click', () => {
-      overdueExpanded = !overdueExpanded;
-      const list = document.getElementById('overdueList');
-      const arrow = document.getElementById('overdueArrow');
-      if (list) list.classList.toggle('is-hidden', !overdueExpanded);
-      if (arrow) arrow.classList.toggle('expanded', overdueExpanded);
-    });
-  }
-
   // Debug copy button
   document.getElementById('copyDebug')?.addEventListener('click', async () => {
     const pre = main.querySelector('.debug-panel__pre');
@@ -419,7 +554,6 @@ function bindEvents() {
 async function changeDay(delta) {
   viewDate = addDays(viewDate, delta);
   celebrationShown = false;
-  overdueExpanded = false;
   updateHeaderSubtitle();
   subscribeSchedule(viewDate);
   await loadData();
@@ -1562,6 +1696,17 @@ onCompletions(async (val) => {
 onEvents((val) => {
   events = val || {};
   debouncedRender();
+});
+
+// Multipliers listener — drives the multiplier banner.
+onMultipliers((val) => {
+  multipliers = val || {};
+  debouncedRender();
+});
+
+// Person filter chip tap (re-rendered every render; use delegation on body).
+document.body.addEventListener('click', (ev) => {
+  if (ev.target.closest('#openFilterSheet')) openPersonFilterSheet();
 });
 
 // Schedule listener — resubscribed when viewDate changes

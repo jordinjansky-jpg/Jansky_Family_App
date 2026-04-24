@@ -1516,6 +1516,9 @@
   text-transform: uppercase; letter-spacing: 0.09em;
 }
 .section__meta { font-size: var(--font-sm); color: var(--text-faint); }
+.section__head-trailing {
+  display: flex; align-items: center; gap: var(--spacing-sm);
+}
 
 /* Card (slot-based, mockup-aligned) */
 .card {
