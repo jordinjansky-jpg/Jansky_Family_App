@@ -1669,9 +1669,9 @@
 
 /* Back-to-Today pill */
 .back-to-today {
-  padding: 0 var(--spacing-md);
-  margin-top: calc(var(--spacing-sm) * -1);
-  margin-bottom: var(--spacing-sm);
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 .back-to-today .btn { max-width: 320px; }
 
