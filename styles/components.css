@@ -733,23 +733,23 @@
 .task-card {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
   width: 100%;
   text-align: left;
   padding: var(--spacing-md);
   background: var(--surface);
   border: 1px solid var(--border, var(--border));
-  border-left: 4px solid var(--owner-color, var(--border));
-  border-radius: var(--radius-md);
+  border-left: 3px solid var(--owner-color, var(--border));
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   transition: all var(--t-fast);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  min-height: 64px;
+  min-height: 68px;
 }
 
 .task-card + .task-card {
-  margin-top: 8px;
+  margin-top: var(--spacing-sm);
 }
 
 .task-card:active {
@@ -776,16 +776,16 @@
 
 /* Owner avatar circle */
 .task-card__avatar {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: var(--owner-color, var(--text-faint));
   color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: var(--font-xs);
+  font-weight: 600;
+  font-size: var(--font-sm);
   flex-shrink: 0;
   line-height: 1;
 }
@@ -805,10 +805,10 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 .task-card__name {
-  font-weight: 600;
+  font-weight: 500;
   font-size: var(--font-md);
   line-height: 1.4;
   word-break: break-word;

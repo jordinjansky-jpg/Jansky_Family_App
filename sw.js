@@ -9,6 +9,12 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v55 (2026-04-24) — Align .task-card with mockup spec: radius-md→lg,
+//                    gap sm→md, owner stripe 4px→3px, min-height 64→68,
+//                    avatar 28→36px, title font-weight 600→500, body
+//                    gap 2→3px. Phase 1.5 density pass had diverged
+//                    from mockup (mockups/01-dashboard.html) and cards
+//                    felt squat and heavy.
 // v54 (2026-04-24) — Fix: calendar still had the header-height double-count
 //                    via .cal-page .page-content override; person mode
 //                    overflow menu was missing Rewards + Admin (guarded
@@ -61,7 +67,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v53';
+const CACHE_NAME = 'family-hub-v55';
 
 const APP_SHELL = [
   '/',
