@@ -1574,15 +1574,21 @@
   min-width: 56px;
 }
 
-/* Completed state */
-.card--done { opacity: 0.58; }
+/* Completed state — muted ground + faint stripe, title stays readable */
+.card--done {
+  background: var(--surface-2);
+  border-color: transparent;
+  opacity: 0.75;
+}
 .card--done .card__title {
-  text-decoration: line-through;
-  text-decoration-color: var(--text-faint);
-  text-decoration-thickness: 1px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.card--done .card__meta {
+  color: var(--text-faint);
 }
 .card--done::before {
-  background: color-mix(in srgb, var(--owner-color, transparent) 40%, transparent);
+  background: color-mix(in srgb, var(--owner-color, transparent) 35%, transparent);
 }
 
 /* Tag (shared chip-style for rotation/bounty/late/school) */
