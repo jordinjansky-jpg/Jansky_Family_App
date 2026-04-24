@@ -95,29 +95,46 @@ const NAV_ITEMS = [
 ];
 
 /**
- * Render the bottom navigation bar.
- * activePage: the id of the current page (e.g., 'home', 'calendar')
- * Returns an HTML string.
+ * Bottom navigation. 5 items: Home, Calendar, Scores, Tracker, More.
+ * More is a button (opens a sheet in-page); the first four are anchors.
+ *
+ * Signatures:
+ *   renderNavBar(activePage)                       // legacy — More is rendered
+ *                                                  //   but unbound (no-op)
+ *   renderNavBar(activePage, { onMoreClick })      // Phase 1+ — dashboard binds More
+ *
+ * Person-link mode: the page rewrites href values after render (existing behavior).
  */
-export function renderNavBar(activePage) {
-  const personHome = sessionStorage.getItem('dr-person-home');
-  const items = NAV_ITEMS.map(item => {
-    let href;
-    if (item.id === 'home' && personHome) {
-      href = `person.html?person=${encodeURIComponent(personHome)}`;
-    } else if (personHome && item.id !== 'home') {
-      href = `${item.href}?person=${encodeURIComponent(personHome)}`;
-    } else {
-      href = item.href;
+export function renderNavBar(activePage, options = {}) {
+  const items = [
+    { page: 'home', href: 'index.html', label: 'Home', svg: `<path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path>` },
+    { page: 'calendar', href: 'calendar.html', label: 'Calendar', svg: `<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>` },
+    { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores', svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
+    { page: 'tracker', href: 'tracker.html', label: 'Tracker', svg: `<polyline points="3 12 8 7 13 12 17 8 21 12"></polyline><polyline points="3 18 8 13 13 18 17 14 21 18"></polyline>` }
+  ];
+  const personHome = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('dr-person-home') : null;
+  const linkItems = items.map(it => {
+    const isActive = it.page === activePage;
+    let href = it.href;
+    if (personHome) {
+      href = it.page === 'home'
+        ? `person.html?person=${encodeURIComponent(personHome)}`
+        : `${it.href}?person=${encodeURIComponent(personHome)}`;
     }
-    const active = item.id === activePage ? ' nav-item--active' : '';
-    return `<a href="${href}" class="nav-item${active}" data-page="${item.id}" aria-label="${item.label}"${active ? ' aria-current="page"' : ''}>
-      <span class="nav-item__icon" aria-hidden="true">${item.icon}</span>
-      <span class="nav-item__label">${item.label}</span>
+    return `<a class="bottom-nav__item nav-item${isActive ? ' is-active nav-item--active' : ''}" href="${href}" data-page="${it.page}">
+      <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${it.svg}</svg>
+      <span class="nav-item__label">${esc(it.label)}</span>
     </a>`;
   }).join('');
-
-  return `<nav class="bottom-nav" role="navigation" aria-label="Main navigation">${items}</nav>`;
+  const moreItem = `<button class="bottom-nav__item nav-item" id="navMore" type="button"${options.onMoreClick ? '' : ' data-more-unbound="1"'}>
+    <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.5"></circle>
+      <circle cx="12" cy="12" r="1.5"></circle>
+      <circle cx="19" cy="12" r="1.5"></circle>
+    </svg>
+    <span class="nav-item__label">More</span>
+  </button>`;
+  return `<nav class="bottom-nav" role="navigation" aria-label="Main navigation">${linkItems}${moreItem}</nav>`;
 }
 
 /**
@@ -137,11 +154,56 @@ export function renderBellIcon(count = 0) {
 }
 
 /**
- * Render the page header.
- * options: { appName, subtitle, showAdmin, showDebug, rightContent, showBell, bellCount }
- * Returns an HTML string.
+ * Header renderer. Supports TWO call shapes during Phase 1:
+ *
+ *  NEW (dashboard):
+ *    renderHeader({ title, subtitle, showBell, overflowItems })
+ *
+ *  LEGACY (all other pages, until their own phase):
+ *    renderHeader({ appName, subtitle, dateLine, showAdmin, showDebug,
+ *                   showAddTask, showThemePicker, showBell, bellCount, rightContent })
+ *
+ * Detection: new shape has `title`; legacy has `appName`.
  */
 export function renderHeader(options = {}) {
+  if (options.title !== undefined) {
+    return _renderHeaderV2(options);
+  }
+  return _renderHeaderLegacy(options);
+}
+
+function _renderHeaderV2({ title, subtitle, showBell, overflowItems }) {
+  const bellHtml = showBell
+    ? `<button class="btn-icon" id="headerBell" aria-label="Notifications" type="button">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+           <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+         </svg>
+         <span class="btn-icon__dot is-hidden" id="headerBellDot" aria-hidden="true"></span>
+       </button>`
+    : '';
+  const overflowHtml = (Array.isArray(overflowItems) && overflowItems.length)
+    ? `<button class="btn-icon" id="headerOverflow" aria-label="More" type="button">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+           <circle cx="12" cy="5" r="1.4"></circle>
+           <circle cx="12" cy="12" r="1.4"></circle>
+           <circle cx="12" cy="19" r="1.4"></circle>
+         </svg>
+       </button>`
+    : '';
+  return `<header class="app-header">
+    <div class="app-header__text">
+      <div class="app-header__title">${esc(title)}</div>
+      ${subtitle ? `<div class="app-header__subtitle">${esc(subtitle)}</div>` : ''}
+    </div>
+    <div class="app-header__actions">
+      ${bellHtml}
+      ${overflowHtml}
+    </div>
+  </header>`;
+}
+
+function _renderHeaderLegacy(options) {
   const {
     appName = 'Daily Rundown',
     subtitle = '',
@@ -294,18 +356,18 @@ export function renderProgressBar(done, total) {
  */
 export function renderTaskCard(options) {
   const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, showPoints = true, isPastDaily = false } = options;
-  const doneClass = completed ? ' task-card--done' : '';
+  const doneClass = completed ? ' card--done task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
-  const eventClass = isEvent ? ' task-card--event' : '';
+  const eventClass = isEvent ? ' card--event task-card--event' : '';
   const showIcon = category?.showIcon !== false;
   const catIcon = showIcon ? (category?.icon || '') : '';
   const ownerColor = person?.color || 'var(--text-faint)';
   const ownerInitial = (person?.name || '?')[0].toUpperCase();
   const estLabel = task.estMin ? `${task.estMin}m` : '';
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
+  const catName = category?.name || '';
 
   // Points label: show override value with color if active, else base (skip for events, exempt).
-  // When points are hidden but an override is active, show a colored ▲/▼ arrow in the points slot.
   let ptsLabel = '';
   if (points && !isEvent && !task.exempt) {
     if (points.override != null && points.override !== 100) {
@@ -318,11 +380,20 @@ export function renderTaskCard(options) {
         ptsLabel = `<span class="${colorClass}">${icon}</span>`;
       }
     } else if (showPoints) {
-      ptsLabel = `${points.possible}pt`;
+      ptsLabel = `<span>${points.possible}pt</span>`;
     }
   }
 
-  // Delegation/move indicator based on entry key suffix
+  // Rotation tag (spec §5.4) — only for non-daily rotations.
+  const rotationLabel = task?.rotation === 'weekly' ? 'Weekly'
+    : task?.rotation === 'monthly' ? 'Monthly'
+    : task?.rotation === 'once' ? 'One-Time'
+    : null;
+  const rotationTag = (rotationLabel && !isEvent)
+    ? `<span class="tag tag--rotation">${esc(rotationLabel)}</span>`
+    : '';
+
+  // Existing action tags (delegated, moved, late, skipped, bounty).
   let actionTags = '';
   if (entryKey && entryKey.includes('_delegate')) {
     const fromName = entry.delegatedFromName || '?';
@@ -331,20 +402,17 @@ export function renderTaskCard(options) {
   if (entryKey && entryKey.includes('_moved')) {
     const fromDate = entry.movedFromDate || '';
     const movedLabel = fromDate ? formatMovedDate(fromDate) : 'moved';
-    actionTags += `<span class="task-card__tag task-card__tag--moved">${movedLabel}</span>`;
+    actionTags += `<span class="task-card__tag task-card__tag--moved">${esc(movedLabel)}</span>`;
   }
-  // Late chip for incomplete past daily tasks
   if (isPastDaily && !completed) {
     actionTags += `<span class="task-card__tag task-card__tag--late">Late</span>`;
   }
-  // Skipped badge (task skip power-up used)
   if (entry?.skipped) {
     actionTags += `<span class="task-card__tag task-card__tag--skipped"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg> Skipped</span>`;
   }
-  // Bounty badge
   if (task?.bounty) {
     const bountyLabel = task.bounty.type === 'points' ? `${task.bounty.amount} pts` : 'Reward';
-    actionTags += `<span class="task-card__tag task-card__bounty">🎯 ${bountyLabel}</span>`;
+    actionTags += `<span class="task-card__tag task-card__bounty">🎯 ${esc(bountyLabel)}</span>`;
   }
 
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
@@ -353,25 +421,41 @@ export function renderTaskCard(options) {
   const isAmOrPm = entryTod === 'am' || entryTod === 'pm';
   const showTod = isAmOrPm && ((taskTod === 'both' && options.showTodIconBoth) || (taskTod !== 'both' && options.showTodIconSingle));
   const todLabel = showTod ? (entryTod === 'am' ? '🌅 AM' : '🌙 PM') : '';
-  const meta = [todLabel, eventTimeLabel, estLabel, ptsLabel].filter(Boolean).join(' · ');
-  const dateLine = dateLabel ? `<span class="task-card__date">${dateLabel}</span>` : '';
+
+  // Build meta row as mockup: category · meta-dot · (tod/event-time/est joined by · ) · rotationTag · actionTags · points.
+  const rightMeta = [todLabel, eventTimeLabel, estLabel].filter(Boolean).join(' · ');
+  const catSpan = catName ? `<span>${esc(catName)}</span>` : '';
+  const dotSpan = (catSpan && rightMeta) ? `<span class="card__meta-dot" aria-hidden="true"></span>` : '';
+  const rightSpan = rightMeta ? `<span>${esc(rightMeta)}</span>` : '';
+  const ptsSpan = ptsLabel || '';
+  const metaInner = `${catSpan}${dotSpan}${rightSpan}${rotationTag}${actionTags}${ptsSpan}`;
+
+  const dateLine = dateLabel ? `<span class="task-card__date">${esc(dateLabel)}</span>` : '';
   const eventPrefix = isEvent ? '📅 ' : '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
-  const tagsRow = actionTags ? `<div class="task-card__tags">${actionTags}</div>` : '';
 
-  return `<button class="task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button" aria-pressed="${completed}" data-owner-color="${esc(ownerColor)}"${eventColorAttr}>
-      <span class="task-card__avatar">${ownerInitial}</span>
-      <div class="task-card__body">
-        <span class="task-card__name">${taskName}</span>
-        ${tagsRow}
+  // Leading slot: event time label (events) or avatar initial (regular tasks).
+  const leading = isEvent
+    ? `<div class="card__leading">${esc(eventTimeLabel) || ''}</div>`
+    : `<div class="card__leading"><span class="avatar" data-person-color="${esc(ownerColor)}">${esc(ownerInitial)}</span></div>`;
+
+  // Trailing check button — decorative within the card click region (spec §3.6).
+  const checkSvg = completed
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+    : '';
+  const checkClass = completed ? 'check check--done' : 'check';
+  const checkLabel = completed ? 'Undo' : 'Mark complete';
+  const trailing = `<div class="card__trailing"><button class="${checkClass}" aria-label="${checkLabel}" type="button" tabindex="-1">${checkSvg}</button></div>`;
+
+  return `<article class="card task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${esc(entryKey)}" data-date-key="${esc(entry.dateKey || '')}" role="button" tabindex="0" aria-pressed="${completed}" data-owner-color="${esc(ownerColor)}"${eventColorAttr}>
+      ${leading}
+      <div class="card__body task-card__body">
+        <div class="card__title task-card__name">${taskName}</div>
+        <div class="card__meta task-card__meta">${metaInner}${dateLine}</div>
       </div>
-      <div class="task-card__right">
-        <span class="task-card__meta">${meta}</span>
-        ${dateLine}
-        <span class="task-card__check"></span>
-      </div>
-    </button>`;
+      ${trailing}
+    </article>`;
 }
 
 /**
@@ -394,6 +478,114 @@ export function renderOverdueBanner(count) {
     <span class="overdue-banner__text">${count} overdue ${s}</span>
     <span class="overdue-banner__arrow" id="overdueArrow" aria-hidden="true">▸</span>
   </button>`;
+}
+
+/**
+ * Single-slot banner. Variants: overdue | multiplier | vacation | freeze | info.
+ * Called by dashboard.js resolveBanner(); caller is responsible for mounting the
+ * returned HTML into #bannerMount and wiring any action button via click delegation.
+ */
+export function renderBanner(variant, { title, message, action } = {}) {
+  const iconMap = { overdue: '!', multiplier: '*', vacation: 'V', freeze: '-', info: 'i' };
+  const icon = iconMap[variant] ?? 'i';
+  const actionHtml = action
+    ? `<button class="banner__action" data-banner-action="1" type="button">${esc(action.label)}</button>`
+    : '';
+  const msgHtml = message ? `<div class="banner__message">${esc(message)}</div>` : '';
+  return `<div class="banner banner--${esc(variant)}" role="status">
+    <div class="banner__icon" aria-hidden="true">${icon}</div>
+    <div class="banner__body">
+      <div class="banner__title">${esc(title)}</div>
+      ${msgHtml}
+    </div>
+    ${actionHtml}
+  </div>`;
+}
+
+/**
+ * Floating Action Button. Default icon is a plus (24x24 SVG, strokeWidth via CSS).
+ * Caller provides id + aria-label; click is bound by the page (dashboard.js) via
+ * addEventListener on the returned element after it is mounted.
+ */
+export function renderFab({ id = 'fabAdd', label = 'Add', icon } = {}) {
+  const plus = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+  return `<button class="fab" id="${esc(id)}" aria-label="${esc(label)}" type="button">${icon ?? plus}</button>`;
+}
+
+/**
+ * Section head used by dashboard Events + Today sections. Exposed so Calendar,
+ * Scoreboard, Tracker can reuse in their own phases.
+ */
+export function renderSectionHead(title, meta, options = {}) {
+  const { divider = false, trailingHtml = '' } = options;
+  const metaHtml = meta ? `<div class="section__meta">${esc(meta)}</div>` : '';
+  const trailing = trailingHtml ? `<div class="section__head-trailing">${trailingHtml}</div>` : '';
+  const dividerCls = divider ? ' section__head--divider' : '';
+  return `<div class="section__head${dividerCls}">
+    <div class="section__title">${esc(title)}</div>
+    ${metaHtml}
+    ${trailing}
+  </div>`;
+}
+
+/**
+ * Items: Array<{ id, label, icon?: string (HTML/SVG), variant?: 'default'|'danger' }>.
+ * Rendered inside a bottom sheet (the page calls renderBottomSheet(renderOverflowMenu(items))).
+ * The page binds clicks via delegation: data-item-id attribute identifies the chosen row.
+ */
+export function renderOverflowMenu(items) {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  const rows = items.map(it => {
+    const iconHtml = it.icon ? `<span class="overflow-menu__icon" aria-hidden="true">${it.icon}</span>` : '';
+    const variantCls = it.variant === 'danger' ? ' overflow-menu__item--danger' : '';
+    return `<button class="overflow-menu__item${variantCls}" data-item-id="${esc(it.id)}" type="button">
+      ${iconHtml}
+      <span class="overflow-menu__label">${esc(it.label)}</span>
+    </button>`;
+  }).join('');
+  return `<div class="overflow-menu" role="menu">${rows}</div>`;
+}
+
+/**
+ * Filter chip.
+ * - When `activePersonName` is falsy: renders `Filter` (verb), no dot.
+ * - When `activePersonName` is a name: renders `<dot> Name`, dot colored
+ *   via data-person-color (applyDataColors propagates it to --person-color).
+ * The chip always opens the filter sheet on click.
+ */
+export function renderFilterChip({ id = 'openFilterSheet', activePersonName = '', activePersonColor = '' } = {}) {
+  const caret = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+  const isActive = !!activePersonName;
+  const dot = isActive
+    ? `<span class="filter-chip__dot" data-person-color="${esc(activePersonColor)}" aria-hidden="true"></span>`
+    : '';
+  const label = isActive ? activePersonName : 'Filter';
+  const activeCls = isActive ? ' filter-chip--active' : '';
+  return `<button class="filter-chip${activeCls}" id="${esc(id)}" type="button" aria-haspopup="dialog">
+    ${dot}
+    <span class="filter-chip__label">${esc(label)}</span>
+    <span class="filter-chip__caret" aria-hidden="true">${caret}</span>
+  </button>`;
+}
+
+/**
+ * List-group sheet body: All row + one per person, with the active row checked.
+ * Rendered inside renderBottomSheet by the page. Rows carry data-person-id
+ * (empty string = All). Page binds click delegation.
+ */
+export function renderPersonFilterSheet(people, activePersonId) {
+  const rows = [
+    { id: '', name: 'All', active: !activePersonId },
+    ...people.map(p => ({ id: p.id, name: p.name, active: p.id === activePersonId }))
+  ];
+  const check = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  const body = rows.map(r => `
+    <button class="list-row${r.active ? ' is-active' : ''}" data-person-id="${esc(r.id)}" type="button">
+      <span class="list-row__label">${esc(r.name)}</span>
+      <span class="list-row__trailing" aria-hidden="true">${r.active ? check : ''}</span>
+    </button>
+  `).join('');
+  return `<div class="list-group" role="menu">${body}</div>`;
 }
 
 /**
@@ -1498,6 +1690,12 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const msg of Object.values(msgs)) {
         if ((msg.type === 'redemption-request' || msg.type === 'use-request') && !msg.seen) count++;
       }
+    }
+    // v2 header uses a single dot (no count); legacy header keeps the numeric badge.
+    const dot = document.getElementById('headerBellDot');
+    if (dot) {
+      dot.classList.toggle('is-hidden', count === 0);
+      return;
     }
     const bell = document.getElementById('headerBell');
     if (!bell) return;

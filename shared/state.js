@@ -126,22 +126,75 @@ export function groupByFrequency(entries, tasks, cats) {
 }
 
 /**
- * Sort entries by: incomplete first, then by owner, then by timeOfDay (am < anytime < pm).
- * Returns array of [entryKey, entry] pairs.
+ * Sort entries for dashboard/kid display. Returns array of [entryKey, entry] pairs.
+ *
+ * Order (spec §5.5):
+ *   1. Incomplete before complete
+ *   2. Owner (by `people` array order when provided; else stable localeCompare on ownerId)
+ *   3. Late-today-first WITHIN OWNER, INCOMPLETE ONLY
+ *      (non-daily entry whose task.dedicatedDate OR entry.movedFromDate is < today)
+ *   4. Time of day (am=0, anytime=1, pm=2)
+ *   5. Task name (case-insensitive) — stable tiebreaker
+ *
+ * 2-arg callers keep prior behavior: owner falls back to localeCompare, late-today
+ * bump is a no-op (today=null), name tiebreak is still additive.
+ *
+ * @param entries     Object keyed by entryKey — { [entryKey]: entry }
+ * @param completions Completion map { [entryKey]: completion }
+ * @param tasks       Optional — object { [taskId]: task } OR array of task objects
+ * @param people      Optional — array of people (order defines owner rank)
+ * @param today       Optional — YYYY-MM-DD string enabling late-today bump
  */
-export function sortEntries(entries, completions) {
+export function sortEntries(entries, completions, tasks = null, people = null, today = null) {
   if (!entries) return [];
   const todPriority = { am: 0, anytime: 1, pm: 2 };
+
+  const tasksById = tasks
+    ? (Array.isArray(tasks) ? new Map(tasks.map(t => [t.id, t])) : new Map(Object.entries(tasks)))
+    : null;
+  const ownerRank = (people && people.length)
+    ? new Map(people.map((p, i) => [p.id, i]))
+    : null;
+
+  const isLateToday = (entry, done) => {
+    if (done || !today || !tasksById) return false;
+    const task = tasksById.get(entry.taskId);
+    if (!task || task.rotation === 'daily') return false;
+    if (task.dedicatedDate && task.dedicatedDate < today) return true;
+    if (entry.movedFromDate && entry.movedFromDate < today) return true;
+    return false;
+  };
+
   return Object.entries(entries).sort(([kA, a], [kB, b]) => {
+    // 1. incomplete before complete
     const doneA = isComplete(kA, completions) ? 1 : 0;
     const doneB = isComplete(kB, completions) ? 1 : 0;
     if (doneA !== doneB) return doneA - doneB;
-    // Sort by owner, then time-of-day
-    const ownerCmp = (a.ownerId || '').localeCompare(b.ownerId || '');
-    if (ownerCmp !== 0) return ownerCmp;
+
+    // 2. owner (people-order when available, else stable alpha)
+    if (ownerRank) {
+      const aOwn = ownerRank.has(a.ownerId) ? ownerRank.get(a.ownerId) : 999;
+      const bOwn = ownerRank.has(b.ownerId) ? ownerRank.get(b.ownerId) : 999;
+      if (aOwn !== bOwn) return aOwn - bOwn;
+    } else {
+      const ownerCmp = (a.ownerId || '').localeCompare(b.ownerId || '');
+      if (ownerCmp !== 0) return ownerCmp;
+    }
+
+    // 3. late-today first (incomplete only)
+    const lateA = isLateToday(a, doneA === 1);
+    const lateB = isLateToday(b, doneB === 1);
+    if (lateA !== lateB) return lateA ? -1 : 1;
+
+    // 4. time of day
     const todA = todPriority[a.timeOfDay] ?? 1;
     const todB = todPriority[b.timeOfDay] ?? 1;
-    return todA - todB;
+    if (todA !== todB) return todA - todB;
+
+    // 5. name tiebreaker
+    const nameA = tasksById ? (tasksById.get(a.taskId)?.name || '') : '';
+    const nameB = tasksById ? (tasksById.get(b.taskId)?.name || '') : '';
+    return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
   });
 }
 

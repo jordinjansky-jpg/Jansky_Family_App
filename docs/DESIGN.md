@@ -42,7 +42,7 @@ Every current and backlog feature has a named home. If a proposal doesn't fit he
 | Tasks (current) | Dashboard | Calendar day, Kid mode, Tracker | Home |
 | Events (current) | Calendar | Dashboard Events section, Kiosk | Calendar |
 | Scoring / Grades (current) | Scoreboard | Dashboard progress bar | Scores |
-| Rewards Store (current) | Scoreboard → Store sheet | Kid store, Admin Rewards | inside Scores |
+| Rewards Store (current) | Rewards page/sheet (own destination) | Scoreboard balance CTA, Bell deep-link, Kid home tile, Admin Rewards | More tab (phone), left rail (tablet) |
 | Messages / Bell (current) | Header bell dropdown | Admin activity log | header, all pages |
 | Achievements (current) | Kid trophy case | Scoreboard badge strip, Admin Badges | inside Scores & Kid |
 | Setup wizard (current) | `setup.html` | — | first-run only |
@@ -94,7 +94,7 @@ Never use values between these. If you need 12px padding, pick 8 or 16.
 --font-md: 1rem       (16px) — default body, card titles
 --font-lg: 1.125rem   (18px) — section titles, emphasis
 --font-xl: 1.375rem   (22px) — page titles, stat values
---font-2xl: 1.75rem   (28px) — hero, kid name
+--font-2xl: 1.5rem    (24px) — header title (rescaled 2026-04-24, was 1.75rem hero/kid-name)
 --font-3xl: 2.25rem   (36px) — splash, kiosk hero
 ```
 
@@ -643,6 +643,8 @@ Header: back chevron + `Admin` title + search. Section switcher: horizontal pill
 
 **Person detail:** hero (avatar + name + 3 stat tiles) + iOS-style grouped list: Profile, Points & rewards, Notifications, Availability, Danger zone.
 
+> **Token note:** hero text (person name, kid-mode greeting) should NOT default to `--font-2xl` — that token was rescaled to 24px for the dashboard header title on 2026-04-24. Future mockup ports should either define their own hero-text token or use `--font-3xl` (36px) scaled down contextually.
+
 **Tasks / Events / Categories / Rewards / Badges / Meals / Activities library:** same pattern — row list with one chevron per row. Tap for detail page. Inline "Add X" row at bottom of list.
 
 **Settings:**
@@ -708,7 +710,13 @@ Header: back chevron + `Admin` title + search. Section switcher: horizontal pill
 
 ### 6.7 Rewards Store
 
-**Opens from:** Scoreboard → Store button, Kid mode → Store tile.
+The Store is a **first-class destination**, not an annex of the Scoreboard. Adults and kids see the same component, same tabs, same cards — only the post-Redeem flow differs (immediate vs approval-gated).
+
+**Opens from (four routes, all into the same component):**
+- **More tab (phone) / left rail entry (tablet)** — *primary.* Direct navigation. Discoverable for both adults and kids regardless of scoreboard-checking habits. This is the one that makes the Store feel like a real destination rather than a scoreboard sub-feature.
+- **Scoreboard balance card → "Open Store" CTA** — *contextual.* You're already looking at points; tapping through is natural. Demoted from primary in favor of the More-tab entry.
+- **Bell notification → deep-link** — *intent-specific.* Approval requests open the Approvals view, redemption outcomes open the relevant reward, bank arrivals open Bank. Bell is the notification surface; it steers into Store, doesn't duplicate it.
+- **Kid mode → Store tile** — *kid home entry.* Unchanged.
 
 **Layout (Sheet on phone, page on tablet):**
 - Top: balance display (animated count-up).
@@ -718,8 +726,11 @@ Header: back chevron + `Admin` title + search. Section switcher: horizontal pill
 
 **Flow:**
 - Kid taps Redeem → parent approval via bell (custom rewards) OR immediate (functional rewards).
+- Adult taps Redeem → immediate (no self-approval).
 - Approved custom rewards go to Bank.
 - Using from Bank: adults immediate, kids request via `use-request` message → parent approves.
+
+**Audience parity rule:** The adult experience and kid experience must use the same card patterns, same tab order, same balance display. Audience-specific differences are **flow-level only** (approval gates), not **layout-level** (no separate adult-only Store page or kid-only tabs). This is what the Phase 6 rework (see plan `2026-04-19-ui-rework.md`) establishes — today's adult-in-Scoreboard experience is out of compliance with this rule.
 
 **Backlog integration:**
 - New reward types plug into existing `rewardType` enum. No new UI patterns.

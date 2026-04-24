@@ -9,6 +9,26 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v50 (2026-04-24) — Theme fix #2: applyTheme now strips stale inline
+//                    var overrides on switch, so a previous dark preset's
+//                    --text/--bg/etc. can't linger on root when switching
+//                    to a light preset that doesn't redeclare them.
+// v49 (2026-04-24) — Theme fix: data-theme now follows preset.mode, not
+//                    themeConfig.mode, so a light preset can never inherit
+//                    dark base.css token overrides (and vice versa).
+// v48 (2026-04-24) — Phase 1.5 dashboard polish: completed-card mute
+//                    (no strikethrough), check hover+press, section
+//                    head grid + divider + muted meta, larger header
+//                    title + narrow-phone subtitle, FAB depth + nav
+//                    active rail, Back-to-Today chevron + entrance,
+//                    filter chip dot/verb + section cue, bell pulse.
+// v47 (2026-04-23) — Phase 1 polish hotfix: light theme contrast
+//                    (data-theme guard), Back-to-Today centering,
+//                    card density + stripe geometry + shadow leak.
+// v46 (2026-04-23) — Phase 1 dashboard rework: mockup-aligned header,
+//                    card slot DOM, priority banner queue, FAB + 5-tab
+//                    nav with More sheet, person filter chip, owner
+//                    left-stripe, empty state.
 // v45 (2026-04-21) — Phase 0 foundation: token layer rewrite, hex purge in
 //                    components.css, inline-style sweep in stable modules,
 //                    reduced-motion guards on all animating CSS, retired-
@@ -16,7 +36,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v45';
+const CACHE_NAME = 'family-hub-v50';
 
 const APP_SHELL = [
   '/',

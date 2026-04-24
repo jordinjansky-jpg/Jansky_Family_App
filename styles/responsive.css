@@ -1,5 +1,11 @@
 /* v2 */
 /* responsive.css — Responsive breakpoints */
+/* ============ Narrow phones ============ */
+@media (max-width: 390px) {
+  .app-header__subtitle-long  { display: none; }
+  .app-header__subtitle-short { display: inline; }
+}
+
 /* ============ Responsive ============ */
 @media (min-width: 768px) {
   :root {

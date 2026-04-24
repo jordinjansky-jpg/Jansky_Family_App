@@ -88,7 +88,7 @@
   --font-md: 1rem;
   --font-lg: 1.125rem;
   --font-xl: 1.375rem;
-  --font-2xl: 1.75rem;
+  --font-2xl: 1.5rem; /* 24px — used by header title */
   --font-3xl: 2.25rem;
 
   /* Motion */
@@ -111,9 +111,36 @@
   --max-content: 600px;
 }
 
-/* ============ Dark mode defaults (theme-independent surfaces) ============ */
+/* ============ Dark mode tokens ============
+ * Explicit theme via [data-theme="dark"] (set by shared/theme.js) ALWAYS wins.
+ * The OS-preference block is a first-paint fallback only — it applies before
+ * the JS has set data-theme. Without the :not([data-theme]) guard, an OS
+ * "prefer dark" leaks --bg/--text dark values into a user-chosen light theme,
+ * leaving cards as white-on-white. */
+[data-theme="dark"] {
+  --bg: #141413;
+  --surface: #1d1d1b;
+  --surface-2: #262523;
+  --text: #ececeb;
+  --text-muted: #a6a6a3;
+  --text-faint: #6e6d6a;
+  --border: #2f2e2b;
+  --accent: #64b7a8;
+  --accent-ink: #c7ebe3;
+  --accent-soft: #1f3734;
+  --danger: #e28a5c;
+  --danger-soft: #3a2418;
+  --success: #7fc49a;
+  --success-soft: #1f3527;
+  --warning: #d4aa60;
+  --warning-soft: #3a2e18;
+  --info: #86b8e0;
+  --info-soft: #1a2a3a;
+  --on-accent: #ffffff;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: #141413;
     --surface: #1d1d1b;
     --surface-2: #262523;

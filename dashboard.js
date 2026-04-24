@@ -1,5 +1,5 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors } from './shared/components.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -76,27 +76,115 @@ let activePerson = linkedPerson
 let completions = {};
 let viewEntries = {};     // entries for viewDate
 let overdueItems = [];
+let multipliers = {};
 let suppressedCooldownTaskIds = new Set();
-let overdueExpanded = false;
 let celebrationShown = false;
+let lastRenderedIsToday = true; // tracks viewDate==today across renders so Back-to-Today pill only animates on the transition away from today, not on passive re-renders
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
 
 // ── Header & Nav ──
-const debugActive = localStorage.getItem('dr-debug') === 'true';
-document.getElementById('headerMount').innerHTML = renderHeader({
-  appName: settings?.appName || 'Daily Rundown',
-  subtitle: linkedPerson ? linkedPerson.name : (settings?.familyName || ''),
-  dateLine: formatDateLong(todayKey(settings?.timezone || 'America/Chicago')),
-  showAdmin: true,
-  showDebug: debugActive,
-  showAddTask: true,
-  showThemePicker: true,
-  showBell: true,
-  rightContent: '<span class="header__stats" id="headerStats"></span>'
-});
-document.getElementById('navMount').innerHTML = renderNavBar('home');
+function buildHeaderOverflow() {
+  const items = [];
+  if (!linkedPerson) {
+    items.push({ id: 'rewards', label: 'Rewards' });
+    items.push({ id: 'admin', label: 'Admin' });
+  }
+  items.push({ id: 'theme', label: 'Theme' });
+  if (localStorage.getItem('dr-debug') === 'true') {
+    items.push({ id: 'debug', label: 'Debug (turn off)' });
+  }
+  return items;
+}
+
+function openOverflowOrMoreSheet() {
+  const items = buildHeaderOverflow();
+  if (items.length === 0) return;
+  taskSheetMount.innerHTML = renderBottomSheet(
+    `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(items)}`
+  );
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+  });
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+  taskSheetMount.querySelector('.overflow-menu')?.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-item-id]');
+    if (!btn) return;
+    const itemId = btn.dataset.itemId;
+    closeTaskSheet();
+    setTimeout(() => {
+      if (itemId === 'rewards') {
+        // Rewards store currently lives on scoreboard; dedicated sheet lands in Phase 6.
+        location.href = 'scoreboard.html';
+      } else if (itemId === 'admin') {
+        location.href = 'admin.html';
+      } else if (itemId === 'theme') {
+        openDeviceThemeSheet(
+          document.getElementById('taskSheetMount'),
+          settings?.theme,
+          linkedPerson ? () => render() : undefined,
+          linkedPerson ? { person: linkedPerson, writePerson } : undefined
+        );
+      } else if (itemId === 'debug') {
+        localStorage.setItem('dr-debug', 'false');
+        render();
+      }
+    }, 320);
+  });
+}
+
+function wireHeaderActions() {
+  document.getElementById('headerOverflow')?.addEventListener('click', openOverflowOrMoreSheet);
+}
+
+function openMoreSheet() { openOverflowOrMoreSheet(); }
+function openAddMenuFromFab() { openAddMenu?.(); }
+
+function renderHeaderMount() {
+  const title = linkedPerson ? linkedPerson.name : 'Home';
+  const subtitle = formatDateLong(viewDate);
+  document.getElementById('headerMount').innerHTML = renderHeader({
+    title,
+    subtitle,
+    showBell: !linkedPerson,
+    overflowItems: buildHeaderOverflow()
+  });
+  applyDataColors(document.getElementById('headerMount'));
+  wireHeaderActions();
+  updateHeaderSubtitle();
+}
+renderHeaderMount();
+
+function updateHeaderSubtitle() {
+  const el = document.querySelector('.app-header__subtitle');
+  if (!el) return;
+  const longText = formatDateLong(viewDate);
+  const shortText = formatDateShort(viewDate);
+  el.innerHTML = `<span class="app-header__subtitle-long">${esc(longText)}</span><span class="app-header__subtitle-short">${esc(shortText)}</span>`;
+}
+
+function getTodayFilterChipHtml() {
+  const showChip = (!linkedPerson) && people.length >= 2;
+  if (!showChip) return '';
+  const activePersonObj = activePerson ? people.find(p => p.id === activePerson) : null;
+  return renderFilterChip({
+    id: 'openFilterSheet',
+    activePersonName: activePersonObj?.name || '',
+    activePersonColor: activePersonObj?.color || '',
+  });
+}
+
+// 5-tab bottom nav with More → openMoreSheet
+document.getElementById('navMount').innerHTML = renderNavBar('home', { onMoreClick: true });
+document.getElementById('navMore')?.addEventListener('click', () => openMoreSheet());
+
+// FAB (primary add action)
+document.getElementById('fabMount').innerHTML = renderFab({ id: 'fabAdd', label: 'Add' });
+document.getElementById('fabAdd')?.addEventListener('click', () => openAddMenuFromFab());
 
 // ── Connection status + Offline/Online banner ──
 initOfflineBanner(onConnectionChange);
@@ -107,10 +195,8 @@ initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: write
 // ── Hide loading, show content ──
 const loadingStateEl = document.getElementById('loadingState');
 loadingStateEl.classList.add('is-hidden');
-loadingStateEl.style.display = 'none';
 const main = document.getElementById('mainContent');
 main.classList.remove('is-hidden');
-main.style.display = '';
 
 // ── Celebration mount ──
 document.getElementById('celebrationMount').innerHTML = renderCelebration();
@@ -165,181 +251,95 @@ function render() {
   const timeM = totalMinutes % 60;
   const timeLabel = timeH > 0 ? `${timeH}h${timeM > 0 ? ' ' + String(timeM).padStart(2, '0') + 'm' : ''}` : `${timeM}m`;
 
-  // Date header
-  const dateObj = new Date(viewDate + 'T12:00:00Z');
-  const dayName = DAY_NAMES[dateObj.getUTCDay()];
-  const longDate = formatDateLong(viewDate);
-  const dayLabel = isToday ? 'Today' : dayName;
-
   let html = '';
 
-  // Date with nav arrows + stats
-  const statsItems = [];
-  if (score.possible > 0) statsItems.push(`${renderGradeBadge(gd.grade, gd.tier)} ${score.percentage}%`);
-  statsItems.push(`${prog.done}/${prog.total} tasks`);
-  if (totalMinutes > 0) statsItems.push(timeLabel);
-  const statsHtml = `<div class="date-header__stats mt-sm">${statsItems.join('<span class="date-header__sep">·</span>')}</div>`;
+  // Banner mount (filled in Task 7 — overdue/multiplier queue)
+  html += `<div id="bannerMount"></div>`;
 
-  html += `<div class="date-header">
-    <div class="date-nav">
-      <button class="date-nav__btn" id="prevDay" type="button" title="Previous day">&lsaquo;</button>
-      <div class="date-nav__center">
-        <span class="date-header__day">${dayLabel}</span>
-        <span class="date-header__full">${longDate}</span>
-      </div>
-      <button class="date-nav__btn" id="nextDay" type="button" title="Next day">&rsaquo;</button>
-    </div>
-    ${statsHtml}
-    ${!isToday ? `<button class="btn btn--ghost btn--sm mt-sm" id="goToday" type="button">Back to Today</button>` : ''}
-  </div>`;
+  // Back-to-Today pill (non-today only). Animate only on the transition away
+  // from today — not on every Firebase-driven re-render of the same past day.
+  if (!isToday) {
+    const isEntering = lastRenderedIsToday;
+    const wrapperCls = isEntering ? 'back-to-today is-entering' : 'back-to-today';
+    const chevronSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
+    html += `<div class="${wrapperCls}">
+      <button class="btn btn--secondary btn--sm back-to-today__btn" id="goToday" type="button">
+        <span class="back-to-today__chevron" aria-hidden="true">${chevronSvg}</span>
+        <span>Back to Today</span>
+      </button>
+    </div>`;
+  }
+  lastRenderedIsToday = isToday;
 
-  // Person filter
-  html += renderPersonFilter(people, activePerson);
+  let firstSectionRendered = false;
 
-  // Progress
-  html += renderProgressBar(prog.done, prog.total);
+  // Events section
+  if (sortedEvents.length > 0) {
+    html += `<section class="section">`;
+    html += renderSectionHead('Events', null, { divider: firstSectionRendered });
+    firstSectionRendered = true;
+    for (const [eventId, event] of sortedEvents) {
+      html += renderEventBubble(eventId, event, people);
+    }
+    html += `</section>`;
+  }
 
-  // Overdue banner
-  if (overdueFiltered.length > 0) {
-    html += renderOverdueBanner(overdueFiltered.length);
-    const sortedOverdue = [...overdueFiltered].sort((a, b) => {
-      const ownerCmp = (a.ownerId || '').localeCompare(b.ownerId || '');
-      if (ownerCmp !== 0) return ownerCmp;
-      return a.dateKey.localeCompare(b.dateKey);
+  // Today section — flat list, incomplete first then completed
+  const totalCount = prog.total;
+  const doneCount = prog.done;
+  const todaySectionCls = activePerson ? 'section section--filtered' : 'section';
+  if (totalCount === 0 && sortedEvents.length === 0) {
+    html += `<section class="${todaySectionCls}">`;
+    html += renderSectionHead('Today', null, {
+      divider: firstSectionRendered,
+      trailingHtml: getTodayFilterChipHtml(),
     });
-    html += `<div class="overdue-list${overdueExpanded ? '' : ' is-hidden'}" id="overdueList">`;
-    for (const item of sortedOverdue) {
-      const task = tasks[item.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-      const person = people.find(p => p.id === item.ownerId);
+    firstSectionRendered = true;
+    if (activePerson) {
+      html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
+    } else {
+      html += `<div class="empty empty--calm">
+        <div class="empty__title">${isToday ? 'Nothing on the list' : 'No tasks scheduled'}</div>
+        <div class="empty__message">${isToday ? 'Enjoy your day.' : ''}</div>
+      </div>`;
+    }
+    html += `</section>`;
+  } else if (totalCount > 0) {
+    const sectionMeta = (doneCount === totalCount) ? 'All done' : `${doneCount} of ${totalCount} done`;
+    html += `<section class="${todaySectionCls}">`;
+    html += renderSectionHead('Today', sectionMeta, {
+      divider: firstSectionRendered,
+      trailingHtml: getTodayFilterChipHtml(),
+    });
+    firstSectionRendered = true;
+
+    // Sort all entries together with the new sort rule (incomplete before complete,
+    // owner -> late-today-first -> TOD -> name).
+    const sortedAll = sortEntries(filtered, completions, tasks, people, today);
+    for (const [entryKey, entry] of sortedAll) {
+      const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+      const person = people.find(p => p.id === entry.ownerId);
       const cat = task.category ? cats[task.category] : null;
-      const pts = basePoints(task, settings?.difficultyMultipliers);
-      const ovr = completions[item.entryKey]?.pointsOverride ?? item.pointsOverride ?? null;
+      const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
+      const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
+      const done = isComplete(entryKey, completions);
       html += renderTaskCard({
-        entryKey: item.entryKey,
-        entry: { ...item, dateKey: item.dateKey },
+        entryKey,
+        entry: { ...entry, dateKey: viewDate },
         task,
         person,
         category: cat,
-        completed: isComplete(item.entryKey, completions),
-        overdue: true,
-        dateLabel: formatDateShort(item.dateKey),
+        completed: done,
+        overdue: false,
         points: { possible: pts, override: ovr },
         isEvent: !!cat?.isEvent,
         showPoints: settings?.showPoints !== false,
         showTodIconBoth: !!settings?.showTodIconBoth,
-        showTodIconSingle: !!settings?.showTodIconSingle
+        showTodIconSingle: !!settings?.showTodIconSingle,
+        isPastDaily: !done && viewDate < today && entry.rotationType === 'daily'
       });
     }
-    html += `</div>`;
-  }
-
-  // Events from events collection
-  if (sortedEvents.length > 0) {
-    html += renderTimeHeader('Events');
-    for (const [eventId, event] of sortedEvents) {
-      html += renderEventBubble(eventId, event, people);
-    }
-  }
-
-  // Day's tasks
-  if (prog.total === 0 && sortedEvents.length === 0) {
-    if (activePerson) {
-      html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
-    } else {
-      const variant = isToday ? 'free-day' : 'future-empty';
-      html += renderEmptyState('', '', '', { variant });
-    }
-  } else {
-    // Split into incomplete and completed
-    const incomplete = {};
-    const completed_ = {};
-    for (const [key, entry] of Object.entries(filtered)) {
-      if (isComplete(key, completions)) completed_[key] = entry;
-      else incomplete[key] = entry;
-    }
-
-    // Render incomplete tasks grouped by frequency (events first)
-    const groups = groupByFrequency(incomplete, tasks, cats);
-    const sections = [
-      { key: 'events', label: 'Events' },
-      { key: 'daily', label: 'Daily' },
-      { key: 'weekly', label: 'Weekly' },
-      { key: 'monthly', label: 'Monthly' },
-      { key: 'once', label: 'One-Time' }
-    ];
-
-    const nonEmpty = sections.filter(s => Object.keys(groups[s.key]).length > 0);
-    const showHeaders = nonEmpty.length > 1;
-
-    for (const sec of sections) {
-      const entries = groups[sec.key];
-      const sorted = sortEntries(entries, completions);
-      if (sorted.length === 0) continue;
-
-      if (showHeaders) html += renderTimeHeader(sec.label);
-
-      for (const [entryKey, entry] of sorted) {
-        const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-        const person = people.find(p => p.id === entry.ownerId);
-        const cat = task.category ? cats[task.category] : null;
-        const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
-        const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
-        html += renderTaskCard({
-          entryKey,
-          entry: { ...entry, dateKey: viewDate },
-          task,
-          person,
-          category: cat,
-          completed: false,
-          overdue: false,
-          points: { possible: pts, override: ovr },
-          isEvent: !!cat?.isEvent,
-          showPoints: settings?.showPoints !== false,
-          showTodIconBoth: !!settings?.showTodIconBoth,
-          showTodIconSingle: !!settings?.showTodIconSingle,
-          isPastDaily: viewDate < today && entry.rotationType === 'daily'
-        });
-      }
-    }
-
-    // Render completed tasks at the very bottom, grouped by frequency
-    const completedEntries = Object.entries(completed_);
-    if (completedEntries.length > 0) {
-      html += renderTimeHeader(`Completed (${completedEntries.length})`);
-      const compGroups = groupByFrequency(completed_, tasks, cats);
-      const compNonEmpty = sections.filter(s => Object.keys(compGroups[s.key]).length > 0);
-      const showCompHeaders = compNonEmpty.length > 1;
-
-      for (const sec of sections) {
-        const entries = compGroups[sec.key];
-        const sorted = sortEntries(entries, completions);
-        if (sorted.length === 0) continue;
-
-        if (showCompHeaders) html += renderTimeHeader(sec.label);
-
-        for (const [entryKey, entry] of sorted) {
-          const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-          const person = people.find(p => p.id === entry.ownerId);
-          const cat = task.category ? cats[task.category] : null;
-          const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
-          const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
-          html += renderTaskCard({
-            entryKey,
-            entry: { ...entry, dateKey: viewDate },
-            task,
-            person,
-            category: cat,
-            completed: true,
-            overdue: false,
-            points: { possible: pts, override: ovr },
-            isEvent: !!cat?.isEvent,
-            showPoints: settings?.showPoints !== false,
-            showTodIconBoth: !!settings?.showTodIconBoth,
-            showTodIconSingle: !!settings?.showTodIconSingle
-          });
-        }
-      }
-    }
+    html += `</section>`;
   }
 
   // Debug overlay
@@ -351,14 +351,117 @@ function render() {
   applyDataColors(main);
   bindEvents();
 
-  // Update header stats
-  const headerStats = document.getElementById('headerStats');
-  if (headerStats) {
-    const hParts = [];
-    if (score.possible > 0) hParts.push(`${renderGradeBadge(gd.grade, gd.tier)} ${score.percentage}%`);
-    if (totalMinutes > 0) hParts.push(timeLabel);
-    headerStats.innerHTML = hParts.join(' <span class="date-header__sep">·</span> ');
+  // Mount banner queue (priority: overdue > multiplier).
+  mountBannerQueue({ overdueItems: overdueFiltered });
+}
+
+// Banner queue — priority: vacation > freeze > overdue > multiplier > info.
+// Phase 1 surfaces overdue + multiplier. Vacation/freeze land in Phase 2.4.
+function resolveBanner(overdueIncomplete) {
+  if (overdueIncomplete.length > 0) {
+    const n = overdueIncomplete.length;
+    return {
+      variant: 'overdue',
+      title: `${n} overdue ${n === 1 ? 'task' : 'tasks'}`,
+      message: 'Tap to review.',
+      action: { label: 'Review', onClick: () => openOverdueSheet(overdueIncomplete) }
+    };
   }
+  const todayMultipliers = multipliers?.[today] || {};
+  const scope = activePerson || 'all';
+  const m = todayMultipliers[scope] || todayMultipliers.all;
+  if (m && Number(m.multiplier) !== 1) {
+    const n = Number(m.multiplier);
+    const label = n === 2 ? 'Double-points day' : `${n}× points today`;
+    const msg = m.note || `All tasks count ${n}× until midnight.`;
+    return { variant: 'multiplier', title: label, message: msg };
+  }
+  return null;
+}
+
+function mountBannerQueue({ overdueItems: overdueIncomplete }) {
+  const mount = document.getElementById('bannerMount');
+  if (!mount) return;
+  const b = resolveBanner(overdueIncomplete);
+  if (!b) { mount.innerHTML = ''; return; }
+  mount.innerHTML = renderBanner(b.variant, {
+    title: b.title,
+    message: b.message,
+    action: b.action ? { label: b.action.label } : undefined
+  });
+  if (b.action) {
+    mount.querySelector('[data-banner-action]')?.addEventListener('click', b.action.onClick);
+  }
+}
+
+function openOverdueSheet(items) {
+  const cards = items.map(e => {
+    const task = tasks[e.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+    const person = people.find(p => p.id === e.ownerId);
+    const cat = task.category ? cats[task.category] : null;
+    const pts = basePoints(task, settings?.difficultyMultipliers);
+    return renderTaskCard({
+      entryKey: e.entryKey,
+      entry: { ...e, dateKey: e.dateKey },
+      task,
+      person,
+      category: cat,
+      completed: false,
+      overdue: true,
+      points: { possible: pts, override: e.pointsOverride ?? null },
+      isEvent: !!cat?.isEvent,
+      showPoints: settings?.showPoints !== false,
+      showTodIconBoth: !!settings?.showTodIconBoth,
+      showTodIconSingle: !!settings?.showTodIconSingle,
+      isPastDaily: false
+    });
+  }).join('');
+  const body = `<h3 class="sheet-section-title">Overdue tasks</h3>${cards || '<div class="empty empty--calm"><div class="empty__message">Nothing overdue.</div></div>'}`;
+  taskSheetMount.innerHTML = renderBottomSheet(body);
+  applyDataColors(taskSheetMount);
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+  });
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+  taskSheetMount.querySelectorAll('.task-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ek = btn.dataset.entryKey;
+      const dk = btn.dataset.dateKey;
+      closeTaskSheet();
+      setTimeout(() => openTaskSheet(ek, dk), 320);
+    });
+  });
+}
+
+function openPersonFilterSheet() {
+  const body = `<h3 class="sheet-section-title">Show tasks for</h3>${renderPersonFilterSheet(people, activePerson)}`;
+  taskSheetMount.innerHTML = renderBottomSheet(body);
+  applyDataColors(taskSheetMount);
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+  });
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTaskSheet();
+  });
+  taskSheetMount.querySelector('.list-group')?.addEventListener('click', async (ev) => {
+    const row = ev.target.closest('[data-person-id]');
+    if (!row) return;
+    const personId = row.dataset.personId || null;
+    activePerson = personId;
+    if (linkedPerson) {
+      const prefs = { ...(linkedPerson.prefs || {}), dashboard: { personFilter: activePerson } };
+      linkedPerson.prefs = prefs;
+      linkedPerson.savedFilter = activePerson || null;
+      const { id, ...data } = linkedPerson;
+      await writePerson(id, data);
+    }
+    celebrationShown = false;
+    closeTaskSheet();
+  });
 }
 
 function renderDebugPanel(filtered, score) {
@@ -392,30 +495,13 @@ function renderDebugPanel(filtered, score) {
 // ══════════════════════════════════════════
 
 function bindEvents() {
-  // Day navigation
-  document.getElementById('prevDay')?.addEventListener('click', () => changeDay(-1));
-  document.getElementById('nextDay')?.addEventListener('click', () => changeDay(1));
+  // "Back to Today" pill
   document.getElementById('goToday')?.addEventListener('click', () => {
     viewDate = today;
     celebrationShown = false;
+    updateHeaderSubtitle();
     subscribeSchedule(viewDate);
     loadData();
-  });
-
-  // Person filter
-  main.querySelectorAll('.person-pill').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      activePerson = btn.dataset.personId || null;
-      if (linkedPerson) {
-        const prefs = { ...(linkedPerson.prefs || {}), dashboard: { personFilter: activePerson } };
-        linkedPerson.prefs = prefs;
-        linkedPerson.savedFilter = activePerson || null; // backward compat
-        const { id, ...data } = linkedPerson;
-        await writePerson(id, data);
-      }
-      celebrationShown = false;
-      render();
-    });
   });
 
   // Task card: tap to toggle, long-press to open detail sheet
@@ -473,18 +559,6 @@ function bindEvents() {
     btn.addEventListener('click', () => openEventDetailSheet(btn.dataset.eventId));
   });
 
-  // Overdue toggle
-  const overdueBtn = document.getElementById('overdueToggle');
-  if (overdueBtn) {
-    overdueBtn.addEventListener('click', () => {
-      overdueExpanded = !overdueExpanded;
-      const list = document.getElementById('overdueList');
-      const arrow = document.getElementById('overdueArrow');
-      if (list) list.classList.toggle('is-hidden', !overdueExpanded);
-      if (arrow) arrow.classList.toggle('expanded', overdueExpanded);
-    });
-  }
-
   // Debug copy button
   document.getElementById('copyDebug')?.addEventListener('click', async () => {
     const pre = main.querySelector('.debug-panel__pre');
@@ -498,7 +572,7 @@ function bindEvents() {
 async function changeDay(delta) {
   viewDate = addDays(viewDate, delta);
   celebrationShown = false;
-  overdueExpanded = false;
+  updateHeaderSubtitle();
   subscribeSchedule(viewDate);
   await loadData();
 }
@@ -1614,7 +1688,6 @@ function openAddMenu() {
 }
 
 // Bind the header buttons
-document.getElementById('headerAddTask')?.addEventListener('click', openAddMenu);
 document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
   openDeviceThemeSheet(
     document.getElementById('taskSheetMount'),
@@ -1641,6 +1714,17 @@ onCompletions(async (val) => {
 onEvents((val) => {
   events = val || {};
   debouncedRender();
+});
+
+// Multipliers listener — drives the multiplier banner.
+onMultipliers((val) => {
+  multipliers = val || {};
+  debouncedRender();
+});
+
+// Person filter chip tap (re-rendered every render; use delegation on body).
+document.body.addEventListener('click', (ev) => {
+  if (ev.target.closest('#openFilterSheet')) openPersonFilterSheet();
 });
 
 // Schedule listener — resubscribed when viewDate changes

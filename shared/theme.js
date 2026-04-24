@@ -112,6 +112,16 @@ const PRESETS = {
   }
 };
 
+// Union of all CSS variable names any preset can set. Used by applyTheme
+// to strip stale inline overrides on theme switch — without this, switching
+// dark → light leaves dark-only vars (--text, --bg, --text-faint, etc.) on
+// the root element, and since inline styles beat base.css :root defaults,
+// the new light preset gets dark text on light surfaces.
+const PRESET_VAR_KEYS = new Set();
+for (const _preset of Object.values(PRESETS)) {
+  for (const _key of Object.keys(_preset.vars)) PRESET_VAR_KEYS.add(_key);
+}
+
 /**
  * Get all available theme presets.
  */
@@ -174,6 +184,14 @@ export function defaultThemeConfig() {
 export function applyTheme(themeConfig) {
   const vars = getThemeVars(themeConfig);
   const root = document.documentElement;
+  const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
+
+  // Strip stale inline overrides from any previously-applied preset so the
+  // new preset can fall through to base.css :root / [data-theme="dark"]
+  // defaults for any vars it doesn't explicitly set.
+  for (const prop of PRESET_VAR_KEYS) {
+    if (!(prop in vars)) root.style.removeProperty(prop);
+  }
 
   for (const [prop, value] of Object.entries(vars)) {
     root.style.setProperty(prop, value);
@@ -182,7 +200,6 @@ export function applyTheme(themeConfig) {
   // Set accent if not in vars
   if (!vars['--accent']) {
     const fallbackAccent = '#5b7fd6';
-    const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
     const isDark = (preset.mode || themeConfig.mode) === 'dark';
     root.style.setProperty('--accent', fallbackAccent);
     root.style.setProperty('--accent-hover', fallbackAccent + 'dd');
@@ -197,12 +214,15 @@ export function applyTheme(themeConfig) {
     }
   }
 
-  // Set data attribute for CSS selectors
-  root.setAttribute('data-theme', themeConfig.mode || 'light');
+  // Set data attribute for CSS selectors. Use the preset's mode (not
+  // themeConfig.mode) — otherwise a stale themeConfig.mode='dark' paired
+  // with a light preset like light-warm makes [data-theme="dark"] rules
+  // in base.css override --text/--bg while the preset keeps --surface
+  // white, producing near-white text on white cards.
+  root.setAttribute('data-theme', preset.mode || themeConfig.mode || 'light');
 
   // Set colored cells attribute based on preset
-  const preset = PRESETS[themeConfig.preset];
-  if (preset?.coloredCells) {
+  if (preset.coloredCells) {
     root.setAttribute('data-colored-cells', 'true');
   } else {
     root.removeAttribute('data-colored-cells');

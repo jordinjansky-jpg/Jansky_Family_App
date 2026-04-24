@@ -4,3 +4,4 @@ Thumbs.db
 .playwright-mcp/
 node_modules/
 .env
+.tmp/

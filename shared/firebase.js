@@ -571,6 +571,10 @@ export async function writeMultiplier(dateKey, personId, data) {
   await writeData(`multipliers/${dateKey}/${personId}`, data);
 }
 
+export function onMultipliers(callback) {
+  return onValue('multipliers', callback);
+}
+
 // ── Person Rewards Data Cleanup ──
 
 export async function deletePersonRewardsData(personId) {
