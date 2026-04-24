@@ -9,6 +9,12 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v48 (2026-04-24) — Phase 1.5 dashboard polish: completed-card mute
+//                    (no strikethrough), check hover+press, section
+//                    head grid + divider + muted meta, larger header
+//                    title + narrow-phone subtitle, FAB depth + nav
+//                    active rail, Back-to-Today chevron + entrance,
+//                    filter chip dot/verb + section cue, bell pulse.
 // v47 (2026-04-23) — Phase 1 polish hotfix: light theme contrast
 //                    (data-theme guard), Back-to-Today centering,
 //                    card density + stripe geometry + shadow leak.
@@ -23,7 +29,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v47';
+const CACHE_NAME = 'family-hub-v48';
 
 const APP_SHELL = [
   '/',

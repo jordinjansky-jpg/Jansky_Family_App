@@ -309,6 +309,12 @@ Mark a person as "away" for a date range. Schema: `rundown/people/{id}/away: [{ 
 
 ### Tier 3 — Polish & Engagement
 
+**3.0 — Dashboard loading skeleton** · Low (~0.5 session) · No dependencies · Cost: $0
+
+Replace the current inline "Loading..." spinner on the dashboard with a card-shaped skeleton that matches the real card layout (owner-stripe placeholder + title bar + meta bar + check placeholder). Respects reduced-motion (skeleton stays static, no shimmer). Rationale: at first paint the user sees a convincing skeleton for ~200ms before Firebase responds, which feels more polished than a centered spinner against the empty page. Noted for future upgrade during Phase 1.5 polish review (2026-04-24).
+
+---
+
 **3.1 — Task Timer / Stopwatch** · Medium (~1-2 sessions) · Depends on 1.6 (shared timer component) · Cost: $0
 
 Visible countdown in kid mode and dashboard using `estMin`. Uses shared timer component from Activities (`shared/timer.js`). Start button on task card launches timer overlay. Optional auto-complete on finish. Sounds/vibration. Timer-based bounties: countdown to expiration (unclaimed = gone) and countdown to completion (read for X min).
