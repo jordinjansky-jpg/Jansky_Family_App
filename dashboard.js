@@ -1051,7 +1051,11 @@ function openEventDetailSheet(eventId) {
 }
 
 function openEventForm(existingEventId = null) {
-  const event = existingEventId ? events[existingEventId] : {};
+  // FAB pre-fill (spec §3.8.1): when filtered, default the new event's people
+  // to the active person so creating an event for that person is one tap fewer.
+  const event = existingEventId
+    ? events[existingEventId]
+    : (activePerson ? { people: [activePerson] } : {});
   const mode = existingEventId ? 'edit' : 'create';
   const html = renderEventForm({ event, eventId: existingEventId, people, dateKey: viewDate, mode });
   taskSheetMount.innerHTML = renderBottomSheet(html);
@@ -1642,7 +1646,8 @@ function openEditTaskSheet(taskId) {
 function openQuickAddSheet() {
   const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
   const defaultCatKey = catsArr.find(c => c.isDefault)?.key || '';
-  const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey, rewardsData);
+  // FAB pre-fill (spec §3.8.1): pass activePerson as default owner when filtered.
+  const sheetContent = renderQuickAddSheet(people, catsArr, defaultCatKey, rewardsData, activePerson || null);
   taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
   applyDataColors(taskSheetMount);
   initOwnerChips('qa_owners');
