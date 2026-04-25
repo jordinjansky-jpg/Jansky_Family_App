@@ -2644,3 +2644,12 @@
   font-size: var(--font-xs);
   color: var(--text-muted);
 }
+
+.admin-form__row {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+}
+
+.form-hint--success { color: var(--success); }
+.form-hint--error   { color: var(--danger); }

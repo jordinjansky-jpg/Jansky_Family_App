@@ -913,20 +913,8 @@
   }
 }
 
-/* Admin form row layout */
-.admin-form__row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
 /* Monospace input variant */
 .form-input--mono {
   font-family: monospace;
-  font-size: 13px;
+  font-size: var(--font-sm);
 }
-
-/* Form hint colors */
-.form-hint--success { color: var(--success); }
-.form-hint--error   { color: var(--danger); }
-
