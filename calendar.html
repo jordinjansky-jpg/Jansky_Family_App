@@ -837,13 +837,15 @@
             return;
           }
           const inlineUrl = document.getElementById('mp_inlineUrl').value.trim() || null;
+          const inlinePrepTime = document.getElementById('mp_inlinePrepTime')?.value.trim() || null;
+          const inlineNotes = document.getElementById('mp_inlineNotes')?.value.trim() || null;
           const newId = await pushMealLibrary({
-            name: inlineName, url: inlineUrl, ingredients: [], tags: [],
-            isFavorite: false, notes: null, prepTime: null,
+            name: inlineName, url: inlineUrl, prepTime: inlinePrepTime, notes: inlineNotes,
+            ingredients: [], tags: [], isFavorite: false,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             lastUsed: firebase.database.ServerValue.TIMESTAMP,
           });
-          mealLibrary[newId] = { name: inlineName, url: inlineUrl, ingredients: [], tags: [], isFavorite: false };
+          mealLibrary[newId] = { name: inlineName, url: inlineUrl, prepTime: inlinePrepTime, notes: inlineNotes, ingredients: [], tags: [], isFavorite: false };
           await writeMeal(planDate, selectedSlot, { mealId: newId, source: 'manual' });
         } else {
           if (!selectedMealId) return;

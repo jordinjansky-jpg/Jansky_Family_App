@@ -2225,7 +2225,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     </div>`
   ).join('');
 
-  const starSvg = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+  const starSvg = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
 
   return `<form class="task-detail-sheet" id="meForm" novalidate>
     <div class="me-editor-header">
@@ -2333,11 +2333,13 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
     : '';
 
   return `<form class="task-detail-sheet" id="mpForm" novalidate>
-    <div class="mp-header">
-      <h3 class="me-editor-title">Plan a meal</h3>
-      <input class="mp-date-input" id="mp_date" type="date" value="${esc(date || '')}"
+    <h3 class="me-editor-title mp-sheet-title">Plan a meal</h3>
+
+    <label class="field">
+      <span class="field__label">Date</span>
+      <input class="field__input" id="mp_date" type="date" value="${esc(date || '')}"
              aria-label="Date">
-    </div>
+    </label>
 
     <div class="mp-slot-section">
       <span class="field__label">Slot</span>
@@ -2371,8 +2373,16 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
         <span class="field__error" id="mp_inlineNameError" role="alert"></span>
       </label>
       <label class="field">
+        <span class="field__label">Prep time</span>
+        <input class="field__input" id="mp_inlinePrepTime" type="text" placeholder="e.g. 30 min">
+      </label>
+      <label class="field">
         <span class="field__label">Recipe link</span>
         <input class="field__input" id="mp_inlineUrl" type="url" placeholder="https://…">
+      </label>
+      <label class="field">
+        <span class="field__label">Notes</span>
+        <textarea class="field__input" id="mp_inlineNotes" placeholder="Any notes…" rows="2"></textarea>
       </label>
     </div>
 
@@ -2431,11 +2441,16 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
     ? `<a class="btn btn--primary btn--full" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer">Open recipe</a>`
     : '';
 
+  const hasDetails = meal.url || (meal.ingredients || []).filter(Boolean).length > 0 || meal.notes;
+  const emptyPrompt = !hasDetails && !isSchool && !readonly
+    ? `<p class="me-detail__empty-prompt">No recipe details yet — tap <strong>Edit meal</strong> to add ingredients, a link, or notes.</p>`
+    : '';
+
   let actionsHtml = '';
   if (!isSchool && !readonly) {
     actionsHtml = `<div class="me-detail__actions">
-      <button class="btn btn--secondary btn--full" id="mdChange" type="button">Change meal</button>
       <button class="btn btn--secondary btn--full" id="mdEdit" type="button">Edit meal</button>
+      <button class="btn btn--secondary btn--full" id="mdChange" type="button">Change meal</button>
       <button class="btn btn--ghost btn--full me-delete-btn" id="mdRemove" type="button">Remove from plan</button>
     </div>`;
   }
@@ -2446,6 +2461,7 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
       ${metaHtml}
     </div>
     ${tagsHtml}
+    ${emptyPrompt}
     ${ingrHtml}
     ${notesHtml}
     ${recipeBtn}

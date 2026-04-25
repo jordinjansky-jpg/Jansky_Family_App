@@ -1140,18 +1140,10 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
   searchInput?.addEventListener('input', () => filterOptions(searchInput.value));
   bindOptionClicks();
 
-  // Inline create new meal
+  // "+" opens full meal editor and returns to this slot on save
   document.getElementById('mp_createNew')?.addEventListener('click', () => {
-    inlineEditor.hidden = false;
-    if (searchRow) searchRow.style.display = 'none';
-    resultsDiv.style.display = 'none';
-    document.getElementById('mp_inlineName')?.focus();
-  });
-
-  document.getElementById('mp_inlineBack')?.addEventListener('click', () => {
-    inlineEditor.hidden = true;
-    if (searchRow) searchRow.style.display = '';
-    resultsDiv.style.display = '';
+    closeTaskSheet();
+    setTimeout(() => openMealEditorSheet(null, preSlot), 320);
   });
 
   // Remove existing assignment
