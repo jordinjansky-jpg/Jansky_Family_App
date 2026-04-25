@@ -186,7 +186,22 @@ document.getElementById('fabMount').innerHTML = renderFab({ id: 'fabAdd', label:
 document.getElementById('fabAdd')?.addEventListener('click', () => openAddMenuFromFab());
 
 // ── Connection status + Offline/Online banner ──
+let __isOffline = false;
 initOfflineBanner(onConnectionChange);
+// Offline state feeds the banner queue (spec §3.2 --info offline sub-variant).
+// Existing initOfflineBanner above keeps the connection dot + transient toast;
+// this listener routes the persistent offline state through the priority queue.
+onConnectionChange((connected) => {
+  __isOffline = !connected;
+  // If the dashboard has rendered, refresh the banner mount.
+  if (document.getElementById('bannerMount')) {
+    const overdueActive = overdueItems.filter(e => !isComplete(e.entryKey, completions));
+    const overdueFiltered = activePerson
+      ? overdueActive.filter(e => e.ownerId === activePerson)
+      : overdueActive;
+    mountBannerQueue({ overdueItems: overdueFiltered });
+  }
+});
 
 // ── Notification bell ──
 initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
@@ -356,22 +371,43 @@ function render() {
   applyDataColors(main);
   bindEvents();
 
-  // Mount banner queue (priority: overdue > multiplier).
+  // Mount banner queue (priority: vacation > freeze > overdue > multiplier > info).
   mountBannerQueue({ overdueItems: overdueFiltered });
 }
 
-// Banner queue — priority: vacation > freeze > overdue > multiplier > info.
-// Phase 1 surfaces overdue + multiplier. Vacation/freeze land in Phase 2.4.
-function resolveBanner(overdueIncomplete) {
+// Banner queue — priority: vacation > freeze > overdue > multiplier > info-activity > info-offline.
+// Phase 1 + 1.5 wired overdue + multiplier; this rev adds vacation, freeze,
+// running-activity (dead until 1.6/2.4 ship), and pre-existing offline as
+// a banner sub-use. (Spec 2026-04-25 §3.2.)
+function resolveBanner(overdueIncomplete, isOffline) {
+  // 1. Vacation (dead until 2.4 wires people[].away[]; resolver branch present so
+  // the data hookup is one-line in that PR).
+  if (typeof window !== 'undefined' && window.__activeVacation) {
+    const v = window.__activeVacation; // { personName, endDate, isLinkedPerson? }
+    return {
+      variant: 'vacation',
+      title: `${v.personName} is away until ${v.endDate}`,
+      message: undefined,
+      action: v.isLinkedPerson ? { label: 'End early', onClick: () => window.__endVacationEarly?.() } : undefined
+    };
+  }
+  // 2. Freeze (future feature; placeholder data hook).
+  if (typeof window !== 'undefined' && window.__scheduleFrozen) {
+    return { variant: 'freeze', title: 'Schedule frozen', message: undefined };
+  }
+  // 3. Overdue.
   if (overdueIncomplete.length > 0) {
     const n = overdueIncomplete.length;
     return {
       variant: 'overdue',
       title: `${n} overdue ${n === 1 ? 'task' : 'tasks'}`,
       message: 'Tap to review.',
-      action: { label: 'Review', onClick: () => openOverdueSheet(overdueIncomplete) }
+      action: { label: 'Review', onClick: () => openOverdueSheet(overdueIncomplete) },
+      bodyClickable: true,
+      onBodyClick: () => openOverdueSheet(overdueIncomplete)
     };
   }
+  // 4. Multiplier.
   const todayMultipliers = multipliers?.[today] || {};
   const scope = activePerson || 'all';
   const m = todayMultipliers[scope] || todayMultipliers.all;
@@ -381,21 +417,42 @@ function resolveBanner(overdueIncomplete) {
     const msg = m.note || `All tasks count ${n}× until midnight.`;
     return { variant: 'multiplier', title: label, message: msg };
   }
+  // 5. Info — running activity (dead until 1.6).
+  if (typeof window !== 'undefined' && window.__activeActivitySession) {
+    const s = window.__activeActivitySession; // { name, elapsed: 'mm:ss' }
+    return {
+      variant: 'info',
+      title: `${s.name} · ${s.elapsed}`,
+      message: undefined,
+      action: { label: 'Stop', onClick: () => window.__stopActivitySession?.() }
+    };
+  }
+  // 6. Info — offline (live).
+  if (isOffline) {
+    return { variant: 'info', title: 'Offline', message: 'Changes will sync when you reconnect.' };
+  }
   return null;
 }
 
 function mountBannerQueue({ overdueItems: overdueIncomplete }) {
   const mount = document.getElementById('bannerMount');
   if (!mount) return;
-  const b = resolveBanner(overdueIncomplete);
+  const b = resolveBanner(overdueIncomplete, __isOffline);
   if (!b) { mount.innerHTML = ''; return; }
   mount.innerHTML = renderBanner(b.variant, {
     title: b.title,
     message: b.message,
-    action: b.action ? { label: b.action.label } : undefined
+    action: b.action ? { label: b.action.label } : undefined,
+    bodyClickable: !!b.bodyClickable
   });
   if (b.action) {
-    mount.querySelector('[data-banner-action]')?.addEventListener('click', b.action.onClick);
+    mount.querySelector('[data-banner-action]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      b.action.onClick?.();
+    });
+  }
+  if (b.bodyClickable && b.onBodyClick) {
+    mount.querySelector('[data-banner-body]')?.addEventListener('click', b.onBodyClick);
   }
 }
 

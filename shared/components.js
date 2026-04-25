@@ -476,20 +476,26 @@ export function renderOverdueBanner(count) {
  * Single-slot banner. Variants: overdue | multiplier | vacation | freeze | info.
  * Called by dashboard.js resolveBanner(); caller is responsible for mounting the
  * returned HTML into #bannerMount and wiring any action button via click delegation.
+ * `bodyClickable: true` wraps the body in a button; the page binds clicks
+ * via `[data-banner-body]` selector. Used by --overdue per spec §3.2.
  */
-export function renderBanner(variant, { title, message, action } = {}) {
+export function renderBanner(variant, { title, message, action, bodyClickable = false } = {}) {
   const iconMap = { overdue: '!', multiplier: '*', vacation: 'V', freeze: '-', info: 'i' };
   const icon = iconMap[variant] ?? 'i';
   const actionHtml = action
     ? `<button class="banner__action" data-banner-action="1" type="button">${esc(action.label)}</button>`
     : '';
   const msgHtml = message ? `<div class="banner__message">${esc(message)}</div>` : '';
+  const bodyTag = bodyClickable ? 'button' : 'div';
+  const bodyAttrs = bodyClickable
+    ? ' class="banner__body banner__body--clickable" data-banner-body="1" type="button"'
+    : ' class="banner__body"';
   return `<div class="banner banner--${esc(variant)}" role="status">
     <div class="banner__icon" aria-hidden="true">${icon}</div>
-    <div class="banner__body">
+    <${bodyTag}${bodyAttrs}>
       <div class="banner__title">${esc(title)}</div>
       ${msgHtml}
-    </div>
+    </${bodyTag}>
     ${actionHtml}
   </div>`;
 }
