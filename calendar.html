@@ -39,11 +39,11 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readMealLibrary, readAllMeals } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readMealLibrary, readAllMeals, writeMeal, removeMeal, pushMealLibrary, writeMealLibrary, readMeals } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
-    import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
+    import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml } from './shared/utils.js';
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
@@ -445,6 +445,11 @@
         });
       });
 
+      // Meals section "+" add button
+      main.querySelector('.cal-day__section-add[data-add-meal]')?.addEventListener('click', () => {
+        openCalMealPlanSheet('dinner');
+      });
+
       // Swipe between days — use AbortController to prevent stacking listeners on re-render
       if (daySwipeController) daySwipeController.abort();
       daySwipeController = new AbortController();
@@ -724,6 +729,127 @@
       taskSheetMount.innerHTML = renderBottomSheet(html);
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', e => { if (e.target === overlay) taskSheetMount.innerHTML = ''; });
+    }
+
+    function openCalMealPlanSheet(preSlot = 'dinner') {
+      const date = viewDay;
+      const currentMealId = allMeals[date]?.[preSlot]?.mealId || null;
+      taskSheetMount.innerHTML = renderBottomSheet(
+        renderMealPlanSheet({ date, slot: preSlot, library: mealLibrary, currentMealId })
+      );
+
+      const overlay = document.getElementById('bottomSheet');
+      const searchInput = document.getElementById('mp_search');
+      const resultsDiv = document.getElementById('mp_results');
+      const resultsLabel = document.getElementById('mp_resultsLabel');
+      const inlineEditor = document.getElementById('mp_inlineEditor');
+      let selectedSlot = preSlot;
+      let selectedMealId = currentMealId;
+
+      overlay?.addEventListener('click', e => { if (e.target === overlay) taskSheetMount.innerHTML = ''; });
+
+      document.getElementById('mp_slotTabs')?.addEventListener('click', e => {
+        const btn = e.target.closest('.mp-slot-tab');
+        if (!btn) return;
+        selectedSlot = btn.dataset.slot;
+        selectedMealId = allMeals[date]?.[selectedSlot]?.mealId || null;
+        document.getElementById('mp_selectedMealId').value = selectedMealId || '';
+        document.querySelectorAll('.mp-slot-tab').forEach(b => {
+          b.classList.toggle('is-active', b.dataset.slot === selectedSlot);
+          b.setAttribute('aria-selected', b.dataset.slot === selectedSlot);
+        });
+        const removeLink = document.getElementById('mp_removeLink');
+        if (removeLink) {
+          const cur = allMeals[date]?.[selectedSlot];
+          removeLink.style.display = (cur?.mealId && mealLibrary[cur.mealId]) ? '' : 'none';
+        }
+        filterChips('');
+        searchInput.value = '';
+      });
+
+      function filterChips(query) {
+        const q = query.toLowerCase().trim();
+        const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
+          if (a.isFavorite && !b.isFavorite) return -1;
+          if (!a.isFavorite && b.isFavorite) return 1;
+          return (b.lastUsed || 0) - (a.lastUsed || 0);
+        });
+        const filtered = q ? entries.filter(([, m]) => m.name.toLowerCase().includes(q)) : entries;
+        resultsLabel.textContent = q ? '' : (filtered.some(([, m]) => m.isFavorite) ? 'Favorites & Recent' : 'Recent');
+        resultsDiv.innerHTML = `<span class="mp-results-label" id="mp_resultsLabel">${resultsLabel.textContent}</span>` +
+          filtered.map(([id, m]) =>
+            `<button class="meal-chip${id === selectedMealId ? ' meal-chip--selected' : ''}"
+                     data-meal-id="${id}" type="button">
+              ${m.isFavorite ? '<span class="meal-chip__star" aria-hidden="true">★</span>' : ''}
+              ${escapeHtml(String(m.name))}
+            </button>`
+          ).join('');
+        resultsDiv.querySelectorAll('.meal-chip').forEach(btn => {
+          btn.addEventListener('click', () => {
+            selectedMealId = btn.dataset.mealId;
+            document.getElementById('mp_selectedMealId').value = selectedMealId;
+            resultsDiv.querySelectorAll('.meal-chip').forEach(b => b.classList.toggle('meal-chip--selected', b.dataset.mealId === selectedMealId));
+          });
+        });
+      }
+
+      searchInput?.addEventListener('input', () => filterChips(searchInput.value));
+      filterChips('');
+
+      document.getElementById('mp_createNew')?.addEventListener('click', () => {
+        inlineEditor.hidden = false;
+        document.getElementById('mp_createNew').hidden = true;
+        resultsDiv.style.display = 'none';
+        searchInput.style.display = 'none';
+        document.getElementById('mp_inlineName')?.focus();
+      });
+      document.getElementById('mp_inlineBack')?.addEventListener('click', () => {
+        inlineEditor.hidden = true;
+        document.getElementById('mp_createNew').hidden = false;
+        resultsDiv.style.display = '';
+        searchInput.style.display = '';
+      });
+
+      document.getElementById('mp_removeLink')?.addEventListener('click', async () => {
+        await removeMeal(date, selectedSlot);
+        allMeals = (await readAllMeals()) || {};
+        taskSheetMount.innerHTML = '';
+        render();
+      });
+
+      document.getElementById('mpForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const planDate = document.getElementById('mp_date').value;
+        if (!planDate) return;
+        if (!inlineEditor.hidden) {
+          const inlineName = document.getElementById('mp_inlineName').value.trim();
+          if (!inlineName) {
+            document.getElementById('mp_inlineNameError').textContent = 'Name is required';
+            return;
+          }
+          const inlineUrl = document.getElementById('mp_inlineUrl').value.trim() || null;
+          const newId = await pushMealLibrary({
+            name: inlineName, url: inlineUrl, ingredients: [], tags: [],
+            isFavorite: false, notes: null, prepTime: null,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            lastUsed: firebase.database.ServerValue.TIMESTAMP,
+          });
+          mealLibrary[newId] = { name: inlineName, url: inlineUrl, ingredients: [], tags: [], isFavorite: false };
+          await writeMeal(planDate, selectedSlot, { mealId: newId, source: 'manual' });
+        } else {
+          if (!selectedMealId) return;
+          await writeMeal(planDate, selectedSlot, { mealId: selectedMealId, source: 'manual' });
+          const entry = mealLibrary[selectedMealId];
+          if (entry) {
+            entry.lastUsed = Date.now();
+            await writeMealLibrary(selectedMealId, { ...entry, lastUsed: firebase.database.ServerValue.TIMESTAMP });
+          }
+        }
+        allMeals = (await readAllMeals()) || {};
+        mealLibrary = (await readMealLibrary()) || {};
+        taskSheetMount.innerHTML = '';
+        render();
+      });
     }
 
     // ══════════════════════════════════════════

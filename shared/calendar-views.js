@@ -317,7 +317,10 @@ export function renderDayView(opts) {
   }
   if (mealsHtml) {
     mealsHtml = `<div class="cal-day__section">
-      <div class="cal-day__section-header">Meals</div>
+      <div class="cal-day__section-header">
+        Meals
+        <button class="cal-day__section-add" data-add-meal="true" type="button" aria-label="Add meal">+</button>
+      </div>
       ${mealsHtml}
     </div>`;
   }
