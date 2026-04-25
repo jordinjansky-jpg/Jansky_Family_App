@@ -355,7 +355,7 @@ export function renderProgressBar(done, total) {
  * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --owner-color / --event-color).
  */
 export function renderTaskCard(options) {
-  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, showPoints = true, isPastDaily = false } = options;
+  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, isPastDaily = false } = options;
   const doneClass = completed ? ' card--done task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
   const eventClass = isEvent ? ' card--event task-card--event' : '';
@@ -367,21 +367,13 @@ export function renderTaskCard(options) {
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
   const catName = category?.name || '';
 
-  // Points label: show override value with color if active, else base (skip for events, exempt).
+  // Override-direction cue: ▲ if override raises points, ▼ if it lowers them.
+  // No bare scoring-pt chip — store-economy points live in the section meta only (spec 2026-04-25 §3.7).
   let ptsLabel = '';
-  if (points && !isEvent && !task.exempt) {
-    if (points.override != null && points.override !== 100) {
-      const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
-      if (showPoints) {
-        const overridePts = Math.round(points.possible * (points.override / 100));
-        ptsLabel = `<span class="${colorClass}">${overridePts}pt</span>`;
-      } else {
-        const icon = points.override > 100 ? '▲' : '▼';
-        ptsLabel = `<span class="${colorClass}">${icon}</span>`;
-      }
-    } else if (showPoints) {
-      ptsLabel = `<span>${points.possible}pt</span>`;
-    }
+  if (points && !isEvent && !task.exempt && points.override != null && points.override !== 100) {
+    const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
+    const icon = points.override > 100 ? '▲' : '▼';
+    ptsLabel = `<span class="${colorClass}">${icon}</span>`;
   }
 
   // Rotation tag (spec §5.4) — only for non-daily rotations.
@@ -845,7 +837,7 @@ export function renderTaskDetailSheet(options) {
   const {
     entryKey, entry, task, person, category, completed, points,
     sliderMin, sliderMax, currentOverride, gradePreview,
-    people, showDelegate, showMove, showEdit, dateKey, showPoints = true,
+    people, showDelegate, showMove, showEdit, dateKey,
     isEvent = false, readOnly = false, isPastDate = false
   } = options;
   const catIcon = category?.icon || '';
@@ -870,7 +862,6 @@ export function renderTaskDetailSheet(options) {
       ${todLabel ? `<span class="chip">${todLabel}</span>` : ''}
       ${task.eventTime ? `<span class="chip">🕐 ${formatEventTime(task.eventTime)}</span>` : ''}
       ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
-      ${points && !task.exempt && showPoints ? `<span class="chip">${points.possible}pt</span>` : ''}
     </div>
     ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></div>` : ''}
     ${entry.movedFromDate ? `<div class="task-detail__source-info"><svg class="task-detail__source-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
@@ -958,7 +949,7 @@ export function renderTaskDetailSheet(options) {
     html += `<input type="date" id="moveDatePicker" class="task-detail__date-input task-detail__date-input--hidden">`;
   }
 
-  // Points slider — always visible regardless of showPoints (that only hides card labels)
+  // Points slider (override slider for late-credit / boost).
   if (points) {
     const min = sliderMin ?? 0;
     const max = sliderMax ?? 150;

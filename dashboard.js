@@ -330,7 +330,6 @@ function render() {
         overdue: false,
         points: { possible: pts, override: ovr },
         isEvent: !!cat?.isEvent,
-        showPoints: settings?.showPoints !== false,
         showTodIconBoth: !!settings?.showTodIconBoth,
         showTodIconSingle: !!settings?.showTodIconSingle,
         isPastDaily: !done && viewDate < today && entry.rotationType === 'daily'
@@ -407,7 +406,6 @@ function openOverdueSheet(items) {
       overdue: true,
       points: { possible: pts, override: e.pointsOverride ?? null },
       isEvent: !!cat?.isEvent,
-      showPoints: settings?.showPoints !== false,
       showTodIconBoth: !!settings?.showTodIconBoth,
       showTodIconSingle: !!settings?.showTodIconSingle,
       isPastDaily: false
@@ -1001,7 +999,6 @@ function openTaskSheet(entryKey, dateKey) {
     showDelegate: true,
     showMove: true,
     showEdit: true,
-    showPoints: settings?.showPoints !== false,
     isEvent: !!cat?.isEvent,
     isPastDate: (dateKey || viewDate) < today
   });

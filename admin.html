@@ -952,9 +952,6 @@
             <input type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100">
             <p class="form-hint">% credit for late tasks</p>
           </div>
-          <div class="form-group" style="flex:1">
-            <label class="admin-checkbox" style="margin-top:24px"><input type="checkbox" id="sf_showPoints"${settings?.showPoints !== false ? ' checked' : ''}> Show points on tasks</label>
-          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Difficulty Multipliers</label>
@@ -3565,7 +3562,6 @@
           pastDueCreditPct: parseIntOr(main.querySelector('#sf_pastDueCredit')?.value, 75),
           sliderMin: parseIntOr(main.querySelector('#sf_sliderMin')?.value, 0),
           sliderMax: parseIntOr(main.querySelector('#sf_sliderMax')?.value, 150),
-          showPoints: main.querySelector('#sf_showPoints')?.checked !== false,
           showTodIconBoth: !!main.querySelector('#sf_showTodIconBoth')?.checked,
           showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
           longPressMs: parseIntOr(main.querySelector('#sf_longPressMs')?.value, 500),
