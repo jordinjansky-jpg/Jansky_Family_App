@@ -32,6 +32,12 @@ function _writeCache(dateKey, data) {
   try { localStorage.setItem('dr-weather-' + dateKey, JSON.stringify({ ...data, fetched: Date.now() })); } catch {}
 }
 
+function _toResult(entry) {
+  if (!entry) return null;
+  const { tempLabel, conditionLabel, glyph, high, low } = entry;
+  return { tempLabel, conditionLabel, glyph, high, low };
+}
+
 function _isFresh(entry, isToday) {
   if (!entry?.fetched) return false;
   return isToday ? (Date.now() - entry.fetched < TTL_TODAY_MS) : true;
@@ -105,14 +111,14 @@ export async function fetchWeather(dateKey, settings) {
   if (diff > 4) return { isFuture: true };
 
   const cached = _readCache(dateKey);
-  if (_isFresh(cached, dateKey === today)) return cached;
+  if (_isFresh(cached, dateKey === today)) return _toResult(cached);
 
   try {
     await _fetchAndCache(loc, key, timezone);
   } catch {
-    return cached || null;
+    return _toResult(cached);
   }
-  return _readCache(dateKey) || null;
+  return _toResult(_readCache(dateKey));
 }
 
 /**
@@ -132,7 +138,7 @@ export async function fetchForecast(settings) {
   });
 
   const allCached = dates.map(dk => _readCache(dk));
-  if (allCached.every(Boolean)) return allCached.map((d, i) => ({ ...d, dateKey: dates[i] }));
+  if (allCached.every(Boolean)) return allCached.map((d, i) => ({ ..._toResult(d), dateKey: dates[i] }));
 
   try {
     await _fetchAndCache(loc, key, timezone);
@@ -140,7 +146,7 @@ export async function fetchForecast(settings) {
 
   return dates.map(dk => {
     const d = _readCache(dk);
-    return d ? { ...d, dateKey: dk } : null;
+    return d ? { ..._toResult(d), dateKey: dk } : null;
   }).filter(Boolean);
 }
 
