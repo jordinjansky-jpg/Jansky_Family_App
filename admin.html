@@ -1258,6 +1258,25 @@
           </div>
         </fieldset>
         <fieldset class="admin-form__fieldset">
+          <legend>Weather</legend>
+          <div class="admin-form__group">
+            <label class="form-label" for="sf_weatherLocation">Location</label>
+            <div class="form-hint">Zip code or "City, State". Example: Lakeville, MN</div>
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <input class="form-input" id="sf_weatherLocation" type="text"
+                     placeholder="Lakeville, MN" value="${esc(settings?.weatherLocation || '')}">
+              <button class="btn btn--secondary btn--sm" id="sf_weatherTest" type="button">Test</button>
+            </div>
+            <div id="sf_weatherTestResult" class="form-hint" hidden></div>
+          </div>
+          <div class="admin-form__group">
+            <label class="form-label" for="sf_weatherApiKey">OpenWeatherMap API key</label>
+            <div class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</div>
+            <input class="form-input" id="sf_weatherApiKey" type="text"
+                   style="font-family:monospace;font-size:13px" value="${esc(settings?.weatherApiKey || '')}">
+          </div>
+        </fieldset>
+        <fieldset class="admin-form__fieldset">
           <legend>Display</legend>
           <div class="admin-form__group admin-form__group--row">
             <div>
@@ -1265,7 +1284,7 @@
               <div class="form-hint">Show weather and tonight's dinner on the dashboard.</div>
             </div>
             <label class="toggle">
-              <input type="checkbox" id="set_ambientStrip"${settings?.ambientStrip ? ' checked' : ''}>
+              <input type="checkbox" id="set_ambientStrip"${(settings?.ambientStrip ?? true) ? ' checked' : ''}>
               <span class="toggle__track"></span>
             </label>
           </div>
@@ -3821,7 +3840,19 @@
             showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false'
           },
           ambientStrip: main.querySelector('#set_ambientStrip')?.checked ?? false,
+          weatherLocation: main.querySelector('#sf_weatherLocation')?.value.trim() || '',
+          weatherApiKey:   main.querySelector('#sf_weatherApiKey')?.value.trim() || '',
         };
+
+        // Evict weather cache if location changed
+        if ((settings?.weatherLocation || '') !== (updated.weatherLocation || '')) {
+          const toRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k?.startsWith('dr-weather-')) toRemove.push(k);
+          }
+          toRemove.forEach(k => localStorage.removeItem(k));
+        }
 
         if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {
           updated.adminPin = newPin;
@@ -3852,6 +3883,37 @@
         if (easyInput) easyInput.value = 1;
         if (mediumInput) mediumInput.value = 2;
         if (hardInput) hardInput.value = 3;
+      });
+
+      main.querySelector('#sf_weatherTest')?.addEventListener('click', async () => {
+        const loc = main.querySelector('#sf_weatherLocation')?.value.trim();
+        const key = main.querySelector('#sf_weatherApiKey')?.value.trim();
+        const resultEl = main.querySelector('#sf_weatherTestResult');
+        if (!loc || !key) {
+          resultEl.textContent = '✗ Enter a location and API key first.';
+          resultEl.className = 'form-hint form-hint--error';
+          resultEl.hidden = false;
+          return;
+        }
+        resultEl.textContent = 'Checking…';
+        resultEl.className = 'form-hint';
+        resultEl.hidden = false;
+        try {
+          const res = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(loc)}&appid=${encodeURIComponent(key)}&units=imperial`
+          );
+          if (!res.ok) throw new Error(res.status);
+          const json = await res.json();
+          const temp = Math.round(json.main.temp);
+          const cond = json.weather[0].description.replace(/\b\w/g, c => c.toUpperCase());
+          resultEl.textContent = `✓ ${json.name} · ${temp}°F · ${cond}`;
+          resultEl.className = 'form-hint form-hint--success';
+          setTimeout(() => { resultEl.hidden = true; }, 10000);
+        } catch {
+          resultEl.textContent = '✗ Couldn\'t fetch — check location and API key.';
+          resultEl.className = 'form-hint form-hint--error';
+          setTimeout(() => { resultEl.hidden = true; }, 10000);
+        }
       });
     }
 

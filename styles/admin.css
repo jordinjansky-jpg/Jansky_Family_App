@@ -913,3 +913,6 @@
   }
 }
 
+.form-hint--success { color: #2a7a2a; }
+.form-hint--error   { color: #c0392b; }
+
