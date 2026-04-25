@@ -1219,12 +1219,15 @@
   margin-bottom: var(--spacing-xs);
   border-radius: var(--radius-md);
   border: none;
-  background: color-mix(in srgb, var(--event-color) 12%, var(--surface));
+  background: var(--surface);
   border-left: 4px solid var(--event-color);
   cursor: pointer;
   width: 100%;
   text-align: left;
   -webkit-tap-highlight-color: transparent;
+}
+[data-colored-cells="true"] .event-bubble {
+  background: color-mix(in srgb, var(--event-color) 12%, var(--surface));
 }
 .event-bubble:active { transform: scale(0.98); }
 .event-bubble__time {
