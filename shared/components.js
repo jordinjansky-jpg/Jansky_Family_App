@@ -1795,7 +1795,7 @@ export function renderWeatherSheet(days, today, tomorrow) {
   }).join('');
 
   return renderBottomSheet(`
-    <div class="sheet-section-title">Weather</div>
+    <h3 class="sheet-section-title">Weather</h3>
     <div class="weather-sheet__rows">${rowsHtml}</div>
   `);
 }
