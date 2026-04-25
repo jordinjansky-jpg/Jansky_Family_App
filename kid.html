@@ -1055,6 +1055,7 @@
               if (!dinner) return;
               const mount = document.getElementById('taskSheetMount');
               mount.innerHTML = renderBottomSheet(renderMealDetailSheet(dinner, tonightDinner, true));
+              requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
               const overlay = document.getElementById('bottomSheet');
               overlay?.addEventListener('click', e => { if (e.target === overlay) mount.innerHTML = ''; });
             });
