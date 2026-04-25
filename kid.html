@@ -50,8 +50,8 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, countGlobalRedemptions, writeSnapshot, readAchievementDefs } from './shared/firebase.js';
-    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, writeWishlistItem, removeWishlistItem, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, countGlobalRedemptions, writeSnapshot, readAchievementDefs, readMeals, readMealLibrary } from './shared/firebase.js';
+    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -127,6 +127,13 @@
         const tz = settings?.timezone || 'America/Chicago';
         const today = todayKey(tz);
         const ks = kid.kidSettings || {};
+
+        // ── Meal data for Tonight tile ──
+        const [mealLibrary, todayMeals] = await Promise.all([
+          readMealLibrary().then(v => v || {}),
+          readMeals(today).then(v => v || {}),
+        ]);
+        const tonightDinner = todayMeals.dinner || null;
 
         let rewards = rewardsObj || {};
         let messages = kidMessages || {};
@@ -1001,6 +1008,18 @@
           }
           html += `</div>`;
 
+          // ── Tonight's dinner tile ──
+          if (isToday && kid.prefs?.showMeals !== false && tonightDinner?.mealId && mealLibrary[tonightDinner.mealId]) {
+            const dinner = mealLibrary[tonightDinner.mealId];
+            html += `<button class="kid-tonight" id="kidTonightTile" type="button">
+              <span class="kid-tonight__icon" aria-hidden="true">🍽️</span>
+              <span>
+                <span class="kid-tonight__label">Tonight</span>
+                <span class="kid-tonight__name">${esc(dinner.name)}</span>
+              </span>
+            </button>`;
+          }
+
           main.innerHTML = html;
           applyDataColors(main);
 
@@ -1028,6 +1047,19 @@
         // ══════════════════════════════════════════
 
         function bindEvents() {
+          // Tonight's dinner tile tap
+          const tonightTile = main.querySelector('#kidTonightTile');
+          if (tonightTile) {
+            tonightTile.addEventListener('click', () => {
+              const dinner = tonightDinner?.mealId ? mealLibrary[tonightDinner.mealId] : null;
+              if (!dinner) return;
+              const mount = document.getElementById('taskSheetMount');
+              mount.innerHTML = renderBottomSheet(renderMealDetailSheet(dinner, tonightDinner, true));
+              const overlay = document.getElementById('bottomSheet');
+              overlay?.addEventListener('click', e => { if (e.target === overlay) mount.innerHTML = ''; });
+            });
+          }
+
           // Week tabs
           main.querySelectorAll('.kid-week-tab').forEach(btn => {
             btn.addEventListener('click', () => {
