@@ -1006,6 +1006,7 @@
           <label class="admin-checkbox"><input type="checkbox" id="pf_showGearIcon"${ks.showGearIcon ? ' checked' : ''}> Show settings gear icon</label>
           <label class="admin-checkbox"><input type="checkbox" id="pf_canSwipeDays"${ks.canSwipeDays ? ' checked' : ''}> Can swipe between days</label>
           <label class="admin-checkbox"><input type="checkbox" id="pf_celebrationsEnabled"${ks.celebrationsEnabled !== false ? ' checked' : ''}> Celebrations enabled</label>
+          <label class="admin-checkbox"><input type="checkbox" id="pf_showMeals"${person.prefs?.showMeals !== false ? ' checked' : ''}> Show tonight's dinner in kid mode</label>
           <div class="form-group mt-sm">
             <label class="form-label">Celebration Style</label>
             <select id="pf_celebrationStyle">
@@ -1240,6 +1241,19 @@
               <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
               <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
             </select>
+          </div>
+        </fieldset>
+        <fieldset class="admin-form__fieldset">
+          <legend>Display</legend>
+          <div class="admin-form__group admin-form__group--row">
+            <div>
+              <label class="form-label" for="set_ambientStrip">Ambient strip</label>
+              <div class="form-hint">Show weather and tonight's dinner on the dashboard.</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="set_ambientStrip"${settings?.ambientStrip ? ' checked' : ''}>
+              <span class="toggle__track"></span>
+            </label>
           </div>
         </fieldset>
         <h3 class="admin-form__title mt-md">Change Admin PIN</h3>
@@ -3582,6 +3596,7 @@
         const personData = { name, color, role };
 
         if (role === 'child') {
+          const existingPerson = editingPersonId !== 'new' ? (peopleObj[editingPersonId] || {}) : {};
           personData.kidSettings = {
             showWeekView: main.querySelector('#pf_showWeekView')?.checked || false,
             showCalendar: main.querySelector('#pf_showCalendar')?.checked || false,
@@ -3593,6 +3608,10 @@
             canSwipeDays: main.querySelector('#pf_canSwipeDays')?.checked || false,
             celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
             celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full'
+          };
+          personData.prefs = {
+            ...(existingPerson.prefs || {}),
+            showMeals: main.querySelector('#pf_showMeals')?.checked ?? true,
           };
           const themePreset = main.querySelector('#pf_theme')?.value;
           if (themePreset) {
@@ -3786,7 +3805,8 @@
             density: main.querySelector('#set_calDensity')?.value || 'snug',
             weekStartDay: parseInt(main.querySelector('#set_weekStart')?.value, 10) || 0,
             showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false'
-          }
+          },
+          ambientStrip: main.querySelector('#set_ambientStrip')?.checked ?? false,
         };
 
         if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {
