@@ -2185,3 +2185,99 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
     }
   });
 }
+
+/**
+ * Render the meal editor sheet body (create or edit a meal library entry).
+ * meal: null (create) or { name, ingredients, url, notes, prepTime, isFavorite, tags }
+ * mealId: null (create) or existing library key
+ * Returns HTML string; mount inside renderBottomSheet() then bind #meForm events in the page.
+ *
+ * Events the page must bind after mounting:
+ *   #meForm submit           → save
+ *   #me_addIngredient click  → add ingredient row
+ *   .me-ingredient-remove    → remove ingredient row (delegate on #me_ingredients)
+ *   #me_tagInput keydown     → Enter/comma adds a tag
+ *   .me-tag__remove          → remove tag (delegate on #me_tags)
+ *   #meDelete click          → delete (edit mode only)
+ */
+export function renderMealEditorSheet(meal = null, mealId = null) {
+  const isEdit = meal !== null;
+  const name      = isEdit ? esc(meal.name || '') : '';
+  const prepTime  = isEdit ? esc(meal.prepTime || '') : '';
+  const url       = isEdit ? esc(meal.url || '') : '';
+  const notes     = isEdit ? esc(meal.notes || '') : '';
+  const isFav     = isEdit && meal.isFavorite;
+  const tags      = isEdit ? (meal.tags || []) : [];
+  const ingr      = isEdit ? (meal.ingredients || []) : [];
+
+  const tagChips = tags.map((t, i) =>
+    `<span class="me-tag" data-tag-index="${i}">
+      ${esc(t)}
+      <button class="me-tag__remove" data-tag-index="${i}" type="button" aria-label="Remove tag ${esc(t)}">&times;</button>
+    </span>`
+  ).join('');
+
+  const ingrRows = ingr.map((item, i) =>
+    `<div class="me-ingredient-row" data-ingr-index="${i}">
+      <input type="text" value="${esc(item)}" placeholder="e.g. 2 lbs ground beef"
+             data-ingr-index="${i}" aria-label="Ingredient ${i + 1}">
+      <button class="me-ingredient-remove" data-ingr-index="${i}" type="button" aria-label="Remove ingredient">&times;</button>
+    </div>`
+  ).join('');
+
+  const deleteBtn = isEdit
+    ? `<button class="btn btn--ghost" id="meDelete" type="button"
+               style="color:var(--danger);margin-top:var(--spacing-sm)">Delete meal</button>`
+    : '';
+
+  return `<form class="task-detail-sheet" id="meForm" novalidate>
+    <h3 class="admin-form__title">${isEdit ? 'Edit meal' : 'New meal'}</h3>
+
+    <label class="field">
+      <span class="field__label">Name <span aria-hidden="true" style="color:var(--danger)">*</span></span>
+      <input class="field__input" id="me_name" type="text" value="${name}"
+             placeholder="e.g. Taco Tuesday" autocomplete="off" required>
+      <span class="field__error" id="me_nameError" role="alert"></span>
+    </label>
+
+    <div style="display:flex;align-items:center;gap:var(--spacing-md);margin-bottom:var(--spacing-md)">
+      <label class="form-label" for="me_fav" style="margin:0;cursor:pointer">Favorite</label>
+      <input type="checkbox" id="me_fav" ${isFav ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--accent)">
+    </div>
+
+    <label class="field">
+      <span class="field__label">Prep time</span>
+      <input class="field__input" id="me_prepTime" type="text" value="${prepTime}"
+             placeholder="e.g. 30 min">
+    </label>
+
+    <div class="field">
+      <span class="field__label">Tags</span>
+      <div class="me-tag-row" id="me_tags">${tagChips}</div>
+      <input class="field__input" id="me_tagInput" type="text"
+             placeholder="Type a tag and press Enter" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <span class="field__label">Ingredients</span>
+      <div id="me_ingredients">${ingrRows}</div>
+      <button class="btn btn--ghost btn--sm" id="me_addIngredient" type="button"
+              style="margin-top:var(--spacing-xs)">+ Add ingredient</button>
+    </div>
+
+    <label class="field">
+      <span class="field__label">Recipe link</span>
+      <input class="field__input" id="me_url" type="url" value="${url}"
+             placeholder="https://…">
+    </label>
+
+    <label class="field">
+      <span class="field__label">Notes</span>
+      <textarea class="field__input" id="me_notes"
+                placeholder="Any notes…" rows="3">${notes}</textarea>
+    </label>
+
+    ${deleteBtn}
+    <input type="hidden" id="me_mealId" value="${mealId || ''}">
+  </form>`;
+}
