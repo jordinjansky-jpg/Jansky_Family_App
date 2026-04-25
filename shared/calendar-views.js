@@ -198,7 +198,7 @@ export function renderWeekView(opts) {
  * Render the day view.
  */
 export function renderDayView(opts) {
-  const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings } = opts;
+  const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, mealLibrary = {} } = opts;
 
   // Events section
   let dayEvents = getEventsForDate(events, dateKey);
@@ -294,13 +294,41 @@ export function renderDayView(opts) {
     tasksHtml += `</div>`;
   }
 
+  // Meals section — only slots with an assigned meal render; empty slots are silent
+  const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
+  const SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
+  let mealsHtml = '';
+  for (const slot of SLOTS) {
+    const plan = dayMeals?.[slot];
+    if (!plan?.mealId) continue;
+    const meal = mealLibrary[plan.mealId];
+    if (!meal) continue;
+    const isSchool = plan.source === 'school';
+    const schoolIcon = isSchool
+      ? `<span class="card--meal__school-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M3 22V8l9-6 9 6v14M10 22v-6h4v6"/></svg></span>`
+      : '';
+    mealsHtml += `<button class="card--meal${isSchool ? ' card--meal--school' : ''}"
+                          data-meal-id="${esc(plan.mealId)}" data-slot="${esc(slot)}"
+                          type="button"${isSchool ? ' aria-disabled="true"' : ''}>
+      ${schoolIcon}
+      <span class="card--meal__name">${esc(meal.name)}</span>
+      <span class="card--meal__slot">${esc(SLOT_LABELS[slot])}</span>
+    </button>`;
+  }
+  if (mealsHtml) {
+    mealsHtml = `<div class="cal-day__section">
+      <div class="cal-day__section-header">Meals</div>
+      ${mealsHtml}
+    </div>`;
+  }
+
   // Empty state
-  if (sortedEvents.length === 0 && Object.keys(filteredEntries).length === 0) {
+  if (sortedEvents.length === 0 && Object.keys(filteredEntries).length === 0 && !mealsHtml) {
     const emptyMsg = activePerson ? 'Nothing scheduled for this person' : 'Nothing scheduled';
     eventsHtml = `<div class="cal-day__empty">${emptyMsg}</div>`;
   }
 
-  return `<div class="cal-day"><div class="cal-day__grid">${eventsHtml}${tasksHtml}</div></div>`;
+  return `<div class="cal-day"><div class="cal-day__grid">${eventsHtml}${mealsHtml}${tasksHtml}</div></div>`;
 }
 
 /**

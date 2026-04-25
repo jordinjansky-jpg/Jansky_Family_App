@@ -39,8 +39,8 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readMealLibrary, readAllMeals } from './shared/firebase.js';
+    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
@@ -100,6 +100,8 @@
     let activePerson = calPrefs.personFilter || linkedPerson?.prefs?.calendar?.personFilter || null;
     let completions = {};
     let allSchedule = {};
+    let allMeals = {};
+    let mealLibrary = {};
     let suppressedCooldownTaskIds = new Set();
     let pendingSliderOverride = null;
     let daySwipeController = null;
@@ -134,6 +136,10 @@
       const sched = await readAllSchedule();
       allSchedule = sched || {};
       suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
+      [allMeals, mealLibrary] = await Promise.all([
+        readAllMeals().then(v => v || {}),
+        readMealLibrary().then(v => v || {}),
+      ]);
     }
 
     // ══════════════════════════════════════════
@@ -167,7 +173,9 @@
         html += renderPersonFilter(people, activePerson);
         html += `<div class="${enterCls}">`;
         html += renderDayView({
-          dateKey: viewDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings
+          dateKey: viewDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings,
+          dayMeals: allMeals[viewDay] || {},
+          mealLibrary
         });
         html += `</div>`;
         main.innerHTML = html;
@@ -424,6 +432,17 @@
         row.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
         row.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
         row.addEventListener('contextmenu', (e) => e.preventDefault());
+      });
+
+      // Meal cards
+      main.querySelectorAll('.card--meal:not(.card--meal--school)').forEach(card => {
+        card.addEventListener('click', () => {
+          const mealId = card.dataset.mealId;
+          const slot = card.dataset.slot;
+          const plan = allMeals[viewDay]?.[slot];
+          if (!plan || !mealLibrary[mealId]) return;
+          openCalMealDetailSheet(plan, slot);
+        });
       });
 
       // Swipe between days — use AbortController to prevent stacking listeners on re-render
@@ -693,6 +712,18 @@
         await loadData();
         render();
       });
+    }
+
+    // ══════════════════════════════════════════
+    // Meal Detail Sheet (calendar day view)
+    // ══════════════════════════════════════════
+
+    function openCalMealDetailSheet(planEntry, slot) {
+      const meal = planEntry?.mealId ? mealLibrary[planEntry.mealId] : null;
+      const html = renderMealDetailSheet(meal, planEntry, true); // readonly=true
+      taskSheetMount.innerHTML = renderBottomSheet(html);
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', e => { if (e.target === overlay) taskSheetMount.innerHTML = ''; });
     }
 
     // ══════════════════════════════════════════
