@@ -515,8 +515,15 @@ export function renderFab({ id = 'fabAdd', label = 'Add', icon } = {}) {
  * Scoreboard, Tracker can reuse in their own phases.
  */
 export function renderSectionHead(title, meta, options = {}) {
-  const { divider = false, trailingHtml = '' } = options;
-  const metaHtml = meta ? `<div class="section__meta">${esc(meta)}</div>` : '';
+  const { divider = false, trailingHtml = '', metaHtml: rawMetaHtml = '' } = options;
+  // metaHtml (raw) takes precedence over meta (escaped text). Caller is responsible
+  // for escaping any user-authored content inside metaHtml.
+  let metaHtml = '';
+  if (rawMetaHtml) {
+    metaHtml = `<div class="section__meta">${rawMetaHtml}</div>`;
+  } else if (meta) {
+    metaHtml = `<div class="section__meta">${esc(meta)}</div>`;
+  }
   const trailing = trailingHtml ? `<div class="section__head-trailing">${trailingHtml}</div>` : '';
   const dividerCls = divider ? ' section__head--divider' : '';
   return `<div class="section__head${dividerCls}">

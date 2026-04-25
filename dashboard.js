@@ -389,11 +389,38 @@ function render() {
     }
     html += `</section>`;
   } else if (totalCount > 0) {
-    const sectionMeta = (doneCount === totalCount) ? 'All done' : `${doneCount} of ${totalCount} done`;
+    // === Today section meta (spec §3.7) ===
+    // Family view: "X of Y done"
+    // Filtered to person: "X of Y done · NN pt · GRADE" (NN = today's pt, store-economy)
+    const isFiltered = !!activePerson && people.length >= 2;
+    const doneVerb = (doneCount === totalCount) ? 'All done' : `${doneCount} of ${totalCount} done`;
+    const futureVerb = (doneCount === 0 && isFuture) ? `0 of ${totalCount} scheduled` : null;
+    const metaPieces = [futureVerb || doneVerb];
+
+    if (isFiltered && !isFuture) {
+      // Today's earned pt (store-economy): percentage × multiplier; cap not enforced
+      // (multiplier days legitimately push past 100). Computed live; matches the
+      // snapshot value at midnight.
+      const todayMul = (multipliers?.[today]?.[activePerson]?.multiplier
+                        ?? multipliers?.[today]?.all?.multiplier
+                        ?? 1);
+      const earnedPt = Math.round(score.percentage * todayMul);
+      metaPieces.push(`${earnedPt} pt`);
+      metaPieces.push(`<span class="section__meta__grade">${esc(gd.grade)}</span>`);
+    }
+
+    const metaHtmlPieces = metaPieces.map((p, i) => {
+      if (i === 0) return esc(p);
+      const isHtml = p.startsWith('<');
+      return `<span class="section__meta__dot" aria-hidden="true"></span>${isHtml ? p : esc(p)}`;
+    });
+    const metaHtmlStr = metaHtmlPieces.join('');
+
     html += `<section class="${todaySectionCls}">`;
-    html += renderSectionHead('Today', sectionMeta, {
+    html += renderSectionHead('Today', null, {
       divider: firstSectionRendered,
       trailingHtml: getTodayFilterChipHtml(),
+      metaHtml: metaHtmlStr,
     });
     firstSectionRendered = true;
 
