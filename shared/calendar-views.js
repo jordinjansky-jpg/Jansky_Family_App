@@ -2,7 +2,7 @@
 // No DOM access. Returns HTML strings. Import into calendar.html.
 
 import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT } from './utils.js';
-import { renderEventPill, renderEventBubble } from './components.js';
+import { renderEventPill, renderEventBubble, renderFilterChip } from './components.js';
 import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -385,28 +385,42 @@ export function renderMonthView(opts) {
 }
 
 /**
- * Render the calendar page header with view navigation.
+ * Render the sticky calendar sub-bar.
+ * Row 1: View Tabs (Month | Week | Day).
+ * Row 2: Date nav (← {label} →) + right-aligned filter chip.
+ *
+ * Caller wires click handlers on .cal-subbar__view-tab[data-view],
+ * .cal-subbar__nav[data-dir], and #openFilterSheet.
  */
-export function renderCalendarNav(opts) {
-  const { currentView, viewLabel, isCurrentPeriod, weekStartDay, controlsHtml = '' } = opts;
-  const switchLabel = currentView === 'week' ? 'Month' : 'Week';
-  // Monoline SVG icons — all 16×16, 1.5px stroke, consistent visual weight
-  const switchIcon = currentView === 'week'
-    ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="5.5" y1="6" x2="5.5" y2="13.5"/><line x1="10.5" y1="6" x2="10.5" y2="13.5"/><line x1="1.5" y1="9.5" x2="14.5" y2="9.5"/></svg>`
-    : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="2" y1="13" x2="14" y2="13"/></svg>`;
+export function renderCalSubbar({ currentView, viewLabel, isCurrentPeriod, activePersonName = '', activePersonColor = '' }) {
+  const tabs = ['month', 'week', 'day'].map(v => {
+    const label = v.charAt(0).toUpperCase() + v.slice(1);
+    const cls = 'cal-subbar__view-tab' + (v === currentView ? ' is-active' : '');
+    return `<button type="button" class="${cls}" data-view="${v}">${label}</button>`;
+  }).join('');
 
-  return `<div class="cal-nav">
-    <div class="cal-nav__row">
-      <button class="date-nav__btn" id="prevPeriod" type="button" title="Previous">&lsaquo;</button>
-      <div class="cal-nav__center">
-        <span class="cal-nav__label">${viewLabel}</span>
-        ${!isCurrentPeriod ? `<button class="cal-today-link" id="goToday" type="button">Today</button>` : ''}
+  const todayChip = !isCurrentPeriod
+    ? `<button type="button" class="cal-subbar__today" id="goToday">Today</button>`
+    : '';
+
+  const filterChip = renderFilterChip({
+    id: 'openFilterSheet',
+    activePersonName,
+    activePersonColor
+  });
+
+  return `<div class="cal-subbar">
+    <div class="cal-subbar__row cal-subbar__row--tabs" role="tablist">
+      ${tabs}
+    </div>
+    <div class="cal-subbar__row cal-subbar__row--nav">
+      <button type="button" class="cal-subbar__nav" data-dir="prev" aria-label="Previous">&lsaquo;</button>
+      <div class="cal-subbar__center">
+        <span class="cal-subbar__label">${esc(viewLabel)}</span>
+        ${todayChip}
       </div>
-      <button class="date-nav__btn" id="nextPeriod" type="button" title="Next">&rsaquo;</button>
-      <div class="cal-nav__controls">
-        <button class="cal-nav__view-btn" id="viewSwitcher" type="button" title="Switch to ${switchLabel}">${switchIcon}</button>
-        ${controlsHtml}
-      </div>
+      <button type="button" class="cal-subbar__nav" data-dir="next" aria-label="Next">&rsaquo;</button>
+      <div class="cal-subbar__filter">${filterChip}</div>
     </div>
   </div>`;
 }

@@ -98,6 +98,7 @@
 
   /* Z-index */
   --z-header: 10;
+  --z-subbar: 9;          /* sticky calendar sub-bar — sits below header */
   --z-fab: 15;
   --z-nav: 20;
   --z-sheet-backdrop: 30;

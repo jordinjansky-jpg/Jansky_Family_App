@@ -46,14 +46,14 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderPersonFilterSheet } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
-    import { renderWeekView, renderDayView, renderMonthView, renderCalendarNav } from './shared/calendar-views.js';
+    import { renderWeekView, renderDayView, renderMonthView, renderCalSubbar } from './shared/calendar-views.js';
 
     // ── Cached theme ──
     applyTheme(resolveTheme());
@@ -170,7 +170,6 @@
           </div>
         </div>`;
 
-        html += renderPersonFilter(people, activePerson);
         html += `<div class="${enterCls}">`;
         html += renderDayView({
           dateKey: viewDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings
@@ -196,22 +195,14 @@
         isCurrentPeriod = viewMonth === today.substring(0, 7);
       }
 
-      // Monoline SVG icons for density + daily toggles — matches view switcher style
-      const densityIcon = density === 'cozy'
-        ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>`
-        : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="2" y1="13.5" x2="14" y2="13.5"/></svg>`;
-      const dailyIcon = showDailyInWeek
-        ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M5.5 8l1.8 1.8 3.2-3.6"/></svg>`
-        : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><line x1="5.5" y1="5.5" x2="10.5" y2="10.5"/><line x1="10.5" y1="5.5" x2="5.5" y2="10.5"/></svg>`;
-      const controlsHtml = currentView === 'week' ? `
-          <button class="cal-controls__toggle${density === 'cozy' ? ' active' : ''}" data-ctl-density="${density === 'cozy' ? 'snug' : 'cozy'}" type="button" title="${density === 'cozy' ? 'Compact view' : 'Spacious view'}">
-            ${densityIcon}
-          </button>
-          <button class="cal-controls__toggle${showDailyInWeek ? ' active' : ''}" data-ctl-daily="${showDailyInWeek ? 'false' : 'true'}" type="button" title="${showDailyInWeek ? 'Hide daily tasks' : 'Show daily tasks'}">
-            ${dailyIcon}
-          </button>` : '';
-      let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml });
-      html += renderPersonFilter(people, activePerson);
+      const activePersonObj = activePerson ? people.find(p => p.id === activePerson) : null;
+      let html = renderCalSubbar({
+        currentView,
+        viewLabel: navLabel,
+        isCurrentPeriod,
+        activePersonName: activePersonObj?.name || '',
+        activePersonColor: activePersonObj?.color || ''
+      });
 
       html += `<div class="${enterCls} ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
       if (currentView === 'week') {
@@ -249,38 +240,62 @@
     // Navigation bindings
     // ══════════════════════════════════════════
 
+    function adjustPeriod(dir) {
+      if (currentView === 'week') {
+        viewWeekStart = addDays(viewWeekStart, dir * 7);
+      } else if (currentView === 'day') {
+        viewDay = addDays(viewDay, dir);
+      } else {
+        const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01') - 1 + dir, 1));
+        viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      }
+      render();
+    }
+
+    function goToToday() {
+      if (currentView === 'week') viewWeekStart = weekStartForDay(today, weekStartDay);
+      else if (currentView === 'day') viewDay = today;
+      else viewMonth = today.substring(0, 7);
+      render();
+    }
+
+    function setView(v) {
+      currentView = v;
+      if (v === 'day' && !viewDay) viewDay = today;
+      render();
+    }
+
+    function openPersonFilterSheet() {
+      const body = `<h3 class="sheet-section-title">Show tasks for</h3>${renderPersonFilterSheet(people, activePerson)}`;
+      taskSheetMount.innerHTML = renderBottomSheet(body);
+      applyDataColors(taskSheetMount);
+      requestAnimationFrame(() => {
+        document.getElementById('bottomSheet')?.classList.add('active');
+      });
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeTaskSheet();
+      });
+      taskSheetMount.querySelector('.list-group')?.addEventListener('click', (ev) => {
+        const row = ev.target.closest('[data-person-id]');
+        if (!row) return;
+        activePerson = row.dataset.personId || null;
+        calPrefs.personFilter = activePerson;
+        saveCalPrefs();
+        if (linkedPerson) {
+          const prefs = { ...(linkedPerson.prefs || {}), calendar: { personFilter: activePerson } };
+          linkedPerson.prefs = prefs;
+          const { id, ...data } = linkedPerson;
+          writePerson(id, data);
+        }
+        closeTaskSheet();
+        render({ preserveScroll: true });
+      });
+    }
+
     function bindNavEvents() {
-      document.getElementById('prevPeriod')?.addEventListener('click', () => {
-        if (currentView === 'week') {
-          viewWeekStart = addDays(viewWeekStart, -7);
-        } else {
-          const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01') - 2, 1));
-          viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-        }
-        render();
-      });
-
-      document.getElementById('nextPeriod')?.addEventListener('click', () => {
-        if (currentView === 'week') {
-          viewWeekStart = addDays(viewWeekStart, 7);
-        } else {
-          const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01'), 1));
-          viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-        }
-        render();
-      });
-
-      document.getElementById('goToday')?.addEventListener('click', () => {
-        if (currentView === 'week') viewWeekStart = weekStartForDay(today, weekStartDay);
-        else viewMonth = today.substring(0, 7);
-        render();
-      });
-
-      document.getElementById('viewSwitcher')?.addEventListener('click', () => {
-        currentView = currentView === 'week' ? 'month' : 'week';
-        render();
-      });
-
+      // Sub-bar nav, view tabs, today chip, and filter chip are wired via
+      // the delegated click handler registered once on document (see below).
       // Inline density toggle
       main.querySelectorAll('[data-ctl-density]').forEach(btn => btn.addEventListener('click', () => {
         density = btn.dataset.ctlDensity;
@@ -299,20 +314,7 @@
     }
 
     function bindPersonFilterEvents() {
-      main.querySelectorAll('.person-pill').forEach(btn => {
-        btn.addEventListener('click', () => {
-          activePerson = btn.dataset.personId || null;
-          calPrefs.personFilter = activePerson;
-          saveCalPrefs();
-          if (linkedPerson) {
-            const prefs = { ...(linkedPerson.prefs || {}), calendar: { personFilter: activePerson } };
-            linkedPerson.prefs = prefs;
-            const { id, ...data } = linkedPerson;
-            writePerson(id, data);
-          }
-          render();
-        });
-      });
+      // Person filter now handled by openPersonFilterSheet via delegated handler.
     }
 
     // ══════════════════════════════════════════
@@ -571,6 +573,16 @@
     }
 
     document.getElementById('headerAddTask')?.addEventListener('click', openAddMenu);
+
+    // ── Sub-bar delegated handler (registered once) ──
+    document.addEventListener('click', (e) => {
+      const tab = e.target.closest('.cal-subbar__view-tab[data-view]');
+      if (tab) { setView(tab.dataset.view); return; }
+      const nav = e.target.closest('.cal-subbar__nav[data-dir]');
+      if (nav) { adjustPeriod(nav.dataset.dir === 'next' ? 1 : -1); return; }
+      if (e.target.closest('#goToday')) { goToToday(); return; }
+      if (e.target.closest('#openFilterSheet')) { openPersonFilterSheet(); return; }
+    });
 
     // ══════════════════════════════════════════
     // Event Form (Create / Edit)
