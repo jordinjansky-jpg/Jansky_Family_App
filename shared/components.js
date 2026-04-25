@@ -1747,6 +1747,75 @@ export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
 }
 
 /**
+ * Coming up rail — 7-day forward look. Collapsed by default; expanded
+ * shows day-blocks for the next 7 days starting today+1 (today excluded).
+ * Days with zero events render zero rows. Spec 2026-04-25 §3.4.
+ *
+ * Args:
+ *   days: Array<{ dateKey, dayLabel: { dow, monthDay }, events: Array<[eventId, event]> }>
+ *     Sorted ascending; only days with events.
+ *   isExpanded: boolean — current expand state.
+ *   summary: string — pre-built summary line ("3 events this week" /
+ *     "clear week" / "2 events for Noah this week" / etc.).
+ *   filterPersonName: string — used by empty-state copy ("for Noah").
+ */
+export function renderComingUp({ days = [], isExpanded = false, summary = '', filterPersonName = '' } = {}) {
+  const chevSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>`;
+  const expandedAttr = isExpanded ? 'true' : 'false';
+
+  let blocksHtml = '';
+  if (days.length === 0) {
+    const emptyCopy = filterPersonName
+      ? `No events for ${esc(filterPersonName)} in the next 7 days`
+      : 'No events in the next 7 days';
+    blocksHtml = `<div class="coming-up__empty">${emptyCopy}</div>`;
+  } else {
+    blocksHtml = days.map(d => {
+      const eventsHtml = d.events.map(([eventId, ev]) => {
+        const time = ev.allDay ? 'All day' : (ev.startTime ? _formatEventTime12h(ev.startTime) : '');
+        const meta = [ev.location].filter(Boolean).map(esc).join(' · ');
+        const metaHtml = meta ? `<span class="event-row__meta">${meta}</span>` : '';
+        return `<button class="event-row" data-event-id="${esc(eventId)}" type="button">
+          <span class="event-row__time">${esc(time)}</span>
+          <span class="event-row__title">${esc(ev.name || '')}</span>
+          ${metaHtml}
+        </button>`;
+      }).join('');
+      return `<div class="cal-day-block">
+        <button class="cal-day-block__head" data-date="${esc(d.dateKey)}" type="button">
+          <strong>${esc(d.dayLabel.dow)}</strong> ${esc(d.dayLabel.monthDay)}
+        </button>
+        ${eventsHtml}
+      </div>`;
+    }).join('');
+  }
+
+  return `<section class="coming-up" data-expanded="${expandedAttr}">
+    <button class="coming-up__row" id="comingUpToggle" aria-expanded="${expandedAttr}" aria-controls="comingUpBlocks" type="button">
+      <span class="coming-up__text">
+        <span class="coming-up__label">Coming up</span>
+        <span class="coming-up__summary">${esc(summary)}</span>
+      </span>
+      <span class="coming-up__chev" aria-hidden="true">${chevSvg}</span>
+    </button>
+    <div class="coming-up__blocks" id="comingUpBlocks"${isExpanded ? '' : ' hidden'}>
+      ${blocksHtml}
+    </div>
+  </section>`;
+}
+
+// Internal helper — 24h "07:00" -> "7:00 AM".
+function _formatEventTime12h(t24) {
+  if (!t24) return '';
+  const [hStr, mStr] = t24.split(':');
+  const h = parseInt(hStr, 10);
+  const m = mStr || '00';
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${m} ${period}`;
+}
+
+/**
  * Cross-page banner queue mount. Caller passes data getters; helper
  * mounts/refreshes the banner on demand. Pages: scoreboard, tracker
  * (dashboard + calendar already manage their own queues with richer

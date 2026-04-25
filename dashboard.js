@@ -1,10 +1,10 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
-import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
+import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
@@ -300,6 +300,59 @@ function render() {
     const weatherData = null; // Wired by 1.4.
     const dinnerData  = null; // Wired by 1.3.
     html += renderAmbientStrip({ weather: weatherData, dinner: dinnerData });
+  }
+
+  // === Coming up rail (spec §3.4) ===
+  {
+    const comingUpExpanded = localStorage.getItem('dr-coming-up-state') === 'expanded';
+    const cuStart = addDays(today, 1);
+    const cuEnd = addDays(today, 7);
+    const cuInRange = getEventsForRange(events, cuStart, cuEnd);
+    const cuFiltered = filterEventsByPerson(cuInRange, activePerson);
+    // Group by date.
+    const cuByDate = {};
+    for (const [id, ev] of Object.entries(cuFiltered)) {
+      if (!cuByDate[ev.date]) cuByDate[ev.date] = [];
+      cuByDate[ev.date].push([id, ev]);
+    }
+    // Build sorted day-blocks.
+    const cuDayKeys = Object.keys(cuByDate).sort();
+    const cuDays = cuDayKeys.map(dk => {
+      const dt = new Date(dk + 'T00:00:00');
+      return {
+        dateKey: dk,
+        dayLabel: {
+          dow: DAY_NAMES[dt.getDay()].slice(0, 3),
+          monthDay: dt.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+        },
+        events: cuByDate[dk].sort((a, b) => {
+          const [, ea] = a, [, eb] = b;
+          if (ea.allDay && !eb.allDay) return -1;
+          if (!ea.allDay && eb.allDay) return 1;
+          return (ea.startTime || '').localeCompare(eb.startTime || '');
+        })
+      };
+    });
+    // Summary copy (events-only count).
+    const cuTotalEvents = Object.keys(cuFiltered).length;
+    const cuFilterPersonName = activePerson
+      ? (people.find(p => p.id === activePerson)?.name || '')
+      : '';
+    let cuSummary;
+    if (cuTotalEvents === 0) {
+      cuSummary = cuFilterPersonName ? `clear week for ${cuFilterPersonName}` : 'clear week';
+    } else {
+      const cuNoun = cuTotalEvents === 1 ? 'event' : 'events';
+      cuSummary = cuFilterPersonName
+        ? `${cuTotalEvents} ${cuNoun} for ${cuFilterPersonName} this week`
+        : `${cuTotalEvents} ${cuNoun} this week`;
+    }
+    html += renderComingUp({
+      days: cuDays,
+      isExpanded: comingUpExpanded,
+      summary: cuSummary,
+      filterPersonName: cuFilterPersonName
+    });
   }
 
   let firstSectionRendered = false;
@@ -632,6 +685,36 @@ function bindEvents() {
       // No-op for now; data wires + sheet opens land in the owning PRs (1.3 / 1.4).
     });
   });
+
+  // Coming up rail (Task 8)
+  const comingUpEl = main.querySelector('.coming-up');
+  if (comingUpEl) {
+    document.getElementById('comingUpToggle')?.addEventListener('click', () => {
+      const isExpanded = comingUpEl.dataset.expanded === 'true';
+      const next = !isExpanded;
+      comingUpEl.dataset.expanded = next ? 'true' : 'false';
+      document.getElementById('comingUpToggle')?.setAttribute('aria-expanded', next ? 'true' : 'false');
+      const blocks = document.getElementById('comingUpBlocks');
+      if (blocks) blocks.hidden = !next;
+      localStorage.setItem('dr-coming-up-state', next ? 'expanded' : 'collapsed');
+    });
+    comingUpEl.querySelectorAll('.cal-day-block__head').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const date = btn.dataset.date;
+        if (!date) return;
+        viewDate = date;
+        celebrationShown = false;
+        updateHeaderSubtitle();
+        subscribeSchedule(viewDate);
+        loadData();
+      });
+    });
+    comingUpEl.querySelectorAll('.event-row').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openEventDetailSheet(btn.dataset.eventId);
+      });
+    });
+  }
 
   // Event bubbles — tap to open detail sheet
   main.querySelectorAll('.event-bubble[data-event-id]').forEach(btn => {

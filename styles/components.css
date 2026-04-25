@@ -1987,3 +1987,118 @@
 @media (prefers-reduced-motion: reduce) {
   .ambient-chip { transition: none; }
 }
+
+/* === Coming up rail (spec 2026-04-25 §3.4) === */
+.coming-up {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-top: var(--spacing-md);
+  overflow: hidden;
+}
+.coming-up__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: var(--spacing-md);
+  background: transparent;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  min-height: 56px;
+}
+.coming-up__row:hover { background: var(--surface-2); }
+.coming-up__row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.coming-up__text { display: flex; flex-direction: column; min-width: 0; }
+.coming-up__label {
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.coming-up__summary {
+  font-size: var(--font-sm);
+  color: var(--text);
+  margin-top: 2px;
+}
+.coming-up__chev {
+  width: 24px; height: 24px;
+  color: var(--text-faint);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform var(--t-base);
+}
+.coming-up__chev svg { width: 18px; height: 18px; }
+.coming-up[data-expanded="true"] .coming-up__chev { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .coming-up__chev { transition: none; }
+}
+.coming-up__blocks {
+  border-top: 1px solid var(--border);
+  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+}
+.coming-up__empty {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  padding: var(--spacing-sm) 0;
+}
+
+/* Day block (ported from shelved Phase 2 calendar plan) */
+.cal-day-block {
+  padding: var(--spacing-sm) 0;
+}
+.cal-day-block + .cal-day-block { border-top: 1px solid var(--border); }
+.cal-day-block__head {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  min-height: 36px;
+}
+.cal-day-block__head strong { color: var(--text); font-size: var(--font-md); font-weight: 600; margin-right: var(--spacing-xs); }
+.cal-day-block__head:hover { color: var(--text); }
+.cal-day-block__head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* Event row inside a day block (mini event card) */
+.event-row {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  column-gap: var(--spacing-sm);
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: var(--spacing-xs) 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  align-items: baseline;
+}
+.event-row:hover { background: var(--surface-2); border-radius: var(--radius-sm); }
+.event-row__time {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.event-row__title {
+  font-size: var(--font-md);
+  color: var(--text);
+  font-weight: 500;
+}
+.event-row__meta {
+  grid-column: 2;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
