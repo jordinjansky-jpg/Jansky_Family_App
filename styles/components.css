@@ -2389,7 +2389,7 @@
   text-transform: uppercase;
   letter-spacing: 0.07em;
   width: 100%;
-  margin-bottom: 4px;
+  margin-bottom: var(--spacing-xs);
 }
 .mp-create-btn {
   width: 100%;
