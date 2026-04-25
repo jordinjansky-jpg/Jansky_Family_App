@@ -1262,7 +1262,7 @@
           <div class="admin-form__group">
             <label class="form-label" for="sf_weatherLocation">Location</label>
             <div class="form-hint">Zip code or "City, State". Example: Lakeville, MN</div>
-            <div style="display:flex;gap:8px;align-items:flex-start">
+            <div class="admin-form__row">
               <input class="form-input" id="sf_weatherLocation" type="text"
                      placeholder="Lakeville, MN" value="${esc(settings?.weatherLocation || '')}">
               <button class="btn btn--secondary btn--sm" id="sf_weatherTest" type="button">Test</button>
@@ -1272,8 +1272,8 @@
           <div class="admin-form__group">
             <label class="form-label" for="sf_weatherApiKey">OpenWeatherMap API key</label>
             <div class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</div>
-            <input class="form-input" id="sf_weatherApiKey" type="text"
-                   style="font-family:monospace;font-size:13px" value="${esc(settings?.weatherApiKey || '')}">
+            <input class="form-input form-input--mono" id="sf_weatherApiKey" type="text"
+                   value="${esc(settings?.weatherApiKey || '')}">
           </div>
         </fieldset>
         <fieldset class="admin-form__fieldset">
