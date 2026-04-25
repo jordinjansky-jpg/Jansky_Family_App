@@ -78,6 +78,7 @@
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
+    import { clearWeatherCache } from './shared/weather.js';
 
     // ── Undo toast helper ──
     let undoTimer = null;
@@ -1272,8 +1273,8 @@
           <div class="admin-form__group">
             <label class="form-label" for="sf_weatherApiKey">OpenWeatherMap API key</label>
             <div class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</div>
-            <input class="form-input form-input--mono" id="sf_weatherApiKey" type="text"
-                   value="${esc(settings?.weatherApiKey || '')}">
+            <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password"
+                   autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
           </div>
         </fieldset>
         <fieldset class="admin-form__fieldset">
@@ -3844,14 +3845,8 @@
           weatherApiKey:   main.querySelector('#sf_weatherApiKey')?.value.trim() || '',
         };
 
-        // Evict weather cache if location changed
         if ((settings?.weatherLocation || '') !== (updated.weatherLocation || '')) {
-          const toRemove = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k?.startsWith('dr-weather-')) toRemove.push(k);
-          }
-          toRemove.forEach(k => localStorage.removeItem(k));
+          clearWeatherCache();
         }
 
         if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {

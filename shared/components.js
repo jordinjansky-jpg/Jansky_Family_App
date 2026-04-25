@@ -1769,12 +1769,22 @@ export function renderWeatherSheet(days, today, tomorrow) {
   function dayLabel(dk) {
     if (dk === today) return 'Today';
     if (dk === tomorrow) return 'Tomorrow';
-    const d = new Date(dk + 'T00:00:00');
+    const d = new Date(dk + 'T12:00:00'); // noon avoids DST midnight ambiguity
     return d.toLocaleDateString('en-US', { weekday: 'long' });
   }
   function shortDate(dk) {
-    const d = new Date(dk + 'T00:00:00');
+    const d = new Date(dk + 'T12:00:00'); // noon avoids DST midnight ambiguity
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  if (!days || days.length === 0) {
+    return renderBottomSheet(`
+      <h3 class="sheet-section-title">Weather</h3>
+      <div class="weather-sheet__rows weather-sheet__rows--empty">Could not load forecast. Check your connection.</div>
+      <div class="sheet-actions">
+        <button class="btn btn--secondary btn--full" id="weatherSheetClose" type="button">Done</button>
+      </div>
+    `);
   }
 
   const rowsHtml = days.map(day => {

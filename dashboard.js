@@ -86,6 +86,7 @@ let suppressedCooldownTaskIds = new Set();
 let celebrationShown = false;
 let lastRenderedIsToday = true; // tracks viewDate==today across renders so Back-to-Today pill only animates on the transition away from today, not on passive re-renders
 let lastWeatherData = null; // set in render(); read by ambient chip tap handler
+let renderInFlight = false; // prevents concurrent renders when fetchWeather is awaited
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
@@ -229,6 +230,9 @@ async function loadData() {
 }
 
 async function render() {
+  if (renderInFlight) return;
+  renderInFlight = true;
+  try {
   clearTimeout(activePressTimer);
   activePressTimer = null;
   // Filter out event schedule entries (type: 'event') — real events come from events collection
@@ -470,6 +474,9 @@ async function render() {
 
   // Mount banner queue (priority: vacation > freeze > overdue > multiplier > info).
   mountBannerQueue({ overdueItems: overdueFiltered });
+  } finally {
+    renderInFlight = false;
+  }
 }
 
 // Banner queue — priority: vacation > freeze > overdue > multiplier > info-activity > info-offline.
