@@ -268,8 +268,8 @@ function render() {
   // Hard order, top to bottom:
   //   1. #bannerMount                     (single banner, queued)
   //   2. .back-to-today                   (when viewDate !== today)
-  //   3. #ambientStripMount               (Task 7)
-  //   4. #comingUpMount                   (Task 8)
+  //   3. .ambient-row                     (Task 7 — gated on settings.ambientStrip)
+  //   4. .coming-up                       (Task 8 — 7-day rail)
   //   5. .section--events                 (when events present)
   //   6. .section--today                  (always)
   //   7. .debug-panel                     (when debug enabled)
