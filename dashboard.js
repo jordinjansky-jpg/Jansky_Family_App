@@ -514,7 +514,7 @@ function bindEvents() {
         didLongPress = true;
         activePressTimer = null;
         openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
-      }, settings?.longPressMs ?? 500);
+      }, settings?.longPressMs ?? 800);
     };
 
     const movePress = (e) => {
