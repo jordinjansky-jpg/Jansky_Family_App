@@ -9,6 +9,15 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v61 (2026-04-25) — Dashboard final-form rework: Coming up rail (3.3),
+//                    ambient strip slot, store-pt + grade meta chips
+//                    when filtered, banner queue gains --info offline +
+//                    cross-page mount on scoreboard/tracker, removed
+//                    settings.showPoints (and per-card Npt chip), bumped
+//                    long-press default 500 -> 800ms on dashboard,
+//                    loading skeleton replaces inline spinner. Bounty
+//                    tag relabeled "+5 pt" without emoji. Spec:
+//                    docs/superpowers/specs/2026-04-25-dashboard-final-design.md
 // v60 (2026-04-24) — Remove v51 diagnostic overlay from index.html and
 //                    delete /test.html. The mobile load bug (person.html
 //                    missing #fabMount) has been understood and fixed in
@@ -100,7 +109,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v60';
+const CACHE_NAME = 'family-hub-v61';
 
 const APP_SHELL = [
   '/',
