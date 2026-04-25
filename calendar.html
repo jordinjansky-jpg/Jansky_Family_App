@@ -89,7 +89,6 @@
     const calDefaults = settings?.calendarDefaults || {};
     let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
     let density = calPrefs.density || calDefaults.density || 'snug';
-    let showDailyInWeek = calPrefs.showDailyInWeek ?? calDefaults.showDailyInWeek ?? true;
     const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'week';
 
     // ── Person link mode ──
@@ -207,7 +206,7 @@
       html += `<div class="${enterCls} ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
       if (currentView === 'week') {
         html += renderWeekView({
-          weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, showDailyInWeek
+          weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson
         });
       } else {
         html += renderMonthView({
@@ -296,21 +295,7 @@
     function bindNavEvents() {
       // Sub-bar nav, view tabs, today chip, and filter chip are wired via
       // the delegated click handler registered once on document (see below).
-      // Inline density toggle
-      main.querySelectorAll('[data-ctl-density]').forEach(btn => btn.addEventListener('click', () => {
-        density = btn.dataset.ctlDensity;
-        calPrefs.density = density;
-        saveCalPrefs();
-        render();
-      }));
-
-      // Inline daily toggle
-      main.querySelectorAll('[data-ctl-daily]').forEach(btn => btn.addEventListener('click', () => {
-        showDailyInWeek = btn.dataset.ctlDaily === 'true';
-        calPrefs.showDailyInWeek = showDailyInWeek;
-        saveCalPrefs();
-        render();
-      }));
+      // Time-grid-era density/daily-toggle bindings removed in Task 3 (Phase 2).
     }
 
     function bindPersonFilterEvents() {
@@ -322,22 +307,79 @@
     // ══════════════════════════════════════════
 
     function bindWeekViewEvents() {
-      main.querySelectorAll('.cal-week__col[data-date]').forEach(col => {
-        col.addEventListener('click', (e) => {
-          if (e.target.classList.contains('cal-week__task-check')) return;
-          viewDay = col.dataset.date;
-          currentView = 'day';
-          render();
-        });
-      });
-
-      main.querySelectorAll('.cal-week__task-check').forEach(cb => {
-        cb.addEventListener('change', (e) => {
+      // Per-day + chip: opens event form for that date
+      main.querySelectorAll('.cal-day-add[data-date]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          toggleTask(cb.dataset.entryKey, cb.dataset.dateKey);
+          viewDay = btn.dataset.date;
+          openEventForm();
         });
       });
 
+      // Task cards: tap to toggle (or open sheet if tap-blocked), long-press to open sheet
+      main.querySelectorAll('.task-card[data-entry-key]').forEach(card => {
+        let pressTimer = null;
+        let didLongPress = false;
+        const entryKey = card.dataset.entryKey;
+        const dateKey = card.dataset.dateKey;
+        const tapBlocked = card.dataset.tapBlocked === 'true';
+
+        card.addEventListener('pointerdown', () => {
+          didLongPress = false;
+          pressTimer = setTimeout(() => {
+            didLongPress = true;
+            openTaskSheet(entryKey, dateKey);
+          }, settings?.longPressMs ?? 800);
+        });
+        card.addEventListener('pointerup', () => {
+          clearTimeout(pressTimer);
+          if (!didLongPress) {
+            if (tapBlocked) {
+              openTaskSheet(entryKey, dateKey);
+            } else {
+              toggleTask(entryKey, dateKey);
+            }
+          }
+        });
+        card.addEventListener('pointerleave', () => clearTimeout(pressTimer));
+        card.addEventListener('pointercancel', () => clearTimeout(pressTimer));
+        card.addEventListener('contextmenu', (e) => e.preventDefault());
+      });
+
+      // Check buttons: direct toggle without triggering card long-press
+      main.querySelectorAll('.check[data-entry-key]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const entryKey = btn.dataset.entryKey;
+          const dateKey = btn.dataset.dateKey;
+          const tapBlocked = btn.closest('.task-card')?.dataset.tapBlocked === 'true';
+          if (tapBlocked) {
+            openTaskSheet(entryKey, dateKey);
+          } else {
+            toggleTask(entryKey, dateKey);
+          }
+        });
+      });
+
+      // Event cards in week view: tap to open event detail sheet
+      main.querySelectorAll('.card--event[data-event-id]').forEach(card => {
+        let pressTimer = null;
+        let didLongPress = false;
+        card.addEventListener('pointerdown', () => {
+          didLongPress = false;
+          pressTimer = setTimeout(() => {
+            didLongPress = true;
+            openEventDetailSheet(card.dataset.eventId);
+          }, settings?.longPressMs ?? 800);
+        });
+        card.addEventListener('pointerup', () => {
+          clearTimeout(pressTimer);
+          if (!didLongPress) openEventDetailSheet(card.dataset.eventId);
+        });
+        card.addEventListener('pointerleave', () => clearTimeout(pressTimer));
+        card.addEventListener('pointercancel', () => clearTimeout(pressTimer));
+        card.addEventListener('contextmenu', (e) => e.preventDefault());
+      });
     }
 
     function bindMonthViewEvents() {
@@ -464,7 +506,7 @@
       // Only for completing (not un-completing) so undo feels snappy.
       let pressEl = null;
       if (!wasComplete) {
-        pressEl = main.querySelector(`.cal-day__task[data-entry-key="${entryKey}"], .cal-week__task[data-entry-key="${entryKey}"]`);
+        pressEl = main.querySelector(`.cal-day__task[data-entry-key="${entryKey}"], .task-card[data-entry-key="${entryKey}"]`);
         if (pressEl) {
           pressEl.classList.add('cal-task--completing');
           pressEl.style.pointerEvents = 'none';

@@ -98,99 +98,82 @@
 }
 .cal-subbar__filter { display: flex; align-items: center; }
 
-/* ── Week View ── */
-.cal-week {
-  flex: 1;
+/* === Week view: vertical agenda day-blocks === */
+.cal-week-agenda {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  /* gap handled by per-block margin-bottom for CSS-order compatibility */
 }
-.cal-week__header {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  text-align: center;
+.cal-day-block {
+  margin-bottom: var(--spacing-lg);
 }
-.cal-week__dow {
+.cal-day-block--past {
+  opacity: 0.6;
+}
+.cal-day-block__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md);
+  margin: 0 0 var(--spacing-sm);
+}
+.cal-day-block__today {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
   font-size: var(--font-xs);
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
-  padding: 6px 0 4px;
-  line-height: 1.3;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
 }
-.cal-week__dow--today { color: var(--accent); }
-.cal-week__date-num {
+.cal-day-block__day {
   font-size: var(--font-md);
-  font-weight: 800;
-  display: block;
+  font-weight: 600;
+  color: var(--text);
 }
-.cal-week__body {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: 1fr;
-  gap: 2px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+.cal-day-block__date {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
 }
-.cal-week__col {
+.cal-day-block__empty {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+.cal-day-block__foot {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 6px 4px;
-  background: var(--surface);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border, var(--border));
-  min-width: 0;
-  cursor: pointer;
+  justify-content: flex-end;
+  padding: var(--spacing-xs) var(--spacing-md) 0;
 }
-/* Desktop: columns share a fixed-height grid row, so each scrolls independently */
-@media (min-width: 601px) {
-  .cal-week__col { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
-  .cal-week__col::-webkit-scrollbar { display: none; }
-}
-.cal-week__events { display: flex; flex-direction: column; gap: 2px; }
-/* Time grid for positioned timed events */
-.cal-week__time-grid {
-  position: relative;
-  width: 100%;
-  margin-top: 2px;
-}
-.cal-week__timed {
-  position: absolute;
-  padding: 0 1px;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-.cal-week__timed .event-pill {
-  height: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-.cal-week__timed .event-pill--timed {
-  height: 100%;
-  justify-content: flex-start;
-  padding: 2px 4px;
-}
-.cal-week__timed .event-pill__time {
-  font-size: 0.5625rem;
+.cal-day-add {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius-full);
+  width: 32px;
+  height: 32px;
+  font-size: var(--font-lg);
   line-height: 1;
+  cursor: pointer;
+  /* Effective tap area >= 44 via padding around the chip */
+  padding: 0;
+  position: relative;
 }
-.cal-week__timed .event-pill__text {
-  font-size: var(--font-xs);
-  line-height: 1.2;
+.cal-day-add::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
 }
-.cal-week__col--today {
+.cal-day-add:hover {
+  background: var(--accent-soft);
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+  color: var(--accent-ink);
 }
-.cal-week__col--past { opacity: 0.65; }
-
-/* Column inline label (visible on mobile only) */
-.cal-week__col-label { display: none; }
+.cal-day-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 /* Event pills */
 .event-pill {
@@ -274,34 +257,6 @@
   border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.5);
 }
-.cal-week__overflow {
-  font-size: var(--font-xs);
-  color: var(--text-faint);
-  text-align: center;
-  padding: 2px 0;
-}
-
-/* Task rows in week view */
-.cal-week__tasks { border-top: 1px solid var(--border); padding-top: 4px; margin-top: 4px; }
-.cal-week__tasks--daily { border-top-style: dashed; }
-.cal-week__task {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--font-xs);
-  line-height: 1.4;
-  cursor: pointer;
-  padding: 2px 0;
-}
-.cal-week__task--done { opacity: 0.4; text-decoration: line-through; }
-.cal-week__task-check { width: 14px; height: 14px; margin: 0; flex-shrink: 0; }
-.cal-week__task-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.cal-week__task-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* ── Day View ── */
 .cal-day {
   flex: 1;
@@ -598,10 +553,6 @@
   font-size: 12px;
   font-weight: 700;
 }
-.cal-task--completing.cal-week__task .cal-week__task-check {
-  accent-color: var(--success);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .cal-view-enter,
   .cal-task--completing,
@@ -684,19 +635,6 @@
   font-weight: 600;
 }
 
-/* ── Density: Cozy (fewer items, larger text — good for wall/distance viewing) ── */
-.cal-density--cozy .cal-week__col { padding: 8px 6px; gap: 5px; }
-.cal-density--cozy .cal-week__col .event-pill { font-size: var(--font-sm); padding: 5px 8px; border-radius: var(--radius-sm); }
-.cal-density--cozy .cal-week__col .event-pill__dot { width: 9px; height: 9px; }
-.cal-density--cozy .cal-week__task { font-size: var(--font-sm); gap: 6px; padding: 3px 0; }
-.cal-density--cozy .cal-week__task-check { width: 18px; height: 18px; }
-.cal-density--cozy .cal-week__task-dot { width: 9px; height: 9px; }
-.cal-density--cozy .cal-week__tasks { padding-top: 6px; margin-top: 6px; }
-.cal-density--cozy .cal-week__overflow { font-size: var(--font-sm); }
-.cal-density--cozy .cal-week__dow { font-size: var(--font-sm); }
-.cal-density--cozy .cal-week__date-num { font-size: var(--font-lg); }
-/* Cozy density: no diff for month grid (same as snug) */
-
 /* ── Mobile: compact person filter ── */
 @media (max-width: 600px) {
   .person-filter {
@@ -706,86 +644,5 @@
     padding: 4px 0 6px;
   }
 }
-
-/* ── Mobile week: vertical day-by-day list ── */
-@media (max-width: 600px) {
-  .cal-week__header { display: none; }
-  .cal-week__body {
-    grid-template-columns: 1fr;
-    grid-template-rows: none;
-    gap: var(--spacing-sm);
-    overflow-y: auto;
-    padding-bottom: calc(var(--nav-height) + var(--spacing-lg));
-  }
-  .cal-week__col {
-    padding: var(--spacing-sm) var(--spacing-md);
-    gap: var(--spacing-xs);
-    border-radius: var(--radius-md);
-    order: var(--mobile-order, 0);
-  }
-  /* Today card stands out — accent left border + subtle glow */
-  .cal-week__col--today {
-    border-left: 3px solid var(--accent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
-  }
-  /* Past day cards faded */
-  .cal-week__col--past {
-    opacity: 0.55;
-  }
-  /* Daily tasks section scrolls within the card on mobile */
-  .cal-week__tasks--daily {
-    max-height: 180px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-  }
-  .cal-week__tasks--daily::-webkit-scrollbar { display: none; }
-  .cal-week__col-label {
-    display: flex;
-    align-items: baseline;
-    gap: var(--spacing-xs);
-    padding-bottom: var(--spacing-xs);
-    border-bottom: 1px solid var(--border);
-    margin-bottom: var(--spacing-xs);
-  }
-  .cal-week__col-day {
-    font-size: var(--font-md);
-    font-weight: 800;
-    color: var(--text);
-  }
-  .cal-week__col-date {
-    font-size: var(--font-sm);
-    color: var(--text-faint);
-  }
-  .cal-week__col--today .cal-week__col-day { color: var(--accent); }
-  .cal-week__today-tag {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #fff;
-    background: var(--accent);
-    padding: 1px 6px;
-    border-radius: var(--radius-full);
-    line-height: 1.4;
-  }
-  .event-pill {
-    font-size: var(--font-sm);
-    padding: 5px 8px;
-    border-radius: var(--radius-sm);
-    gap: 4px;
-  }
-  .event-pill__dot { width: 8px; height: 8px; }
-  .cal-week__tasks { padding-top: var(--spacing-xs); margin-top: var(--spacing-xs); }
-  .cal-week__task {
-    font-size: var(--font-md);
-    gap: var(--spacing-sm);
-    padding: var(--spacing-xs) 0;
-  }
-  .cal-week__task-check { width: 18px; height: 18px; }
-  .cal-week__task-dot { width: 8px; height: 8px; }
-  .cal-week__overflow { font-size: var(--font-sm); }
-}
-
 
 /* ── PWA standalone — padding already uses env() safe-area, no extra override needed ── */

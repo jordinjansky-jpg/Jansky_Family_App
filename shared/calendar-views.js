@@ -2,7 +2,7 @@
 // No DOM access. Returns HTML strings. Import into calendar.html.
 
 import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT } from './utils.js';
-import { renderEventPill, renderEventBubble, renderFilterChip } from './components.js';
+import { renderEventPill, renderEventBubble, renderFilterChip, renderSectionHead } from './components.js';
 import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -11,187 +11,166 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /**
- * Build a compact time-grid HTML for timed events.
- * Events are stacked vertically by overlap group (no empty time gaps).
- * Overlapping events sit side-by-side within a group.
- * @param {Array} timedEvents - [[id, eventObj], ...]
- * @param {Array} people - people array
- * @param {number} scale - px per minute (default 1.5)
- * @param {number} minHeight - minimum pill height in px (default 28)
- * @param {string} wrapperClass - CSS class for the grid container
- * @returns {string} HTML string
- */
-function buildTimeGrid(timedEvents, people, { scale = 1.5, minHeight = 28, wrapperClass = 'cal-week__time-grid', itemClass = 'cal-week__timed' } = {}) {
-  if (timedEvents.length === 0) return '';
-
-  const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-  const parsed = timedEvents.map(([id, evt]) => {
-    const start = toMin(evt.startTime);
-    const end = evt.endTime ? toMin(evt.endTime) : start + 15;
-    return { id, evt, start, end, dur: end - start };
-  });
-
-  // Overlap detection
-  parsed.sort((a, b) => a.start - b.start || a.end - b.end);
-  const groups = [];
-  let curGroup = [], groupEnd = 0;
-  for (const ev of parsed) {
-    if (curGroup.length > 0 && ev.start >= groupEnd) { groups.push(curGroup); curGroup = []; }
-    curGroup.push(ev);
-    groupEnd = Math.max(groupEnd, ev.end);
-  }
-  if (curGroup.length > 0) groups.push(curGroup);
-
-  // Column assignment per group
-  const layout = new Map();
-  for (const group of groups) {
-    const cols = [];
-    for (const ev of group) {
-      let placed = false;
-      for (let ci = 0; ci < cols.length; ci++) {
-        if (ev.start >= cols[ci]) { cols[ci] = ev.end; layout.set(ev, { col: ci }); placed = true; break; }
-      }
-      if (!placed) { layout.set(ev, { col: cols.length }); cols.push(ev.end); }
-    }
-    const tc = cols.length;
-    for (const ev of group) layout.get(ev).totalCols = tc;
-  }
-
-  // Compact stacked render
-  const groupGap = 4;
-  let yOffset = 0;
-  let html = '';
-  for (const group of groups) {
-    const groupHeight = Math.max(...group.map(ev => Math.max(ev.dur * scale, minHeight)));
-    for (const ev of group) {
-      const height = Math.max(ev.dur * scale, minHeight);
-      const { col, totalCols } = layout.get(ev);
-      const left = (col / totalCols) * 100;
-      const width = (1 / totalCols) * 100;
-      const pill = renderEventPill(ev.evt, people);
-      html += `<div class="${itemClass}" data-event-id="${ev.id}" data-timegrid-pos="${yOffset.toFixed(1)}|${height.toFixed(1)}|${left.toFixed(1)}|${width.toFixed(1)}">${pill}</div>`;
-    }
-    yOffset += groupHeight + groupGap;
-  }
-  const gridHeight = Math.max(yOffset - groupGap, 0);
-  return `<div class="${wrapperClass}" data-timegrid-height="${gridHeight.toFixed(1)}">${html}</div>`;
-}
-
-/**
- * Render the week view.
+ * Render the week view as a vertical agenda of seven day-blocks.
+ * Today-first ordering via CSS `order` (today=0, future=1..6, past=7..).
+ * Past days are faded by .cal-day-block--past (opacity in CSS).
+ *
  * @param {object} opts
- * @param {string} opts.weekStartDate - YYYY-MM-DD of the first day of the displayed week
- * @param {string} opts.today - today's YYYY-MM-DD
- * @param {object} opts.events - all events { eventId: event }
- * @param {object} opts.allSchedule - full schedule { dateKey: { entryKey: entry } }
- * @param {object} opts.completions - all completions
- * @param {object} opts.tasks - all tasks { taskId: task }
- * @param {object} opts.cats - all categories
- * @param {Array} opts.people - people array [{ id, name, color }]
- * @param {string|null} opts.activePerson - filtered person ID or null
- * @param {string} opts.density - 'cozy' | 'snug'
- * @param {number} opts.weekStartDay - 0=Sun, 1=Mon
+ * @param {string} opts.weekStartDate
+ * @param {string} opts.today
+ * @param {object} opts.events, allSchedule, completions, tasks, cats
+ * @param {Array}  opts.people
+ * @param {string|null} opts.activePerson
  * @returns {string} HTML
  */
 export function renderWeekView(opts) {
-  const { weekStartDate, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, showDailyInWeek } = opts;
+  const { weekStartDate, today, events, allSchedule, completions, tasks, cats, people, activePerson } = opts;
   const days = dateRange(weekStartDate, addDays(weekStartDate, 6));
-  const maxPills = density === 'cozy' ? 3 : 5;
-
-  // Day name headers — respect configurable week start
-  const dayHeaders = days.map(dk => {
-    const dow = dayOfWeek(dk);
-    return `<div class="cal-week__dow${dk === today ? ' cal-week__dow--today' : ''}">${DAY_NAMES_SHORT[dow]}<br><span class="cal-week__date-num">${parseInt(dk.split('-')[2], 10)}</span></div>`;
-  }).join('');
-
-  // Mobile sort order: today first, future ascending, past at bottom (nearest-past first).
-  // When today isn't in this week, keep chronological order.
   const todayPos = days.indexOf(today);
-  const mobileOrder = days.map((dk, i) => {
-    if (todayPos < 0) return i;
-    if (dk === today) return 0;
-    if (dk > today) return i - todayPos;
-    // Past: after all future days, nearest-past first
-    return (days.length - 1 - todayPos) + (todayPos - i);
-  });
 
-  const dayColumns = days.map((dk, dayIndex) => {
-    const isToday = dk === today;
-    const isPast = dk < today;
+  // Compute CSS `order` for each day: today=0, future days chronologically next,
+  // past days at the bottom in nearest-past-first order.
+  const orderFor = (idx) => {
+    if (todayPos < 0) return idx;            // week without today: chronological
+    if (idx === todayPos) return 0;
+    if (idx > todayPos) return idx - todayPos;
+    return (days.length - 1 - todayPos) + (todayPos - idx);
+  };
 
-    // Events for this day
-    let dayEvents = getEventsForDate(events, dk);
-    dayEvents = filterEventsByPerson(dayEvents, activePerson);
-    const sortedEvents = sortEvents(dayEvents);
+  const blocks = days.map((dk, i) => buildDayBlock({
+    dateKey: dk,
+    today,
+    order: orderFor(i),
+    events, allSchedule, completions, tasks, cats, people, activePerson
+  })).join('');
 
-    // Tasks — split into weekly/monthly/once vs daily
-    const dayEntries = allSchedule[dk] || {};
-    const filteredEntries = filterByPerson(dayEntries, activePerson);
-    const recurringTasks = {};
-    const dailyTasks = {};
-    for (const [key, entry] of Object.entries(filteredEntries)) {
-      if (entry.type === 'event') continue;
-      const rt = entry.rotationType || 'daily';
-      if (rt === 'daily') {
-        dailyTasks[key] = entry;
-      } else {
-        recurringTasks[key] = entry;
-      }
-    }
-    const sortedRecurring = sortEntries(recurringTasks, completions);
-    const sortedDaily = showDailyInWeek ? sortEntries(dailyTasks, completions) : [];
+  return `<div class="cal-week-agenda">${blocks}</div>`;
+}
 
-    // Separate all-day vs timed events
-    const allDayEvents = sortedEvents.filter(([, e]) => e.allDay);
-    const timedEvents = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
+/**
+ * Build a single day-block for the vertical agenda.
+ * Block is a section-like container with a day header,
+ * optional Events section, optional Tasks section, and a per-day + chip.
+ */
+function buildDayBlock({ dateKey, today, order, events, allSchedule, completions, tasks, cats, people, activePerson }) {
+  const isToday = dateKey === today;
+  const isPast = dateKey < today;
+  const dow = dayOfWeek(dateKey);
+  const dayNum = parseInt(dateKey.split('-')[2], 10);
+  const monthIdx = parseInt(dateKey.split('-')[1], 10) - 1;
 
-    // All-day pills (simple list)
-    let allDayHtml = '';
-    for (const [, evt] of allDayEvents) {
-      allDayHtml += renderEventPill(evt, people);
-    }
+  // Events
+  let dayEvents = getEventsForDate(events, dateKey);
+  dayEvents = filterEventsByPerson(dayEvents, activePerson);
+  const sortedEvents = sortEvents(dayEvents);
 
-    // Timed events — compact time grid
-    const timeGridHtml = buildTimeGrid(timedEvents, people);
+  // Tasks (events filtered out of schedule entries)
+  const dayEntries = allSchedule[dateKey] || {};
+  const filteredEntries = filterByPerson(dayEntries, activePerson);
+  const taskEntries = Object.fromEntries(
+    Object.entries(filteredEntries).filter(([, e]) => e.type !== 'event')
+  );
+  const sortedTasks = sortEntries(taskEntries, completions);
+  const doneCount = sortedTasks.filter(([k]) => isComplete(k, completions)).length;
+  const totalCount = sortedTasks.length;
 
-    let eventsHtml = allDayHtml + timeGridHtml;
-
-    // Helper to build task row HTML
-    function taskRow(entryKey, entry) {
-      const task = tasks[entry.taskId] || { name: 'Unknown' };
-      const person = people.find(p => p.id === entry.ownerId);
-      const done = isComplete(entryKey, completions);
-      return `<label class="cal-week__task${done ? ' cal-week__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}">
-        <input type="checkbox" class="cal-week__task-check" ${done ? 'checked' : ''} data-entry-key="${entryKey}" data-date-key="${dk}">
-        ${person ? `<span class="cal-week__task-dot" data-bg-color="${person.color}"></span>` : ''}
-        <span class="cal-week__task-name">${esc(task.name)}</span>
-      </label>`;
-    }
-
-    let recurringHtml = '';
-    for (const [entryKey, entry] of sortedRecurring) recurringHtml += taskRow(entryKey, entry);
-
-    let dailyHtml = '';
-    for (const [entryKey, entry] of sortedDaily) dailyHtml += taskRow(entryKey, entry);
-
-    const dow = dayOfWeek(dk);
-    const dayNum = parseInt(dk.split('-')[2], 10);
-    const monthIdx = parseInt(dk.split('-')[1], 10) - 1;
-    const todayTag = isToday ? '<span class="cal-week__today-tag">Today</span>' : '';
-    const colLabel = `<div class="cal-week__col-label"><span class="cal-week__col-day">${DAY_NAMES_FULL[dow]}</span>${todayTag}<span class="cal-week__col-date">${MONTH_NAMES[monthIdx]} ${dayNum}</span></div>`;
-
-    return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}" data-mobile-order="${mobileOrder[dayIndex]}">
-      ${colLabel}
-      <div class="cal-week__events">${eventsHtml}</div>
-      ${recurringHtml ? `<div class="cal-week__tasks">${recurringHtml}</div>` : ''}
-      ${dailyHtml ? `<div class="cal-week__tasks cal-week__tasks--daily">${dailyHtml}</div>` : ''}
-    </div>`;
-  }).join('');
-
-  return `<div class="cal-week">
-    <div class="cal-week__header">${dayHeaders}</div>
-    <div class="cal-week__body">${dayColumns}</div>
+  // Header — day name + date + Today badge
+  const todayBadge = isToday ? `<span class="cal-day-block__today">Today</span>` : '';
+  const header = `<div class="cal-day-block__head">
+    ${todayBadge}
+    <span class="cal-day-block__day">${DAY_NAMES_FULL[dow]}</span>
+    <span class="cal-day-block__date">${MONTH_NAMES[monthIdx]} ${dayNum}</span>
   </div>`;
+
+  // Events section
+  let eventsSection = '';
+  if (sortedEvents.length > 0) {
+    eventsSection = renderSectionHead('Events', null) +
+      `<div class="cal-day-block__events">` +
+      sortedEvents.map(([eventId, evt]) => renderEventCard(eventId, evt, people)).join('') +
+      `</div>`;
+  }
+
+  // Tasks section
+  let tasksSection = '';
+  if (totalCount > 0) {
+    const meta = `${doneCount} of ${totalCount} done`;
+    tasksSection = renderSectionHead('Tasks', meta, { divider: sortedEvents.length > 0 }) +
+      `<div class="cal-day-block__tasks">` +
+      sortedTasks.map(([k, e]) => renderTaskCard(k, e, dateKey, today, tasks, cats, people, completions)).join('') +
+      `</div>`;
+  }
+
+  // Empty inline if both empty
+  let emptyInline = '';
+  if (sortedEvents.length === 0 && totalCount === 0) {
+    emptyInline = `<div class="cal-day-block__empty">Nothing scheduled</div>`;
+  }
+
+  // Per-day quick-add
+  const addChip = `<button type="button" class="cal-day-add" data-date="${dateKey}" aria-label="Add event for ${MONTH_NAMES[monthIdx]} ${dayNum}">+</button>`;
+
+  const cls = 'cal-day-block' +
+    (isToday ? ' cal-day-block--today' : '') +
+    (isPast ? ' cal-day-block--past' : '');
+
+  return `<section class="${cls}" data-date="${dateKey}" style="order: ${order}">
+    ${header}
+    ${eventsSection}
+    ${tasksSection}
+    ${emptyInline}
+    <div class="cal-day-block__foot">${addChip}</div>
+  </section>`;
+}
+
+/** Helper: render an event card using the shared .card pattern. */
+function renderEventCard(eventId, evt, people) {
+  const owner = evt.ownerId ? people.find(p => p.id === evt.ownerId) : null;
+  const time = evt.allDay ? '' :
+    (evt.startTime ? formatEventTime(evt.startTime) + ' — ' : '');
+  const stripe = owner ? `data-owner-color="${owner.color}"` : '';
+  return `<article class="card card--event" data-event-id="${eventId}" ${stripe}>
+    <div class="card__body">
+      <div class="card__title">${esc(time)}${esc(evt.name || 'Untitled')}</div>
+      ${owner ? `<div class="card__meta"><span class="card__meta-dot"></span>${esc(owner.name)}</div>` : ''}
+    </div>
+  </article>`;
+}
+
+/** Helper: render a task card using the shared .card pattern + check button. */
+function renderTaskCard(entryKey, entry, dateKey, today, tasks, cats, people, completions) {
+  const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0 };
+  const owner = entry.ownerId ? people.find(p => p.id === entry.ownerId) : null;
+  const done = isComplete(entryKey, completions);
+  const isPastDaily = dateKey < today && (entry.rotationType || 'daily') === 'daily';
+  const cat = task.category ? cats[task.category] : null;
+  const todLabel = entry.timeOfDay === 'am' ? 'AM' : entry.timeOfDay === 'pm' ? 'PM' : '';
+  const stripe = owner ? `data-owner-color="${owner.color}"` : '';
+  const checkSvg = done
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`
+    : '';
+
+  return `<article class="card task-card${done ? ' card--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dateKey}" ${stripe} ${isPastDaily ? 'data-tap-blocked="true"' : ''}>
+    <div class="card__body">
+      <div class="card__title">${esc(task.name)}</div>
+      <div class="card__meta">
+        ${owner ? `<span class="card__meta-owner">${esc(owner.name)}</span><span class="card__meta-dot"></span>` : ''}
+        ${todLabel ? `<span>${todLabel}</span><span class="card__meta-dot"></span>` : ''}
+        ${cat?.icon ? `<span class="card__meta-icon" aria-hidden="true">${cat.icon}</span>` : ''}
+      </div>
+    </div>
+    <div class="card__trailing">
+      <button class="check${done ? ' check--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dateKey}" type="button" aria-label="${done ? 'Mark incomplete' : 'Mark complete'}">${checkSvg}</button>
+    </div>
+  </article>`;
+}
+
+/** "14:30" → "2:30 PM" */
+function formatEventTime(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
 }
 
 /**
@@ -216,8 +195,10 @@ export function renderDayView(opts) {
     for (const [, evt] of allDayEvents) {
       eventsHtml += renderEventPill(evt, people);
     }
-    // Timed events — same compact time grid as week view, slightly larger scale for day view
-    eventsHtml += buildTimeGrid(timedEvents, people, { scale: 2, minHeight: 32 });
+    // Timed events — rendered as pills (time-grid retired in Phase 2; full day view rewrite in Task 4)
+    for (const [, evt] of timedEvents) {
+      eventsHtml += renderEventPill(evt, people);
+    }
     // Remaining events without startTime rendered as bubbles
     const untimed = sortedEvents.filter(([, e]) => !e.allDay && !e.startTime);
     for (const [eventId, event] of untimed) {
