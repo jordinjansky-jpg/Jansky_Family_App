@@ -2279,3 +2279,107 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     <input type="hidden" id="me_mealId" value="${esc(mealId || '')}">
   </form>`;
 }
+
+/**
+ * Render the meal plan sheet body (assign a meal to a day/slot).
+ *
+ * opts:
+ *   date: string 'YYYY-MM-DD' — pre-selected date
+ *   slot: 'breakfast'|'lunch'|'dinner'|'snack' — pre-selected slot
+ *   library: object { [mealId]: mealObj } — full meal library
+ *   currentMealId: string|null — currently assigned meal for this slot (for remove link)
+ *
+ * Events the page must bind after mounting:
+ *   #mpForm submit                    → save selected meal
+ *   .mp-slot-tab click                → switch active slot (delegate on #mp_slotTabs)
+ *   #mp_search input                  → filter library chips
+ *   .meal-chip[data-meal-id] click    → select a meal
+ *   #mp_createNew click               → open inline editor (hide results, show #mp_inlineEditor)
+ *   #mp_removeLink click              → remove existing assignment
+ *   #mp_inlineBack click              → back to picker from inline editor
+ */
+export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, currentMealId = null } = {}) {
+  const SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
+  const slotTabs = SLOTS.map(s =>
+    `<button class="tab${s === slot ? ' is-active' : ''} mp-slot-tab"
+             data-slot="${s}" type="button" role="tab"
+             aria-selected="${s === slot}">${s.charAt(0).toUpperCase() + s.slice(1)}</button>`
+  ).join('');
+
+  // Sort library: favorites first, then by lastUsed desc
+  const entries = Object.entries(library).sort(([, a], [, b]) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    const ta = a.lastUsed || 0;
+    const tb = b.lastUsed || 0;
+    return tb - ta;
+  });
+
+  const chips = entries.map(([id, m]) =>
+    `<button class="meal-chip${id === currentMealId ? ' meal-chip--selected' : ''}"
+             data-meal-id="${esc(id)}" type="button">
+      ${m.isFavorite ? '<span class="meal-chip__star" aria-hidden="true">★</span>' : ''}
+      ${esc(m.name)}
+    </button>`
+  ).join('');
+
+  const removeLinkHtml = currentMealId && library[currentMealId]
+    ? `<button class="mp-remove-link" id="mp_removeLink" type="button">
+         Remove "${esc(library[currentMealId].name)}" from this slot
+       </button>`
+    : '';
+
+  const hasEntries = entries.length > 0;
+  const hasFavs = entries.some(([, m]) => m.isFavorite);
+  const resultsLabel = hasEntries ? (hasFavs ? 'Favorites &amp; Recent' : 'Recent') : '';
+
+  return `<form class="task-detail-sheet" id="mpForm" novalidate>
+    <h3 class="admin-form__title">Plan a meal</h3>
+
+    <label class="field">
+      <span class="field__label">Date</span>
+      <input class="field__input" id="mp_date" type="date" value="${esc(date || '')}">
+    </label>
+
+    <div class="field">
+      <span class="field__label">Slot</span>
+      <nav class="tabs tabs--pill tabs--sm" id="mp_slotTabs" role="tablist"
+           aria-label="Meal slot">
+        ${slotTabs}
+      </nav>
+    </div>
+
+    <div class="field">
+      <span class="field__label">Meal</span>
+      <input class="field__input" id="mp_search" type="search"
+             placeholder="Search meals…" autocomplete="off">
+      <div class="mp-results" id="mp_results">
+        <span class="mp-results-label" id="mp_resultsLabel">${resultsLabel}</span>
+        ${chips}
+      </div>
+      <button class="mp-create-btn" id="mp_createNew" type="button">
+        ＋ Create new meal
+      </button>
+      ${removeLinkHtml}
+    </div>
+
+    <div class="mp-inline-editor" id="mp_inlineEditor" hidden>
+      <div class="me-fav-row">
+        <button class="btn btn--ghost btn--sm" id="mp_inlineBack" type="button">← Back</button>
+        <span class="field__label">New meal</span>
+      </div>
+      <label class="field">
+        <span class="field__label">Name <span class="field__required-star" aria-hidden="true">*</span></span>
+        <input class="field__input" id="mp_inlineName" type="text"
+               placeholder="e.g. Taco Tuesday" autocomplete="off">
+        <span class="field__error" id="mp_inlineNameError" role="alert"></span>
+      </label>
+      <label class="field">
+        <span class="field__label">Recipe link</span>
+        <input class="field__input" id="mp_inlineUrl" type="url" placeholder="https://…">
+      </label>
+    </div>
+
+    <input type="hidden" id="mp_selectedMealId" value="${esc(currentMealId || '')}">
+  </form>`;
+}
