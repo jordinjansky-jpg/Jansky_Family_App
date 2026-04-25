@@ -177,6 +177,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Dashboard final-form design (2026-04-25): 8-section spec ([docs/superpowers/specs/2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md)) — Header → Banner → Back-to-Today → Ambient → Coming up → Events → Today → FAB+Nav. New: Coming up rail (3.3, collapsed-by-default, events-only count, day-block head jumps viewDate); Ambient strip (1.3+1.4 wiring, viewDate-aware, on-by-default once both ship); Today section meta gains `· NN pt · GRADE` chips when filter set to one person, where `pt` is store-economy points (not scoring). Removed: `settings.showPoints` and per-card scoring-pt chips entirely; person-link "Viewing as" pill (title-becomes-name carries identity). Restructured: long-press default 500→800ms on dashboard (settings override preserved), Back-to-Today pill moves to between Banner and Ambient, banner queue persists onto Scoreboard + Tracker so 1.6's running-activity `--info` banner stays visible across pages. Implementation plan to follow.
 - Phase 2 calendar rework SHELVED (2026-04-25): Eight-task Phase 1.5-aligned rework reached final review (PR #3) and was paused. On phone, agenda views duplicated the dashboard and Month was hidden — calendar page can't earn its tab slot until tablet/kiosk. Phone tab bar dropped to 4 slots (Calendar removed). New backlog 3.3 captures the dashboard "Coming up" rail that replaces the phone-side need. Calendar resumes during 1.5 (Kiosk). PR #3 closed; branch `phase-2-calendar` deleted; plan moved to docs/superpowers/plans/shelved/.
 - Phase 1.5 dashboard polish: card density + stripe geometry + shadow leak fix, completed-card mute (no strikethrough), check hover/press, section-head grid + divider + muted meta, larger header title + narrow-phone subtitle, FAB depth + nav active rail, Back-to-Today chevron + entrance, filter chip dot/verb + section cue, bell pulse, tap-target/contrast/tap-feedback audit. Theme fixes: `data-theme` now follows preset.mode (not stale themeConfig.mode); switching presets strips stale inline var overrides so light presets can't inherit dark tokens. SW cache v50.
 - Phase 1 dashboard rework: mockup-aligned header, card-slot DOM, priority banner queue (vacation > freeze > overdue > multiplier > info), FAB + 5-tab bottom nav with More sheet, person filter chip, owner left-stripe, empty state. SW cache v46.
@@ -208,6 +209,8 @@ Product direction: evolve Daily Rundown from a task manager into a **Skylight Ca
 
 **1.3 — Meal Planning (Lightweight)** · Medium (~2 sessions) · Depends on 1.1 · Cost: $0
 
+> **Dashboard wiring (per [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.3):** when 1.3 ships, the dinner chip lands in the dashboard ambient strip (`viewDate`-aware: today's dinner shown by default; swipe forward shows that day's planned meal). Tap chip → existing meal detail sheet (with "Open recipe" primary action when `url` present). The FAB add-menu also gains a "Plan a meal" item once 1.3 ships, routed to the same meal form. Once both 1.3 and 1.4 ship, `settings.ambientStrip` defaults to `true` (Settings → Appearance → Display → toggle to hide).
+
 Simple "what are we eating" system — not a recipe database. Answers "what's for dinner?" at a glance from the wall display or phone.
 
 *Core features:*
@@ -229,6 +232,8 @@ rundown/mealLibrary/{pushId}       ← { name, url?, tags?, lastUsed }
 ---
 
 **1.4 — Weather Widget** · Low (~0.5 session) · No dependencies · Cost: $0
+
+> **Dashboard wiring (per [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.3):** when 1.4 ships, the weather chip lands in the dashboard ambient strip. Chip is `viewDate`-aware via the 7-day forecast already returned by OpenWeatherMap (cache key `dr-weather-{viewDate}` in localStorage; one network fetch per day). Past dates render `Past day` (no historical lookup); beyond 7 days renders `—° · No forecast yet`. Chip leading icon is an SVG glyph (sun/cloud/rain/snow/fog) — no emoji in chrome. Tap chip → 3-day forecast sheet. Once both 1.3 and 1.4 ship, `settings.ambientStrip` defaults to `true`.
 
 Current conditions + forecast on dashboard and calendar. OpenWeatherMap free tier (1,000 calls/day — app uses ~50). Single family location from `rundown/settings`. Show temperature, conditions icon, high/low on calendar day view and kiosk display header. Cache in localStorage (refresh every 30-60 min). Small footprint — ambient info, not a weather app.
 
@@ -261,6 +266,8 @@ A dedicated full-screen mode (`display.html`) designed for a 27" wall-mounted to
 ---
 
 **1.6 — Activities** · Medium-high (~3-4 sessions, two phases) · No dependencies · Cost: $0
+
+> **Dashboard wiring (per [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.2 + §4.6):** running session surfaces as the `--info` `running-activity` sub-variant in the dashboard banner queue (`Reading session · 12:34 · [Stop]`). Lowest priority — yields to vacation/freeze/overdue/multiplier and returns when those clear. The banner mount is added to scoreboard.html and tracker.html so the running session stays visible while the user navigates ([DESIGN.md §7.3](docs/DESIGN.md#L860) amendment). Activities itself remains a More-tab destination on phone; no Activities tile on the dashboard.
 
 Family activity tracker — shared library of optional activities (walk, read, jog, etc.) anyone can do on-demand with a persistent stopwatch. Weekly goals with tiered point payouts into the rewards store. Separate activity scoreboard (time leaderboard + goal achievement views). Shares categories with tasks; timer built as shared component (`shared/timer.js`) reusable by backlog 3.1. Two phases: Phase 1 is core loop (library, stopwatch, session logging, time scoreboard), Phase 2 adds goals, points, goal scoreboard, kid mode, admin. See full spec: `docs/superpowers/specs/2026-04-19-activities-design.md`.
 
@@ -308,6 +315,8 @@ AI-powered import of school lunch calendars. Parent uploads PDF in admin → Clo
 
 **2.4 — Vacation / Skip Mode** · Medium (~1-2 sessions) · No dependencies · Cost: $0
 
+> **Dashboard wiring (per [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.2):** vacation surfaces as the `--vacation` banner variant in the priority queue (highest priority — outranks freeze/overdue/multiplier/info). Title example: `Jordin is away until Apr 25`. When the dashboard filter is set to the away person, the banner gains an `End early` action button. Banner-only — no separate dashboard tile or section. (Other vacation surfaces — calendar shading, tracker tag, kid tile, scoreboard exclusion — are unchanged from the existing 2.4 plan.)
+
 Mark a person as "away" for a date range. Schema: `rundown/people/{id}/away: [{ start, end }]`. Scheduler skips placing tasks for away people. Optionally redistribute to other owners (rotate-mode only) or mark exempt for scoring. Per-person "Away" toggle in admin with date picker. Family-wide "vacation mode" pauses all non-daily tasks.
 
 ---
@@ -315,6 +324,8 @@ Mark a person as "away" for a date range. Schema: `rundown/people/{id}/away: [{ 
 ### Tier 3 — Polish & Engagement
 
 **3.0 — Dashboard loading skeleton** · Low (~0.5 session) · No dependencies · Cost: $0
+
+> **Status:** rolled into the [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) implementation plan — ships with the dashboard final-form work, not as a standalone item.
 
 Replace the current inline "Loading..." spinner on the dashboard with a card-shaped skeleton that matches the real card layout (owner-stripe placeholder + title bar + meta bar + check placeholder). Respects reduced-motion (skeleton stays static, no shimmer). Rationale: at first paint the user sees a convincing skeleton for ~200ms before Firebase responds, which feels more polished than a centered spinner against the empty page. Noted for future upgrade during Phase 1.5 polish review (2026-04-24).
 
@@ -334,21 +345,23 @@ Family members propose trades ("I'll do your dishes if you do my laundry"). Sche
 
 **3.3 — Dashboard "Coming up" rail** · Medium (~1-2 sessions) · No dependencies · Cost: $0
 
+> **Status:** fully specced — see [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.4 for the canonical design. Collapsed by default; expanded shows day-blocks for the next 7 days (today excluded; days with zero events collapse out). **Events-only count** in the summary (`Coming up · 3 events this week` / `Coming up · clear week`); tasks are not counted (Tracker covers forward-task visibility). Tapping a day-block head jumps the dashboard's `viewDate` to that day. Filter-aware: when `activePerson` is set, summary and day-blocks scope to that person. Rail sits between Coming up's mockup-original "below tasks" position **revised to above the Today section** — see spec §2.1 layout.
+
 Collapsible 7-day forward look on the dashboard. Replaces the phone-side need for the (shelved) Calendar page by surfacing upcoming events without a context switch. Pattern matches Skylight Mobile and Hearth phone apps — agenda-first; today is hero, then a quiet "Upcoming" section that expands. Cozi uses the same 5-7 day collapsed-agenda pattern.
 
 *Core features:*
-- Collapsed by default. Single muted row: "Coming up · 4 events this week" with chevron. Sits below the dashboard's task sections, above the FAB.
+- Collapsed by default. Single muted row: "Coming up · 4 events this week" with chevron. Sits between the Ambient strip and the Events section (above tasks).
 - Expanded: 7 day-blocks (today excluded — already visible above), only days with events render; empty days collapse out of view entirely.
 - Each day-block reuses the Phase 2 calendar `.cal-day-block` + `renderEventCard` primitives (already designed in the shelved plan — see [shared/calendar-views.js](shared/calendar-views.js) before deletion / shelved plan §3, §4 for shape). Migration is mechanical, not a rewrite.
-- Tap a day-block → opens the existing day sheet (currently calendar's bottom sheet — port to dashboard or invoke via a shared mount).
+- Tap a day-block head → jumps dashboard `viewDate` to that day (preserves expanded state across the date change).
 - Tap an event row → opens existing Event detail sheet.
-- The dashboard FAB pre-fills the form with `today` (existing behavior preserved); a future variant can pre-fill from the tapped day-block in this rail.
+- The dashboard FAB pre-fills the form with `viewDate` (so swiping forward + tapping FAB creates an item on that day) and `activePerson` (default owner).
 
 *Why this instead of the calendar page:* On phone, Week view is a scrollable dashboard, Day view is the dashboard, Month is hidden. The calendar page can't earn its tab slot until tablet/kiosk renders Month. The rail gives families "what's next" in one tap from where they already are.
 
-*Design rules:* Card spacing/radius/divider follows Phase 1.5 dashboard primitives. Chevron rotation respects `prefers-reduced-motion`. Collapsed state stores in `localStorage` so each session opens to the user's last preference. Empty state ("No events in the next 7 days") shows in expanded mode when there's nothing scheduled — collapsed row reads "Coming up · clear week" rather than hiding the rail entirely.
+*Design rules:* Card spacing/radius/divider follows Phase 1.5 dashboard primitives. Chevron rotation respects `prefers-reduced-motion`. Collapsed state stores in `localStorage['dr-coming-up-state']` so each session opens to the user's last preference. Empty state ("No events in the next 7 days") shows in expanded mode when there's nothing scheduled — collapsed row reads "Coming up · clear week" rather than hiding the rail entirely.
 
-*Schema:* No changes — reads from existing `rundown/schedule/{date}/` event entries.
+*Schema:* No changes — reads from existing `rundown/events/` collection via `getEventsForDate(events, dateKey)` for `today + 1 .. today + 7`.
 
 **Full spec:** [docs/DESIGN.md](docs/DESIGN.md) — single source of truth for all UI decisions. Read it before designing, building, or reviewing anything visual. Mockups live in [mockups/](mockups/).
 

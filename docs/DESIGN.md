@@ -389,11 +389,15 @@ Each component section includes: purpose, variants, DOM structure, sizing, behav
 
 **Variants:** `--overdue`, `--vacation`, `--multiplier`, `--freeze`, `--info`.
 
+**`--info` sub-uses** (same variant, two distinct triggers):
+- **Running activity session** (1.6) — `Reading session · 12:34 · [Stop]`. Persists across pages that mount the queue (see §7.3).
+- **Offline** — `Offline — changes will sync`. Driven by `onConnectionChange`.
+
 **Rule:** Only **one** banner visible at a time per page. Multiple active banners enter a queue with priority:
 ```
 vacation > freeze > overdue > multiplier > info
 ```
-Tapping dismiss on one reveals the next.
+The overdue banner body is tappable (same effect as its `Review` action button).
 
 ### 5.10 Timer
 **Purpose:** Shared circular-progress overlay used by Activities (1.6) and Task Timer (3.1). Lives in `shared/timer.js`.
@@ -521,28 +525,31 @@ Each area lists: current contents, expansion plan, layout rules, component usage
 
 ### 6.1 Dashboard (`index.html`)
 
-**Purpose:** The family's "what do I do right now" screen.
+**Purpose:** The family's "what do I do right now" screen. Final-form spec: [docs/superpowers/specs/2026-04-25-dashboard-final-design.md](../superpowers/specs/2026-04-25-dashboard-final-design.md).
 
-**Layout (top to bottom, phone):**
-1. **Header** — title `Home` + subtitle `Sunday, April 19`. Right: Bell + overflow (max 2 icons).
-2. **Banner slot** — single `.banner` (vacation / freeze / overdue / multiplier / info). At most one visible.
-3. **Ambient strip** *(optional, user-toggleable in Settings)* — 2-up chip row: Weather + Tonight's Dinner. Off by default on phone.
-4. **Events section** — `.card.card--event` list (events before tasks).
-5. **Today section** — `.card.card--task` list. Groups: Events → Daily → Weekly → Monthly → One-Time. Completed cards sink to bottom with `.card--done`.
-6. **FAB** — add task (primary page action).
-7. **Bottom nav**.
+**Layout (top to bottom, phone) — 8 sections:**
+1. **Header** — title `Home` (or `{PersonName}` in person-link mode) + subtitle `Sunday, April 19`. Right: Bell + overflow (max 2 icons).
+2. **Banner slot** — single `.banner`, priority queue (vacation > freeze > overdue > multiplier > info). At most one visible. Renders zero pixels when empty.
+3. **Back-to-Today pill** — only when `viewDate !== today`. Sits between Banner and Ambient strip (stable position regardless of ambient state).
+4. **Ambient strip** *(user-toggleable via `settings.ambientStrip`; default `false` until 1.3+1.4 ship, default `true` thereafter)* — 2-up chip row: Weather + Tonight's Dinner. `viewDate`-aware (swipe-to-tomorrow shows tomorrow's forecast and meal). SVG glyphs in chip leading icons (no emoji in chrome).
+5. **Coming up rail** *(3.3)* — collapsed by default: `Coming up · N events this week` / `Coming up · clear week`. Expands inline to day-blocks (today excluded; events-only count, no task summaries). Tapping a day-block head jumps `viewDate`. Persists state in `localStorage['dr-coming-up-state']`.
+6. **Events section** — `.card.card--event` list (events before tasks). Tap = detail sheet; long-press 800ms = same.
+7. **Today section** — `.card` task list. Flat sort: incomplete (owner → late-today → TOD → name), completed (owner → TOD → name). Section meta carries score chips when filter set to one person: `X of Y done · NN pt · GRADE`. `pt` = store-economy points (today's percentage × multiplier). When filter = All, meta = `X of Y done` only. `settings.showPoints` and per-card scoring-point chips removed.
+8. **FAB** + **Bottom nav** — FAB pre-fills `viewDate` and `activePerson`. Phone tab bar = 4 slots (Home · Scores · Tracker · More); 5th slot reserved for Activities (1.6) or Shopping (1.7), whichever ships first.
 
-**Tablet:** two-pane. Left = today pane (above). Right = week agenda pane (similar to `mockups/02b-calendar-week.html` but compressed). Ambient strip lives in the right pane header.
+**Tablet:** two-pane. **Left pane** (~520px) = action surface (Header + Banner are full-width above; left pane has Today section + filter chip). **Right pane** (~380px) = day's context (Ambient strip 1-up vertical → Coming up always-expanded → Events). FAB lives bottom-right of the right pane.
 
-**Kiosk:** dashboard doesn't exist; kiosk uses its own `display.html` week-grid layout.
+**Kiosk:** dashboard doesn't exist; kiosk uses its own `display.html` week-grid layout. Dashboard sections reflect onto kiosk per the reflection table in the final-form spec §2.4.
 
 **Backlog integration:**
-- **Meals (1.3):** second chip in ambient strip shows tonight's dinner. Never a full meal section here; full meals live in Calendar.
-- **Weather (1.4):** first chip in ambient strip.
-- **Vacation (2.4):** banner slot while any person is away.
+- **Meals (1.3):** dinner chip lands in the ambient strip; "Plan a meal" item joins the FAB add-menu. Never a full meal section here; full meals live in Calendar.
+- **Weather (1.4):** weather chip lands in the ambient strip; chip is `viewDate`-aware via 7-day forecast.
+- **Vacation (2.4):** `--vacation` banner variant in the priority queue while any person is away.
 - **Push notifications (2.1):** bell badge updates.
+- **Activities (1.6):** running session surfaces as `--info` banner sub-variant in the priority queue. Banner persists across Scoreboard + Tracker (see §7.3).
 - **Task Timer (3.1):** start button inside task detail sheet, not dashboard directly.
 - **Delegation (3.2):** bell shows pending proposals; detail sheet has "Propose trade".
+- **Loading skeleton (3.0):** card-shaped skeletons replace the inline spinner on first paint.
 
 **Banned on dashboard:**
 - Weather forecast cards ≥ 2 rows (that's a weather app, not a hub).
@@ -550,6 +557,9 @@ Each area lists: current contents, expansion plan, layout rules, component usage
 - Activities summaries (go to Activities page).
 - Shopping preview (goes to Shopping).
 - Gradient text, raw colors, theme/debug icons in header.
+- Rotation subheaders (Daily/Weekly/Monthly) in Today section — flat list rule.
+- Score chips when filter = All (the "whose number" problem).
+- Emoji in ambient chip leading icons (SVG only — chrome rule).
 
 ### 6.2 Calendar (`calendar.html`)
 
@@ -761,7 +771,7 @@ The Store is a **first-class destination**, not an annex of the Scoreboard. Adul
 
 **Purpose:** Home-screen shortcut PWA for one specific person. This is the **adult** per-person shortcut — kid mode (`kid.html`) is the restricted variant, not this one.
 
-**Rule:** Visually identical to dashboard, but shows a persistent `Viewing as {Name}` pill in the header below the subtitle.
+**Rule:** Visually identical to dashboard. The header title becomes the linked person's first name (`Noah`, `Kai`, …); the subtitle stays as the date line. **No second identity indicator** — title-becomes-name is the single cue. (The legacy `Viewing as {Name}` pill is retired as of 2026-04-25; title alone carries identity.)
 
 **Parity with Home (non-negotiable):** the person shortcut must expose the same header/nav controls as `index.html`:
 - Notification bell (with unseen-count badge and approval dropdown).
@@ -858,9 +868,11 @@ Person-specific behavior is limited to: title = person's name, saved filter pers
 - Bell badge: dot (no count) for simple "new", count number for 5+ items.
 
 ### 7.3 Banner queue
-- One banner visible per page. Priority: vacation > freeze > overdue > multiplier > info.
+- One banner visible per page. Priority: `vacation > freeze > overdue > multiplier > info`.
 - Banner dismissal is per-session (reappears next load if still active).
-- Only dashboard, calendar, and kiosk render banners. Other pages omit the slot.
+- Pages that render the banner mount: **dashboard, calendar, scoreboard, tracker, kiosk**. Other pages omit the slot. (Scoreboard + tracker added 2026-04-25 so the running-activity `--info` banner from 1.6 stays visible across the app while a session is in progress; without those mounts the timer would vanish on page change.)
+- The `--info` variant has two well-known sub-uses: (a) running activity session (`Reading session · 12:34 · [Stop]`), (b) offline (`Offline — changes will sync`). Both are lowest-priority; either yields to a higher-priority banner and returns when that banner clears.
+- The overdue banner body is tappable (same effect as the `Review` action button).
 
 ### 7.4 Vacation mode (cross-cutting)
 - Active vacation marks: dashboard banner, calendar day shading, tracker row tag, kid vacation tile, scoreboard exclusion.
@@ -1192,6 +1204,7 @@ Violations: tablet-as-wider-phone, no layout change, no density change, no left 
 |---|---|---|
 | 2026-04-19 | v1.0 initial spec | Design audit + rework planning |
 | 2026-04-24 | §6.9 person-mode parity rule + mount-point shell parity; §12 added three non-negotiables (no `!linkedPerson` core-control gates, no `header-height` on wrapper padding, single-gutter rule) | Phase 1 + 1.5 shipped with `!linkedPerson` hiding bell/overflow/filter chip and a missing `#fabMount` in `person.html`; also surfaced double-counted header-height and double horizontal gutter after the card density pass. Codifying so future work doesn't regress. |
+| 2026-04-25 | §6.1 dashboard rewritten as 8-section final form (adds Coming up rail, codifies ambient strip default, defines tablet two-pane split, declares kiosk reflection); §6.9 retired the `Viewing as {Name}` pill; §7.3 expanded banner-mount list to scoreboard + tracker and documented overdue body-tappable + `--info` sub-uses; §5.9 documented `--info` sub-uses. | Final-form dashboard design spec ([2026-04-25-dashboard-final-design.md](../superpowers/specs/2026-04-25-dashboard-final-design.md)) approved after Phase 2 calendar shelving made the dashboard the only phone-side surface for forward-look. Doc edits ride in the same PR that ships the spec so docs stay coherent ahead of implementation. |
 
 Updates to this doc require the PR description to cite the section changed and the reason.
 
