@@ -177,6 +177,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Phase 2 calendar rework SHELVED (2026-04-25): Eight-task Phase 1.5-aligned rework reached final review (PR #3) and was paused. On phone, agenda views duplicated the dashboard and Month was hidden — calendar page can't earn its tab slot until tablet/kiosk. Phone tab bar dropped to 4 slots (Calendar removed). New backlog 3.3 captures the dashboard "Coming up" rail that replaces the phone-side need. Calendar resumes during 1.5 (Kiosk). PR #3 closed; branch `phase-2-calendar` deleted; plan moved to docs/superpowers/plans/shelved/.
 - Phase 1.5 dashboard polish: card density + stripe geometry + shadow leak fix, completed-card mute (no strikethrough), check hover/press, section-head grid + divider + muted meta, larger header title + narrow-phone subtitle, FAB depth + nav active rail, Back-to-Today chevron + entrance, filter chip dot/verb + section cue, bell pulse, tap-target/contrast/tap-feedback audit. Theme fixes: `data-theme` now follows preset.mode (not stale themeConfig.mode); switching presets strips stale inline var overrides so light presets can't inherit dark tokens. SW cache v50.
 - Phase 1 dashboard rework: mockup-aligned header, card-slot DOM, priority banner queue (vacation > freeze > overdue > multiplier > info), FAB + 5-tab bottom nav with More sheet, person filter chip, owner left-stripe, empty state. SW cache v46.
 - Adult rewards + confirm modals: Adults skip approval for buying/using rewards (instant). "Use" button on saved tokens in scoreboard store (custom, task-skip picker, penalty removal). All browser confirm()/alert() replaced with polished in-app showConfirm() modals. Toast styles shared across all pages.
@@ -196,6 +197,8 @@ Product direction: evolve Daily Rundown from a task manager into a **Skylight Ca
 ### Tier 1 — The Family Hub Transformation (build in order)
 
 ~~**1.1 — Calendar Overhaul (Family Hub)** · DONE — shipped 2026-04-16. Three-view calendar (month/week/day), first-class events with quick-add, time-grid layout, swipe navigation, person filters.~~
+
+> **Phase 2 calendar rework — SHELVED 2026-04-25.** A Phase 1.5-aligned rework (PR #3) was completed end-to-end and then shelved. The agenda-first phone designs duplicate the dashboard (Week = scrollable dashboard, Day = dashboard); only Month grid earns its keep, and only on tablet/kiosk. Phone agenda needs are moving to the dashboard via backlog item **3.3 — Dashboard "Coming up" rail** (below). The calendar page resumes during backlog **1.5 (Kiosk)** when Month finally has a screen size that works for it. Shelved plan: [docs/superpowers/plans/shelved/2026-04-24-phase-2-calendar.md](docs/superpowers/plans/shelved/2026-04-24-phase-2-calendar.md). Spec still valid for the eventual tablet build: [docs/superpowers/specs/2026-04-24-phase-2-calendar-rework.md](docs/superpowers/specs/2026-04-24-phase-2-calendar-rework.md). Phone tab bar is now 4 slots (Calendar removed); see Design Rules digest below.
 
 ---
 
@@ -327,7 +330,25 @@ Visible countdown in kid mode and dashboard using `estMin`. Uses shared timer co
 
 Family members propose trades ("I'll do your dishes if you do my laundry"). Schema: `rundown/trades/{pushId}` with `{ proposerId, proposerTaskKey, targetId, targetTaskKey, status: 'pending'|'accepted'|'declined', createdAt }`. Accepting swaps `ownerId` on schedule entries. UI: notification badge, trade proposal from detail sheet, accept/decline list.
 
-## Design Rules (digest)
+---
+
+**3.3 — Dashboard "Coming up" rail** · Medium (~1-2 sessions) · No dependencies · Cost: $0
+
+Collapsible 7-day forward look on the dashboard. Replaces the phone-side need for the (shelved) Calendar page by surfacing upcoming events without a context switch. Pattern matches Skylight Mobile and Hearth phone apps — agenda-first; today is hero, then a quiet "Upcoming" section that expands. Cozi uses the same 5-7 day collapsed-agenda pattern.
+
+*Core features:*
+- Collapsed by default. Single muted row: "Coming up · 4 events this week" with chevron. Sits below the dashboard's task sections, above the FAB.
+- Expanded: 7 day-blocks (today excluded — already visible above), only days with events render; empty days collapse out of view entirely.
+- Each day-block reuses the Phase 2 calendar `.cal-day-block` + `renderEventCard` primitives (already designed in the shelved plan — see [shared/calendar-views.js](shared/calendar-views.js) before deletion / shelved plan §3, §4 for shape). Migration is mechanical, not a rewrite.
+- Tap a day-block → opens the existing day sheet (currently calendar's bottom sheet — port to dashboard or invoke via a shared mount).
+- Tap an event row → opens existing Event detail sheet.
+- The dashboard FAB pre-fills the form with `today` (existing behavior preserved); a future variant can pre-fill from the tapped day-block in this rail.
+
+*Why this instead of the calendar page:* On phone, Week view is a scrollable dashboard, Day view is the dashboard, Month is hidden. The calendar page can't earn its tab slot until tablet/kiosk renders Month. The rail gives families "what's next" in one tap from where they already are.
+
+*Design rules:* Card spacing/radius/divider follows Phase 1.5 dashboard primitives. Chevron rotation respects `prefers-reduced-motion`. Collapsed state stores in `localStorage` so each session opens to the user's last preference. Empty state ("No events in the next 7 days") shows in expanded mode when there's nothing scheduled — collapsed row reads "Coming up · clear week" rather than hiding the rail entirely.
+
+*Schema:* No changes — reads from existing `rundown/schedule/{date}/` event entries.
 
 **Full spec:** [docs/DESIGN.md](docs/DESIGN.md) — single source of truth for all UI decisions. Read it before designing, building, or reviewing anything visual. Mockups live in [mockups/](mockups/).
 
@@ -345,7 +366,7 @@ This digest exists so that if context gets compacted mid-task, the non-negotiabl
 
 ### Feature-home map (hard rules)
 Every feature (current + backlog) has a named home — see §2 in DESIGN.md. Enforced:
-- Phone tab bar is capped at 5 slots: **Home · Calendar · Scores · Tracker · More**.
+- Phone tab bar is currently 4 slots: **Home · Scores · Tracker · More** (cap is still 5; Calendar slot was removed when Phase 2 calendar was shelved 2026-04-25 — see backlog 1.1 note. The 5th slot is reserved for whichever of Activities (1.6) or Shopping (1.7) ships first).
 - Meals, Weather, Kiosk, Vacation, Recurrence, Timer, School-lunch import, Delegation **never** become tabs.
 - Activities and Shopping are the only backlog features that earn nav placement (inside More on phone).
 - No new top-level tab without retiring capacity elsewhere.

@@ -1,5 +1,9 @@
 # Phase 2 — Calendar Rework Implementation Plan
 
+> **SHELVED 2026-04-25.** Calendar work paused after PR #3 reached final review. Reason: phone-only Week became "scrollable dashboard," Day became "dashboard," Month is hidden — the calendar page only earns its keep on a tablet/kiosk where Month actually renders. Phone agenda needs are being moved to a dashboard "Coming up" rail (CLAUDE.md backlog 3.3). The Phase 1.5 alignment work captured here remains the right design when calendar resumes during the kiosk/tablet build (CLAUDE.md backlog 1.5). Branch `phase-2-calendar` was deleted; commits live in the closed PR #3 reflog if you need to resurrect them.
+>
+> Relative links in this file are written for the original location (`docs/superpowers/plans/`). Adjust if you reuse paths from `shelved/`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Spec:** [docs/superpowers/specs/2026-04-24-phase-2-calendar-rework.md](../specs/2026-04-24-phase-2-calendar-rework.md)
