@@ -1735,7 +1735,7 @@ export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
     if (weather.isPast) weatherValue = 'Past day';
     else if (weather.isFuture) weatherValue = '—° · No forecast yet';
     else {
-      weatherValue = `${esc(weather.tempLabel)} · ${esc(weather.conditionLabel)}`;
+      weatherValue = `${esc(weather.conditionLabel)} · ${esc(weather.tempLabel)}`;
       weatherGlyph = weatherGlyphs[weather.glyph] || weatherGlyphs.cloud;
     }
   }
