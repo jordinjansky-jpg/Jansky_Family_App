@@ -167,7 +167,9 @@ function renderTaskCard(entryKey, entry, dateKey, today, tasks, cats, people, co
 
 /** "14:30" → "2:30 PM" */
 function formatEventTime(hhmm) {
+  if (!hhmm || !hhmm.includes(':')) return hhmm || '';
   const [h, m] = hhmm.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return hhmm;
   const period = h >= 12 ? 'PM' : 'AM';
   const h12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
   return `${h12}:${String(m).padStart(2, '0')} ${period}`;
