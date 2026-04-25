@@ -9,6 +9,15 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v61 (2026-04-24) — Phase 2 calendar rework: shell parity (drop
+//                    overflow:hidden lock, add bannerSlot+fabMount),
+//                    sticky sub-bar (View Tabs / date nav / filter
+//                    chip), week view as today-first vertical agenda
+//                    (buildTimeGrid deleted, .cal-week* CSS retired),
+//                    day view as pure agenda (Events->Tasks, no
+//                    time-grid), phone month view soft empty-state,
+//                    FAB direct to Event form + per-day + quick-add,
+//                    raw-hex purge in styles/calendar.css.
 // v60 (2026-04-24) — Remove v51 diagnostic overlay from index.html and
 //                    delete /test.html. The mobile load bug (person.html
 //                    missing #fabMount) has been understood and fixed in
@@ -100,7 +109,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v60';
+const CACHE_NAME = 'family-hub-v61';
 
 const APP_SHELL = [
   '/',

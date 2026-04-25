@@ -215,6 +215,10 @@ Simple "what are we eating" system — not a recipe database. Answers "what's fo
 - Quick-plan: week view in admin or calendar where you can drag saved meals onto day slots.
 - School lunch entries (from PDF import, see 2.3) display distinctly — school emoji, different styling, read-only.
 
+*Phase 2 wiring notes (added 2026-04-24):*
+- **FAB picker swap.** Calendar's FAB currently opens the Event form directly. When 1.3 ships, change the click handler in [calendar.html](calendar.html) to open a 2-tile picker sheet (Event / Meal); the Event tile leads to the existing form, the Meal tile leads to the new Meal form.
+- **Day-view Meals section insertion.** `renderDayView` in [shared/calendar-views.js](shared/calendar-views.js) currently produces Events → Tasks sections. When 1.3 ships, insert a Meals section between Tasks and any future trailing sections. Use `renderSectionHead('Meals', meta, { divider: true })` to match the established pattern.
+
 *Schema:*
 ```
 rundown/meals/{YYYY-MM-DD}/{slot}  ← { name, url?, notes?, source?: 'manual'|'school' }
