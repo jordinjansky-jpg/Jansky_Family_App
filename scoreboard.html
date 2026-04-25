@@ -21,6 +21,7 @@
 <body>
   <div id="headerMount"></div>
   <div class="page-content" id="app">
+    <div id="bannerMount"></div>
     <div class="loading-inline" id="loadingState">
       <div class="loading-spinner loading-spinner--small"></div>
       <span>Loading...</span>
@@ -40,7 +41,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeSnapshot, updateData } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, showConfirm, showToast, applyDataColors } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -108,6 +109,14 @@
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);
     initBell(() => people, () => sbRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
+
+    // Cross-page banner queue (vacation / freeze / running-activity / offline).
+    let __pageIsOffline = !navigator.onLine;
+    const bannerCtl = initBanner({ getIsOffline: () => __pageIsOffline });
+    window.addEventListener('online',  () => { __pageIsOffline = false; bannerCtl?.refresh(); });
+    window.addEventListener('offline', () => { __pageIsOffline = true;  bannerCtl?.refresh(); });
+    // Refresh every 5s to update running-activity elapsed time.
+    setInterval(() => bannerCtl?.refresh(), 5000);
 
     // ── Helpers ──
 

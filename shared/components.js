@@ -1691,6 +1691,50 @@ export function showToast(message, duration = 3000) {
 }
 
 /**
+ * Cross-page banner queue mount. Caller passes data getters; helper
+ * mounts/refreshes the banner on demand. Pages: scoreboard, tracker
+ * (dashboard + calendar already manage their own queues with richer
+ * data; those keep their inline implementations).
+ *
+ * Priority: vacation > freeze > running-activity > offline.
+ * Overdue and multiplier are dashboard-scoped data and are deliberately
+ * excluded here.
+ */
+export function initBanner({ getIsOffline = () => false } = {}) {
+  const mount = document.getElementById('bannerMount');
+  if (!mount) return null;
+  const refresh = () => {
+    let banner = null;
+    if (window.__activeVacation) {
+      const v = window.__activeVacation;
+      banner = { variant: 'vacation', title: `${v.personName} is away until ${v.endDate}` };
+    } else if (window.__scheduleFrozen) {
+      banner = { variant: 'freeze', title: 'Schedule frozen' };
+    } else if (window.__activeActivitySession) {
+      const s = window.__activeActivitySession;
+      banner = {
+        variant: 'info',
+        title: `${s.name} · ${s.elapsed}`,
+        action: { label: 'Stop', onClick: () => window.__stopActivitySession?.() }
+      };
+    } else if (getIsOffline()) {
+      banner = { variant: 'info', title: 'Offline', message: 'Changes will sync when you reconnect.' };
+    }
+    if (!banner) { mount.innerHTML = ''; return; }
+    mount.innerHTML = renderBanner(banner.variant, {
+      title: banner.title,
+      message: banner.message,
+      action: banner.action ? { label: banner.action.label } : undefined
+    });
+    if (banner.action) {
+      mount.querySelector('[data-banner-action]')?.addEventListener('click', banner.action.onClick);
+    }
+  };
+  refresh();
+  return { refresh };
+}
+
+/**
  * Initialize the notification bell on any page.
  * Sets up real-time listener and dropdown toggle.
  */
