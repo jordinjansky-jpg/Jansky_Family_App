@@ -1691,6 +1691,62 @@ export function showToast(message, duration = 3000) {
 }
 
 /**
+ * Ambient strip — 2-up chip row: Weather + Dinner. Both chips are
+ * tappable. Empty-state nudges shown when data is absent (chip still
+ * renders, with prompt copy). Caller passes data; component is pure.
+ *
+ * weather: { tempLabel: '72°', conditionLabel: 'Sunny', glyph: 'sun'|'cloud'|'rain'|'snow'|'fog', isPast?: bool, isFuture?: bool } | null
+ * dinner:  { name: 'Spaghetti', source?: 'manual'|'school' } | null
+ *
+ * Per spec 2026-04-25 §3.3: chip leading icons are SVG glyphs (no emoji
+ * in chrome). Meal names may include emoji as user-authored text.
+ */
+export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
+  // SVG glyph map (Lucide-style, monochrome).
+  const weatherGlyphs = {
+    sun:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+    cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.5-8.78A6 6 0 0 0 4 13.5 5.5 5.5 0 0 0 9.5 19h8z"/></svg>',
+    rain:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14a4 4 0 0 0-1-7.87A6 6 0 0 0 4 11"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="16" y1="19" x2="16" y2="21"/></svg>',
+    snow:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>',
+    fog:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="3" y1="18" x2="15" y2="18"/></svg>'
+  };
+  const utensilsGlyph = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>';
+
+  // Weather chip
+  let weatherValue = '—° · Set location';
+  let weatherGlyph = weatherGlyphs.cloud;
+  if (weather) {
+    if (weather.isPast) weatherValue = 'Past day';
+    else if (weather.isFuture) weatherValue = '—° · No forecast yet';
+    else {
+      weatherValue = `${esc(weather.tempLabel)} · ${esc(weather.conditionLabel)}`;
+      weatherGlyph = weatherGlyphs[weather.glyph] || weatherGlyphs.cloud;
+    }
+  }
+
+  // Dinner chip
+  let dinnerValue = 'Not planned · Plan dinner';
+  if (dinner) dinnerValue = esc(dinner.name);
+
+  return `<div class="ambient-row">
+    <button class="ambient-chip" data-chip="weather" type="button">
+      <span class="ambient-chip__icon" aria-hidden="true">${weatherGlyph}</span>
+      <span class="ambient-chip__body">
+        <span class="ambient-chip__label">Weather</span>
+        <span class="ambient-chip__value">${weatherValue}</span>
+      </span>
+    </button>
+    <button class="ambient-chip" data-chip="dinner" type="button">
+      <span class="ambient-chip__icon" aria-hidden="true">${utensilsGlyph}</span>
+      <span class="ambient-chip__body">
+        <span class="ambient-chip__label">Dinner</span>
+        <span class="ambient-chip__value">${dinnerValue}</span>
+      </span>
+    </button>
+  </div>`;
+}
+
+/**
  * Cross-page banner queue mount. Caller passes data getters; helper
  * mounts/refreshes the banner on demand. Pages: scoreboard, tracker
  * (dashboard + calendar already manage their own queues with richer

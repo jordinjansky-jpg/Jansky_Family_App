@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -291,6 +291,16 @@ function render() {
     </div>`;
   }
   lastRenderedIsToday = isToday;
+
+  // === Ambient strip (spec §3.3) ===
+  // Gated on settings.ambientStrip; renders zero pixels until 1.3 + 1.4 wire data.
+  // Both chips render with nudge copy when their data source is absent.
+  if (settings?.ambientStrip === true) {
+    // Both data sources are nullable; component handles empty-state internally.
+    const weatherData = null; // Wired by 1.4.
+    const dinnerData  = null; // Wired by 1.3.
+    html += renderAmbientStrip({ weather: weatherData, dinner: dinnerData });
+  }
 
   let firstSectionRendered = false;
 
@@ -613,6 +623,14 @@ function bindEvents() {
     btn.addEventListener('pointerleave', cancelPress);
     btn.addEventListener('pointercancel', cancelPress);
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  });
+
+  // Ambient chips (Task 7 — strip is gated on settings.ambientStrip).
+  // Tap handlers are inert until 1.3 (dinner) and 1.4 (weather) wire real targets.
+  main.querySelectorAll('.ambient-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      // No-op for now; data wires + sheet opens land in the owning PRs (1.3 / 1.4).
+    });
   });
 
   // Event bubbles — tap to open detail sheet
