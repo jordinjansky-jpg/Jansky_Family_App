@@ -162,7 +162,7 @@
   flex-shrink: 0;
 }
 /* All-day pills in non-vivid themes — soft tint + left bar (matches timed pill pattern) */
-:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
+html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   background: color-mix(in srgb, var(--event-bg, var(--accent)) 12%, var(--surface)) !important;
   color: var(--text) !important;
   border-left: 3px solid var(--event-bg, var(--accent));

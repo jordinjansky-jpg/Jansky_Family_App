@@ -811,15 +811,35 @@ function bindEvents() {
       });
     });
     comingUpEl.querySelectorAll('.event-row').forEach(btn => {
-      btn.addEventListener('click', () => {
-        openEventDetailSheet(btn.dataset.eventId);
+      let pressTimer = null, didLong = false, sx = 0, sy = 0;
+      btn.addEventListener('pointerdown', e => {
+        didLong = false; sx = e.clientX; sy = e.clientY;
+        pressTimer = setTimeout(() => { didLong = true; pressTimer = null; openEventDetailSheet(btn.dataset.eventId); }, settings?.longPressMs ?? 800);
       });
+      btn.addEventListener('pointermove', e => {
+        if (pressTimer && (Math.abs(e.clientX - sx) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - sy) > PRESS_MOVE_THRESHOLD)) { clearTimeout(pressTimer); pressTimer = null; }
+      });
+      btn.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; if (!didLong) openEventDetailSheet(btn.dataset.eventId); });
+      btn.addEventListener('pointerleave', () => { clearTimeout(pressTimer); pressTimer = null; });
+      btn.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+      btn.addEventListener('contextmenu', e => e.preventDefault());
     });
   }
 
-  // Event bubbles — tap to open detail sheet
+  // Event bubbles — tap or long-press to open detail sheet
   main.querySelectorAll('.event-bubble[data-event-id]').forEach(btn => {
-    btn.addEventListener('click', () => openEventDetailSheet(btn.dataset.eventId));
+    let pressTimer = null, didLong = false, sx = 0, sy = 0;
+    btn.addEventListener('pointerdown', e => {
+      didLong = false; sx = e.clientX; sy = e.clientY;
+      pressTimer = setTimeout(() => { didLong = true; pressTimer = null; openEventDetailSheet(btn.dataset.eventId); }, settings?.longPressMs ?? 800);
+    });
+    btn.addEventListener('pointermove', e => {
+      if (pressTimer && (Math.abs(e.clientX - sx) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - sy) > PRESS_MOVE_THRESHOLD)) { clearTimeout(pressTimer); pressTimer = null; }
+    });
+    btn.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; if (!didLong) openEventDetailSheet(btn.dataset.eventId); });
+    btn.addEventListener('pointerleave', () => { clearTimeout(pressTimer); pressTimer = null; });
+    btn.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+    btn.addEventListener('contextmenu', e => e.preventDefault());
   });
 
   // Debug copy button
