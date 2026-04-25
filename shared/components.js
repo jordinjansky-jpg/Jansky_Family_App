@@ -2226,23 +2226,22 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
   ).join('');
 
   const deleteBtn = isEdit
-    ? `<button class="btn btn--ghost" id="meDelete" type="button"
-               style="color:var(--danger);margin-top:var(--spacing-sm)">Delete meal</button>`
+    ? `<button class="btn btn--ghost me-delete-btn" id="meDelete" type="button">Delete meal</button>`
     : '';
 
   return `<form class="task-detail-sheet" id="meForm" novalidate>
     <h3 class="admin-form__title">${isEdit ? 'Edit meal' : 'New meal'}</h3>
 
     <label class="field">
-      <span class="field__label">Name <span aria-hidden="true" style="color:var(--danger)">*</span></span>
+      <span class="field__label">Name <span aria-hidden="true" class="field__required-star">*</span></span>
       <input class="field__input" id="me_name" type="text" value="${name}"
              placeholder="e.g. Taco Tuesday" autocomplete="off" required>
       <span class="field__error" id="me_nameError" role="alert"></span>
     </label>
 
-    <div style="display:flex;align-items:center;gap:var(--spacing-md);margin-bottom:var(--spacing-md)">
-      <label class="form-label" for="me_fav" style="margin:0;cursor:pointer">Favorite</label>
-      <input type="checkbox" id="me_fav" ${isFav ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--accent)">
+    <div class="me-fav-row">
+      <label class="form-label" for="me_fav">Favorite</label>
+      <input type="checkbox" class="me-fav-check" id="me_fav" ${isFav ? 'checked' : ''}>
     </div>
 
     <label class="field">
@@ -2261,8 +2260,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     <div class="field">
       <span class="field__label">Ingredients</span>
       <div id="me_ingredients">${ingrRows}</div>
-      <button class="btn btn--ghost btn--sm" id="me_addIngredient" type="button"
-              style="margin-top:var(--spacing-xs)">+ Add ingredient</button>
+      <button class="btn btn--ghost btn--sm me-add-ingredient-btn" id="me_addIngredient" type="button">+ Add ingredient</button>
     </div>
 
     <label class="field">
@@ -2278,6 +2276,6 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     </label>
 
     ${deleteBtn}
-    <input type="hidden" id="me_mealId" value="${mealId || ''}">
+    <input type="hidden" id="me_mealId" value="${esc(mealId || '')}">
   </form>`;
 }
