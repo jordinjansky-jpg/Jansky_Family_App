@@ -125,7 +125,8 @@
 // v64 (2026-04-25) — 1.3 Meal Planning: meal library, plan/detail/editor sheets,
 //                    calendar day view meals section, admin Meals tab, kid Tonight
 //                    tile, dashboard ambient strip wiring, ambientStrip setting.
-const CACHE_NAME = 'family-hub-v64';
+// v65 (2026-04-25) — 1.4 Weather Widget: add shared/weather.js to cache.
+const CACHE_NAME = 'family-hub-v65';
 
 const APP_SHELL = [
   '/',
@@ -160,6 +161,7 @@ const APP_SHELL = [
   '/shared/dom-helpers.js',
   '/shared/theme.js',
   '/shared/utils.js',
+  '/shared/weather.js',
   '/shared/calendar-views.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
