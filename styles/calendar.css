@@ -1,9 +1,10 @@
 /* calendar.css — Calendar views: week, day, month */
 
 /* ── Page shell ── */
-.cal-page { overflow: hidden; height: 100dvh; }
+/* .cal-page no longer locks page height — natural scroll restored.
+   Phase 2: Day view is pure agenda; Week view is vertical agenda;
+   Month-on-phone is empty-state. None of the views need page-locking. */
 .cal-page .page-content {
-  height: 100dvh;
   max-width: 100%;
   padding: var(--spacing-sm);
   /* .app-header is position:sticky and reserves its own height in flow —
