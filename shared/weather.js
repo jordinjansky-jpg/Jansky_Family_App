@@ -13,7 +13,7 @@ function _todayKey(timezone) {
 }
 
 function _daysDiff(dk1, dk2) {
-  return (new Date(dk1 + 'T00:00:00') - new Date(dk2 + 'T00:00:00')) / 86400000;
+  return Math.round((new Date(dk1 + 'T12:00:00') - new Date(dk2 + 'T12:00:00')) / 86400000);
 }
 
 function _codeToGlyph(code) {
@@ -138,7 +138,9 @@ export async function fetchForecast(settings) {
   });
 
   const allCached = dates.map(dk => _readCache(dk));
-  if (allCached.every(Boolean)) return allCached.map((d, i) => ({ ..._toResult(d), dateKey: dates[i] }));
+  if (allCached.every(Boolean) && _isFresh(allCached[0], true)) {
+    return allCached.map((d, i) => ({ ..._toResult(d), dateKey: dates[i] }));
+  }
 
   try {
     await _fetchAndCache(loc, key, timezone);
