@@ -2202,13 +2202,13 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
  */
 export function renderMealEditorSheet(meal = null, mealId = null) {
   const isEdit = meal !== null;
-  const name      = isEdit ? esc(meal.name || '') : '';
-  const prepTime  = isEdit ? esc(meal.prepTime || '') : '';
-  const url       = isEdit ? esc(meal.url || '') : '';
-  const notes     = isEdit ? esc(meal.notes || '') : '';
-  const isFav     = isEdit && meal.isFavorite;
-  const tags      = isEdit ? (meal.tags || []) : [];
-  const ingr      = isEdit ? (meal.ingredients || []) : [];
+  const name     = isEdit ? esc(meal.name || '') : '';
+  const prepTime = isEdit ? esc(meal.prepTime || '') : '';
+  const url      = isEdit ? esc(meal.url || '') : '';
+  const notes    = isEdit ? esc(meal.notes || '') : '';
+  const isFav    = isEdit && meal.isFavorite;
+  const tags     = isEdit ? (meal.tags || []) : [];
+  const ingr     = isEdit ? (meal.ingredients || []) : [];
 
   const tagChips = tags.map((t, i) =>
     `<span class="me-tag" data-tag-index="${i}">
@@ -2221,16 +2221,20 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     `<div class="me-ingredient-row" data-ingr-index="${i}">
       <input type="text" value="${esc(item)}" placeholder="e.g. 2 lbs ground beef"
              data-ingr-index="${i}" aria-label="Ingredient ${i + 1}">
-      <button class="me-ingredient-remove" data-ingr-index="${i}" type="button" aria-label="Remove ingredient">&times;</button>
+      <button class="me-ingredient-remove" data-ingr-index="${i}" type="button" aria-label="Remove">&times;</button>
     </div>`
   ).join('');
 
-  const deleteBtn = isEdit
-    ? `<button class="btn btn--ghost me-delete-btn" id="meDelete" type="button">Delete meal</button>`
-    : '';
+  const starSvg = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
 
   return `<form class="task-detail-sheet" id="meForm" novalidate>
-    <h3 class="admin-form__title">${isEdit ? 'Edit meal' : 'New meal'}</h3>
+    <div class="me-editor-header">
+      <h3 class="me-editor-title">${isEdit ? 'Edit meal' : 'New meal'}</h3>
+      <button class="me-fav-btn${isFav ? ' is-active' : ''}" id="me_fav" type="button"
+              aria-pressed="${isFav}" aria-label="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+        ${starSvg}
+      </button>
+    </div>
 
     <label class="field">
       <span class="field__label">Name <span aria-hidden="true" class="field__required-star">*</span></span>
@@ -2238,11 +2242,6 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
              placeholder="e.g. Taco Tuesday" autocomplete="off" required>
       <span class="field__error" id="me_nameError" role="alert"></span>
     </label>
-
-    <div class="me-fav-row">
-      <label class="form-label" for="me_fav">Favorite</label>
-      <input type="checkbox" class="me-fav-check" id="me_fav" ${isFav ? 'checked' : ''}>
-    </div>
 
     <label class="field">
       <span class="field__label">Prep time</span>
@@ -2254,7 +2253,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
       <span class="field__label">Tags</span>
       <div class="me-tag-row" id="me_tags">${tagChips}</div>
       <input class="field__input" id="me_tagInput" type="text"
-             placeholder="Type a tag and press Enter" autocomplete="off">
+             placeholder="Type a tag, press Enter" autocomplete="off">
     </div>
 
     <div class="field">
@@ -2271,13 +2270,12 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
 
     <label class="field">
       <span class="field__label">Notes</span>
-      <textarea class="field__input" id="me_notes"
-                placeholder="Any notes…" rows="3">${notes}</textarea>
+      <textarea class="field__input" id="me_notes" placeholder="Any notes…" rows="3">${notes}</textarea>
     </label>
 
-    ${deleteBtn}
     <input type="hidden" id="me_mealId" value="${esc(mealId || '')}">
     <button class="btn btn--primary btn--full" type="submit">${isEdit ? 'Save changes' : 'Create meal'}</button>
+    ${isEdit ? `<button class="btn btn--ghost btn--full me-delete-btn" id="meDelete" type="button">Delete meal</button>` : ''}
   </form>`;
 }
 
@@ -2301,73 +2299,70 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
  */
 export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, currentMealId = null } = {}) {
   const SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
-  const slotTabs = SLOTS.map(s =>
-    `<button class="tab${s === slot ? ' is-active' : ''} mp-slot-tab"
-             data-slot="${s}" type="button" role="tab"
-             aria-selected="${s === slot}">${s.charAt(0).toUpperCase() + s.slice(1)}</button>`
-  ).join('');
+  const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
 
-  // Sort library: favorites first, then by lastUsed desc
-  const entries = Object.entries(library).sort(([, a], [, b]) => {
-    if (a.isFavorite && !b.isFavorite) return -1;
-    if (!a.isFavorite && b.isFavorite) return 1;
-    const ta = a.lastUsed || 0;
-    const tb = b.lastUsed || 0;
-    return tb - ta;
-  });
-
-  const chips = entries.map(([id, m]) =>
-    `<button class="meal-chip${id === currentMealId ? ' meal-chip--selected' : ''}"
-             data-meal-id="${esc(id)}" type="button">
-      ${m.isFavorite ? '<span class="meal-chip__star" aria-hidden="true">★</span>' : ''}
-      ${esc(m.name)}
+  const slotGrid = SLOTS.map(s =>
+    `<button class="mp-slot-tab${s === slot ? ' is-active' : ''}" data-slot="${s}"
+             type="button" role="tab" aria-selected="${s === slot}">
+      ${SLOT_LABELS[s]}
     </button>`
   ).join('');
 
-  const removeLinkHtml = currentMealId && library[currentMealId]
-    ? `<button class="mp-remove-link" id="mp_removeLink" type="button">
-         Remove "${esc(library[currentMealId].name)}" from this slot
-       </button>`
-    : '';
+  const entries = Object.entries(library).sort(([, a], [, b]) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    return (b.lastUsed || 0) - (a.lastUsed || 0);
+  });
+
+  const checkSvg = `<svg class="meal-option__check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+  const mealRows = entries.map(([id, m]) =>
+    `<button class="meal-option${id === currentMealId ? ' is-selected' : ''}"
+             data-meal-id="${esc(id)}" type="button">
+      <span class="meal-option__name">${esc(m.name)}</span>
+      ${checkSvg}
+    </button>`
+  ).join('');
 
   const hasEntries = entries.length > 0;
   const hasFavs = entries.some(([, m]) => m.isFavorite);
-  const resultsLabel = hasEntries ? (hasFavs ? 'Favorites &amp; Recent' : 'Recent') : '';
+  const resultsLabel = hasEntries ? (hasFavs ? 'Favorites & Recent' : 'Recent') : '';
+
+  const removeLinkHtml = currentMealId && library[currentMealId]
+    ? `<button class="mp-remove-link" id="mp_removeLink" type="button">Remove from this slot</button>`
+    : '';
 
   return `<form class="task-detail-sheet" id="mpForm" novalidate>
-    <h3 class="admin-form__title">Plan a meal</h3>
-
-    <label class="field">
-      <span class="field__label">Date</span>
-      <input class="field__input" id="mp_date" type="date" value="${esc(date || '')}">
-    </label>
-
-    <div class="field">
-      <span class="field__label">Slot</span>
-      <nav class="tabs tabs--pill tabs--sm" id="mp_slotTabs" role="tablist"
-           aria-label="Meal slot">
-        ${slotTabs}
-      </nav>
+    <div class="mp-header">
+      <h3 class="me-editor-title">Plan a meal</h3>
+      <input class="mp-date-input" id="mp_date" type="date" value="${esc(date || '')}"
+             aria-label="Date">
     </div>
 
-    <div class="field">
-      <span class="field__label">Meal</span>
-      <input class="field__input" id="mp_search" type="search"
-             placeholder="Search meals…" autocomplete="off">
-      <div class="mp-results" id="mp_results">
-        <span class="mp-results-label" id="mp_resultsLabel">${resultsLabel}</span>
-        ${chips}
+    <div class="mp-slot-section">
+      <span class="field__label">Slot</span>
+      <div class="mp-slot-grid" id="mp_slotTabs" role="tablist" aria-label="Meal slot">
+        ${slotGrid}
       </div>
-      <button class="mp-create-btn" id="mp_createNew" type="button">
-        ＋ Create new meal
-      </button>
+    </div>
+
+    <div class="mp-meal-section">
+      <div class="mp-search-row">
+        <input class="field__input mp-search-input" id="mp_search" type="search"
+               placeholder="Search meals…" autocomplete="off">
+        <button class="mp-create-btn" id="mp_createNew" type="button" aria-label="Create new meal">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+      ${resultsLabel ? `<span class="mp-results-label">${resultsLabel}</span>` : ''}
+      <div class="mp-results" id="mp_results">${mealRows}</div>
       ${removeLinkHtml}
     </div>
 
     <div class="mp-inline-editor" id="mp_inlineEditor" hidden>
-      <div class="me-fav-row">
+      <div class="mp-inline-header">
         <button class="btn btn--ghost btn--sm" id="mp_inlineBack" type="button">← Back</button>
-        <span class="field__label">New meal</span>
+        <span class="mp-inline-title">New meal</span>
       </div>
       <label class="field">
         <span class="field__label">Name <span class="field__required-star" aria-hidden="true">*</span></span>
@@ -2382,6 +2377,7 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
     </div>
 
     <input type="hidden" id="mp_selectedMealId" value="${esc(currentMealId || '')}">
+    <button class="btn btn--primary btn--full mp-save-btn" type="submit">Save</button>
   </form>`;
 }
 
@@ -2402,8 +2398,11 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
 
   const isSchool = planEntry?.source === 'school';
 
-  const prepHtml = meal.prepTime
-    ? `<span class="me-detail__prep">${esc(meal.prepTime)}</span>`
+  const metaItems = [];
+  if (meal.prepTime) metaItems.push(esc(meal.prepTime));
+  if (isSchool) metaItems.push('School lunch');
+  const metaHtml = metaItems.length > 0
+    ? `<p class="me-detail__meta">${metaItems.join(' · ')}</p>`
     : '';
 
   const tagsHtml = (meal.tags || []).length > 0
@@ -2412,10 +2411,20 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
        </div>`
     : '';
 
-  const ingrHtml = (meal.ingredients || []).length > 0
-    ? `<ul class="me-detail__ingredients">
-        ${meal.ingredients.map(i => `<li>${esc(i)}</li>`).join('')}
-       </ul>`
+  const ingrHtml = (meal.ingredients || []).filter(Boolean).length > 0
+    ? `<div class="me-detail__section">
+        <span class="me-detail__section-label">Ingredients</span>
+        <ul class="me-detail__ingredients">
+          ${meal.ingredients.filter(Boolean).map(i => `<li>${esc(i)}</li>`).join('')}
+        </ul>
+       </div>`
+    : '';
+
+  const notesHtml = meal.notes
+    ? `<div class="me-detail__section">
+        <span class="me-detail__section-label">Notes</span>
+        <p class="me-detail__notes">${esc(meal.notes)}</p>
+       </div>`
     : '';
 
   const recipeBtn = meal.url
@@ -2423,9 +2432,7 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
     : '';
 
   let actionsHtml = '';
-  if (isSchool) {
-    actionsHtml = `<p class="me-detail__school-note">Added from school lunch import</p>`;
-  } else if (!readonly) {
+  if (!isSchool && !readonly) {
     actionsHtml = `<div class="me-detail__actions">
       <button class="btn btn--secondary btn--full" id="mdChange" type="button">Change meal</button>
       <button class="btn btn--secondary btn--full" id="mdEdit" type="button">Edit meal</button>
@@ -2436,10 +2443,11 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
   return `<div class="task-detail-sheet">
     <div class="me-detail__header">
       <h3 class="me-detail__name">${esc(meal.name)}</h3>
-      ${prepHtml}
+      ${metaHtml}
     </div>
     ${tagsHtml}
     ${ingrHtml}
+    ${notesHtml}
     ${recipeBtn}
     ${actionsHtml}
   </div>`;

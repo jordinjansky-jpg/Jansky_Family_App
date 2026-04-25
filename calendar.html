@@ -766,11 +766,13 @@
           removeLink.style.display = curMeal ? '' : 'none';
           if (curMeal) removeLink.textContent = `Remove "${curMeal.name}" from this slot`;
         }
-        filterChips('');
+        filterOptions('');
         searchInput.value = '';
       });
 
-      function filterChips(query) {
+      const checkSvg = `<svg class="meal-option__check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+      function filterOptions(query) {
         const q = query.toLowerCase().trim();
         const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
           if (a.isFavorite && !b.isFavorite) return -1;
@@ -778,39 +780,43 @@
           return (b.lastUsed || 0) - (a.lastUsed || 0);
         });
         const filtered = q ? entries.filter(([, m]) => m.name.toLowerCase().includes(q)) : entries;
-        const labelText = q ? '' : (filtered.some(([, m]) => m.isFavorite) ? 'Favorites & Recent' : 'Recent');
-        resultsDiv.innerHTML = `<span class="mp-results-label" id="mp_resultsLabel">${labelText}</span>` +
-          filtered.map(([id, m]) =>
-            `<button class="meal-chip${id === selectedMealId ? ' meal-chip--selected' : ''}"
-                     data-meal-id="${escapeHtml(id)}" type="button">
-              ${m.isFavorite ? '<span class="meal-chip__star" aria-hidden="true">★</span>' : ''}
-              ${escapeHtml(String(m.name))}
-            </button>`
-          ).join('');
-        resultsDiv.querySelectorAll('.meal-chip').forEach(btn => {
+        resultsDiv.innerHTML = filtered.map(([id, m]) =>
+          `<button class="meal-option${id === selectedMealId ? ' is-selected' : ''}"
+                   data-meal-id="${escapeHtml(id)}" type="button">
+            <span class="meal-option__name">${escapeHtml(String(m.name))}</span>
+            ${checkSvg}
+          </button>`
+        ).join('');
+        bindOptionClicks();
+      }
+
+      function bindOptionClicks() {
+        resultsDiv.querySelectorAll('.meal-option').forEach(btn => {
           btn.addEventListener('click', () => {
             selectedMealId = btn.dataset.mealId;
             document.getElementById('mp_selectedMealId').value = selectedMealId;
-            resultsDiv.querySelectorAll('.meal-chip').forEach(b => b.classList.toggle('meal-chip--selected', b.dataset.mealId === selectedMealId));
+            resultsDiv.querySelectorAll('.meal-option').forEach(b =>
+              b.classList.toggle('is-selected', b.dataset.mealId === selectedMealId)
+            );
           });
         });
       }
 
-      searchInput?.addEventListener('input', () => filterChips(searchInput.value));
-      filterChips('');
+      searchInput?.addEventListener('input', () => filterOptions(searchInput.value));
+      filterOptions('');
+
+      const searchRow = document.querySelector('.mp-search-row');
 
       document.getElementById('mp_createNew')?.addEventListener('click', () => {
         inlineEditor.hidden = false;
-        document.getElementById('mp_createNew').hidden = true;
+        if (searchRow) searchRow.style.display = 'none';
         resultsDiv.style.display = 'none';
-        searchInput.style.display = 'none';
         document.getElementById('mp_inlineName')?.focus();
       });
       document.getElementById('mp_inlineBack')?.addEventListener('click', () => {
         inlineEditor.hidden = true;
-        document.getElementById('mp_createNew').hidden = false;
+        if (searchRow) searchRow.style.display = '';
         resultsDiv.style.display = '';
-        searchInput.style.display = '';
       });
 
       document.getElementById('mp_removeLink')?.addEventListener('click', async () => {

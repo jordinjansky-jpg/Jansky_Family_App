@@ -768,6 +768,13 @@
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', e => { if (e.target === overlay) mount.innerHTML = ''; });
 
+      document.getElementById('me_fav')?.addEventListener('click', e => {
+        const btn = e.currentTarget;
+        const pressed = btn.getAttribute('aria-pressed') === 'true';
+        btn.setAttribute('aria-pressed', String(!pressed));
+        btn.classList.toggle('is-active', !pressed);
+      });
+
       let ingredients = meal ? [...(meal.ingredients || [])] : [];
       let tags = meal ? [...(meal.tags || [])] : [];
 
@@ -861,7 +868,7 @@
         });
         const data = {
           name,
-          isFavorite: document.getElementById('me_fav').checked,
+          isFavorite: document.getElementById('me_fav')?.getAttribute('aria-pressed') === 'true',
           prepTime: document.getElementById('me_prepTime').value.trim() || null,
           tags: tags.filter(Boolean),
           ingredients: ingredients.filter(Boolean),

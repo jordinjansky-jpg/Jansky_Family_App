@@ -1104,7 +1104,9 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
     searchInput.value = '';
   });
 
-  function filterChips(query) {
+  const searchRow = document.querySelector('.mp-search-row');
+
+  function filterOptions(query) {
     const q = query.toLowerCase().trim();
     const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
       if (a.isFavorite && !b.isFavorite) return -1;
@@ -1112,47 +1114,44 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
       return (b.lastUsed || 0) - (a.lastUsed || 0);
     });
     const filtered = q ? entries.filter(([, m]) => m.name.toLowerCase().includes(q)) : entries;
-    const label = q ? '' : (filtered.some(([, m]) => m.isFavorite) ? 'Favorites &amp; Recent' : 'Recent');
-    resultsDiv.innerHTML = `<span class="mp-results-label" id="mp_resultsLabel">${label}</span>` +
-      filtered.map(([id, m]) =>
-        `<button class="meal-chip${id === selectedMealId ? ' meal-chip--selected' : ''}"
-                 data-meal-id="${esc(id)}" type="button">
-          ${m.isFavorite ? '<span class="meal-chip__star" aria-hidden="true">★</span>' : ''}
-          ${esc(m.name)}
-        </button>`
-      ).join('');
-    bindChipClicks();
+    const checkSvg = `<svg class="meal-option__check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+    resultsDiv.innerHTML = filtered.map(([id, m]) =>
+      `<button class="meal-option${id === selectedMealId ? ' is-selected' : ''}"
+               data-meal-id="${esc(id)}" type="button">
+        <span class="meal-option__name">${esc(m.name)}</span>
+        ${checkSvg}
+      </button>`
+    ).join('');
+    bindOptionClicks();
   }
 
-  function bindChipClicks() {
-    resultsDiv.querySelectorAll('.meal-chip').forEach(btn => {
+  function bindOptionClicks() {
+    resultsDiv.querySelectorAll('.meal-option').forEach(btn => {
       btn.addEventListener('click', () => {
         selectedMealId = btn.dataset.mealId;
         document.getElementById('mp_selectedMealId').value = selectedMealId;
-        resultsDiv.querySelectorAll('.meal-chip').forEach(b =>
-          b.classList.toggle('meal-chip--selected', b.dataset.mealId === selectedMealId)
+        resultsDiv.querySelectorAll('.meal-option').forEach(b =>
+          b.classList.toggle('is-selected', b.dataset.mealId === selectedMealId)
         );
       });
     });
   }
 
-  searchInput?.addEventListener('input', () => filterChips(searchInput.value));
-  bindChipClicks();
+  searchInput?.addEventListener('input', () => filterOptions(searchInput.value));
+  bindOptionClicks();
 
   // Inline create new meal
   document.getElementById('mp_createNew')?.addEventListener('click', () => {
     inlineEditor.hidden = false;
-    document.getElementById('mp_createNew').hidden = true;
+    if (searchRow) searchRow.style.display = 'none';
     resultsDiv.style.display = 'none';
-    searchInput.style.display = 'none';
     document.getElementById('mp_inlineName')?.focus();
   });
 
   document.getElementById('mp_inlineBack')?.addEventListener('click', () => {
     inlineEditor.hidden = true;
-    document.getElementById('mp_createNew').hidden = false;
+    if (searchRow) searchRow.style.display = '';
     resultsDiv.style.display = '';
-    searchInput.style.display = '';
   });
 
   // Remove existing assignment
@@ -1242,6 +1241,13 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
 
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
+
+  document.getElementById('me_fav')?.addEventListener('click', e => {
+    const btn = e.currentTarget;
+    const pressed = btn.getAttribute('aria-pressed') === 'true';
+    btn.setAttribute('aria-pressed', String(!pressed));
+    btn.classList.toggle('is-active', !pressed);
+  });
 
   let ingredients = meal ? [...(meal.ingredients || [])] : [];
   let tags = meal ? [...(meal.tags || [])] : [];
@@ -1345,7 +1351,7 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
     });
     const data = {
       name,
-      isFavorite: document.getElementById('me_fav').checked,
+      isFavorite: document.getElementById('me_fav')?.getAttribute('aria-pressed') === 'true',
       prepTime: document.getElementById('me_prepTime').value.trim() || null,
       tags: tags.filter(Boolean),
       ingredients: ingredients.filter(Boolean),
