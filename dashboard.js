@@ -1,5 +1,6 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readMeals, readMealLibrary, writeMeal, removeMeal, pushMealLibrary, writeMealLibrary, removeMealLibrary } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealPlanSheet, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealPlanSheet, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet } from './shared/components.js';
+import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -84,6 +85,7 @@ let multipliers = {};
 let suppressedCooldownTaskIds = new Set();
 let celebrationShown = false;
 let lastRenderedIsToday = true; // tracks viewDate==today across renders so Back-to-Today pill only animates on the transition away from today, not on passive re-renders
+let lastWeatherData = null; // set in render(); read by ambient chip tap handler
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
@@ -297,9 +299,10 @@ function render() {
   // === Ambient strip (spec §3.3) ===
   // Gated on settings.ambientStrip; renders zero pixels until 1.3 + 1.4 wire data.
   // Both chips render with nudge copy when their data source is absent.
-  if (settings?.ambientStrip === true) {
+  if (settings?.ambientStrip ?? true) {
     // Both data sources are nullable; component handles empty-state internally.
-    const weatherData = null; // Wired by 1.4.
+    const weatherData = await fetchWeather(viewDate, settings);
+    lastWeatherData = weatherData;
     const dinnerPlan = viewMeals?.dinner;
     const dinnerEntry = (dinnerPlan?.mealId && mealLibrary[dinnerPlan.mealId]) || null;
     const dinnerData = dinnerEntry ? { name: dinnerEntry.name, source: dinnerPlan.source } : null;
@@ -740,7 +743,7 @@ function bindEvents() {
     chip.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
     chip.addEventListener('contextmenu', e => e.preventDefault());
 
-    chip.addEventListener('click', () => {
+    chip.addEventListener('click', async () => {
       if (didLongPress) { didLongPress = false; return; }
       const which = chip.dataset.chip;
       if (which === 'dinner') {
@@ -751,7 +754,31 @@ function bindEvents() {
           openMealPlanSheet('dinner');
         }
       }
-      // weather chip: wired by 1.4
+      if (which === 'weather') {
+        if (!settings?.weatherLocation || !settings?.weatherApiKey) {
+          location.href = 'admin.html';
+          return;
+        }
+        if (lastWeatherData?.isPast || lastWeatherData?.isFuture) return;
+
+        const todayK = todayKey(settings?.timezone || 'America/Chicago');
+        const d = new Date(todayK + 'T00:00:00');
+        d.setDate(d.getDate() + 1);
+        const tomorrowK = d.toLocaleDateString('en-CA');
+
+        taskSheetMount.innerHTML = renderWeatherSheet(
+          await fetchForecast(settings),
+          todayK,
+          tomorrowK
+        );
+        requestAnimationFrame(() => {
+          document.getElementById('bottomSheet')?.classList.add('active');
+        });
+        document.getElementById('bottomSheet')?.addEventListener('click', e => {
+          if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
+        });
+        document.getElementById('weatherSheetClose')?.addEventListener('click', closeTaskSheet);
+      }
     });
   });
 
