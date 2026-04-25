@@ -41,8 +41,8 @@ const tasks = tasksObj || {};
 const cats = catsObj || {};
 let events = eventsObj || {};
 const rewardsData = await readRewards() || {};
-mealLibrary = (await readMealLibrary()) || {};
-viewMeals = (await readMeals(today)) || {};
+let mealLibrary = (await readMealLibrary()) || {};
+let viewMeals = (await readMeals(today)) || {};
 let activePressTimer = null;
 let pendingSliderOverride = null; // { entryKey, value } — set by slider, consumed by toggleTask/closeSheet
 
@@ -84,8 +84,6 @@ let multipliers = {};
 let suppressedCooldownTaskIds = new Set();
 let celebrationShown = false;
 let lastRenderedIsToday = true; // tracks viewDate==today across renders so Back-to-Today pill only animates on the transition away from today, not on passive re-renders
-let mealLibrary = {};  // full meal library — loaded once at startup, refreshed after edits
-let viewMeals = null;  // meal plan for viewDate — reloaded on viewDate change
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
@@ -659,7 +657,7 @@ function bindEvents() {
     updateHeaderSubtitle();
     subscribeSchedule(viewDate);
     viewMeals = (await readMeals(viewDate)) || {};
-    loadData();
+    await loadData();
   });
 
   // Task card: tap to toggle, long-press to open detail sheet
@@ -741,7 +739,7 @@ function bindEvents() {
         updateHeaderSubtitle();
         subscribeSchedule(viewDate);
         viewMeals = (await readMeals(viewDate)) || {};
-        loadData();
+        await loadData();
       });
     });
     comingUpEl.querySelectorAll('.event-row').forEach(btn => {
