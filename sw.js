@@ -9,6 +9,11 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v62 (2026-04-25) — Hotfix: person.html still had the old loadingState +
+//                    is-hidden shell, but dashboard.js (Task 4) stopped
+//                    managing them. mainContent stayed hidden -> blank
+//                    screen on PWA person shortcuts. Updated person.html
+//                    to match index.html's new shell (just <div id="mainContent">).
 // v61 (2026-04-25) — Dashboard final-form rework: Coming up rail (3.3),
 //                    ambient strip slot, store-pt + grade meta chips
 //                    when filtered, banner queue gains --info offline +
@@ -109,7 +114,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v61';
+const CACHE_NAME = 'family-hub-v62';
 
 const APP_SHELL = [
   '/',
