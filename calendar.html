@@ -741,7 +741,6 @@
       const overlay = document.getElementById('bottomSheet');
       const searchInput = document.getElementById('mp_search');
       const resultsDiv = document.getElementById('mp_results');
-      const resultsLabel = document.getElementById('mp_resultsLabel');
       const inlineEditor = document.getElementById('mp_inlineEditor');
       let selectedSlot = preSlot;
       let selectedMealId = currentMealId;
@@ -775,11 +774,11 @@
           return (b.lastUsed || 0) - (a.lastUsed || 0);
         });
         const filtered = q ? entries.filter(([, m]) => m.name.toLowerCase().includes(q)) : entries;
-        resultsLabel.textContent = q ? '' : (filtered.some(([, m]) => m.isFavorite) ? 'Favorites & Recent' : 'Recent');
-        resultsDiv.innerHTML = `<span class="mp-results-label" id="mp_resultsLabel">${resultsLabel.textContent}</span>` +
+        const labelText = q ? '' : (filtered.some(([, m]) => m.isFavorite) ? 'Favorites & Recent' : 'Recent');
+        resultsDiv.innerHTML = `<span class="mp-results-label" id="mp_resultsLabel">${labelText}</span>` +
           filtered.map(([id, m]) =>
             `<button class="meal-chip${id === selectedMealId ? ' meal-chip--selected' : ''}"
-                     data-meal-id="${id}" type="button">
+                     data-meal-id="${escapeHtml(id)}" type="button">
               ${m.isFavorite ? '<span class="meal-chip__star" aria-hidden="true">★</span>' : ''}
               ${escapeHtml(String(m.name))}
             </button>`
