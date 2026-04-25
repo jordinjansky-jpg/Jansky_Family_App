@@ -2383,3 +2383,63 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
     <input type="hidden" id="mp_selectedMealId" value="${esc(currentMealId || '')}">
   </form>`;
 }
+
+/**
+ * Render the meal detail sheet body (view a planned meal's library entry).
+ *
+ * meal: meal library object { name, ingredients, url, notes, prepTime, isFavorite, tags }
+ * planEntry: { mealId, source } from meals/{date}/{slot}
+ * readonly: boolean — when true, hides Change/Edit/Remove actions (kid mode)
+ *
+ * Events the page must bind after mounting:
+ *   #mdChange click   → open plan sheet for this slot (change meal)
+ *   #mdEdit click     → open meal editor for this library entry
+ *   #mdRemove click   → remove this slot assignment
+ */
+export function renderMealDetailSheet(meal, planEntry, readonly = false) {
+  if (!meal) return `<div class="task-detail-sheet"><p class="text-muted">Meal not found.</p></div>`;
+
+  const isSchool = planEntry?.source === 'school';
+
+  const prepHtml = meal.prepTime
+    ? `<span class="me-detail__prep">${esc(meal.prepTime)}</span>`
+    : '';
+
+  const tagsHtml = (meal.tags || []).length > 0
+    ? `<div class="me-detail__tags">
+        ${meal.tags.map(t => `<span class="me-detail__tag">${esc(t)}</span>`).join('')}
+       </div>`
+    : '';
+
+  const ingrHtml = (meal.ingredients || []).length > 0
+    ? `<ul class="me-detail__ingredients">
+        ${meal.ingredients.map(i => `<li>${esc(i)}</li>`).join('')}
+       </ul>`
+    : '';
+
+  const recipeBtn = meal.url
+    ? `<a class="btn btn--primary btn--full" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer">Open recipe</a>`
+    : '';
+
+  let actionsHtml = '';
+  if (isSchool) {
+    actionsHtml = `<p class="me-detail__school-note">Added from school lunch import</p>`;
+  } else if (!readonly) {
+    actionsHtml = `<div class="me-detail__actions">
+      <button class="btn btn--secondary btn--full" id="mdChange" type="button">Change meal</button>
+      <button class="btn btn--secondary btn--full" id="mdEdit" type="button">Edit meal</button>
+      <button class="btn btn--ghost btn--full me-delete-btn" id="mdRemove" type="button">Remove from plan</button>
+    </div>`;
+  }
+
+  return `<div class="task-detail-sheet">
+    <div class="me-detail__header">
+      <h3 class="me-detail__name">${esc(meal.name)}</h3>
+      ${prepHtml}
+    </div>
+    ${tagsHtml}
+    ${ingrHtml}
+    ${recipeBtn}
+    ${actionsHtml}
+  </div>`;
+}
