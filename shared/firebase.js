@@ -655,3 +655,48 @@ export async function countGlobalRedemptions(rewardId) {
   }
   return count;
 }
+
+// ── Meal helpers ──
+
+/** Read all meal slot assignments for one date (e.g. { dinner: { mealId, source } }). */
+export async function readMeals(dateKey) {
+  return readOnce(`meals/${dateKey}`);
+}
+
+/** Read the entire meals/ tree (all dates). Used by calendar for one-shot load. */
+export async function readAllMeals() {
+  return readOnce('meals');
+}
+
+/** Assign a meal to a day/slot. slot: 'breakfast'|'lunch'|'dinner'|'snack' */
+export async function writeMeal(dateKey, slot, data) {
+  return writeData(`meals/${dateKey}/${slot}`, data);
+}
+
+/** Remove a meal assignment from a day/slot. */
+export async function removeMeal(dateKey, slot) {
+  return removeData(`meals/${dateKey}/${slot}`);
+}
+
+/** Read the full meal library. Returns null when empty. */
+export async function readMealLibrary() {
+  return readOnce('mealLibrary');
+}
+
+/**
+ * Add a new meal to the library. Returns the generated push key.
+ * data: { name, ingredients, url?, notes?, prepTime?, isFavorite, tags, createdAt, lastUsed }
+ */
+export async function pushMealLibrary(data) {
+  return pushData('mealLibrary', data);
+}
+
+/** Full-replace update for an existing meal library entry. */
+export async function writeMealLibrary(mealId, data) {
+  return writeData(`mealLibrary/${mealId}`, data);
+}
+
+/** Remove a meal library entry. Caller is responsible for cascade-removing plan references. */
+export async function removeMealLibrary(mealId) {
+  return removeData(`mealLibrary/${mealId}`);
+}
