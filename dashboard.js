@@ -1,5 +1,5 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp } from './shared/components.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readMeals, readMealLibrary, writeMeal, removeMeal, pushMealLibrary, writeMealLibrary, removeMealLibrary } from './shared/firebase.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealPlanSheet, renderMealDetailSheet, renderMealEditorSheet } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -41,6 +41,8 @@ const tasks = tasksObj || {};
 const cats = catsObj || {};
 let events = eventsObj || {};
 const rewardsData = await readRewards() || {};
+mealLibrary = (await readMealLibrary()) || {};
+viewMeals = (await readMeals(today)) || {};
 let activePressTimer = null;
 let pendingSliderOverride = null; // { entryKey, value } — set by slider, consumed by toggleTask/closeSheet
 
@@ -82,6 +84,8 @@ let multipliers = {};
 let suppressedCooldownTaskIds = new Set();
 let celebrationShown = false;
 let lastRenderedIsToday = true; // tracks viewDate==today across renders so Back-to-Today pill only animates on the transition away from today, not on passive re-renders
+let mealLibrary = {};  // full meal library — loaded once at startup, refreshed after edits
+let viewMeals = null;  // meal plan for viewDate — reloaded on viewDate change
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
@@ -298,7 +302,9 @@ function render() {
   if (settings?.ambientStrip === true) {
     // Both data sources are nullable; component handles empty-state internally.
     const weatherData = null; // Wired by 1.4.
-    const dinnerData  = null; // Wired by 1.3.
+    const dinnerPlan = viewMeals?.dinner;
+    const dinnerEntry = (dinnerPlan?.mealId && mealLibrary[dinnerPlan.mealId]) || null;
+    const dinnerData = dinnerEntry ? { name: dinnerEntry.name, source: dinnerPlan.source } : null;
     html += renderAmbientStrip({ weather: weatherData, dinner: dinnerData });
   }
 
@@ -647,11 +653,12 @@ function renderDebugPanel(filtered, score) {
 
 function bindEvents() {
   // "Back to Today" pill
-  document.getElementById('goToday')?.addEventListener('click', () => {
+  document.getElementById('goToday')?.addEventListener('click', async () => {
     viewDate = today;
     celebrationShown = false;
     updateHeaderSubtitle();
     subscribeSchedule(viewDate);
+    viewMeals = (await readMeals(viewDate)) || {};
     loadData();
   });
 
@@ -726,13 +733,14 @@ function bindEvents() {
       localStorage.setItem('dr-coming-up-state', next ? 'expanded' : 'collapsed');
     });
     comingUpEl.querySelectorAll('.cal-day-block__head').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const date = btn.dataset.date;
         if (!date) return;
         viewDate = date;
         celebrationShown = false;
         updateHeaderSubtitle();
         subscribeSchedule(viewDate);
+        viewMeals = (await readMeals(viewDate)) || {};
         loadData();
       });
     });
@@ -763,6 +771,7 @@ async function changeDay(delta) {
   celebrationShown = false;
   updateHeaderSubtitle();
   subscribeSchedule(viewDate);
+  viewMeals = (await readMeals(viewDate)) || {};
   await loadData();
 }
 
