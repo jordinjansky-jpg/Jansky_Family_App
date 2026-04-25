@@ -2442,7 +2442,7 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
     : '';
 
   const recipeBtn = meal.url
-    ? `<a class="btn btn--primary btn--full" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer">Open recipe</a>`
+    ? `<a class="btn btn--primary btn--full" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer">View link</a>`
     : '';
 
   const hasDetails = meal.url || (meal.ingredients || []).filter(Boolean).length > 0 || meal.notes;
