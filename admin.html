@@ -723,7 +723,7 @@
         html += `<div class="admin-list">`;
         for (const [id, meal] of entries) {
           const lastUsedStr = meal.lastUsed
-            ? new Date(meal.lastUsed).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            ? new Date(meal.lastUsed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: settings?.timezone || 'America/Chicago' })
             : 'Never used';
           const ingrCount = (meal.ingredients || []).filter(Boolean).length;
           const prepStr = meal.prepTime ? ` · ${esc(meal.prepTime)}` : '';
@@ -822,7 +822,7 @@
       document.getElementById('me_tagInput')?.addEventListener('keydown', e => {
         if ((e.key === 'Enter' || e.key === ',') && e.target.value.trim()) {
           e.preventDefault();
-          tags.push(e.target.value.trim().replace(/,$/, ''));
+          tags.push(e.target.value.trim());
           e.target.value = '';
           refreshTags();
         }
@@ -831,7 +831,7 @@
       document.getElementById('meDelete')?.addEventListener('click', async () => {
         const confirmed = await showConfirm({
           title: 'Delete meal?',
-          message: `"${meal?.name ?? ''}" will be removed from any planned days.`,
+          message: `"${esc(meal?.name ?? '')}" will be removed from any planned days.`,
           confirmLabel: 'Delete',
           danger: true,
         });
@@ -887,7 +887,7 @@
       if (!meal) return;
       const confirmed = await showConfirm({
         title: 'Delete meal?',
-        message: `"${meal.name}" will be removed from any planned days.`,
+        message: `"${esc(meal.name)}" will be removed from any planned days.`,
         confirmLabel: 'Delete',
         danger: true,
       });
