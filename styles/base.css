@@ -109,6 +109,12 @@
 
   /* Structural — spec-aligned values per DESIGN.md */
   --max-content: 600px;
+
+  /* Ambient strip chip icon colors */
+  --ambient-weather-bg: #e0f0fa;
+  --ambient-weather-fg: #2a6f97;
+  --ambient-dinner-bg: #fef3e2;
+  --ambient-dinner-fg: #b85c1a;
 }
 
 /* ============ Dark mode tokens ============
@@ -137,6 +143,10 @@
   --info: #86b8e0;
   --info-soft: #1a2a3a;
   --on-accent: #ffffff;
+  --ambient-weather-bg: #1a3347;
+  --ambient-weather-fg: #7bbde0;
+  --ambient-dinner-bg: #3a2510;
+  --ambient-dinner-fg: #e8a96a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -160,6 +170,10 @@
     --info: #86b8e0;
     --info-soft: #1a2a3a;
     --on-accent: #ffffff;
+    --ambient-weather-bg: #1a3347;
+    --ambient-weather-fg: #7bbde0;
+    --ambient-dinner-bg: #3a2510;
+    --ambient-dinner-fg: #e8a96a;
   }
 }
 

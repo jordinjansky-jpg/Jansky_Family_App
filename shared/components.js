@@ -694,9 +694,10 @@ export function renderEventPill(event, people = []) {
     </div>`;
   }
 
-  // All-day: solid or gradient blend + dots
+  // All-day: solid or gradient blend (vivid) / soft tint (non-vivid)
   const bg = eventAllDayBg(event, people);
-  return `<div class="event-pill${isMulti ? ' event-pill--multi' : ''}" data-bg-color="${esc(bg)}">
+  const barColor = event.color || '#5b7fd6';
+  return `<div class="event-pill${isMulti ? ' event-pill--multi' : ''}" data-bg-color="${esc(bg)}" data-event-bg="${esc(barColor)}">
     <span class="event-pill__text">${esc(event.name)}</span>
     ${dotsHtml}
   </div>`;

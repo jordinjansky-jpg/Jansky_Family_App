@@ -1978,8 +1978,17 @@
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 .ambient-chip__icon svg { width: 16px; height: 16px; }
+.ambient-chip[data-chip="weather"] .ambient-chip__icon {
+  background: var(--ambient-weather-bg);
+  color: var(--ambient-weather-fg);
+}
+.ambient-chip[data-chip="dinner"] .ambient-chip__icon {
+  background: var(--ambient-dinner-bg);
+  color: var(--ambient-dinner-fg);
+}
 .ambient-chip__body { display: flex; flex-direction: column; min-width: 0; }
 .ambient-chip__label {
   font-size: var(--font-xs);
@@ -1993,9 +2002,10 @@
   font-weight: 500;
   color: var(--text);
   margin-top: 1px;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 @media (prefers-reduced-motion: reduce) {
   .ambient-chip { transition: none; }
