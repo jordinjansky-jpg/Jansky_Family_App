@@ -710,11 +710,19 @@ function bindEvents() {
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
   });
 
-  // Ambient chips (Task 7 — strip is gated on settings.ambientStrip).
-  // Tap handlers are inert until 1.3 (dinner) and 1.4 (weather) wire real targets.
+  // Ambient chips — dinner chip opens meal plan/detail; weather chip wired by 1.4.
   main.querySelectorAll('.ambient-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      // No-op for now; data wires + sheet opens land in the owning PRs (1.3 / 1.4).
+      const which = chip.dataset.chip;
+      if (which === 'dinner') {
+        const dinnerPlan = viewMeals?.dinner;
+        if (dinnerPlan?.mealId && mealLibrary[dinnerPlan.mealId]) {
+          openMealDetailSheet(dinnerPlan, 'dinner');
+        } else {
+          openMealPlanSheet('dinner');
+        }
+      }
+      // weather chip: wired by 1.4
     });
   });
 
@@ -1054,6 +1062,306 @@ function openEventDetailSheet(eventId) {
   document.getElementById('eventEdit')?.addEventListener('click', () => {
     closeTaskSheet();
     setTimeout(() => openEventForm(eventId), 320);
+  });
+}
+
+function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
+  const date = preDate || viewDate;
+  const currentMealId = viewMeals?.[preSlot]?.mealId || null;
+  const html = renderMealPlanSheet({ date, slot: preSlot, library: mealLibrary, currentMealId });
+  taskSheetMount.innerHTML = renderBottomSheet(html);
+
+  const overlay = document.getElementById('bottomSheet');
+  const searchInput = document.getElementById('mp_search');
+  const resultsDiv = document.getElementById('mp_results');
+  const inlineEditor = document.getElementById('mp_inlineEditor');
+  let selectedSlot = preSlot;
+  let selectedMealId = currentMealId;
+
+  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
+
+  // Slot tab switching
+  document.getElementById('mp_slotTabs')?.addEventListener('click', e => {
+    const btn = e.target.closest('.mp-slot-tab');
+    if (!btn) return;
+    selectedSlot = btn.dataset.slot;
+    selectedMealId = viewMeals?.[selectedSlot]?.mealId || null;
+    document.getElementById('mp_selectedMealId').value = selectedMealId || '';
+    document.querySelectorAll('.mp-slot-tab').forEach(b => {
+      b.classList.toggle('is-active', b.dataset.slot === selectedSlot);
+      b.setAttribute('aria-selected', b.dataset.slot === selectedSlot);
+    });
+    const removeLink = document.getElementById('mp_removeLink');
+    if (removeLink) {
+      const cur = viewMeals?.[selectedSlot];
+      removeLink.style.display = (cur?.mealId && mealLibrary[cur.mealId]) ? '' : 'none';
+      if (cur?.mealId && mealLibrary[cur.mealId]) {
+        removeLink.textContent = `Remove "${mealLibrary[cur.mealId].name}" from this slot`;
+      }
+    }
+    filterChips('');
+    searchInput.value = '';
+  });
+
+  function filterChips(query) {
+    const q = query.toLowerCase().trim();
+    const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return (b.lastUsed || 0) - (a.lastUsed || 0);
+    });
+    const filtered = q ? entries.filter(([, m]) => m.name.toLowerCase().includes(q)) : entries;
+    const label = q ? '' : (filtered.some(([, m]) => m.isFavorite) ? 'Favorites &amp; Recent' : 'Recent');
+    resultsDiv.innerHTML = `<span class="mp-results-label" id="mp_resultsLabel">${label}</span>` +
+      filtered.map(([id, m]) =>
+        `<button class="meal-chip${id === selectedMealId ? ' meal-chip--selected' : ''}"
+                 data-meal-id="${esc(id)}" type="button">
+          ${m.isFavorite ? '<span class="meal-chip__star" aria-hidden="true">★</span>' : ''}
+          ${esc(m.name)}
+        </button>`
+      ).join('');
+    bindChipClicks();
+  }
+
+  function bindChipClicks() {
+    resultsDiv.querySelectorAll('.meal-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedMealId = btn.dataset.mealId;
+        document.getElementById('mp_selectedMealId').value = selectedMealId;
+        resultsDiv.querySelectorAll('.meal-chip').forEach(b =>
+          b.classList.toggle('meal-chip--selected', b.dataset.mealId === selectedMealId)
+        );
+      });
+    });
+  }
+
+  searchInput?.addEventListener('input', () => filterChips(searchInput.value));
+  bindChipClicks();
+
+  // Inline create new meal
+  document.getElementById('mp_createNew')?.addEventListener('click', () => {
+    inlineEditor.hidden = false;
+    document.getElementById('mp_createNew').hidden = true;
+    resultsDiv.style.display = 'none';
+    searchInput.style.display = 'none';
+    document.getElementById('mp_inlineName')?.focus();
+  });
+
+  document.getElementById('mp_inlineBack')?.addEventListener('click', () => {
+    inlineEditor.hidden = true;
+    document.getElementById('mp_createNew').hidden = false;
+    resultsDiv.style.display = '';
+    searchInput.style.display = '';
+  });
+
+  // Remove existing assignment
+  document.getElementById('mp_removeLink')?.addEventListener('click', async () => {
+    const planDate = document.getElementById('mp_date').value || viewDate;
+    await removeMeal(planDate, selectedSlot);
+    viewMeals = (await readMeals(viewDate)) || {};
+    closeTaskSheet();
+    render();
+  });
+
+  // Save
+  document.getElementById('mpForm')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const planDate = document.getElementById('mp_date').value || viewDate;
+
+    if (!inlineEditor.hidden) {
+      // Create new meal inline
+      const inlineName = document.getElementById('mp_inlineName').value.trim();
+      if (!inlineName) {
+        document.getElementById('mp_inlineNameError').textContent = 'Name is required';
+        return;
+      }
+      const inlineUrl = document.getElementById('mp_inlineUrl').value.trim() || null;
+      const newId = await pushMealLibrary({
+        name: inlineName,
+        url: inlineUrl,
+        ingredients: [],
+        tags: [],
+        notes: null,
+        prepTime: null,
+        isFavorite: false,
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        lastUsed: firebase.database.ServerValue.TIMESTAMP,
+      });
+      mealLibrary[newId] = { name: inlineName, url: inlineUrl, ingredients: [], tags: [], isFavorite: false, notes: null, prepTime: null };
+      await writeMeal(planDate, selectedSlot, { mealId: newId, source: 'manual' });
+    } else {
+      if (!selectedMealId) return;
+      await writeMeal(planDate, selectedSlot, { mealId: selectedMealId, source: 'manual' });
+      const entry = mealLibrary[selectedMealId];
+      if (entry) {
+        await writeMealLibrary(selectedMealId, { ...entry, lastUsed: firebase.database.ServerValue.TIMESTAMP });
+        entry.lastUsed = Date.now();
+      }
+    }
+
+    viewMeals = (await readMeals(viewDate)) || {};
+    mealLibrary = (await readMealLibrary()) || {};
+    closeTaskSheet();
+    render();
+  });
+}
+
+function openMealDetailSheet(planEntry, slot) {
+  const meal = planEntry?.mealId ? mealLibrary[planEntry.mealId] : null;
+  const html = renderMealDetailSheet(meal, planEntry, false);
+  taskSheetMount.innerHTML = renderBottomSheet(html);
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
+
+  document.getElementById('mdChange')?.addEventListener('click', () => {
+    closeTaskSheet();
+    setTimeout(() => openMealPlanSheet(slot), 320);
+  });
+
+  document.getElementById('mdEdit')?.addEventListener('click', () => {
+    closeTaskSheet();
+    setTimeout(() => openMealEditorSheet(planEntry.mealId, slot), 320);
+  });
+
+  document.getElementById('mdRemove')?.addEventListener('click', async () => {
+    await removeMeal(viewDate, slot);
+    viewMeals = (await readMeals(viewDate)) || {};
+    closeTaskSheet();
+    render();
+  });
+}
+
+function openMealEditorSheet(mealId = null, returnSlot = null) {
+  const meal = mealId ? mealLibrary[mealId] : null;
+  const html = renderMealEditorSheet(meal, mealId);
+  taskSheetMount.innerHTML = renderBottomSheet(html);
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
+
+  let ingredients = meal ? [...(meal.ingredients || [])] : [];
+  let tags = meal ? [...(meal.tags || [])] : [];
+
+  function refreshIngredients() {
+    const container = document.getElementById('me_ingredients');
+    if (!container) return;
+    container.innerHTML = ingredients.map((item, i) =>
+      `<div class="me-ingredient-row">
+        <input type="text" value="${esc(item)}" placeholder="e.g. 2 lbs ground beef"
+               data-ingr-index="${i}" aria-label="Ingredient ${i + 1}">
+        <button class="me-ingredient-remove" data-ingr-index="${i}" type="button" aria-label="Remove">&times;</button>
+      </div>`
+    ).join('');
+    bindIngredientEvents();
+  }
+
+  function bindIngredientEvents() {
+    const container = document.getElementById('me_ingredients');
+    container?.addEventListener('input', e => {
+      const input = e.target.closest('input[data-ingr-index]');
+      if (input) ingredients[parseInt(input.dataset.ingrIndex)] = input.value;
+    });
+    container?.addEventListener('click', e => {
+      const btn = e.target.closest('.me-ingredient-remove');
+      if (!btn) return;
+      ingredients.splice(parseInt(btn.dataset.ingrIndex), 1);
+      refreshIngredients();
+    });
+  }
+  bindIngredientEvents();
+
+  document.getElementById('me_addIngredient')?.addEventListener('click', () => {
+    ingredients.push('');
+    refreshIngredients();
+    const inputs = document.querySelectorAll('#me_ingredients input');
+    inputs[inputs.length - 1]?.focus();
+  });
+
+  function refreshTags() {
+    const container = document.getElementById('me_tags');
+    if (!container) return;
+    container.innerHTML = tags.map((t, i) =>
+      `<span class="me-tag">
+        ${esc(t)}
+        <button class="me-tag__remove" data-tag-index="${i}" type="button" aria-label="Remove tag">&times;</button>
+      </span>`
+    ).join('');
+    container.querySelectorAll('.me-tag__remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tags.splice(parseInt(btn.dataset.tagIndex), 1);
+        refreshTags();
+      });
+    });
+  }
+
+  document.getElementById('me_tagInput')?.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ',') && e.target.value.trim()) {
+      e.preventDefault();
+      tags.push(e.target.value.trim().replace(/,$/,''));
+      e.target.value = '';
+      refreshTags();
+    }
+  });
+
+  // Delete (edit mode only)
+  document.getElementById('meDelete')?.addEventListener('click', async () => {
+    const confirmed = await showConfirm({
+      title: 'Delete meal?',
+      message: `"${esc(meal?.name)}" will be removed from any planned days.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) return;
+    const allMealsSnap = await readOnce('meals');
+    const cascadeUpdates = {};
+    if (allMealsSnap) {
+      for (const [dateKey, slots] of Object.entries(allMealsSnap)) {
+        for (const [s, entry] of Object.entries(slots || {})) {
+          if (entry?.mealId === mealId) cascadeUpdates[`meals/${dateKey}/${s}`] = null;
+        }
+      }
+    }
+    cascadeUpdates[`mealLibrary/${mealId}`] = null;
+    await multiUpdate(cascadeUpdates);
+    delete mealLibrary[mealId];
+    viewMeals = (await readMeals(viewDate)) || {};
+    closeTaskSheet();
+    render();
+  });
+
+  // Save
+  document.getElementById('meForm')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = document.getElementById('me_name').value.trim();
+    if (!name) {
+      document.getElementById('me_nameError').textContent = 'Name is required';
+      return;
+    }
+    document.querySelectorAll('#me_ingredients input[data-ingr-index]').forEach((inp, i) => {
+      ingredients[i] = inp.value;
+    });
+    const data = {
+      name,
+      isFavorite: document.getElementById('me_fav').checked,
+      prepTime: document.getElementById('me_prepTime').value.trim() || null,
+      tags: tags.filter(Boolean),
+      ingredients: ingredients.filter(Boolean),
+      url: document.getElementById('me_url').value.trim() || null,
+      notes: document.getElementById('me_notes').value.trim() || null,
+      lastUsed: meal?.lastUsed || null,
+      createdAt: meal?.createdAt || firebase.database.ServerValue.TIMESTAMP,
+    };
+    if (mealId) {
+      await writeMealLibrary(mealId, data);
+      mealLibrary[mealId] = data;
+    } else {
+      const newId = await pushMealLibrary({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
+      mealLibrary[newId] = data;
+    }
+    closeTaskSheet();
+    if (returnSlot) setTimeout(() => openMealPlanSheet(returnSlot), 320);
+    render();
   });
 }
 
@@ -1860,7 +2168,9 @@ function openQuickAddSheet() {
 function openAddMenu() {
   const options = [
     { key: 'event', label: 'New Event', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>' },
-    { key: 'task', label: 'New Task', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>' }
+    { key: 'task', label: 'New Task', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>' },
+    { key: 'meal', label: 'Plan a Meal',
+      icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>' }
   ];
   const html = renderAddMenu(options);
   taskSheetMount.innerHTML = renderBottomSheet(html);
@@ -1882,6 +2192,8 @@ function openAddMenu() {
         setTimeout(() => openEventForm(), 320);
       } else if (action === 'task') {
         setTimeout(() => openQuickAddSheet(), 320);
+      } else if (action === 'meal') {
+        setTimeout(() => openMealPlanSheet('dinner'), 320);
       }
     });
   });
