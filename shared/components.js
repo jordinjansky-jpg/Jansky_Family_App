@@ -7,6 +7,16 @@ import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyThe
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
+// SVG glyph map for weather conditions (Lucide-style, monochrome).
+// Module-level so renderAmbientStrip and renderWeatherSheet share one copy.
+const WEATHER_GLYPHS = {
+  sun:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+  cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.5-8.78A6 6 0 0 0 4 13.5 5.5 5.5 0 0 0 9.5 19h8z"/></svg>',
+  rain:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14a4 4 0 0 0-1-7.87A6 6 0 0 0 4 11"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="16" y1="19" x2="16" y2="21"/></svg>',
+  snow:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>',
+  fog:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="3" y1="18" x2="15" y2="18"/></svg>'
+};
+
 /**
  * After innerHTML is set on a container, propagate data-*-color attributes
  * onto their elements as CSS custom properties. Lets us avoid inline
@@ -1713,14 +1723,8 @@ export function showToast(message, duration = 3000) {
  * in chrome). Meal names may include emoji as user-authored text.
  */
 export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
-  // SVG glyph map (Lucide-style, monochrome).
-  const weatherGlyphs = {
-    sun:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
-    cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.5-8.78A6 6 0 0 0 4 13.5 5.5 5.5 0 0 0 9.5 19h8z"/></svg>',
-    rain:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14a4 4 0 0 0-1-7.87A6 6 0 0 0 4 11"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="16" y1="19" x2="16" y2="21"/></svg>',
-    snow:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>',
-    fog:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="3" y1="18" x2="15" y2="18"/></svg>'
-  };
+  // Use module-level glyph map (shared with renderWeatherSheet).
+  const weatherGlyphs = WEATHER_GLYPHS;
   const utensilsGlyph = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>';
 
   // Weather chip
@@ -1755,6 +1759,45 @@ export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
       </span>
     </button>
   </div>`;
+}
+
+/**
+ * 5-day weather forecast bottom sheet.
+ * days: Array<{ dateKey, tempLabel, conditionLabel, glyph, high, low }>
+ */
+export function renderWeatherSheet(days, today, tomorrow) {
+  function dayLabel(dk) {
+    if (dk === today) return 'Today';
+    if (dk === tomorrow) return 'Tomorrow';
+    const d = new Date(dk + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'long' });
+  }
+  function shortDate(dk) {
+    const d = new Date(dk + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  const rowsHtml = days.map(day => {
+    if (!day) return '';
+    const glyph = WEATHER_GLYPHS[day.glyph] || WEATHER_GLYPHS.cloud;
+    return `<div class="weather-row">
+      <div class="weather-row__day">
+        <strong>${esc(dayLabel(day.dateKey))}</strong>
+        <span>${esc(shortDate(day.dateKey))}</span>
+      </div>
+      <div class="weather-row__glyph" aria-hidden="true">${glyph}</div>
+      <div class="weather-row__data">
+        <strong>${esc(day.tempLabel)}</strong>
+        <span>H:${esc(day.high)}&nbsp; L:${esc(day.low)}</span>
+        <span>${esc(day.conditionLabel)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return renderBottomSheet(`
+    <div class="sheet-section-title">Weather</div>
+    <div class="weather-sheet__rows">${rowsHtml}</div>
+  `);
 }
 
 /**
