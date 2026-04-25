@@ -186,7 +186,7 @@
     let rewardsObj = (await readRewards()) || {};
     let allAchievements = (await readAllAchievements()) || {};
     let allMessagesObj = (await readAllMessages()) || {};
-    mealLibrary = (await readMealLibrary()) || {};
+    let mealLibrary = (await readMealLibrary()) || {};
     let allBankData = {};
     let achievementDefsObj = (await readAchievementDefs()) || {};
 
@@ -280,7 +280,6 @@
 
     let activeTab = 'tasks';
     let editingRewardId = null; // null = not editing, 'new' = creating, pushId = editing
-    let mealLibrary = {};
 
     // ── Helpers ──
     function peopleArray() {
@@ -764,6 +763,7 @@
       const meal = mealId ? mealLibrary[mealId] : null;
       const mount = document.getElementById('taskSheetMount');
       mount.innerHTML = renderBottomSheet(renderMealEditorSheet(meal, mealId));
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', e => { if (e.target === overlay) mount.innerHTML = ''; });

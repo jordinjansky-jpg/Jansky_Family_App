@@ -727,6 +727,7 @@
       const meal = planEntry?.mealId ? mealLibrary[planEntry.mealId] : null;
       const html = renderMealDetailSheet(meal, planEntry, true); // readonly=true
       taskSheetMount.innerHTML = renderBottomSheet(html);
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', e => { if (e.target === overlay) taskSheetMount.innerHTML = ''; });
     }
@@ -737,6 +738,7 @@
       taskSheetMount.innerHTML = renderBottomSheet(
         renderMealPlanSheet({ date, slot: preSlot, library: mealLibrary, currentMealId })
       );
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
       const overlay = document.getElementById('bottomSheet');
       const searchInput = document.getElementById('mp_search');
@@ -760,7 +762,9 @@
         const removeLink = document.getElementById('mp_removeLink');
         if (removeLink) {
           const cur = allMeals[date]?.[selectedSlot];
-          removeLink.style.display = (cur?.mealId && mealLibrary[cur.mealId]) ? '' : 'none';
+          const curMeal = cur?.mealId ? mealLibrary[cur.mealId] : null;
+          removeLink.style.display = curMeal ? '' : 'none';
+          if (curMeal) removeLink.textContent = `Remove "${curMeal.name}" from this slot`;
         }
         filterChips('');
         searchInput.value = '';

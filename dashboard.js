@@ -1070,6 +1070,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
   const currentMealId = viewMeals?.[preSlot]?.mealId || null;
   const html = renderMealPlanSheet({ date, slot: preSlot, library: mealLibrary, currentMealId });
   taskSheetMount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
   const overlay = document.getElementById('bottomSheet');
   const searchInput = document.getElementById('mp_search');
@@ -1210,6 +1211,7 @@ function openMealDetailSheet(planEntry, slot) {
   const meal = planEntry?.mealId ? mealLibrary[planEntry.mealId] : null;
   const html = renderMealDetailSheet(meal, planEntry, false);
   taskSheetMount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
@@ -1236,6 +1238,7 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
   const meal = mealId ? mealLibrary[mealId] : null;
   const html = renderMealEditorSheet(meal, mealId);
   taskSheetMount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
