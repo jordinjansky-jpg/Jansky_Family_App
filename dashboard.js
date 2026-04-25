@@ -1180,7 +1180,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
         removeLink.textContent = `Remove "${mealLibrary[cur.mealId].name}" from this slot`;
       }
     }
-    filterChips('');
+    filterOptions('');
     searchInput.value = '';
   });
 

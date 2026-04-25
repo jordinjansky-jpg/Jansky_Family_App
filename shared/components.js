@@ -2307,13 +2307,6 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     </label>
 
     <div class="field">
-      <span class="field__label">Tags</span>
-      <div class="me-tag-row" id="me_tags">${tagChips}</div>
-      <input class="field__input" id="me_tagInput" type="text"
-             placeholder="Type a tag, press Enter" autocomplete="off">
-    </div>
-
-    <div class="field">
       <span class="field__label">Ingredients</span>
       <div id="me_ingredients">${ingrRows}</div>
       <button class="btn btn--ghost btn--sm me-add-ingredient-btn" id="me_addIngredient" type="button">+ Add ingredient</button>
