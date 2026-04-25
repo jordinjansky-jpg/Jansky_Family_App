@@ -243,6 +243,9 @@ export function renderDayView(opts) {
  * Render the month view grid.
  */
 export function renderMonthView(opts) {
+  const { isPhone } = opts;
+  if (isPhone) return renderMonthEmptyPhone();
+
   const { viewMonth, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay } = opts;
   const mStart = `${viewMonth}-01`;
   const mEnd = monthEnd(mStart);
@@ -316,6 +319,19 @@ export function renderMonthView(opts) {
       ${dowHeaders.join('')}
       ${emptyCells}
       ${dayCells}
+    </div>
+  </div>`;
+}
+
+/** Phone month-view soft empty-state (Phase 2 §2.4). */
+function renderMonthEmptyPhone() {
+  const calIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+  return `<div class="cal-empty-month">
+    <div class="cal-empty-month__icon" aria-hidden="true">${calIcon}</div>
+    <h3 class="cal-empty-month__title">Month view works best on a larger screen.</h3>
+    <div class="cal-empty-month__actions">
+      <button type="button" class="btn btn--secondary" data-switch-view="week">Switch to Week</button>
+      <button type="button" class="btn btn--secondary" data-switch-view="day">Switch to Day</button>
     </div>
   </div>`;
 }

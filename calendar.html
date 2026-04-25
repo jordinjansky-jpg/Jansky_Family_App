@@ -209,8 +209,9 @@
           weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson
         });
       } else {
+        const isPhone = window.matchMedia('(max-width: 600px)').matches;
         html += renderMonthView({
-          viewMonth, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay
+          viewMonth, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, isPhone
         });
       }
       html += `</div>`;
@@ -605,6 +606,8 @@
       if (nav) { adjustPeriod(nav.dataset.dir === 'next' ? 1 : -1); return; }
       if (e.target.closest('#goToday')) { goToToday(); return; }
       if (e.target.closest('#openFilterSheet')) { openPersonFilterSheet(); return; }
+      const switchBtn = e.target.closest('button[data-switch-view]');
+      if (switchBtn) { setView(switchBtn.dataset.switchView); return; }
     });
 
     // ══════════════════════════════════════════
@@ -1409,6 +1412,8 @@
     }, { passive: true });
     main.addEventListener('touchend', (e) => {
       if (currentView === 'day') return;
+      // Phase 2: Month view on phone is the empty-state — no grid to swipe.
+      if (currentView === 'month' && window.matchMedia('(max-width: 600px)').matches) return;
       const dx = e.changedTouches[0].clientX - swipeStartX;
       const dy = e.changedTouches[0].clientY - swipeStartY;
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
