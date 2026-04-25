@@ -775,6 +775,13 @@
         btn.classList.toggle('is-active', !pressed);
       });
 
+      const urlInput = document.getElementById('me_url');
+      const urlOpen = document.getElementById('me_urlOpen');
+      urlInput?.addEventListener('input', () => {
+        const val = urlInput.value.trim();
+        if (urlOpen) { urlOpen.href = val || '#'; urlOpen.hidden = !val; }
+      });
+
       let ingredients = meal ? [...(meal.ingredients || [])] : [];
       let tags = meal ? [...(meal.tags || [])] : [];
 

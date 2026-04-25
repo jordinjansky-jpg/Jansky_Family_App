@@ -2236,6 +2236,31 @@
 .me-ingredient-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .me-add-ingredient-btn { margin-top: var(--spacing-xs); }
 
+/* URL field open-link button */
+.me-url-row {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+.me-url-row .field__input { flex: 1; min-width: 0; }
+.me-url-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--accent);
+  text-decoration: none;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.me-url-open:hover { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
+.me-url-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
 /* Tag chips in editor */
 .me-tag-row {
   display: flex;
@@ -2274,7 +2299,30 @@
 .me-delete-btn { color: var(--danger); margin-top: var(--spacing-xs); }
 
 /* ── Meal detail sheet ── */
-.me-detail__header { margin-bottom: var(--spacing-md); }
+.me-detail__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+.me-detail__header--manage { margin-bottom: var(--spacing-lg); }
+.me-detail__header-main { flex: 1; min-width: 0; }
+.me-detail__edit-btn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.me-detail__edit-btn:hover { background: var(--accent); color: var(--on-accent, #fff); }
+.me-detail__edit-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .me-detail__name {
   font-size: var(--font-xl);
   font-weight: 700;

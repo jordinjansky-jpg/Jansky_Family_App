@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readMeals, readMealLibrary, writeMeal, removeMeal, pushMealLibrary, writeMealLibrary, removeMealLibrary } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealPlanSheet, renderMealDetailSheet, renderMealEditorSheet } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealPlanSheet, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -710,9 +710,38 @@ function bindEvents() {
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
   });
 
-  // Ambient chips — dinner chip opens meal plan/detail; weather chip wired by 1.4.
+  // Ambient chips — tap = recipe/plan, long-press = manage (edit/change/remove)
   main.querySelectorAll('.ambient-chip').forEach(chip => {
+    let didLongPress = false;
+    let pressTimer = null;
+    let startX = 0, startY = 0;
+
+    chip.addEventListener('pointerdown', e => {
+      didLongPress = false;
+      startX = e.clientX; startY = e.clientY;
+      const which = chip.dataset.chip;
+      if (which !== 'dinner') return;
+      const dinnerPlan = viewMeals?.dinner;
+      if (!dinnerPlan?.mealId || !mealLibrary[dinnerPlan.mealId]) return;
+      pressTimer = setTimeout(() => {
+        didLongPress = true;
+        pressTimer = null;
+        openMealManageSheet(dinnerPlan, 'dinner');
+      }, settings?.longPressMs ?? 800);
+    });
+
+    chip.addEventListener('pointermove', e => {
+      if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
+        clearTimeout(pressTimer); pressTimer = null;
+      }
+    });
+
+    chip.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
+    chip.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+    chip.addEventListener('contextmenu', e => e.preventDefault());
+
     chip.addEventListener('click', () => {
+      if (didLongPress) { didLongPress = false; return; }
       const which = chip.dataset.chip;
       if (which === 'dinner') {
         const dinnerPlan = viewMeals?.dinner;
@@ -1207,14 +1236,30 @@ function openMealDetailSheet(planEntry, slot) {
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
-  document.getElementById('mdChange')?.addEventListener('click', () => {
+  // Pencil button in header — open full editor, return to recipe view on save
+  document.getElementById('mdEdit')?.addEventListener('click', () => {
     closeTaskSheet();
-    setTimeout(() => openMealPlanSheet(slot), 320);
+    setTimeout(() => openMealEditorSheet(planEntry.mealId, slot), 320);
   });
+}
+
+function openMealManageSheet(planEntry, slot) {
+  const meal = planEntry?.mealId ? mealLibrary[planEntry.mealId] : null;
+  if (!meal) return;
+  taskSheetMount.innerHTML = renderBottomSheet(renderMealManageSheet(meal, slot));
+  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
   document.getElementById('mdEdit')?.addEventListener('click', () => {
     closeTaskSheet();
     setTimeout(() => openMealEditorSheet(planEntry.mealId, slot), 320);
+  });
+
+  document.getElementById('mdChange')?.addEventListener('click', () => {
+    closeTaskSheet();
+    setTimeout(() => openMealPlanSheet(slot), 320);
   });
 
   document.getElementById('mdRemove')?.addEventListener('click', async () => {
@@ -1239,6 +1284,13 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
     const pressed = btn.getAttribute('aria-pressed') === 'true';
     btn.setAttribute('aria-pressed', String(!pressed));
     btn.classList.toggle('is-active', !pressed);
+  });
+
+  const urlInput = document.getElementById('me_url');
+  const urlOpen = document.getElementById('me_urlOpen');
+  urlInput?.addEventListener('input', () => {
+    const val = urlInput.value.trim();
+    if (urlOpen) { urlOpen.href = val || '#'; urlOpen.hidden = !val; }
   });
 
   let ingredients = meal ? [...(meal.ingredients || [])] : [];

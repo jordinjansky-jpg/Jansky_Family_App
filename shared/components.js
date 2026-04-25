@@ -2262,11 +2262,17 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
       <button class="btn btn--ghost btn--sm me-add-ingredient-btn" id="me_addIngredient" type="button">+ Add ingredient</button>
     </div>
 
-    <label class="field">
-      <span class="field__label">Recipe link</span>
-      <input class="field__input" id="me_url" type="url" value="${url}"
-             placeholder="https://…">
-    </label>
+    <div class="field">
+      <label class="field__label" for="me_url">Recipe link</label>
+      <div class="me-url-row">
+        <input class="field__input" id="me_url" type="url" value="${url}"
+               placeholder="https://…">
+        <a class="me-url-open" id="me_urlOpen" href="${esc(url || '#')}"
+           target="_blank" rel="noopener noreferrer" aria-label="Open recipe link"${url ? '' : ' hidden'}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      </div>
+    </div>
 
     <label class="field">
       <span class="field__label">Notes</span>
@@ -2396,12 +2402,10 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
  *
  * meal: meal library object { name, ingredients, url, notes, prepTime, isFavorite, tags }
  * planEntry: { mealId, source } from meals/{date}/{slot}
- * readonly: boolean — when true, hides Change/Edit/Remove actions (kid mode)
+ * readonly: boolean — when true, hides the pencil edit button (kid mode / calendar)
  *
  * Events the page must bind after mounting:
- *   #mdChange click   → open plan sheet for this slot (change meal)
- *   #mdEdit click     → open meal editor for this library entry
- *   #mdRemove click   → remove this slot assignment
+ *   #mdEdit click   → open meal editor for this library entry (pencil button)
  */
 export function renderMealDetailSheet(meal, planEntry, readonly = false) {
   if (!meal) return `<div class="task-detail-sheet"><p class="text-muted">Meal not found.</p></div>`;
@@ -2443,28 +2447,52 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
 
   const hasDetails = meal.url || (meal.ingredients || []).filter(Boolean).length > 0 || meal.notes;
   const emptyPrompt = !hasDetails && !isSchool && !readonly
-    ? `<p class="me-detail__empty-prompt">No recipe details yet — tap <strong>Edit meal</strong> to add ingredients, a link, or notes.</p>`
+    ? `<p class="me-detail__empty-prompt">No recipe details yet.</p>`
     : '';
 
-  let actionsHtml = '';
-  if (!isSchool && !readonly) {
-    actionsHtml = `<div class="me-detail__actions">
-      <button class="btn btn--secondary btn--full" id="mdEdit" type="button">Edit meal</button>
-      <button class="btn btn--secondary btn--full" id="mdChange" type="button">Change meal</button>
-      <button class="btn btn--ghost btn--full me-delete-btn" id="mdRemove" type="button">Remove from plan</button>
-    </div>`;
-  }
+  const pencilSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const editBtn = !isSchool && !readonly
+    ? `<button class="me-detail__edit-btn" id="mdEdit" type="button" aria-label="Edit meal">${pencilSvg}</button>`
+    : '';
 
   return `<div class="task-detail-sheet">
     <div class="me-detail__header">
-      <h3 class="me-detail__name">${esc(meal.name)}</h3>
-      ${metaHtml}
+      <div class="me-detail__header-main">
+        <h3 class="me-detail__name">${esc(meal.name)}</h3>
+        ${metaHtml}
+      </div>
+      ${editBtn}
     </div>
     ${tagsHtml}
     ${emptyPrompt}
     ${ingrHtml}
     ${notesHtml}
     ${recipeBtn}
-    ${actionsHtml}
+  </div>`;
+}
+
+/**
+ * Render the meal management sheet (long-press on meal chip).
+ * Shows Edit / Change / Remove actions without the recipe content.
+ *
+ * Events the page must bind after mounting:
+ *   #mdEdit click   → open meal editor
+ *   #mdChange click → open plan sheet (change assigned meal)
+ *   #mdRemove click → remove this slot assignment
+ */
+export function renderMealManageSheet(meal, slot) {
+  const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
+  return `<div class="task-detail-sheet">
+    <div class="me-detail__header me-detail__header--manage">
+      <div class="me-detail__header-main">
+        <h3 class="me-detail__name">${esc(meal.name)}</h3>
+        <p class="me-detail__meta">${esc(SLOT_LABELS[slot] ?? slot)}</p>
+      </div>
+    </div>
+    <div class="me-detail__actions">
+      <button class="btn btn--secondary btn--full" id="mdEdit" type="button">Edit meal</button>
+      <button class="btn btn--secondary btn--full" id="mdChange" type="button">Change meal</button>
+      <button class="btn btn--ghost btn--full me-delete-btn" id="mdRemove" type="button">Remove from plan</button>
+    </div>
   </div>`;
 }
