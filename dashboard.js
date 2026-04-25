@@ -250,7 +250,17 @@ function render() {
 
   let html = '';
 
-  // Banner mount (filled in Task 7 — overdue/multiplier queue)
+  // === DASHBOARD RENDER ORDER (spec 2026-04-25 §2.1) ===
+  // Hard order, top to bottom:
+  //   1. #bannerMount                     (single banner, queued)
+  //   2. .back-to-today                   (when viewDate !== today)
+  //   3. #ambientStripMount               (Task 7)
+  //   4. #comingUpMount                   (Task 8)
+  //   5. .section--events                 (when events present)
+  //   6. .section--today                  (always)
+  //   7. .debug-panel                     (when debug enabled)
+  // Anything inserted here must respect that order. The pill anchors
+  // to position 2 regardless of which sections below it are populated.
   html += `<div id="bannerMount"></div>`;
 
   // Back-to-Today pill (non-today only). Animate only on the transition away
