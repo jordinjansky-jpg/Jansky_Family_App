@@ -50,7 +50,7 @@
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce } from './shared/utils.js';
-    import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
+    import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
     import { renderWeekView, renderDayView, renderMonthView, renderCalSubbar } from './shared/calendar-views.js';
@@ -161,17 +161,15 @@
       if (currentView === 'day') {
         const dayLabel = formatDateShort(viewDay);
         const isToday = viewDay === today;
-        const prog = getDayProgress(viewDay);
+        const activePersonObjDay = activePerson ? people.find(p => p.id === activePerson) : null;
 
-        let html = `<div class="cal-day-header">
-          <div>
-            <div class="cal-day-header__title">${dayLabel}${isToday ? ' <span class="cal-sheet__today">Today</span>' : ''}</div>
-          </div>
-          <div class="cal-day-header__meta">
-            ${prog.total > 0 ? `<span>${prog.done}/${prog.total}</span>` : ''}
-            <button class="date-nav__btn" id="backToWeek" type="button" title="Back to week">&times;</button>
-          </div>
-        </div>`;
+        let html = renderCalSubbar({
+          currentView,
+          viewLabel: dayLabel,
+          isCurrentPeriod: isToday,
+          activePersonName: activePersonObjDay?.name || '',
+          activePersonColor: activePersonObjDay?.color || ''
+        });
 
         html += `<div class="${enterCls}">`;
         html += renderDayView({
@@ -228,15 +226,6 @@
       else bindMonthViewEvents();
 
       if (scrollY != null) requestAnimationFrame(() => window.scrollTo(0, scrollY));
-    }
-
-    function getDayProgress(dateKey) {
-      const dayEntries = allSchedule[dateKey] || {};
-      const filtered = filterByPerson(dayEntries, activePerson);
-      const taskEntries = Object.fromEntries(
-        Object.entries(filtered).filter(([, e]) => e.type !== 'event')
-      );
-      return dayProgress(taskEntries, completions);
     }
 
     // ══════════════════════════════════════════
@@ -398,14 +387,10 @@
     function bindDayViewEvents() {
       bindPersonFilterEvents();
 
-      document.getElementById('backToWeek')?.addEventListener('click', () => {
-        currentView = defaultView;
-        if (currentView === 'week' && viewDay) {
-          viewWeekStart = weekStartForDay(viewDay, weekStartDay);
-        }
-        viewDay = null;
-        render();
-      });
+      // Back-to-week affordance retired in Phase 2 final-review sweep —
+      // sub-bar's Week tab serves the same purpose. Sub-bar nav, view tabs,
+      // Today chip, and filter chip are wired via the document-level
+      // delegated click handler.
 
       // Event cards in day view: tap to open event detail sheet
       main.querySelectorAll('.card--event[data-event-id]').forEach(card => {

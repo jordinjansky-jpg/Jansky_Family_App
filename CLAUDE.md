@@ -142,7 +142,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **One-time tasks:** With `dedicatedDate`, placed on that exact date. Without it, load-balanced to lightest day.
 - **Completion:** Allowed on any date (no future-date blocking). Completed tasks render at the bottom of all task lists. **Past daily tasks are tap-blocked** — tapping opens the detail sheet instead of toggling. Long-press or sheet button required to complete. All past-date completions (any rotation) get `isLate: true` + `pointsOverride: pastDueCreditPct`.
 - **Task grouping order (dashboard/kid):** Events → Daily → Weekly → Monthly → One-Time, then by owner within each group.
-- **Task grouping order (calendar day sheet):** Events → Monthly → Weekly → One-Time → Daily. Different from dashboard intentionally — calendar emphasizes uncommon recurrences first since users open the sheet for scheduling visibility, not the daily grind.
+- **Task grouping order (calendar day sheet):** Events → Tasks. (Phase 2: tasks no longer grouped by frequency; ordered by completion → owner → timeOfDay → name within the Tasks section.)
 - **Long-press:** Opens detail sheet. Tap toggles completion. Horizontal swipe navigates days (dashboard) or months (calendar). Timing: **500ms on tracker**, **800ms on calendar/kid mode** (longer hold required there because those views are more touch-scroll-heavy and false-fires are more disruptive).
 - **Duplicate mode:** Creates one schedule entry per owner. Fixed mode always uses first owner (used for events).
 - **Daily cooldown:** Tasks with `cooldownDays` are spaced at fixed intervals (`cooldownDays + 1` days apart).

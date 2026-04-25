@@ -9,6 +9,17 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v62 (2026-04-25) — Phase 2 calendar final-review sweep: Day view now
+//                    renders the sub-bar (View Tabs / date nav / Today /
+//                    filter chip) — it was missing in v61 because Tasks
+//                    2 + 4 shipped independently and never composed.
+//                    Retired the cal-day-header back-to-week button
+//                    (Day tab in sub-bar serves), purged dead
+//                    .cal-day__/.cal-week__col/.event-pill rules from
+//                    responsive.css, removed stale overflow:hidden +
+//                    flex-column lock on .cal-page .page-content
+//                    (comment said "natural scroll restored" but the
+//                    lock survived).
 // v61 (2026-04-24) — Phase 2 calendar rework: shell parity (drop
 //                    overflow:hidden lock, add bannerSlot+fabMount),
 //                    sticky sub-bar (View Tabs / date nav / filter
@@ -109,7 +120,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v61';
+const CACHE_NAME = 'family-hub-v62';
 
 const APP_SHELL = [
   '/',

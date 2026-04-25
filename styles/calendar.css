@@ -11,15 +11,6 @@
      do not add header-height again here, it produces a large gap below
      the header on calendar. */
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.cal-page #mainContent {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
 }
 
 /* === Calendar sticky sub-bar === */
