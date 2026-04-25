@@ -2184,11 +2184,15 @@
   transition: background var(--t-fast), border-color var(--t-fast);
   white-space: nowrap;
 }
-.meal-chip:hover,
+.meal-chip:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
 .meal-chip:focus-visible {
   background: var(--accent-soft);
   border-color: var(--accent);
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .meal-chip--selected {
   background: var(--accent-soft);
@@ -2217,16 +2221,17 @@
   background: var(--surface);
   color: var(--text);
 }
-.me-ingredient-row input:focus {
+.me-ingredient-row input:focus-visible {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 .me-ingredient-remove {
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px;
+  padding: var(--spacing-xs);
   font-size: 18px;
   line-height: 1;
   border-radius: var(--radius-sm);
@@ -2237,6 +2242,7 @@
   justify-content: center;
 }
 .me-ingredient-remove:hover { color: var(--danger); }
+.me-ingredient-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; color: var(--danger); }
 
 /* Tag chips in editor */
 .me-tag-row {
@@ -2248,11 +2254,11 @@
 .me-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
   background: var(--accent-soft);
   color: var(--accent-ink);
   border-radius: var(--radius-full);
-  padding: 4px var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
   font-size: var(--font-xs);
   font-weight: 500;
 }
@@ -2267,6 +2273,7 @@
   opacity: 0.7;
 }
 .me-tag__remove:hover { opacity: 1; }
+.me-tag__remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
 
 /* Meal detail sheet */
 .me-detail__header {
@@ -2297,7 +2304,7 @@
   color: var(--text-muted);
   background: var(--surface-2);
   border-radius: var(--radius-full);
-  padding: 4px var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
 }
 .me-detail__ingredients {
   list-style: none;
