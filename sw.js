@@ -122,7 +122,10 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v63';
+// v64 (2026-04-25) — 1.3 Meal Planning: meal library, plan/detail/editor sheets,
+//                    calendar day view meals section, admin Meals tab, kid Tonight
+//                    tile, dashboard ambient strip wiring, ambientStrip setting.
+const CACHE_NAME = 'family-hub-v64';
 
 const APP_SHELL = [
   '/',

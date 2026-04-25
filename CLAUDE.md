@@ -177,6 +177,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
 
 ## Changelog (last 5)
+- Meal Planning (1.3, 2026-04-25): meal library (`mealLibrary/{pushId}`) + per-day slot assignments (`meals/{date}/{slot}` with `mealId` reference). Components: `renderMealEditorSheet`, `renderMealPlanSheet`, `renderMealDetailSheet` in `shared/components.js`. Calendar day view gains meals section with school-entry styling; admin gains Meals library tab (CRUD + ingredient/tag editor); kid mode gains Tonight's dinner tile; dashboard ambient strip wired for dinner chip (shows when `ambientStrip` enabled). Settings: `ambientStrip` toggle (Display), per-kid `showMeals` pref. Firebase helpers in `shared/firebase.js`: `readMeals`, `writeMeal`, `removeMeal`, `readMealLibrary`, `pushMealLibrary`, `writeMealLibrary`, `removeMealLibrary`, `readAllMeals`. SW cache v64.
 - Dashboard final-form design (2026-04-25): 8-section spec ([docs/superpowers/specs/2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md)) — Header → Banner → Back-to-Today → Ambient → Coming up → Events → Today → FAB+Nav. New: Coming up rail (3.3, collapsed-by-default, events-only count, day-block head jumps viewDate); Ambient strip (1.3+1.4 wiring, viewDate-aware, on-by-default once both ship); Today section meta gains `· NN pt · GRADE` chips when filter set to one person, where `pt` is store-economy points (not scoring). Removed: `settings.showPoints` and per-card scoring-pt chips entirely; person-link "Viewing as" pill (title-becomes-name carries identity). Restructured: long-press default 500→800ms on dashboard (settings override preserved), Back-to-Today pill moves to between Banner and Ambient, banner queue persists onto Scoreboard + Tracker so 1.6's running-activity `--info` banner stays visible across pages. Implementation plan to follow.
 - Phase 2 calendar rework SHELVED (2026-04-25): Eight-task Phase 1.5-aligned rework reached final review (PR #3) and was paused. On phone, agenda views duplicated the dashboard and Month was hidden — calendar page can't earn its tab slot until tablet/kiosk. Phone tab bar dropped to 4 slots (Calendar removed). New backlog 3.3 captures the dashboard "Coming up" rail that replaces the phone-side need. Calendar resumes during 1.5 (Kiosk). PR #3 closed; branch `phase-2-calendar` deleted; plan moved to docs/superpowers/plans/shelved/.
 - Phase 1.5 dashboard polish: card density + stripe geometry + shadow leak fix, completed-card mute (no strikethrough), check hover/press, section-head grid + divider + muted meta, larger header title + narrow-phone subtitle, FAB depth + nav active rail, Back-to-Today chevron + entrance, filter chip dot/verb + section cue, bell pulse, tap-target/contrast/tap-feedback audit. Theme fixes: `data-theme` now follows preset.mode (not stale themeConfig.mode); switching presets strips stale inline var overrides so light presets can't inherit dark tokens. SW cache v50.
@@ -207,9 +208,7 @@ Product direction: evolve Daily Rundown from a task manager into a **Skylight Ca
 
 ---
 
-**1.3 — Meal Planning (Lightweight)** · Medium (~2 sessions) · Depends on 1.1 · Cost: $0
-
-> **Dashboard wiring (per [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.3):** when 1.3 ships, the dinner chip lands in the dashboard ambient strip (`viewDate`-aware: today's dinner shown by default; swipe forward shows that day's planned meal). Tap chip → existing meal detail sheet (with "Open recipe" primary action when `url` present). The FAB add-menu also gains a "Plan a meal" item once 1.3 ships, routed to the same meal form. Once both 1.3 and 1.4 ship, `settings.ambientStrip` defaults to `true` (Settings → Appearance → Display → toggle to hide).
+~~**1.3 — Meal Planning (Lightweight)** · DONE — shipped 2026-04-25. Meal library + per-day slot assignments, plan/detail/editor sheets, calendar day view meals section, admin Meals library tab, kid Tonight tile, dashboard ambient strip dinner chip wired, ambientStrip setting, per-kid showMeals pref. SW cache v64.~~
 
 Simple "what are we eating" system — not a recipe database. Answers "what's for dinner?" at a glance from the wall display or phone.
 
@@ -223,8 +222,11 @@ Simple "what are we eating" system — not a recipe database. Answers "what's fo
 
 *Schema:*
 ```
-rundown/meals/{YYYY-MM-DD}/{slot}  ← { name, url?, notes?, source?: 'manual'|'school' }
-rundown/mealLibrary/{pushId}       ← { name, url?, tags?, lastUsed }
+rundown/meals/{YYYY-MM-DD}/{slot}  ← { mealId, source: 'manual'|'school' }
+                                     slot: 'breakfast'|'lunch'|'dinner'|'snack'
+                                     mealId references mealLibrary entry
+rundown/mealLibrary/{pushId}       ← { name, url?, notes?, tags?, ingredients?,
+                                       isFavorite, prepTime?, createdAt, lastUsed }
 ```
 
 *Display:* Meals appear in the calendar day view (all three views), on the kiosk display, and in kid mode. Keep it visually light — a small section, not competing with events and tasks for attention.
