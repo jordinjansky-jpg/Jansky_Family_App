@@ -29,7 +29,7 @@
       <div class="loading-spinner loading-spinner--small"></div>
       <span>Loading...</span>
     </div>
-    <div id="mainContent" style="display:none;"></div>
+    <div id="mainContent" class="is-hidden"></div>
   </div>
 
   <div id="fabMount"></div>
@@ -129,9 +129,9 @@
     initOfflineBanner(onConnectionChange);
     initBell(() => people, () => calRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
 
-    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('loadingState').classList.add('is-hidden');
     const main = document.getElementById('mainContent');
-    main.style.display = '';
+    main.classList.remove('is-hidden');
     const sheetMount = document.getElementById('sheetMount');
     const taskSheetMount = document.getElementById('taskSheetMount');
 
