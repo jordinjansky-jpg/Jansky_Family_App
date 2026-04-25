@@ -9,6 +9,14 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v63 (2026-04-25) — Sort fix: a task moved to today (via overdue review or
+//                    Move) was getting bumped to top-of-owner via the
+//                    "late-today" branch, but using the move flow IS the
+//                    resolution — it shouldn't re-flag the task as late.
+//                    sortEntries no longer treats movedFromDate as late;
+//                    moved tasks now sort normally by time-of-day. Genuinely
+//                    overdue tasks still surface via the overdue banner +
+//                    review sheet (the dedicated late/missed surface).
 // v62 (2026-04-25) — Hotfix: person.html still had the old loadingState +
 //                    is-hidden shell, but dashboard.js (Task 4) stopped
 //                    managing them. mainContent stayed hidden -> blank
@@ -114,7 +122,7 @@
 // v44 (2026-04-xx) — prior rename to 'family-hub' branding.
 // v42 (2026-04-17) — Kid mode CSS fix for status-bar layering.
 // (older bumps not recorded retroactively)
-const CACHE_NAME = 'family-hub-v62';
+const CACHE_NAME = 'family-hub-v63';
 
 const APP_SHELL = [
   '/',

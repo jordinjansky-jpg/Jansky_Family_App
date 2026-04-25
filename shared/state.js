@@ -132,7 +132,10 @@ export function groupByFrequency(entries, tasks, cats) {
  *   1. Incomplete before complete
  *   2. Owner (by `people` array order when provided; else stable localeCompare on ownerId)
  *   3. Late-today-first WITHIN OWNER, INCOMPLETE ONLY
- *      (non-daily entry whose task.dedicatedDate OR entry.movedFromDate is < today)
+ *      (non-daily entry whose task.dedicatedDate is < today — i.e. a genuinely
+ *      overdue one-time task that landed on today's list without going through
+ *      the move flow. Tasks moved to today via the overdue review sheet have
+ *      their lateness resolved by the move action and sort normally.)
  *   4. Time of day (am=0, anytime=1, pm=2)
  *   5. Task name (case-insensitive) — stable tiebreaker
  *
@@ -160,8 +163,9 @@ export function sortEntries(entries, completions, tasks = null, people = null, t
     if (done || !today || !tasksById) return false;
     const task = tasksById.get(entry.taskId);
     if (!task || task.rotation === 'daily') return false;
+    // movedFromDate intentionally NOT checked — using the move flow IS the
+    // resolution, so the task should sort normally once it's on today's list.
     if (task.dedicatedDate && task.dedicatedDate < today) return true;
-    if (entry.movedFromDate && entry.movedFromDate < today) return true;
     return false;
   };
 
