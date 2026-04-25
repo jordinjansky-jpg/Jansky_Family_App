@@ -1307,6 +1307,30 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
 }
 
 /**
+ * Dashboard loading skeleton — card-shaped placeholders matching the
+ * populated layout. Used during first paint before Firebase resolves
+ * (typically <500ms in cached + fresh cases). Replaces the inline
+ * spinner per spec 2026-04-25 §3.7 + §5.18.
+ */
+export function renderDashboardSkeleton() {
+  const row = `<div class="skeleton-card-row">
+    <div class="skeleton skeleton-card-row__avatar"></div>
+    <div class="skeleton-card-row__bars">
+      <div class="skeleton skeleton-card-row__bar skeleton-card-row__bar--title"></div>
+      <div class="skeleton skeleton-card-row__bar skeleton-card-row__bar--meta"></div>
+    </div>
+    <div class="skeleton skeleton-card-row__check"></div>
+  </div>`;
+  return `<section class="section">
+    <div class="skeleton-section-head">
+      <div class="skeleton skeleton-section-head__title"></div>
+      <div class="skeleton skeleton-section-head__chip"></div>
+    </div>
+    ${row}${row}${row}${row}
+  </section>`;
+}
+
+/**
  * Initialize the offline/online banner and connection dot.
  * Creates a mount element, subscribes to connection changes, and auto-hides banners.
  *

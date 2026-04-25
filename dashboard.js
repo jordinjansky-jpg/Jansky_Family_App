@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton } from './shared/components.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
@@ -11,6 +11,13 @@ import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } fro
 
 // ── Cached theme (device override > family cache > default) ──
 applyTheme(resolveTheme());
+
+// Paint the skeleton immediately, before any async Firebase call.
+// First paint is now <50ms; skeleton resolves into real content on first render().
+{
+  const earlyMain = document.getElementById('mainContent');
+  if (earlyMain) earlyMain.innerHTML = renderDashboardSkeleton();
+}
 
 // ── Init Firebase ──
 initFirebase();
@@ -45,12 +52,7 @@ const linkedPerson = personParam
 
 // Show error if person param given but not found
 if (personParam && !linkedPerson) {
-  const loadingEl = document.getElementById('loadingState');
-  loadingEl.classList.add('is-hidden');
-  loadingEl.style.display = 'none';
   const errMain = document.getElementById('mainContent');
-  errMain.classList.remove('is-hidden');
-  errMain.style.display = '';
   errMain.innerHTML = `
     <div class="error-placeholder">
       <div class="error-placeholder__icon">🤔</div>
@@ -189,11 +191,8 @@ initOfflineBanner(onConnectionChange);
 // ── Notification bell ──
 initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
 
-// ── Hide loading, show content ──
-const loadingStateEl = document.getElementById('loadingState');
-loadingStateEl.classList.add('is-hidden');
+// Skeleton is replaced by render() below; no show/hide needed.
 const main = document.getElementById('mainContent');
-main.classList.remove('is-hidden');
 
 // ── Celebration mount ──
 document.getElementById('celebrationMount').innerHTML = renderCelebration();
