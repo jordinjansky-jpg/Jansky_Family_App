@@ -521,6 +521,7 @@
 }
 
 /* ── Mobile: compact person filter ── */
+/* Phone breakpoint — keep in sync with PHONE_MQ in calendar.html */
 @media (max-width: 600px) {
   .person-filter {
     flex-wrap: wrap;
