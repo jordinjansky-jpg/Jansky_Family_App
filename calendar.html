@@ -408,51 +408,32 @@
         render();
       });
 
-      main.querySelectorAll('.event-bubble[data-event-id]').forEach(btn => {
+      // Event cards in day view: tap to open event detail sheet
+      main.querySelectorAll('.card--event[data-event-id]').forEach(card => {
         let pressTimer = null;
         let didLongPress = false;
-        btn.addEventListener('pointerdown', () => {
+        card.addEventListener('pointerdown', () => {
           didLongPress = false;
           pressTimer = setTimeout(() => {
             didLongPress = true;
-            openEventDetailSheet(btn.dataset.eventId);
+            openEventDetailSheet(card.dataset.eventId);
           }, settings?.longPressMs ?? 800);
         });
-        btn.addEventListener('pointerup', () => {
+        card.addEventListener('pointerup', () => {
           clearTimeout(pressTimer);
-          if (!didLongPress) openEventDetailSheet(btn.dataset.eventId);
+          if (!didLongPress) openEventDetailSheet(card.dataset.eventId);
         });
-        btn.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
-        btn.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
-        btn.addEventListener('contextmenu', (e) => e.preventDefault());
+        card.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
+        card.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
+        card.addEventListener('contextmenu', (e) => e.preventDefault());
       });
 
-      // Timed event pills in day view (wrapper divs carry data-event-id)
-      main.querySelectorAll('[data-event-id]:not(.event-bubble)').forEach(pill => {
-        let pressTimer = null;
-        let didLongPress = false;
-        pill.addEventListener('pointerdown', () => {
-          didLongPress = false;
-          pressTimer = setTimeout(() => {
-            didLongPress = true;
-            openEventDetailSheet(pill.dataset.eventId);
-          }, settings?.longPressMs ?? 800);
-        });
-        pill.addEventListener('pointerup', () => {
-          clearTimeout(pressTimer);
-          if (!didLongPress) openEventDetailSheet(pill.dataset.eventId);
-        });
-        pill.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
-        pill.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
-        pill.addEventListener('contextmenu', (e) => e.preventDefault());
-      });
-
-      main.querySelectorAll('.cal-day__task').forEach(row => {
+      main.querySelectorAll('.task-card').forEach(row => {
         let pressTimer = null;
         let didLongPress = false;
         const entryKey = row.dataset.entryKey;
         const dateKey = row.dataset.dateKey;
-        const tapBlocked = row.querySelector('.cal-day__task-check')?.dataset.tapBlocked === 'true';
+        const tapBlocked = row.dataset.tapBlocked === 'true';
 
         row.addEventListener('pointerdown', (e) => {
           didLongPress = false;
@@ -506,7 +487,7 @@
       // Only for completing (not un-completing) so undo feels snappy.
       let pressEl = null;
       if (!wasComplete) {
-        pressEl = main.querySelector(`.cal-day__task[data-entry-key="${entryKey}"], .task-card[data-entry-key="${entryKey}"]`);
+        pressEl = main.querySelector(`.task-card[data-entry-key="${entryKey}"]`);
         if (pressEl) {
           pressEl.classList.add('cal-task--completing');
           pressEl.style.pointerEvents = 'none';

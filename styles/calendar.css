@@ -257,130 +257,15 @@
   border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.5);
 }
-/* ── Day View ── */
-.cal-day {
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0 var(--spacing-xs) var(--spacing-xl);
-}
-.cal-day__section { margin-bottom: var(--spacing-md); }
-.cal-day__section-header {
-  font-size: var(--font-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
-  padding: var(--spacing-xs) 0;
-  background: var(--bg);
-}
-.cal-day__section-header--sticky {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-header);
-}
-
-/* Event bubbles */
-/* Person groups in day view */
-.cal-day__person { margin-bottom: var(--spacing-md); }
-.cal-day__person-header {
+/* === Day view: pure agenda === */
+.cal-day-agenda { display: block; }
+.cal-day-agenda__events,
+.cal-day-agenda__tasks {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--spacing-xs);
-  font-size: var(--font-sm);
-  font-weight: 700;
-  color: var(--text);
-  padding: var(--spacing-xs) 0;
-  border-bottom: 2px solid var(--person-color, var(--border));
-  margin-bottom: var(--spacing-xs);
-}
-.cal-day__person-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.cal-day__person-count {
-  margin-left: auto;
-  font-size: var(--font-xs);
-  color: var(--text-faint);
-  font-weight: 600;
-}
-
-/* Task rows in day view */
-.cal-day__task {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-xs);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
-.cal-day__task:active { background: var(--bg-hover); }
-.cal-day__task--done { opacity: 0.45; }
-.cal-day__task--done .cal-day__task-name { text-decoration: line-through; }
-.cal-day__task-check {
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  background: var(--surface);
-  cursor: pointer;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-.cal-day__task-check--done {
-  background: var(--success);
-  border-color: var(--success);
-}
-.cal-day__task-check--done::after {
-  content: '✓';
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-}
-.cal-day__task-name {
-  font-size: var(--font-md);
-  color: var(--text);
-  flex: 1;
-  min-width: 0;
-}
-.cal-day__task-tod {
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--text-faint);
-  text-transform: uppercase;
-}
-.cal-day__task-icon { font-size: var(--font-sm); flex-shrink: 0; }
-.cal-day__empty {
-  text-align: center;
-  color: var(--text-faint);
-  padding: var(--spacing-xl) 0;
-  font-size: var(--font-md);
-}
-
-/* ── Day view header ── */
-.cal-day-header {
-  padding: var(--spacing-sm) 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: var(--spacing-sm);
-}
-.cal-day-header__title {
-  font-size: var(--font-lg);
-  font-weight: 800;
-}
-.cal-day-header__meta {
-  font-size: var(--font-sm);
-  color: var(--text-faint);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md);
+  margin-bottom: var(--spacing-md);
 }
 
 /* ── Month View (redesigned) ── */
@@ -541,13 +426,13 @@
   background: color-mix(in srgb, var(--success) 10%, transparent);
   border-radius: var(--radius-sm);
 }
-.cal-task--completing.cal-day__task .cal-day__task-check {
+.cal-task--completing .check {
   background: var(--success);
   border-color: var(--success);
   transform: scale(1.15);
   transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease, border-color 0.15s ease;
 }
-.cal-task--completing.cal-day__task .cal-day__task-check::after {
+.cal-task--completing .check::after {
   content: '✓';
   color: white;
   font-size: 12px;
@@ -556,7 +441,7 @@
 @media (prefers-reduced-motion: reduce) {
   .cal-view-enter,
   .cal-task--completing,
-  .cal-task--completing .cal-day__task-check {
+  .cal-task--completing .check {
     animation: none !important;
     transition: none !important;
   }

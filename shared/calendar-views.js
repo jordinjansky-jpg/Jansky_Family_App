@@ -2,7 +2,7 @@
 // No DOM access. Returns HTML strings. Import into calendar.html.
 
 import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT } from './utils.js';
-import { renderEventPill, renderEventBubble, renderFilterChip, renderSectionHead } from './components.js';
+import { renderEventPill, renderFilterChip, renderSectionHead, renderEmptyState } from './components.js';
 import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -176,114 +176,67 @@ function formatEventTime(hhmm) {
 }
 
 /**
- * Render the day view.
+ * Render the day view as pure agenda: Events → Tasks.
+ * Empty state when both are empty.
+ *
+ * @param {object} opts
+ * @param {string} opts.dateKey, today
+ * @param {object} opts.events, allSchedule, completions, tasks, cats
+ * @param {Array}  opts.people
+ * @param {string|null} opts.activePerson
+ * @returns {string} HTML
  */
 export function renderDayView(opts) {
-  const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings } = opts;
+  const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson } = opts;
 
-  // Events section
+  // Events for the day, sorted: all-day first, then chronological by start time
   let dayEvents = getEventsForDate(events, dateKey);
   dayEvents = filterEventsByPerson(dayEvents, activePerson);
   const sortedEvents = sortEvents(dayEvents);
+  const allDay = sortedEvents.filter(([, e]) => e.allDay);
+  const timed = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
+  const untimed = sortedEvents.filter(([, e]) => !e.allDay && !e.startTime);
+  const orderedEvents = [...allDay, ...timed, ...untimed];
 
-  let eventsHtml = '';
-  if (sortedEvents.length > 0) {
-    const allDayEvents = sortedEvents.filter(([, e]) => e.allDay);
-    const timedEvents = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
-
-    eventsHtml += `<div class="cal-day__section">
-      <div class="cal-day__section-header cal-day__section-header--sticky">Events</div>`;
-    // All-day pills
-    for (const [, evt] of allDayEvents) {
-      eventsHtml += renderEventPill(evt, people);
-    }
-    // Timed events — rendered as pills (time-grid retired in Phase 2; full day view rewrite in Task 4)
-    for (const [, evt] of timedEvents) {
-      eventsHtml += renderEventPill(evt, people);
-    }
-    // Remaining events without startTime rendered as bubbles
-    const untimed = sortedEvents.filter(([, e]) => !e.allDay && !e.startTime);
-    for (const [eventId, event] of untimed) {
-      eventsHtml += renderEventBubble(eventId, event, people);
-    }
-    eventsHtml += `</div>`;
-  }
-
-  // Tasks section — grouped by person
+  // Tasks (event entries filtered out)
   const dayEntries = allSchedule[dateKey] || {};
-  let filteredEntries = filterByPerson(dayEntries, activePerson);
-  // Exclude event schedule entries
-  filteredEntries = Object.fromEntries(
-    Object.entries(filteredEntries).filter(([, e]) => e.type !== 'event')
+  const filtered = filterByPerson(dayEntries, activePerson);
+  const taskEntries = Object.fromEntries(
+    Object.entries(filtered).filter(([, e]) => e.type !== 'event')
   );
-
-  let tasksHtml = '';
-  if (Object.keys(filteredEntries).length > 0) {
-    tasksHtml += `<div class="cal-day__section">
-      <div class="cal-day__section-header cal-day__section-header--sticky">Tasks</div>`;
-
-    // Group by person
-    const byPerson = {};
-    for (const [key, entry] of Object.entries(filteredEntries)) {
-      const pid = entry.ownerId || '_unassigned';
-      if (!byPerson[pid]) byPerson[pid] = {};
-      byPerson[pid][key] = entry;
-    }
-
-    // Render each person's section
-    const personOrder = people.filter(p => byPerson[p.id]).concat(
-      byPerson._unassigned ? [{ id: '_unassigned', name: 'Unassigned', color: '#999' }] : []
-    );
-
-    for (const person of personOrder) {
-      const personEntries = byPerson[person.id];
-      if (!personEntries) continue;
-      const sorted = sortEntries(personEntries, completions);
-      const incomplete = sorted.filter(([k]) => !isComplete(k, completions));
-      const completed = sorted.filter(([k]) => isComplete(k, completions));
-
-      tasksHtml += `<div class="cal-day__person">
-        <div class="cal-day__person-header" data-person-color="${person.color}">
-          <span class="cal-day__person-dot" data-bg-color="${person.color}"></span>
-          ${esc(person.name)}
-          <span class="cal-day__person-count">${completed.length}/${sorted.length}</span>
-        </div>`;
-
-      for (const [entryKey, entry] of incomplete) {
-        const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-        const cat = task.category ? cats[task.category] : null;
-        const isPastDaily = dateKey < today && entry.rotationType === 'daily';
-        const todLabel = entry.timeOfDay === 'am' ? 'AM' : entry.timeOfDay === 'pm' ? 'PM' : '';
-        tasksHtml += `<div class="cal-day__task" data-entry-key="${entryKey}" data-date-key="${dateKey}">
-          <button class="cal-day__task-check" data-entry-key="${entryKey}" data-date-key="${dateKey}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button"></button>
-          ${todLabel ? `<span class="cal-day__task-tod">${todLabel}</span>` : ''}
-          <span class="cal-day__task-name">${esc(task.name)}</span>
-          ${cat?.icon ? `<span class="cal-day__task-icon">${cat.icon}</span>` : ''}
-        </div>`;
-      }
-
-      if (completed.length > 0) {
-        for (const [entryKey, entry] of completed) {
-          const task = tasks[entry.taskId] || { name: 'Unknown' };
-          tasksHtml += `<div class="cal-day__task cal-day__task--done" data-entry-key="${entryKey}" data-date-key="${dateKey}">
-            <button class="cal-day__task-check cal-day__task-check--done" data-entry-key="${entryKey}" data-date-key="${dateKey}" type="button"></button>
-            <span class="cal-day__task-name">${esc(task.name)}</span>
-          </div>`;
-        }
-      }
-
-      tasksHtml += `</div>`;
-    }
-    tasksHtml += `</div>`;
-  }
+  const sortedTasks = sortEntries(taskEntries, completions);
+  const doneCount = sortedTasks.filter(([k]) => isComplete(k, completions)).length;
+  const totalCount = sortedTasks.length;
 
   // Empty state
-  if (sortedEvents.length === 0 && Object.keys(filteredEntries).length === 0) {
-    const emptyMsg = activePerson ? 'Nothing scheduled for this person' : 'Nothing scheduled';
-    eventsHtml = `<div class="cal-day__empty">${emptyMsg}</div>`;
+  if (orderedEvents.length === 0 && totalCount === 0) {
+    const title = activePerson ? 'No items for this person' : 'Nothing scheduled';
+    const subtitle = 'Tap + to add an event.';
+    return `<div class="cal-day-agenda">${renderEmptyState('', title, subtitle)}</div>`;
   }
 
-  return `<div class="cal-day"><div class="cal-day__grid">${eventsHtml}${tasksHtml}</div></div>`;
+  let html = '';
+
+  if (orderedEvents.length > 0) {
+    html += renderSectionHead('Events', null);
+    html += `<div class="cal-day-agenda__events">`;
+    for (const [eventId, evt] of orderedEvents) {
+      html += renderEventCard(eventId, evt, people);
+    }
+    html += `</div>`;
+  }
+
+  if (totalCount > 0) {
+    const meta = `${doneCount} of ${totalCount} done`;
+    html += renderSectionHead('Tasks', meta, { divider: orderedEvents.length > 0 });
+    html += `<div class="cal-day-agenda__tasks">`;
+    for (const [entryKey, entry] of sortedTasks) {
+      html += renderTaskCard(entryKey, entry, dateKey, today, tasks, cats, people, completions);
+    }
+    html += `</div>`;
+  }
+
+  return `<div class="cal-day-agenda">${html}</div>`;
 }
 
 /**
