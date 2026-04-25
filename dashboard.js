@@ -1253,7 +1253,6 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
         <button class="me-ingredient-remove" data-ingr-index="${i}" type="button" aria-label="Remove">&times;</button>
       </div>`
     ).join('');
-    bindIngredientEvents();
   }
 
   function bindIngredientEvents() {
@@ -1308,7 +1307,7 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
   document.getElementById('meDelete')?.addEventListener('click', async () => {
     const confirmed = await showConfirm({
       title: 'Delete meal?',
-      message: `"${esc(meal?.name)}" will be removed from any planned days.`,
+      message: `"${meal?.name ?? ''}" will be removed from any planned days.`,
       confirmLabel: 'Delete',
       danger: true,
     });
