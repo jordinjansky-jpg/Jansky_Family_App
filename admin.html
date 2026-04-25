@@ -68,9 +68,10 @@
       readMessages, readAllMessages, writeMessage, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
       readAllAchievements, writeAchievement, deleteAchievement,
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
-      readBank, writeBankToken, removeBankToken
+      readBank, writeBankToken, removeBankToken,
+      readMealLibrary, pushMealLibrary, writeMealLibrary, removeMealLibrary, readAllMeals, removeMeal
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -185,6 +186,7 @@
     let rewardsObj = (await readRewards()) || {};
     let allAchievements = (await readAllAchievements()) || {};
     let allMessagesObj = (await readAllMessages()) || {};
+    mealLibrary = (await readMealLibrary()) || {};
     let allBankData = {};
     let achievementDefsObj = (await readAchievementDefs()) || {};
 
@@ -264,6 +266,7 @@
     const TABS = [
       { id: 'tasks', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', label: 'Tasks' },
       { id: 'events', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', label: 'Events' },
+      { id: 'meals', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>', label: 'Meals' },
       { id: 'people', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', label: 'People' },
       { id: 'categories', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>', label: 'Categories' },
       { id: 'rewards', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>', label: 'Rewards' },
@@ -277,6 +280,7 @@
 
     let activeTab = 'tasks';
     let editingRewardId = null; // null = not editing, 'new' = creating, pushId = editing
+    let mealLibrary = {};
 
     // ── Helpers ──
     function peopleArray() {
@@ -306,6 +310,7 @@
       switch (activeTab) {
         case 'tasks': html += renderTasksTab(); break;
         case 'events': html += renderEventsTab(); break;
+        case 'meals': html += renderMealsTab(); break;
         case 'people': html += renderPeopleTab(); break;
         case 'categories': html += renderCategoriesTab(); break;
         case 'rewards': html += renderRewardsTab(); break;
@@ -692,6 +697,216 @@
     }
 
     // ══════════════════════════════════════════
+    // ══════════════════════════════════════════
+    // Meals Tab
+    // ══════════════════════════════════════════
+
+    function renderMealsTab() {
+      const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
+        if (a.isFavorite && !b.isFavorite) return -1;
+        if (!a.isFavorite && b.isFavorite) return 1;
+        return (b.lastUsed || 0) - (a.lastUsed || 0);
+      });
+
+      let html = `<div class="admin-section-header">
+        <h2 class="admin-section-title">Meal Library</h2>
+        <button class="btn btn--primary btn--sm" id="addMeal" type="button">Add meal</button>
+      </div>`;
+
+      if (entries.length === 0) {
+        html += `<div class="empty-state">
+          <div class="empty-state__icon">🍽️</div>
+          <div class="empty-state__title">No meals yet</div>
+          <div class="empty-state__body">Add your first meal to get started planning dinners.</div>
+        </div>`;
+      } else {
+        html += `<div class="admin-list">`;
+        for (const [id, meal] of entries) {
+          const lastUsedStr = meal.lastUsed
+            ? new Date(meal.lastUsed).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : 'Never used';
+          const ingrCount = (meal.ingredients || []).filter(Boolean).length;
+          const prepStr = meal.prepTime ? ` · ${esc(meal.prepTime)}` : '';
+          const ingrStr = ingrCount > 0 ? ` · ${ingrCount} ingredient${ingrCount !== 1 ? 's' : ''}` : '';
+          html += `<div class="admin-list-item" data-meal-id="${esc(id)}">
+            <div class="admin-list-item__row">
+              <span class="admin-list-item__name">${meal.isFavorite ? '<span aria-label="Favorite">★</span> ' : ''}${esc(meal.name)}</span>
+              <div class="admin-list-item__actions">
+                <button class="btn-icon edit-meal-btn" data-meal-id="${esc(id)}" type="button" aria-label="Edit ${esc(meal.name)}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="btn-icon delete-meal-btn" data-meal-id="${esc(id)}" type="button" aria-label="Delete ${esc(meal.name)}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="admin-list-item__row">
+              <span class="admin-list-item__meta">${lastUsedStr}${prepStr}${ingrStr}</span>
+            </div>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+      return html;
+    }
+
+    function bindMealsTab() {
+      main.querySelector('#addMeal')?.addEventListener('click', () => openAdminMealEditor(null));
+      main.querySelectorAll('.edit-meal-btn').forEach(btn => {
+        btn.addEventListener('click', () => openAdminMealEditor(btn.dataset.mealId));
+      });
+      main.querySelectorAll('.delete-meal-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteAdminMeal(btn.dataset.mealId));
+      });
+    }
+
+    function openAdminMealEditor(mealId) {
+      const meal = mealId ? mealLibrary[mealId] : null;
+      const mount = document.getElementById('taskSheetMount');
+      mount.innerHTML = renderBottomSheet(renderMealEditorSheet(meal, mealId));
+
+      const overlay = document.getElementById('bottomSheet');
+      overlay?.addEventListener('click', e => { if (e.target === overlay) mount.innerHTML = ''; });
+
+      let ingredients = meal ? [...(meal.ingredients || [])] : [];
+      let tags = meal ? [...(meal.tags || [])] : [];
+
+      function refreshIngredients() {
+        const container = document.getElementById('me_ingredients');
+        if (!container) return;
+        container.innerHTML = ingredients.map((item, i) =>
+          `<div class="me-ingredient-row">
+            <input type="text" value="${esc(item)}" placeholder="e.g. 2 cups flour"
+                   data-ingr-index="${i}" aria-label="Ingredient ${i + 1}">
+            <button class="me-ingredient-remove" data-ingr-index="${i}" type="button" aria-label="Remove ingredient">&times;</button>
+          </div>`
+        ).join('');
+        bindIngrEvents();
+      }
+
+      function bindIngrEvents() {
+        const container = document.getElementById('me_ingredients');
+        container?.querySelectorAll('input[data-ingr-index]').forEach(inp => {
+          inp.addEventListener('input', () => { ingredients[parseInt(inp.dataset.ingrIndex)] = inp.value; });
+        });
+        container?.querySelectorAll('.me-ingredient-remove').forEach(btn => {
+          btn.addEventListener('click', () => {
+            ingredients.splice(parseInt(btn.dataset.ingrIndex), 1);
+            refreshIngredients();
+          });
+        });
+      }
+      bindIngrEvents();
+
+      document.getElementById('me_addIngredient')?.addEventListener('click', () => {
+        ingredients.push('');
+        refreshIngredients();
+        const inputs = document.querySelectorAll('#me_ingredients input');
+        inputs[inputs.length - 1]?.focus();
+      });
+
+      function refreshTags() {
+        const container = document.getElementById('me_tags');
+        if (!container) return;
+        container.innerHTML = tags.map((t, i) =>
+          `<span class="me-tag">
+            <span>${esc(t)}</span>
+            <button class="me-tag__remove" data-tag-index="${i}" type="button" aria-label="Remove tag">&times;</button>
+          </span>`
+        ).join('');
+        container.querySelectorAll('.me-tag__remove').forEach(btn => {
+          btn.addEventListener('click', () => { tags.splice(parseInt(btn.dataset.tagIndex), 1); refreshTags(); });
+        });
+      }
+
+      document.getElementById('me_tagInput')?.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ',') && e.target.value.trim()) {
+          e.preventDefault();
+          tags.push(e.target.value.trim().replace(/,$/, ''));
+          e.target.value = '';
+          refreshTags();
+        }
+      });
+
+      document.getElementById('meDelete')?.addEventListener('click', async () => {
+        const confirmed = await showConfirm({
+          title: 'Delete meal?',
+          message: `"${meal?.name ?? ''}" will be removed from any planned days.`,
+          confirmLabel: 'Delete',
+          danger: true,
+        });
+        if (!confirmed) return;
+        const allMealsSnap = await readOnce('meals');
+        const cascadeUpdates = {};
+        if (allMealsSnap) {
+          for (const [dateKey, slots] of Object.entries(allMealsSnap)) {
+            for (const [s, entry] of Object.entries(slots || {})) {
+              if (entry?.mealId === mealId) cascadeUpdates[`meals/${dateKey}/${s}`] = null;
+            }
+          }
+        }
+        cascadeUpdates[`mealLibrary/${mealId}`] = null;
+        await multiUpdate(cascadeUpdates);
+        delete mealLibrary[mealId];
+        mount.innerHTML = '';
+        render();
+      });
+
+      document.getElementById('meForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const name = document.getElementById('me_name').value.trim();
+        if (!name) { document.getElementById('me_nameError').textContent = 'Name is required'; return; }
+        document.querySelectorAll('#me_ingredients input[data-ingr-index]').forEach(inp => {
+          ingredients[parseInt(inp.dataset.ingrIndex)] = inp.value;
+        });
+        const data = {
+          name,
+          isFavorite: document.getElementById('me_fav').checked,
+          prepTime: document.getElementById('me_prepTime').value.trim() || null,
+          tags: tags.filter(Boolean),
+          ingredients: ingredients.filter(Boolean),
+          url: document.getElementById('me_url').value.trim() || null,
+          notes: document.getElementById('me_notes').value.trim() || null,
+          lastUsed: meal?.lastUsed || null,
+          createdAt: meal?.createdAt || firebase.database.ServerValue.TIMESTAMP,
+        };
+        if (mealId) {
+          await writeMealLibrary(mealId, data);
+          mealLibrary[mealId] = data;
+        } else {
+          const newId = await pushMealLibrary({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
+          mealLibrary[newId] = data;
+        }
+        mount.innerHTML = '';
+        render();
+      });
+    }
+
+    async function deleteAdminMeal(mealId) {
+      const meal = mealLibrary[mealId];
+      if (!meal) return;
+      const confirmed = await showConfirm({
+        title: 'Delete meal?',
+        message: `"${meal.name}" will be removed from any planned days.`,
+        confirmLabel: 'Delete',
+        danger: true,
+      });
+      if (!confirmed) return;
+      const allMealsSnap = await readOnce('meals');
+      const cascadeUpdates = {};
+      if (allMealsSnap) {
+        for (const [dateKey, slots] of Object.entries(allMealsSnap)) {
+          for (const [s, entry] of Object.entries(slots || {})) {
+            if (entry?.mealId === mealId) cascadeUpdates[`meals/${dateKey}/${s}`] = null;
+          }
+        }
+      }
+      cascadeUpdates[`mealLibrary/${mealId}`] = null;
+      await multiUpdate(cascadeUpdates);
+      delete mealLibrary[mealId];
+      render();
+    }
+
     // People Tab
     // ══════════════════════════════════════════
 
@@ -2367,6 +2582,7 @@
       switch (activeTab) {
         case 'tasks': bindTasksTab(); break;
         case 'events': bindEventsTab(); break;
+        case 'meals': bindMealsTab(); break;
         case 'people': bindPeopleTab(); break;
         case 'categories': bindCategoriesTab(); break;
         case 'rewards': bindRewardsTab(); break;

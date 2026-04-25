@@ -2277,6 +2277,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
 
     ${deleteBtn}
     <input type="hidden" id="me_mealId" value="${esc(mealId || '')}">
+    <button class="btn btn--primary btn--full" type="submit">${isEdit ? 'Save changes' : 'Create meal'}</button>
   </form>`;
 }
 
