@@ -228,7 +228,7 @@ async function loadData() {
   suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSched || {}, completions, tasks, today);
 }
 
-function render() {
+async function render() {
   clearTimeout(activePressTimer);
   activePressTimer = null;
   // Filter out event schedule entries (type: 'event') — real events come from events collection
@@ -761,14 +761,11 @@ function bindEvents() {
         }
         if (lastWeatherData?.isPast || lastWeatherData?.isFuture) return;
 
-        const todayK = todayKey(settings?.timezone || 'America/Chicago');
-        const d = new Date(todayK + 'T00:00:00');
-        d.setDate(d.getDate() + 1);
-        const tomorrowK = d.toLocaleDateString('en-CA');
+        const tomorrowK = addDays(today, 1);
 
         taskSheetMount.innerHTML = renderWeatherSheet(
           await fetchForecast(settings),
-          todayK,
+          today,
           tomorrowK
         );
         requestAnimationFrame(() => {

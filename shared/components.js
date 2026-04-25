@@ -1797,6 +1797,9 @@ export function renderWeatherSheet(days, today, tomorrow) {
   return renderBottomSheet(`
     <h3 class="sheet-section-title">Weather</h3>
     <div class="weather-sheet__rows">${rowsHtml}</div>
+    <div class="sheet-actions">
+      <button class="btn btn--secondary btn--full" id="weatherSheetClose" type="button">Done</button>
+    </div>
   `);
 }
 
