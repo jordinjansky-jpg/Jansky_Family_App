@@ -242,6 +242,11 @@
 }
 
 /* Admin Form */
+.admin-form__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
 .admin-form {
   position: relative;
   background: var(--surface);

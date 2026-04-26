@@ -973,7 +973,7 @@
       </div>
       <div class="admin-form__group">
         <label class="form-label">Color</label>
-        <div class="admin-form__row" style="align-items:center;gap:var(--spacing-sm)">
+        <div class="admin-form__row">
           <input type="color" id="pf_colorPicker" value="${selColor}" class="color-pick-btn">
           <span class="form-hint" style="margin:0">Tap to choose any color</span>
         </div>
@@ -1153,7 +1153,7 @@
           </div>
         </div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Event category (no scoring, calendar highlight)</span><label class="form-toggle"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'};align-items:center;gap:var(--spacing-sm)">
+        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'}">
           <span class="form-label" style="margin-bottom:0;">Event Color</span>
           <input type="color" id="cf_eventColor" value="${cat.eventColor || '#5b7fd6'}" class="color-pick-btn">
         </div>
@@ -1218,7 +1218,7 @@
           </div>
           <div class="form-group mt-sm">
             <label class="form-label">Accent color</label>
-            <div class="admin-form__row" style="align-items:center;gap:var(--spacing-sm)">
+            <div class="admin-form__row">
               <input type="color" id="sf_accentPicker" value="${settings?.theme?.accent || '#6c63ff'}" class="color-pick-btn">
               <span class="form-hint" style="margin:0">Tap to choose any color</span>
             </div>
@@ -3518,12 +3518,15 @@
         applyTheme(resolveTheme(settings.theme));
       });
 
-      main.querySelector('#sf_accentPicker')?.addEventListener('input', async (e) => {
+      const accentEl = main.querySelector('#sf_accentPicker');
+      accentEl?.addEventListener('input', (e) => {
+        applyTheme(resolveTheme({ ...(settings?.theme || {}), accent: e.target.value }));
+      });
+      accentEl?.addEventListener('change', async (e) => {
         const theme = { ...(settings?.theme || {}), accent: e.target.value };
         const updated = { ...settings, theme };
         await writeSettings(updated);
         settings = updated;
-        applyTheme(resolveTheme(settings.theme));
       });
 
       main.querySelector('#sf_weatherTest')?.addEventListener('click', async () => {
