@@ -50,9 +50,14 @@ export function initColorButton(container, onChange) {
     e.stopPropagation();
     if (!pop.hidden) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); return; }
     const rect = btn.getBoundingClientRect();
-    pop.style.top = (rect.bottom + 6) + 'px';
     pop.style.left = Math.min(rect.left, window.innerWidth - 330) + 'px';
+    pop.style.top = '0px';
     pop.hidden = false;
+    const popH = pop.getBoundingClientRect().height;
+    const top = (rect.bottom + 6 + popH > window.innerHeight)
+      ? Math.max(6, rect.top - popH - 6)
+      : rect.bottom + 6;
+    pop.style.top = top + 'px';
     btn.setAttribute('aria-expanded', 'true');
   });
 

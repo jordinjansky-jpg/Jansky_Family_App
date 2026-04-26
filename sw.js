@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v75 (2026-04-26) — cpick popover flips above button when too close to screen bottom
 // v74 (2026-04-26) — fix cpick popover positioning: sheet active state now uses
 //                    transform:none so position:fixed pops use viewport coords
 // v73 (2026-04-26) — move cpick CSS from admin.css → components.css so color
@@ -161,7 +162,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v74';
+const CACHE_NAME = 'family-hub-v75';
 
 const APP_SHELL = [
   '/',
