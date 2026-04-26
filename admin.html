@@ -86,32 +86,6 @@
     const MSG_NEGATIVE = ['Room Check','Reminder Needed',"Let's Do Better",'Responsibility Check',
       'Try Again Tomorrow','Needs Attention','Not Your Best','We Talked About This'];
 
-    const COLOR_PALETTE = [
-      '#ef5350','#e91e63','#ab47bc','#5c6bc0',
-      '#42a5f5','#26a69a','#66bb6a','#fdd835',
-      '#ffa726','#ff7043','#8d6e63','#78909c',
-    ];
-
-    function renderColorPalette(selected, inputId) {
-      const norm = (selected || '').toLowerCase();
-      const swatches = COLOR_PALETTE.map(c =>
-        `<button type="button" class="color-swatch${c.toLowerCase() === norm ? ' color-swatch--selected' : ''}" data-color="${c}" style="background:${c}" aria-label="${c}"></button>`
-      ).join('');
-      return `<div class="color-palette">${swatches}<input type="hidden" id="${inputId}" value="${selected || COLOR_PALETTE[0]}"></div>`;
-    }
-
-    function initColorPalette(container, onChange) {
-      if (!container) return;
-      container.querySelectorAll('.color-swatch').forEach(btn => {
-        btn.addEventListener('click', () => {
-          container.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('color-swatch--selected'));
-          btn.classList.add('color-swatch--selected');
-          const hidden = container.querySelector('input[type="hidden"]');
-          if (hidden) hidden.value = btn.dataset.color;
-          if (onChange) onChange(btn.dataset.color);
-        });
-      });
-    }
 
     // ── Undo toast helper ──
     let undoTimer = null;
@@ -1000,7 +974,9 @@
       </div>
       <div class="admin-form__group">
         <label class="form-label">Color</label>
-        ${renderColorPalette(selColor, 'pf_colorPicker')}
+        <div class="admin-form__row">
+          <input type="color" id="pf_colorPicker" value="${selColor}" class="color-pick-btn">
+        </div>
       </div>
       <div class="admin-form__group">
         <label class="form-label">Role</label>
@@ -1177,9 +1153,9 @@
           </div>
         </div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Event category (no scoring, calendar highlight)</span><label class="form-toggle"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? '' : 'none'}">
-          <span class="form-label">Event Color</span>
-          ${renderColorPalette(cat.eventColor || '#5b7fd6', 'cf_eventColor')}
+        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'}">
+          <span class="form-label" style="margin-bottom:0">Event Color</span>
+          <input type="color" id="cf_eventColor" value="${cat.eventColor || '#5b7fd6'}" class="color-pick-btn">
         </div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show icon on task cards</span><label class="form-toggle"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">PIN protected (requires PIN to complete)</span><label class="form-toggle"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
@@ -1242,7 +1218,9 @@
           </div>
           <div class="form-group mt-sm">
             <label class="form-label">Accent color</label>
-            ${renderColorPalette(settings?.theme?.accent || '#6c63ff', 'sf_accentPicker')}
+            <div class="admin-form__row">
+              <input type="color" id="sf_accentPicker" value="${settings?.theme?.accent || '#6c63ff'}" class="color-pick-btn">
+            </div>
           </div>
         </div>
 
@@ -3218,9 +3196,6 @@
         render();
       });
 
-      // Color palette
-      initColorPalette(main.querySelector('#pf_colorPicker')?.closest('.color-palette'), null);
-
       // Role toggle — show/hide sections
       for (const btn of main.querySelectorAll('.admin-role-btn')) {
         btn.addEventListener('click', () => {
@@ -3390,15 +3365,12 @@
         render();
       });
 
-      // Color palette for event color
-      initColorPalette(main.querySelector('#cf_eventColor')?.closest('.color-palette'), null);
-
       // Event toggle shows/hides color picker
       const eventCheckbox = main.querySelector('#cf_isEvent');
       const eventColorRow = main.querySelector('#eventColorRow');
       const catLimitsRow = main.querySelector('#catLimitsRow');
       eventCheckbox?.addEventListener('change', () => {
-        if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? '' : 'none';
+        if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? 'flex' : 'none';
         if (catLimitsRow) catLimitsRow.style.display = eventCheckbox.checked ? 'none' : 'flex';
       });
 
@@ -3545,9 +3517,12 @@
         applyTheme(resolveTheme(settings.theme));
       });
 
-      initColorPalette(main.querySelector('#sf_accentPicker')?.closest('.color-palette'), async (color) => {
-        const theme = { ...(settings?.theme || {}), accent: color };
-        applyTheme(resolveTheme(theme));
+      const accentEl = main.querySelector('#sf_accentPicker');
+      accentEl?.addEventListener('input', (e) => {
+        applyTheme(resolveTheme({ ...(settings?.theme || {}), accent: e.target.value }));
+      });
+      accentEl?.addEventListener('change', async (e) => {
+        const theme = { ...(settings?.theme || {}), accent: e.target.value };
         const updated = { ...settings, theme };
         await writeSettings(updated);
         settings = updated;
