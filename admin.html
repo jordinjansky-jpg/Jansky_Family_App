@@ -199,19 +199,23 @@
     // ══════════════════════════════════════════
 
     const TABS = [
-      { id: 'tasks', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', label: 'Tasks' },
-      { id: 'events', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', label: 'Events' },
-      { id: 'meals', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>', label: 'Meals' },
-      { id: 'people', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', label: 'People' },
-      { id: 'categories', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>', label: 'Categories' },
-      { id: 'rewards', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>', label: 'Rewards' },
-      { id: 'achievements', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>', label: 'Badges' },
-      { id: 'settings', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg>', label: 'Settings' },
-      { id: 'schedule', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', label: 'Schedule' },
-      { id: 'data', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', label: 'Data' }
+      { id: 'library',  label: 'Library'  },
+      { id: 'people',   label: 'People'   },
+      { id: 'settings', label: 'Settings' },
+      { id: 'tools',    label: 'Tools'    },
     ];
 
-    let activeTab = 'tasks';
+    const LIBRARY_SECTIONS = [
+      { id: 'tasks',      label: 'Tasks'      },
+      { id: 'events',     label: 'Events'     },
+      { id: 'meals',      label: 'Meals'      },
+      { id: 'categories', label: 'Categories' },
+      { id: 'rewards',    label: 'Rewards'    },
+      { id: 'badges',     label: 'Badges'     },
+    ];
+
+    let activeTab = 'library';
+    let activeLibrarySection = 'tasks';
     let editingRewardId = null; // null = not editing, 'new' = creating, pushId = editing
 
     // ── Helpers ──
@@ -238,27 +242,40 @@
     // ══════════════════════════════════════════
 
     function render() {
+      // Top-level tab bar
       let html = `<div class="admin-tabs" role="tablist" aria-label="Admin sections">`;
       for (const tab of TABS) {
         const active = tab.id === activeTab ? ' admin-tab--active' : '';
-        html += `<button class="admin-tab${active}" data-tab="${tab.id}" type="button" role="tab" aria-selected="${tab.id === activeTab}" aria-controls="admin-panel-${tab.id}">
-          <span class="admin-tab__icon" aria-hidden="true">${tab.icon}</span>
-          <span class="admin-tab__label">${tab.label}</span>
-        </button>`;
+        html += `<button class="admin-tab${active}" data-tab="${tab.id}" type="button" role="tab" aria-selected="${tab.id === activeTab}">${esc(tab.label)}</button>`;
       }
-      html += `</div><div class="admin-content" role="tabpanel" id="admin-panel-${activeTab}">`;
+      html += `</div>`;
+
+      // Library sub-nav
+      if (activeTab === 'library') {
+        html += `<div class="admin-subnav" role="tablist" aria-label="Library sections">`;
+        for (const sec of LIBRARY_SECTIONS) {
+          const active = sec.id === activeLibrarySection ? ' admin-subnav__pill--active' : '';
+          html += `<button class="admin-subnav__pill${active}" data-section="${sec.id}" type="button">${esc(sec.label)}</button>`;
+        }
+        html += `</div>`;
+      }
+
+      html += `<div class="admin-content" role="tabpanel">`;
 
       switch (activeTab) {
-        case 'tasks': html += renderTasksTab(); break;
-        case 'events': html += renderEventsTab(); break;
-        case 'meals': html += renderMealsTab(); break;
-        case 'people': html += renderPeopleTab(); break;
-        case 'categories': html += renderCategoriesTab(); break;
-        case 'rewards': html += renderRewardsTab(); break;
-        case 'achievements': html += renderAchievementsTab(); break;
+        case 'library':
+          switch (activeLibrarySection) {
+            case 'tasks':      html += renderTasksTab();      break;
+            case 'events':     html += renderEventsTab();     break;
+            case 'meals':      html += renderMealsTab();      break;
+            case 'categories': html += renderCategoriesTab(); break;
+            case 'rewards':    html += renderRewardsTab();    break;
+            case 'badges':     html += renderAchievementsTab(); break;
+          }
+          break;
+        case 'people':   html += renderPeopleTab();   break;
         case 'settings': html += renderSettingsTab(); break;
-        case 'schedule': html += renderScheduleTab(); break;
-        case 'data': html += renderDataTab(); break;
+        case 'tools':    html += renderToolsTab();    break;
       }
 
       html += `</div>`;
@@ -272,19 +289,29 @@
       for (const tab of main.querySelectorAll('.admin-tab')) {
         tab.addEventListener('click', async () => {
           activeTab = tab.dataset.tab;
+          if (activeTab === 'library' && activeLibrarySection === 'badges') {
+            allAchievements = (await readAllAchievements()) || {};
+            achievementDefsObj = (await readAchievementDefs()) || {};
+          }
+          render();
+        });
+      }
+      for (const pill of main.querySelectorAll('.admin-subnav__pill')) {
+        pill.addEventListener('click', async () => {
+          activeLibrarySection = pill.dataset.section;
           selectMode = false;
           selectedTaskIds.clear();
-          if (activeTab === 'rewards') {
+          if (activeLibrarySection === 'badges') {
+            allAchievements = (await readAllAchievements()) || {};
+            achievementDefsObj = (await readAchievementDefs()) || {};
+          }
+          if (activeLibrarySection === 'rewards') {
             allAchievements = (await readAllAchievements()) || {};
             allMessagesObj = (await readAllMessages()) || {};
             allBankData = {};
             for (const pid of Object.keys(peopleObj)) {
               allBankData[pid] = (await readBank(pid)) || {};
             }
-          }
-          if (activeTab === 'achievements') {
-            allAchievements = (await readAllAchievements()) || {};
-            achievementDefsObj = (await readAchievementDefs()) || {};
           }
           render();
         });
@@ -2378,16 +2405,19 @@
 
     function bindTabContent() {
       switch (activeTab) {
-        case 'tasks': bindTasksTab(); break;
-        case 'events': bindEventsTab(); break;
-        case 'meals': bindMealsTab(); break;
-        case 'people': bindPeopleTab(); break;
-        case 'categories': bindCategoriesTab(); break;
-        case 'rewards': bindRewardsTab(); break;
-        case 'achievements': bindAchievementsTab(); break;
+        case 'library':
+          switch (activeLibrarySection) {
+            case 'tasks':      bindTasksTab();      break;
+            case 'events':     bindEventsTab();     break;
+            case 'meals':      bindMealsTab();      break;
+            case 'categories': bindCategoriesTab(); break;
+            case 'rewards':    bindRewardsTab();    break;
+            case 'badges':     bindAchievementsTab(); break;
+          }
+          break;
+        case 'people':   bindPeopleTab();   break;
         case 'settings': bindSettingsTab(); break;
-        case 'schedule': bindScheduleTab(); break;
-        case 'data': bindDataTab(); break;
+        case 'tools':    bindToolsTab();    break;
       }
     }
 
@@ -3862,6 +3892,15 @@
           window.location.href = 'setup.html';
         });
       }
+    }
+
+    function renderToolsTab() {
+      return renderScheduleTab() + renderDataTab();
+    }
+
+    function bindToolsTab() {
+      bindScheduleTab();
+      bindDataTab();
     }
 
     // ── Initial render if PIN session was cached ──
