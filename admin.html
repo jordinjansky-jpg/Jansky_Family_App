@@ -860,123 +860,129 @@
     let editingPersonId = null;
 
     function renderPeopleTab() {
-      const pa = peopleArray();
-      let html = `<div class="admin-section-header">
-        <span>${pa.length} people</span>
-        <button class="btn btn--primary btn--sm" id="addPersonBtn" type="button">+ Add Person</button>
-      </div>`;
-
       if (editingPersonId !== null) {
-        html += renderPersonForm(editingPersonId === 'new' ? null : editingPersonId);
+        return renderPersonDetail(editingPersonId === 'new' ? null : editingPersonId);
       }
 
-      if (pa.length === 0 && editingPersonId === null) {
-        html += renderEmptyState('👥', 'No people', 'Add family members to get started.');
+      const pa = peopleArray();
+      let html = `<div class="admin-list-add">
+    <button class="btn btn--primary btn--sm" id="addPersonBtn" type="button">+ Add Person</button>
+  </div>`;
+
+      if (pa.length === 0) {
+        html += `<div class="admin-empty">No people yet. Tap + Add Person to get started.</div>`;
       } else {
-        html += `<div class="admin-list">`;
+        html += `<div class="admin-list" id="peopleList">`;
         for (const p of pa) {
-          const roleLabel = p.role === 'child' ? '👦 Child' : '👤 Adult';
-          const kidFlags = p.role === 'child' && p.kidSettings
-            ? [p.kidSettings.canDelegate && 'delegate', p.kidSettings.canMoveTasks && 'move', p.kidSettings.showSlider && 'slider', p.kidSettings.showTaskEmoji && 'emoji', p.kidSettings.showGearIcon && 'gear', p.kidSettings.canSwipeDays && 'swipe'].filter(Boolean).join(', ')
-            : '';
-          html += `<div class="admin-list-item admin-list-item--clickable admin-list-item--compact" data-person-id="${p.id}">
-            <div class="admin-list-item__row">
-              <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color}"></div>
-              <span class="admin-list-item__name">${esc(p.name)}</span>
-              <span class="admin-list-item__tags">
-                <span class="admin-badge">${roleLabel}</span>
-                ${kidFlags ? `<span class="admin-badge">${kidFlags}</span>` : ''}
-              </span>
-              <div class="admin-list-item__actions">
-                ${p.role === 'child'
-                  ? `<a href="kid.html?kid=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--xs" title="Open kid page" target="_blank" onclick="event.stopPropagation()">Link</a>`
-                  : `<a href="person.html?person=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--xs" title="Open personal dashboard" target="_blank" onclick="event.stopPropagation()">Link</a>`}
-                <button class="btn btn--ghost btn--xs admin-edit-person" data-person-id="${p.id}" type="button">Edit</button>
-                <button class="btn btn--ghost btn--xs admin-delete-person" data-person-id="${p.id}" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-              </div>
-            </div>
-            <div class="admin-list-item__row" style="padding-left: 28px;">
-              <button class="btn btn--ghost btn--xs admin-adjust-balance" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Adjust Points</button>
-              <button class="btn btn--ghost btn--xs admin-reset-balance" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Reset Balance</button>
-              <button class="btn btn--ghost btn--xs admin-clear-history" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Clear History</button>
-            </div>
-          </div>`;
+          const icon = renderColorSwatch(p.color || '#ccc');
+          const roleLabel = p.role === 'child' ? 'Kid' : 'Adult';
+          const adminBadge = p.isAdmin ? ' · Admin' : '';
+          html += renderAdminRow({
+            icon,
+            primary: esc(p.name),
+            secondary: esc(roleLabel + adminBadge),
+            dataAttrs: `data-person-id="${p.id}"`,
+          });
         }
         html += `</div>`;
       }
-
       return html;
     }
 
-    function renderPersonForm(personId) {
+    function renderPersonDetail(personId) {
       const person = personId ? peopleObj[personId] : {};
       const isEdit = !!personId;
-      const title = isEdit ? 'Edit Person' : 'New Person';
       const colors = getColorPalette();
       const usedColors = peopleArray().filter(p => p.id !== personId).map(p => p.color);
       const selColor = person.color || colors.find(c => !usedColors.includes(c)) || colors[0];
       const role = person.role || 'adult';
       const ks = person.kidSettings || {};
+      const prefs = person.prefs || {};
 
-      let html = `<div class="admin-form" id="personForm">
-        <h3 class="admin-form__title">${title}</h3>
-        <div class="form-group">
-          <label class="form-label">Name</label>
-          <input type="text" id="pf_name" value="${esc(person.name || '')}" placeholder="e.g., Jordin">
+      return `<div class="admin-person-detail">
+    <div class="admin-detail-back">
+      <button class="btn btn--ghost btn--sm" id="personDetailBack" type="button">&#x2039; People</button>
+      <h2 class="admin-detail-title">${isEdit ? esc(person.name || 'Person') : 'New Person'}</h2>
+    </div>
+
+    <div class="admin-detail-section">
+      <div class="admin-detail-section__title">Profile</div>
+      <div class="admin-form__group">
+        <label class="form-label" for="pf_name">Name</label>
+        <input class="form-input" type="text" id="pf_name" value="${esc(person.name || '')}" placeholder="e.g., Jordin">
+      </div>
+      <div class="admin-form__group">
+        <label class="form-label">Color</label>
+        <div class="color-grid" id="pf_colorGrid">
+          ${colors.map(c => {
+            const used = usedColors.includes(c);
+            const sel = selColor === c ? ' selected' : '';
+            return `<div class="color-swatch${sel}${used ? ' color-swatch--used' : ''}" data-color="${c}" style="background:${c}"></div>`;
+          }).join('')}
         </div>
-        <div class="form-group">
-          <label class="form-label">Color</label>
-          <div class="color-grid" id="pf_colorGrid">
-            ${colors.map(c => {
-              const used = usedColors.includes(c);
-              const sel = selColor === c ? ' selected' : '';
-              const usedCls = used ? ' color-swatch--used' : '';
-              return `<div class="color-swatch${sel}${usedCls}" data-color="${c}" style="background:${c};position:relative;"></div>`;
-            }).join('')}
-          </div>
+      </div>
+      <div class="admin-form__group">
+        <label class="form-label">Role</label>
+        <div class="form-row">
+          <button class="btn btn--secondary btn--sm admin-role-btn${role === 'adult' ? ' admin-mode-btn--active' : ''}" data-role="adult" type="button">Adult</button>
+          <button class="btn btn--secondary btn--sm admin-role-btn${role === 'child' ? ' admin-mode-btn--active' : ''}" data-role="child" type="button">Kid</button>
         </div>
-        <div class="form-group">
-          <label class="form-label">Role</label>
-          <div class="form-row">
-            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'adult' ? ' admin-mode-btn--active' : ''}" data-role="adult" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Adult</button>
-            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'child' ? ' admin-mode-btn--active' : ''}" data-role="child" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Child</button>
-          </div>
-        </div>
-        <div id="kidSettingsSection" style="display:${role === 'child' ? '' : 'none'}">
-          <h4 class="form-label mt-md">Kid Mode Settings</h4>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showWeekView"${ks.showWeekView ? ' checked' : ''}> Show week view</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showCalendar"${ks.showCalendar ? ' checked' : ''}> Show calendar</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_canDelegate"${ks.canDelegate ? ' checked' : ''}> Can delegate tasks</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_canMoveTasks"${ks.canMoveTasks ? ' checked' : ''}> Can move tasks</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showSlider"${ks.showSlider ? ' checked' : ''}> Show points slider</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showTaskEmoji"${ks.showTaskEmoji ? ' checked' : ''}> Show task emoji (picture hints)</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showGearIcon"${ks.showGearIcon ? ' checked' : ''}> Show settings gear icon</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_canSwipeDays"${ks.canSwipeDays ? ' checked' : ''}> Can swipe between days</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_celebrationsEnabled"${ks.celebrationsEnabled !== false ? ' checked' : ''}> Celebrations enabled</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showMeals"${person.prefs?.showMeals !== false ? ' checked' : ''}> Show tonight's dinner in kid mode</label>
-          <div class="form-group mt-sm">
-            <label class="form-label">Celebration Style</label>
-            <select id="pf_celebrationStyle">
-              <option value="full"${(ks.celebrationStyle || 'full') === 'full' ? ' selected' : ''}>Full</option>
-              <option value="subtle"${ks.celebrationStyle === 'subtle' ? ' selected' : ''}>Subtle</option>
-              <option value="off"${ks.celebrationStyle === 'off' ? ' selected' : ''}>Off</option>
-            </select>
-          </div>
-          <div class="form-group mt-sm">
-            <label class="form-label">Personal Theme</label>
-            <select id="pf_theme">
-              <option value=""${!person.theme?.preset ? ' selected' : ''}>Use family theme</option>
-              ${getPresets().map(p => `<option value="${p.key}"${person.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
-            </select>
-            <p class="form-hint">Override the app theme for this person's kid mode view.</p>
-          </div>
-        </div>
-        <div class="admin-form__actions mt-md">
-          <button class="btn btn--secondary" id="personFormCancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="personFormSave" type="button">${isEdit ? 'Save Changes' : 'Add Person'}</button>
-        </div>
-      </div>`;
-      return html;
+      </div>
+    </div>
+
+    <div class="admin-detail-section" id="adminAccessSection" style="display:${role === 'adult' ? '' : 'none'}">
+      <div class="admin-detail-section__title">Admin Access</div>
+      <label class="admin-toggle-row">
+        <span class="admin-toggle-row__label">
+          Can access admin without PIN
+          <span class="admin-toggle-row__hint">This person can open admin directly from their home screen.</span>
+        </span>
+        <input type="checkbox" id="pf_isAdmin" class="admin-toggle"${person.isAdmin ? ' checked' : ''}>
+      </label>
+    </div>
+
+    <div class="admin-detail-section" id="kidSettingsSection" style="display:${role === 'child' ? '' : 'none'}">
+      <div class="admin-detail-section__title">Kid Settings</div>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show tonight's dinner</span><input type="checkbox" id="pf_showMeals" class="admin-toggle"${prefs.showMeals !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show weather</span><input type="checkbox" id="pf_showWeather" class="admin-toggle"${prefs.showWeather !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show store</span><input type="checkbox" id="pf_showStore" class="admin-toggle"${ks.showStore !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show achievements</span><input type="checkbox" id="pf_showAchievements" class="admin-toggle"${ks.showAchievements !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Celebrations enabled</span><input type="checkbox" id="pf_celebrationsEnabled" class="admin-toggle"${ks.celebrationsEnabled !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Can swipe between days</span><input type="checkbox" id="pf_canSwipeDays" class="admin-toggle"${ks.canSwipeDays ? ' checked' : ''}></label>
+      <div class="admin-form__group mt-sm">
+        <label class="form-label">Personal theme</label>
+        <select class="form-input" id="pf_theme">
+          <option value=""${!person.theme?.preset ? ' selected' : ''}>Use family theme</option>
+          ${getPresets().map(p => `<option value="${p.key}"${person.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    ${isEdit ? `<div class="admin-detail-section">
+      <div class="admin-detail-section__title">Rewards</div>
+      <div class="admin-form__group">
+        <label class="form-label" for="pf_balanceAnchor">Balance anchor</label>
+        <input class="form-input" type="number" id="pf_balanceAnchor" value="${(person.balanceAnchor ?? 0)}" step="1">
+        <button class="btn btn--secondary btn--sm mt-xs" id="pf_saveAnchor" type="button">Save Anchor</button>
+      </div>
+    </div>` : ''}
+
+    <div class="admin-detail-section">
+      <div class="admin-detail-section__title">Profile link</div>
+      <a href="${role === 'child' ? 'kid.html?kid=' : 'person.html?person='}${encodeURIComponent(person.name || '')}" class="btn btn--secondary btn--sm" target="_blank">Open ${role === 'child' ? 'Kid' : 'Person'} page</a>
+    </div>
+
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="personDetailCancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="personDetailSave" type="button">${isEdit ? 'Save Changes' : 'Add Person'}</button>
+    </div>
+
+    ${isEdit ? `<div class="admin-detail-section admin-detail-section--danger">
+      <div class="admin-detail-section__title">Danger Zone</div>
+      <button class="btn btn--danger btn--sm" id="deletePersonBtn" data-person-id="${person.id}" type="button">Delete ${esc(person.name || 'Person')}&#x2026;</button>
+      <p class="form-hint mt-xs">Removes this person and all associated messages, bank tokens, wishlist, and achievements.</p>
+    </div>` : ''}
+  </div>`;
     }
 
     // ══════════════════════════════════════════
@@ -2906,230 +2912,112 @@
     // ── People tab events ──
 
     function bindPeopleTab() {
+      // List view
       main.querySelector('#addPersonBtn')?.addEventListener('click', () => {
         editingPersonId = 'new';
         render();
       });
 
-      // Edit person — click row or edit button
-      for (const item of main.querySelectorAll('.admin-list-item[data-person-id]')) {
-        item.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-list-item__actions')) return;
-          editingPersonId = item.dataset.personId;
-          render();
-        });
-      }
-      for (const btn of main.querySelectorAll('.admin-edit-person')) {
+      main.querySelector('#peopleList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-person-id]');
+        if (!row) return;
+        editingPersonId = row.dataset.personId;
+        render();
+      });
+
+      // Detail view — back / cancel
+      main.querySelector('#personDetailBack')?.addEventListener('click', () => {
+        editingPersonId = null;
+        render();
+      });
+      main.querySelector('#personDetailCancel')?.addEventListener('click', () => {
+        editingPersonId = null;
+        render();
+      });
+
+      // Role toggle — show/hide sections
+      for (const btn of main.querySelectorAll('.admin-role-btn')) {
         btn.addEventListener('click', () => {
-          editingPersonId = btn.dataset.personId;
-          render();
+          const role = btn.dataset.role;
+          main.querySelectorAll('.admin-role-btn').forEach(b => b.classList.toggle('admin-mode-btn--active', b.dataset.role === role));
+          const kidSection = main.querySelector('#kidSettingsSection');
+          const adminSection = main.querySelector('#adminAccessSection');
+          if (kidSection) kidSection.style.display = role === 'child' ? '' : 'none';
+          if (adminSection) adminSection.style.display = role === 'adult' ? '' : 'none';
         });
       }
 
-      // Delete person (with undo)
-      for (const btn of main.querySelectorAll('.admin-delete-person')) {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.personId;
-          const personBackup = { ...peopleObj[id] };
-          const name = personBackup.name || 'this person';
-
-          delete peopleObj[id];
-          editingPersonId = null;
-          render();
-
-          let cancelled = false;
-          const deleteTimer = setTimeout(async () => {
-            if (cancelled) return;
-            await removeData(`people/${id}`);
-            await deletePersonRewardsData(id);
-          }, 5500);
-
-          showUndoToast(`Removed "${name}"`, () => {
-            cancelled = true;
-            clearTimeout(deleteTimer);
-            peopleObj[id] = personBackup;
-            render();
-          });
-        });
-      }
-
-      // Silent balance adjustment (no message sent to person)
-      for (const btn of main.querySelectorAll('.admin-adjust-balance')) {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const pid = btn.dataset.personId;
-          const person = peopleObj[pid];
-          const msgs = (await readMessages(pid)) || {};
-          const anchor = (await readBalanceAnchor(pid)) || null;
-          const snaps = (await readAllSnapshots()) || {};
-          const mults = (await readMultipliers()) || {};
-          const { balance } = calculateBalance(pid, snaps, msgs, anchor, mults, tz);
-
-          // Build prompt modal
-          const overlay = document.createElement('div');
-          overlay.className = 'confirm-modal';
-          overlay.setAttribute('role', 'dialog');
-          overlay.innerHTML = `<div class="confirm-modal__card">
-            <div class="confirm-modal__title">Adjust ${esc(person?.name || '?')}'s Points</div>
-            <div class="confirm-modal__message" style="margin-bottom: 12px;">Current balance: <strong>${balance.toLocaleString()} pts</strong></div>
-            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px;">
-              <button class="btn btn--xs admin-adj-minus" type="button" style="font-size: 1.25rem; padding: 4px 12px;">−</button>
-              <input type="number" class="form-input admin-adj-input" value="0" style="text-align: center; flex: 1; font-size: var(--font-md); font-weight: 600;">
-              <button class="btn btn--xs admin-adj-plus" type="button" style="font-size: 1.25rem; padding: 4px 12px;">+</button>
-            </div>
-            <div class="confirm-modal__message admin-adj-preview" style="font-size: var(--font-sm); margin-bottom: 12px;"></div>
-            <div class="confirm-modal__actions">
-              <button class="btn btn--secondary confirm-modal__cancel" type="button">Cancel</button>
-              <button class="btn btn--primary confirm-modal__ok" type="button">Apply</button>
-            </div>
-          </div>`;
-
-          const input = overlay.querySelector('.admin-adj-input');
-          const preview = overlay.querySelector('.admin-adj-preview');
-          const minusBtn = overlay.querySelector('.admin-adj-minus');
-          const plusBtn = overlay.querySelector('.admin-adj-plus');
-
-          function updatePreview() {
-            const val = parseInt(input.value) || 0;
-            const newBal = balance + val;
-            const sign = val > 0 ? '+' : val < 0 ? '' : '±';
-            preview.textContent = val === 0 ? '' : `New balance: ${newBal.toLocaleString()} pts (${sign}${val})`;
-            preview.style.color = val > 0 ? 'var(--accent-success, #38a169)' : val < 0 ? 'var(--accent-danger, #e53e3e)' : '';
-          }
-          input.addEventListener('input', updatePreview);
-          minusBtn.addEventListener('click', () => { input.value = (parseInt(input.value) || 0) - 10; updatePreview(); });
-          plusBtn.addEventListener('click', () => { input.value = (parseInt(input.value) || 0) + 10; updatePreview(); });
-
-          document.body.appendChild(overlay);
-          requestAnimationFrame(() => { overlay.classList.add('confirm-modal--active'); input.focus(); input.select(); });
-
-          const result = await new Promise((resolve) => {
-            overlay.querySelector('.confirm-modal__ok').addEventListener('click', () => resolve(parseInt(input.value) || 0));
-            overlay.querySelector('.confirm-modal__cancel').addEventListener('click', () => resolve(null));
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) resolve(null); });
-            overlay.addEventListener('keydown', (e) => {
-              if (e.key === 'Escape') resolve(null);
-              else if (e.key === 'Enter') resolve(parseInt(input.value) || 0);
-            });
-          });
-
-          overlay.classList.remove('confirm-modal--active');
-          setTimeout(() => overlay.remove(), 200);
-
-          if (result === null || result === 0) return;
-
-          // Silently adjust: freeze current balance + adjustment into anchor
-          const newBalance = balance + result;
-          await writeBalanceAnchor(pid, { amount: newBalance, anchoredAt: Date.now() });
-          await clearMessages(pid, Date.now());
-          showUndoToast(`${result > 0 ? '+' : ''}${result} pts → ${esc(person?.name || '?')}`, () => {});
-          render();
-        });
-      }
-
-      // Reset balance
-      for (const btn of main.querySelectorAll('.admin-reset-balance')) {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (!await showConfirm({ title: 'Reset rewards balance to 0?', danger: true })) return;
-          await writeBalanceAnchor(btn.dataset.personId, { amount: 0, anchoredAt: Date.now() });
-          render();
-        });
-      }
-
-      // Clear history (preserve balance)
-      for (const btn of main.querySelectorAll('.admin-clear-history')) {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (!await showConfirm({ title: 'Clear message history?', message: 'Balance will be preserved.', danger: true })) return;
-          const pid = btn.dataset.personId;
-          const msgs = (await readMessages(pid)) || {};
-          const anchor = (await readBalanceAnchor(pid)) || null;
-          const snaps = (await readAllSnapshots()) || {};
-          const mults = (await readMultipliers()) || {};
-          const { balance } = calculateBalance(pid, snaps, msgs, anchor, mults, tz);
-          await writeBalanceAnchor(pid, { amount: balance, anchoredAt: Date.now() });
-          await clearMessages(pid, Date.now());
-          render();
-        });
-      }
-
-      if (editingPersonId !== null) {
-        bindPersonForm();
-      }
-    }
-
-    function bindPersonForm() {
-      // Color selection
-      for (const swatch of main.querySelectorAll('#pf_colorGrid .color-swatch:not(.color-swatch--used)')) {
+      // Color swatch
+      for (const swatch of main.querySelectorAll('#pf_colorGrid .color-swatch')) {
         swatch.addEventListener('click', () => {
           main.querySelectorAll('#pf_colorGrid .color-swatch').forEach(s => s.classList.remove('selected'));
           swatch.classList.add('selected');
         });
       }
 
-      // Role toggle
-      for (const btn of main.querySelectorAll('.admin-role-btn')) {
-        btn.addEventListener('click', () => {
-          main.querySelectorAll('.admin-role-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
-          btn.classList.add('admin-mode-btn--active');
-          const section = main.querySelector('#kidSettingsSection');
-          if (section) section.style.display = btn.dataset.role === 'child' ? '' : 'none';
-        });
-      }
+      // Save person
+      main.querySelector('#personDetailSave')?.addEventListener('click', async () => {
+        const name = main.querySelector('#pf_name')?.value.trim();
+        if (!name) { showToast('Name is required'); return; }
+        const color = main.querySelector('#pf_colorGrid .color-swatch.selected')?.dataset.color || '#ccc';
+        const role = main.querySelector('.admin-role-btn.admin-mode-btn--active')?.dataset.role || 'adult';
+        const isAdmin = role === 'adult' ? (main.querySelector('#pf_isAdmin')?.checked || false) : false;
+        const kidSettings = role === 'child' ? {
+          celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
+          canSwipeDays: main.querySelector('#pf_canSwipeDays')?.checked || false,
+          showStore: main.querySelector('#pf_showStore')?.checked ?? true,
+          showAchievements: main.querySelector('#pf_showAchievements')?.checked ?? true,
+        } : undefined;
+        const prefs = role === 'child' ? {
+          showMeals: main.querySelector('#pf_showMeals')?.checked ?? true,
+          showWeather: main.querySelector('#pf_showWeather')?.checked ?? true,
+        } : undefined;
+        const themePreset = main.querySelector('#pf_theme')?.value || '';
+        const theme = themePreset ? { preset: themePreset } : undefined;
 
-      main.querySelector('#personFormCancel')?.addEventListener('click', () => {
+        const data = {
+          name, color, role, isAdmin,
+          ...(kidSettings && { kidSettings }),
+          ...(prefs && { prefs }),
+          ...(theme && { theme }),
+        };
+
+        if (editingPersonId && editingPersonId !== 'new') {
+          await firebase.database().ref(`rundown/people/${editingPersonId}`).update(data);
+        } else {
+          await firebase.database().ref('rundown/people').push(data);
+        }
+        peopleObj = await readPeople() || {};
         editingPersonId = null;
         render();
       });
 
-      main.querySelector('#personFormSave')?.addEventListener('click', async () => {
-        const name = main.querySelector('#pf_name')?.value.trim();
-        if (!name) { main.querySelector('#pf_name')?.focus(); return; }
-
-        const selectedSwatch = main.querySelector('#pf_colorGrid .color-swatch.selected');
-        const color = selectedSwatch?.dataset.color || '#5b7fd6';
-        const activeRole = main.querySelector('.admin-role-btn.admin-mode-btn--active');
-        const role = activeRole?.dataset.role || 'adult';
-
-        const personData = { name, color, role };
-
-        if (role === 'child') {
-          const existingPerson = editingPersonId !== 'new' ? (peopleObj[editingPersonId] || {}) : {};
-          personData.kidSettings = {
-            showWeekView: main.querySelector('#pf_showWeekView')?.checked || false,
-            showCalendar: main.querySelector('#pf_showCalendar')?.checked || false,
-            canDelegate: main.querySelector('#pf_canDelegate')?.checked || false,
-            canMoveTasks: main.querySelector('#pf_canMoveTasks')?.checked || false,
-            showSlider: main.querySelector('#pf_showSlider')?.checked || false,
-            showTaskEmoji: main.querySelector('#pf_showTaskEmoji')?.checked || false,
-            showGearIcon: main.querySelector('#pf_showGearIcon')?.checked || false,
-            canSwipeDays: main.querySelector('#pf_canSwipeDays')?.checked || false,
-            celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
-            celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full'
-          };
-          personData.prefs = {
-            ...(existingPerson.prefs || {}),
-            showMeals: main.querySelector('#pf_showMeals')?.checked ?? true,
-          };
-          const themePreset = main.querySelector('#pf_theme')?.value;
-          if (themePreset) {
-            personData.theme = { preset: themePreset, accentColor: settings?.theme?.accentColor || '#5b7fd6' };
-          } else {
-            personData.theme = null;
-          }
-        }
-
-        if (editingPersonId === 'new') {
-          const newId = await pushPerson(personData);
-          peopleObj[newId] = personData;
-        } else {
-          await writePerson(editingPersonId, personData);
-          peopleObj[editingPersonId] = personData;
-        }
-
+      // Delete person
+      main.querySelector('#deletePersonBtn')?.addEventListener('click', async () => {
+        const pid = main.querySelector('#deletePersonBtn')?.dataset.personId;
+        if (!pid) return;
+        const personName = peopleObj[pid]?.name || 'this person';
+        const confirmed = await showConfirm({
+          title: `Delete ${personName}?`,
+          message: 'This removes the person and all associated messages, bank tokens, wishlist, and achievements. This cannot be undone.',
+          confirmLabel: 'Delete',
+          danger: true,
+        });
+        if (!confirmed) return;
+        await firebase.database().ref(`rundown/people/${pid}`).remove();
+        await deletePersonRewardsData(pid);
+        peopleObj = await readPeople() || {};
         editingPersonId = null;
         render();
+      });
+
+      // Balance anchor save
+      main.querySelector('#pf_saveAnchor')?.addEventListener('click', async () => {
+        const pid = editingPersonId;
+        if (!pid || pid === 'new') return;
+        const amount = parseFloat(main.querySelector('#pf_balanceAnchor')?.value || '0');
+        await firebase.database().ref(`rundown/balanceAnchors/${pid}`).set({ amount, anchoredAt: firebase.database.ServerValue.TIMESTAMP });
+        showToast('Balance anchor saved');
       });
     }
 
