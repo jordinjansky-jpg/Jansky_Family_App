@@ -262,6 +262,11 @@
   font-weight: 700;
   margin-bottom: var(--spacing-md);
 }
+
+.admin-msg-person {
+  font-weight: 600;
+  padding: 4px 0;
+}
 /* admin-form__actions defined in components.css (shared across pages) */
 
 /* Task Form Modal Overlay */
@@ -485,9 +490,6 @@
 
 /* Admin event color picker */
 .admin-event-color-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
   padding: var(--spacing-sm) 0;
 }
 .admin-color-grid--sm {
@@ -508,22 +510,32 @@
   transform: scale(1.2);
 }
 
-/* Native color picker button */
-.color-pick-btn {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  border: 2px solid var(--border);
-  padding: 2px;
-  cursor: pointer;
-  background: none;
-  flex-shrink: 0;
+/* Color swatch palette */
+.color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: var(--spacing-xs) 0;
 }
-.color-pick-btn::-webkit-color-swatch-wrapper { padding: 0; }
-.color-pick-btn::-webkit-color-swatch { border-radius: var(--radius-sm); border: none; }
-.color-pick-btn::-moz-color-swatch { border-radius: var(--radius-sm); border: none; }
+
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  outline-offset: 2px;
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+
+.color-swatch--selected {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text);
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
 
 /* Admin person row */
 .admin-person-row {

@@ -676,6 +676,7 @@
 .text-center { text-align: center; }
 .text-muted { color: var(--text-faint); }
 .text-sm { font-size: var(--font-sm); }
+.mt-xs { margin-top: var(--spacing-xs); }
 .mt-sm { margin-top: var(--spacing-sm); }
 .mt-md { margin-top: var(--spacing-md); }
 .mt-lg { margin-top: var(--spacing-lg); }

@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v71 (2026-04-26) — Color swatch palette replaces native color picker, spacing
+//                    fix (mt-xs), admin message form matches bell pattern.
 // v70 (2026-04-26) — Polish pass 2: banner full-width, admin tabs fill space,
 //                    FAB rename, More sort alpha, remove back-online toast,
 //                    PIN placeholder fix, stat card wrap + dot, native color
@@ -152,7 +154,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v70';
+const CACHE_NAME = 'family-hub-v71';
 
 const APP_SHELL = [
   '/',

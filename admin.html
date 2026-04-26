@@ -86,6 +86,33 @@
     const MSG_NEGATIVE = ['Room Check','Reminder Needed',"Let's Do Better",'Responsibility Check',
       'Try Again Tomorrow','Needs Attention','Not Your Best','We Talked About This'];
 
+    const COLOR_PALETTE = [
+      '#ef5350','#e91e63','#ab47bc','#5c6bc0',
+      '#42a5f5','#26a69a','#66bb6a','#fdd835',
+      '#ffa726','#ff7043','#8d6e63','#78909c',
+    ];
+
+    function renderColorPalette(selected, inputId) {
+      const norm = (selected || '').toLowerCase();
+      const swatches = COLOR_PALETTE.map(c =>
+        `<button type="button" class="color-swatch${c.toLowerCase() === norm ? ' color-swatch--selected' : ''}" data-color="${c}" style="background:${c}" aria-label="${c}"></button>`
+      ).join('');
+      return `<div class="color-palette">${swatches}<input type="hidden" id="${inputId}" value="${selected || COLOR_PALETTE[0]}"></div>`;
+    }
+
+    function initColorPalette(container, onChange) {
+      if (!container) return;
+      container.querySelectorAll('.color-swatch').forEach(btn => {
+        btn.addEventListener('click', () => {
+          container.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('color-swatch--selected'));
+          btn.classList.add('color-swatch--selected');
+          const hidden = container.querySelector('input[type="hidden"]');
+          if (hidden) hidden.value = btn.dataset.color;
+          if (onChange) onChange(btn.dataset.color);
+        });
+      });
+    }
+
     // ── Undo toast helper ──
     let undoTimer = null;
     function showUndoToast(message, undoCallback) {
@@ -973,10 +1000,7 @@
       </div>
       <div class="admin-form__group">
         <label class="form-label">Color</label>
-        <div class="admin-form__row">
-          <input type="color" id="pf_colorPicker" value="${selColor}" class="color-pick-btn">
-          <span class="form-hint" style="margin:0">Tap to choose any color</span>
-        </div>
+        ${renderColorPalette(selColor, 'pf_colorPicker')}
       </div>
       <div class="admin-form__group">
         <label class="form-label">Role</label>
@@ -1153,9 +1177,9 @@
           </div>
         </div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Event category (no scoring, calendar highlight)</span><label class="form-toggle"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'}">
-          <span class="form-label" style="margin-bottom:0;">Event Color</span>
-          <input type="color" id="cf_eventColor" value="${cat.eventColor || '#5b7fd6'}" class="color-pick-btn">
+        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? '' : 'none'}">
+          <span class="form-label">Event Color</span>
+          ${renderColorPalette(cat.eventColor || '#5b7fd6', 'cf_eventColor')}
         </div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show icon on task cards</span><label class="form-toggle"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">PIN protected (requires PIN to complete)</span><label class="form-toggle"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
@@ -1218,10 +1242,7 @@
           </div>
           <div class="form-group mt-sm">
             <label class="form-label">Accent color</label>
-            <div class="admin-form__row">
-              <input type="color" id="sf_accentPicker" value="${settings?.theme?.accent || '#6c63ff'}" class="color-pick-btn">
-              <span class="form-hint" style="margin:0">Tap to choose any color</span>
-            </div>
+            ${renderColorPalette(settings?.theme?.accent || '#6c63ff', 'sf_accentPicker')}
           </div>
         </div>
 
@@ -3083,32 +3104,31 @@
 
       const renderTemplateOptions = (type) => {
         const list = type === 'bonus' ? MSG_POSITIVE : MSG_NEGATIVE;
-        return `<option value="">— Choose a message —</option>` +
-          list.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('') +
-          `<option value="custom">Custom…</option>`;
+        return list.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
       };
 
       mount.innerHTML = `<div class="task-form-backdrop" id="msgBackdrop">
         <div class="task-form-modal">
           <div class="form-compact" id="msgForm">
-            <h3 class="admin-form__title">${defaultType === 'bonus' ? 'Add Bonus' : 'Add Deduction'}</h3>
+            <h3 class="admin-form__title">Send Message</h3>
             <div class="form-group">
               <label class="form-label">For</label>
-              <div style="color:${person?.color || 'inherit'};font-weight:600;padding:4px 0">${esc(person?.name || 'Unknown')}</div>
+              <div class="admin-msg-person" style="color:${person?.color || 'inherit'}">${esc(person?.name || 'Unknown')}</div>
             </div>
             <div class="form-group">
               <label class="form-label">Type</label>
-              <div class="segmented-control" id="msg_typeToggle" style="margin-top:4px">
+              <div class="segmented-control" id="msg_typeToggle">
                 <button class="segmented-btn${defaultType === 'bonus' ? ' segmented-btn--active' : ''}" data-type="bonus" type="button">+ Bonus</button>
                 <button class="segmented-btn${defaultType === 'deduction' ? ' segmented-btn--active' : ''}" data-type="deduction" type="button">− Deduction</button>
               </div>
             </div>
             <div class="form-group">
               <label class="form-label">Title</label>
-              <select class="form-input" id="msg_templateSelect">
+              <input type="text" id="msg_customTitle" class="form-input" placeholder="Enter message title" autocomplete="off">
+              <select class="form-input mt-xs" id="msg_templateSelect">
+                <option value="">— Or pick a template —</option>
                 ${renderTemplateOptions(defaultType)}
               </select>
-              <input type="text" id="msg_customTitle" class="form-input mt-xs" placeholder="Custom title" style="display:none">
             </div>
             <div class="form-group">
               <label class="form-label">Personal note (optional)</label>
@@ -3116,11 +3136,11 @@
             </div>
             <div class="form-group">
               <label class="form-label">Points</label>
-              <input class="form-input" type="number" id="msg_points" value="${defaultType === 'bonus' ? '25' : '15'}" min="1" style="max-width:120px">
+              <input class="form-input input--narrow" type="number" id="msg_points" value="${defaultType === 'bonus' ? '25' : '15'}" min="0">
             </div>
-            <div class="admin-form__row mt-md">
-              <button class="btn btn--secondary" id="msg_cancel" type="button" style="flex:1">Cancel</button>
-              <button class="btn btn--primary" id="msg_send" type="button" style="flex:1">Send</button>
+            <div class="admin-form__actions mt-md">
+              <button class="btn btn--secondary" id="msg_cancel" type="button">Cancel</button>
+              <button class="btn btn--primary" id="msg_send" type="button">Send</button>
             </div>
           </div>
         </div>
@@ -3130,6 +3150,8 @@
       const backdrop = mount.querySelector('#msgBackdrop');
       backdrop?.addEventListener('click', e => { if (e.target === backdrop) mount.innerHTML = ''; });
 
+      requestAnimationFrame(() => mount.querySelector('#msg_customTitle')?.focus());
+
       const typeToggle = mount.querySelector('#msg_typeToggle');
       typeToggle?.addEventListener('click', e => {
         const btn = e.target.closest('[data-type]');
@@ -3138,30 +3160,29 @@
         typeToggle.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
         btn.classList.add('segmented-btn--active');
         const sel = mount.querySelector('#msg_templateSelect');
-        if (sel) sel.innerHTML = renderTemplateOptions(msgType);
+        if (sel) {
+          sel.innerHTML = `<option value="">— Or pick a template —</option>` + renderTemplateOptions(msgType);
+          sel.value = '';
+        }
         const pts = mount.querySelector('#msg_points');
         if (pts) pts.value = msgType === 'bonus' ? '25' : '15';
-        mount.querySelector('#msg_customTitle').style.display = 'none';
       });
 
       mount.querySelector('#msg_templateSelect')?.addEventListener('change', e => {
-        const customInput = mount.querySelector('#msg_customTitle');
-        customInput.style.display = e.target.value === 'custom' ? '' : 'none';
-        if (e.target.value === 'custom') customInput.focus();
+        if (e.target.value) {
+          const titleInput = mount.querySelector('#msg_customTitle');
+          if (titleInput) { titleInput.value = e.target.value; titleInput.focus(); }
+        }
       });
 
       mount.querySelector('#msg_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
 
       mount.querySelector('#msg_send')?.addEventListener('click', async () => {
-        const sel = mount.querySelector('#msg_templateSelect');
-        const title = sel?.value === 'custom'
-          ? (mount.querySelector('#msg_customTitle')?.value.trim() || '')
-          : (sel?.value || '');
-        if (!title) { sel?.focus(); return; }
+        const title = mount.querySelector('#msg_customTitle')?.value.trim() || '';
+        if (!title) { mount.querySelector('#msg_customTitle')?.focus(); return; }
         const pts = parseInt(mount.querySelector('#msg_points')?.value || '0', 10);
-        if (pts <= 0) return;
         const body = mount.querySelector('#msg_body')?.value.trim() || null;
-        const amount = msgType === 'deduction' ? -pts : pts;
+        const amount = msgType === 'deduction' ? -(pts || 0) : (pts || 0);
         await writeMessage(pid, {
           type: msgType, title, body, amount,
           rewardId: null, entryKey: null, seen: false,
@@ -3196,6 +3217,9 @@
         editingPersonId = null;
         render();
       });
+
+      // Color palette
+      initColorPalette(main.querySelector('#pf_colorPicker')?.closest('.color-palette'), null);
 
       // Role toggle — show/hide sections
       for (const btn of main.querySelectorAll('.admin-role-btn')) {
@@ -3366,12 +3390,15 @@
         render();
       });
 
+      // Color palette for event color
+      initColorPalette(main.querySelector('#cf_eventColor')?.closest('.color-palette'), null);
+
       // Event toggle shows/hides color picker
       const eventCheckbox = main.querySelector('#cf_isEvent');
       const eventColorRow = main.querySelector('#eventColorRow');
       const catLimitsRow = main.querySelector('#catLimitsRow');
       eventCheckbox?.addEventListener('change', () => {
-        if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? 'flex' : 'none';
+        if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? '' : 'none';
         if (catLimitsRow) catLimitsRow.style.display = eventCheckbox.checked ? 'none' : 'flex';
       });
 
@@ -3518,12 +3545,9 @@
         applyTheme(resolveTheme(settings.theme));
       });
 
-      const accentEl = main.querySelector('#sf_accentPicker');
-      accentEl?.addEventListener('input', (e) => {
-        applyTheme(resolveTheme({ ...(settings?.theme || {}), accent: e.target.value }));
-      });
-      accentEl?.addEventListener('change', async (e) => {
-        const theme = { ...(settings?.theme || {}), accent: e.target.value };
+      initColorPalette(main.querySelector('#sf_accentPicker')?.closest('.color-palette'), async (color) => {
+        const theme = { ...(settings?.theme || {}), accent: color };
+        applyTheme(resolveTheme(theme));
         const updated = { ...settings, theme };
         await writeSettings(updated);
         settings = updated;
