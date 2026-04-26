@@ -651,45 +651,31 @@
     // ══════════════════════════════════════════
 
     function renderMealsTab() {
-      const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
+      const mealEntries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
         if (a.isFavorite && !b.isFavorite) return -1;
         if (!a.isFavorite && b.isFavorite) return 1;
         return (b.lastUsed || 0) - (a.lastUsed || 0);
       });
 
-      let html = `<div class="admin-section-header">
-        <h2 class="admin-section-title">Meal Library</h2>
-        <button class="btn btn--primary btn--sm" id="addMeal" type="button">Add meal</button>
-      </div>`;
+      let html = `<div class="admin-list-add">
+    <button class="btn btn--primary btn--sm" id="addMealBtn" type="button">+ Add Meal</button>
+  </div>`;
 
-      if (entries.length === 0) {
-        html += `<div class="empty-state">
-          <div class="empty-state__icon">🍽️</div>
-          <div class="empty-state__title">No meals yet</div>
-          <div class="empty-state__body">Add your first meal to get started planning dinners.</div>
-        </div>`;
+      if (mealEntries.length === 0) {
+        html += `<div class="admin-empty">No meals in the library yet. Tap + Add Meal to create one.</div>`;
       } else {
-        html += `<div class="admin-list">`;
-        for (const [id, meal] of entries) {
-          const lastUsedStr = meal.lastUsed
-            ? new Date(meal.lastUsed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: settings?.timezone || 'America/Chicago' })
-            : 'Never used';
-          const ingrCount = (meal.ingredients || []).filter(Boolean).length;
-          const prepStr = meal.prepTime ? ` · ${esc(meal.prepTime)}` : '';
-          const ingrStr = ingrCount > 0 ? ` · ${ingrCount} ingredient${ingrCount !== 1 ? 's' : ''}` : '';
-          html += `<div class="admin-list-item admin-list-item--clickable" data-meal-id="${esc(id)}">
-            <div class="admin-list-item__row">
-              <span class="admin-list-item__name">${meal.isFavorite ? '<span aria-label="Favorite">★</span> ' : ''}${esc(meal.name)}</span>
-              <div class="admin-list-item__actions">
-                <button class="btn-icon delete-meal-btn" data-meal-id="${esc(id)}" type="button" aria-label="Delete ${esc(meal.name)}">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                </button>
-              </div>
-            </div>
-            <div class="admin-list-item__row">
-              <span class="admin-list-item__meta">${lastUsedStr}${prepStr}${ingrStr}</span>
-            </div>
-          </div>`;
+        html += `<div class="admin-list" id="mealList">`;
+        for (const [id, meal] of mealEntries) {
+          const icon = renderEmojiTile(meal.isFavorite ? '⭐' : '🍽');
+          const tags = (meal.tags || []).slice(0, 2).join(', ');
+          const extraTags = (meal.tags || []).length > 2 ? ` +${(meal.tags || []).length - 2}` : '';
+          const secondary = tags ? esc(tags + extraTags) : '';
+          html += renderAdminRow({
+            icon,
+            primary: esc(meal.name || 'Untitled'),
+            secondary,
+            dataAttrs: `data-meal-id="${esc(id)}"`,
+          });
         }
         html += `</div>`;
       }
@@ -697,15 +683,12 @@
     }
 
     function bindMealsTab() {
-      main.querySelector('#addMeal')?.addEventListener('click', () => openAdminMealEditor(null));
-      main.querySelectorAll('.admin-list-item--clickable').forEach(item => {
-        item.addEventListener('click', () => openAdminMealEditor(item.dataset.mealId));
-      });
-      main.querySelectorAll('.delete-meal-btn').forEach(btn => {
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          deleteAdminMeal(btn.dataset.mealId);
-        });
+      main.querySelector('#addMealBtn')?.addEventListener('click', () => openAdminMealEditor(null));
+
+      main.querySelector('#mealList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-meal-id]');
+        if (!row) return;
+        openAdminMealEditor(row.dataset.mealId);
       });
     }
 
