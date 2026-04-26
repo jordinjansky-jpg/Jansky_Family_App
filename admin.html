@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readMealLibrary, pushMealLibrary, writeMealLibrary, removeMealLibrary, readAllMeals, removeMeal
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet, renderSendMessageSheet, bindSendMessageSheet } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -950,6 +950,14 @@
       <label class="admin-toggle-row"><span class="admin-toggle-row__label">Celebrations enabled</span><input type="checkbox" id="pf_celebrationsEnabled" class="admin-toggle"${ks.celebrationsEnabled !== false ? ' checked' : ''}></label>
       <label class="admin-toggle-row"><span class="admin-toggle-row__label">Can swipe between days</span><input type="checkbox" id="pf_canSwipeDays" class="admin-toggle"${ks.canSwipeDays ? ' checked' : ''}></label>
       <div class="admin-form__group mt-sm">
+        <label class="form-label">Celebration style</label>
+        <select class="form-input" id="pf_celebrationStyle">
+          <option value="full"${(ks.celebrationStyle || 'full') === 'full' ? ' selected' : ''}>Full</option>
+          <option value="subtle"${ks.celebrationStyle === 'subtle' ? ' selected' : ''}>Subtle</option>
+          <option value="off"${ks.celebrationStyle === 'off' ? ' selected' : ''}>Off</option>
+        </select>
+      </div>
+      <div class="admin-form__group mt-sm">
         <label class="form-label">Personal theme</label>
         <select class="form-input" id="pf_theme">
           <option value=""${!person.theme?.preset ? ' selected' : ''}>Use family theme</option>
@@ -961,9 +969,17 @@
     ${isEdit ? `<div class="admin-detail-section">
       <div class="admin-detail-section__title">Rewards</div>
       <div class="admin-form__group">
+        <div class="admin-person-detail__balance-label">Store balance</div>
+        <div class="admin-person-detail__balance" id="personBalance_${person.id}">Loading…</div>
+      </div>
+      <div class="admin-form__group">
         <label class="form-label" for="pf_balanceAnchor">Balance anchor</label>
         <input class="form-input" type="number" id="pf_balanceAnchor" value="${(person.balanceAnchor ?? 0)}" step="1">
         <button class="btn btn--secondary btn--sm mt-xs" id="pf_saveAnchor" type="button">Save Anchor</button>
+      </div>
+      <div class="admin-form__actions">
+        <button class="btn btn--secondary btn--sm" id="pf_addBonus" data-person-id="${person.id}" type="button">+ Add Bonus</button>
+        <button class="btn btn--secondary btn--sm" id="pf_addDeduction" data-person-id="${person.id}" type="button">− Add Deduction</button>
       </div>
     </div>` : ''}
 
@@ -2964,6 +2980,7 @@
         const isAdmin = role === 'adult' ? (main.querySelector('#pf_isAdmin')?.checked || false) : false;
         const kidSettings = role === 'child' ? {
           celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
+          celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full',
           canSwipeDays: main.querySelector('#pf_canSwipeDays')?.checked || false,
           showStore: main.querySelector('#pf_showStore')?.checked ?? true,
           showAchievements: main.querySelector('#pf_showAchievements')?.checked ?? true,
@@ -3018,6 +3035,26 @@
         const amount = parseFloat(main.querySelector('#pf_balanceAnchor')?.value || '0');
         await firebase.database().ref(`rundown/balanceAnchors/${pid}`).set({ amount, anchoredAt: firebase.database.ServerValue.TIMESTAMP });
         showToast('Balance anchor saved');
+      });
+
+      // Bonus / deduction — open send-message sheet with person pre-selected
+      const openMsgSheet = (pid) => {
+        const mount = document.getElementById('taskSheetMount');
+        if (!mount) return;
+        const people = Object.values(peopleObj).map(p => ({ id: p.id, name: p.name, color: p.color }));
+        mount.innerHTML = renderSendMessageSheet(people, pid);
+        document.getElementById('bottomSheet')?.classList.add('active');
+        bindSendMessageSheet(mount, writeMessage);
+      };
+      main.querySelector('#pf_addBonus')?.addEventListener('click', () => {
+        const pid = editingPersonId;
+        if (!pid || pid === 'new') return;
+        openMsgSheet(pid);
+      });
+      main.querySelector('#pf_addDeduction')?.addEventListener('click', () => {
+        const pid = editingPersonId;
+        if (!pid || pid === 'new') return;
+        openMsgSheet(pid);
       });
     }
 
