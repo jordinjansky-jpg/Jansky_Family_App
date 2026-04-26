@@ -174,13 +174,18 @@
 .admin-filters--row {
   display: flex;
   gap: var(--spacing-xs);
-  align-items: center;
+  align-items: stretch;
   padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--border-subtle, var(--border));
   margin-bottom: 0;
 }
 .admin-filters--row .admin-select { width: auto; }
 .admin-filters--row input.admin-select { flex: 1; }
+.admin-filters--row .btn {
+  align-self: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .admin-select {
   padding: 6px 10px;
   border-radius: var(--radius-md);
