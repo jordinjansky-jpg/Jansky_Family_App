@@ -98,6 +98,8 @@
 .admin-pin-input {
   letter-spacing: 0.3em;
   font-family: monospace;
+  text-align: center;
+  max-width: 280px;
 }
 .admin-pin-input::placeholder {
   letter-spacing: normal;
@@ -514,18 +516,17 @@
 .color-palette {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   padding: var(--spacing-xs) 0;
 }
 
 .color-swatch {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   cursor: pointer;
   flex-shrink: 0;
-  outline-offset: 2px;
   transition: transform var(--t-fast), box-shadow var(--t-fast);
 }
 
