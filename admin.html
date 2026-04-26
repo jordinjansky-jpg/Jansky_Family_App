@@ -1803,11 +1803,9 @@
       html += `</div>`;
 
       // ── Achievement definitions list ──
-      html += `<div class="admin-section" style="margin-top: 16px;">
-        <div class="admin-section__header">
-          <h3>Achievement Definitions</h3>
-          <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
-        </div>`;
+      html += `<div class="admin-list-add">
+        <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
+      </div>`;
 
       const defsEntries = Object.entries(allDefs).sort((a, b) => {
         if (a[1].isDefault && !b[1].isDefault) return -1;
@@ -1815,29 +1813,24 @@
         return (a[1].label || '').localeCompare(b[1].label || '');
       });
 
-      html += `<div class="admin-list" style="margin-top: var(--spacing-sm);">`;
-      for (const [key, def] of defsEntries) {
-        const isHidden = def.status === 'hidden';
-        const typeIcon = def.conditionType === 'manual' ? '✋' : def.conditionType === 'hybrid' ? '⚡' : '🤖';
-        const rewardLabel = def.reward?.type === 'points' ? `+${def.reward.amount} pts` : def.reward?.type === 'reward' ? '🎁 Reward' : '';
-        const condLabel = def.condition?.stat ? ACHIEVEMENT_STATS.find(s => s.value === def.condition.stat)?.label || def.condition.stat : 'Manual';
-        const threshLabel = def.condition?.threshold != null ? ` ≥ ${def.condition.threshold}` : '';
-
-        html += `<div class="reward-card--inline admin-list-item--clickable${isHidden ? ' admin-list-item--paused' : ''}" data-ach-key="${esc(key)}">
-          <span class="reward-card__icon--sm">${def.icon}</span>
-          <span class="reward-card__name">${esc(def.label)}</span>
-          <span class="admin-badge">${typeIcon} ${def.conditionType || 'hybrid'}</span>
-          ${isHidden ? '<span class="admin-badge admin-badge--muted">Hidden</span>' : ''}
-          ${def.isDefault ? '<span class="admin-badge admin-badge--muted">Default</span>' : ''}
-          ${rewardLabel ? `<span class="reward-card__cost">${rewardLabel}</span>` : ''}
-          <div style="margin-left: auto; flex-shrink: 0;">
-            ${def.isDefault
-              ? `<button class="btn btn--ghost btn--sm ach-toggle" data-ach-key="${esc(key)}" type="button">${isHidden ? 'Show' : 'Hide'}</button>`
-              : `<button class="btn btn--ghost btn--sm ach-delete" data-ach-key="${esc(key)}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`}
-          </div>
-        </div>`;
+      if (defsEntries.length === 0) {
+        html += `<div class="admin-empty">No badges defined.</div>`;
+      } else {
+        html += `<div class="admin-list" id="badgeList">`;
+        for (const [key, def] of defsEntries) {
+          const icon = renderEmojiTile(def.icon || '🏆');
+          const unlockedCount = Object.values(allAchievements).filter(pa => pa[key]?.unlockedAt && !pa[key]?.revoked).length;
+          const totalPeople = peopleArray().length;
+          const secondary = `${unlockedCount} / ${totalPeople} unlocked`;
+          html += renderAdminRow({
+            icon,
+            primary: esc(def.label || key),
+            secondary: esc(secondary),
+            dataAttrs: `data-ach-key="${esc(key)}"`,
+          });
+        }
+        html += `</div>`;
       }
-      html += `</div></div>`;
 
       // Achievement form modal
       if (editingAchievementId) {
@@ -2070,14 +2063,12 @@
       });
 
       // Row click to open modal
-      for (const row of main.querySelectorAll('[data-ach-key].admin-list-item--clickable')) {
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('.ach-toggle, .ach-delete')) return;
-          const key = row.dataset.achKey;
-          editingAchievementId = key;
-          render();
-        });
-      }
+      main.querySelector('#badgeList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-ach-key]');
+        if (!row) return;
+        editingAchievementId = row.dataset.achKey;
+        render();
+      });
 
       // Hide/Show toggle for defaults
       for (const btn of main.querySelectorAll('.ach-toggle')) {
