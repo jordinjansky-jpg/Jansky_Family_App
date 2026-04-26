@@ -1055,3 +1055,36 @@
   border-top: 1px solid var(--border);
   margin: var(--spacing-lg) 0;
 }
+
+/* ── Settings tab layout ── */
+.admin-settings {
+  padding: var(--spacing-md);
+  padding-bottom: calc(var(--spacing-lg) + 80px);
+}
+
+.admin-settings-section {
+  padding: var(--spacing-md) 0;
+  border-top: 1px solid var(--border);
+}
+
+.admin-settings-section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.admin-settings-section__title {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Theme preset pill row */
+.admin-theme-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+}

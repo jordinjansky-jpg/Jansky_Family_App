@@ -1037,7 +1037,7 @@
       <div class="admin-detail-section__title">Rewards</div>
       <div class="admin-form__group">
         <div class="admin-person-detail__balance-label">Store balance</div>
-        <div class="admin-person-detail__balance" id="personBalance_${person.id}">Loading…</div>
+        <div class="admin-person-detail__balance" id="personBalance_${personId}">Loading…</div>
       </div>
       <div class="admin-form__group">
         <label class="form-label" for="pf_balanceAnchor">Balance anchor</label>
@@ -1045,8 +1045,8 @@
         <button class="btn btn--secondary btn--sm mt-xs" id="pf_saveAnchor" type="button">Save Anchor</button>
       </div>
       <div class="admin-form__actions">
-        <button class="btn btn--secondary btn--sm" id="pf_addBonus" data-person-id="${person.id}" type="button">+ Add Bonus</button>
-        <button class="btn btn--secondary btn--sm" id="pf_addDeduction" data-person-id="${person.id}" type="button">− Add Deduction</button>
+        <button class="btn btn--secondary btn--sm" id="pf_addBonus" data-person-id="${personId}" type="button">+ Add Bonus</button>
+        <button class="btn btn--secondary btn--sm" id="pf_addDeduction" data-person-id="${personId}" type="button">− Add Deduction</button>
       </div>
     </div>` : ''}
 
@@ -1062,7 +1062,7 @@
 
     ${isEdit ? `<div class="admin-detail-section admin-detail-section--danger">
       <div class="admin-detail-section__title">Danger Zone</div>
-      <button class="btn btn--danger btn--sm" id="deletePersonBtn" data-person-id="${person.id}" type="button">Delete ${esc(person.name || 'Person')}&#x2026;</button>
+      <button class="btn btn--danger btn--sm" id="deletePersonBtn" data-person-id="${personId}" type="button">Delete ${esc(person.name || 'Person')}&#x2026;</button>
       <p class="form-hint mt-xs">Removes this person and all associated messages, bank tokens, wishlist, and achievements.</p>
     </div>` : ''}
   </div>`;
@@ -1185,179 +1185,204 @@
 
     function renderSettingsTab() {
       const tzOptions = getTimezoneOptions();
-      let html = `<div class="admin-form" id="settingsForm">
-        <h3 class="admin-form__title">App Settings</h3>
-        <div class="form-group">
-          <label class="form-label">App Name</label>
-          <input type="text" id="sf_appName" value="${esc(settings?.appName || 'Daily Rundown')}">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Family Name</label>
-          <input type="text" id="sf_familyName" value="${esc(settings?.familyName || '')}" placeholder="The Jansky Family">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Timezone</label>
-          <select id="sf_timezone">
-            ${tzOptions.map(tz => `<option value="${tz.value}"${settings?.timezone === tz.value ? ' selected' : ''}>${tz.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Wknd Wt (Weekly)</label>
-            <input type="number" id="sf_weekendWeightWeekly" value="${settings?.weekendWeightWeekly ?? settings?.weekendWeight ?? 1.5}" min="0.1" max="5" step="0.1">
+      const lp = settings?.longPressMs ?? 800;
+      const klp = settings?.kidLongPressMs ?? 500;
+      return `<div class="admin-settings" id="settingsForm">
+
+        <div class="admin-settings-section">
+          <div class="admin-settings-section__title">App &amp; Family</div>
+          <div class="form-group">
+            <label class="form-label">App name</label>
+            <input class="form-input" type="text" id="sf_appName" value="${esc(settings?.appName || 'Daily Rundown')}">
           </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Wknd Wt (Monthly)</label>
-            <input type="number" id="sf_weekendWeightMonthly" value="${settings?.weekendWeightMonthly ?? settings?.weekendWeight ?? 3}" min="0.1" max="5" step="0.1">
+          <div class="form-group">
+            <label class="form-label">Family name</label>
+            <input class="form-input" type="text" id="sf_familyName" value="${esc(settings?.familyName || '')}" placeholder="The Jansky Family">
           </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Past-Due Credit %</label>
-          <input type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100">
-          <p class="form-hint">% credit for late tasks</p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Difficulty Multipliers</label>
-          <div class="form-row" style="flex-wrap:nowrap">
-            <div class="form-group" style="flex:1;min-width:0">
-              <label class="form-label">Easy</label>
-              <input type="number" id="sf_diffEasy" value="${settings?.difficultyMultipliers?.easy ?? 1}" min="1" max="10" step="1">
-            </div>
-            <div class="form-group" style="flex:1;min-width:0">
-              <label class="form-label">Medium</label>
-              <input type="number" id="sf_diffMedium" value="${settings?.difficultyMultipliers?.medium ?? 2}" min="1" max="10" step="1">
-            </div>
-            <div class="form-group" style="flex:1;min-width:0">
-              <label class="form-label">Hard</label>
-              <input type="number" id="sf_diffHard" value="${settings?.difficultyMultipliers?.hard ?? 3}" min="1" max="10" step="1">
-            </div>
-          </div>
-          <p class="form-hint">Point multiplier per difficulty. Default: 1 / 2 / 3.</p>
-          <button type="button" class="btn btn--ghost btn--sm" id="sf_diffReset">Reset to defaults</button>
-        </div>
-        <div class="form-group">
-          <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show AM/PM icons on "Both" tasks</span><label class="form-toggle"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-          <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span><label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Slider Min %</label>
-            <input type="number" id="sf_sliderMin" value="${settings?.sliderMin ?? 0}" min="0" max="100">
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Slider Max %</label>
-            <input type="number" id="sf_sliderMax" value="${settings?.sliderMax ?? 150}" min="100" max="300">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Long Press (ms)</label>
-            <input type="range" class="slider" id="sf_longPressMs" min="200" max="1000" step="50" value="${settings?.longPressMs ?? 800}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
-            <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.longPressMs ?? 800}ms</span>
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Kid Long Press (ms)</label>
-            <input type="range" class="slider" id="sf_kidLongPressMs" min="200" max="1000" step="50" value="${settings?.kidLongPressMs ?? 500}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
-            <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.kidLongPressMs ?? 500}ms</span>
-          </div>
-        </div>
-        <div class="admin-form__group mt-sm">
-          <label class="form-label" for="set_autoPruneMonths">Auto-prune old data</label>
-          <select class="form-input" id="set_autoPruneMonths">
-            <option value="0"${!(settings?.autoPruneMonths) ? ' selected' : ''}>Off</option>
-            <option value="3"${settings?.autoPruneMonths === 3 ? ' selected' : ''}>Older than 3 months</option>
-            <option value="6"${settings?.autoPruneMonths === 6 ? ' selected' : ''}>Older than 6 months</option>
-            <option value="12"${settings?.autoPruneMonths === 12 ? ' selected' : ''}>Older than 12 months</option>
-          </select>
-          <p class="form-hint">Schedule entries, completions, and snapshots older than this are removed silently on admin load. Tasks and settings are never pruned.</p>
-        </div>
-        <fieldset class="admin-form__fieldset">
-          <legend>Calendar Defaults</legend>
-          <div class="admin-form__group">
-            <label class="form-label" for="set_calView">Default View</label>
-            <select class="form-input" id="set_calView">
-              <option value="week"${(settings?.calendarDefaults?.defaultView || 'week') === 'week' ? ' selected' : ''}>Week</option>
-              <option value="month"${(settings?.calendarDefaults?.defaultView || 'week') === 'month' ? ' selected' : ''}>Month</option>
+          <div class="form-group">
+            <label class="form-label">Timezone</label>
+            <select class="form-input" id="sf_timezone">
+              ${tzOptions.map(tz => `<option value="${tz.value}"${settings?.timezone === tz.value ? ' selected' : ''}>${tz.label}</option>`).join('')}
             </select>
           </div>
-          <div class="admin-form__group">
-            <label class="form-label" for="set_calDensity">Display Density</label>
-            <select class="form-input" id="set_calDensity">
-              <option value="snug"${(settings?.calendarDefaults?.density || 'snug') === 'snug' ? ' selected' : ''}>Snug (more detail)</option>
-              <option value="cozy"${(settings?.calendarDefaults?.density || 'snug') === 'cozy' ? ' selected' : ''}>Cozy (larger, wall-friendly)</option>
-            </select>
-          </div>
-          <div class="admin-form__group">
-            <label class="form-label" for="set_weekStart">Week Starts On</label>
-            <select class="form-input" id="set_weekStart">
-              <option value="0"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '0' ? ' selected' : ''}>Sunday</option>
-              <option value="1"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '1' ? ' selected' : ''}>Monday</option>
-            </select>
-          </div>
-          <div class="admin-form__group">
-            <label class="form-label" for="set_showDaily">Daily Tasks in Week View</label>
-            <select class="form-input" id="set_showDaily">
-              <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
-              <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
-            </select>
-          </div>
-        </fieldset>
-        <fieldset class="admin-form__fieldset">
-          <legend>Weather</legend>
-          <div class="admin-form__group">
-            <label class="form-label" for="sf_weatherLocation">Location</label>
-            <div class="form-hint">Zip code or "City, State". Example: Lakeville, MN</div>
-            <div class="admin-form__row">
-              <input class="form-input" id="sf_weatherLocation" type="text"
-                     placeholder="Lakeville, MN" value="${esc(settings?.weatherLocation || '')}">
-              <button class="btn btn--secondary btn--sm" id="sf_weatherTest" type="button">Test</button>
-            </div>
-            <div id="sf_weatherTestResult" class="form-hint" hidden></div>
-          </div>
-          <div class="admin-form__group">
-            <label class="form-label" for="sf_weatherApiKey">OpenWeatherMap API key</label>
-            <div class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</div>
-            <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password"
-                   autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
-          </div>
-        </fieldset>
-        <fieldset class="admin-form__fieldset">
-          <legend>Display</legend>
-          <div class="admin-form__group admin-form__group--row">
-            <div>
-              <label class="form-label" for="set_ambientStrip">Ambient strip</label>
-              <div class="form-hint">Show weather and tonight's dinner on the dashboard.</div>
-            </div>
+        </div>
+
+        <div class="admin-settings-section">
+          <div class="admin-settings-section__title">Display</div>
+          <div class="admin-toggle-row">
+            <span class="admin-toggle-row__label">
+              Ambient strip
+              <span class="admin-toggle-row__hint">Shows weather and dinner on the dashboard.</span>
+            </span>
             <label class="form-toggle">
               <input type="checkbox" id="set_ambientStrip"${(settings?.ambientStrip ?? true) ? ' checked' : ''}>
               <span class="form-toggle__track"></span>
             </label>
           </div>
-          <div class="admin-form__group mt-sm">
-            <label class="form-label">App theme preset</label>
+          <div class="form-group mt-sm">
+            <label class="form-label">Theme preset</label>
             <div class="admin-theme-presets" id="sf_themePresets">
               ${getPresets().map(p => `<button class="btn btn--secondary btn--sm admin-theme-preset${settings?.theme?.preset === p.key ? ' admin-mode-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
             </div>
-            <p class="form-hint">Sets the default theme for all family members.</p>
+            <p class="form-hint">Family-wide default. Each person can override on their home screen.</p>
           </div>
-          <div class="admin-form__group mt-sm">
+          <div class="form-group mt-sm">
             <label class="form-label">Accent color</label>
             <div class="color-grid" id="sf_accentGrid">
               ${getAccentColors().map(c => `<div class="color-swatch${settings?.theme?.accent === c ? ' selected' : ''}" data-color="${c}" style="background:${c}"></div>`).join('')}
             </div>
           </div>
-        </fieldset>
-        <h3 class="admin-form__title mt-md">Change Admin PIN</h3>
-        <div class="form-group">
-          <label class="form-label">New 4-digit PIN</label>
-          <input type="tel" id="sf_newPin" maxlength="4" inputmode="numeric" placeholder="••••" style="width:120px;text-align:center;font-size:var(--font-lg);letter-spacing:0.5em;">
         </div>
-        <div class="admin-form__actions mt-md">
+
+        <div class="admin-settings-section">
+          <div class="admin-settings-section__title">Weather</div>
+          <div class="form-group">
+            <label class="form-label">Location</label>
+            <p class="form-hint">Zip code or "City, State" — e.g. Lakeville, MN</p>
+            <div class="admin-form__row">
+              <input class="form-input" id="sf_weatherLocation" type="text" placeholder="Lakeville, MN" value="${esc(settings?.weatherLocation || '')}">
+              <button class="btn btn--secondary btn--sm" id="sf_weatherTest" type="button">Test</button>
+            </div>
+            <div id="sf_weatherTestResult" class="form-hint" hidden></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">OpenWeatherMap API key</label>
+            <p class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</p>
+            <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password" autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
+          </div>
+        </div>
+
+        <div class="admin-settings-section">
+          <div class="admin-settings-section__title">Behavior</div>
+          <div class="form-group">
+            <label class="form-label">Long-press sensitivity — dashboard</label>
+            <input type="range" class="slider" id="sf_longPressMs" min="200" max="1000" step="50" value="${lp}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
+            <span class="form-hint" style="font-variant-numeric:tabular-nums">${lp}ms</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Long-press sensitivity — calendar &amp; kid mode</label>
+            <input type="range" class="slider" id="sf_kidLongPressMs" min="200" max="1000" step="50" value="${klp}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
+            <span class="form-hint" style="font-variant-numeric:tabular-nums">${klp}ms</span>
+          </div>
+          <div class="admin-toggle-row mt-sm">
+            <span class="admin-toggle-row__label">Show AM/PM icons on "Both" tasks</span>
+            <label class="form-toggle"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+          </div>
+          <div class="admin-toggle-row">
+            <span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span>
+            <label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+          </div>
+          <div class="form-group mt-sm">
+            <label class="form-label">Auto-prune old data</label>
+            <select class="form-input" id="set_autoPruneMonths">
+              <option value="0"${!(settings?.autoPruneMonths) ? ' selected' : ''}>Off</option>
+              <option value="3"${settings?.autoPruneMonths === 3 ? ' selected' : ''}>Older than 3 months</option>
+              <option value="6"${settings?.autoPruneMonths === 6 ? ' selected' : ''}>Older than 6 months</option>
+              <option value="12"${settings?.autoPruneMonths === 12 ? ' selected' : ''}>Older than 12 months</option>
+            </select>
+            <p class="form-hint">Silently removes old schedule entries, completions, and snapshots on load.</p>
+          </div>
+        </div>
+
+        <div class="admin-settings-section">
+          <div class="admin-settings-section__title">Scoring</div>
+          <div class="form-group">
+            <label class="form-label">Difficulty multipliers</label>
+            <div class="form-row" style="flex-wrap:nowrap;gap:var(--spacing-sm)">
+              <div class="form-group" style="flex:1;min-width:0">
+                <label class="form-label">Easy</label>
+                <input class="form-input" type="number" id="sf_diffEasy" value="${settings?.difficultyMultipliers?.easy ?? 1}" min="1" max="10" step="1">
+              </div>
+              <div class="form-group" style="flex:1;min-width:0">
+                <label class="form-label">Medium</label>
+                <input class="form-input" type="number" id="sf_diffMedium" value="${settings?.difficultyMultipliers?.medium ?? 2}" min="1" max="10" step="1">
+              </div>
+              <div class="form-group" style="flex:1;min-width:0">
+                <label class="form-label">Hard</label>
+                <input class="form-input" type="number" id="sf_diffHard" value="${settings?.difficultyMultipliers?.hard ?? 3}" min="1" max="10" step="1">
+              </div>
+            </div>
+            <p class="form-hint">Point multiplier per difficulty. Default: 1 / 2 / 3.</p>
+            <button type="button" class="btn btn--ghost btn--sm" id="sf_diffReset">Reset to defaults</button>
+          </div>
+          <div class="form-row mt-sm">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Weekend weight (weekly)</label>
+              <input class="form-input" type="number" id="sf_weekendWeightWeekly" value="${settings?.weekendWeightWeekly ?? settings?.weekendWeight ?? 1.5}" min="0.1" max="5" step="0.1">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Weekend weight (monthly)</label>
+              <input class="form-input" type="number" id="sf_weekendWeightMonthly" value="${settings?.weekendWeightMonthly ?? settings?.weekendWeight ?? 3}" min="0.1" max="5" step="0.1">
+            </div>
+          </div>
+          <div class="form-group mt-sm">
+            <label class="form-label">Past-due credit %</label>
+            <input class="form-input" type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100" style="max-width:100px">
+            <p class="form-hint">Points awarded for completing a past-due task.</p>
+          </div>
+          <div class="form-row mt-sm">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Points slider min %</label>
+              <input class="form-input" type="number" id="sf_sliderMin" value="${settings?.sliderMin ?? 0}" min="0" max="100">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Points slider max %</label>
+              <input class="form-input" type="number" id="sf_sliderMax" value="${settings?.sliderMax ?? 150}" min="100" max="300">
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-settings-section">
+          <div class="admin-settings-section__title">Calendar</div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Default view</label>
+              <select class="form-input" id="set_calView">
+                <option value="week"${(settings?.calendarDefaults?.defaultView || 'week') === 'week' ? ' selected' : ''}>Week</option>
+                <option value="month"${(settings?.calendarDefaults?.defaultView || 'week') === 'month' ? ' selected' : ''}>Month</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Week starts on</label>
+              <select class="form-input" id="set_weekStart">
+                <option value="0"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '0' ? ' selected' : ''}>Sunday</option>
+                <option value="1"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '1' ? ' selected' : ''}>Monday</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row mt-sm">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Display density</label>
+              <select class="form-input" id="set_calDensity">
+                <option value="snug"${(settings?.calendarDefaults?.density || 'snug') === 'snug' ? ' selected' : ''}>Snug</option>
+                <option value="cozy"${(settings?.calendarDefaults?.density || 'snug') === 'cozy' ? ' selected' : ''}>Cozy</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Daily tasks in week view</label>
+              <select class="form-input" id="set_showDaily">
+                <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
+                <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-settings-section">
+          <div class="admin-settings-section__title">Security</div>
+          <div class="form-group">
+            <label class="form-label">New 4-digit PIN</label>
+            <input class="form-input" type="tel" id="sf_newPin" maxlength="4" inputmode="numeric" placeholder="Leave blank to keep current" style="max-width:200px;letter-spacing:0.3em;text-align:center;">
+            <p class="form-hint">Recovery PIN is always 2522.</p>
+          </div>
+        </div>
+
+        <div class="admin-settings-section">
           <button class="btn btn--primary" id="settingsSave" type="button">Save Settings</button>
+          <div id="settingsMsg" class="admin-msg mt-sm"></div>
         </div>
-        <div id="settingsMsg" class="admin-msg mt-sm"></div>
+
       </div>`;
-      return html;
     }
 
     // ══════════════════════════════════════════
