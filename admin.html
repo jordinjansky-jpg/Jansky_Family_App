@@ -155,7 +155,18 @@
     // Check if PIN session is still valid
     const pinTs = parseInt(sessionStorage.getItem(PIN_SESSION_KEY) || '0', 10);
     const pinSessionValid = Date.now() - pinTs < PIN_SESSION_TTL;
-    if (pinSessionValid) {
+
+    // isAdmin bypass: if person.html set dr-person-home and that person has isAdmin===true, skip PIN
+    const personHomeName = sessionStorage.getItem('dr-person-home');
+    const personHomeEntry = personHomeName
+      ? Object.values(peopleObj).find(p => p.name === personHomeName)
+      : null;
+    const isAdminBypass = !!personHomeEntry?.isAdmin;
+
+    if (pinSessionValid || isAdminBypass) {
+      if (isAdminBypass && !pinSessionValid) {
+        sessionStorage.setItem(PIN_SESSION_KEY, String(Date.now()));
+      }
       // Skip PIN gate — render() called after main is defined below
       document.getElementById('mainContent').style.display = '';
     } else {
@@ -3938,8 +3949,8 @@
       bindDataTab();
     }
 
-    // ── Initial render if PIN session was cached ──
-    if (pinSessionValid) {
+    // ── Initial render if PIN session was cached or bypass applies ──
+    if (pinSessionValid || isAdminBypass) {
       render();
     }
   </script>
