@@ -1862,6 +1862,9 @@ export function renderWeatherSheet(days, today, tomorrow) {
   const rowsHtml = days.map(day => {
     if (!day) return '';
     const glyph = WEATHER_GLYPHS[day.glyph] || WEATHER_GLYPHS.cloud;
+    const morningGlyph = WEATHER_GLYPHS[day.morningGlyph || day.glyph] || WEATHER_GLYPHS.cloud;
+    const afternoonGlyph = WEATHER_GLYPHS[day.afternoonGlyph || day.glyph] || WEATHER_GLYPHS.cloud;
+    const popHtml = (day.pop != null && day.pop > 0) ? `<span class="weather-row__pop">${day.pop}% precip</span>` : '';
     return `<div class="weather-row">
       <div class="weather-row__day">
         <strong>${esc(dayLabel(day.dateKey))}</strong>
@@ -1872,6 +1875,17 @@ export function renderWeatherSheet(days, today, tomorrow) {
         <strong>${esc(day.tempLabel)}</strong>
         <span>H:${esc(day.high)}&nbsp; L:${esc(day.low)}</span>
         <span>${esc(day.conditionLabel)}</span>
+        ${popHtml}
+      </div>
+      <div class="weather-row__periods" aria-label="Morning and afternoon forecast">
+        <div class="weather-period">
+          <span class="weather-period__glyph" aria-hidden="true">${morningGlyph}</span>
+          <span class="weather-period__label">AM</span>
+        </div>
+        <div class="weather-period">
+          <span class="weather-period__glyph" aria-hidden="true">${afternoonGlyph}</span>
+          <span class="weather-period__label">PM</span>
+        </div>
       </div>
     </div>`;
   }).join('');

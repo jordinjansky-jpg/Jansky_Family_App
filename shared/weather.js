@@ -34,8 +34,8 @@ function _writeCache(dateKey, data) {
 
 function _toResult(entry) {
   if (!entry) return null;
-  const { tempLabel, conditionLabel, glyph, high, low } = entry;
-  return { tempLabel, conditionLabel, glyph, high, low };
+  const { tempLabel, conditionLabel, glyph, high, low, morningGlyph, afternoonGlyph, pop } = entry;
+  return { tempLabel, conditionLabel, glyph, high, low, morningGlyph, afternoonGlyph, pop };
 }
 
 function _isFresh(entry, isToday) {
@@ -68,6 +68,25 @@ function _parseForecast(json, timezone) {
     for (const i of items) freq[i.weather[0].id] = (freq[i.weather[0].id] || 0) + 1;
     const dominantCode = parseInt(Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0]);
     const high = Math.round(Math.max(...temps));
+
+    const morningSlots = items.filter(i => { const h = new Date(i.dt * 1000).getUTCHours(); return h >= 6 && h < 12; });
+    const afternoonSlots = items.filter(i => { const h = new Date(i.dt * 1000).getUTCHours(); return h >= 12 && h < 18; });
+    const morningCode = morningSlots.length
+      ? morningSlots.reduce((best, i) => {
+          const bh = Math.abs(new Date(best.dt * 1000).getUTCHours() - 9);
+          const ih = Math.abs(new Date(i.dt * 1000).getUTCHours() - 9);
+          return ih < bh ? i : best;
+        }).weather[0].id
+      : dominantCode;
+    const afternoonCode = afternoonSlots.length
+      ? afternoonSlots.reduce((best, i) => {
+          const bh = Math.abs(new Date(best.dt * 1000).getUTCHours() - 15);
+          const ih = Math.abs(new Date(i.dt * 1000).getUTCHours() - 15);
+          return ih < bh ? i : best;
+        }).weather[0].id
+      : dominantCode;
+    const pop = Math.round(Math.max(...items.map(i => i.pop || 0)) * 100);
+
     return {
       dateKey: dk,
       tempLabel: high + '°',
@@ -76,6 +95,9 @@ function _parseForecast(json, timezone) {
       glyph: _codeToGlyph(dominantCode),
       high: high + '°',
       low: Math.round(Math.min(...temps)) + '°',
+      morningGlyph: _codeToGlyph(morningCode),
+      afternoonGlyph: _codeToGlyph(afternoonCode),
+      pop,
     };
   });
 }

@@ -2661,6 +2661,40 @@
   color: var(--text-muted);
 }
 
+.weather-row__pop {
+  font-size: var(--font-xs);
+  color: var(--info, #42a5f5);
+}
+
+.weather-row__periods {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.weather-period {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.weather-period__glyph {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.weather-period__glyph svg { width: 18px; height: 18px; }
+
+.weather-period__label {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-weight: 600;
+  min-width: 20px;
+}
+
 .admin-form__row {
   display: flex;
   gap: var(--spacing-sm);
