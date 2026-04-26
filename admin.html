@@ -1179,6 +1179,16 @@
             <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.kidLongPressMs ?? 500}ms</span>
           </div>
         </div>
+        <div class="admin-form__group mt-sm">
+          <label class="form-label" for="set_autoPruneMonths">Auto-prune old data</label>
+          <select class="form-input" id="set_autoPruneMonths">
+            <option value="0"${!(settings?.autoPruneMonths) ? ' selected' : ''}>Off</option>
+            <option value="3"${settings?.autoPruneMonths === 3 ? ' selected' : ''}>Older than 3 months</option>
+            <option value="6"${settings?.autoPruneMonths === 6 ? ' selected' : ''}>Older than 6 months</option>
+            <option value="12"${settings?.autoPruneMonths === 12 ? ' selected' : ''}>Older than 12 months</option>
+          </select>
+          <p class="form-hint">Schedule entries, completions, and snapshots older than this are removed silently on admin load. Tasks and settings are never pruned.</p>
+        </div>
         <fieldset class="admin-form__fieldset">
           <legend>Calendar Defaults</legend>
           <div class="admin-form__group">
@@ -1240,6 +1250,19 @@
               <input type="checkbox" id="set_ambientStrip"${(settings?.ambientStrip ?? true) ? ' checked' : ''}>
               <span class="toggle__track"></span>
             </label>
+          </div>
+          <div class="admin-form__group mt-sm">
+            <label class="form-label">App theme preset</label>
+            <div class="admin-theme-presets" id="sf_themePresets">
+              ${getPresets().map(p => `<button class="btn btn--secondary btn--sm admin-theme-preset${settings?.theme?.preset === p.key ? ' admin-mode-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
+            </div>
+            <p class="form-hint">Sets the default theme for all family members.</p>
+          </div>
+          <div class="admin-form__group mt-sm">
+            <label class="form-label">Accent color</label>
+            <div class="color-grid" id="sf_accentGrid">
+              ${getAccentColors().map(c => `<div class="color-swatch${settings?.theme?.accent === c ? ' selected' : ''}" data-color="${c}" style="background:${c}"></div>`).join('')}
+            </div>
           </div>
         </fieldset>
         <h3 class="admin-form__title mt-md">Change Admin PIN</h3>
@@ -3233,6 +3256,7 @@
             showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false'
           },
           ambientStrip: main.querySelector('#set_ambientStrip')?.checked ?? false,
+          autoPruneMonths: parseInt(main.querySelector('#set_autoPruneMonths')?.value || '0', 10),
           weatherLocation: main.querySelector('#sf_weatherLocation')?.value.trim() || '',
           weatherApiKey:   main.querySelector('#sf_weatherApiKey')?.value.trim() || '',
         };
@@ -3271,6 +3295,29 @@
         if (mediumInput) mediumInput.value = 2;
         if (hardInput) hardInput.value = 3;
       });
+
+      for (const btn of main.querySelectorAll('.admin-theme-preset')) {
+        btn.addEventListener('click', async () => {
+          main.querySelectorAll('.admin-theme-preset').forEach(b => b.classList.remove('admin-mode-btn--active'));
+          btn.classList.add('admin-mode-btn--active');
+          const preset = btn.dataset.preset;
+          const theme = { ...(settings?.theme || {}), preset };
+          await writeSettings({ theme });
+          settings = await readSettings();
+          applyTheme(resolveTheme(settings?.theme));
+        });
+      }
+
+      for (const swatch of main.querySelectorAll('#sf_accentGrid .color-swatch')) {
+        swatch.addEventListener('click', async () => {
+          main.querySelectorAll('#sf_accentGrid .color-swatch').forEach(s => s.classList.remove('selected'));
+          swatch.classList.add('selected');
+          const theme = { ...(settings?.theme || {}), accent: swatch.dataset.color };
+          await writeSettings({ theme });
+          settings = await readSettings();
+          applyTheme(resolveTheme(settings?.theme));
+        });
+      }
 
       main.querySelector('#sf_weatherTest')?.addEventListener('click', async () => {
         const loc = main.querySelector('#sf_weatherLocation')?.value.trim();
