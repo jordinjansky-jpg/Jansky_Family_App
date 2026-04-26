@@ -156,7 +156,8 @@
     const pinTs = parseInt(sessionStorage.getItem(PIN_SESSION_KEY) || '0', 10);
     const pinSessionValid = Date.now() - pinTs < PIN_SESSION_TTL;
 
-    // isAdmin bypass: if person.html set dr-person-home and that person has isAdmin===true, skip PIN
+    // isAdmin bypass: person.html writes dr-person-home (name string). The spec mentioned
+    // dr-active-person (ID) but that key is never written — name lookup is what's available.
     const personHomeName = sessionStorage.getItem('dr-person-home');
     const personHomeEntry = personHomeName
       ? Object.values(peopleObj).find(p => p.name === personHomeName)
