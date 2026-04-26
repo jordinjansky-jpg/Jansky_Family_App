@@ -540,57 +540,42 @@
     let editingEventId = null;
 
     function renderEventsTab() {
-      const eventsList = Object.entries(eventsObj).sort(([, a], [, b]) => (a.date || '').localeCompare(b.date || ''));
-      const upcoming = eventsList.filter(([, e]) => e.date >= today);
-      const past = eventsList.filter(([, e]) => e.date < today);
-
-      let html = `<div class="admin-section-header">
-        <span>${eventsList.length} event${eventsList.length !== 1 ? 's' : ''}</span>
-        <button class="btn btn--primary btn--sm" id="addEventBtn" type="button">+ Add Event</button>
-      </div>`;
+      let html = '';
 
       if (editingEventId !== null) {
         html += renderEventFormAdmin(editingEventId === 'new' ? null : editingEventId);
       }
 
-      if (upcoming.length > 0) {
-        html += `<h4 class="form-label mt-md mb-sm">Upcoming</h4>`;
-        html += `<div class="admin-list">`;
-        for (const [id, event] of upcoming) {
-          html += renderEventListItem(id, event);
+      html += `<div class="admin-list-add">
+  <button class="btn btn--primary btn--sm" id="addEventBtn" type="button">+ Add Event</button>
+</div>`;
+
+      const evEntries = Object.entries(eventsObj || {})
+        .sort((a, b) => (a[1].date || '').localeCompare(b[1].date || ''));
+
+      if (evEntries.length === 0) {
+        html += `<div class="admin-empty">No events yet. Tap + Add Event to create one.</div>`;
+      } else {
+        html += `<div class="admin-list" id="eventList">`;
+        for (const [id, ev] of evEntries) {
+          const color = ev.color || 'var(--accent)';
+          const icon = renderColorSwatch(color);
+          const dateStr = ev.date
+            ? new Date(ev.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            : '';
+          const timeStr = ev.allDay ? 'All day' : [ev.startTime, ev.endTime].filter(Boolean).join(' – ');
+          const secondary = [dateStr, timeStr].filter(Boolean).join(' · ');
+          html += renderAdminRow({
+            icon,
+            primary: esc(ev.name || 'Untitled'),
+            secondary: esc(secondary),
+            dataAttrs: `data-event-id="${id}"`,
+          });
         }
         html += `</div>`;
       }
 
-      if (past.length > 0) {
-        html += `<details class="mt-md"><summary class="form-label" style="cursor:pointer">Past Events (${past.length})</summary>`;
-        html += `<div class="admin-list mt-sm">`;
-        for (const [id, event] of past.reverse()) {
-          html += renderEventListItem(id, event);
-        }
-        html += `</div></details>`;
-      }
-
-      if (eventsList.length === 0 && editingEventId === null) {
-        html += `<p class="text-muted mt-md">No events yet. Tap "+ Add Event" to create one.</p>`;
-      }
-
       return html;
-    }
-
-    function renderEventListItem(id, event) {
-      const peopleName = (event.people || []).map(pid => peopleObj[pid]?.name || '?').join(', ');
-      const timeStr = event.allDay ? 'All day' : [event.startTime, event.endTime].filter(Boolean).join(' – ') || '';
-      const color = event.color || '#4285f4';
-      return `<div class="admin-list-item admin-list-item--clickable admin-event-row" data-event-id="${id}">
-        <div class="admin-list-item__main" style="border-left:3px solid ${color};padding-left:var(--spacing-sm)">
-          <span class="admin-list-item__name">${esc(event.name)}</span>
-          <span class="admin-list-item__meta">${esc(event.date)} ${timeStr ? '· ' + esc(timeStr) : ''} ${peopleName ? '· ' + esc(peopleName) : ''}</span>
-        </div>
-        <div class="admin-list-item__actions">
-          <button class="btn btn--ghost btn--sm admin-event-delete" data-event-id="${id}" type="button">Del</button>
-        </div>
-      </div>`;
     }
 
     function renderEventFormAdmin(eventId) {
@@ -2997,34 +2982,11 @@
         render();
       });
 
-      main.querySelectorAll('.admin-event-row').forEach(row => {
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-event-delete')) return;
-          editingEventId = row.dataset.eventId;
-          render();
-        });
-      });
-
-      main.querySelectorAll('.admin-event-delete').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.eventId;
-          const name = eventsObj[id]?.name || 'this event';
-          if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
-          await removeEvent(id);
-          delete eventsObj[id];
-          // Clean up schedule entries
-          const allSched = await readAllSchedule() || {};
-          const updates = {};
-          for (const [dk, dayEntries] of Object.entries(allSched)) {
-            for (const [ek, entry] of Object.entries(dayEntries || {})) {
-              if (entry.type === 'event' && entry.eventId === id) {
-                updates[`schedule/${dk}/${ek}`] = null;
-              }
-            }
-          }
-          if (Object.keys(updates).length > 0) await multiUpdate(updates);
-          render();
-        });
+      main.querySelector('#eventList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-event-id]');
+        if (!row) return;
+        editingEventId = row.dataset.eventId;
+        render();
       });
 
       main.querySelector('#eventFormCancel')?.addEventListener('click', () => {
