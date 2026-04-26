@@ -1515,8 +1515,20 @@ const NEGATIVE_TEMPLATES = [
 
 /**
  * Render the send message bottom sheet.
+ * @param {Array} people - people array
+ * @param {string|null} preselectedPersonId
+ * @param {object} rewards - rewards object (optional, for reward send)
  */
-export function renderSendMessageSheet(people, preselectedPersonId = null) {
+export function renderSendMessageSheet(people, preselectedPersonId = null, rewards = {}) {
+  const positiveOpts = POSITIVE_TEMPLATES.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  const negativeOpts = NEGATIVE_TEMPLATES.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  const activeRewards = Object.entries(rewards)
+    .filter(([, r]) => r.status !== 'archived')
+    .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
+  const rewardOpts = activeRewards.map(([id, r]) =>
+    `<option value="${esc(id)}">${esc(r.icon || '🎁')} ${esc(r.name)} (${r.pointCost ?? 0} pts)</option>`
+  ).join('');
+
   return renderBottomSheet(`
     <h3 class="sheet-section-title">Send Message</h3>
 
@@ -1530,22 +1542,29 @@ export function renderSendMessageSheet(people, preselectedPersonId = null) {
 
     <label class="form-label sheet-label--spaced">Type</label>
     <div class="segmented-control msg-type-toggle">
-      <button class="segmented-btn msg-type-btn msg-type-btn--active msg-type-btn--positive" data-type="bonus" type="button">+ Bonus</button>
+      <button class="segmented-btn msg-type-btn msg-type-btn--active" data-type="bonus" type="button">+ Bonus</button>
       <button class="segmented-btn msg-type-btn" data-type="deduction" type="button">− Deduction</button>
     </div>
 
     <label class="form-label sheet-label--spaced">Title</label>
-    <div class="template-grid" id="msg_templates">
-      ${POSITIVE_TEMPLATES.map(t => `<button class="template-chip" data-title="${esc(t)}" type="button">${esc(t)}</button>`).join('')}
-      <button class="template-chip template-chip--custom" data-title="custom" type="button">Custom...</button>
-    </div>
-    <input type="text" id="msg_customTitle" class="form-input msg-custom-input is-hidden" placeholder="Enter custom title">
+    <input type="text" id="msg_customTitle" class="form-input" placeholder="Enter message title" autocomplete="off">
+    <select class="form-input mt-xs" id="msg_templateSelect">
+      <option value="">— Or pick a template —</option>
+      ${positiveOpts}
+    </select>
 
     <label class="form-label sheet-label--spaced">Personal note (optional)</label>
     <textarea id="msg_body" class="form-input" rows="2" placeholder="Great job helping your sister!"></textarea>
 
     <label class="form-label sheet-label--spaced">Points</label>
-    <input type="number" id="msg_points" class="form-input" value="25" min="1">
+    <input type="number" id="msg_points" class="form-input" value="25" min="0" style="max-width:120px">
+
+    ${activeRewards.length > 0 ? `
+    <label class="form-label sheet-label--spaced">Reward (optional)</label>
+    <select class="form-input" id="msg_rewardSelect">
+      <option value="">None</option>
+      ${rewardOpts}
+    </select>` : ''}
 
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="msg_cancel" type="button">Cancel</button>
@@ -1557,94 +1576,107 @@ export function renderSendMessageSheet(people, preselectedPersonId = null) {
 /**
  * Bind event listeners for the send message sheet.
  */
-export function bindSendMessageSheet(mount, writeMessageFn, approverName) {
+export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeBankTokenFn, getRewardsFn) {
   const approver = approverName || 'Parent';
   const sheet = mount.querySelector('.bottom-sheet');
   if (!sheet) return;
 
   let msgType = 'bonus';
-  let selectedTitle = '';
+
+  // Focus title input on open
+  requestAnimationFrame(() => sheet.querySelector('#msg_customTitle')?.focus());
 
   // Person chips
   for (const chip of sheet.querySelectorAll('#msg_people .chip--selectable')) {
     chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
   }
 
-  // Type toggle
+  // Type toggle — swap template options and default points
   for (const btn of sheet.querySelectorAll('.msg-type-btn')) {
     btn.addEventListener('click', () => {
       sheet.querySelectorAll('.msg-type-btn').forEach(b => b.classList.remove('msg-type-btn--active'));
       btn.classList.add('msg-type-btn--active');
       msgType = btn.dataset.type;
-
-      // Swap templates
-      const grid = sheet.querySelector('#msg_templates');
-      const templates = msgType === 'bonus' ? POSITIVE_TEMPLATES : NEGATIVE_TEMPLATES;
-      grid.innerHTML = templates.map(t =>
-        `<button class="template-chip" data-title="${esc(t)}" type="button">${esc(t)}</button>`
-      ).join('') + `<button class="template-chip template-chip--custom" data-title="custom" type="button">Custom...</button>`;
-      bindTemplateChips(sheet);
-
+      const sel = sheet.querySelector('#msg_templateSelect');
+      if (sel) {
+        const templates = msgType === 'bonus' ? POSITIVE_TEMPLATES : NEGATIVE_TEMPLATES;
+        sel.innerHTML = `<option value="">— Or pick a template —</option>` +
+          templates.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+        sel.value = '';
+      }
       sheet.querySelector('#msg_points').value = msgType === 'bonus' ? 25 : 15;
-      selectedTitle = '';
     });
   }
 
-  function bindTemplateChips(container) {
-    for (const chip of container.querySelectorAll('.template-chip')) {
-      chip.addEventListener('click', () => {
-        container.querySelectorAll('.template-chip').forEach(c => c.classList.remove('template-chip--selected'));
-        chip.classList.add('template-chip--selected');
-        const customInput = container.querySelector('#msg_customTitle');
-        if (chip.dataset.title === 'custom') {
-          customInput.classList.remove('is-hidden');
-          customInput.focus();
-          selectedTitle = '';
-        } else {
-          customInput.classList.add('is-hidden');
-          selectedTitle = chip.dataset.title;
-        }
-      });
+  // Template select → populate title input
+  sheet.querySelector('#msg_templateSelect')?.addEventListener('change', (e) => {
+    if (e.target.value) {
+      const titleInput = sheet.querySelector('#msg_customTitle');
+      if (titleInput) { titleInput.value = e.target.value; titleInput.focus(); }
     }
-  }
-  bindTemplateChips(sheet);
-
-  // Cancel
-  sheet.querySelector('#msg_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
-  mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
-    if (e.target === mount.querySelector('.bottom-sheet-overlay')) mount.innerHTML = '';
   });
+
+  // Cancel / overlay dismiss
+  sheet.querySelector('#msg_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  const overlay = mount.querySelector('.bottom-sheet-overlay');
+  overlay?.addEventListener('click', (e) => { if (e.target === overlay) mount.innerHTML = ''; });
 
   // Send
   sheet.querySelector('#msg_send')?.addEventListener('click', async () => {
     const personIds = [...sheet.querySelectorAll('#msg_people .chip--active')].map(c => c.dataset.personId);
-    if (personIds.length === 0) return;
+    if (personIds.length === 0) { sheet.querySelector('#msg_people .chip--selectable')?.focus(); return; }
 
-    const title = selectedTitle || sheet.querySelector('#msg_customTitle').value.trim();
-    if (!title) return;
+    const title = sheet.querySelector('#msg_customTitle')?.value.trim();
+    if (!title) { sheet.querySelector('#msg_customTitle')?.focus(); return; }
 
-    const points = parseInt(sheet.querySelector('#msg_points').value) || 0;
-    if (points <= 0) return;
-
-    const body = sheet.querySelector('#msg_body').value.trim() || null;
-    const amount = msgType === 'deduction' ? -points : points;
+    const points = parseInt(sheet.querySelector('#msg_points')?.value || '0', 10);
+    const body = sheet.querySelector('#msg_body')?.value.trim() || null;
+    const amount = msgType === 'deduction' ? -(points || 0) : (points || 0);
+    const rewardId = sheet.querySelector('#msg_rewardSelect')?.value || null;
+    const rewards = getRewardsFn ? getRewardsFn() : {};
+    const reward = rewardId ? rewards[rewardId] : null;
 
     for (const pid of personIds) {
-      await writeMessageFn(pid, {
-        type: msgType,
-        title,
-        body,
-        amount,
-        rewardId: null,
-        entryKey: null,
-        seen: false,
-        createdAt: firebase.database.ServerValue.TIMESTAMP,
-        createdBy: approver
-      });
+      if (amount !== 0) {
+        await writeMessageFn(pid, {
+          type: msgType,
+          title,
+          body,
+          amount,
+          rewardId: null,
+          entryKey: null,
+          seen: false,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          createdBy: approver
+        });
+      }
+      if (reward && writeBankTokenFn) {
+        await writeBankTokenFn(pid, {
+          rewardType: reward.rewardType || 'custom',
+          rewardId,
+          rewardName: reward.name || 'Reward',
+          rewardIcon: reward.icon || '🎁',
+          acquiredAt: Date.now(),
+          used: false,
+          usedAt: null,
+          targetEntryKey: null
+        });
+        await writeMessageFn(pid, {
+          type: 'redemption-approved',
+          title: `${reward.icon || '🎁'} ${reward.name || 'Reward'} sent!`,
+          body: null,
+          amount: 0,
+          rewardId,
+          entryKey: null,
+          seen: false,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          createdBy: approver
+        });
+      }
     }
 
     mount.innerHTML = '';
-    showToast(`${msgType === 'bonus' ? 'Bonus' : 'Deduction'} sent!`);
+    showToast('Message sent!');
   });
 }
 
@@ -2058,9 +2090,9 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         closeBellDropdown();
         const mount = document.getElementById('taskSheetMount') || document.getElementById('drilldownMount');
         if (!mount) return;
-        mount.innerHTML = renderSendMessageSheet(getPeople());
+        mount.innerHTML = renderSendMessageSheet(getPeople(), null, getRewards());
         requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-        bindSendMessageSheet(mount, writeMessageFn, approver);
+        bindSendMessageSheet(mount, writeMessageFn, approver, writeBankTokenFn, getRewards);
       });
 
       // Wire "Clear All" button — deletes all messages
