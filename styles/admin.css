@@ -532,23 +532,21 @@
 }
 
 .cpick-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 200;
+  position: fixed;
+  z-index: 600;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm);
   display: grid;
-  grid-template-columns: repeat(4, 32px);
-  gap: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  grid-template-columns: repeat(8, 28px);
+  gap: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
 }
 
 .cpick-swatch {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 3px solid transparent;
   cursor: pointer;

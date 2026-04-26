@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v72 (2026-04-26) — cpick button+popover replaces native color picker everywhere
+//                    (admin person/event/category/accent, calendar event form,
+//                    device theme sheet); 40-color palette; event save color fix.
 // v71 (2026-04-26) — Color swatch palette replaces native color picker, spacing
 //                    fix (mt-xs), admin message form matches bell pattern.
 // v70 (2026-04-26) — Polish pass 2: banner full-width, admin tabs fill space,
@@ -154,7 +157,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v71';
+const CACHE_NAME = 'family-hub-v72';
 
 const APP_SHELL = [
   '/',

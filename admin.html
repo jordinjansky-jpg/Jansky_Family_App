@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readMealLibrary, pushMealLibrary, writeMealLibrary, removeMealLibrary, readAllMeals, removeMeal
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet, showToast } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet, showToast, renderColorButton, initColorButton } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -86,53 +86,6 @@
     const MSG_NEGATIVE = ['Room Check','Reminder Needed',"Let's Do Better",'Responsibility Check',
       'Try Again Tomorrow','Needs Attention','Not Your Best','We Talked About This'];
 
-    const COLOR_PALETTE = [
-      '#ef5350','#e91e63','#ab47bc','#5c6bc0',
-      '#42a5f5','#26a69a','#66bb6a','#fdd835',
-      '#ffa726','#ff7043','#8d6e63','#78909c',
-    ];
-
-    function renderColorButton(selected, inputId) {
-      const swatches = COLOR_PALETTE.map(c =>
-        `<button type="button" class="cpick-swatch${c.toLowerCase() === (selected||'').toLowerCase() ? ' cpick-swatch--active' : ''}" data-color="${c}" style="background:${c}" aria-label="${c}"></button>`
-      ).join('');
-      return `<div class="cpick-wrap">
-        <button type="button" class="cpick-btn" style="background:${selected || COLOR_PALETTE[0]}" aria-label="Choose color" aria-expanded="false"></button>
-        <div class="cpick-pop" hidden>${swatches}</div>
-        <input type="hidden" id="${inputId}" value="${selected || COLOR_PALETTE[0]}">
-      </div>`;
-    }
-
-    function initColorButton(container, onChange) {
-      if (!container) return;
-      const btn = container.querySelector('.cpick-btn');
-      const pop = container.querySelector('.cpick-pop');
-      const hidden = container.querySelector('input[type="hidden"]');
-      btn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const open = !pop.hidden;
-        pop.hidden = open;
-        btn.setAttribute('aria-expanded', String(!open));
-      });
-      pop?.addEventListener('click', (e) => {
-        const swatch = e.target.closest('.cpick-swatch');
-        if (!swatch) return;
-        const color = swatch.dataset.color;
-        pop.querySelectorAll('.cpick-swatch').forEach(s => s.classList.remove('cpick-swatch--active'));
-        swatch.classList.add('cpick-swatch--active');
-        btn.style.background = color;
-        if (hidden) hidden.value = color;
-        pop.hidden = true;
-        btn.setAttribute('aria-expanded', 'false');
-        if (onChange) onChange(color);
-      });
-      document.addEventListener('click', function closeOnOutside(e) {
-        if (!container.contains(e.target)) {
-          pop.hidden = true;
-          btn?.setAttribute('aria-expanded', 'false');
-        }
-      }, { capture: true, passive: true });
-    }
 
 
     // ── Undo toast helper ──
@@ -677,11 +630,7 @@
         return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${pid}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
       }).join('');
 
-      const colorPalette = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#ff6d01', '#46bdc6', '#7baaf7', '#f07b72', '#fdd663', '#57bb8a', '#e8710a', '#795548', '#9e9e9e', '#607d8b'];
       const currentColor = event.color || '#4285f4';
-      const colorDots = colorPalette.map(c =>
-        `<button class="dt-color-btn${c === currentColor ? ' dt-color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`
-      ).join('');
 
       return `<div class="admin-form" id="eventFormAdmin">
         <h3 class="admin-form__title">${title}</h3>
@@ -714,7 +663,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Color</label>
-          <div class="dt-colors" id="aef_colors">${colorDots}</div>
+          ${renderColorButton(currentColor, 'aef_colorPicker')}
         </div>
         <div class="form-group">
           <label class="form-label">Location</label>
@@ -3055,13 +3004,7 @@
         chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
       });
 
-      // Color dots
-      main.querySelectorAll('#aef_colors .dt-color-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          main.querySelectorAll('#aef_colors .dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
-          btn.classList.add('dt-color-btn--active');
-        });
-      });
+      initColorButton(main.querySelector('#aef_colorPicker')?.closest('.cpick-wrap'), null);
 
       main.querySelector('#eventFormSave')?.addEventListener('click', async () => {
         const name = main.querySelector('#aef_name')?.value.trim();
@@ -3074,7 +3017,7 @@
         const startTime = allDay ? null : (main.querySelector('#aef_startTime')?.value || null);
         const endTime = allDay ? null : (main.querySelector('#aef_endTime')?.value || null);
         const selectedPeople = [...main.querySelectorAll('#aef_people .chip--active')].map(c => c.dataset.personId);
-        const color = main.querySelector('#aef_colors .dt-color-btn--active')?.dataset.color || '#4285f4';
+        const color = main.querySelector('#aef_colorPicker')?.value || '#4285f4';
         const location = main.querySelector('#aef_location')?.value.trim() || null;
         const notes = main.querySelector('#aef_notes')?.value.trim() || null;
 

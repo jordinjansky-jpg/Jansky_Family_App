@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readMealLibrary, readAllMeals, writeMeal, removeMeal, pushMealLibrary, writeMealLibrary, readMeals } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml } from './shared/utils.js';
@@ -621,12 +621,7 @@
         document.getElementById('ef_endTimeGroup')?.classList.toggle('ef-time-row--hidden', hide);
       });
 
-      document.querySelectorAll('#ef_colors .dt-color-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('#ef_colors .dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
-          btn.classList.add('dt-color-btn--active');
-        });
-      });
+      initColorButton(document.querySelector('#ef_colorPicker')?.closest('.cpick-wrap'), null);
 
       document.querySelectorAll('#ef_people .chip--selectable').forEach(chip => {
         chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
@@ -643,7 +638,7 @@
           if (c.dataset.personId) selectedPeople.push(c.dataset.personId);
         });
 
-        const selectedColor = document.querySelector('#ef_colors .dt-color-btn--active')?.dataset.color
+        const selectedColor = document.querySelector('#ef_colorPicker')?.value
           || (selectedPeople[0] ? people.find(p => p.id === selectedPeople[0])?.color : null)
           || '#4285f4';
 

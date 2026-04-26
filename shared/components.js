@@ -18,6 +18,63 @@ const WEATHER_GLYPHS = {
 };
 
 /**
+ * Render a color-button + swatch popover.
+ * @param {string} selected  - hex color currently selected
+ * @param {string} inputId   - id for the hidden input (callers read .value from it)
+ */
+export function renderColorButton(selected, inputId) {
+  const palette = getColorPalette();
+  const norm = (selected || '').toLowerCase();
+  const swatches = palette.map(c =>
+    `<button type="button" class="cpick-swatch${c.toLowerCase() === norm ? ' cpick-swatch--active' : ''}" data-color="${c}" style="background:${c}" aria-label="${c}"></button>`
+  ).join('');
+  return `<div class="cpick-wrap">
+    <button type="button" class="cpick-btn" style="background:${selected || palette[0]}" aria-label="Choose color" aria-expanded="false"></button>
+    <div class="cpick-pop" hidden>${swatches}</div>
+    <input type="hidden" id="${inputId}" value="${selected || palette[0]}">
+  </div>`;
+}
+
+/**
+ * Wire the color button + popover created by renderColorButton.
+ * @param {Element} container - the .cpick-wrap element
+ * @param {function|null} onChange - called with the hex color when a swatch is picked
+ */
+export function initColorButton(container, onChange) {
+  if (!container) return;
+  const btn = container.querySelector('.cpick-btn');
+  const pop = container.querySelector('.cpick-pop');
+  const hidden = container.querySelector('input[type="hidden"]');
+
+  btn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!pop.hidden) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); return; }
+    const rect = btn.getBoundingClientRect();
+    pop.style.top = (rect.bottom + 6) + 'px';
+    pop.style.left = Math.min(rect.left, window.innerWidth - 330) + 'px';
+    pop.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+  });
+
+  pop?.addEventListener('click', (e) => {
+    const swatch = e.target.closest('.cpick-swatch');
+    if (!swatch) return;
+    const color = swatch.dataset.color;
+    pop.querySelectorAll('.cpick-swatch').forEach(s => s.classList.remove('cpick-swatch--active'));
+    swatch.classList.add('cpick-swatch--active');
+    btn.style.background = color;
+    if (hidden) hidden.value = color;
+    pop.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    if (onChange) onChange(color);
+  });
+
+  document.addEventListener('click', function closeOnOutside(e) {
+    if (!container.contains(e.target)) { pop.hidden = true; btn?.setAttribute('aria-expanded', 'false'); }
+  }, { capture: true, passive: true });
+}
+
+/**
  * After innerHTML is set on a container, propagate data-*-color attributes
  * onto their elements as CSS custom properties. Lets us avoid inline
  * style attributes for per-record runtime colors.
@@ -803,11 +860,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" data-person-color="${esc(p.color)}" type="button">${esc(p.name)}</button>`;
   }).join('');
 
-  const colorPalette = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#ff6d01', '#46bdc6', '#7baaf7', '#f07b72', '#fdd663', '#57bb8a', '#e8710a', '#795548', '#9e9e9e', '#607d8b'];
   const currentColor = event.color || people[0]?.color || '#4285f4';
-  const colorDots = colorPalette.map(c =>
-    `<button class="dt-color-btn${c === currentColor ? ' dt-color-btn--active' : ''}" data-color="${c}" data-bg-color="${esc(c)}" type="button"></button>`
-  ).join('');
 
   const timeGroupHiddenClass = event.allDay ? ' ef-time-row--hidden' : '';
 
@@ -844,7 +897,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       <summary class="form-label ef-more-toggle">More options</summary>
       <div class="admin-form__group">
         <label class="form-label">Color</label>
-        <div class="dt-colors" id="ef_colors">${colorDots}</div>
+        ${renderColorButton(currentColor, 'ef_colorPicker')}
       </div>
       <div class="admin-form__group">
         <label class="form-label" for="ef_location">Location</label>
@@ -1284,9 +1337,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     </div>
     <div class="dt-section">
       <label class="form-label">${personOpts ? 'My Color' : 'Accent Color'}</label>
-      <div class="dt-colors">
-        ${colorPalette.map(c => `<button class="dt-color-btn${c === currentAccent ? ' dt-color-btn--active' : ''}" data-color="${c}" data-bg-color="${c}" type="button"></button>`).join('')}
-      </div>
+      ${renderColorButton(currentAccent, 'dt_accentPicker')}
     </div>
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
@@ -1337,25 +1388,18 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     });
   });
 
-  // Accent color buttons (also sets person color when on a person page)
-  mountEl.querySelectorAll('.dt-color-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      mountEl.querySelectorAll('.dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
-      btn.classList.add('dt-color-btn--active');
-      activeAccent = btn.dataset.color;
-      if (!activePreset) {
-        // If on family default, auto-switch to the family preset so accent takes effect
-        const fam = familyTheme || defaultThemeConfig();
-        activePreset = fam.preset;
-        mountEl.querySelectorAll('.dt-theme-btn').forEach(b => {
-          b.classList.toggle('dt-theme-btn--active', b.dataset.preset === activePreset);
-        });
-      }
-      if (personOpts) {
-        personOpts.person.color = btn.dataset.color;
-      }
-      applyAndSave();
-    });
+  // Accent color button (also sets person color when on a person page)
+  initColorButton(mountEl.querySelector('#dt_accentPicker')?.closest('.cpick-wrap'), async (color) => {
+    activeAccent = color;
+    if (!activePreset) {
+      const fam = familyTheme || defaultThemeConfig();
+      activePreset = fam.preset;
+      mountEl.querySelectorAll('.dt-theme-btn').forEach(b => {
+        b.classList.toggle('dt-theme-btn--active', b.dataset.preset === activePreset);
+      });
+    }
+    if (personOpts) personOpts.person.color = color;
+    applyAndSave();
   });
 
   // Close
