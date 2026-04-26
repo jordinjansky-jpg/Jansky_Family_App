@@ -463,7 +463,6 @@
           <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
           <div>
             <button class="btn btn--secondary btn--sm" id="selectModeBtn" type="button">Select</button>
-            <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
           </div>
         </div>`;
       }
@@ -475,51 +474,27 @@
         }
       }
 
-      // Task list with inline edit form
-      if (filtered.length === 0 && editingTaskId === null) {
-        html += renderEmptyState('✅', 'No tasks', 'Add your first task to get started.');
+      html += `<div class="admin-list-add">
+  <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
+</div>`;
+
+      if (filtered.length === 0) {
+        html += `<div class="admin-empty">No tasks yet. Tap + Add Task to get started.</div>`;
       } else {
-        html += `<div class="admin-list">`;
-        for (const [id, task] of filtered) {
-          const cat = catsObj[task.category];
-          const owners = (task.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
-          const pausedClass = task.status === 'paused' ? ' admin-list-item--paused' : '';
-          const pausedBadge = task.status === 'paused' ? '<span class="admin-badge admin-badge--muted">⏸ Paused</span>' : '';
-          const diffLabel = { easy: 'Easy', medium: 'Med', hard: 'Hard' }[task.difficulty] || 'Med';
-          const todLabel = { am: 'AM', pm: 'PM', anytime: 'Any', both: 'AM+PM' }[task.timeOfDay] || 'Any';
-          // Detail badges: est time, cooldown, exempt
-          let detailBadges = '';
-          if (task.estMin) detailBadges += `<span class="admin-badge">${task.estMin}m</span>`;
-          detailBadges += `<span class="admin-badge">${todLabel}</span>`;
-          if (task.cooldownDays) detailBadges += `<span class="admin-badge">CD ${task.cooldownDays}d</span>`;
-          if (task.dedicatedDay != null) {
-            const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-            detailBadges += `<span class="admin-badge">📅 ${dayNames[task.dedicatedDay] || task.dedicatedDay}</span>`;
-          }
-          if (task.dedicatedDate) detailBadges += `<span class="admin-badge">📅 ${task.dedicatedDate}</span>`;
-          if (task.exempt) detailBadges += `<span class="admin-badge admin-badge--muted">Exempt</span>`;
-          const selectedClass = selectMode && selectedTaskIds.has(id) ? ' admin-list-item--selected' : '';
-          const checkboxHtml = selectMode ? `<input type="checkbox" class="bulk-checkbox" ${selectedTaskIds.has(id) ? 'checked' : ''}>` : '';
-          const actionsHtml = selectMode ? '' : `<div class="admin-list-item__actions">
-                <button class="btn btn--ghost btn--sm admin-edit-task" data-task-id="${id}" type="button">Edit</button>
-                <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'}</button>
-                <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-              </div>`;
-          html += `<div class="admin-list-item admin-list-item--clickable admin-list-item--compact${pausedClass}${selectedClass}" data-task-id="${id}">
-            <div class="admin-list-item__row">
-              ${checkboxHtml}<span class="admin-list-item__name">${esc(task.name)}${cat?.icon ? ' ' + cat.icon : ''}</span>
-              <span class="admin-list-item__tags">
-                <span class="admin-badge">${task.rotation}</span>
-                <span class="admin-badge">${diffLabel}</span>
-                ${pausedBadge}
-                ${detailBadges}
-              </span>
-            </div>
-            <div class="admin-list-item__row">
-              <span class="admin-list-item__meta">${owners || 'Unassigned'}${cat ? ' · ' + cat.label : ''}</span>
-              ${actionsHtml}
-            </div>
-          </div>`;
+        html += `<div class="admin-list" id="taskList">`;
+        for (const [id, t] of filtered) {
+          const cat = catsObj[t.category] || {};
+          const catColor = cat.color || 'var(--surface-2, var(--surface))';
+          const icon = renderColorSwatch(catColor);
+          const ownerNames = (t.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
+          const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-time' }[t.rotation] || t.rotation;
+          const secondary = `${rotLabel}${ownerNames ? ' · ' + ownerNames : ''}`;
+          html += renderAdminRow({
+            icon,
+            primary: esc(t.name),
+            secondary: esc(secondary),
+            dataAttrs: `data-task-id="${id}"`,
+          });
         }
         html += `</div>`;
       }
@@ -2526,31 +2501,18 @@
         handleBulkDelete();
       });
 
-      // Task row click — select mode toggles checkbox, normal mode opens edit
-      for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
-        item.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-list-item__actions')) return;
-          const tid = item.dataset.taskId;
-          if (selectMode) {
-            if (selectedTaskIds.has(tid)) {
-              selectedTaskIds.delete(tid);
-            } else {
-              selectedTaskIds.add(tid);
-            }
-            render();
-          } else {
-            editingTaskId = editingTaskId === tid ? null : tid;
-            render();
-          }
-        });
-      }
-      for (const btn of main.querySelectorAll('.admin-edit-task')) {
-        btn.addEventListener('click', () => {
-          const tid = btn.dataset.taskId;
+      // Task row click — delegated on #taskList
+      main.querySelector('#taskList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-task-id]');
+        if (!row) return;
+        const tid = row.dataset.taskId;
+        if (selectMode) {
+          if (selectedTaskIds.has(tid)) { selectedTaskIds.delete(tid); } else { selectedTaskIds.add(tid); }
+        } else {
           editingTaskId = editingTaskId === tid ? null : tid;
-          render();
-        });
-      }
+        }
+        render();
+      });
 
       // Modal backdrop click → close
       document.querySelector('#taskFormBackdrop')?.addEventListener('click', (e) => {
