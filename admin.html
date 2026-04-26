@@ -103,71 +103,6 @@
       }, 5000);
     }
 
-    // ── Task template presets ──
-    const TASK_TEMPLATES = {
-      'daily-chores': {
-        label: 'Daily Chores',
-        icon: '🧹',
-        tasks: [
-          { name: 'Make bed', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'am' },
-          { name: 'Brush teeth (morning)', rotation: 'daily', difficulty: 'easy', estMin: 3, timeOfDay: 'am' },
-          { name: 'Brush teeth (night)', rotation: 'daily', difficulty: 'easy', estMin: 3, timeOfDay: 'pm' },
-          { name: 'Pick up room', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
-          { name: 'Set the table', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' },
-          { name: 'Clear the table', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' },
-          { name: 'Load dishwasher', rotation: 'daily', difficulty: 'medium', estMin: 10, timeOfDay: 'pm' },
-          { name: 'Wipe kitchen counters', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' }
-        ]
-      },
-      'weekly-chores': {
-        label: 'Weekly Chores',
-        icon: '📅',
-        tasks: [
-          { name: 'Vacuum living room', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
-          { name: 'Mop kitchen floor', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
-          { name: 'Clean bathroom', rotation: 'weekly', difficulty: 'hard', estMin: 20, timeOfDay: 'anytime' },
-          { name: 'Take out trash', rotation: 'weekly', difficulty: 'easy', estMin: 5, timeOfDay: 'anytime' },
-          { name: 'Do laundry', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
-          { name: 'Change bed sheets', rotation: 'weekly', difficulty: 'medium', estMin: 10, timeOfDay: 'anytime' },
-          { name: 'Water plants', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' }
-        ]
-      },
-      'monthly-chores': {
-        label: 'Monthly Chores',
-        icon: '📆',
-        tasks: [
-          { name: 'Deep clean fridge', rotation: 'monthly', difficulty: 'hard', estMin: 30, timeOfDay: 'anytime' },
-          { name: 'Wipe baseboards', rotation: 'monthly', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
-          { name: 'Clean windows', rotation: 'monthly', difficulty: 'medium', estMin: 25, timeOfDay: 'anytime' },
-          { name: 'Organize pantry', rotation: 'monthly', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
-          { name: 'Dust ceiling fans', rotation: 'monthly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' }
-        ]
-      },
-      'kid-chores': {
-        label: 'Kid-Friendly Chores',
-        icon: '👦',
-        tasks: [
-          { name: 'Feed the pet', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'am' },
-          { name: 'Put away toys', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
-          { name: 'Help with laundry', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' },
-          { name: 'Dust furniture', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' },
-          { name: 'Sort recycling', rotation: 'weekly', difficulty: 'easy', estMin: 5, timeOfDay: 'anytime' },
-          { name: 'Water garden', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' }
-        ]
-      },
-      'self-care': {
-        label: 'Self-Care & Routines',
-        icon: '🧘',
-        tasks: [
-          { name: 'Morning workout', rotation: 'daily', difficulty: 'medium', estMin: 30, timeOfDay: 'am' },
-          { name: 'Read for 20 minutes', rotation: 'daily', difficulty: 'easy', estMin: 20, timeOfDay: 'pm' },
-          { name: 'Practice instrument', rotation: 'daily', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
-          { name: 'Journal / reflect', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
-          { name: 'Screen-free hour', rotation: 'daily', difficulty: 'easy', estMin: 60, timeOfDay: 'pm' }
-        ]
-      }
-    };
-
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
 
@@ -195,12 +130,11 @@
     const today = todayKey(tz);
 
     // ── Header & Nav ──
-    const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
       subtitle: 'Admin',
       showAdmin: false,
-      showDebug: debugActive
+      showDebug: false
     });
     document.getElementById('navMount').innerHTML = renderNavBar(null);
 
@@ -273,10 +207,8 @@
       { id: 'rewards', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>', label: 'Rewards' },
       { id: 'achievements', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>', label: 'Badges' },
       { id: 'settings', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg>', label: 'Settings' },
-      { id: 'theme', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>', label: 'Theme' },
       { id: 'schedule', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', label: 'Schedule' },
-      { id: 'data', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', label: 'Data' },
-      { id: 'debug', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v1h4"/><path d="M18 8h-2V6a4 4 0 0 0-4-4"/><path d="M20 10v1a2 2 0 0 1-2 2"/><rect x="8" y="10" width="8" height="10" rx="4"/><path d="M4 16h4"/><path d="M16 16h4"/><path d="M12 10v10"/></svg>', label: 'Debug' }
+      { id: 'data', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', label: 'Data' }
     ];
 
     let activeTab = 'tasks';
@@ -316,10 +248,8 @@
         case 'rewards': html += renderRewardsTab(); break;
         case 'achievements': html += renderAchievementsTab(); break;
         case 'settings': html += renderSettingsTab(); break;
-        case 'theme': html += renderThemeTab(); break;
         case 'schedule': html += renderScheduleTab(); break;
         case 'data': html += renderDataTab(); break;
-        case 'debug': html += renderDebugTab(); break;
       }
 
       html += `</div>`;
@@ -359,30 +289,8 @@
     let taskFilter = { rotation: '', owner: '', category: '', status: '', difficulty: '' };
     let taskSort = 'name';
     let editingTaskId = null;
-    let showingTemplates = false;
     let selectMode = false;
     let selectedTaskIds = new Set();
-
-
-    function renderTemplatePanel() {
-      let html = `<div class="admin-form mb-md" id="templatePanel">
-        <h3 class="admin-form__title">Task Templates</h3>
-        <p class="form-hint mb-md">Select a template pack to import common chore sets. Tasks are created with "rotate" assignment mode — assign owners after import.</p>`;
-
-      for (const [key, pack] of Object.entries(TASK_TEMPLATES)) {
-        html += `<div class="admin-template-pack mb-md" style="border:1px solid var(--border);border-radius:8px;padding:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <strong>${pack.icon} ${esc(pack.label)}</strong>
-            <button class="btn btn--primary btn--sm template-import-btn" data-template="${key}" type="button">Import ${pack.tasks.length} tasks</button>
-          </div>
-          <div class="form-hint mt-sm">${pack.tasks.map(t => esc(t.name)).join(', ')}</div>
-        </div>`;
-      }
-
-      html += `<button class="btn btn--secondary" id="closeTemplates" type="button">Close</button>
-      </div>`;
-      return html;
-    }
 
     function renderTasksTab() {
       const pa = peopleArray();
@@ -472,18 +380,12 @@
           <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
           <div>
             <button class="btn btn--secondary btn--sm" id="selectModeBtn" type="button">Select</button>
-            <button class="btn btn--secondary btn--sm" id="templateBtn" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Templates</button>
             <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
           </div>
         </div>`;
       }
 
       if (!selectMode) {
-        // Template panel
-        if (showingTemplates) {
-          html += renderTemplatePanel();
-        }
-
         // New task form at top
         if (editingTaskId === 'new') {
           html += renderTaskForm(null);
@@ -1304,53 +1206,6 @@
     }
 
     // ══════════════════════════════════════════
-    // Theme Tab
-    // ══════════════════════════════════════════
-
-    function renderThemeTab() {
-      const presets = getPresets();
-      const currentTheme = loadCachedTheme() || settings?.theme || defaultThemeConfig();
-      const accentColors = [
-        '#ef5350', '#e85d75', '#ec407a', '#f06292',
-        '#ab47bc', '#8e24aa', '#7e57c2', '#5b7fd6',
-        '#42a5f5', '#00acc1', '#26a69a', '#43a047',
-        '#66bb6a', '#ffca28', '#ffa726', '#ff9800',
-        '#ff7043', '#8d6e63', '#78909c', '#546e7a'
-      ];
-
-      let html = `<div class="admin-form">
-        <h3 class="admin-form__title">Theme Preset</h3>
-        <div class="admin-theme-grid" id="themePresetGrid">
-          ${presets.map(p => {
-            const sel = currentTheme.preset === p.key ? ' admin-theme-option--active' : '';
-            const previewColors = {
-              'light-warm': { bg: '#faf8f5', fg: '#2c2c2c' },
-              'dark': { bg: '#1a1a2e', fg: '#e8e8e8' },
-              'dark-warm': { bg: '#1e1a17', fg: '#e8e0d8' },
-              'light-vivid': { bg: '#faf7f2', fg: '#2c2c2c' },
-              'dark-vivid': { bg: '#1e1a17', fg: '#e8e0d8' }
-            };
-            const { bg, fg } = previewColors[p.key] || { bg: p.mode === 'dark' ? '#1a1a2e' : '#faf8f5', fg: p.mode === 'dark' ? '#e8e8e8' : '#2c2c2c' };
-            const coloredLabel = p.coloredCells ? ' ✦' : '';
-            return `<button class="admin-theme-option${sel}" data-preset="${p.key}" type="button">
-              <div class="admin-theme-option__preview" style="background:${bg};color:${fg}">${p.label}${coloredLabel}</div>
-              <span>${p.label}</span>
-            </button>`;
-          }).join('')}
-        </div>
-        <h3 class="admin-form__title mt-md">Accent Color</h3>
-        <div class="admin-accent-grid" id="accentColorGrid">
-          ${accentColors.map(c => {
-            const sel = currentTheme.accentColor === c ? ' admin-accent--active' : '';
-            return `<button class="admin-accent${sel}" data-color="${c}" style="background:${c}" type="button"></button>`;
-          }).join('')}
-        </div>
-        <div id="themeMsg" class="admin-msg mt-sm"></div>
-      </div>`;
-      return html;
-    }
-
-    // ══════════════════════════════════════════
     // Schedule Tab
     // ══════════════════════════════════════════
 
@@ -1506,120 +1361,6 @@
         </div>
       </div>`;
       return html;
-    }
-
-    // ══════════════════════════════════════════
-    // Debug Tab
-    // ══════════════════════════════════════════
-
-    function renderDebugTab() {
-      const isDebug = localStorage.getItem('dr-debug') === 'true';
-      let html = `<div class="admin-form">
-        <h3 class="admin-form__title">Debug Mode</h3>
-        <div class="form-group">
-          <label class="admin-checkbox"><input type="checkbox" id="debugToggle"${isDebug ? ' checked' : ''}> Enable debug mode</label>
-          <p class="form-hint">Shows 🐛 icon on all pages and enables contextual debug overlays.</p>
-        </div>
-
-        <h3 class="admin-form__title mt-md">Event Log</h3>
-        <div id="eventLog" class="admin-event-log">
-          <div class="loading-inline"><div class="loading-spinner loading-spinner--small"></div><span>Loading events...</span></div>
-        </div>
-        <button class="btn btn--secondary mt-sm" id="copyEventLog" type="button">Copy to Clipboard</button>
-
-        <h3 class="admin-form__title mt-md">Test Past-Due Entry</h3>
-        <p class="form-hint">Create a schedule entry on a past date (no completion) so it appears as overdue on the dashboard.</p>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Task</label>
-            <select id="pastDueTask">
-              <option value="">Choose task...</option>
-              ${Object.entries(tasksObj).filter(([,t]) => t.rotation !== 'daily').map(([id, t]) => `<option value="${id}">${esc(t.name)} (${t.rotation})</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Date</label>
-            <input type="date" id="pastDueDate" value="${addDays(today, -3)}">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Owner</label>
-          <select id="pastDueOwner">
-            ${peopleArray().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
-          </select>
-        </div>
-        <button class="btn btn--primary btn--sm mt-sm" id="createPastDueBtn" type="button">Create Past-Due Entry</button>
-        <div id="pastDueMsg" class="admin-msg mt-sm"></div>
-
-        <h3 class="admin-form__title mt-md">Schedule Inspector</h3>
-        <div class="form-group">
-          <label class="form-label">Select a task to inspect</label>
-          <select id="inspectTaskSelect">
-            <option value="">Choose task...</option>
-            ${Object.entries(tasksObj).map(([id, t]) => `<option value="${id}">${esc(t.name)}</option>`).join('')}
-          </select>
-        </div>
-        <div id="inspectResult"></div>
-        <button class="btn btn--secondary mt-sm" id="copyInspect" type="button">Copy to Clipboard</button>
-      </div>`;
-      return html;
-    }
-
-    async function loadEventLog() {
-      const el = document.getElementById('eventLog');
-      if (!el) return;
-
-      const events = await readOnce('debug/eventLog') || {};
-      const entries = Object.entries(events)
-        .map(([key, val]) => ({ key, ...val }))
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-        .slice(0, 50);
-
-      if (entries.length === 0) {
-        el.innerHTML = '<p class="text-muted">No events logged yet.</p>';
-        return;
-      }
-
-      let html = `<div class="admin-list admin-list--compact">`;
-      for (const e of entries) {
-        const time = e.timestamp ? new Date(e.timestamp).toLocaleString('en-US', { timeZone: tz }) : '—';
-        const payload = e.payload ? JSON.stringify(e.payload).slice(0, 100) : '';
-        html += `<div class="admin-list-item admin-list-item--compact">
-          <div class="admin-list-item__main">
-            <span class="admin-list-item__name">${e.type || 'unknown'}</span>
-            <span class="admin-list-item__meta">${time}${payload ? ' · ' + payload : ''}</span>
-          </div>
-        </div>`;
-      }
-      html += `</div>`;
-      el.innerHTML = html;
-    }
-
-    function inspectTask(taskId) {
-      const el = document.getElementById('inspectResult');
-      if (!el || !taskId) { if (el) el.innerHTML = ''; return; }
-
-      const task = tasksObj[taskId];
-      if (!task) { el.innerHTML = '<p class="text-muted">Task not found.</p>'; return; }
-
-      const pa = peopleArray();
-      const owners = (task.owners || []).map(oid => ({ id: oid, name: peopleObj[oid]?.name || '?' }));
-      const pts = basePoints(task, settings?.difficultyMultipliers);
-
-      let info = `Task: ${task.name}\n`;
-      info += `Rotation: ${task.rotation}\n`;
-      info += `Difficulty: ${task.difficulty} · Est: ${task.estMin}m · Points: ${pts}\n`;
-      info += `Time of Day: ${task.timeOfDay}\n`;
-      info += `Assignment Mode: ${task.ownerAssignmentMode || 'rotate'}\n`;
-      info += `Owners: ${owners.map(o => o.name).join(', ')}\n`;
-      info += `Status: ${task.status || 'active'}\n`;
-      if (task.dedicatedDay != null) info += `Dedicated Day: ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][task.dedicatedDay]}\n`;
-      if (task.cooldownDays) info += `Cooldown: ${task.cooldownDays} days\n`;
-      if (task.exempt) info += `Exempt from scoring: Yes\n`;
-      info += `Category: ${catsObj[task.category]?.label || task.category || 'None'}\n`;
-      info += `Created: ${task.createdDate || '?'}\n`;
-
-      el.innerHTML = `<pre class="admin-pre">${esc(info)}</pre>`;
     }
 
     // ══════════════════════════════════════════
@@ -2636,10 +2377,8 @@
         case 'rewards': bindRewardsTab(); break;
         case 'achievements': bindAchievementsTab(); break;
         case 'settings': bindSettingsTab(); break;
-        case 'theme': bindThemeTab(); break;
         case 'schedule': bindScheduleTab(); break;
         case 'data': bindDataTab(); break;
-        case 'debug': bindDebugTab(); break;
       }
     }
 
@@ -2663,17 +2402,6 @@
       // Add task
       main.querySelector('#addTaskBtn')?.addEventListener('click', () => {
         editingTaskId = 'new';
-        showingTemplates = false;
-        render();
-      });
-
-      // Templates toggle
-      main.querySelector('#templateBtn')?.addEventListener('click', () => {
-        showingTemplates = !showingTemplates;
-        render();
-      });
-      main.querySelector('#closeTemplates')?.addEventListener('click', () => {
-        showingTemplates = false;
         render();
       });
 
@@ -2681,7 +2409,6 @@
       main.querySelector('#selectModeBtn')?.addEventListener('click', () => {
         selectMode = true;
         editingTaskId = null;
-        showingTemplates = false;
         render();
       });
       main.querySelector('#cancelSelectBtn')?.addEventListener('click', () => {
@@ -2712,51 +2439,6 @@
       main.querySelector('#bulkDeleteBtn')?.addEventListener('click', () => {
         handleBulkDelete();
       });
-
-      // Template import buttons
-      for (const btn of main.querySelectorAll('.template-import-btn')) {
-        btn.addEventListener('click', async () => {
-          const key = btn.dataset.template;
-          const pack = TASK_TEMPLATES[key];
-          if (!pack) return;
-          btn.disabled = true;
-          btn.textContent = 'Importing...';
-
-          // Find default category (first non-event category, or none)
-          const defaultCat = catsArray().find(c => !c.isEvent)?.key || '';
-
-          let imported = 0;
-          for (const t of pack.tasks) {
-            // Skip if task with same name already exists
-            const exists = Object.values(tasksObj).some(existing => existing.name === t.name);
-            if (exists) continue;
-
-            const taskData = {
-              name: t.name,
-              rotation: t.rotation,
-              difficulty: t.difficulty || 'medium',
-              estMin: t.estMin || 10,
-              timeOfDay: t.timeOfDay || 'anytime',
-              ownerAssignmentMode: 'rotate',
-              owners: [],
-              category: defaultCat,
-              status: 'active',
-              createdDate: today
-            };
-            const newId = await pushTask(taskData);
-            tasksObj[newId] = taskData;
-            imported++;
-          }
-
-          showingTemplates = false;
-          render();
-          if (imported > 0) {
-            showUndoToast(`Imported ${imported} tasks from "${pack.label}"`, () => {});
-          } else {
-            showUndoToast(`All tasks from "${pack.label}" already exist`, () => {});
-          }
-        });
-      }
 
       // Task row click — select mode toggles checkbox, normal mode opens edit
       for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
@@ -3861,7 +3543,7 @@
           appName: settings.appName,
           subtitle: 'Admin',
           showAdmin: false,
-          showDebug: localStorage.getItem('dr-debug') === 'true'
+          showDebug: false
         });
 
         if (msgEl) {
@@ -3910,37 +3592,6 @@
           setTimeout(() => { resultEl.hidden = true; }, 10000);
         }
       });
-    }
-
-    // ── Theme tab events ──
-
-    function bindThemeTab() {
-      const currentTheme = loadCachedTheme() || settings?.theme || defaultThemeConfig();
-
-      async function saveTheme(newTheme) {
-        applyTheme(newTheme);
-        settings.theme = newTheme;
-        await writeSettings(settings);
-        render();
-      }
-
-      for (const btn of main.querySelectorAll('.admin-theme-option')) {
-        btn.addEventListener('click', () => {
-          const preset = btn.dataset.preset;
-          const presets = getPresets();
-          const info = presets.find(p => p.key === preset);
-          const newTheme = { mode: info.mode, preset, accentColor: currentTheme.accentColor || '#5b7fd6' };
-          saveTheme(newTheme);
-        });
-      }
-
-      for (const btn of main.querySelectorAll('.admin-accent')) {
-        btn.addEventListener('click', () => {
-          const color = btn.dataset.color;
-          const newTheme = { ...currentTheme, accentColor: color };
-          saveTheme(newTheme);
-        });
-      }
     }
 
     // ── Schedule tab events ──
@@ -4202,80 +3853,6 @@
           window.location.href = 'setup.html';
         });
       }
-    }
-
-    // ── Debug tab events ──
-
-    function bindDebugTab() {
-      loadEventLog();
-
-      main.querySelector('#debugToggle')?.addEventListener('change', (e) => {
-        localStorage.setItem('dr-debug', e.target.checked ? 'true' : 'false');
-        // Update header icon
-        document.getElementById('headerMount').innerHTML = renderHeader({
-          appName: settings?.appName || 'Daily Rundown',
-          subtitle: 'Admin',
-          showAdmin: false,
-          showDebug: e.target.checked
-        });
-      });
-
-      main.querySelector('#copyEventLog')?.addEventListener('click', async () => {
-        const el = main.querySelector('#eventLog');
-        const text = el ? el.innerText : 'No events.';
-        await navigator.clipboard.writeText(`== Event Log ==\n${text}`);
-        await showConfirm({ title: 'Copied to clipboard!', alert: true });
-      });
-
-      const inspectSelect = main.querySelector('#inspectTaskSelect');
-      if (inspectSelect) {
-        inspectSelect.addEventListener('change', () => {
-          inspectTask(inspectSelect.value);
-        });
-      }
-
-      main.querySelector('#copyInspect')?.addEventListener('click', async () => {
-        const el = main.querySelector('#inspectResult pre');
-        const text = el ? el.textContent : 'No task selected.';
-        await navigator.clipboard.writeText(`== Schedule Inspector ==\n${text}`);
-        await showConfirm({ title: 'Copied to clipboard!', alert: true });
-      });
-
-      // Past-due test entry
-      main.querySelector('#createPastDueBtn')?.addEventListener('click', async () => {
-        const taskId = main.querySelector('#pastDueTask')?.value;
-        const dateKey = main.querySelector('#pastDueDate')?.value;
-        const ownerId = main.querySelector('#pastDueOwner')?.value;
-        const msgEl = main.querySelector('#pastDueMsg');
-
-        if (!taskId || !dateKey || !ownerId) {
-          if (msgEl) { msgEl.textContent = 'Select a task, date, and owner.'; msgEl.className = 'admin-msg admin-msg--danger mt-sm'; }
-          return;
-        }
-        if (dateKey >= today) {
-          if (msgEl) { msgEl.textContent = 'Date must be in the past.'; msgEl.className = 'admin-msg admin-msg--danger mt-sm'; }
-          return;
-        }
-
-        const task = tasksObj[taskId];
-        const entry = {
-          taskId,
-          ownerId,
-          rotationType: task.rotation,
-          ownerAssignmentMode: task.ownerAssignmentMode || 'rotate',
-          timeOfDay: task.timeOfDay || 'anytime'
-        };
-
-        const updates = {};
-        updates[`schedule/${dateKey}/sched_${Date.now()}_pastdue`] = entry;
-        await multiUpdate(updates);
-
-        if (msgEl) {
-          msgEl.textContent = `Created overdue entry for "${task.name}" on ${dateKey}`;
-          msgEl.className = 'admin-msg admin-msg--success mt-sm';
-          setTimeout(() => { msgEl.textContent = ''; }, 3000);
-        }
-      });
     }
 
     // ── Initial render if PIN session was cached ──
