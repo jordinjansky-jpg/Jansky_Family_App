@@ -558,10 +558,13 @@
       } else {
         html += `<div class="admin-list" id="eventList">`;
         for (const [id, ev] of evEntries) {
-          const color = ev.color || 'var(--accent)';
+          const color = ev.color || '#4285f4';
           const icon = renderColorSwatch(color);
           const dateStr = ev.date
-            ? new Date(ev.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            ? new Date(ev.date + 'T12:00:00Z').toLocaleDateString('en-US', {
+                weekday: 'short', month: 'short', day: 'numeric',
+                timeZone: settings?.timezone || 'UTC',
+              })
             : '';
           const timeStr = ev.allDay ? 'All day' : [ev.startTime, ev.endTime].filter(Boolean).join(' – ');
           const secondary = [dateStr, timeStr].filter(Boolean).join(' · ');
@@ -635,6 +638,7 @@
           <textarea id="aef_notes" rows="2" placeholder="Optional">${esc(event.notes || '')}</textarea>
         </div>
         <div class="admin-form__actions mt-md">
+          ${isEdit ? `<button class="btn btn--danger" id="eventFormDelete" type="button">Delete Event</button>` : ''}
           <button class="btn btn--secondary" id="eventFormCancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="eventFormSave" type="button">${isEdit ? 'Save Changes' : 'Add Event'}</button>
         </div>
@@ -3058,6 +3062,15 @@
           await multiUpdate({ [`schedule/${date}/${schedKey}`]: { type: 'event', eventId: newId } });
         }
 
+        editingEventId = null;
+        render();
+      });
+
+      main.querySelector('#eventFormDelete')?.addEventListener('click', async () => {
+        const confirmed = await showConfirm({ title: 'Delete this event?', confirmLabel: 'Delete', danger: true });
+        if (!confirmed) return;
+        await removeEvent(editingEventId);
+        delete eventsObj[editingEventId];
         editingEventId = null;
         render();
       });
