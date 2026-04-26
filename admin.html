@@ -1389,22 +1389,6 @@
         </div>
         <div id="importStatus" class="mt-sm"></div>
 
-        <h3 class="admin-form__title mt-lg">Archive Old Data</h3>
-        <p class="form-hint mb-md">Prune schedule entries, completions, and snapshots older than N months. Tasks and settings are kept.</p>
-        <div class="form-row" style="align-items:flex-end;">
-          <div class="form-group" style="flex:0 0 120px;">
-            <label class="form-label">Older than</label>
-            <select id="archiveMonths" class="form-input">
-              <option value="3">3 months</option>
-              <option value="6" selected>6 months</option>
-              <option value="9">9 months</option>
-              <option value="12">12 months</option>
-            </select>
-          </div>
-          <button class="btn btn--secondary" id="archiveBtn" type="button">Prune Data</button>
-        </div>
-        <div id="archiveStatus" class="mt-sm"></div>
-
         <h3 class="admin-form__title mt-lg">Reset Scoreboard</h3>
         <p class="form-hint mb-md">Delete all snapshots, streaks, completions, reward balances, and banked tokens. Tasks, schedule, and achievements are kept. Scores will rebuild from scratch.</p>
         <div id="scoreResetSection">
@@ -3454,97 +3438,6 @@
         }
       });
 
-      // Archive old data
-      main.querySelector('#archiveBtn')?.addEventListener('click', async () => {
-        const months = parseInt(main.querySelector('#archiveMonths').value, 10);
-        const statusEl = main.querySelector('#archiveStatus');
-        const btn = main.querySelector('#archiveBtn');
-
-        const cutoffDate = addDays(today, -(months * 30));
-
-        btn.disabled = true;
-        btn.textContent = 'Scanning...';
-        statusEl.innerHTML = '';
-
-        try {
-          const [allSched, allComp, allSnaps] = await Promise.all([
-            readAllSchedule(), readCompletions(), readOnce('snapshots')
-          ]);
-
-          const pruneUpdates = {};
-          let schedCount = 0, compCount = 0, snapCount = 0;
-
-          // Prune old schedule entries
-          if (allSched) {
-            for (const dateKey of Object.keys(allSched)) {
-              if (dateKey < cutoffDate) {
-                pruneUpdates[`schedule/${dateKey}`] = null;
-                schedCount++;
-              }
-            }
-          }
-
-          // Prune completions tied to old schedule entries
-          if (allComp && allSched) {
-            for (const [entryKey, comp] of Object.entries(allComp)) {
-              // Check if this completion's schedule entry was pruned
-              let foundInFuture = false;
-              if (allSched) {
-                for (const dateKey of Object.keys(allSched)) {
-                  if (dateKey >= cutoffDate && allSched[dateKey]?.[entryKey]) {
-                    foundInFuture = true;
-                    break;
-                  }
-                }
-              }
-              if (!foundInFuture) {
-                // Check all old dates for this entry
-                let foundInOld = false;
-                for (const dateKey of Object.keys(allSched)) {
-                  if (dateKey < cutoffDate && allSched[dateKey]?.[entryKey]) {
-                    foundInOld = true;
-                    break;
-                  }
-                }
-                if (foundInOld) {
-                  pruneUpdates[`completions/${entryKey}`] = null;
-                  compCount++;
-                }
-              }
-            }
-          }
-
-          // Prune old snapshots
-          if (allSnaps) {
-            for (const dateKey of Object.keys(allSnaps)) {
-              if (dateKey < cutoffDate) {
-                pruneUpdates[`snapshots/${dateKey}`] = null;
-                snapCount++;
-              }
-            }
-          }
-
-          const totalPruned = schedCount + compCount + snapCount;
-          if (totalPruned === 0) {
-            statusEl.innerHTML = '<span class="text-muted">No data older than the cutoff to prune.</span>';
-          } else {
-            if (!await showConfirm({ title: 'Prune old data?', message: `${schedCount} schedule days, ${compCount} completions, ${snapCount} snapshot days older than ${months} months.`, confirmLabel: 'Prune', danger: true })) {
-              statusEl.innerHTML = '';
-              btn.disabled = false;
-              btn.textContent = 'Prune Data';
-              return;
-            }
-            await multiUpdate(pruneUpdates);
-            statusEl.innerHTML = `<span class="admin-msg admin-msg--success">Pruned ${totalPruned} records (${schedCount} schedule days, ${compCount} completions, ${snapCount} snapshots).</span>`;
-          }
-        } catch (err) {
-          statusEl.innerHTML = `<span class="admin-msg admin-msg--danger">Archive failed: ${esc(err.message)}</span>`;
-        }
-
-        btn.disabled = false;
-        btn.textContent = 'Prune Data';
-      });
-
       // Scoreboard reset
       main.querySelector('#showScoreResetBtn')?.addEventListener('click', () => {
         main.querySelector('#scoreResetSection').style.display = 'none';
@@ -3614,7 +3507,13 @@
     }
 
     function renderToolsTab() {
-      return renderScheduleTab() + renderDataTab();
+      return `<div class="admin-form">
+        <h3 class="admin-form__title">Schedule</h3>
+        ${renderScheduleTab()}
+        <hr class="admin-section-divider">
+        <h3 class="admin-form__title">Data</h3>
+        ${renderDataTab()}
+      </div>`;
     }
 
     function bindToolsTab() {

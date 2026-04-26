@@ -1041,3 +1041,9 @@
   font-weight: 700;
   color: var(--text);
 }
+
+.admin-section-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--spacing-lg) 0;
+}
