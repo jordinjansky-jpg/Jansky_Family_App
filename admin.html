@@ -289,6 +289,8 @@
       for (const tab of main.querySelectorAll('.admin-tab')) {
         tab.addEventListener('click', async () => {
           activeTab = tab.dataset.tab;
+          selectMode = false;
+          selectedTaskIds.clear();
           if (activeTab === 'library' && activeLibrarySection === 'badges') {
             allAchievements = (await readAllAchievements()) || {};
             achievementDefsObj = (await readAchievementDefs()) || {};
