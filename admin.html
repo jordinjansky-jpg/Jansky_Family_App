@@ -411,7 +411,7 @@
             <option value="hard"${taskFilter.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
           </select>
         </div>
-        <div class="admin-filters" style="margin-top:4px">
+        <div class="admin-filters admin-filters--stacked">
           <select class="admin-select" id="taskSortBy">
             <option value="name"${taskSort === 'name' ? ' selected' : ''}>Sort: Name</option>
             <option value="difficulty"${taskSort === 'difficulty' ? ' selected' : ''}>Sort: Difficulty</option>
@@ -2521,73 +2521,6 @@
           render();
         }
       });
-
-      // Pause/unpause
-      for (const btn of main.querySelectorAll('.admin-pause-task')) {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.taskId;
-          const task = tasksObj[id];
-          if (!task) return;
-          task.status = task.status === 'paused' ? 'active' : 'paused';
-          await writeTask(id, task);
-          // Rebuild schedule so paused tasks are removed / unpaused tasks are placed
-          const allSched = await readAllSchedule() || {};
-          const allComp = await readCompletions() || {};
-          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true }, catsObj);
-          await multiUpdate(futureUpdates);
-          render();
-        });
-      }
-
-      // Delete task (with undo)
-      for (const btn of main.querySelectorAll('.admin-delete-task')) {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.taskId;
-          const taskBackup = { ...tasksObj[id] };
-          const taskName = taskBackup.name || 'task';
-
-          // Immediately hide from UI
-          delete tasksObj[id];
-          editingTaskId = null;
-          render();
-
-          // Delayed delete — undo restores before Firebase delete fires
-          let cancelled = false;
-          const deleteTimer = setTimeout(async () => {
-            if (cancelled) return;
-            // Delete the task first — this is the critical operation
-            await removeTask(id);
-            // Clean up orphaned schedule entries and completions (best-effort)
-            try {
-              const allSched = await readAllSchedule() || {};
-              const allComp = await readCompletions() || {};
-              const cleanupUpdates = {};
-              for (const [dateKey, dayEntries] of Object.entries(allSched)) {
-                for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
-                  if (entry.taskId === id) {
-                    cleanupUpdates[`schedule/${dateKey}/${entryKey}`] = null;
-                    if (allComp[entryKey]) {
-                      cleanupUpdates[`completions/${entryKey}`] = null;
-                    }
-                  }
-                }
-              }
-              if (Object.keys(cleanupUpdates).length > 0) {
-                await multiUpdate(cleanupUpdates);
-              }
-            } catch (e) {
-              console.warn('Task deleted but schedule cleanup failed:', e);
-            }
-          }, 5500);
-
-          showUndoToast(`Deleted "${taskName}"`, () => {
-            cancelled = true;
-            clearTimeout(deleteTimer);
-            tasksObj[id] = taskBackup;
-            render();
-          });
-        });
-      }
 
       // Task form events
       if (editingTaskId !== null) {

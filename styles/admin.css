@@ -157,6 +157,9 @@
   gap: var(--spacing-xs);
   max-width: 100%;
 }
+.admin-filters--stacked {
+  margin-top: 4px;
+}
 .admin-select {
   padding: 6px 10px;
   border-radius: var(--radius-md);
