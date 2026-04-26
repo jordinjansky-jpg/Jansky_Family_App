@@ -1690,7 +1690,7 @@
 
 /* Banner (single slot) */
 .banner {
-  margin: 0 var(--spacing-md) var(--spacing-md);
+  margin: 0 0 var(--spacing-md);
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
   display: flex; align-items: center; gap: var(--spacing-md);
