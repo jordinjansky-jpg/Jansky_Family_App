@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readMealLibrary, pushMealLibrary, writeMealLibrary, removeMealLibrary, readAllMeals, removeMeal
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet, renderSendMessageSheet, bindSendMessageSheet } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -103,71 +103,6 @@
       }, 5000);
     }
 
-    // ── Task template presets ──
-    const TASK_TEMPLATES = {
-      'daily-chores': {
-        label: 'Daily Chores',
-        icon: '🧹',
-        tasks: [
-          { name: 'Make bed', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'am' },
-          { name: 'Brush teeth (morning)', rotation: 'daily', difficulty: 'easy', estMin: 3, timeOfDay: 'am' },
-          { name: 'Brush teeth (night)', rotation: 'daily', difficulty: 'easy', estMin: 3, timeOfDay: 'pm' },
-          { name: 'Pick up room', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
-          { name: 'Set the table', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' },
-          { name: 'Clear the table', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' },
-          { name: 'Load dishwasher', rotation: 'daily', difficulty: 'medium', estMin: 10, timeOfDay: 'pm' },
-          { name: 'Wipe kitchen counters', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'pm' }
-        ]
-      },
-      'weekly-chores': {
-        label: 'Weekly Chores',
-        icon: '📅',
-        tasks: [
-          { name: 'Vacuum living room', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
-          { name: 'Mop kitchen floor', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
-          { name: 'Clean bathroom', rotation: 'weekly', difficulty: 'hard', estMin: 20, timeOfDay: 'anytime' },
-          { name: 'Take out trash', rotation: 'weekly', difficulty: 'easy', estMin: 5, timeOfDay: 'anytime' },
-          { name: 'Do laundry', rotation: 'weekly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' },
-          { name: 'Change bed sheets', rotation: 'weekly', difficulty: 'medium', estMin: 10, timeOfDay: 'anytime' },
-          { name: 'Water plants', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' }
-        ]
-      },
-      'monthly-chores': {
-        label: 'Monthly Chores',
-        icon: '📆',
-        tasks: [
-          { name: 'Deep clean fridge', rotation: 'monthly', difficulty: 'hard', estMin: 30, timeOfDay: 'anytime' },
-          { name: 'Wipe baseboards', rotation: 'monthly', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
-          { name: 'Clean windows', rotation: 'monthly', difficulty: 'medium', estMin: 25, timeOfDay: 'anytime' },
-          { name: 'Organize pantry', rotation: 'monthly', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
-          { name: 'Dust ceiling fans', rotation: 'monthly', difficulty: 'medium', estMin: 15, timeOfDay: 'anytime' }
-        ]
-      },
-      'kid-chores': {
-        label: 'Kid-Friendly Chores',
-        icon: '👦',
-        tasks: [
-          { name: 'Feed the pet', rotation: 'daily', difficulty: 'easy', estMin: 5, timeOfDay: 'am' },
-          { name: 'Put away toys', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
-          { name: 'Help with laundry', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' },
-          { name: 'Dust furniture', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' },
-          { name: 'Sort recycling', rotation: 'weekly', difficulty: 'easy', estMin: 5, timeOfDay: 'anytime' },
-          { name: 'Water garden', rotation: 'weekly', difficulty: 'easy', estMin: 10, timeOfDay: 'anytime' }
-        ]
-      },
-      'self-care': {
-        label: 'Self-Care & Routines',
-        icon: '🧘',
-        tasks: [
-          { name: 'Morning workout', rotation: 'daily', difficulty: 'medium', estMin: 30, timeOfDay: 'am' },
-          { name: 'Read for 20 minutes', rotation: 'daily', difficulty: 'easy', estMin: 20, timeOfDay: 'pm' },
-          { name: 'Practice instrument', rotation: 'daily', difficulty: 'medium', estMin: 20, timeOfDay: 'anytime' },
-          { name: 'Journal / reflect', rotation: 'daily', difficulty: 'easy', estMin: 10, timeOfDay: 'pm' },
-          { name: 'Screen-free hour', rotation: 'daily', difficulty: 'easy', estMin: 60, timeOfDay: 'pm' }
-        ]
-      }
-    };
-
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
 
@@ -194,13 +129,14 @@
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
 
+    autoPrune(settings?.autoPruneMonths || 0).catch(() => {}); // fire-and-forget, silent
+
     // ── Header & Nav ──
-    const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
       subtitle: 'Admin',
       showAdmin: false,
-      showDebug: debugActive
+      showDebug: false
     });
     document.getElementById('navMount').innerHTML = renderNavBar(null);
 
@@ -221,7 +157,19 @@
     // Check if PIN session is still valid
     const pinTs = parseInt(sessionStorage.getItem(PIN_SESSION_KEY) || '0', 10);
     const pinSessionValid = Date.now() - pinTs < PIN_SESSION_TTL;
-    if (pinSessionValid) {
+
+    // isAdmin bypass: person.html writes dr-person-home (name string). The spec mentioned
+    // dr-active-person (ID) but that key is never written — name lookup is what's available.
+    const personHomeName = sessionStorage.getItem('dr-person-home');
+    const personHomeEntry = personHomeName
+      ? Object.values(peopleObj).find(p => p.name === personHomeName)
+      : null;
+    const isAdminBypass = !!personHomeEntry?.isAdmin;
+
+    if (pinSessionValid || isAdminBypass) {
+      if (isAdminBypass && !pinSessionValid) {
+        sessionStorage.setItem(PIN_SESSION_KEY, String(Date.now()));
+      }
       // Skip PIN gate — render() called after main is defined below
       document.getElementById('mainContent').style.display = '';
     } else {
@@ -265,29 +213,93 @@
     // ══════════════════════════════════════════
 
     const TABS = [
-      { id: 'tasks', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', label: 'Tasks' },
-      { id: 'events', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', label: 'Events' },
-      { id: 'meals', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>', label: 'Meals' },
-      { id: 'people', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', label: 'People' },
-      { id: 'categories', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>', label: 'Categories' },
-      { id: 'rewards', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>', label: 'Rewards' },
-      { id: 'achievements', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>', label: 'Badges' },
-      { id: 'settings', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg>', label: 'Settings' },
-      { id: 'theme', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>', label: 'Theme' },
-      { id: 'schedule', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', label: 'Schedule' },
-      { id: 'data', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', label: 'Data' },
-      { id: 'debug', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v1h4"/><path d="M18 8h-2V6a4 4 0 0 0-4-4"/><path d="M20 10v1a2 2 0 0 1-2 2"/><rect x="8" y="10" width="8" height="10" rx="4"/><path d="M4 16h4"/><path d="M16 16h4"/><path d="M12 10v10"/></svg>', label: 'Debug' }
+      { id: 'library',  label: 'Library'  },
+      { id: 'people',   label: 'People'   },
+      { id: 'settings', label: 'Settings' },
+      { id: 'tools',    label: 'Tools'    },
     ];
 
-    let activeTab = 'tasks';
+    const LIBRARY_SECTIONS = [
+      { id: 'tasks',      label: 'Tasks'      },
+      { id: 'events',     label: 'Events'     },
+      { id: 'meals',      label: 'Meals'      },
+      { id: 'categories', label: 'Categories' },
+      { id: 'rewards',    label: 'Rewards'    },
+      { id: 'badges',     label: 'Badges'     },
+    ];
+
+    let activeTab = 'library';
+    let activeLibrarySection = 'tasks';
     let editingRewardId = null; // null = not editing, 'new' = creating, pushId = editing
 
     // ── Helpers ──
+
+    async function autoPrune(months) {
+      if (!months || months <= 0) return;
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - months);
+      const cutoffKey = cutoff.toLocaleDateString('en-CA', { timeZone: tz });
+
+      const db = firebase.database();
+      const pruneRef = (path) => db.ref(path).orderByKey().endAt(cutoffKey).once('value').then(snap => {
+        const updates = {};
+        snap.forEach(child => { updates[child.key] = null; });
+        if (Object.keys(updates).length > 0) return db.ref(path).update(updates);
+      });
+
+      await Promise.all([
+        pruneRef('rundown/schedule'),
+        pruneRef('rundown/snapshots'),
+      ]);
+    }
+
     function peopleArray() {
       return Object.entries(peopleObj).map(([id, p]) => ({ id, ...p }));
     }
     function catsArray() {
       return Object.entries(catsObj).map(([key, c]) => ({ key, ...c }));
+    }
+    function getAccentColors() {
+      return [
+        '#ef5350', '#e85d75', '#ec407a', '#f06292',
+        '#ab47bc', '#8e24aa', '#7e57c2', '#5b7fd6',
+        '#42a5f5', '#00acc1', '#26a69a', '#43a047',
+        '#66bb6a', '#ffca28', '#ffa726', '#ff9800',
+        '#ff7043', '#8d6e63', '#78909c', '#546e7a'
+      ];
+    }
+
+    /**
+     * Shared list row for all Library sections.
+     * icon: HTML string (SVG, emoji in a span, or color swatch div)
+     * primary: escaped text string
+     * secondary: escaped text string or ''
+     * dataAttrs: string of additional data-* attributes for the row
+     */
+    function renderAdminRow({ icon, primary, secondary = '', dataAttrs = '' }) {
+      return `<div class="admin-list-item admin-list-item--clickable" ${dataAttrs}>
+    <div class="admin-icon-tile">${icon}</div>
+    <div class="admin-list-item__body">
+      <span class="admin-list-item__name">${primary}</span>
+      ${secondary ? `<span class="admin-list-item__meta">${secondary}</span>` : ''}
+    </div>
+    <svg class="admin-list-item__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>`;
+    }
+
+    /**
+     * 40×40 color swatch for use as the icon in renderAdminRow.
+     * color: CSS color string
+     */
+    function renderColorSwatch(color) {
+      return `<div class="admin-icon-tile__swatch" style="background:${color}"></div>`;
+    }
+
+    /**
+     * Emoji tile for use as the icon in renderAdminRow.
+     */
+    function renderEmojiTile(emoji) {
+      return `<span class="admin-icon-tile__emoji" aria-hidden="true">${emoji}</span>`;
     }
 
     const main = document.getElementById('mainContent');
@@ -297,29 +309,40 @@
     // ══════════════════════════════════════════
 
     function render() {
+      // Top-level tab bar
       let html = `<div class="admin-tabs" role="tablist" aria-label="Admin sections">`;
       for (const tab of TABS) {
         const active = tab.id === activeTab ? ' admin-tab--active' : '';
-        html += `<button class="admin-tab${active}" data-tab="${tab.id}" type="button" role="tab" aria-selected="${tab.id === activeTab}" aria-controls="admin-panel-${tab.id}">
-          <span class="admin-tab__icon" aria-hidden="true">${tab.icon}</span>
-          <span class="admin-tab__label">${tab.label}</span>
-        </button>`;
+        html += `<button class="admin-tab${active}" data-tab="${tab.id}" type="button" role="tab" aria-selected="${tab.id === activeTab}">${esc(tab.label)}</button>`;
       }
-      html += `</div><div class="admin-content" role="tabpanel" id="admin-panel-${activeTab}">`;
+      html += `</div>`;
+
+      // Library sub-nav
+      if (activeTab === 'library') {
+        html += `<div class="admin-subnav" role="tablist" aria-label="Library sections">`;
+        for (const sec of LIBRARY_SECTIONS) {
+          const active = sec.id === activeLibrarySection ? ' admin-subnav__pill--active' : '';
+          html += `<button class="admin-subnav__pill${active}" data-section="${sec.id}" type="button">${esc(sec.label)}</button>`;
+        }
+        html += `</div>`;
+      }
+
+      html += `<div class="admin-content" role="tabpanel">`;
 
       switch (activeTab) {
-        case 'tasks': html += renderTasksTab(); break;
-        case 'events': html += renderEventsTab(); break;
-        case 'meals': html += renderMealsTab(); break;
-        case 'people': html += renderPeopleTab(); break;
-        case 'categories': html += renderCategoriesTab(); break;
-        case 'rewards': html += renderRewardsTab(); break;
-        case 'achievements': html += renderAchievementsTab(); break;
+        case 'library':
+          switch (activeLibrarySection) {
+            case 'tasks':      html += renderTasksTab();      break;
+            case 'events':     html += renderEventsTab();     break;
+            case 'meals':      html += renderMealsTab();      break;
+            case 'categories': html += renderCategoriesTab(); break;
+            case 'rewards':    html += renderRewardsTab();    break;
+            case 'badges':     html += renderAchievementsTab(); break;
+          }
+          break;
+        case 'people':   html += renderPeopleTab();   break;
         case 'settings': html += renderSettingsTab(); break;
-        case 'theme': html += renderThemeTab(); break;
-        case 'schedule': html += renderScheduleTab(); break;
-        case 'data': html += renderDataTab(); break;
-        case 'debug': html += renderDebugTab(); break;
+        case 'tools':    html += renderToolsTab();    break;
       }
 
       html += `</div>`;
@@ -335,17 +358,29 @@
           activeTab = tab.dataset.tab;
           selectMode = false;
           selectedTaskIds.clear();
-          if (activeTab === 'rewards') {
+          if (activeTab === 'library' && activeLibrarySection === 'badges') {
+            allAchievements = (await readAllAchievements()) || {};
+            achievementDefsObj = (await readAchievementDefs()) || {};
+          }
+          render();
+        });
+      }
+      for (const pill of main.querySelectorAll('.admin-subnav__pill')) {
+        pill.addEventListener('click', async () => {
+          activeLibrarySection = pill.dataset.section;
+          selectMode = false;
+          selectedTaskIds.clear();
+          if (activeLibrarySection === 'badges') {
+            allAchievements = (await readAllAchievements()) || {};
+            achievementDefsObj = (await readAchievementDefs()) || {};
+          }
+          if (activeLibrarySection === 'rewards') {
             allAchievements = (await readAllAchievements()) || {};
             allMessagesObj = (await readAllMessages()) || {};
             allBankData = {};
             for (const pid of Object.keys(peopleObj)) {
               allBankData[pid] = (await readBank(pid)) || {};
             }
-          }
-          if (activeTab === 'achievements') {
-            allAchievements = (await readAllAchievements()) || {};
-            achievementDefsObj = (await readAchievementDefs()) || {};
           }
           render();
         });
@@ -359,30 +394,8 @@
     let taskFilter = { rotation: '', owner: '', category: '', status: '', difficulty: '' };
     let taskSort = 'name';
     let editingTaskId = null;
-    let showingTemplates = false;
     let selectMode = false;
     let selectedTaskIds = new Set();
-
-
-    function renderTemplatePanel() {
-      let html = `<div class="admin-form mb-md" id="templatePanel">
-        <h3 class="admin-form__title">Task Templates</h3>
-        <p class="form-hint mb-md">Select a template pack to import common chore sets. Tasks are created with "rotate" assignment mode — assign owners after import.</p>`;
-
-      for (const [key, pack] of Object.entries(TASK_TEMPLATES)) {
-        html += `<div class="admin-template-pack mb-md" style="border:1px solid var(--border);border-radius:8px;padding:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <strong>${pack.icon} ${esc(pack.label)}</strong>
-            <button class="btn btn--primary btn--sm template-import-btn" data-template="${key}" type="button">Import ${pack.tasks.length} tasks</button>
-          </div>
-          <div class="form-hint mt-sm">${pack.tasks.map(t => esc(t.name)).join(', ')}</div>
-        </div>`;
-      }
-
-      html += `<button class="btn btn--secondary" id="closeTemplates" type="button">Close</button>
-      </div>`;
-      return html;
-    }
 
     function renderTasksTab() {
       const pa = peopleArray();
@@ -420,7 +433,7 @@
             <option value="hard"${taskFilter.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
           </select>
         </div>
-        <div class="admin-filters" style="margin-top:4px">
+        <div class="admin-filters admin-filters--stacked">
           <select class="admin-select" id="taskSortBy">
             <option value="name"${taskSort === 'name' ? ' selected' : ''}>Sort: Name</option>
             <option value="difficulty"${taskSort === 'difficulty' ? ' selected' : ''}>Sort: Difficulty</option>
@@ -472,69 +485,38 @@
           <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
           <div>
             <button class="btn btn--secondary btn--sm" id="selectModeBtn" type="button">Select</button>
-            <button class="btn btn--secondary btn--sm" id="templateBtn" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Templates</button>
-            <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
           </div>
         </div>`;
       }
 
       if (!selectMode) {
-        // Template panel
-        if (showingTemplates) {
-          html += renderTemplatePanel();
-        }
-
         // New task form at top
         if (editingTaskId === 'new') {
           html += renderTaskForm(null);
         }
       }
 
-      // Task list with inline edit form
-      if (filtered.length === 0 && editingTaskId === null) {
-        html += renderEmptyState('✅', 'No tasks', 'Add your first task to get started.');
+      html += `<div class="admin-list-add">
+  <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
+</div>`;
+
+      if (filtered.length === 0) {
+        html += `<div class="admin-empty">No tasks yet. Tap + Add Task to get started.</div>`;
       } else {
-        html += `<div class="admin-list">`;
-        for (const [id, task] of filtered) {
-          const cat = catsObj[task.category];
-          const owners = (task.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
-          const pausedClass = task.status === 'paused' ? ' admin-list-item--paused' : '';
-          const pausedBadge = task.status === 'paused' ? '<span class="admin-badge admin-badge--muted">⏸ Paused</span>' : '';
-          const diffLabel = { easy: 'Easy', medium: 'Med', hard: 'Hard' }[task.difficulty] || 'Med';
-          const todLabel = { am: 'AM', pm: 'PM', anytime: 'Any', both: 'AM+PM' }[task.timeOfDay] || 'Any';
-          // Detail badges: est time, cooldown, exempt
-          let detailBadges = '';
-          if (task.estMin) detailBadges += `<span class="admin-badge">${task.estMin}m</span>`;
-          detailBadges += `<span class="admin-badge">${todLabel}</span>`;
-          if (task.cooldownDays) detailBadges += `<span class="admin-badge">CD ${task.cooldownDays}d</span>`;
-          if (task.dedicatedDay != null) {
-            const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-            detailBadges += `<span class="admin-badge">📅 ${dayNames[task.dedicatedDay] || task.dedicatedDay}</span>`;
-          }
-          if (task.dedicatedDate) detailBadges += `<span class="admin-badge">📅 ${task.dedicatedDate}</span>`;
-          if (task.exempt) detailBadges += `<span class="admin-badge admin-badge--muted">Exempt</span>`;
-          const selectedClass = selectMode && selectedTaskIds.has(id) ? ' admin-list-item--selected' : '';
-          const checkboxHtml = selectMode ? `<input type="checkbox" class="bulk-checkbox" ${selectedTaskIds.has(id) ? 'checked' : ''}>` : '';
-          const actionsHtml = selectMode ? '' : `<div class="admin-list-item__actions">
-                <button class="btn btn--ghost btn--sm admin-edit-task" data-task-id="${id}" type="button">Edit</button>
-                <button class="btn btn--ghost btn--sm admin-pause-task" data-task-id="${id}" type="button">${task.status === 'paused' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'}</button>
-                <button class="btn btn--ghost btn--sm admin-delete-task" data-task-id="${id}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-              </div>`;
-          html += `<div class="admin-list-item admin-list-item--clickable admin-list-item--compact${pausedClass}${selectedClass}" data-task-id="${id}">
-            <div class="admin-list-item__row">
-              ${checkboxHtml}<span class="admin-list-item__name">${esc(task.name)}${cat?.icon ? ' ' + cat.icon : ''}</span>
-              <span class="admin-list-item__tags">
-                <span class="admin-badge">${task.rotation}</span>
-                <span class="admin-badge">${diffLabel}</span>
-                ${pausedBadge}
-                ${detailBadges}
-              </span>
-            </div>
-            <div class="admin-list-item__row">
-              <span class="admin-list-item__meta">${owners || 'Unassigned'}${cat ? ' · ' + cat.label : ''}</span>
-              ${actionsHtml}
-            </div>
-          </div>`;
+        html += `<div class="admin-list" id="taskList">`;
+        for (const [id, t] of filtered) {
+          const cat = catsObj[t.category] || {};
+          const catColor = cat.color || 'var(--surface-2, var(--surface))';
+          const icon = renderColorSwatch(catColor);
+          const ownerNames = (t.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
+          const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-time' }[t.rotation] || t.rotation;
+          const secondary = `${rotLabel}${ownerNames ? ' · ' + ownerNames : ''}`;
+          html += renderAdminRow({
+            icon,
+            primary: esc(t.name),
+            secondary: esc(secondary),
+            dataAttrs: `data-task-id="${id}"`,
+          });
         }
         html += `</div>`;
       }
@@ -580,57 +562,45 @@
     let editingEventId = null;
 
     function renderEventsTab() {
-      const eventsList = Object.entries(eventsObj).sort(([, a], [, b]) => (a.date || '').localeCompare(b.date || ''));
-      const upcoming = eventsList.filter(([, e]) => e.date >= today);
-      const past = eventsList.filter(([, e]) => e.date < today);
-
-      let html = `<div class="admin-section-header">
-        <span>${eventsList.length} event${eventsList.length !== 1 ? 's' : ''}</span>
-        <button class="btn btn--primary btn--sm" id="addEventBtn" type="button">+ Add Event</button>
-      </div>`;
+      let html = '';
 
       if (editingEventId !== null) {
         html += renderEventFormAdmin(editingEventId === 'new' ? null : editingEventId);
       }
 
-      if (upcoming.length > 0) {
-        html += `<h4 class="form-label mt-md mb-sm">Upcoming</h4>`;
-        html += `<div class="admin-list">`;
-        for (const [id, event] of upcoming) {
-          html += renderEventListItem(id, event);
+      html += `<div class="admin-list-add">
+  <button class="btn btn--primary btn--sm" id="addEventBtn" type="button">+ Add Event</button>
+</div>`;
+
+      const evEntries = Object.entries(eventsObj || {})
+        .sort((a, b) => (a[1].date || '').localeCompare(b[1].date || ''));
+
+      if (evEntries.length === 0) {
+        html += `<div class="admin-empty">No events yet. Tap + Add Event to create one.</div>`;
+      } else {
+        html += `<div class="admin-list" id="eventList">`;
+        for (const [id, ev] of evEntries) {
+          const color = ev.color || '#4285f4';
+          const icon = renderColorSwatch(color);
+          const dateStr = ev.date
+            ? new Date(ev.date + 'T12:00:00Z').toLocaleDateString('en-US', {
+                weekday: 'short', month: 'short', day: 'numeric',
+                timeZone: settings?.timezone || 'UTC',
+              })
+            : '';
+          const timeStr = ev.allDay ? 'All day' : [ev.startTime, ev.endTime].filter(Boolean).join(' – ');
+          const secondary = [dateStr, timeStr].filter(Boolean).join(' · ');
+          html += renderAdminRow({
+            icon,
+            primary: esc(ev.name || 'Untitled'),
+            secondary: esc(secondary),
+            dataAttrs: `data-event-id="${id}"`,
+          });
         }
         html += `</div>`;
       }
 
-      if (past.length > 0) {
-        html += `<details class="mt-md"><summary class="form-label" style="cursor:pointer">Past Events (${past.length})</summary>`;
-        html += `<div class="admin-list mt-sm">`;
-        for (const [id, event] of past.reverse()) {
-          html += renderEventListItem(id, event);
-        }
-        html += `</div></details>`;
-      }
-
-      if (eventsList.length === 0 && editingEventId === null) {
-        html += `<p class="text-muted mt-md">No events yet. Tap "+ Add Event" to create one.</p>`;
-      }
-
       return html;
-    }
-
-    function renderEventListItem(id, event) {
-      const peopleName = (event.people || []).map(pid => peopleObj[pid]?.name || '?').join(', ');
-      const timeStr = event.allDay ? 'All day' : [event.startTime, event.endTime].filter(Boolean).join(' – ') || '';
-      const color = event.color || '#4285f4';
-      return `<div class="admin-list-item admin-list-item--clickable admin-event-row" data-event-id="${id}">
-        <div class="admin-list-item__main" style="border-left:3px solid ${color};padding-left:var(--spacing-sm)">
-          <span class="admin-list-item__name">${esc(event.name)}</span>
-          <span class="admin-list-item__meta">${esc(event.date)} ${timeStr ? '· ' + esc(timeStr) : ''} ${peopleName ? '· ' + esc(peopleName) : ''}</span>
-        </div>
-        <div class="admin-list-item__actions">
-          <button class="btn btn--ghost btn--sm admin-event-delete" data-event-id="${id}" type="button">Del</button>
-        </div>
-      </div>`;
     }
 
     function renderEventFormAdmin(eventId) {
@@ -690,6 +660,7 @@
           <textarea id="aef_notes" rows="2" placeholder="Optional">${esc(event.notes || '')}</textarea>
         </div>
         <div class="admin-form__actions mt-md">
+          ${isEdit ? `<button class="btn btn--danger" id="eventFormDelete" type="button">Delete Event</button>` : ''}
           <button class="btn btn--secondary" id="eventFormCancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="eventFormSave" type="button">${isEdit ? 'Save Changes' : 'Add Event'}</button>
         </div>
@@ -702,45 +673,31 @@
     // ══════════════════════════════════════════
 
     function renderMealsTab() {
-      const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
+      const mealEntries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
         if (a.isFavorite && !b.isFavorite) return -1;
         if (!a.isFavorite && b.isFavorite) return 1;
         return (b.lastUsed || 0) - (a.lastUsed || 0);
       });
 
-      let html = `<div class="admin-section-header">
-        <h2 class="admin-section-title">Meal Library</h2>
-        <button class="btn btn--primary btn--sm" id="addMeal" type="button">Add meal</button>
-      </div>`;
+      let html = `<div class="admin-list-add">
+    <button class="btn btn--primary btn--sm" id="addMealBtn" type="button">+ Add Meal</button>
+  </div>`;
 
-      if (entries.length === 0) {
-        html += `<div class="empty-state">
-          <div class="empty-state__icon">🍽️</div>
-          <div class="empty-state__title">No meals yet</div>
-          <div class="empty-state__body">Add your first meal to get started planning dinners.</div>
-        </div>`;
+      if (mealEntries.length === 0) {
+        html += `<div class="admin-empty">No meals in the library yet. Tap + Add Meal to create one.</div>`;
       } else {
-        html += `<div class="admin-list">`;
-        for (const [id, meal] of entries) {
-          const lastUsedStr = meal.lastUsed
-            ? new Date(meal.lastUsed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: settings?.timezone || 'America/Chicago' })
-            : 'Never used';
-          const ingrCount = (meal.ingredients || []).filter(Boolean).length;
-          const prepStr = meal.prepTime ? ` · ${esc(meal.prepTime)}` : '';
-          const ingrStr = ingrCount > 0 ? ` · ${ingrCount} ingredient${ingrCount !== 1 ? 's' : ''}` : '';
-          html += `<div class="admin-list-item admin-list-item--clickable" data-meal-id="${esc(id)}">
-            <div class="admin-list-item__row">
-              <span class="admin-list-item__name">${meal.isFavorite ? '<span aria-label="Favorite">★</span> ' : ''}${esc(meal.name)}</span>
-              <div class="admin-list-item__actions">
-                <button class="btn-icon delete-meal-btn" data-meal-id="${esc(id)}" type="button" aria-label="Delete ${esc(meal.name)}">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                </button>
-              </div>
-            </div>
-            <div class="admin-list-item__row">
-              <span class="admin-list-item__meta">${lastUsedStr}${prepStr}${ingrStr}</span>
-            </div>
-          </div>`;
+        html += `<div class="admin-list" id="mealList">`;
+        for (const [id, meal] of mealEntries) {
+          const icon = renderEmojiTile(meal.isFavorite ? '⭐' : '🍽');
+          const tags = (meal.tags || []).slice(0, 2).join(', ');
+          const extraTags = (meal.tags || []).length > 2 ? ` +${(meal.tags || []).length - 2}` : '';
+          const secondary = tags ? esc(tags + extraTags) : '';
+          html += renderAdminRow({
+            icon,
+            primary: esc(meal.name || 'Untitled'),
+            secondary,
+            dataAttrs: `data-meal-id="${esc(id)}"`,
+          });
         }
         html += `</div>`;
       }
@@ -748,15 +705,12 @@
     }
 
     function bindMealsTab() {
-      main.querySelector('#addMeal')?.addEventListener('click', () => openAdminMealEditor(null));
-      main.querySelectorAll('.admin-list-item--clickable').forEach(item => {
-        item.addEventListener('click', () => openAdminMealEditor(item.dataset.mealId));
-      });
-      main.querySelectorAll('.delete-meal-btn').forEach(btn => {
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          deleteAdminMeal(btn.dataset.mealId);
-        });
+      main.querySelector('#addMealBtn')?.addEventListener('click', () => openAdminMealEditor(null));
+
+      main.querySelector('#mealList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-meal-id]');
+        if (!row) return;
+        openAdminMealEditor(row.dataset.mealId);
       });
     }
 
@@ -928,123 +882,145 @@
     let editingPersonId = null;
 
     function renderPeopleTab() {
-      const pa = peopleArray();
-      let html = `<div class="admin-section-header">
-        <span>${pa.length} people</span>
-        <button class="btn btn--primary btn--sm" id="addPersonBtn" type="button">+ Add Person</button>
-      </div>`;
-
       if (editingPersonId !== null) {
-        html += renderPersonForm(editingPersonId === 'new' ? null : editingPersonId);
+        return renderPersonDetail(editingPersonId === 'new' ? null : editingPersonId);
       }
 
-      if (pa.length === 0 && editingPersonId === null) {
-        html += renderEmptyState('👥', 'No people', 'Add family members to get started.');
+      const pa = peopleArray();
+      let html = `<div class="admin-list-add">
+    <button class="btn btn--primary btn--sm" id="addPersonBtn" type="button">+ Add Person</button>
+  </div>`;
+
+      if (pa.length === 0) {
+        html += `<div class="admin-empty">No people yet. Tap + Add Person to get started.</div>`;
       } else {
-        html += `<div class="admin-list">`;
+        html += `<div class="admin-list" id="peopleList">`;
         for (const p of pa) {
-          const roleLabel = p.role === 'child' ? '👦 Child' : '👤 Adult';
-          const kidFlags = p.role === 'child' && p.kidSettings
-            ? [p.kidSettings.canDelegate && 'delegate', p.kidSettings.canMoveTasks && 'move', p.kidSettings.showSlider && 'slider', p.kidSettings.showTaskEmoji && 'emoji', p.kidSettings.showGearIcon && 'gear', p.kidSettings.canSwipeDays && 'swipe'].filter(Boolean).join(', ')
-            : '';
-          html += `<div class="admin-list-item admin-list-item--clickable admin-list-item--compact" data-person-id="${p.id}">
-            <div class="admin-list-item__row">
-              <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color}"></div>
-              <span class="admin-list-item__name">${esc(p.name)}</span>
-              <span class="admin-list-item__tags">
-                <span class="admin-badge">${roleLabel}</span>
-                ${kidFlags ? `<span class="admin-badge">${kidFlags}</span>` : ''}
-              </span>
-              <div class="admin-list-item__actions">
-                ${p.role === 'child'
-                  ? `<a href="kid.html?kid=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--xs" title="Open kid page" target="_blank" onclick="event.stopPropagation()">Link</a>`
-                  : `<a href="person.html?person=${encodeURIComponent(p.name)}" class="btn btn--ghost btn--xs" title="Open personal dashboard" target="_blank" onclick="event.stopPropagation()">Link</a>`}
-                <button class="btn btn--ghost btn--xs admin-edit-person" data-person-id="${p.id}" type="button">Edit</button>
-                <button class="btn btn--ghost btn--xs admin-delete-person" data-person-id="${p.id}" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-              </div>
-            </div>
-            <div class="admin-list-item__row" style="padding-left: 28px;">
-              <button class="btn btn--ghost btn--xs admin-adjust-balance" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Adjust Points</button>
-              <button class="btn btn--ghost btn--xs admin-reset-balance" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Reset Balance</button>
-              <button class="btn btn--ghost btn--xs admin-clear-history" data-person-id="${p.id}" type="button" onclick="event.stopPropagation()">Clear History</button>
-            </div>
-          </div>`;
+          const icon = renderColorSwatch(p.color || '#ccc');
+          const roleLabel = p.role === 'child' ? 'Kid' : 'Adult';
+          const adminBadge = p.isAdmin ? ' · Admin' : '';
+          html += renderAdminRow({
+            icon,
+            primary: esc(p.name),
+            secondary: esc(roleLabel + adminBadge),
+            dataAttrs: `data-person-id="${p.id}"`,
+          });
         }
         html += `</div>`;
       }
-
       return html;
     }
 
-    function renderPersonForm(personId) {
+    function renderPersonDetail(personId) {
       const person = personId ? peopleObj[personId] : {};
       const isEdit = !!personId;
-      const title = isEdit ? 'Edit Person' : 'New Person';
       const colors = getColorPalette();
       const usedColors = peopleArray().filter(p => p.id !== personId).map(p => p.color);
       const selColor = person.color || colors.find(c => !usedColors.includes(c)) || colors[0];
       const role = person.role || 'adult';
       const ks = person.kidSettings || {};
+      const prefs = person.prefs || {};
 
-      let html = `<div class="admin-form" id="personForm">
-        <h3 class="admin-form__title">${title}</h3>
-        <div class="form-group">
-          <label class="form-label">Name</label>
-          <input type="text" id="pf_name" value="${esc(person.name || '')}" placeholder="e.g., Jordin">
+      return `<div class="admin-person-detail">
+    <div class="admin-detail-back">
+      <button class="btn btn--ghost btn--sm" id="personDetailBack" type="button">&#x2039; People</button>
+      <h2 class="admin-detail-title">${isEdit ? esc(person.name || 'Person') : 'New Person'}</h2>
+    </div>
+
+    <div class="admin-detail-section">
+      <div class="admin-detail-section__title">Profile</div>
+      <div class="admin-form__group">
+        <label class="form-label" for="pf_name">Name</label>
+        <input class="form-input" type="text" id="pf_name" value="${esc(person.name || '')}" placeholder="e.g., Jordin">
+      </div>
+      <div class="admin-form__group">
+        <label class="form-label">Color</label>
+        <div class="color-grid" id="pf_colorGrid">
+          ${colors.map(c => {
+            const used = usedColors.includes(c);
+            const sel = selColor === c ? ' selected' : '';
+            return `<div class="color-swatch${sel}${used ? ' color-swatch--used' : ''}" data-color="${c}" style="background:${c}"></div>`;
+          }).join('')}
         </div>
-        <div class="form-group">
-          <label class="form-label">Color</label>
-          <div class="color-grid" id="pf_colorGrid">
-            ${colors.map(c => {
-              const used = usedColors.includes(c);
-              const sel = selColor === c ? ' selected' : '';
-              const usedCls = used ? ' color-swatch--used' : '';
-              return `<div class="color-swatch${sel}${usedCls}" data-color="${c}" style="background:${c};position:relative;"></div>`;
-            }).join('')}
-          </div>
+      </div>
+      <div class="admin-form__group">
+        <label class="form-label">Role</label>
+        <div class="form-row">
+          <button class="btn btn--secondary btn--sm admin-role-btn${role === 'adult' ? ' admin-mode-btn--active' : ''}" data-role="adult" type="button">Adult</button>
+          <button class="btn btn--secondary btn--sm admin-role-btn${role === 'child' ? ' admin-mode-btn--active' : ''}" data-role="child" type="button">Kid</button>
         </div>
-        <div class="form-group">
-          <label class="form-label">Role</label>
-          <div class="form-row">
-            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'adult' ? ' admin-mode-btn--active' : ''}" data-role="adult" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Adult</button>
-            <button class="btn btn--secondary btn--sm admin-role-btn${role === 'child' ? ' admin-mode-btn--active' : ''}" data-role="child" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Child</button>
-          </div>
-        </div>
-        <div id="kidSettingsSection" style="display:${role === 'child' ? '' : 'none'}">
-          <h4 class="form-label mt-md">Kid Mode Settings</h4>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showWeekView"${ks.showWeekView ? ' checked' : ''}> Show week view</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showCalendar"${ks.showCalendar ? ' checked' : ''}> Show calendar</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_canDelegate"${ks.canDelegate ? ' checked' : ''}> Can delegate tasks</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_canMoveTasks"${ks.canMoveTasks ? ' checked' : ''}> Can move tasks</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showSlider"${ks.showSlider ? ' checked' : ''}> Show points slider</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showTaskEmoji"${ks.showTaskEmoji ? ' checked' : ''}> Show task emoji (picture hints)</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showGearIcon"${ks.showGearIcon ? ' checked' : ''}> Show settings gear icon</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_canSwipeDays"${ks.canSwipeDays ? ' checked' : ''}> Can swipe between days</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_celebrationsEnabled"${ks.celebrationsEnabled !== false ? ' checked' : ''}> Celebrations enabled</label>
-          <label class="admin-checkbox"><input type="checkbox" id="pf_showMeals"${person.prefs?.showMeals !== false ? ' checked' : ''}> Show tonight's dinner in kid mode</label>
-          <div class="form-group mt-sm">
-            <label class="form-label">Celebration Style</label>
-            <select id="pf_celebrationStyle">
-              <option value="full"${(ks.celebrationStyle || 'full') === 'full' ? ' selected' : ''}>Full</option>
-              <option value="subtle"${ks.celebrationStyle === 'subtle' ? ' selected' : ''}>Subtle</option>
-              <option value="off"${ks.celebrationStyle === 'off' ? ' selected' : ''}>Off</option>
-            </select>
-          </div>
-          <div class="form-group mt-sm">
-            <label class="form-label">Personal Theme</label>
-            <select id="pf_theme">
-              <option value=""${!person.theme?.preset ? ' selected' : ''}>Use family theme</option>
-              ${getPresets().map(p => `<option value="${p.key}"${person.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
-            </select>
-            <p class="form-hint">Override the app theme for this person's kid mode view.</p>
-          </div>
-        </div>
-        <div class="admin-form__actions mt-md">
-          <button class="btn btn--secondary" id="personFormCancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="personFormSave" type="button">${isEdit ? 'Save Changes' : 'Add Person'}</button>
-        </div>
-      </div>`;
-      return html;
+      </div>
+    </div>
+
+    <div class="admin-detail-section" id="adminAccessSection" style="display:${role === 'adult' ? '' : 'none'}">
+      <div class="admin-detail-section__title">Admin Access</div>
+      <label class="admin-toggle-row">
+        <span class="admin-toggle-row__label">
+          Can access admin without PIN
+          <span class="admin-toggle-row__hint">This person can open admin directly from their home screen.</span>
+        </span>
+        <input type="checkbox" id="pf_isAdmin" class="admin-toggle"${person.isAdmin ? ' checked' : ''}>
+      </label>
+    </div>
+
+    <div class="admin-detail-section" id="kidSettingsSection" style="display:${role === 'child' ? '' : 'none'}">
+      <div class="admin-detail-section__title">Kid Settings</div>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show tonight's dinner</span><input type="checkbox" id="pf_showMeals" class="admin-toggle"${prefs.showMeals !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show weather</span><input type="checkbox" id="pf_showWeather" class="admin-toggle"${prefs.showWeather !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show store</span><input type="checkbox" id="pf_showStore" class="admin-toggle"${ks.showStore !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show achievements</span><input type="checkbox" id="pf_showAchievements" class="admin-toggle"${ks.showAchievements !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Celebrations enabled</span><input type="checkbox" id="pf_celebrationsEnabled" class="admin-toggle"${ks.celebrationsEnabled !== false ? ' checked' : ''}></label>
+      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Can swipe between days</span><input type="checkbox" id="pf_canSwipeDays" class="admin-toggle"${ks.canSwipeDays ? ' checked' : ''}></label>
+      <div class="admin-form__group mt-sm">
+        <label class="form-label">Celebration style</label>
+        <select class="form-input" id="pf_celebrationStyle">
+          <option value="full"${(ks.celebrationStyle || 'full') === 'full' ? ' selected' : ''}>Full</option>
+          <option value="subtle"${ks.celebrationStyle === 'subtle' ? ' selected' : ''}>Subtle</option>
+          <option value="off"${ks.celebrationStyle === 'off' ? ' selected' : ''}>Off</option>
+        </select>
+      </div>
+      <div class="admin-form__group mt-sm">
+        <label class="form-label">Personal theme</label>
+        <select class="form-input" id="pf_theme">
+          <option value=""${!person.theme?.preset ? ' selected' : ''}>Use family theme</option>
+          ${getPresets().map(p => `<option value="${p.key}"${person.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    ${isEdit ? `<div class="admin-detail-section">
+      <div class="admin-detail-section__title">Rewards</div>
+      <div class="admin-form__group">
+        <div class="admin-person-detail__balance-label">Store balance</div>
+        <div class="admin-person-detail__balance" id="personBalance_${person.id}">Loading…</div>
+      </div>
+      <div class="admin-form__group">
+        <label class="form-label" for="pf_balanceAnchor">Balance anchor</label>
+        <input class="form-input" type="number" id="pf_balanceAnchor" value="${(person.balanceAnchor ?? 0)}" step="1">
+        <button class="btn btn--secondary btn--sm mt-xs" id="pf_saveAnchor" type="button">Save Anchor</button>
+      </div>
+      <div class="admin-form__actions">
+        <button class="btn btn--secondary btn--sm" id="pf_addBonus" data-person-id="${person.id}" type="button">+ Add Bonus</button>
+        <button class="btn btn--secondary btn--sm" id="pf_addDeduction" data-person-id="${person.id}" type="button">− Add Deduction</button>
+      </div>
+    </div>` : ''}
+
+    <div class="admin-detail-section">
+      <div class="admin-detail-section__title">Profile link</div>
+      <a href="${role === 'child' ? 'kid.html?kid=' : 'person.html?person='}${encodeURIComponent(person.name || '')}" class="btn btn--secondary btn--sm" target="_blank">Open ${role === 'child' ? 'Kid' : 'Person'} page</a>
+    </div>
+
+    <div class="admin-form__actions mt-md">
+      <button class="btn btn--secondary" id="personDetailCancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="personDetailSave" type="button">${isEdit ? 'Save Changes' : 'Add Person'}</button>
+    </div>
+
+    ${isEdit ? `<div class="admin-detail-section admin-detail-section--danger">
+      <div class="admin-detail-section__title">Danger Zone</div>
+      <button class="btn btn--danger btn--sm" id="deletePersonBtn" data-person-id="${person.id}" type="button">Delete ${esc(person.name || 'Person')}&#x2026;</button>
+      <p class="form-hint mt-xs">Removes this person and all associated messages, bank tokens, wishlist, and achievements.</p>
+    </div>` : ''}
+  </div>`;
     }
 
     // ══════════════════════════════════════════
@@ -1055,37 +1031,34 @@
 
     function renderCategoriesTab() {
       const ca = catsArray();
-      let html = `<div class="admin-section-header">
-        <span>${ca.length} categories</span>
-        <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
-      </div>`;
+      let html = '';
 
       if (editingCatKey !== null) {
         html += renderCategoryForm(editingCatKey === 'new' ? null : editingCatKey);
       }
 
-      html += `<div class="admin-list">`;
-      for (const c of ca) {
-        const badges = [];
-        if (c.isEvent) badges.push(`<span class="admin-badge admin-badge--event" style="background:${c.eventColor || '#5b7fd6'}22;color:${c.eventColor || '#5b7fd6'}">Event</span>`);
-        if (c.isDefault) badges.push('<span class="admin-badge">Default</span>');
-        if (c.weightPercent) badges.push(`<span class="admin-badge admin-badge--muted">${c.weightPercent}%</span>`);
-        if (c.pinProtected) badges.push('<span class="admin-badge admin-badge--muted">🔒</span>');
-        if (c.dailyLimitPerPerson) badges.push(`<span class="admin-badge admin-badge--muted">👤${c.dailyLimitPerPerson}m</span>`);
-        if (c.dailyLimitPerHousehold) badges.push(`<span class="admin-badge admin-badge--muted">🏠${c.dailyLimitPerHousehold}m</span>`);
-        if (c.showIcon === false) badges.push('<span class="admin-badge admin-badge--muted">Icon off</span>');
-        html += `<div class="admin-list-item admin-list-item--clickable" data-cat-key="${c.key}">
-          <div class="admin-list-item__main">
-            <span class="admin-list-item__name">${esc(c.icon)} ${esc(c.label)}</span>
-            ${badges.length ? `<span class="admin-list-item__meta">${badges.join(' ')}</span>` : ''}
-          </div>
-          <div class="admin-list-item__actions">
-            <button class="btn btn--ghost btn--sm admin-edit-cat" data-cat-key="${c.key}" type="button">Edit</button>
-            <button class="btn btn--ghost btn--sm admin-delete-cat" data-cat-key="${c.key}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-          </div>
-        </div>`;
+      html += `<div class="admin-list-add">
+        <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
+      </div>`;
+
+      if (ca.length === 0) {
+        html += `<div class="admin-empty">No categories yet. Tap + Add Category to create one.</div>`;
+      } else {
+        html += `<div class="admin-list" id="catList">`;
+        for (const c of ca) {
+          const taskCount = Object.values(tasksObj).filter(t => t.category === c.key).length;
+          const icon = renderEmojiTile(c.icon || '📁');
+          const secondary = `${taskCount} task${taskCount !== 1 ? 's' : ''}${c.weightPercent ? ' · ' + c.weightPercent + '%' : ''}`;
+          html += renderAdminRow({
+            icon,
+            primary: esc(c.label || c.key),
+            secondary: esc(secondary),
+            dataAttrs: `data-cat-key="${esc(c.key)}"`,
+          });
+        }
+        html += `</div>`;
       }
-      html += `</div>`;
+
       return html;
     }
 
@@ -1138,6 +1111,7 @@
         <label class="admin-checkbox"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}> PIN protected (requires PIN to complete)</label>
         <label class="admin-checkbox"><input type="checkbox" id="cf_isDefault"${cat.isDefault ? ' checked' : ''}> Default category for new tasks</label>
         <div class="admin-form__actions mt-md">
+          ${isEdit ? '<button class="btn btn--danger btn--sm" id="catFormDelete" type="button">Delete Category</button>' : ''}
           <button class="btn btn--secondary" id="catFormCancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="catFormSave" type="button">${isEdit ? 'Save' : 'Add Category'}</button>
         </div>
@@ -1227,6 +1201,16 @@
             <span class="form-hint" style="font-variant-numeric:tabular-nums">${settings?.kidLongPressMs ?? 500}ms</span>
           </div>
         </div>
+        <div class="admin-form__group mt-sm">
+          <label class="form-label" for="set_autoPruneMonths">Auto-prune old data</label>
+          <select class="form-input" id="set_autoPruneMonths">
+            <option value="0"${!(settings?.autoPruneMonths) ? ' selected' : ''}>Off</option>
+            <option value="3"${settings?.autoPruneMonths === 3 ? ' selected' : ''}>Older than 3 months</option>
+            <option value="6"${settings?.autoPruneMonths === 6 ? ' selected' : ''}>Older than 6 months</option>
+            <option value="12"${settings?.autoPruneMonths === 12 ? ' selected' : ''}>Older than 12 months</option>
+          </select>
+          <p class="form-hint">Schedule entries, completions, and snapshots older than this are removed silently on admin load. Tasks and settings are never pruned.</p>
+        </div>
         <fieldset class="admin-form__fieldset">
           <legend>Calendar Defaults</legend>
           <div class="admin-form__group">
@@ -1289,6 +1273,19 @@
               <span class="toggle__track"></span>
             </label>
           </div>
+          <div class="admin-form__group mt-sm">
+            <label class="form-label">App theme preset</label>
+            <div class="admin-theme-presets" id="sf_themePresets">
+              ${getPresets().map(p => `<button class="btn btn--secondary btn--sm admin-theme-preset${settings?.theme?.preset === p.key ? ' admin-mode-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
+            </div>
+            <p class="form-hint">Sets the default theme for all family members.</p>
+          </div>
+          <div class="admin-form__group mt-sm">
+            <label class="form-label">Accent color</label>
+            <div class="color-grid" id="sf_accentGrid">
+              ${getAccentColors().map(c => `<div class="color-swatch${settings?.theme?.accent === c ? ' selected' : ''}" data-color="${c}" style="background:${c}"></div>`).join('')}
+            </div>
+          </div>
         </fieldset>
         <h3 class="admin-form__title mt-md">Change Admin PIN</h3>
         <div class="form-group">
@@ -1299,53 +1296,6 @@
           <button class="btn btn--primary" id="settingsSave" type="button">Save Settings</button>
         </div>
         <div id="settingsMsg" class="admin-msg mt-sm"></div>
-      </div>`;
-      return html;
-    }
-
-    // ══════════════════════════════════════════
-    // Theme Tab
-    // ══════════════════════════════════════════
-
-    function renderThemeTab() {
-      const presets = getPresets();
-      const currentTheme = loadCachedTheme() || settings?.theme || defaultThemeConfig();
-      const accentColors = [
-        '#ef5350', '#e85d75', '#ec407a', '#f06292',
-        '#ab47bc', '#8e24aa', '#7e57c2', '#5b7fd6',
-        '#42a5f5', '#00acc1', '#26a69a', '#43a047',
-        '#66bb6a', '#ffca28', '#ffa726', '#ff9800',
-        '#ff7043', '#8d6e63', '#78909c', '#546e7a'
-      ];
-
-      let html = `<div class="admin-form">
-        <h3 class="admin-form__title">Theme Preset</h3>
-        <div class="admin-theme-grid" id="themePresetGrid">
-          ${presets.map(p => {
-            const sel = currentTheme.preset === p.key ? ' admin-theme-option--active' : '';
-            const previewColors = {
-              'light-warm': { bg: '#faf8f5', fg: '#2c2c2c' },
-              'dark': { bg: '#1a1a2e', fg: '#e8e8e8' },
-              'dark-warm': { bg: '#1e1a17', fg: '#e8e0d8' },
-              'light-vivid': { bg: '#faf7f2', fg: '#2c2c2c' },
-              'dark-vivid': { bg: '#1e1a17', fg: '#e8e0d8' }
-            };
-            const { bg, fg } = previewColors[p.key] || { bg: p.mode === 'dark' ? '#1a1a2e' : '#faf8f5', fg: p.mode === 'dark' ? '#e8e8e8' : '#2c2c2c' };
-            const coloredLabel = p.coloredCells ? ' ✦' : '';
-            return `<button class="admin-theme-option${sel}" data-preset="${p.key}" type="button">
-              <div class="admin-theme-option__preview" style="background:${bg};color:${fg}">${p.label}${coloredLabel}</div>
-              <span>${p.label}</span>
-            </button>`;
-          }).join('')}
-        </div>
-        <h3 class="admin-form__title mt-md">Accent Color</h3>
-        <div class="admin-accent-grid" id="accentColorGrid">
-          ${accentColors.map(c => {
-            const sel = currentTheme.accentColor === c ? ' admin-accent--active' : '';
-            return `<button class="admin-accent${sel}" data-color="${c}" style="background:${c}" type="button"></button>`;
-          }).join('')}
-        </div>
-        <div id="themeMsg" class="admin-msg mt-sm"></div>
       </div>`;
       return html;
     }
@@ -1461,22 +1411,6 @@
         </div>
         <div id="importStatus" class="mt-sm"></div>
 
-        <h3 class="admin-form__title mt-lg">Archive Old Data</h3>
-        <p class="form-hint mb-md">Prune schedule entries, completions, and snapshots older than N months. Tasks and settings are kept.</p>
-        <div class="form-row" style="align-items:flex-end;">
-          <div class="form-group" style="flex:0 0 120px;">
-            <label class="form-label">Older than</label>
-            <select id="archiveMonths" class="form-input">
-              <option value="3">3 months</option>
-              <option value="6" selected>6 months</option>
-              <option value="9">9 months</option>
-              <option value="12">12 months</option>
-            </select>
-          </div>
-          <button class="btn btn--secondary" id="archiveBtn" type="button">Prune Data</button>
-        </div>
-        <div id="archiveStatus" class="mt-sm"></div>
-
         <h3 class="admin-form__title mt-lg">Reset Scoreboard</h3>
         <p class="form-hint mb-md">Delete all snapshots, streaks, completions, reward balances, and banked tokens. Tasks, schedule, and achievements are kept. Scores will rebuild from scratch.</p>
         <div id="scoreResetSection">
@@ -1509,120 +1443,6 @@
     }
 
     // ══════════════════════════════════════════
-    // Debug Tab
-    // ══════════════════════════════════════════
-
-    function renderDebugTab() {
-      const isDebug = localStorage.getItem('dr-debug') === 'true';
-      let html = `<div class="admin-form">
-        <h3 class="admin-form__title">Debug Mode</h3>
-        <div class="form-group">
-          <label class="admin-checkbox"><input type="checkbox" id="debugToggle"${isDebug ? ' checked' : ''}> Enable debug mode</label>
-          <p class="form-hint">Shows 🐛 icon on all pages and enables contextual debug overlays.</p>
-        </div>
-
-        <h3 class="admin-form__title mt-md">Event Log</h3>
-        <div id="eventLog" class="admin-event-log">
-          <div class="loading-inline"><div class="loading-spinner loading-spinner--small"></div><span>Loading events...</span></div>
-        </div>
-        <button class="btn btn--secondary mt-sm" id="copyEventLog" type="button">Copy to Clipboard</button>
-
-        <h3 class="admin-form__title mt-md">Test Past-Due Entry</h3>
-        <p class="form-hint">Create a schedule entry on a past date (no completion) so it appears as overdue on the dashboard.</p>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Task</label>
-            <select id="pastDueTask">
-              <option value="">Choose task...</option>
-              ${Object.entries(tasksObj).filter(([,t]) => t.rotation !== 'daily').map(([id, t]) => `<option value="${id}">${esc(t.name)} (${t.rotation})</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Date</label>
-            <input type="date" id="pastDueDate" value="${addDays(today, -3)}">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Owner</label>
-          <select id="pastDueOwner">
-            ${peopleArray().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
-          </select>
-        </div>
-        <button class="btn btn--primary btn--sm mt-sm" id="createPastDueBtn" type="button">Create Past-Due Entry</button>
-        <div id="pastDueMsg" class="admin-msg mt-sm"></div>
-
-        <h3 class="admin-form__title mt-md">Schedule Inspector</h3>
-        <div class="form-group">
-          <label class="form-label">Select a task to inspect</label>
-          <select id="inspectTaskSelect">
-            <option value="">Choose task...</option>
-            ${Object.entries(tasksObj).map(([id, t]) => `<option value="${id}">${esc(t.name)}</option>`).join('')}
-          </select>
-        </div>
-        <div id="inspectResult"></div>
-        <button class="btn btn--secondary mt-sm" id="copyInspect" type="button">Copy to Clipboard</button>
-      </div>`;
-      return html;
-    }
-
-    async function loadEventLog() {
-      const el = document.getElementById('eventLog');
-      if (!el) return;
-
-      const events = await readOnce('debug/eventLog') || {};
-      const entries = Object.entries(events)
-        .map(([key, val]) => ({ key, ...val }))
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-        .slice(0, 50);
-
-      if (entries.length === 0) {
-        el.innerHTML = '<p class="text-muted">No events logged yet.</p>';
-        return;
-      }
-
-      let html = `<div class="admin-list admin-list--compact">`;
-      for (const e of entries) {
-        const time = e.timestamp ? new Date(e.timestamp).toLocaleString('en-US', { timeZone: tz }) : '—';
-        const payload = e.payload ? JSON.stringify(e.payload).slice(0, 100) : '';
-        html += `<div class="admin-list-item admin-list-item--compact">
-          <div class="admin-list-item__main">
-            <span class="admin-list-item__name">${e.type || 'unknown'}</span>
-            <span class="admin-list-item__meta">${time}${payload ? ' · ' + payload : ''}</span>
-          </div>
-        </div>`;
-      }
-      html += `</div>`;
-      el.innerHTML = html;
-    }
-
-    function inspectTask(taskId) {
-      const el = document.getElementById('inspectResult');
-      if (!el || !taskId) { if (el) el.innerHTML = ''; return; }
-
-      const task = tasksObj[taskId];
-      if (!task) { el.innerHTML = '<p class="text-muted">Task not found.</p>'; return; }
-
-      const pa = peopleArray();
-      const owners = (task.owners || []).map(oid => ({ id: oid, name: peopleObj[oid]?.name || '?' }));
-      const pts = basePoints(task, settings?.difficultyMultipliers);
-
-      let info = `Task: ${task.name}\n`;
-      info += `Rotation: ${task.rotation}\n`;
-      info += `Difficulty: ${task.difficulty} · Est: ${task.estMin}m · Points: ${pts}\n`;
-      info += `Time of Day: ${task.timeOfDay}\n`;
-      info += `Assignment Mode: ${task.ownerAssignmentMode || 'rotate'}\n`;
-      info += `Owners: ${owners.map(o => o.name).join(', ')}\n`;
-      info += `Status: ${task.status || 'active'}\n`;
-      if (task.dedicatedDay != null) info += `Dedicated Day: ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][task.dedicatedDay]}\n`;
-      if (task.cooldownDays) info += `Cooldown: ${task.cooldownDays} days\n`;
-      if (task.exempt) info += `Exempt from scoring: Yes\n`;
-      info += `Category: ${catsObj[task.category]?.label || task.category || 'None'}\n`;
-      info += `Created: ${task.createdDate || '?'}\n`;
-
-      el.innerHTML = `<pre class="admin-pre">${esc(info)}</pre>`;
-    }
-
-    // ══════════════════════════════════════════
     // Rewards tab
     // ══════════════════════════════════════════
 
@@ -1637,44 +1457,27 @@
     ];
 
     function renderRewardsTab() {
-      const rewards = Object.entries(rewardsObj)
-        .filter(([, r]) => r.status !== 'archived')
-        .sort((a, b) => (a[1].pointCost || 0) - (b[1].pointCost || 0));
+      let html = '';
 
-      let html = `<div class="admin-section">
-        <div class="admin-section__header">
-          <h3>Rewards</h3>
-          <button class="btn btn--sm btn--primary" id="addRewardBtn" type="button">+ Add Reward</button>
-        </div>`;
+      html += `<div class="admin-list-add">
+  <button class="btn btn--primary btn--sm" id="addRewardBtn" type="button">+ Add Reward</button>
+</div>`;
 
-      if (rewards.length === 0) {
-        html += `<div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted);">
-          <div style="font-size: 2rem; margin-bottom: 8px;">🎁</div>
-          <p>No rewards yet. Add one to get started!</p>
-        </div>`;
+      const activeRewards = Object.entries(rewardsObj || {}).filter(([, r]) => r.status !== 'archived');
+
+      if (activeRewards.length === 0) {
+        html += `<div class="admin-empty">No rewards defined yet. Tap + Add Reward to create one.</div>`;
       } else {
-        html += `<div class="reward-list">`;
-        for (const [id, reward] of rewards) {
-          const typeLabel = reward.rewardType === 'task-skip' ? '⏭️ Task Skip' :
-                            reward.rewardType === 'penalty-removal' ? '🛡️ Penalty Removal' : '';
-          const streakBadge = reward.streakRequirement
-            ? `<span class="reward-card__badge">🔥 ${reward.streakRequirement}-day streak</span>` : '';
-          const expiry = reward.expiresAt
-            ? `<span class="reward-card__badge">Expires ${new Date(reward.expiresAt).toLocaleDateString('en-US', { timeZone: tz })}</span>` : '';
-          const personNames = reward.perPerson
-            ? reward.perPerson.map(pid => esc(peopleObj[pid]?.name || '?')).join(', ')
-            : 'Everyone';
-
-          html += `<div class="reward-card reward-card--inline admin-list-item--clickable" data-reward-id="${id}">
-            <span class="reward-card__icon--sm">${esc(reward.icon || '🎁')}</span>
-            <span class="reward-card__name">${esc(reward.name)}</span>
-            <span class="reward-card__cost">${reward.pointCost} pts</span>
-            ${typeLabel ? `<span class="reward-card__type">${typeLabel}</span>` : ''}
-            ${streakBadge}
-            ${expiry}
-            <span class="reward-card__availability--inline">${personNames}</span>
-            <button class="btn btn--ghost btn--sm reward-archive" data-reward-id="${id}" type="button" style="margin-left: auto;">Archive</button>
-          </div>`;
+        html += `<div class="admin-list" id="rewardList">`;
+        for (const [id, r] of activeRewards) {
+          const icon = renderEmojiTile(r.icon || '🎁');
+          const secondary = `${r.pointCost ?? 0} pts · ${r.rewardType || 'custom'}`;
+          html += renderAdminRow({
+            icon,
+            primary: esc(r.name || 'Untitled'),
+            secondary: esc(secondary),
+            dataAttrs: `data-reward-id="${id}"`,
+          });
         }
         html += `</div>`;
       }
@@ -1703,48 +1506,6 @@
           </div>`;
         }
         html += `</div></details>`;
-      }
-
-      html += `</div>`;
-
-      // ── Bank Management ──
-      const ppl = peopleArray();
-      const anyBankItems = ppl.some(p => {
-        const b = allBankData[p.id];
-        return b && Object.values(b).some(t => !t.used);
-      });
-      if (anyBankItems) {
-        html += `<div class="admin-section" style="margin-top: 24px;">
-          <div class="admin-section__header"><h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved Rewards</h3></div>`;
-        for (const p of ppl) {
-          const b = allBankData[p.id] || {};
-          const unused = Object.entries(b).filter(([, t]) => !t.used);
-          if (unused.length === 0) continue;
-          html += `<div style="margin-bottom: 12px;">
-            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
-              <span class="sb-mini-dot" style="background:${p.color}"></span>
-              <span style="font-weight: 600; font-size: var(--font-sm);">${esc(p.name)}</span>
-              <span style="color: var(--text-faint); font-size: var(--font-xs, 0.75rem);">${unused.length} saved</span>
-            </div>`;
-          for (const [tokenId, token] of unused) {
-            const label = token.rewardType === 'task-skip' ? 'Task Skip'
-              : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
-              : (token.rewardName || 'Reward');
-            const icon = token.rewardIcon || (token.rewardType === 'task-skip' ? '⏭️' : token.rewardType === 'penalty-removal' ? '🛡️' : '🎁');
-            const date = new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz });
-            html += `<div class="reward-card--inline" style="margin-bottom: 4px;">
-              <span class="reward-card__icon--sm">${esc(icon)}</span>
-              <span class="reward-card__name">${esc(label)}</span>
-              <span style="color: var(--text-faint); font-size: var(--font-xs, 0.75rem); margin-left: auto;">${date}</span>
-              <button class="btn btn--ghost btn--xs admin-bank-remove" data-person-id="${p.id}" data-token-id="${esc(tokenId)}" data-token-name="${esc(label)}" type="button" style="color: var(--accent-danger, #e53e3e);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>`;
-          }
-          html += `</div>`;
-        }
-
-        // Add to bank button
-        html += `<button class="btn btn--sm btn--ghost" id="adminBankAdd" type="button" style="margin-top: 4px;">+ Add to Bank</button>`;
-        html += `</div>`;
       }
 
       // ── Redemption History ──
@@ -1878,30 +1639,18 @@
     }
 
     function bindRewardsTab() {
+      // Row click — delegated
+      main.querySelector('#rewardList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-reward-id]');
+        if (!row) return;
+        editingRewardId = row.dataset.rewardId;
+        render();
+      });
+
       main.querySelector('#addRewardBtn')?.addEventListener('click', () => {
         editingRewardId = 'new';
         render();
       });
-
-      // Row click to open modal edit
-      for (const card of main.querySelectorAll('.reward-card[data-reward-id]')) {
-        card.addEventListener('click', (e) => {
-          if (e.target.closest('.reward-archive')) return;
-          const id = card.dataset.rewardId;
-          editingRewardId = id;
-          render();
-        });
-      }
-
-      for (const btn of main.querySelectorAll('.reward-archive')) {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.rewardId;
-          await archiveReward(id);
-          rewardsObj[id].status = 'archived';
-          editingRewardId = null;
-          render();
-        });
-      }
 
       // Bind modal form if visible
       const form = main.querySelector('#rewardForm');
@@ -1915,80 +1664,6 @@
         }
       });
 
-      // Bank management — remove tokens
-      for (const btn of main.querySelectorAll('.admin-bank-remove')) {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const pid = btn.dataset.personId;
-          const tokenId = btn.dataset.tokenId;
-          const tokenName = btn.dataset.tokenName;
-          const person = peopleObj[pid];
-          if (!await showConfirm({ title: `Remove "${tokenName}" from ${person?.name}'s bank?`, danger: true })) return;
-          await removeBankToken(pid, tokenId);
-          delete allBankData[pid]?.[tokenId];
-          render();
-        });
-      }
-
-      // Bank management — add to bank
-      main.querySelector('#adminBankAdd')?.addEventListener('click', () => {
-        const mount = document.getElementById('taskSheetMount');
-        const ppl = peopleArray();
-        const activeRewards = Object.entries(rewardsObj).filter(([, r]) => r.status !== 'archived');
-
-        let formHtml = `<h3 style="margin-bottom: 12px;">Add to Bank</h3>
-          <label class="form-label">Person</label>
-          <div class="chip-group" id="bankAdd_person">
-            ${ppl.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`).join('')}
-          </div>
-          <label class="form-label" style="margin-top: 12px;">Reward</label>
-          <select class="form-input" id="bankAdd_reward">
-            <option value="">Select a reward...</option>
-            ${activeRewards.map(([id, r]) => `<option value="${id}">${esc(r.icon || '🎁')} ${esc(r.name)} (${r.pointCost} pts)</option>`).join('')}
-          </select>
-          <div class="admin-form__actions" style="margin-top: 16px;">
-            <button class="btn btn--secondary" id="bankAdd_cancel" type="button">Cancel</button>
-            <button class="btn btn--primary" id="bankAdd_save" type="button">Add</button>
-          </div>`;
-
-        mount.innerHTML = renderBottomSheet(formHtml);
-        applyDataColors(mount);
-        requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-        // Person chip toggle (exclusive)
-        for (const chip of mount.querySelectorAll('#bankAdd_person .chip--selectable')) {
-          chip.addEventListener('click', () => {
-            mount.querySelectorAll('#bankAdd_person .chip--selectable').forEach(c => c.classList.remove('chip--active'));
-            chip.classList.add('chip--active');
-          });
-        }
-
-        mount.querySelector('#bankAdd_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
-        mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
-          if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
-        });
-
-        mount.querySelector('#bankAdd_save')?.addEventListener('click', async () => {
-          const selectedChip = mount.querySelector('#bankAdd_person .chip--active');
-          const rewardId = mount.querySelector('#bankAdd_reward').value;
-          if (!selectedChip || !rewardId) { await showConfirm({ title: 'Select a person and reward', alert: true }); return; }
-          const pid = selectedChip.dataset.personId;
-          const reward = rewardsObj[rewardId];
-          await writeBankToken(pid, {
-            rewardType: reward.rewardType || 'custom',
-            rewardId,
-            rewardName: reward.name || 'Reward',
-            rewardIcon: reward.icon || '🎁',
-            acquiredAt: Date.now(),
-            used: false,
-            usedAt: null,
-            targetEntryKey: null
-          });
-          allBankData[pid] = (await readBank(pid)) || {};
-          mount.innerHTML = '';
-          render();
-        });
-      });
     }
 
     function bindRewardForm() {
@@ -2179,11 +1854,9 @@
       html += `</div>`;
 
       // ── Achievement definitions list ──
-      html += `<div class="admin-section" style="margin-top: 16px;">
-        <div class="admin-section__header">
-          <h3>Achievement Definitions</h3>
-          <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
-        </div>`;
+      html += `<div class="admin-list-add">
+        <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
+      </div>`;
 
       const defsEntries = Object.entries(allDefs).sort((a, b) => {
         if (a[1].isDefault && !b[1].isDefault) return -1;
@@ -2191,29 +1864,24 @@
         return (a[1].label || '').localeCompare(b[1].label || '');
       });
 
-      html += `<div class="admin-list" style="margin-top: var(--spacing-sm);">`;
-      for (const [key, def] of defsEntries) {
-        const isHidden = def.status === 'hidden';
-        const typeIcon = def.conditionType === 'manual' ? '✋' : def.conditionType === 'hybrid' ? '⚡' : '🤖';
-        const rewardLabel = def.reward?.type === 'points' ? `+${def.reward.amount} pts` : def.reward?.type === 'reward' ? '🎁 Reward' : '';
-        const condLabel = def.condition?.stat ? ACHIEVEMENT_STATS.find(s => s.value === def.condition.stat)?.label || def.condition.stat : 'Manual';
-        const threshLabel = def.condition?.threshold != null ? ` ≥ ${def.condition.threshold}` : '';
-
-        html += `<div class="reward-card--inline admin-list-item--clickable${isHidden ? ' admin-list-item--paused' : ''}" data-ach-key="${esc(key)}">
-          <span class="reward-card__icon--sm">${def.icon}</span>
-          <span class="reward-card__name">${esc(def.label)}</span>
-          <span class="admin-badge">${typeIcon} ${def.conditionType || 'hybrid'}</span>
-          ${isHidden ? '<span class="admin-badge admin-badge--muted">Hidden</span>' : ''}
-          ${def.isDefault ? '<span class="admin-badge admin-badge--muted">Default</span>' : ''}
-          ${rewardLabel ? `<span class="reward-card__cost">${rewardLabel}</span>` : ''}
-          <div style="margin-left: auto; flex-shrink: 0;">
-            ${def.isDefault
-              ? `<button class="btn btn--ghost btn--sm ach-toggle" data-ach-key="${esc(key)}" type="button">${isHidden ? 'Show' : 'Hide'}</button>`
-              : `<button class="btn btn--ghost btn--sm ach-delete" data-ach-key="${esc(key)}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`}
-          </div>
-        </div>`;
+      if (defsEntries.length === 0) {
+        html += `<div class="admin-empty">No badges defined.</div>`;
+      } else {
+        html += `<div class="admin-list" id="badgeList">`;
+        for (const [key, def] of defsEntries) {
+          const icon = renderEmojiTile(def.icon || '🏆');
+          const unlockedCount = Object.values(allAchievements).filter(pa => pa[key]?.unlockedAt && !pa[key]?.revoked).length;
+          const totalPeople = peopleArray().length;
+          const secondary = `${unlockedCount} / ${totalPeople} unlocked`;
+          html += renderAdminRow({
+            icon,
+            primary: esc(def.label || key),
+            secondary: esc(secondary),
+            dataAttrs: `data-ach-key="${esc(key)}"`,
+          });
+        }
+        html += `</div>`;
       }
-      html += `</div></div>`;
 
       // Achievement form modal
       if (editingAchievementId) {
@@ -2446,14 +2114,12 @@
       });
 
       // Row click to open modal
-      for (const row of main.querySelectorAll('[data-ach-key].admin-list-item--clickable')) {
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('.ach-toggle, .ach-delete')) return;
-          const key = row.dataset.achKey;
-          editingAchievementId = key;
-          render();
-        });
-      }
+      main.querySelector('#badgeList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-ach-key]');
+        if (!row) return;
+        editingAchievementId = row.dataset.achKey;
+        render();
+      });
 
       // Hide/Show toggle for defaults
       for (const btn of main.querySelectorAll('.ach-toggle')) {
@@ -2628,18 +2294,19 @@
 
     function bindTabContent() {
       switch (activeTab) {
-        case 'tasks': bindTasksTab(); break;
-        case 'events': bindEventsTab(); break;
-        case 'meals': bindMealsTab(); break;
-        case 'people': bindPeopleTab(); break;
-        case 'categories': bindCategoriesTab(); break;
-        case 'rewards': bindRewardsTab(); break;
-        case 'achievements': bindAchievementsTab(); break;
+        case 'library':
+          switch (activeLibrarySection) {
+            case 'tasks':      bindTasksTab();      break;
+            case 'events':     bindEventsTab();     break;
+            case 'meals':      bindMealsTab();      break;
+            case 'categories': bindCategoriesTab(); break;
+            case 'rewards':    bindRewardsTab();    break;
+            case 'badges':     bindAchievementsTab(); break;
+          }
+          break;
+        case 'people':   bindPeopleTab();   break;
         case 'settings': bindSettingsTab(); break;
-        case 'theme': bindThemeTab(); break;
-        case 'schedule': bindScheduleTab(); break;
-        case 'data': bindDataTab(); break;
-        case 'debug': bindDebugTab(); break;
+        case 'tools':    bindToolsTab();    break;
       }
     }
 
@@ -2663,17 +2330,6 @@
       // Add task
       main.querySelector('#addTaskBtn')?.addEventListener('click', () => {
         editingTaskId = 'new';
-        showingTemplates = false;
-        render();
-      });
-
-      // Templates toggle
-      main.querySelector('#templateBtn')?.addEventListener('click', () => {
-        showingTemplates = !showingTemplates;
-        render();
-      });
-      main.querySelector('#closeTemplates')?.addEventListener('click', () => {
-        showingTemplates = false;
         render();
       });
 
@@ -2681,7 +2337,6 @@
       main.querySelector('#selectModeBtn')?.addEventListener('click', () => {
         selectMode = true;
         editingTaskId = null;
-        showingTemplates = false;
         render();
       });
       main.querySelector('#cancelSelectBtn')?.addEventListener('click', () => {
@@ -2713,76 +2368,18 @@
         handleBulkDelete();
       });
 
-      // Template import buttons
-      for (const btn of main.querySelectorAll('.template-import-btn')) {
-        btn.addEventListener('click', async () => {
-          const key = btn.dataset.template;
-          const pack = TASK_TEMPLATES[key];
-          if (!pack) return;
-          btn.disabled = true;
-          btn.textContent = 'Importing...';
-
-          // Find default category (first non-event category, or none)
-          const defaultCat = catsArray().find(c => !c.isEvent)?.key || '';
-
-          let imported = 0;
-          for (const t of pack.tasks) {
-            // Skip if task with same name already exists
-            const exists = Object.values(tasksObj).some(existing => existing.name === t.name);
-            if (exists) continue;
-
-            const taskData = {
-              name: t.name,
-              rotation: t.rotation,
-              difficulty: t.difficulty || 'medium',
-              estMin: t.estMin || 10,
-              timeOfDay: t.timeOfDay || 'anytime',
-              ownerAssignmentMode: 'rotate',
-              owners: [],
-              category: defaultCat,
-              status: 'active',
-              createdDate: today
-            };
-            const newId = await pushTask(taskData);
-            tasksObj[newId] = taskData;
-            imported++;
-          }
-
-          showingTemplates = false;
-          render();
-          if (imported > 0) {
-            showUndoToast(`Imported ${imported} tasks from "${pack.label}"`, () => {});
-          } else {
-            showUndoToast(`All tasks from "${pack.label}" already exist`, () => {});
-          }
-        });
-      }
-
-      // Task row click — select mode toggles checkbox, normal mode opens edit
-      for (const item of main.querySelectorAll('.admin-list-item[data-task-id]')) {
-        item.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-list-item__actions')) return;
-          const tid = item.dataset.taskId;
-          if (selectMode) {
-            if (selectedTaskIds.has(tid)) {
-              selectedTaskIds.delete(tid);
-            } else {
-              selectedTaskIds.add(tid);
-            }
-            render();
-          } else {
-            editingTaskId = editingTaskId === tid ? null : tid;
-            render();
-          }
-        });
-      }
-      for (const btn of main.querySelectorAll('.admin-edit-task')) {
-        btn.addEventListener('click', () => {
-          const tid = btn.dataset.taskId;
+      // Task row click — delegated on #taskList
+      main.querySelector('#taskList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-task-id]');
+        if (!row) return;
+        const tid = row.dataset.taskId;
+        if (selectMode) {
+          if (selectedTaskIds.has(tid)) { selectedTaskIds.delete(tid); } else { selectedTaskIds.add(tid); }
+        } else {
           editingTaskId = editingTaskId === tid ? null : tid;
-          render();
-        });
-      }
+        }
+        render();
+      });
 
       // Modal backdrop click → close
       document.querySelector('#taskFormBackdrop')?.addEventListener('click', (e) => {
@@ -2791,73 +2388,6 @@
           render();
         }
       });
-
-      // Pause/unpause
-      for (const btn of main.querySelectorAll('.admin-pause-task')) {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.taskId;
-          const task = tasksObj[id];
-          if (!task) return;
-          task.status = task.status === 'paused' ? 'active' : 'paused';
-          await writeTask(id, task);
-          // Rebuild schedule so paused tasks are removed / unpaused tasks are placed
-          const allSched = await readAllSchedule() || {};
-          const allComp = await readCompletions() || {};
-          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true }, catsObj);
-          await multiUpdate(futureUpdates);
-          render();
-        });
-      }
-
-      // Delete task (with undo)
-      for (const btn of main.querySelectorAll('.admin-delete-task')) {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.taskId;
-          const taskBackup = { ...tasksObj[id] };
-          const taskName = taskBackup.name || 'task';
-
-          // Immediately hide from UI
-          delete tasksObj[id];
-          editingTaskId = null;
-          render();
-
-          // Delayed delete — undo restores before Firebase delete fires
-          let cancelled = false;
-          const deleteTimer = setTimeout(async () => {
-            if (cancelled) return;
-            // Delete the task first — this is the critical operation
-            await removeTask(id);
-            // Clean up orphaned schedule entries and completions (best-effort)
-            try {
-              const allSched = await readAllSchedule() || {};
-              const allComp = await readCompletions() || {};
-              const cleanupUpdates = {};
-              for (const [dateKey, dayEntries] of Object.entries(allSched)) {
-                for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
-                  if (entry.taskId === id) {
-                    cleanupUpdates[`schedule/${dateKey}/${entryKey}`] = null;
-                    if (allComp[entryKey]) {
-                      cleanupUpdates[`completions/${entryKey}`] = null;
-                    }
-                  }
-                }
-              }
-              if (Object.keys(cleanupUpdates).length > 0) {
-                await multiUpdate(cleanupUpdates);
-              }
-            } catch (e) {
-              console.warn('Task deleted but schedule cleanup failed:', e);
-            }
-          }, 5500);
-
-          showUndoToast(`Deleted "${taskName}"`, () => {
-            cancelled = true;
-            clearTimeout(deleteTimer);
-            tasksObj[id] = taskBackup;
-            render();
-          });
-        });
-      }
 
       // Task form events
       if (editingTaskId !== null) {
@@ -3334,34 +2864,11 @@
         render();
       });
 
-      main.querySelectorAll('.admin-event-row').forEach(row => {
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-event-delete')) return;
-          editingEventId = row.dataset.eventId;
-          render();
-        });
-      });
-
-      main.querySelectorAll('.admin-event-delete').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.eventId;
-          const name = eventsObj[id]?.name || 'this event';
-          if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
-          await removeEvent(id);
-          delete eventsObj[id];
-          // Clean up schedule entries
-          const allSched = await readAllSchedule() || {};
-          const updates = {};
-          for (const [dk, dayEntries] of Object.entries(allSched)) {
-            for (const [ek, entry] of Object.entries(dayEntries || {})) {
-              if (entry.type === 'event' && entry.eventId === id) {
-                updates[`schedule/${dk}/${ek}`] = null;
-              }
-            }
-          }
-          if (Object.keys(updates).length > 0) await multiUpdate(updates);
-          render();
-        });
+      main.querySelector('#eventList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-event-id]');
+        if (!row) return;
+        editingEventId = row.dataset.eventId;
+        render();
       });
 
       main.querySelector('#eventFormCancel')?.addEventListener('click', () => {
@@ -3436,236 +2943,160 @@
         editingEventId = null;
         render();
       });
+
+      main.querySelector('#eventFormDelete')?.addEventListener('click', async () => {
+        const confirmed = await showConfirm({ title: 'Delete this event?', confirmLabel: 'Delete', danger: true });
+        if (!confirmed) return;
+        await removeEvent(editingEventId);
+        delete eventsObj[editingEventId];
+        editingEventId = null;
+        render();
+      });
     }
 
     // ── People tab events ──
 
     function bindPeopleTab() {
+      // List view
       main.querySelector('#addPersonBtn')?.addEventListener('click', () => {
         editingPersonId = 'new';
         render();
       });
 
-      // Edit person — click row or edit button
-      for (const item of main.querySelectorAll('.admin-list-item[data-person-id]')) {
-        item.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-list-item__actions')) return;
-          editingPersonId = item.dataset.personId;
-          render();
-        });
-      }
-      for (const btn of main.querySelectorAll('.admin-edit-person')) {
+      main.querySelector('#peopleList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-person-id]');
+        if (!row) return;
+        editingPersonId = row.dataset.personId;
+        render();
+      });
+
+      // Detail view — back / cancel
+      main.querySelector('#personDetailBack')?.addEventListener('click', () => {
+        editingPersonId = null;
+        render();
+      });
+      main.querySelector('#personDetailCancel')?.addEventListener('click', () => {
+        editingPersonId = null;
+        render();
+      });
+
+      // Role toggle — show/hide sections
+      for (const btn of main.querySelectorAll('.admin-role-btn')) {
         btn.addEventListener('click', () => {
-          editingPersonId = btn.dataset.personId;
-          render();
+          const role = btn.dataset.role;
+          main.querySelectorAll('.admin-role-btn').forEach(b => b.classList.toggle('admin-mode-btn--active', b.dataset.role === role));
+          const kidSection = main.querySelector('#kidSettingsSection');
+          const adminSection = main.querySelector('#adminAccessSection');
+          if (kidSection) kidSection.style.display = role === 'child' ? '' : 'none';
+          if (adminSection) adminSection.style.display = role === 'adult' ? '' : 'none';
         });
       }
 
-      // Delete person (with undo)
-      for (const btn of main.querySelectorAll('.admin-delete-person')) {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.personId;
-          const personBackup = { ...peopleObj[id] };
-          const name = personBackup.name || 'this person';
-
-          delete peopleObj[id];
-          editingPersonId = null;
-          render();
-
-          let cancelled = false;
-          const deleteTimer = setTimeout(async () => {
-            if (cancelled) return;
-            await removeData(`people/${id}`);
-            await deletePersonRewardsData(id);
-          }, 5500);
-
-          showUndoToast(`Removed "${name}"`, () => {
-            cancelled = true;
-            clearTimeout(deleteTimer);
-            peopleObj[id] = personBackup;
-            render();
-          });
-        });
-      }
-
-      // Silent balance adjustment (no message sent to person)
-      for (const btn of main.querySelectorAll('.admin-adjust-balance')) {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const pid = btn.dataset.personId;
-          const person = peopleObj[pid];
-          const msgs = (await readMessages(pid)) || {};
-          const anchor = (await readBalanceAnchor(pid)) || null;
-          const snaps = (await readAllSnapshots()) || {};
-          const mults = (await readMultipliers()) || {};
-          const { balance } = calculateBalance(pid, snaps, msgs, anchor, mults, tz);
-
-          // Build prompt modal
-          const overlay = document.createElement('div');
-          overlay.className = 'confirm-modal';
-          overlay.setAttribute('role', 'dialog');
-          overlay.innerHTML = `<div class="confirm-modal__card">
-            <div class="confirm-modal__title">Adjust ${esc(person?.name || '?')}'s Points</div>
-            <div class="confirm-modal__message" style="margin-bottom: 12px;">Current balance: <strong>${balance.toLocaleString()} pts</strong></div>
-            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px;">
-              <button class="btn btn--xs admin-adj-minus" type="button" style="font-size: 1.25rem; padding: 4px 12px;">−</button>
-              <input type="number" class="form-input admin-adj-input" value="0" style="text-align: center; flex: 1; font-size: var(--font-md); font-weight: 600;">
-              <button class="btn btn--xs admin-adj-plus" type="button" style="font-size: 1.25rem; padding: 4px 12px;">+</button>
-            </div>
-            <div class="confirm-modal__message admin-adj-preview" style="font-size: var(--font-sm); margin-bottom: 12px;"></div>
-            <div class="confirm-modal__actions">
-              <button class="btn btn--secondary confirm-modal__cancel" type="button">Cancel</button>
-              <button class="btn btn--primary confirm-modal__ok" type="button">Apply</button>
-            </div>
-          </div>`;
-
-          const input = overlay.querySelector('.admin-adj-input');
-          const preview = overlay.querySelector('.admin-adj-preview');
-          const minusBtn = overlay.querySelector('.admin-adj-minus');
-          const plusBtn = overlay.querySelector('.admin-adj-plus');
-
-          function updatePreview() {
-            const val = parseInt(input.value) || 0;
-            const newBal = balance + val;
-            const sign = val > 0 ? '+' : val < 0 ? '' : '±';
-            preview.textContent = val === 0 ? '' : `New balance: ${newBal.toLocaleString()} pts (${sign}${val})`;
-            preview.style.color = val > 0 ? 'var(--accent-success, #38a169)' : val < 0 ? 'var(--accent-danger, #e53e3e)' : '';
-          }
-          input.addEventListener('input', updatePreview);
-          minusBtn.addEventListener('click', () => { input.value = (parseInt(input.value) || 0) - 10; updatePreview(); });
-          plusBtn.addEventListener('click', () => { input.value = (parseInt(input.value) || 0) + 10; updatePreview(); });
-
-          document.body.appendChild(overlay);
-          requestAnimationFrame(() => { overlay.classList.add('confirm-modal--active'); input.focus(); input.select(); });
-
-          const result = await new Promise((resolve) => {
-            overlay.querySelector('.confirm-modal__ok').addEventListener('click', () => resolve(parseInt(input.value) || 0));
-            overlay.querySelector('.confirm-modal__cancel').addEventListener('click', () => resolve(null));
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) resolve(null); });
-            overlay.addEventListener('keydown', (e) => {
-              if (e.key === 'Escape') resolve(null);
-              else if (e.key === 'Enter') resolve(parseInt(input.value) || 0);
-            });
-          });
-
-          overlay.classList.remove('confirm-modal--active');
-          setTimeout(() => overlay.remove(), 200);
-
-          if (result === null || result === 0) return;
-
-          // Silently adjust: freeze current balance + adjustment into anchor
-          const newBalance = balance + result;
-          await writeBalanceAnchor(pid, { amount: newBalance, anchoredAt: Date.now() });
-          await clearMessages(pid, Date.now());
-          showUndoToast(`${result > 0 ? '+' : ''}${result} pts → ${esc(person?.name || '?')}`, () => {});
-          render();
-        });
-      }
-
-      // Reset balance
-      for (const btn of main.querySelectorAll('.admin-reset-balance')) {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (!await showConfirm({ title: 'Reset rewards balance to 0?', danger: true })) return;
-          await writeBalanceAnchor(btn.dataset.personId, { amount: 0, anchoredAt: Date.now() });
-          render();
-        });
-      }
-
-      // Clear history (preserve balance)
-      for (const btn of main.querySelectorAll('.admin-clear-history')) {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (!await showConfirm({ title: 'Clear message history?', message: 'Balance will be preserved.', danger: true })) return;
-          const pid = btn.dataset.personId;
-          const msgs = (await readMessages(pid)) || {};
-          const anchor = (await readBalanceAnchor(pid)) || null;
-          const snaps = (await readAllSnapshots()) || {};
-          const mults = (await readMultipliers()) || {};
-          const { balance } = calculateBalance(pid, snaps, msgs, anchor, mults, tz);
-          await writeBalanceAnchor(pid, { amount: balance, anchoredAt: Date.now() });
-          await clearMessages(pid, Date.now());
-          render();
-        });
-      }
-
-      if (editingPersonId !== null) {
-        bindPersonForm();
-      }
-    }
-
-    function bindPersonForm() {
-      // Color selection
-      for (const swatch of main.querySelectorAll('#pf_colorGrid .color-swatch:not(.color-swatch--used)')) {
+      // Color swatch
+      for (const swatch of main.querySelectorAll('#pf_colorGrid .color-swatch')) {
         swatch.addEventListener('click', () => {
           main.querySelectorAll('#pf_colorGrid .color-swatch').forEach(s => s.classList.remove('selected'));
           swatch.classList.add('selected');
         });
       }
 
-      // Role toggle
-      for (const btn of main.querySelectorAll('.admin-role-btn')) {
-        btn.addEventListener('click', () => {
-          main.querySelectorAll('.admin-role-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
-          btn.classList.add('admin-mode-btn--active');
-          const section = main.querySelector('#kidSettingsSection');
-          if (section) section.style.display = btn.dataset.role === 'child' ? '' : 'none';
+      // Save person
+      main.querySelector('#personDetailSave')?.addEventListener('click', async () => {
+        const name = main.querySelector('#pf_name')?.value.trim();
+        if (!name) { showToast('Name is required'); return; }
+        const color = main.querySelector('#pf_colorGrid .color-swatch.selected')?.dataset.color || '#ccc';
+        const role = main.querySelector('.admin-role-btn.admin-mode-btn--active')?.dataset.role || 'adult';
+        const isAdmin = role === 'adult' ? (main.querySelector('#pf_isAdmin')?.checked || false) : false;
+        const kidSettings = role === 'child' ? {
+          celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
+          celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full',
+          canSwipeDays: main.querySelector('#pf_canSwipeDays')?.checked || false,
+          showStore: main.querySelector('#pf_showStore')?.checked ?? true,
+          showAchievements: main.querySelector('#pf_showAchievements')?.checked ?? true,
+        } : undefined;
+        const prefs = role === 'child' ? {
+          showMeals: main.querySelector('#pf_showMeals')?.checked ?? true,
+          showWeather: main.querySelector('#pf_showWeather')?.checked ?? true,
+        } : undefined;
+        const themePreset = main.querySelector('#pf_theme')?.value || '';
+        const theme = themePreset ? { preset: themePreset } : undefined;
+
+        const data = {
+          name, color, role, isAdmin,
+          ...(kidSettings && { kidSettings }),
+          ...(prefs && { prefs }),
+          ...(theme && { theme }),
+        };
+
+        if (editingPersonId && editingPersonId !== 'new') {
+          await firebase.database().ref(`rundown/people/${editingPersonId}`).update(data);
+        } else {
+          await firebase.database().ref('rundown/people').push(data);
+        }
+        peopleObj = await readPeople() || {};
+        editingPersonId = null;
+        render();
+      });
+
+      // Delete person
+      main.querySelector('#deletePersonBtn')?.addEventListener('click', async () => {
+        const pid = main.querySelector('#deletePersonBtn')?.dataset.personId;
+        if (!pid) return;
+        const personName = peopleObj[pid]?.name || 'this person';
+        const confirmed = await showConfirm({
+          title: `Delete ${personName}?`,
+          message: 'This removes the person and all associated messages, bank tokens, wishlist, and achievements. This cannot be undone.',
+          confirmLabel: 'Delete',
+          danger: true,
+        });
+        if (!confirmed) return;
+        await firebase.database().ref(`rundown/people/${pid}`).remove();
+        await deletePersonRewardsData(pid);
+        peopleObj = await readPeople() || {};
+        editingPersonId = null;
+        render();
+      });
+
+      // Balance anchor save
+      main.querySelector('#pf_saveAnchor')?.addEventListener('click', async () => {
+        const pid = editingPersonId;
+        if (!pid || pid === 'new') return;
+        const amount = parseFloat(main.querySelector('#pf_balanceAnchor')?.value || '0');
+        await firebase.database().ref(`rundown/balanceAnchors/${pid}`).set({ amount, anchoredAt: firebase.database.ServerValue.TIMESTAMP });
+        showToast('Balance anchor saved');
+      });
+
+      // Bonus / deduction — open send-message sheet with person pre-selected
+      const openMsgSheet = (pid) => {
+        const mount = document.getElementById('taskSheetMount');
+        if (!mount) return;
+        const people = Object.values(peopleObj).map(p => ({ id: p.id, name: p.name, color: p.color }));
+        mount.innerHTML = renderSendMessageSheet(people, pid);
+        document.getElementById('bottomSheet')?.classList.add('active');
+        bindSendMessageSheet(mount, writeMessage);
+      };
+      main.querySelector('#pf_addBonus')?.addEventListener('click', () => {
+        const pid = editingPersonId;
+        if (!pid || pid === 'new') return;
+        openMsgSheet(pid);
+      });
+      main.querySelector('#pf_addDeduction')?.addEventListener('click', () => {
+        const pid = editingPersonId;
+        if (!pid || pid === 'new') return;
+        openMsgSheet(pid);
+      });
+
+      // Populate balance display and anchor input from Firebase
+      if (editingPersonId && editingPersonId !== 'new') {
+        const pid = editingPersonId;
+        readBalanceAnchor(pid).then(anchor => {
+          const amount = anchor?.amount ?? 0;
+          const balEl = main.querySelector(`#personBalance_${pid}`);
+          if (balEl) balEl.textContent = `${amount} pts`;
+          const anchorEl = main.querySelector('#pf_balanceAnchor');
+          if (anchorEl) anchorEl.value = amount;
         });
       }
-
-      main.querySelector('#personFormCancel')?.addEventListener('click', () => {
-        editingPersonId = null;
-        render();
-      });
-
-      main.querySelector('#personFormSave')?.addEventListener('click', async () => {
-        const name = main.querySelector('#pf_name')?.value.trim();
-        if (!name) { main.querySelector('#pf_name')?.focus(); return; }
-
-        const selectedSwatch = main.querySelector('#pf_colorGrid .color-swatch.selected');
-        const color = selectedSwatch?.dataset.color || '#5b7fd6';
-        const activeRole = main.querySelector('.admin-role-btn.admin-mode-btn--active');
-        const role = activeRole?.dataset.role || 'adult';
-
-        const personData = { name, color, role };
-
-        if (role === 'child') {
-          const existingPerson = editingPersonId !== 'new' ? (peopleObj[editingPersonId] || {}) : {};
-          personData.kidSettings = {
-            showWeekView: main.querySelector('#pf_showWeekView')?.checked || false,
-            showCalendar: main.querySelector('#pf_showCalendar')?.checked || false,
-            canDelegate: main.querySelector('#pf_canDelegate')?.checked || false,
-            canMoveTasks: main.querySelector('#pf_canMoveTasks')?.checked || false,
-            showSlider: main.querySelector('#pf_showSlider')?.checked || false,
-            showTaskEmoji: main.querySelector('#pf_showTaskEmoji')?.checked || false,
-            showGearIcon: main.querySelector('#pf_showGearIcon')?.checked || false,
-            canSwipeDays: main.querySelector('#pf_canSwipeDays')?.checked || false,
-            celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
-            celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full'
-          };
-          personData.prefs = {
-            ...(existingPerson.prefs || {}),
-            showMeals: main.querySelector('#pf_showMeals')?.checked ?? true,
-          };
-          const themePreset = main.querySelector('#pf_theme')?.value;
-          if (themePreset) {
-            personData.theme = { preset: themePreset, accentColor: settings?.theme?.accentColor || '#5b7fd6' };
-          } else {
-            personData.theme = null;
-          }
-        }
-
-        if (editingPersonId === 'new') {
-          const newId = await pushPerson(personData);
-          peopleObj[newId] = personData;
-        } else {
-          await writePerson(editingPersonId, personData);
-          peopleObj[editingPersonId] = personData;
-        }
-
-        editingPersonId = null;
-        render();
-      });
     }
 
     // ── Categories tab events ──
@@ -3676,46 +3107,12 @@
         render();
       });
 
-      // Edit category — click row or edit button
-      for (const item of main.querySelectorAll('.admin-list-item[data-cat-key]')) {
-        item.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-list-item__actions')) return;
-          editingCatKey = item.dataset.catKey;
-          render();
-        });
-      }
-      for (const btn of main.querySelectorAll('.admin-edit-cat')) {
-        btn.addEventListener('click', () => {
-          editingCatKey = btn.dataset.catKey;
-          render();
-        });
-      }
-
-      for (const btn of main.querySelectorAll('.admin-delete-cat')) {
-        btn.addEventListener('click', async () => {
-          const key = btn.dataset.catKey;
-          const ca = catsArray();
-          if (ca.length <= 1) { await showConfirm({ title: 'Cannot delete the last category', alert: true }); return; }
-
-          // Reassign tasks to the default category (or first remaining if none flagged)
-          const defaultEntry = Object.entries(catsObj).find(([k, c]) => k !== key && c?.isDefault);
-          const fallbackKey = defaultEntry ? defaultEntry[0] : (Object.keys(catsObj).find(k => k !== key) || 'chores');
-          const fallbackLabel = catsObj[fallbackKey]?.label || fallbackKey;
-
-          if (!await showConfirm({ title: `Delete category "${catsObj[key]?.label}"?`, message: `Tasks will be reassigned to "${fallbackLabel}".`, danger: true })) return;
-
-          for (const [taskId, task] of Object.entries(tasksObj)) {
-            if (task.category === key) {
-              task.category = fallbackKey;
-              await writeTask(taskId, task);
-            }
-          }
-
-          delete catsObj[key];
-          await writeCategories(catsObj);
-          render();
-        });
-      }
+      main.querySelector('#catList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-cat-key]');
+        if (!row) return;
+        editingCatKey = row.dataset.catKey;
+        render();
+      });
 
       if (editingCatKey !== null) {
         bindCategoryForm();
@@ -3724,6 +3121,30 @@
 
     function bindCategoryForm() {
       main.querySelector('#catFormCancel')?.addEventListener('click', () => {
+        editingCatKey = null;
+        render();
+      });
+
+      main.querySelector('#catFormDelete')?.addEventListener('click', async () => {
+        const key = editingCatKey;
+        const ca = catsArray();
+        if (ca.length <= 1) { await showConfirm({ title: 'Cannot delete the last category', alert: true }); return; }
+
+        const defaultEntry = Object.entries(catsObj).find(([k, c]) => k !== key && c?.isDefault);
+        const fallbackKey = defaultEntry ? defaultEntry[0] : (Object.keys(catsObj).find(k => k !== key) || 'chores');
+        const fallbackLabel = catsObj[fallbackKey]?.label || fallbackKey;
+
+        if (!await showConfirm({ title: `Delete category "${catsObj[key]?.label}"?`, message: `Tasks will be reassigned to "${fallbackLabel}".`, danger: true })) return;
+
+        for (const [taskId, task] of Object.entries(tasksObj)) {
+          if (task.category === key) {
+            task.category = fallbackKey;
+            await writeTask(taskId, task);
+          }
+        }
+
+        delete catsObj[key];
+        await writeCategories(catsObj);
         editingCatKey = null;
         render();
       });
@@ -3841,6 +3262,7 @@
             showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false'
           },
           ambientStrip: main.querySelector('#set_ambientStrip')?.checked ?? false,
+          autoPruneMonths: parseInt(main.querySelector('#set_autoPruneMonths')?.value || '0', 10),
           weatherLocation: main.querySelector('#sf_weatherLocation')?.value.trim() || '',
           weatherApiKey:   main.querySelector('#sf_weatherApiKey')?.value.trim() || '',
         };
@@ -3861,7 +3283,7 @@
           appName: settings.appName,
           subtitle: 'Admin',
           showAdmin: false,
-          showDebug: localStorage.getItem('dr-debug') === 'true'
+          showDebug: false
         });
 
         if (msgEl) {
@@ -3879,6 +3301,30 @@
         if (mediumInput) mediumInput.value = 2;
         if (hardInput) hardInput.value = 3;
       });
+
+      for (const btn of main.querySelectorAll('.admin-theme-preset')) {
+        btn.addEventListener('click', async () => {
+          main.querySelectorAll('.admin-theme-preset').forEach(b => b.classList.remove('admin-mode-btn--active'));
+          btn.classList.add('admin-mode-btn--active');
+          const theme = { ...(settings?.theme || {}), preset: btn.dataset.preset };
+          const updated = { ...settings, theme };
+          await writeSettings(updated);
+          settings = updated;
+          applyTheme(resolveTheme(settings.theme));
+        });
+      }
+
+      for (const swatch of main.querySelectorAll('#sf_accentGrid .color-swatch')) {
+        swatch.addEventListener('click', async () => {
+          main.querySelectorAll('#sf_accentGrid .color-swatch').forEach(s => s.classList.remove('selected'));
+          swatch.classList.add('selected');
+          const theme = { ...(settings?.theme || {}), accent: swatch.dataset.color };
+          const updated = { ...settings, theme };
+          await writeSettings(updated);
+          settings = updated;
+          applyTheme(resolveTheme(settings.theme));
+        });
+      }
 
       main.querySelector('#sf_weatherTest')?.addEventListener('click', async () => {
         const loc = main.querySelector('#sf_weatherLocation')?.value.trim();
@@ -3910,37 +3356,6 @@
           setTimeout(() => { resultEl.hidden = true; }, 10000);
         }
       });
-    }
-
-    // ── Theme tab events ──
-
-    function bindThemeTab() {
-      const currentTheme = loadCachedTheme() || settings?.theme || defaultThemeConfig();
-
-      async function saveTheme(newTheme) {
-        applyTheme(newTheme);
-        settings.theme = newTheme;
-        await writeSettings(settings);
-        render();
-      }
-
-      for (const btn of main.querySelectorAll('.admin-theme-option')) {
-        btn.addEventListener('click', () => {
-          const preset = btn.dataset.preset;
-          const presets = getPresets();
-          const info = presets.find(p => p.key === preset);
-          const newTheme = { mode: info.mode, preset, accentColor: currentTheme.accentColor || '#5b7fd6' };
-          saveTheme(newTheme);
-        });
-      }
-
-      for (const btn of main.querySelectorAll('.admin-accent')) {
-        btn.addEventListener('click', () => {
-          const color = btn.dataset.color;
-          const newTheme = { ...currentTheme, accentColor: color };
-          saveTheme(newTheme);
-        });
-      }
     }
 
     // ── Schedule tab events ──
@@ -4045,97 +3460,6 @@
         }
       });
 
-      // Archive old data
-      main.querySelector('#archiveBtn')?.addEventListener('click', async () => {
-        const months = parseInt(main.querySelector('#archiveMonths').value, 10);
-        const statusEl = main.querySelector('#archiveStatus');
-        const btn = main.querySelector('#archiveBtn');
-
-        const cutoffDate = addDays(today, -(months * 30));
-
-        btn.disabled = true;
-        btn.textContent = 'Scanning...';
-        statusEl.innerHTML = '';
-
-        try {
-          const [allSched, allComp, allSnaps] = await Promise.all([
-            readAllSchedule(), readCompletions(), readOnce('snapshots')
-          ]);
-
-          const pruneUpdates = {};
-          let schedCount = 0, compCount = 0, snapCount = 0;
-
-          // Prune old schedule entries
-          if (allSched) {
-            for (const dateKey of Object.keys(allSched)) {
-              if (dateKey < cutoffDate) {
-                pruneUpdates[`schedule/${dateKey}`] = null;
-                schedCount++;
-              }
-            }
-          }
-
-          // Prune completions tied to old schedule entries
-          if (allComp && allSched) {
-            for (const [entryKey, comp] of Object.entries(allComp)) {
-              // Check if this completion's schedule entry was pruned
-              let foundInFuture = false;
-              if (allSched) {
-                for (const dateKey of Object.keys(allSched)) {
-                  if (dateKey >= cutoffDate && allSched[dateKey]?.[entryKey]) {
-                    foundInFuture = true;
-                    break;
-                  }
-                }
-              }
-              if (!foundInFuture) {
-                // Check all old dates for this entry
-                let foundInOld = false;
-                for (const dateKey of Object.keys(allSched)) {
-                  if (dateKey < cutoffDate && allSched[dateKey]?.[entryKey]) {
-                    foundInOld = true;
-                    break;
-                  }
-                }
-                if (foundInOld) {
-                  pruneUpdates[`completions/${entryKey}`] = null;
-                  compCount++;
-                }
-              }
-            }
-          }
-
-          // Prune old snapshots
-          if (allSnaps) {
-            for (const dateKey of Object.keys(allSnaps)) {
-              if (dateKey < cutoffDate) {
-                pruneUpdates[`snapshots/${dateKey}`] = null;
-                snapCount++;
-              }
-            }
-          }
-
-          const totalPruned = schedCount + compCount + snapCount;
-          if (totalPruned === 0) {
-            statusEl.innerHTML = '<span class="text-muted">No data older than the cutoff to prune.</span>';
-          } else {
-            if (!await showConfirm({ title: 'Prune old data?', message: `${schedCount} schedule days, ${compCount} completions, ${snapCount} snapshot days older than ${months} months.`, confirmLabel: 'Prune', danger: true })) {
-              statusEl.innerHTML = '';
-              btn.disabled = false;
-              btn.textContent = 'Prune Data';
-              return;
-            }
-            await multiUpdate(pruneUpdates);
-            statusEl.innerHTML = `<span class="admin-msg admin-msg--success">Pruned ${totalPruned} records (${schedCount} schedule days, ${compCount} completions, ${snapCount} snapshots).</span>`;
-          }
-        } catch (err) {
-          statusEl.innerHTML = `<span class="admin-msg admin-msg--danger">Archive failed: ${esc(err.message)}</span>`;
-        }
-
-        btn.disabled = false;
-        btn.textContent = 'Prune Data';
-      });
-
       // Scoreboard reset
       main.querySelector('#showScoreResetBtn')?.addEventListener('click', () => {
         main.querySelector('#scoreResetSection').style.display = 'none';
@@ -4204,82 +3528,23 @@
       }
     }
 
-    // ── Debug tab events ──
-
-    function bindDebugTab() {
-      loadEventLog();
-
-      main.querySelector('#debugToggle')?.addEventListener('change', (e) => {
-        localStorage.setItem('dr-debug', e.target.checked ? 'true' : 'false');
-        // Update header icon
-        document.getElementById('headerMount').innerHTML = renderHeader({
-          appName: settings?.appName || 'Daily Rundown',
-          subtitle: 'Admin',
-          showAdmin: false,
-          showDebug: e.target.checked
-        });
-      });
-
-      main.querySelector('#copyEventLog')?.addEventListener('click', async () => {
-        const el = main.querySelector('#eventLog');
-        const text = el ? el.innerText : 'No events.';
-        await navigator.clipboard.writeText(`== Event Log ==\n${text}`);
-        await showConfirm({ title: 'Copied to clipboard!', alert: true });
-      });
-
-      const inspectSelect = main.querySelector('#inspectTaskSelect');
-      if (inspectSelect) {
-        inspectSelect.addEventListener('change', () => {
-          inspectTask(inspectSelect.value);
-        });
-      }
-
-      main.querySelector('#copyInspect')?.addEventListener('click', async () => {
-        const el = main.querySelector('#inspectResult pre');
-        const text = el ? el.textContent : 'No task selected.';
-        await navigator.clipboard.writeText(`== Schedule Inspector ==\n${text}`);
-        await showConfirm({ title: 'Copied to clipboard!', alert: true });
-      });
-
-      // Past-due test entry
-      main.querySelector('#createPastDueBtn')?.addEventListener('click', async () => {
-        const taskId = main.querySelector('#pastDueTask')?.value;
-        const dateKey = main.querySelector('#pastDueDate')?.value;
-        const ownerId = main.querySelector('#pastDueOwner')?.value;
-        const msgEl = main.querySelector('#pastDueMsg');
-
-        if (!taskId || !dateKey || !ownerId) {
-          if (msgEl) { msgEl.textContent = 'Select a task, date, and owner.'; msgEl.className = 'admin-msg admin-msg--danger mt-sm'; }
-          return;
-        }
-        if (dateKey >= today) {
-          if (msgEl) { msgEl.textContent = 'Date must be in the past.'; msgEl.className = 'admin-msg admin-msg--danger mt-sm'; }
-          return;
-        }
-
-        const task = tasksObj[taskId];
-        const entry = {
-          taskId,
-          ownerId,
-          rotationType: task.rotation,
-          ownerAssignmentMode: task.ownerAssignmentMode || 'rotate',
-          timeOfDay: task.timeOfDay || 'anytime'
-        };
-
-        const updates = {};
-        updates[`schedule/${dateKey}/sched_${Date.now()}_pastdue`] = entry;
-        await multiUpdate(updates);
-
-        if (msgEl) {
-          msgEl.textContent = `Created overdue entry for "${task.name}" on ${dateKey}`;
-          msgEl.className = 'admin-msg admin-msg--success mt-sm';
-          setTimeout(() => { msgEl.textContent = ''; }, 3000);
-        }
-      });
+    function renderToolsTab() {
+      return `<div class="admin-form">
+        <h3 class="admin-form__title">Schedule</h3>
+        ${renderScheduleTab()}
+        <hr class="admin-section-divider">
+        <h3 class="admin-form__title">Data</h3>
+        ${renderDataTab()}
+      </div>`;
     }
 
-    // ── Initial render if PIN session was cached ──
-    if (pinSessionValid) {
+    function bindToolsTab() {
+      bindScheduleTab();
+      bindDataTab();
+    }
+
+    // ── Initial render if PIN session was cached or bypass applies ──
+    if (pinSessionValid || isAdminBypass) {
       render();
     }
   </script>
