@@ -82,6 +82,9 @@
   font-size: var(--font-xs, 0.75rem);
 }
 
+/* Narrow input variant (e.g. short number inputs) */
+.input--narrow { max-width: 7.5rem; }
+
 /* ============ Owner Chips ============ */
 .owner-chips {
   display: flex;

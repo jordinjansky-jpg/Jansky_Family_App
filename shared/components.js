@@ -1557,7 +1557,7 @@ export function renderSendMessageSheet(people, preselectedPersonId = null, rewar
     <textarea id="msg_body" class="form-input" rows="2" placeholder="Great job helping your sister!"></textarea>
 
     <label class="form-label sheet-label--spaced">Points</label>
-    <input type="number" id="msg_points" class="form-input" value="25" min="0" style="max-width:120px">
+    <input type="number" id="msg_points" class="form-input input--narrow" value="25" min="0">
 
     ${activeRewards.length > 0 ? `
     <label class="form-label sheet-label--spaced">Reward (optional)</label>
@@ -1635,6 +1635,11 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
     const rewardId = sheet.querySelector('#msg_rewardSelect')?.value || null;
     const rewards = getRewardsFn ? getRewardsFn() : {};
     const reward = rewardId ? rewards[rewardId] : null;
+
+    if (amount === 0 && !reward) {
+      showToast('Add points or a reward to send.');
+      return;
+    }
 
     for (const pid of personIds) {
       if (amount !== 0) {
