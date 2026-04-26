@@ -9,6 +9,12 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v66 (2026-04-25) — Admin redesign: 11 tabs → 4 (Library · People ·
+//                    Settings · Tools), shared list-row pattern, Person
+//                    detail page with isAdmin toggle, PIN bypass for
+//                    admin-flagged users, Theme controls merged into
+//                    Settings, Debug/Templates/Archive removed, auto-prune
+//                    on load.
 // v63 (2026-04-25) — Sort fix: a task moved to today (via overdue review or
 //                    Move) was getting bumped to top-of-owner via the
 //                    "late-today" branch, but using the move flow IS the
@@ -126,7 +132,7 @@
 //                    calendar day view meals section, admin Meals tab, kid Tonight
 //                    tile, dashboard ambient strip wiring, ambientStrip setting.
 // v65 (2026-04-25) — 1.4 Weather Widget: add shared/weather.js to cache.
-const CACHE_NAME = 'family-hub-v65';
+const CACHE_NAME = 'family-hub-v66';
 
 const APP_SHELL = [
   '/',
