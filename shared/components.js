@@ -1373,10 +1373,8 @@ export function initOfflineBanner(onConnectionChange, options = {}) {
   document.body.appendChild(mount);
 
   let timer = null;
-  let wasOffline = false;
 
   return onConnectionChange((connected) => {
-    // Update connection dot in header
     if (showConnectionDot) {
       const existing = document.querySelector('.connection-dot');
       const dotHtml = renderConnectionStatus(connected);
@@ -1384,16 +1382,12 @@ export function initOfflineBanner(onConnectionChange, options = {}) {
       else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', dotHtml);
     }
 
-    // Show offline/online banner
     if (timer) clearTimeout(timer);
     if (!connected) {
-      wasOffline = true;
       mount.innerHTML = renderOfflineBanner('Working offline — changes will sync');
       timer = setTimeout(() => { mount.innerHTML = ''; }, 3000);
-    } else if (wasOffline) {
-      mount.innerHTML = renderOfflineBanner('Back online');
-      mount.querySelector('.offline-banner')?.classList.add('offline-banner--online');
-      timer = setTimeout(() => { mount.innerHTML = ''; }, 2000);
+    } else {
+      mount.innerHTML = '';
     }
   });
 }
