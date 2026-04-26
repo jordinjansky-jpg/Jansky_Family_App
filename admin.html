@@ -1429,19 +1429,29 @@
       const totalHrs = Math.floor(totalMinutes / 60);
       const totalRem = totalMinutes % 60;
       const totalTimeStr = totalHrs > 0 ? `${totalHrs}h ${totalRem}m` : `${totalRem}m`;
+      const avgTasksPerDay = futureDates.length > 0 ? (totalEntries / futureDates.length).toFixed(1) : '—';
+      const avgMinsPerDay = futureDates.length > 0 ? totalMinutes / futureDates.length : 0;
+      const avgTimePerDayStr = avgMinsPerDay >= 60
+        ? `${Math.floor(avgMinsPerDay / 60)}h ${Math.round(avgMinsPerDay % 60)}m`
+        : `${Math.round(avgMinsPerDay)}m`;
 
-      let html = `<div class="admin-stat-cards">
-        <div class="admin-stat-card">
-          <span class="admin-stat-card__value">${futureDates.length}</span>
-          <span class="admin-stat-card__label">Days Scheduled</span>
-        </div>
+      let html = `<p class="form-hint mb-xs">${futureDates.length} days scheduled ahead</p>
+      <div class="admin-stat-cards">
         <div class="admin-stat-card">
           <span class="admin-stat-card__value">${totalEntries}</span>
-          <span class="admin-stat-card__label">Total Entries</span>
+          <span class="admin-stat-card__label">Total Tasks</span>
+        </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-card__value">${avgTasksPerDay}</span>
+          <span class="admin-stat-card__label">Avg / Day</span>
         </div>
         <div class="admin-stat-card">
           <span class="admin-stat-card__value">${totalTimeStr}</span>
           <span class="admin-stat-card__label">Total Time</span>
+        </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-card__value">${avgTimePerDayStr}</span>
+          <span class="admin-stat-card__label">Avg / Day</span>
         </div>
       </div>
       <h4 class="form-label mt-md">Load per Person</h4>
@@ -1461,7 +1471,8 @@
           <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color}"></div>
           <div class="admin-list-item__body">
             <span class="admin-list-item__name">${esc(p.name)}</span>
-            <span class="admin-list-item__meta">${count} tasks · ${avg}/day · ${personTotalStr} · ${avgMinsStr}/day</span>
+            <span class="admin-list-item__meta">${count} tasks · ${avg}/day</span>
+            <span class="admin-list-item__meta">${personTotalStr} · ${avgMinsStr}/day</span>
           </div>
         </div>`;
       }
