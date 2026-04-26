@@ -100,7 +100,7 @@ function buildHeaderOverflow() {
   if (localStorage.getItem('dr-debug') === 'true') {
     items.push({ id: 'debug', label: 'Debug (turn off)' });
   }
-  return items.slice().sort((a, b) => a.label.localeCompare(b.label));
+  return items.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function openOverflowOrMoreSheet() {
