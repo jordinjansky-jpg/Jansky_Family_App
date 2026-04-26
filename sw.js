@@ -139,9 +139,15 @@
 //                    calendar day view meals section, admin Meals tab, kid Tonight
 //                    tile, dashboard ambient strip wiring, ambientStrip setting.
 // v65 (2026-04-25) — 1.4 Weather Widget: add shared/weather.js to cache.
+// v69 (2026-04-26) — Admin polish: category/rewards/badges Add button merged into
+//                    filter toolbar row; category/events/meals/rewards/badges all
+//                    open as task-form-backdrop modals; balance anchor inline;
+//                    bonus/deduction side-by-side; send-message replaced with
+//                    openMsgModal (select templates); schedule stats icon-tile
+//                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v68';
+const CACHE_NAME = 'family-hub-v69';
 
 const APP_SHELL = [
   '/',

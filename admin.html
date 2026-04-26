@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readMealLibrary, pushMealLibrary, writeMealLibrary, removeMealLibrary, readAllMeals, removeMeal
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet, renderSendMessageSheet, bindSendMessageSheet } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet, showToast } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -79,6 +79,12 @@
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
     import { clearWeatherCache } from './shared/weather.js';
+
+    const MSG_POSITIVE = ['Awesome Job!','Super Star','Great Teamwork','Above & Beyond',
+      'So Proud of You','Way to Go!','Amazing Effort','Kindness Award',
+      'Helping Hand','You Crushed It!','Keep It Up!','Big Improvement'];
+    const MSG_NEGATIVE = ['Room Check','Reminder Needed',"Let's Do Better",'Responsibility Check',
+      'Try Again Tomorrow','Needs Attention','Not Your Best','We Talked About This'];
 
     // ── Undo toast helper ──
     let undoTimer = null;
@@ -477,33 +483,27 @@
       });
 
       if (selectMode) {
-        html += `<div class="admin-section-header">
-          <span>${selectedTaskIds.size} selected</span>
-          <div>
-            <button class="btn btn--ghost btn--sm" id="selectAllBtn" type="button">Select All</button>
-            <button class="btn btn--ghost btn--sm" id="deselectAllBtn" type="button">Deselect All</button>
+        html += `<div class="admin-list-toolbar">
+          <span class="admin-list-toolbar__count">${selectedTaskIds.size} selected</span>
+          <div class="admin-list-toolbar__actions">
+            <button class="btn btn--ghost btn--sm" id="selectAllBtn" type="button">All</button>
+            <button class="btn btn--ghost btn--sm" id="deselectAllBtn" type="button">None</button>
             <button class="btn btn--secondary btn--sm" id="cancelSelectBtn" type="button">Cancel</button>
           </div>
         </div>`;
       } else {
-        html += `<div class="admin-section-header">
-          <span>${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
-          <div>
-            <button class="btn btn--secondary btn--sm" id="selectModeBtn" type="button">Select</button>
+        html += `<div class="admin-list-toolbar">
+          <span class="admin-list-toolbar__count">${filtered.length} task${filtered.length !== 1 ? 's' : ''}</span>
+          <div class="admin-list-toolbar__actions">
+            <button class="btn btn--ghost btn--sm" id="selectModeBtn" type="button">Select</button>
+            <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
           </div>
         </div>`;
       }
 
-      if (!selectMode) {
-        // New task form at top
-        if (editingTaskId === 'new') {
-          html += renderTaskForm(null);
-        }
+      if (!selectMode && editingTaskId === 'new') {
+        html += renderTaskForm(null);
       }
-
-      html += `<div class="admin-list-add">
-  <button class="btn btn--primary btn--sm" id="addTaskBtn" type="button">+ Add Task</button>
-</div>`;
 
       if (filtered.length === 0) {
         html += `<div class="admin-empty">No tasks yet. Tap + Add Task to get started.</div>`;
@@ -569,20 +569,13 @@
     function renderEventsTab() {
       let html = '';
 
-      if (editingEventId !== null) {
-        html += renderEventFormAdmin(editingEventId === 'new' ? null : editingEventId);
-      }
-
-      html += `<div class="admin-list-add">
-  <button class="btn btn--primary btn--sm" id="addEventBtn" type="button">+ Add Event</button>
-</div>`;
-
       html += `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="eventsSearch" placeholder="Search events…" value="${esc(eventsSearch)}">
   <select class="admin-select" id="eventsSort">
     <option value="date"${eventsSort === 'date' ? ' selected' : ''}>Date</option>
     <option value="name"${eventsSort === 'name' ? ' selected' : ''}>Name</option>
   </select>
+  <button class="btn btn--primary btn--sm" id="addEventBtn" type="button">+ Add Event</button>
 </div>`;
 
       let evEntries = Object.entries(eventsObj || {});
@@ -614,6 +607,13 @@
           });
         }
         html += `</div>`;
+      }
+
+      // Event form modal
+      if (editingEventId !== null) {
+        html += `<div class="task-form-backdrop" id="eventFormBackdrop">
+          <div class="task-form-modal">${renderEventFormAdmin(editingEventId === 'new' ? null : editingEventId)}</div>
+        </div>`;
       }
 
       return html;
@@ -689,17 +689,14 @@
     // ══════════════════════════════════════════
 
     function renderMealsTab() {
-      let html = `<div class="admin-list-add">
-    <button class="btn btn--primary btn--sm" id="addMealBtn" type="button">+ Add Meal</button>
-  </div>`;
-
-      html += `<div class="admin-filters admin-filters--row">
+      let html = `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="mealsSearch" placeholder="Search meals…" value="${esc(mealsSearch)}">
   <select class="admin-select" id="mealsSort">
     <option value="lastUsed"${mealsSort === 'lastUsed' ? ' selected' : ''}>Recent</option>
     <option value="name"${mealsSort === 'name' ? ' selected' : ''}>Name</option>
     <option value="favorites"${mealsSort === 'favorites' ? ' selected' : ''}>Favorites</option>
   </select>
+  <button class="btn btn--primary btn--sm" id="addMealBtn" type="button">+ Add Meal</button>
 </div>`;
 
       let mealEntries = Object.entries(mealLibrary);
@@ -759,11 +756,10 @@
     function openAdminMealEditor(mealId) {
       const meal = mealId ? mealLibrary[mealId] : null;
       const mount = document.getElementById('taskSheetMount');
-      mount.innerHTML = renderBottomSheet(renderMealEditorSheet(meal, mealId));
-      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+      mount.innerHTML = `<div class="task-form-backdrop" id="mealFormBackdrop"><div class="task-form-modal">${renderMealEditorSheet(meal, mealId)}</div></div>`;
 
-      const overlay = document.getElementById('bottomSheet');
-      overlay?.addEventListener('click', e => { if (e.target === overlay) mount.innerHTML = ''; });
+      const backdrop = document.getElementById('mealFormBackdrop');
+      backdrop?.addEventListener('click', e => { if (e.target === backdrop) mount.innerHTML = ''; });
 
       document.getElementById('me_fav')?.addEventListener('click', e => {
         const btn = e.currentTarget;
@@ -1041,12 +1037,14 @@
       </div>
       <div class="admin-form__group">
         <label class="form-label" for="pf_balanceAnchor">Balance anchor</label>
-        <input class="form-input" type="number" id="pf_balanceAnchor" value="0" step="1">
-        <button class="btn btn--secondary btn--sm mt-xs" id="pf_saveAnchor" type="button">Save Anchor</button>
+        <div class="admin-form__row">
+          <input class="form-input" type="number" id="pf_balanceAnchor" value="0" step="1" style="flex:1">
+          <button class="btn btn--secondary btn--sm" id="pf_saveAnchor" type="button">Save</button>
+        </div>
       </div>
-      <div class="admin-form__actions">
-        <button class="btn btn--secondary btn--sm" id="pf_addBonus" data-person-id="${personId}" type="button">+ Add Bonus</button>
-        <button class="btn btn--secondary btn--sm" id="pf_addDeduction" data-person-id="${personId}" type="button">− Add Deduction</button>
+      <div class="admin-form__row mt-xs">
+        <button class="btn btn--secondary btn--sm" id="pf_addBonus" data-person-id="${personId}" type="button" style="flex:1">+ Add Bonus</button>
+        <button class="btn btn--secondary btn--sm" id="pf_addDeduction" data-person-id="${personId}" type="button" style="flex:1">− Add Deduction</button>
       </div>
     </div>` : ''}
 
@@ -1077,20 +1075,13 @@
     function renderCategoriesTab() {
       let html = '';
 
-      if (editingCatKey !== null) {
-        html += renderCategoryForm(editingCatKey === 'new' ? null : editingCatKey);
-      }
-
-      html += `<div class="admin-list-add">
-        <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
-      </div>`;
-
       html += `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="catsSearch" placeholder="Search categories…" value="${esc(catsSearch)}">
   <select class="admin-select" id="catsSort">
     <option value="name"${catsSort === 'name' ? ' selected' : ''}>Name</option>
-    <option value="tasks"${catsSort === 'tasks' ? ' selected' : ''}>Task count</option>
+    <option value="tasks"${catsSort === 'tasks' ? ' selected' : ''}>Tasks</option>
   </select>
+  <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
 </div>`;
 
       let ca = catsArray();
@@ -1117,6 +1108,12 @@
           });
         }
         html += `</div>`;
+      }
+
+      if (editingCatKey !== null) {
+        html += `<div class="task-form-backdrop" id="catFormBackdrop">
+          <div class="task-form-modal">${renderCategoryForm(editingCatKey === 'new' ? null : editingCatKey)}</div>
+        </div>`;
       }
 
       return html;
@@ -1221,9 +1218,9 @@
           </div>
           <div class="form-group mt-sm">
             <label class="form-label">Theme preset</label>
-            <div class="admin-theme-presets" id="sf_themePresets">
-              ${getPresets().map(p => `<button class="btn btn--secondary btn--sm admin-theme-preset${settings?.theme?.preset === p.key ? ' admin-mode-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
-            </div>
+            <select class="form-input" id="sf_themePreset">
+              ${getPresets().map(p => `<option value="${p.key}"${settings?.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
+            </select>
             <p class="form-hint">Family-wide default. Each person can override on their home screen.</p>
           </div>
           <div class="form-group mt-sm">
@@ -1468,11 +1465,13 @@
           ? `${Math.floor(personMins / 60)}h ${personMins % 60}m`
           : `${personMins}m`;
         html += `<div class="admin-list-item">
-          <div class="admin-person-row">
-            <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color}"></div>
-            <span class="admin-list-item__name">${esc(p.name)}</span>
+          <div class="admin-icon-tile">
+            <div class="admin-icon-tile__swatch" style="background:${p.color}"></div>
           </div>
-          <span class="admin-list-item__meta">${count} tasks · ${avg}/day · ${personTotalStr} · ${avgMinsStr}/day</span>
+          <div class="admin-list-item__body">
+            <span class="admin-list-item__name">${esc(p.name)}</span>
+            <span class="admin-list-item__meta">${count} tasks · ${avg}/day · ${personTotalStr} · ${avgMinsStr}/day</span>
+          </div>
         </div>`;
       }
       html += `</div>`;
@@ -1544,16 +1543,13 @@
     function renderRewardsTab() {
       let html = '';
 
-      html += `<div class="admin-list-add">
-  <button class="btn btn--primary btn--sm" id="addRewardBtn" type="button">+ Add Reward</button>
-</div>`;
-
       html += `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="rewardsSearch" placeholder="Search rewards…" value="${esc(rewardsSearch)}">
   <select class="admin-select" id="rewardsSort">
     <option value="name"${rewardsSort === 'name' ? ' selected' : ''}>Name</option>
     <option value="cost"${rewardsSort === 'cost' ? ' selected' : ''}>Cost</option>
   </select>
+  <button class="btn btn--primary btn--sm" id="addRewardBtn" type="button">+ Add Reward</button>
 </div>`;
 
       let activeRewards = Object.entries(rewardsObj || {}).filter(([, r]) => r.status !== 'archived');
@@ -1958,16 +1954,13 @@
       html += `</div>`;
 
       // ── Achievement definitions list ──
-      html += `<div class="admin-list-add">
-        <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
-      </div>`;
-
       html += `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="badgesSearch" placeholder="Search badges…" value="${esc(badgesSearch)}">
   <select class="admin-select" id="badgesSort">
     <option value="name"${badgesSort === 'name' ? ' selected' : ''}>Name</option>
     <option value="unlocked"${badgesSort === 'unlocked' ? ' selected' : ''}>Unlock count</option>
   </select>
+  <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
 </div>`;
 
       let defsEntries = Object.entries(allDefs);
@@ -3091,6 +3084,103 @@
 
     // ── People tab events ──
 
+    function openMsgModal(pid, defaultType = 'bonus') {
+      const person = peopleObj[pid];
+      const mount = document.getElementById('taskSheetMount');
+      if (!mount) return;
+
+      const renderTemplateOptions = (type) => {
+        const list = type === 'bonus' ? MSG_POSITIVE : MSG_NEGATIVE;
+        return `<option value="">— Choose a message —</option>` +
+          list.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('') +
+          `<option value="custom">Custom…</option>`;
+      };
+
+      mount.innerHTML = `<div class="task-form-backdrop" id="msgBackdrop">
+        <div class="task-form-modal">
+          <div class="form-compact" id="msgForm">
+            <h3 class="admin-form__title">${defaultType === 'bonus' ? 'Add Bonus' : 'Add Deduction'}</h3>
+            <div class="form-group">
+              <label class="form-label">For</label>
+              <div style="color:${person?.color || 'inherit'};font-weight:600;padding:4px 0">${esc(person?.name || 'Unknown')}</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type</label>
+              <div class="segmented-control" id="msg_typeToggle" style="margin-top:4px">
+                <button class="segmented-btn${defaultType === 'bonus' ? ' segmented-btn--active' : ''}" data-type="bonus" type="button">+ Bonus</button>
+                <button class="segmented-btn${defaultType === 'deduction' ? ' segmented-btn--active' : ''}" data-type="deduction" type="button">− Deduction</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Title</label>
+              <select class="form-input" id="msg_templateSelect">
+                ${renderTemplateOptions(defaultType)}
+              </select>
+              <input type="text" id="msg_customTitle" class="form-input mt-xs" placeholder="Custom title" style="display:none">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Personal note (optional)</label>
+              <textarea class="form-input" id="msg_body" rows="2" placeholder="Great job helping your sister!"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Points</label>
+              <input class="form-input" type="number" id="msg_points" value="${defaultType === 'bonus' ? '25' : '15'}" min="1" style="max-width:120px">
+            </div>
+            <div class="admin-form__row mt-md">
+              <button class="btn btn--secondary" id="msg_cancel" type="button" style="flex:1">Cancel</button>
+              <button class="btn btn--primary" id="msg_send" type="button" style="flex:1">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+      let msgType = defaultType;
+      const backdrop = mount.querySelector('#msgBackdrop');
+      backdrop?.addEventListener('click', e => { if (e.target === backdrop) mount.innerHTML = ''; });
+
+      const typeToggle = mount.querySelector('#msg_typeToggle');
+      typeToggle?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-type]');
+        if (!btn) return;
+        msgType = btn.dataset.type;
+        typeToggle.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+        btn.classList.add('segmented-btn--active');
+        const sel = mount.querySelector('#msg_templateSelect');
+        if (sel) sel.innerHTML = renderTemplateOptions(msgType);
+        const pts = mount.querySelector('#msg_points');
+        if (pts) pts.value = msgType === 'bonus' ? '25' : '15';
+        mount.querySelector('#msg_customTitle').style.display = 'none';
+      });
+
+      mount.querySelector('#msg_templateSelect')?.addEventListener('change', e => {
+        const customInput = mount.querySelector('#msg_customTitle');
+        customInput.style.display = e.target.value === 'custom' ? '' : 'none';
+        if (e.target.value === 'custom') customInput.focus();
+      });
+
+      mount.querySelector('#msg_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+      mount.querySelector('#msg_send')?.addEventListener('click', async () => {
+        const sel = mount.querySelector('#msg_templateSelect');
+        const title = sel?.value === 'custom'
+          ? (mount.querySelector('#msg_customTitle')?.value.trim() || '')
+          : (sel?.value || '');
+        if (!title) { sel?.focus(); return; }
+        const pts = parseInt(mount.querySelector('#msg_points')?.value || '0', 10);
+        if (pts <= 0) return;
+        const body = mount.querySelector('#msg_body')?.value.trim() || null;
+        const amount = msgType === 'deduction' ? -pts : pts;
+        await writeMessage(pid, {
+          type: msgType, title, body, amount,
+          rewardId: null, entryKey: null, seen: false,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          createdBy: 'Parent'
+        });
+        mount.innerHTML = '';
+        showUndoToast(`${msgType === 'bonus' ? 'Bonus' : 'Deduction'} sent!`);
+      });
+    }
+
     function bindPeopleTab() {
       // List view
       main.querySelector('#addPersonBtn')?.addEventListener('click', () => {
@@ -3201,24 +3291,16 @@
         showToast('Balance anchor saved');
       });
 
-      // Bonus / deduction — open send-message sheet with person pre-selected
-      const openMsgSheet = (pid) => {
-        const mount = document.getElementById('taskSheetMount');
-        if (!mount) return;
-        const people = Object.values(peopleObj).map(p => ({ id: p.id, name: p.name, color: p.color }));
-        mount.innerHTML = renderSendMessageSheet(people, pid);
-        document.getElementById('bottomSheet')?.classList.add('active');
-        bindSendMessageSheet(mount, writeMessage);
-      };
+      // Bonus / deduction — open modal with person pre-selected
       main.querySelector('#pf_addBonus')?.addEventListener('click', () => {
         const pid = editingPersonId;
         if (!pid || pid === 'new') return;
-        openMsgSheet(pid);
+        openMsgModal(pid, 'bonus');
       });
       main.querySelector('#pf_addDeduction')?.addEventListener('click', () => {
         const pid = editingPersonId;
         if (!pid || pid === 'new') return;
-        openMsgSheet(pid);
+        openMsgModal(pid, 'deduction');
       });
 
       // Populate balance display and anchor input from Firebase
@@ -3263,6 +3345,9 @@
       main.querySelector('#catsSort')?.addEventListener('change', e => { catsSort = e.target.value; render(); });
 
       if (editingCatKey !== null) {
+        main.querySelector('#catFormBackdrop')?.addEventListener('click', e => {
+          if (e.target.id === 'catFormBackdrop') { editingCatKey = null; render(); }
+        });
         bindCategoryForm();
       }
     }
@@ -3450,17 +3535,13 @@
         if (hardInput) hardInput.value = 3;
       });
 
-      for (const btn of main.querySelectorAll('.admin-theme-preset')) {
-        btn.addEventListener('click', async () => {
-          main.querySelectorAll('.admin-theme-preset').forEach(b => b.classList.remove('admin-mode-btn--active'));
-          btn.classList.add('admin-mode-btn--active');
-          const theme = { ...(settings?.theme || {}), preset: btn.dataset.preset };
-          const updated = { ...settings, theme };
-          await writeSettings(updated);
-          settings = updated;
-          applyTheme(resolveTheme(settings.theme));
-        });
-      }
+      main.querySelector('#sf_themePreset')?.addEventListener('change', async (e) => {
+        const theme = { ...(settings?.theme || {}), preset: e.target.value };
+        const updated = { ...settings, theme };
+        await writeSettings(updated);
+        settings = updated;
+        applyTheme(resolveTheme(settings.theme));
+      });
 
       for (const swatch of main.querySelectorAll('#sf_accentGrid .color-swatch')) {
         swatch.addEventListener('click', async () => {

@@ -156,11 +156,19 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-xs);
   max-width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md) 0;
   margin-bottom: var(--spacing-xs);
 }
 .admin-filters--row {
-  grid-template-columns: 1fr auto;
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+  margin-bottom: 0;
 }
+.admin-filters--row .admin-select { width: auto; }
+.admin-filters--row input.admin-select { flex: 1; }
 .admin-select {
   padding: 6px 10px;
   border-radius: var(--radius-md);
@@ -170,6 +178,25 @@
   font-size: var(--font-xs);
   min-width: 0;
   width: 100%;
+}
+
+/* Library toolbar (count + actions row) */
+.admin-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+}
+.admin-list-toolbar__count {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.admin-list-toolbar__actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
 }
 
 /* Admin List */
