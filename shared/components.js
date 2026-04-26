@@ -148,6 +148,45 @@ export function renderNavBar(activePage, options = {}) {
 }
 
 /**
+ * Wire the #navMore button on non-dashboard pages.
+ * Shows a sheet with Admin, Rewards, Theme options (alphabetical).
+ * Call after renderNavBar() has mounted to DOM.
+ * @param {HTMLElement} sheetMount - element to mount the sheet into
+ * @param {object} [familyTheme] - current family theme for openDeviceThemeSheet
+ */
+export function initNavMore(sheetMount, familyTheme) {
+  const btn = document.getElementById('navMore');
+  if (!btn) return;
+
+  const items = [
+    { id: 'admin',   label: 'Admin' },
+    { id: 'rewards', label: 'Rewards' },
+    { id: 'theme',   label: 'Theme' },
+  ];
+
+  btn.addEventListener('click', () => {
+    sheetMount.innerHTML = renderBottomSheet(
+      `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(items)}`
+    );
+    requestAnimationFrame(() => {
+      document.getElementById('bottomSheet')?.classList.add('active');
+    });
+    document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+      if (e.target === document.getElementById('bottomSheet')) sheetMount.innerHTML = '';
+    });
+    sheetMount.querySelector('.overflow-menu')?.addEventListener('click', (ev) => {
+      const row = ev.target.closest('[data-item-id]');
+      if (!row) return;
+      sheetMount.innerHTML = '';
+      const id = row.dataset.itemId;
+      if (id === 'admin')   location.href = 'admin.html';
+      if (id === 'rewards') location.href = 'scoreboard.html';
+      if (id === 'theme')   openDeviceThemeSheet(sheetMount, familyTheme);
+    });
+  });
+}
+
+/**
  * Render the notification bell icon with optional badge count.
  */
 export function renderBellIcon(count = 0) {

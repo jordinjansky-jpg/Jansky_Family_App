@@ -41,7 +41,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeSnapshot, updateData } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, showConfirm, showToast, applyDataColors } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, showConfirm, showToast, applyDataColors } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -101,6 +101,7 @@
       showBell: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('scoreboard');
+    initNavMore(document.getElementById('drilldownMount'), settings?.theme);
 
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
       openDeviceThemeSheet(document.getElementById('themeSheetMount'), settings?.theme);

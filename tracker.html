@@ -39,7 +39,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -136,6 +136,7 @@
       showBell: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('tracker');
+    initNavMore(document.getElementById('taskSheetMount'), settings?.theme);
 
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
       openDeviceThemeSheet(document.getElementById('taskSheetMount'), settings?.theme);
