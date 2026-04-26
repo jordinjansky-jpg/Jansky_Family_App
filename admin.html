@@ -3300,11 +3300,11 @@
         btn.addEventListener('click', async () => {
           main.querySelectorAll('.admin-theme-preset').forEach(b => b.classList.remove('admin-mode-btn--active'));
           btn.classList.add('admin-mode-btn--active');
-          const preset = btn.dataset.preset;
-          const theme = { ...(settings?.theme || {}), preset };
-          await writeSettings({ theme });
-          settings = await readSettings();
-          applyTheme(resolveTheme(settings?.theme));
+          const theme = { ...(settings?.theme || {}), preset: btn.dataset.preset };
+          const updated = { ...settings, theme };
+          await writeSettings(updated);
+          settings = updated;
+          applyTheme(resolveTheme(settings.theme));
         });
       }
 
@@ -3313,9 +3313,10 @@
           main.querySelectorAll('#sf_accentGrid .color-swatch').forEach(s => s.classList.remove('selected'));
           swatch.classList.add('selected');
           const theme = { ...(settings?.theme || {}), accent: swatch.dataset.color };
-          await writeSettings({ theme });
-          settings = await readSettings();
-          applyTheme(resolveTheme(settings?.theme));
+          const updated = { ...settings, theme };
+          await writeSettings(updated);
+          settings = updated;
+          applyTheme(resolveTheme(settings.theme));
         });
       }
 
