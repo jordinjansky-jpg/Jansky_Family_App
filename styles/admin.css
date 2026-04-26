@@ -503,6 +503,23 @@
   transform: scale(1.2);
 }
 
+/* Native color picker button */
+.color-pick-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border);
+  padding: 2px;
+  cursor: pointer;
+  background: none;
+  flex-shrink: 0;
+}
+.color-pick-btn::-webkit-color-swatch-wrapper { padding: 0; }
+.color-pick-btn::-webkit-color-swatch { border-radius: var(--radius-sm); border: none; }
+.color-pick-btn::-moz-color-swatch { border-radius: var(--radius-sm); border: none; }
+
 /* Admin person row */
 .admin-person-row {
   display: flex;

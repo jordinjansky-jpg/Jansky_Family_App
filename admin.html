@@ -973,12 +973,9 @@
       </div>
       <div class="admin-form__group">
         <label class="form-label">Color</label>
-        <div class="color-grid" id="pf_colorGrid">
-          ${colors.map(c => {
-            const used = usedColors.includes(c);
-            const sel = selColor === c ? ' selected' : '';
-            return `<div class="color-swatch${sel}${used ? ' color-swatch--used' : ''}" data-color="${c}" style="background:${c}"></div>`;
-          }).join('')}
+        <div class="admin-form__row" style="align-items:center;gap:var(--spacing-sm)">
+          <input type="color" id="pf_colorPicker" value="${selColor}" class="color-pick-btn">
+          <span class="form-hint" style="margin:0">Tap to choose any color</span>
         </div>
       </div>
       <div class="admin-form__group">
@@ -1156,13 +1153,9 @@
           </div>
         </div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Event category (no scoring, calendar highlight)</span><label class="form-toggle"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'}">
+        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'};align-items:center;gap:var(--spacing-sm)">
           <span class="form-label" style="margin-bottom:0;">Event Color</span>
-          <div class="admin-color-grid admin-color-grid--sm" id="eventColorGrid">
-            ${['#ef5350','#e85d75','#ec407a','#f06292','#ab47bc','#8e24aa','#7e57c2','#5b7fd6','#42a5f5','#00acc1','#26a69a','#43a047','#66bb6a','#ffca28','#ffa726','#ff9800','#ff7043','#8d6e63','#78909c','#546e7a'].map(c =>
-              `<button class="admin-color-dot${(cat.eventColor || '#5b7fd6') === c ? ' admin-color-dot--active' : ''}" data-color="${c}" style="background:${c}" type="button"></button>`
-            ).join('')}
-          </div>
+          <input type="color" id="cf_eventColor" value="${cat.eventColor || '#5b7fd6'}" class="color-pick-btn">
         </div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show icon on task cards</span><label class="form-toggle"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">PIN protected (requires PIN to complete)</span><label class="form-toggle"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
@@ -1225,8 +1218,9 @@
           </div>
           <div class="form-group mt-sm">
             <label class="form-label">Accent color</label>
-            <div class="color-grid" id="sf_accentGrid">
-              ${getAccentColors().map(c => `<div class="color-swatch${settings?.theme?.accent === c ? ' selected' : ''}" data-color="${c}" style="background:${c}"></div>`).join('')}
+            <div class="admin-form__row" style="align-items:center;gap:var(--spacing-sm)">
+              <input type="color" id="sf_accentPicker" value="${settings?.theme?.accent || '#6c63ff'}" class="color-pick-btn">
+              <span class="form-hint" style="margin:0">Tap to choose any color</span>
             </div>
           </div>
         </div>
@@ -3215,19 +3209,11 @@
         });
       }
 
-      // Color swatch
-      for (const swatch of main.querySelectorAll('#pf_colorGrid .color-swatch')) {
-        swatch.addEventListener('click', () => {
-          main.querySelectorAll('#pf_colorGrid .color-swatch').forEach(s => s.classList.remove('selected'));
-          swatch.classList.add('selected');
-        });
-      }
-
       // Save person
       main.querySelector('#personDetailSave')?.addEventListener('click', async () => {
         const name = main.querySelector('#pf_name')?.value.trim();
         if (!name) { showToast('Name is required'); return; }
-        const color = main.querySelector('#pf_colorGrid .color-swatch.selected')?.dataset.color || '#ccc';
+        const color = main.querySelector('#pf_colorPicker')?.value || '#ccc';
         const role = main.querySelector('.admin-role-btn.admin-mode-btn--active')?.dataset.role || 'adult';
         const isAdmin = role === 'adult' ? (main.querySelector('#pf_isAdmin')?.checked || false) : false;
         const kidSettings = role === 'child' ? {
@@ -3389,15 +3375,6 @@
         if (catLimitsRow) catLimitsRow.style.display = eventCheckbox.checked ? 'none' : 'flex';
       });
 
-      // Event color dot selection
-      let selectedEventColor = main.querySelector('#eventColorGrid .admin-color-dot--active')?.dataset.color || '#5b7fd6';
-      for (const dot of main.querySelectorAll('#eventColorGrid .admin-color-dot')) {
-        dot.addEventListener('click', () => {
-          main.querySelectorAll('#eventColorGrid .admin-color-dot').forEach(d => d.classList.remove('admin-color-dot--active'));
-          dot.classList.add('admin-color-dot--active');
-          selectedEventColor = dot.dataset.color;
-        });
-      }
 
       main.querySelector('#catFormSave')?.addEventListener('click', async () => {
         const icon = main.querySelector('#cf_icon')?.value.trim() || '📌';
@@ -3426,7 +3403,7 @@
           pinProtected,
           isDefault,
           isEvent,
-          eventColor: isEvent ? selectedEventColor : null,
+          eventColor: isEvent ? (main.querySelector('#cf_eventColor')?.value || '#5b7fd6') : null,
           weightPercent: isEvent ? null : (weight ? parseInt(weight, 10) : null),
           dailyLimitPerPerson: isEvent ? null : (limitPerson ? parseInt(limitPerson, 10) : null),
           dailyLimitPerHousehold: isEvent ? null : (limitHousehold ? parseInt(limitHousehold, 10) : null)
@@ -3541,17 +3518,13 @@
         applyTheme(resolveTheme(settings.theme));
       });
 
-      for (const swatch of main.querySelectorAll('#sf_accentGrid .color-swatch')) {
-        swatch.addEventListener('click', async () => {
-          main.querySelectorAll('#sf_accentGrid .color-swatch').forEach(s => s.classList.remove('selected'));
-          swatch.classList.add('selected');
-          const theme = { ...(settings?.theme || {}), accent: swatch.dataset.color };
-          const updated = { ...settings, theme };
-          await writeSettings(updated);
-          settings = updated;
-          applyTheme(resolveTheme(settings.theme));
-        });
-      }
+      main.querySelector('#sf_accentPicker')?.addEventListener('input', async (e) => {
+        const theme = { ...(settings?.theme || {}), accent: e.target.value };
+        const updated = { ...settings, theme };
+        await writeSettings(updated);
+        settings = updated;
+        applyTheme(resolveTheme(settings.theme));
+      });
 
       main.querySelector('#sf_weatherTest')?.addEventListener('click', async () => {
         const loc = main.querySelector('#sf_weatherLocation')?.value.trim();
