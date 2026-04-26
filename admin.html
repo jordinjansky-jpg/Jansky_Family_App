@@ -3056,6 +3056,18 @@
         if (!pid || pid === 'new') return;
         openMsgSheet(pid);
       });
+
+      // Populate balance display and anchor input from Firebase
+      if (editingPersonId && editingPersonId !== 'new') {
+        const pid = editingPersonId;
+        readBalanceAnchor(pid).then(anchor => {
+          const amount = anchor?.amount ?? 0;
+          const balEl = main.querySelector(`#personBalance_${pid}`);
+          if (balEl) balEl.textContent = `${amount} pts`;
+          const anchorEl = main.querySelector('#pf_balanceAnchor');
+          if (anchorEl) anchorEl.value = amount;
+        });
+      }
     }
 
     // ── Categories tab events ──

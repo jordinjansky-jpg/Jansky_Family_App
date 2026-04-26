@@ -996,7 +996,7 @@
 }
 
 .admin-detail-section--danger {
-  border: 1px solid var(--color-danger, #e53e3e);
+  border: 1px solid var(--danger);
 }
 
 .admin-detail-section__title {
