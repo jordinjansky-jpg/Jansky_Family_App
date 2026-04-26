@@ -235,6 +235,39 @@
       ];
     }
 
+    /**
+     * Shared list row for all Library sections.
+     * icon: HTML string (SVG, emoji in a span, or color swatch div)
+     * primary: escaped text string
+     * secondary: escaped text string or ''
+     * dataAttrs: string of additional data-* attributes for the row
+     */
+    function renderAdminRow({ icon, primary, secondary = '', dataAttrs = '' }) {
+      return `<div class="admin-list-item admin-list-item--clickable" ${dataAttrs}>
+    <div class="admin-icon-tile">${icon}</div>
+    <div class="admin-list-item__body">
+      <span class="admin-list-item__name">${primary}</span>
+      ${secondary ? `<span class="admin-list-item__meta">${secondary}</span>` : ''}
+    </div>
+    <svg class="admin-list-item__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>`;
+    }
+
+    /**
+     * 40×40 color swatch for use as the icon in renderAdminRow.
+     * color: CSS color string
+     */
+    function renderColorSwatch(color) {
+      return `<div class="admin-icon-tile__swatch" style="background:${color}"></div>`;
+    }
+
+    /**
+     * Emoji tile for use as the icon in renderAdminRow.
+     */
+    function renderEmojiTile(emoji) {
+      return `<span class="admin-icon-tile__emoji" aria-hidden="true">${emoji}</span>`;
+    }
+
     const main = document.getElementById('mainContent');
 
     // ══════════════════════════════════════════
