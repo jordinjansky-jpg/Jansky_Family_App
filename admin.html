@@ -276,8 +276,8 @@
      * secondary: escaped text string or ''
      * dataAttrs: string of additional data-* attributes for the row
      */
-    function renderAdminRow({ icon, primary, secondary = '', dataAttrs = '' }) {
-      return `<div class="admin-list-item admin-list-item--clickable" ${dataAttrs}>
+    function renderAdminRow({ icon, primary, secondary = '', dataAttrs = '', extraClass = '' }) {
+      return `<div class="admin-list-item admin-list-item--clickable${extraClass ? ' ' + extraClass : ''}" ${dataAttrs}>
     <div class="admin-icon-tile">${icon}</div>
     <div class="admin-list-item__body">
       <span class="admin-list-item__name">${primary}</span>
@@ -397,6 +397,13 @@
     let selectMode = false;
     let selectedTaskIds = new Set();
 
+    // Per-section search + sort state
+    let eventsSearch = ''; let eventsSort = 'date';
+    let mealsSearch = '';  let mealsSort = 'lastUsed';
+    let catsSearch = '';   let catsSort = 'name';
+    let rewardsSearch = ''; let rewardsSort = 'name';
+    let badgesSearch = ''; let badgesSort = 'name';
+
     function renderTasksTab() {
       const pa = peopleArray();
       const ca = catsArray();
@@ -432,8 +439,6 @@
             <option value="medium"${taskFilter.difficulty === 'medium' ? ' selected' : ''}>Medium</option>
             <option value="hard"${taskFilter.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
           </select>
-        </div>
-        <div class="admin-filters admin-filters--stacked">
           <select class="admin-select" id="taskSortBy">
             <option value="name"${taskSort === 'name' ? ' selected' : ''}>Sort: Name</option>
             <option value="difficulty"${taskSort === 'difficulty' ? ' selected' : ''}>Sort: Difficulty</option>
@@ -506,8 +511,7 @@
         html += `<div class="admin-list" id="taskList">`;
         for (const [id, t] of filtered) {
           const cat = catsObj[t.category] || {};
-          const catColor = cat.color || 'var(--surface-2, var(--surface))';
-          const icon = renderColorSwatch(catColor);
+          const icon = renderEmojiTile(cat.icon || '📋');
           const ownerNames = (t.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
           const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-time' }[t.rotation] || t.rotation;
           const secondary = `${rotLabel}${ownerNames ? ' · ' + ownerNames : ''}`;
@@ -516,6 +520,7 @@
             primary: esc(t.name),
             secondary: esc(secondary),
             dataAttrs: `data-task-id="${id}"`,
+            extraClass: selectMode && selectedTaskIds.has(id) ? 'admin-list-item--selected' : '',
           });
         }
         html += `</div>`;
@@ -572,8 +577,19 @@
   <button class="btn btn--primary btn--sm" id="addEventBtn" type="button">+ Add Event</button>
 </div>`;
 
-      const evEntries = Object.entries(eventsObj || {})
-        .sort((a, b) => (a[1].date || '').localeCompare(b[1].date || ''));
+      html += `<div class="admin-filters admin-filters--row">
+  <input class="admin-select" type="search" id="eventsSearch" placeholder="Search events…" value="${esc(eventsSearch)}">
+  <select class="admin-select" id="eventsSort">
+    <option value="date"${eventsSort === 'date' ? ' selected' : ''}>Date</option>
+    <option value="name"${eventsSort === 'name' ? ' selected' : ''}>Name</option>
+  </select>
+</div>`;
+
+      let evEntries = Object.entries(eventsObj || {});
+      if (eventsSearch) evEntries = evEntries.filter(([, ev]) => (ev.name || '').toLowerCase().includes(eventsSearch.toLowerCase()));
+      evEntries.sort((a, b) => eventsSort === 'name'
+        ? (a[1].name || '').localeCompare(b[1].name || '')
+        : (a[1].date || '').localeCompare(b[1].date || ''));
 
       if (evEntries.length === 0) {
         html += `<div class="admin-empty">No events yet. Tap + Add Event to create one.</div>`;
@@ -673,15 +689,33 @@
     // ══════════════════════════════════════════
 
     function renderMealsTab() {
-      const mealEntries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
+      let html = `<div class="admin-list-add">
+    <button class="btn btn--primary btn--sm" id="addMealBtn" type="button">+ Add Meal</button>
+  </div>`;
+
+      html += `<div class="admin-filters admin-filters--row">
+  <input class="admin-select" type="search" id="mealsSearch" placeholder="Search meals…" value="${esc(mealsSearch)}">
+  <select class="admin-select" id="mealsSort">
+    <option value="lastUsed"${mealsSort === 'lastUsed' ? ' selected' : ''}>Recent</option>
+    <option value="name"${mealsSort === 'name' ? ' selected' : ''}>Name</option>
+    <option value="favorites"${mealsSort === 'favorites' ? ' selected' : ''}>Favorites</option>
+  </select>
+</div>`;
+
+      let mealEntries = Object.entries(mealLibrary);
+      if (mealsSearch) mealEntries = mealEntries.filter(([, m]) => (m.name || '').toLowerCase().includes(mealsSearch.toLowerCase()));
+      mealEntries.sort(([, a], [, b]) => {
+        if (mealsSort === 'name') return (a.name || '').localeCompare(b.name || '');
+        if (mealsSort === 'favorites') {
+          if (a.isFavorite && !b.isFavorite) return -1;
+          if (!a.isFavorite && b.isFavorite) return 1;
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        // lastUsed (default): favorites first, then by lastUsed
         if (a.isFavorite && !b.isFavorite) return -1;
         if (!a.isFavorite && b.isFavorite) return 1;
         return (b.lastUsed || 0) - (a.lastUsed || 0);
       });
-
-      let html = `<div class="admin-list-add">
-    <button class="btn btn--primary btn--sm" id="addMealBtn" type="button">+ Add Meal</button>
-  </div>`;
 
       if (mealEntries.length === 0) {
         html += `<div class="admin-empty">No meals in the library yet. Tap + Add Meal to create one.</div>`;
@@ -712,6 +746,14 @@
         if (!row) return;
         openAdminMealEditor(row.dataset.mealId);
       });
+
+      main.querySelector('#mealsSearch')?.addEventListener('input', e => {
+        mealsSearch = e.target.value;
+        render();
+        const el = main.querySelector('#mealsSearch');
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      main.querySelector('#mealsSort')?.addEventListener('change', e => { mealsSort = e.target.value; render(); });
     }
 
     function openAdminMealEditor(mealId) {
@@ -954,23 +996,26 @@
 
     <div class="admin-detail-section" id="adminAccessSection" style="display:${role === 'adult' ? '' : 'none'}">
       <div class="admin-detail-section__title">Admin Access</div>
-      <label class="admin-toggle-row">
+      <div class="admin-toggle-row">
         <span class="admin-toggle-row__label">
           Can access admin without PIN
           <span class="admin-toggle-row__hint">This person can open admin directly from their home screen.</span>
         </span>
-        <input type="checkbox" id="pf_isAdmin" class="admin-toggle"${person.isAdmin ? ' checked' : ''}>
-      </label>
+        <label class="form-toggle">
+          <input type="checkbox" id="pf_isAdmin"${person.isAdmin ? ' checked' : ''}>
+          <span class="form-toggle__track"></span>
+        </label>
+      </div>
     </div>
 
     <div class="admin-detail-section" id="kidSettingsSection" style="display:${role === 'child' ? '' : 'none'}">
       <div class="admin-detail-section__title">Kid Settings</div>
-      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show tonight's dinner</span><input type="checkbox" id="pf_showMeals" class="admin-toggle"${prefs.showMeals !== false ? ' checked' : ''}></label>
-      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show weather</span><input type="checkbox" id="pf_showWeather" class="admin-toggle"${prefs.showWeather !== false ? ' checked' : ''}></label>
-      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show store</span><input type="checkbox" id="pf_showStore" class="admin-toggle"${ks.showStore !== false ? ' checked' : ''}></label>
-      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Show achievements</span><input type="checkbox" id="pf_showAchievements" class="admin-toggle"${ks.showAchievements !== false ? ' checked' : ''}></label>
-      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Celebrations enabled</span><input type="checkbox" id="pf_celebrationsEnabled" class="admin-toggle"${ks.celebrationsEnabled !== false ? ' checked' : ''}></label>
-      <label class="admin-toggle-row"><span class="admin-toggle-row__label">Can swipe between days</span><input type="checkbox" id="pf_canSwipeDays" class="admin-toggle"${ks.canSwipeDays ? ' checked' : ''}></label>
+      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show tonight's dinner</span><label class="form-toggle"><input type="checkbox" id="pf_showMeals"${prefs.showMeals !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
+      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show weather</span><label class="form-toggle"><input type="checkbox" id="pf_showWeather"${prefs.showWeather !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
+      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show store</span><label class="form-toggle"><input type="checkbox" id="pf_showStore"${ks.showStore !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
+      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show achievements</span><label class="form-toggle"><input type="checkbox" id="pf_showAchievements"${ks.showAchievements !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
+      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Celebrations enabled</span><label class="form-toggle"><input type="checkbox" id="pf_celebrationsEnabled"${ks.celebrationsEnabled !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
+      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Can swipe between days</span><label class="form-toggle"><input type="checkbox" id="pf_canSwipeDays"${ks.canSwipeDays ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
       <div class="admin-form__group mt-sm">
         <label class="form-label">Celebration style</label>
         <select class="form-input" id="pf_celebrationStyle">
@@ -996,7 +1041,7 @@
       </div>
       <div class="admin-form__group">
         <label class="form-label" for="pf_balanceAnchor">Balance anchor</label>
-        <input class="form-input" type="number" id="pf_balanceAnchor" value="${(person.balanceAnchor ?? 0)}" step="1">
+        <input class="form-input" type="number" id="pf_balanceAnchor" value="0" step="1">
         <button class="btn btn--secondary btn--sm mt-xs" id="pf_saveAnchor" type="button">Save Anchor</button>
       </div>
       <div class="admin-form__actions">
@@ -1030,7 +1075,6 @@
     let editingCatKey = null;
 
     function renderCategoriesTab() {
-      const ca = catsArray();
       let html = '';
 
       if (editingCatKey !== null) {
@@ -1040,6 +1084,22 @@
       html += `<div class="admin-list-add">
         <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
       </div>`;
+
+      html += `<div class="admin-filters admin-filters--row">
+  <input class="admin-select" type="search" id="catsSearch" placeholder="Search categories…" value="${esc(catsSearch)}">
+  <select class="admin-select" id="catsSort">
+    <option value="name"${catsSort === 'name' ? ' selected' : ''}>Name</option>
+    <option value="tasks"${catsSort === 'tasks' ? ' selected' : ''}>Task count</option>
+  </select>
+</div>`;
+
+      let ca = catsArray();
+      if (catsSearch) ca = ca.filter(c => (c.label || c.key || '').toLowerCase().includes(catsSearch.toLowerCase()));
+      if (catsSort === 'tasks') ca = ca.slice().sort((a, b) => {
+        const ta = Object.values(tasksObj).filter(t => t.category === a.key).length;
+        const tb = Object.values(tasksObj).filter(t => t.category === b.key).length;
+        return tb - ta;
+      });
 
       if (ca.length === 0) {
         html += `<div class="admin-empty">No categories yet. Tap + Add Category to create one.</div>`;
@@ -1098,7 +1158,7 @@
             <p class="form-hint">Leave empty for no limit</p>
           </div>
         </div>
-        <label class="admin-checkbox"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}> Event category (no scoring, calendar highlight)</label>
+        <div class="admin-toggle-row"><span class="admin-toggle-row__label">Event category (no scoring, calendar highlight)</span><label class="form-toggle"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
         <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? 'flex' : 'none'}">
           <span class="form-label" style="margin-bottom:0;">Event Color</span>
           <div class="admin-color-grid admin-color-grid--sm" id="eventColorGrid">
@@ -1107,9 +1167,9 @@
             ).join('')}
           </div>
         </div>
-        <label class="admin-checkbox"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}> Show icon on task cards</label>
-        <label class="admin-checkbox"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}> PIN protected (requires PIN to complete)</label>
-        <label class="admin-checkbox"><input type="checkbox" id="cf_isDefault"${cat.isDefault ? ' checked' : ''}> Default category for new tasks</label>
+        <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show icon on task cards</span><label class="form-toggle"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
+        <div class="admin-toggle-row"><span class="admin-toggle-row__label">PIN protected (requires PIN to complete)</span><label class="form-toggle"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
+        <div class="admin-toggle-row"><span class="admin-toggle-row__label">Default category for new tasks</span><label class="form-toggle"><input type="checkbox" id="cf_isDefault"${cat.isDefault ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
         <div class="admin-form__actions mt-md">
           ${isEdit ? '<button class="btn btn--danger btn--sm" id="catFormDelete" type="button">Delete Category</button>' : ''}
           <button class="btn btn--secondary" id="catFormCancel" type="button">Cancel</button>
@@ -1176,8 +1236,8 @@
           <button type="button" class="btn btn--ghost btn--sm" id="sf_diffReset">Reset to defaults</button>
         </div>
         <div class="form-group">
-          <label class="admin-checkbox"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}> Show AM/PM icons on "Both" tasks</label>
-          <label class="admin-checkbox"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}> Show AM/PM icons on dedicated AM or PM tasks</label>
+          <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show AM/PM icons on "Both" tasks</span><label class="form-toggle"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
+          <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span><label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
         </div>
         <div class="form-row">
           <div class="form-group" style="flex:1">
@@ -1268,9 +1328,9 @@
               <label class="form-label" for="set_ambientStrip">Ambient strip</label>
               <div class="form-hint">Show weather and tonight's dinner on the dashboard.</div>
             </div>
-            <label class="toggle">
+            <label class="form-toggle">
               <input type="checkbox" id="set_ambientStrip"${(settings?.ambientStrip ?? true) ? ' checked' : ''}>
-              <span class="toggle__track"></span>
+              <span class="form-toggle__track"></span>
             </label>
           </div>
           <div class="admin-form__group mt-sm">
@@ -1463,7 +1523,18 @@
   <button class="btn btn--primary btn--sm" id="addRewardBtn" type="button">+ Add Reward</button>
 </div>`;
 
-      const activeRewards = Object.entries(rewardsObj || {}).filter(([, r]) => r.status !== 'archived');
+      html += `<div class="admin-filters admin-filters--row">
+  <input class="admin-select" type="search" id="rewardsSearch" placeholder="Search rewards…" value="${esc(rewardsSearch)}">
+  <select class="admin-select" id="rewardsSort">
+    <option value="name"${rewardsSort === 'name' ? ' selected' : ''}>Name</option>
+    <option value="cost"${rewardsSort === 'cost' ? ' selected' : ''}>Cost</option>
+  </select>
+</div>`;
+
+      let activeRewards = Object.entries(rewardsObj || {}).filter(([, r]) => r.status !== 'archived');
+      if (rewardsSearch) activeRewards = activeRewards.filter(([, r]) => (r.name || '').toLowerCase().includes(rewardsSearch.toLowerCase()));
+      if (rewardsSort === 'cost') activeRewards.sort((a, b) => (a[1].pointCost ?? 0) - (b[1].pointCost ?? 0));
+      else activeRewards.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
 
       if (activeRewards.length === 0) {
         html += `<div class="admin-empty">No rewards defined yet. Tap + Add Reward to create one.</div>`;
@@ -1651,6 +1722,14 @@
         editingRewardId = 'new';
         render();
       });
+
+      main.querySelector('#rewardsSearch')?.addEventListener('input', e => {
+        rewardsSearch = e.target.value;
+        render();
+        const el = main.querySelector('#rewardsSearch');
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      main.querySelector('#rewardsSort')?.addEventListener('change', e => { rewardsSort = e.target.value; render(); });
 
       // Bind modal form if visible
       const form = main.querySelector('#rewardForm');
@@ -1858,7 +1937,22 @@
         <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
       </div>`;
 
-      const defsEntries = Object.entries(allDefs).sort((a, b) => {
+      html += `<div class="admin-filters admin-filters--row">
+  <input class="admin-select" type="search" id="badgesSearch" placeholder="Search badges…" value="${esc(badgesSearch)}">
+  <select class="admin-select" id="badgesSort">
+    <option value="name"${badgesSort === 'name' ? ' selected' : ''}>Name</option>
+    <option value="unlocked"${badgesSort === 'unlocked' ? ' selected' : ''}>Unlock count</option>
+  </select>
+</div>`;
+
+      let defsEntries = Object.entries(allDefs);
+      if (badgesSearch) defsEntries = defsEntries.filter(([, def]) => (def.label || '').toLowerCase().includes(badgesSearch.toLowerCase()));
+      defsEntries.sort((a, b) => {
+        if (badgesSort === 'unlocked') {
+          const ua = Object.values(allAchievements).filter(pa => pa[a[0]]?.unlockedAt && !pa[a[0]]?.revoked).length;
+          const ub = Object.values(allAchievements).filter(pa => pa[b[0]]?.unlockedAt && !pa[b[0]]?.revoked).length;
+          return ub - ua;
+        }
         if (a[1].isDefault && !b[1].isDefault) return -1;
         if (!a[1].isDefault && b[1].isDefault) return 1;
         return (a[1].label || '').localeCompare(b[1].label || '');
@@ -2120,6 +2214,14 @@
         editingAchievementId = row.dataset.achKey;
         render();
       });
+
+      main.querySelector('#badgesSearch')?.addEventListener('input', e => {
+        badgesSearch = e.target.value;
+        render();
+        const el = main.querySelector('#badgesSearch');
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      main.querySelector('#badgesSort')?.addEventListener('change', e => { badgesSort = e.target.value; render(); });
 
       // Hide/Show toggle for defaults
       for (const btn of main.querySelectorAll('.ach-toggle')) {
@@ -2952,6 +3054,14 @@
         editingEventId = null;
         render();
       });
+
+      main.querySelector('#eventsSearch')?.addEventListener('input', e => {
+        eventsSearch = e.target.value;
+        render();
+        const el = main.querySelector('#eventsSearch');
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      main.querySelector('#eventsSort')?.addEventListener('change', e => { eventsSort = e.target.value; render(); });
     }
 
     // ── People tab events ──
@@ -3089,12 +3199,17 @@
       // Populate balance display and anchor input from Firebase
       if (editingPersonId && editingPersonId !== 'new') {
         const pid = editingPersonId;
-        readBalanceAnchor(pid).then(anchor => {
-          const amount = anchor?.amount ?? 0;
+        Promise.all([
+          readBalanceAnchor(pid),
+          readAllSnapshots(),
+          readMultipliers()
+        ]).then(([anchor, allSnapshots, multipliers]) => {
+          const msgs = allMessagesObj[pid] || {};
+          const { balance } = calculateBalance(pid, allSnapshots || {}, msgs, anchor, multipliers || {}, tz);
           const balEl = main.querySelector(`#personBalance_${pid}`);
-          if (balEl) balEl.textContent = `${amount} pts`;
+          if (balEl) balEl.textContent = `${balance} pts`;
           const anchorEl = main.querySelector('#pf_balanceAnchor');
-          if (anchorEl) anchorEl.value = amount;
+          if (anchorEl) anchorEl.value = anchor?.amount ?? 0;
         });
       }
     }
@@ -3113,6 +3228,14 @@
         editingCatKey = row.dataset.catKey;
         render();
       });
+
+      main.querySelector('#catsSearch')?.addEventListener('input', e => {
+        catsSearch = e.target.value;
+        render();
+        const el = main.querySelector('#catsSearch');
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      main.querySelector('#catsSort')?.addEventListener('change', e => { catsSort = e.target.value; render(); });
 
       if (editingCatKey !== null) {
         bindCategoryForm();

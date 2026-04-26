@@ -9,6 +9,11 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v67 (2026-04-25) — Admin polish: task selection highlight, task filters
+//                    2-column grid (compact), search+sort for Events/Meals/
+//                    Categories/Rewards/Badges, all checkboxes → form-toggle,
+//                    balance uses calculateBalance() (full store balance),
+//                    person detail nav padding fix.
 // v66 (2026-04-25) — Admin redesign: 11 tabs → 4 (Library · People ·
 //                    Settings · Tools), shared list-row pattern, Person
 //                    detail page with isAdmin toggle, PIN bypass for
@@ -132,7 +137,7 @@
 //                    calendar day view meals section, admin Meals tab, kid Tonight
 //                    tile, dashboard ambient strip wiring, ambientStrip setting.
 // v65 (2026-04-25) — 1.4 Weather Widget: add shared/weather.js to cache.
-const CACHE_NAME = 'family-hub-v66';
+const CACHE_NAME = 'family-hub-v67';
 
 const APP_SHELL = [
   '/',
