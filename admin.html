@@ -129,6 +129,8 @@
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
 
+    autoPrune(settings?.autoPruneMonths || 0).catch(() => {}); // fire-and-forget, silent
+
     // ── Header & Nav ──
     document.getElementById('headerMount').innerHTML = renderHeader({
       appName: settings?.appName || 'Daily Rundown',
@@ -231,6 +233,26 @@
     let editingRewardId = null; // null = not editing, 'new' = creating, pushId = editing
 
     // ── Helpers ──
+
+    async function autoPrune(months) {
+      if (!months || months <= 0) return;
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - months);
+      const cutoffKey = cutoff.toLocaleDateString('en-CA', { timeZone: tz });
+
+      const db = firebase.database();
+      const pruneRef = (path) => db.ref(path).orderByKey().endAt(cutoffKey).once('value').then(snap => {
+        const updates = {};
+        snap.forEach(child => { updates[child.key] = null; });
+        if (Object.keys(updates).length > 0) return db.ref(path).update(updates);
+      });
+
+      await Promise.all([
+        pruneRef('rundown/schedule'),
+        pruneRef('rundown/snapshots'),
+      ]);
+    }
+
     function peopleArray() {
       return Object.entries(peopleObj).map(([id, p]) => ({ id, ...p }));
     }
