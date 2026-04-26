@@ -987,37 +987,34 @@
 
     function renderCategoriesTab() {
       const ca = catsArray();
-      let html = `<div class="admin-section-header">
-        <span>${ca.length} categories</span>
-        <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
-      </div>`;
+      let html = '';
 
       if (editingCatKey !== null) {
         html += renderCategoryForm(editingCatKey === 'new' ? null : editingCatKey);
       }
 
-      html += `<div class="admin-list">`;
-      for (const c of ca) {
-        const badges = [];
-        if (c.isEvent) badges.push(`<span class="admin-badge admin-badge--event" style="background:${c.eventColor || '#5b7fd6'}22;color:${c.eventColor || '#5b7fd6'}">Event</span>`);
-        if (c.isDefault) badges.push('<span class="admin-badge">Default</span>');
-        if (c.weightPercent) badges.push(`<span class="admin-badge admin-badge--muted">${c.weightPercent}%</span>`);
-        if (c.pinProtected) badges.push('<span class="admin-badge admin-badge--muted">🔒</span>');
-        if (c.dailyLimitPerPerson) badges.push(`<span class="admin-badge admin-badge--muted">👤${c.dailyLimitPerPerson}m</span>`);
-        if (c.dailyLimitPerHousehold) badges.push(`<span class="admin-badge admin-badge--muted">🏠${c.dailyLimitPerHousehold}m</span>`);
-        if (c.showIcon === false) badges.push('<span class="admin-badge admin-badge--muted">Icon off</span>');
-        html += `<div class="admin-list-item admin-list-item--clickable" data-cat-key="${c.key}">
-          <div class="admin-list-item__main">
-            <span class="admin-list-item__name">${esc(c.icon)} ${esc(c.label)}</span>
-            ${badges.length ? `<span class="admin-list-item__meta">${badges.join(' ')}</span>` : ''}
-          </div>
-          <div class="admin-list-item__actions">
-            <button class="btn btn--ghost btn--sm admin-edit-cat" data-cat-key="${c.key}" type="button">Edit</button>
-            <button class="btn btn--ghost btn--sm admin-delete-cat" data-cat-key="${c.key}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-          </div>
-        </div>`;
+      html += `<div class="admin-list-add">
+        <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
+      </div>`;
+
+      if (ca.length === 0) {
+        html += `<div class="admin-empty">No categories yet. Tap + Add Category to create one.</div>`;
+      } else {
+        html += `<div class="admin-list" id="catList">`;
+        for (const c of ca) {
+          const taskCount = Object.values(tasksObj).filter(t => t.category === c.key).length;
+          const icon = renderEmojiTile(c.icon || '📁');
+          const secondary = `${taskCount} task${taskCount !== 1 ? 's' : ''}${c.weightPercent ? ' · ' + c.weightPercent + '%' : ''}`;
+          html += renderAdminRow({
+            icon,
+            primary: esc(c.label || c.key),
+            secondary: esc(secondary),
+            dataAttrs: `data-cat-key="${esc(c.key)}"`,
+          });
+        }
+        html += `</div>`;
       }
-      html += `</div>`;
+
       return html;
     }
 
@@ -1070,6 +1067,7 @@
         <label class="admin-checkbox"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}> PIN protected (requires PIN to complete)</label>
         <label class="admin-checkbox"><input type="checkbox" id="cf_isDefault"${cat.isDefault ? ' checked' : ''}> Default category for new tasks</label>
         <div class="admin-form__actions mt-md">
+          ${isEdit ? '<button class="btn btn--danger btn--sm" id="catFormDelete" type="button">Delete Category</button>' : ''}
           <button class="btn btn--secondary" id="catFormCancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="catFormSave" type="button">${isEdit ? 'Save' : 'Add Category'}</button>
         </div>
@@ -3297,46 +3295,12 @@
         render();
       });
 
-      // Edit category — click row or edit button
-      for (const item of main.querySelectorAll('.admin-list-item[data-cat-key]')) {
-        item.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-list-item__actions')) return;
-          editingCatKey = item.dataset.catKey;
-          render();
-        });
-      }
-      for (const btn of main.querySelectorAll('.admin-edit-cat')) {
-        btn.addEventListener('click', () => {
-          editingCatKey = btn.dataset.catKey;
-          render();
-        });
-      }
-
-      for (const btn of main.querySelectorAll('.admin-delete-cat')) {
-        btn.addEventListener('click', async () => {
-          const key = btn.dataset.catKey;
-          const ca = catsArray();
-          if (ca.length <= 1) { await showConfirm({ title: 'Cannot delete the last category', alert: true }); return; }
-
-          // Reassign tasks to the default category (or first remaining if none flagged)
-          const defaultEntry = Object.entries(catsObj).find(([k, c]) => k !== key && c?.isDefault);
-          const fallbackKey = defaultEntry ? defaultEntry[0] : (Object.keys(catsObj).find(k => k !== key) || 'chores');
-          const fallbackLabel = catsObj[fallbackKey]?.label || fallbackKey;
-
-          if (!await showConfirm({ title: `Delete category "${catsObj[key]?.label}"?`, message: `Tasks will be reassigned to "${fallbackLabel}".`, danger: true })) return;
-
-          for (const [taskId, task] of Object.entries(tasksObj)) {
-            if (task.category === key) {
-              task.category = fallbackKey;
-              await writeTask(taskId, task);
-            }
-          }
-
-          delete catsObj[key];
-          await writeCategories(catsObj);
-          render();
-        });
-      }
+      main.querySelector('#catList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-cat-key]');
+        if (!row) return;
+        editingCatKey = row.dataset.catKey;
+        render();
+      });
 
       if (editingCatKey !== null) {
         bindCategoryForm();
@@ -3345,6 +3309,30 @@
 
     function bindCategoryForm() {
       main.querySelector('#catFormCancel')?.addEventListener('click', () => {
+        editingCatKey = null;
+        render();
+      });
+
+      main.querySelector('#catFormDelete')?.addEventListener('click', async () => {
+        const key = editingCatKey;
+        const ca = catsArray();
+        if (ca.length <= 1) { await showConfirm({ title: 'Cannot delete the last category', alert: true }); return; }
+
+        const defaultEntry = Object.entries(catsObj).find(([k, c]) => k !== key && c?.isDefault);
+        const fallbackKey = defaultEntry ? defaultEntry[0] : (Object.keys(catsObj).find(k => k !== key) || 'chores');
+        const fallbackLabel = catsObj[fallbackKey]?.label || fallbackKey;
+
+        if (!await showConfirm({ title: `Delete category "${catsObj[key]?.label}"?`, message: `Tasks will be reassigned to "${fallbackLabel}".`, danger: true })) return;
+
+        for (const [taskId, task] of Object.entries(tasksObj)) {
+          if (task.category === key) {
+            task.category = fallbackKey;
+            await writeTask(taskId, task);
+          }
+        }
+
+        delete catsObj[key];
+        await writeCategories(catsObj);
         editingCatKey = null;
         render();
       });
