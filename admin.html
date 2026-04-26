@@ -1369,7 +1369,7 @@
           <div class="admin-settings-section__title">Security</div>
           <div class="form-group">
             <label class="form-label">New 4-digit PIN</label>
-            <input class="form-input" type="tel" id="sf_newPin" maxlength="4" inputmode="numeric" placeholder="Leave blank to keep current" style="max-width:200px;letter-spacing:0.3em;text-align:center;">
+            <input class="form-input admin-pin-input" type="tel" id="sf_newPin" maxlength="4" inputmode="numeric" placeholder="Leave blank to keep" style="max-width:200px;text-align:center;">
             <p class="form-hint">Recovery PIN is always 2522.</p>
           </div>
         </div>
@@ -1465,9 +1465,7 @@
           ? `${Math.floor(personMins / 60)}h ${personMins % 60}m`
           : `${personMins}m`;
         html += `<div class="admin-list-item">
-          <div class="admin-icon-tile">
-            <div class="admin-icon-tile__swatch" style="background:${p.color}"></div>
-          </div>
+          <div class="admin-person-dot admin-person-dot--sm" style="background:${p.color};flex-shrink:0"></div>
           <div class="admin-list-item__body">
             <span class="admin-list-item__name">${esc(p.name)}</span>
             <span class="admin-list-item__meta">${count} tasks · ${avg}/day · ${personTotalStr} · ${avgMinsStr}/day</span>
