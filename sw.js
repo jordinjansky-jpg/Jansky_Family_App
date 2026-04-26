@@ -9,6 +9,11 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v70 (2026-04-26) — Polish pass 2: banner full-width, admin tabs fill space,
+//                    FAB rename, More sort alpha, remove back-online toast,
+//                    PIN placeholder fix, stat card wrap + dot, native color
+//                    pickers, More nav on all pages, bell message upgrade
+//                    (custom default + reward send), weather AM/PM + pop%.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
 // v67 (2026-04-25) — Admin polish: task selection highlight, task filters
@@ -147,7 +152,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v69';
+const CACHE_NAME = 'family-hub-v70';
 
 const APP_SHELL = [
   '/',
