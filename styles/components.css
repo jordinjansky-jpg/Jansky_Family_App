@@ -407,7 +407,7 @@
 }
 
 .bottom-sheet-overlay.active .bottom-sheet {
-  transform: translateY(0);
+  transform: none;
 }
 
 .bottom-sheet__handle {

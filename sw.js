@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v74 (2026-04-26) — fix cpick popover positioning: sheet active state now uses
+//                    transform:none so position:fixed pops use viewport coords
 // v73 (2026-04-26) — move cpick CSS from admin.css → components.css so color
 //                    button is visible in More/overflow theme sheet on all pages
 // v72 (2026-04-26) — cpick button+popover replaces native color picker everywhere
@@ -159,7 +161,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v73';
+const CACHE_NAME = 'family-hub-v74';
 
 const APP_SHELL = [
   '/',
