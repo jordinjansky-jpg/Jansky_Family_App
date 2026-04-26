@@ -515,51 +515,6 @@
   transform: scale(1.2);
 }
 
-/* Color button + popover picker */
-.cpick-wrap {
-  position: relative;
-  display: inline-block;
-}
-
-.cpick-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 3px solid var(--border);
-  cursor: pointer;
-  flex-shrink: 0;
-  display: block;
-}
-
-.cpick-pop {
-  position: fixed;
-  z-index: 600;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-sm);
-  display: grid;
-  grid-template-columns: repeat(8, 28px);
-  gap: 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
-}
-
-.cpick-swatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  cursor: pointer;
-  transition: transform var(--t-fast);
-}
-
-.cpick-swatch--active {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text);
-}
-
-.cpick-swatch:hover {
-  transform: scale(1.15);
-}
 
 /* Admin person row */
 .admin-person-row {
