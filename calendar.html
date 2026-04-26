@@ -119,7 +119,7 @@
       showBell: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
-    initNavMore(document.getElementById('taskSheetMount'), settings?.theme);
+    initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme);
     initOfflineBanner(onConnectionChange);
     initBell(() => people, () => calRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
 

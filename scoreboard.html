@@ -101,7 +101,7 @@
       showBell: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('scoreboard');
-    initNavMore(document.getElementById('drilldownMount'), settings?.theme);
+    initNavMore(document.getElementById('drilldownMount'), () => settings?.theme);
 
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
       openDeviceThemeSheet(document.getElementById('themeSheetMount'), settings?.theme);

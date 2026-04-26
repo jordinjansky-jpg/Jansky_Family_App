@@ -154,7 +154,7 @@ export function renderNavBar(activePage, options = {}) {
  * @param {HTMLElement} sheetMount - element to mount the sheet into
  * @param {object} [familyTheme] - current family theme for openDeviceThemeSheet
  */
-export function initNavMore(sheetMount, familyTheme) {
+export function initNavMore(sheetMount, getTheme) {
   const btn = document.getElementById('navMore');
   if (!btn) return;
 
@@ -169,10 +169,11 @@ export function initNavMore(sheetMount, familyTheme) {
       `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(items)}`
     );
     requestAnimationFrame(() => {
-      document.getElementById('bottomSheet')?.classList.add('active');
-    });
-    document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
-      if (e.target === document.getElementById('bottomSheet')) sheetMount.innerHTML = '';
+      const sheet = document.getElementById('bottomSheet');
+      sheet?.classList.add('active');
+      sheet?.addEventListener('click', (e) => {
+        if (e.target === sheet) sheetMount.innerHTML = '';
+      });
     });
     sheetMount.querySelector('.overflow-menu')?.addEventListener('click', (ev) => {
       const row = ev.target.closest('[data-item-id]');
@@ -181,7 +182,7 @@ export function initNavMore(sheetMount, familyTheme) {
       const id = row.dataset.itemId;
       if (id === 'admin')   location.href = 'admin.html';
       if (id === 'rewards') location.href = 'scoreboard.html';
-      if (id === 'theme')   openDeviceThemeSheet(sheetMount, familyTheme);
+      if (id === 'theme')   openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme);
     });
   });
 }

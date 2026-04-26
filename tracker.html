@@ -136,7 +136,7 @@
       showBell: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('tracker');
-    initNavMore(document.getElementById('taskSheetMount'), settings?.theme);
+    initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme);
 
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
       openDeviceThemeSheet(document.getElementById('taskSheetMount'), settings?.theme);
