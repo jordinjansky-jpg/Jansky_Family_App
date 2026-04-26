@@ -1406,44 +1406,27 @@
     ];
 
     function renderRewardsTab() {
-      const rewards = Object.entries(rewardsObj)
-        .filter(([, r]) => r.status !== 'archived')
-        .sort((a, b) => (a[1].pointCost || 0) - (b[1].pointCost || 0));
+      let html = '';
 
-      let html = `<div class="admin-section">
-        <div class="admin-section__header">
-          <h3>Rewards</h3>
-          <button class="btn btn--sm btn--primary" id="addRewardBtn" type="button">+ Add Reward</button>
-        </div>`;
+      html += `<div class="admin-list-add">
+  <button class="btn btn--primary btn--sm" id="addRewardBtn" type="button">+ Add Reward</button>
+</div>`;
 
-      if (rewards.length === 0) {
-        html += `<div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted);">
-          <div style="font-size: 2rem; margin-bottom: 8px;">🎁</div>
-          <p>No rewards yet. Add one to get started!</p>
-        </div>`;
+      const activeRewards = Object.entries(rewardsObj || {}).filter(([, r]) => r.status !== 'archived');
+
+      if (activeRewards.length === 0) {
+        html += `<div class="admin-empty">No rewards defined yet. Tap + Add Reward to create one.</div>`;
       } else {
-        html += `<div class="reward-list">`;
-        for (const [id, reward] of rewards) {
-          const typeLabel = reward.rewardType === 'task-skip' ? '⏭️ Task Skip' :
-                            reward.rewardType === 'penalty-removal' ? '🛡️ Penalty Removal' : '';
-          const streakBadge = reward.streakRequirement
-            ? `<span class="reward-card__badge">🔥 ${reward.streakRequirement}-day streak</span>` : '';
-          const expiry = reward.expiresAt
-            ? `<span class="reward-card__badge">Expires ${new Date(reward.expiresAt).toLocaleDateString('en-US', { timeZone: tz })}</span>` : '';
-          const personNames = reward.perPerson
-            ? reward.perPerson.map(pid => esc(peopleObj[pid]?.name || '?')).join(', ')
-            : 'Everyone';
-
-          html += `<div class="reward-card reward-card--inline admin-list-item--clickable" data-reward-id="${id}">
-            <span class="reward-card__icon--sm">${esc(reward.icon || '🎁')}</span>
-            <span class="reward-card__name">${esc(reward.name)}</span>
-            <span class="reward-card__cost">${reward.pointCost} pts</span>
-            ${typeLabel ? `<span class="reward-card__type">${typeLabel}</span>` : ''}
-            ${streakBadge}
-            ${expiry}
-            <span class="reward-card__availability--inline">${personNames}</span>
-            <button class="btn btn--ghost btn--sm reward-archive" data-reward-id="${id}" type="button" style="margin-left: auto;">Archive</button>
-          </div>`;
+        html += `<div class="admin-list" id="rewardList">`;
+        for (const [id, r] of activeRewards) {
+          const icon = renderEmojiTile(r.icon || '🎁');
+          const secondary = `${r.pointCost ?? 0} pts · ${r.rewardType || 'custom'}`;
+          html += renderAdminRow({
+            icon,
+            primary: esc(r.name || 'Untitled'),
+            secondary: esc(secondary),
+            dataAttrs: `data-reward-id="${id}"`,
+          });
         }
         html += `</div>`;
       }
@@ -1472,48 +1455,6 @@
           </div>`;
         }
         html += `</div></details>`;
-      }
-
-      html += `</div>`;
-
-      // ── Bank Management ──
-      const ppl = peopleArray();
-      const anyBankItems = ppl.some(p => {
-        const b = allBankData[p.id];
-        return b && Object.values(b).some(t => !t.used);
-      });
-      if (anyBankItems) {
-        html += `<div class="admin-section" style="margin-top: 24px;">
-          <div class="admin-section__header"><h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved Rewards</h3></div>`;
-        for (const p of ppl) {
-          const b = allBankData[p.id] || {};
-          const unused = Object.entries(b).filter(([, t]) => !t.used);
-          if (unused.length === 0) continue;
-          html += `<div style="margin-bottom: 12px;">
-            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
-              <span class="sb-mini-dot" style="background:${p.color}"></span>
-              <span style="font-weight: 600; font-size: var(--font-sm);">${esc(p.name)}</span>
-              <span style="color: var(--text-faint); font-size: var(--font-xs, 0.75rem);">${unused.length} saved</span>
-            </div>`;
-          for (const [tokenId, token] of unused) {
-            const label = token.rewardType === 'task-skip' ? 'Task Skip'
-              : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
-              : (token.rewardName || 'Reward');
-            const icon = token.rewardIcon || (token.rewardType === 'task-skip' ? '⏭️' : token.rewardType === 'penalty-removal' ? '🛡️' : '🎁');
-            const date = new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz });
-            html += `<div class="reward-card--inline" style="margin-bottom: 4px;">
-              <span class="reward-card__icon--sm">${esc(icon)}</span>
-              <span class="reward-card__name">${esc(label)}</span>
-              <span style="color: var(--text-faint); font-size: var(--font-xs, 0.75rem); margin-left: auto;">${date}</span>
-              <button class="btn btn--ghost btn--xs admin-bank-remove" data-person-id="${p.id}" data-token-id="${esc(tokenId)}" data-token-name="${esc(label)}" type="button" style="color: var(--accent-danger, #e53e3e);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>`;
-          }
-          html += `</div>`;
-        }
-
-        // Add to bank button
-        html += `<button class="btn btn--sm btn--ghost" id="adminBankAdd" type="button" style="margin-top: 4px;">+ Add to Bank</button>`;
-        html += `</div>`;
       }
 
       // ── Redemption History ──
@@ -1647,30 +1588,18 @@
     }
 
     function bindRewardsTab() {
+      // Row click — delegated
+      main.querySelector('#rewardList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-reward-id]');
+        if (!row) return;
+        editingRewardId = row.dataset.rewardId;
+        render();
+      });
+
       main.querySelector('#addRewardBtn')?.addEventListener('click', () => {
         editingRewardId = 'new';
         render();
       });
-
-      // Row click to open modal edit
-      for (const card of main.querySelectorAll('.reward-card[data-reward-id]')) {
-        card.addEventListener('click', (e) => {
-          if (e.target.closest('.reward-archive')) return;
-          const id = card.dataset.rewardId;
-          editingRewardId = id;
-          render();
-        });
-      }
-
-      for (const btn of main.querySelectorAll('.reward-archive')) {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.rewardId;
-          await archiveReward(id);
-          rewardsObj[id].status = 'archived';
-          editingRewardId = null;
-          render();
-        });
-      }
 
       // Bind modal form if visible
       const form = main.querySelector('#rewardForm');
@@ -1684,80 +1613,6 @@
         }
       });
 
-      // Bank management — remove tokens
-      for (const btn of main.querySelectorAll('.admin-bank-remove')) {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const pid = btn.dataset.personId;
-          const tokenId = btn.dataset.tokenId;
-          const tokenName = btn.dataset.tokenName;
-          const person = peopleObj[pid];
-          if (!await showConfirm({ title: `Remove "${tokenName}" from ${person?.name}'s bank?`, danger: true })) return;
-          await removeBankToken(pid, tokenId);
-          delete allBankData[pid]?.[tokenId];
-          render();
-        });
-      }
-
-      // Bank management — add to bank
-      main.querySelector('#adminBankAdd')?.addEventListener('click', () => {
-        const mount = document.getElementById('taskSheetMount');
-        const ppl = peopleArray();
-        const activeRewards = Object.entries(rewardsObj).filter(([, r]) => r.status !== 'archived');
-
-        let formHtml = `<h3 style="margin-bottom: 12px;">Add to Bank</h3>
-          <label class="form-label">Person</label>
-          <div class="chip-group" id="bankAdd_person">
-            ${ppl.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`).join('')}
-          </div>
-          <label class="form-label" style="margin-top: 12px;">Reward</label>
-          <select class="form-input" id="bankAdd_reward">
-            <option value="">Select a reward...</option>
-            ${activeRewards.map(([id, r]) => `<option value="${id}">${esc(r.icon || '🎁')} ${esc(r.name)} (${r.pointCost} pts)</option>`).join('')}
-          </select>
-          <div class="admin-form__actions" style="margin-top: 16px;">
-            <button class="btn btn--secondary" id="bankAdd_cancel" type="button">Cancel</button>
-            <button class="btn btn--primary" id="bankAdd_save" type="button">Add</button>
-          </div>`;
-
-        mount.innerHTML = renderBottomSheet(formHtml);
-        applyDataColors(mount);
-        requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-        // Person chip toggle (exclusive)
-        for (const chip of mount.querySelectorAll('#bankAdd_person .chip--selectable')) {
-          chip.addEventListener('click', () => {
-            mount.querySelectorAll('#bankAdd_person .chip--selectable').forEach(c => c.classList.remove('chip--active'));
-            chip.classList.add('chip--active');
-          });
-        }
-
-        mount.querySelector('#bankAdd_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
-        mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
-          if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
-        });
-
-        mount.querySelector('#bankAdd_save')?.addEventListener('click', async () => {
-          const selectedChip = mount.querySelector('#bankAdd_person .chip--active');
-          const rewardId = mount.querySelector('#bankAdd_reward').value;
-          if (!selectedChip || !rewardId) { await showConfirm({ title: 'Select a person and reward', alert: true }); return; }
-          const pid = selectedChip.dataset.personId;
-          const reward = rewardsObj[rewardId];
-          await writeBankToken(pid, {
-            rewardType: reward.rewardType || 'custom',
-            rewardId,
-            rewardName: reward.name || 'Reward',
-            rewardIcon: reward.icon || '🎁',
-            acquiredAt: Date.now(),
-            used: false,
-            usedAt: null,
-            targetEntryKey: null
-          });
-          allBankData[pid] = (await readBank(pid)) || {};
-          mount.innerHTML = '';
-          render();
-        });
-      });
     }
 
     function bindRewardForm() {
