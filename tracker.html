@@ -304,25 +304,31 @@
       const showIcon = row.category?.showIcon !== false;
       const catIcon = showIcon ? (row.category?.icon || '') : '';
       const ownerColor = row.person?.color || 'var(--text-muted)';
-      const ownerInitial = row.person ? row.person.name[0].toUpperCase() : '↻';
+      const ownerInitial = row.person ? (row.person.name || '?')[0].toUpperCase() : '↻';
       const ownerName = row.person?.name || 'Rotates';
-      const taskName = catIcon ? `${catIcon} ${esc(row.task.name)}` : esc(row.task.name);
+      const taskTitle = catIcon ? `${catIcon} ${esc(row.task.name)}` : esc(row.task.name);
       const dateLabel = row.dateKey ? formatDateShort(row.dateKey) : '—';
-      const completionInfo = row.completionDate ? `<span class="tracker-row__completed">${row.completionDate}</span>` : '';
-      const overdueClass = row.status === 'overdue' ? ' tracker-row--overdue' : '';
-      const doneClass = (row.status === 'done' || row.status === 'late') ? ' tracker-row--done' : '';
 
-      return `<div class="tracker-row${overdueClass}${doneClass}" data-entry-key="${row.entryKey || ''}" data-date-key="${row.dateKey || ''}">
-        <span class="tracker-row__initial" style="--owner-color:${ownerColor}">${ownerInitial}</span>
-        <div class="tracker-row__info">
-          <span class="tracker-row__name">${taskName}</span>
-          <span class="tracker-row__meta">${esc(ownerName)} · ${dateLabel}</span>
+      const isDone = row.status === 'done' || row.status === 'late';
+      const isOverdue = row.status === 'overdue';
+
+      const modifiers = [
+        isDone ? 'card--done' : null,
+        isOverdue ? 'card--overdue' : null,
+      ].filter(Boolean).join(' ');
+
+      return `<article class="card card--tracker${modifiers ? ' ' + modifiers : ''}" data-entry-key="${row.entryKey || ''}" data-date-key="${row.dateKey || ''}">
+        <div class="card__leading">
+          <span class="person-dot" style="--person-color: ${esc(ownerColor)}; background: var(--person-color)">${ownerInitial}</span>
         </div>
-        <div class="tracker-row__right">
+        <div class="card__body">
+          <div class="card__title">${taskTitle}</div>
+          <div class="card__meta">${esc(ownerName)} · ${dateLabel}</div>
+        </div>
+        <div class="card__trailing">
           ${renderStatusBadge(row.status)}
-          ${completionInfo}
         </div>
-      </div>`;
+      </article>`;
     }
 
     // ── Summary bar ──
