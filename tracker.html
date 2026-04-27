@@ -603,7 +603,7 @@
       // Filter chip → opens filter sheet
       main.querySelector('#trackerFilterChip')?.addEventListener('click', openFilterSheet);
 
-      // Long-press on tracker cards to open detail sheet (500ms per spec)
+      // Tap = complete/uncomplete. Long-press (500ms) = detail sheet.
       for (const card of main.querySelectorAll('.card--tracker[data-entry-key]')) {
         if (!card.dataset.entryKey) continue;
         let pressTimer = null;
@@ -620,6 +620,11 @@
         card.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
         card.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
         card.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        card.addEventListener('click', () => {
+          if (didLongPress) { didLongPress = false; return; }
+          toggleCompletion(card.dataset.entryKey, card.dataset.dateKey);
+        });
       }
     }
 
@@ -1044,6 +1049,10 @@
           completedAt: firebase.database.ServerValue.TIMESTAMP,
           completedBy: 'tracker'
         };
+        if (dateKey < today) {
+          record.isLate = true;
+          record.pointsOverride = settings?.pastDueCreditPct ?? 75;
+        }
         const pendingVal = pendingSliderOverride?.entryKey === entryKey ? pendingSliderOverride.value : null;
         const savedVal = (schedule[dateKey] || {})[entryKey]?.pointsOverride;
         const overrideVal = pendingVal ?? savedVal ?? null;
