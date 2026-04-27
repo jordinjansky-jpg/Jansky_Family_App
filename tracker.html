@@ -81,6 +81,7 @@
 
     // ── Period anchor (in-memory only, resets to today on reload) ──
     let periodAnchor = today;
+    let lastShiftDir = 0; // -1 prev / 0 none / +1 next — drives slide animation
 
     function currentRange() {
       if (activeView === 'weekly') {
@@ -92,6 +93,7 @@
 
     function shiftPeriod(delta) {
       // delta is -1 (previous) or +1 (next)
+      lastShiftDir = delta;
       if (activeView === 'weekly') {
         periodAnchor = addDays(periodAnchor, delta * 7);
       } else {
@@ -107,8 +109,14 @@
     }
 
     function snapToToday() {
+      lastShiftDir = 0;
       periodAnchor = today;
       render();
+    }
+
+    function isCurrentPeriod() {
+      if (activeView === 'weekly') return weekStart(periodAnchor) === weekStart(today);
+      return monthStart(periodAnchor) === monthStart(today);
     }
 
     // ── Person link mode (?person=Name) for per-user prefs ──
@@ -480,6 +488,19 @@
       const weeklyActive = activeView === 'weekly';
       const monthlyActive = activeView === 'monthly';
 
+      const chevron = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+      const backHtml = isCurrentPeriod() ? '' : `
+        <div class="back-to-today is-entering">
+          <button class="btn btn--secondary btn--sm back-to-today__btn" id="trackerGoToday" type="button">
+            <span class="back-to-today__chevron" aria-hidden="true">${chevron}</span>
+            Back to Today
+          </button>
+        </div>`;
+
+      const slideClass = lastShiftDir > 0 ? ' tracker-content--slide-next'
+                       : lastShiftDir < 0 ? ' tracker-content--slide-prev' : '';
+      lastShiftDir = 0;
+
       let html = `
         <div class="tracker-top-bar">
           <span class="tracker-period-label">${esc(renderPeriodLabel())}</span>
@@ -491,7 +512,8 @@
         <div class="tracker-filter-area">
           ${renderPersonFilter(people, activePerson)}
         </div>
-        <div class="tracker-content">
+        ${backHtml}
+        <div class="tracker-content${slideClass}">
           ${activeView === 'weekly' ? renderWeeklyView() : renderMonthlyView()}
         </div>`;
 
@@ -520,6 +542,9 @@
           render();
         });
       }
+
+      // Back to Today
+      main.querySelector('#trackerGoToday')?.addEventListener('click', snapToToday);
 
       // Person filter
       for (const pill of main.querySelectorAll('.person-pill')) {

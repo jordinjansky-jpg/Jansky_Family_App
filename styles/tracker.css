@@ -104,3 +104,19 @@
 .tracker-status--upcoming { background: var(--surface-2);    color: var(--text-faint); }
 .tracker-status--cooldown { background: var(--surface-2);    color: var(--text-faint); }
 .tracker-status--skipped  { background: var(--surface-2);    color: var(--text-faint); }
+
+/* ── Period navigation slide animation ── */
+@keyframes trkSlideNext {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes trkSlidePrev {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.tracker-content--slide-next { animation: trkSlideNext 220ms ease-out both; }
+.tracker-content--slide-prev { animation: trkSlidePrev 220ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .tracker-content--slide-next,
+  .tracker-content--slide-prev { animation: none; }
+}
