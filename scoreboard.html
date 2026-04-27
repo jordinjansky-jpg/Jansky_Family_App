@@ -341,7 +341,7 @@
         html += `<button class="store-cta-row" type="button" id="sbStoreBtn">
           ${giftIcon}
           <span class="store-cta-row__label">Rewards Store</span>
-          <span class="store-cta-row__balance">💰 ${totalBalance.toLocaleString()} pts</span>
+          <span class="store-cta-row__balance">${totalBalance.toLocaleString()} pts</span>
           ${chevron}
         </button>`;
       }
@@ -511,7 +511,7 @@
       // Streak
       html += renderSectionHead('Streak');
       html += `<div class="sb-drilldown__streak">
-        🔥 ${streak.current}-day current · ⭐ ${streak.best}-day best
+        ${streak.current}-day current · ${streak.best}-day best
       </div>`;
 
       // Balance sparkline
@@ -527,7 +527,7 @@
         </div>`;
       }
       html += `</div>
-        <span class="sb-drilldown__balance-val">💰 ${currentBalance.toLocaleString()}</span>
+        <span class="sb-drilldown__balance-val">${currentBalance.toLocaleString()} pts</span>
       </div>`;
 
       // Task list by status
@@ -638,7 +638,7 @@
       let html = `<div class="store-header">
         <div class="avatar avatar--sm" style="--person-color: ${esc(person.color)}">${esc((person.name || '?')[0].toUpperCase())}</div>
         <span class="store-header__title">${esc(person.name)}'s Store</span>
-        <span class="store-balance">💰 ${Math.round(balance).toLocaleString()} pts</span>
+        <span class="store-balance">${Math.round(balance).toLocaleString()} pts</span>
       </div>`;
 
       // Saved rewards section
@@ -711,7 +711,7 @@
             <div class="store-card__name">${esc(reward.name)}</div>
             <div class="store-card__cost">${reward.pointCost.toLocaleString()} pts</div>
             <div class="store-card__badges">
-              ${reward.streakRequirement ? `<span class="store-card__badge">🔥 ${reward.streakRequirement}-day streak${!meetsStreak ? ` (need ${reward.streakRequirement - personStreak.current} more)` : ''}</span>` : ''}
+              ${reward.streakRequirement ? `<span class="store-card__badge">${reward.streakRequirement}-day streak${!meetsStreak ? ` (need ${reward.streakRequirement - personStreak.current} more)` : ''}</span>` : ''}
               ${stockLabel}${expiryLabel}
             </div>
             <div class="store-card__progress"><div class="store-card__progress-bar" style="width: ${storeProgress}%"></div></div>
@@ -918,7 +918,7 @@
         html += `<button class="store-person-btn" data-person-id="${esc(p.id)}" type="button">
           <div class="avatar" style="--person-color: ${esc(p.color)}">${esc((p.name || '?')[0].toUpperCase())}</div>
           <span class="store-person-btn__name">${esc(p.name)}</span>
-          <span class="store-person-btn__balance">💰 ${Math.round(balance).toLocaleString()}</span>
+          <span class="store-person-btn__balance">${Math.round(balance).toLocaleString()} pts</span>
         </button>`;
       }
       html += `</div>`;

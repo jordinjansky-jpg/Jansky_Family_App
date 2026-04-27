@@ -658,8 +658,8 @@ export function renderSectionHead(title, meta, options = {}) {
 export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
   const trendIcon = b.trend === 'up' ? '↑' : b.trend === 'down' ? '↓' : '';
   const metaParts = [
-    b.streak.current > 0 ? `🔥 ${b.streak.current}d` : null,
-    `💰 ${liveBalance.toLocaleString()}`,
+    b.streak.current > 0 ? `${b.streak.current}d streak` : null,
+    `${liveBalance.toLocaleString()} pts`,
     trendIcon || null,
   ].filter(Boolean).join(' · ');
 
