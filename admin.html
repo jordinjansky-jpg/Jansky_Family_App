@@ -471,46 +471,15 @@
 
       // Filters
       let html = `<div class="admin-section">
-        <div class="admin-filters">
-          <select class="admin-select" id="taskFilterRotation">
-            <option value="">All Rotations</option>
-            <option value="daily"${taskFilter.rotation === 'daily' ? ' selected' : ''}>Daily</option>
-            <option value="weekly"${taskFilter.rotation === 'weekly' ? ' selected' : ''}>Weekly</option>
-            <option value="monthly"${taskFilter.rotation === 'monthly' ? ' selected' : ''}>Monthly</option>
-            <option value="once"${taskFilter.rotation === 'once' ? ' selected' : ''}>One-Time</option>
-          </select>
-          <select class="admin-select" id="taskFilterOwner">
-            <option value="">All Owners</option>
-            ${pa.map(p => `<option value="${p.id}"${taskFilter.owner === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}
-          </select>
-          <select class="admin-select" id="taskFilterCategory">
-            <option value="">All Categories</option>
-            ${ca.map(c => `<option value="${esc(c.key)}"${taskFilter.category === c.key ? ' selected' : ''}>${esc(c.icon)} ${esc(c.label)}</option>`).join('')}
-          </select>
-          <select class="admin-select" id="taskFilterStatus">
-            <option value="">All Statuses</option>
-            <option value="active"${taskFilter.status === 'active' ? ' selected' : ''}>Active</option>
-            <option value="paused"${taskFilter.status === 'paused' ? ' selected' : ''}>Paused</option>
-            <option value="completed"${taskFilter.status === 'completed' ? ' selected' : ''}>Completed</option>
-          </select>
-          <select class="admin-select" id="taskFilterDifficulty">
-            <option value="">All Difficulties</option>
-            <option value="easy"${taskFilter.difficulty === 'easy' ? ' selected' : ''}>Easy</option>
-            <option value="medium"${taskFilter.difficulty === 'medium' ? ' selected' : ''}>Medium</option>
-            <option value="hard"${taskFilter.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
-          </select>
-          <select class="admin-select" id="taskSortBy">
-            <option value="name"${taskSort === 'name' ? ' selected' : ''}>Sort: Name</option>
-            <option value="difficulty"${taskSort === 'difficulty' ? ' selected' : ''}>Sort: Difficulty</option>
-            <option value="points"${taskSort === 'points' ? ' selected' : ''}>Sort: Points</option>
-            <option value="rotation"${taskSort === 'rotation' ? ' selected' : ''}>Sort: Rotation</option>
-            <option value="estMin"${taskSort === 'estMin' ? ' selected' : ''}>Sort: Est. Time</option>
-          </select>
+        <div class="admin-filters admin-filters--row">
+          <input class="admin-select" type="search" id="taskSearch" placeholder="Search tasks…" value="${esc(taskSearch)}">
+          ${renderFilterSortChip('taskFilterSortBtn', taskFilterActiveCount())}
         </div>
       </div>`;
 
       // Filtered tasks
       let filtered = taskEntries.filter(([id, t]) => {
+        if (taskSearch && !(t.name || '').toLowerCase().includes(taskSearch.toLowerCase())) return false;
         // Auto-hide completed one-time tasks unless status filter is explicitly set
         if (!taskFilter.status && t.rotation === 'once' && t.status === 'completed') return false;
         if (taskFilter.rotation && t.rotation !== taskFilter.rotation) return false;
@@ -597,6 +566,106 @@
       }
 
       return html;
+    }
+
+    function openTasksFilterSheet() {
+      const mount = document.getElementById('taskSheetMount');
+      const pa = peopleArray();
+      const ca = catsArray();
+
+      const sortOpts = [
+        {v:'name',l:'Name'},{v:'difficulty',l:'Difficulty'},{v:'points',l:'Points'},
+        {v:'rotation',l:'Rotation'},{v:'estMin',l:'Est. Time'},
+      ];
+      const rotOpts = [{v:'',l:'All'},{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'},{v:'once',l:'One-Time'}];
+      const statusOpts = [{v:'',l:'All'},{v:'active',l:'Active'},{v:'paused',l:'Paused'},{v:'completed',l:'Completed'}];
+      const diffOpts = [{v:'',l:'All'},{v:'easy',l:'Easy'},{v:'medium',l:'Medium'},{v:'hard',l:'Hard'}];
+
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">Filter &amp; Sort</h3>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Sort by</div>
+          <div class="chip-group" id="fs_sort">
+            ${sortOpts.map(({v,l}) => `<button class="chip chip--selectable${taskSort===v?' chip--active':''}" data-sort="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Rotation</div>
+          <div class="chip-group" id="fs_rotation">
+            ${rotOpts.map(({v,l}) => `<button class="chip chip--selectable${taskFilter.rotation===v?' chip--active':''}" data-rotation="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Owner</div>
+          <div class="chip-group" id="fs_owner">
+            <button class="chip chip--selectable${!taskFilter.owner?' chip--active':''}" data-owner="" type="button">All</button>
+            ${pa.map(p => `<button class="chip chip--selectable${taskFilter.owner===p.id?' chip--active':''}" data-owner="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Category</div>
+          <div class="chip-group" id="fs_category">
+            <button class="chip chip--selectable${!taskFilter.category?' chip--active':''}" data-cat="" type="button">All</button>
+            ${ca.map(c => `<button class="chip chip--selectable${taskFilter.category===c.key?' chip--active':''}" data-cat="${esc(c.key)}" type="button">${esc(c.icon)} ${esc(c.label)}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Status</div>
+          <div class="chip-group" id="fs_status">
+            ${statusOpts.map(({v,l}) => `<button class="chip chip--selectable${taskFilter.status===v?' chip--active':''}" data-status="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Difficulty</div>
+          <div class="chip-group" id="fs_diff">
+            ${diffOpts.map(({v,l}) => `<button class="chip chip--selectable${taskFilter.difficulty===v?' chip--active':''}" data-diff="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="sheet-actions">
+          <button class="btn btn--ghost" id="fsTasksClear" type="button">Clear</button>
+          <button class="btn btn--primary" id="fsTasksApply" type="button">Apply</button>
+        </div>
+      `);
+
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      document.querySelector('.bottom-sheet')?.addEventListener('click', e => {
+        const chip = e.target.closest('.chip--selectable');
+        if (!chip) return;
+        const group = chip.closest('.chip-group');
+        if (!group) return;
+        group.querySelectorAll('.chip--selectable').forEach(c => c.classList.remove('chip--active'));
+        chip.classList.add('chip--active');
+      });
+
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
+
+      document.getElementById('fsTasksApply')?.addEventListener('click', () => {
+        taskSort = mount.querySelector('#fs_sort .chip--active')?.dataset.sort || 'name';
+        taskFilter.rotation = mount.querySelector('#fs_rotation .chip--active')?.dataset.rotation || '';
+        taskFilter.owner = mount.querySelector('#fs_owner .chip--active')?.dataset.owner || '';
+        taskFilter.category = mount.querySelector('#fs_category .chip--active')?.dataset.cat || '';
+        taskFilter.status = mount.querySelector('#fs_status .chip--active')?.dataset.status || '';
+        taskFilter.difficulty = mount.querySelector('#fs_diff .chip--active')?.dataset.diff || '';
+        closeAdminSheet();
+        render();
+      });
+
+      document.getElementById('fsTasksClear')?.addEventListener('click', () => {
+        taskFilter = { rotation: '', owner: '', category: '', status: '', difficulty: '' };
+        taskSort = 'name';
+        closeAdminSheet();
+        render();
+      });
     }
 
     function renderTaskForm(taskId) {
@@ -2507,19 +2576,15 @@
     // ── Tasks tab events ──
 
     function bindTasksTab() {
-      // Filters
-      for (const id of ['taskFilterRotation', 'taskFilterOwner', 'taskFilterCategory', 'taskFilterStatus', 'taskFilterDifficulty', 'taskSortBy']) {
-        const el = main.querySelector(`#${id}`);
-        if (el) el.addEventListener('change', () => {
-          taskFilter.rotation = main.querySelector('#taskFilterRotation')?.value || '';
-          taskFilter.owner = main.querySelector('#taskFilterOwner')?.value || '';
-          taskFilter.category = main.querySelector('#taskFilterCategory')?.value || '';
-          taskFilter.status = main.querySelector('#taskFilterStatus')?.value || '';
-          taskFilter.difficulty = main.querySelector('#taskFilterDifficulty')?.value || '';
-          taskSort = main.querySelector('#taskSortBy')?.value || 'name';
-          render();
-        });
-      }
+      // Search
+      main.querySelector('#taskSearch')?.addEventListener('input', e => {
+        taskSearch = e.target.value;
+        render();
+        const el = main.querySelector('#taskSearch');
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      // Filter & Sort chip
+      main.querySelector('#taskFilterSortBtn')?.addEventListener('click', openTasksFilterSheet);
 
       // Add task
       main.querySelector('#addTaskBtn')?.addEventListener('click', () => {
