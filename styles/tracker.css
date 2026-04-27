@@ -26,8 +26,14 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  flex-wrap: wrap;
   padding-bottom: var(--spacing-sm);
+}
+
+/* Let the person-filter scroll horizontally so all pills are reachable;
+   min-width:0 prevents it from expanding past the container edge */
+.tracker-filter-area .person-filter {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Filter chip ── */

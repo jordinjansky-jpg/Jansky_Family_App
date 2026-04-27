@@ -1077,12 +1077,12 @@
     // or listeners will stack on every render.
     let swipeStartX = 0;
     let swipeStartY = 0;
-    main.addEventListener('touchstart', (e) => {
+    document.addEventListener('touchstart', (e) => {
       if (e.target.closest('#taskSheetMount') || e.target.closest('.bottom-sheet')) return;
       swipeStartX = e.touches[0].clientX;
       swipeStartY = e.touches[0].clientY;
     }, { passive: true });
-    main.addEventListener('touchend', (e) => {
+    document.addEventListener('touchend', (e) => {
       if (e.target.closest('#taskSheetMount') || e.target.closest('.bottom-sheet')) return;
       const dx = e.changedTouches[0].clientX - swipeStartX;
       const dy = e.changedTouches[0].clientY - swipeStartY;
