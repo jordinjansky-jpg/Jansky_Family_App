@@ -636,7 +636,7 @@
 
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
-      document.querySelector('.bottom-sheet')?.addEventListener('click', e => {
+      mount.querySelector('.bottom-sheet')?.addEventListener('click', e => {
         const chip = e.target.closest('.chip--selectable');
         if (!chip) return;
         const group = chip.closest('.chip-group');
@@ -658,14 +658,14 @@
         taskFilter.difficulty = mount.querySelector('#fs_diff .chip--active')?.dataset.diff || '';
         closeAdminSheet();
         render();
-      });
+      }, { once: true });
 
       document.getElementById('fsTasksClear')?.addEventListener('click', () => {
         taskFilter = { rotation: '', owner: '', category: '', status: '', difficulty: '' };
         taskSort = 'name';
         closeAdminSheet();
         render();
-      });
+      }, { once: true });
     }
 
     function renderTaskForm(taskId) {
