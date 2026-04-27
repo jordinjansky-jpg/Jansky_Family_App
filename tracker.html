@@ -468,17 +468,12 @@
       const sliders = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`;
 
       let html = `
-        <nav class="tabs tabs--segmented">
-          <button class="tab${weeklyActive ? ' is-active' : ''}" data-view="weekly" type="button">Weekly</button>
-          <button class="tab${monthlyActive ? ' is-active' : ''}" data-view="monthly" type="button">Monthly</button>
-        </nav>
-        <div class="tracker-period">
-          <div class="tracker-period__row">
-            <button class="tracker-period__nav" data-period-nav="prev" type="button" aria-label="Previous"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-            <span class="tracker-period__label">${renderPeriodLabel()}</span>
-            <button class="tracker-period__nav" data-period-nav="next" type="button" aria-label="Next"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-          </div>
-          <button class="tracker-period__today" data-period-nav="today" type="button">Today</button>
+        <div class="tracker-top-bar">
+          <span class="tracker-period-label">${renderPeriodLabel()}</span>
+          <nav class="tabs tabs--segmented">
+            <button class="tab${weeklyActive ? ' is-active' : ''}" data-view="weekly" type="button">Weekly</button>
+            <button class="tab${monthlyActive ? ' is-active' : ''}" data-view="monthly" type="button">Monthly</button>
+          </nav>
         </div>
         <div class="tracker-filter-area">
           ${renderPersonFilter(people, activePerson)}
@@ -587,16 +582,6 @@
 
       // Filter chip → opens filter sheet
       main.querySelector('#trackerFilterChip')?.addEventListener('click', openFilterSheet);
-
-      // Period navigation buttons
-      for (const btn of main.querySelectorAll('[data-period-nav]')) {
-        btn.addEventListener('click', () => {
-          const nav = btn.dataset.periodNav;
-          if (nav === 'prev') shiftPeriod(-1);
-          else if (nav === 'next') shiftPeriod(1);
-          else if (nav === 'today') snapToToday();
-        });
-      }
 
       // Long-press on tracker cards to open detail sheet (500ms per spec)
       for (const card of main.querySelectorAll('.card--tracker[data-entry-key]')) {
