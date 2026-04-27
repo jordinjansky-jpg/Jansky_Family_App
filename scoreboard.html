@@ -503,7 +503,7 @@
         const pct = h.possible > 0 ? h.percentage : 0;
         const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
         html += `<div class="sb-spark-bar" title="${sparkLabels[i]}: ${pct}%">
-          <div class="sb-spark-fill sb-spark-fill--${tier}" style="height:${Math.max(pct, 4)}%"></div>
+          <div class="sb-spark-fill sb-spark-fill--${esc(tier)}" style="height:${Math.max(pct, 4)}%"></div>
         </div>`;
       }
       html += `</div>`;
