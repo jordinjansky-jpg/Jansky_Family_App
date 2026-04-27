@@ -636,8 +636,8 @@
         .map(([msgId, m]) => ({ msgId, reward: rewards[m.rewardId] || {}, amount: Math.abs(m.amount) }));
 
       let html = `<div class="store-header">
-        <span class="sb-card__initial" style="background: ${person.color}; width: 28px; height: 28px; font-size: 0.875rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff;">${person.name[0].toUpperCase()}</span>
-        <span style="font-weight: 600;">${esc(person.name)}'s Store</span>
+        <div class="avatar avatar--sm" style="--person-color: ${esc(person.color)}">${esc((person.name || '?')[0].toUpperCase())}</div>
+        <span class="store-header__title">${esc(person.name)}'s Store</span>
         <span class="store-balance">💰 ${Math.round(balance).toLocaleString()} pts</span>
       </div>`;
 
@@ -645,7 +645,7 @@
       const savedTokens = Object.entries(personBank).filter(([, t]) => !t.used);
       const isAdult = person.role !== 'child';
       if (savedTokens.length > 0) {
-        html += `<div style="margin-bottom: 12px;"><h4 style="font-size: var(--font-sm); color: var(--text-muted); margin-bottom: 8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved (${savedTokens.length})</h4>`;
+        html += `<div class="store-section"><h4 class="store-section-heading"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved (${savedTokens.length})</h4>`;
         for (const [tokenId, token] of savedTokens) {
           const typeLabel = token.rewardType === 'task-skip' ? 'Task Skip'
             : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
@@ -654,15 +654,15 @@
             : token.rewardType === 'penalty-removal' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
             : esc(token.rewardIcon || '🎁');
           const useBtn = isAdult ? `<button class="btn btn--xs btn--primary store-use-token" data-token-id="${esc(tokenId)}" data-reward-type="${esc(token.rewardType || 'custom')}" data-token-name="${esc(typeLabel)}" data-reward-id="${esc(token.rewardId || '')}" data-reward-icon="${esc(token.rewardIcon || '🎁')}" type="button">Use</button>` : '';
-          html += `<div class="store-card" style="border-color: var(--accent);">
+          html += `<div class="store-card store-card--available">
             <div class="store-card__icon">${icon}</div>
             <div class="store-card__body">
               <div class="store-card__name">${esc(typeLabel)}</div>
-              <div class="store-card__cost" style="color: var(--text-muted); font-size: var(--font-xs, 0.75rem);">Saved ${new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz })}</div>
+              <div class="store-card__date">Saved ${new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz })}</div>
             </div>
             <div class="store-card__actions">
               ${useBtn}
-              <button class="btn btn--xs btn--ghost store-remove-token" data-token-id="${esc(tokenId)}" data-token-name="${esc(typeLabel)}" type="button" style="color: var(--accent-danger, #e53e3e);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              <button class="store-remove-token" data-token-id="${esc(tokenId)}" data-token-name="${esc(typeLabel)}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
           </div>`;
         }
@@ -670,9 +670,9 @@
       }
 
       if (pendingRequests.length > 0) {
-        html += `<div style="margin-bottom: 12px;"><h4 style="font-size: var(--font-sm); color: var(--text-muted); margin-bottom: 8px;">Pending Requests</h4>`;
+        html += `<div class="store-section"><h4 class="store-section-heading">Pending Requests</h4>`;
         for (const req of pendingRequests) {
-          html += `<div class="store-card store-card--pending" style="border-color: var(--accent-warning, #ecc94b); opacity: 0.8;">
+          html += `<div class="store-card store-card--pending">
             <div class="store-card__icon">${esc(req.reward.icon || '🎁')}</div>
             <div class="store-card__body">
               <div class="store-card__name">${esc(req.reward.name || 'Reward')}</div>
@@ -684,7 +684,7 @@
       }
 
       if (available.length === 0 && pendingRequests.length === 0) {
-        html += `<div style="text-align: center; padding: 32px; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 8px;">🏪</div><p>No rewards available!</p></div>`;
+        html += `<div class="store-empty"><div class="store-empty__icon">🏪</div><p>No rewards available!</p></div>`;
       }
 
       for (const reward of available) {
@@ -836,10 +836,10 @@
               return;
             }
 
-            let skipHtml = '<h3 style="margin-bottom: 12px;">Pick a task to skip</h3>';
+            let skipHtml = '<h3 class="skip-picker-title">Pick a task to skip</h3>';
             for (const [key, entry] of skippable) {
               const task = tasks[entry.taskId];
-              skipHtml += `<button class="skip-pick-btn" data-entry-key="${key}" type="button" style="display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius, 8px); background: var(--surface); cursor: pointer;">${esc(task.name)}</button>`;
+              skipHtml += `<button class="skip-pick-btn" data-entry-key="${key}" type="button">${esc(task.name)}</button>`;
             }
 
             mount.innerHTML = renderBottomSheet(skipHtml);
@@ -909,16 +909,16 @@
         openStore(people[0].id);
         return;
       }
-      let html = `<div style="padding: 8px 0;">
-        <h3 style="margin-bottom: 12px;">Who's shopping?</h3>`;
+      let html = `<div class="store-picker-body">
+        <h3 class="store-picker-title">Who's shopping?</h3>`;
       for (const p of people) {
         const personMsgs = allMessages?.[p.id] || {};
         const personAnchor = allAnchors?.[p.id] || null;
         const { balance } = calculateBalance(p.id, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
-        html += `<button class="store-person-btn" data-person-id="${p.id}" type="button" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; margin-bottom: 8px; font-size: var(--font-md);">
-          <span style="background: ${p.color}; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 600;">${p.name[0].toUpperCase()}</span>
-          <span style="flex: 1; text-align: left; font-weight: 500;">${esc(p.name)}</span>
-          <span style="color: var(--text-muted); font-size: var(--font-sm);">💰 ${Math.round(balance).toLocaleString()}</span>
+        html += `<button class="store-person-btn" data-person-id="${esc(p.id)}" type="button">
+          <div class="avatar" style="--person-color: ${esc(p.color)}">${esc((p.name || '?')[0].toUpperCase())}</div>
+          <span class="store-person-btn__name">${esc(p.name)}</span>
+          <span class="store-person-btn__balance">💰 ${Math.round(balance).toLocaleString()}</span>
         </button>`;
       }
       html += `</div>`;
