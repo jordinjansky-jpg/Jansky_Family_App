@@ -1643,7 +1643,8 @@
     function renderRewardForm(rewardId) {
       const reward = rewardId ? rewardsObj[rewardId] : {};
       const isEdit = !!rewardId;
-      const title = isEdit ? 'Edit Reward' : 'New Reward';
+      const isArchived = isEdit && reward.status === 'archived';
+      const title = isArchived ? 'Archived Reward' : (isEdit ? 'Edit Reward' : 'New Reward');
 
       return `<div class="form-compact" id="rewardForm">
           <h3 class="admin-form__title">${title}</h3>
@@ -1718,7 +1719,9 @@
           </div>
 
           <div class="admin-form__actions">
-            ${isEdit ? `<button class="btn btn--danger" id="rf_delete" type="button">Delete Reward</button>` : ''}
+            ${isEdit ? `<button class="btn btn--danger" id="rf_delete" type="button">Delete</button>` : ''}
+            ${isEdit && isArchived ? `<button class="btn btn--secondary" id="rf_unarchive" type="button">Unarchive</button>` : ''}
+            ${isEdit && !isArchived ? `<button class="btn btn--secondary" id="rf_archive" type="button">Archive</button>` : ''}
             <button class="btn btn--secondary" id="rf_cancel" type="button">Cancel</button>
             <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create'}</button>
           </div>
@@ -1726,8 +1729,14 @@
     }
 
     function bindRewardsTab() {
-      // Row click — delegated
+      // Row click — delegated (active + archived)
       main.querySelector('#rewardList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-reward-id]');
+        if (!row) return;
+        editingRewardId = row.dataset.rewardId;
+        render();
+      });
+      main.querySelector('.admin-archived-rewards')?.addEventListener('click', e => {
         const row = e.target.closest('[data-reward-id]');
         if (!row) return;
         editingRewardId = row.dataset.rewardId;
@@ -1833,6 +1842,24 @@
         render();
       });
 
+      // Archive
+      form.querySelector('#rf_archive')?.addEventListener('click', async () => {
+        const reward = rewardsObj[editingRewardId];
+        if (!await showConfirm({ title: `Archive "${reward?.name || 'this reward'}"?`, message: 'It will be hidden from the store but not deleted.' })) return;
+        await archiveReward(editingRewardId);
+        rewardsObj[editingRewardId] = { ...rewardsObj[editingRewardId], status: 'archived' };
+        editingRewardId = null;
+        render();
+      });
+
+      // Unarchive
+      form.querySelector('#rf_unarchive')?.addEventListener('click', async () => {
+        await writeReward(editingRewardId, { ...rewardsObj[editingRewardId], status: 'active' });
+        rewardsObj[editingRewardId] = { ...rewardsObj[editingRewardId], status: 'active' };
+        editingRewardId = null;
+        render();
+      });
+
       // Save
       form.querySelector('#rf_save').addEventListener('click', async () => {
         const name = form.querySelector('#rf_name').value.trim();
@@ -1860,7 +1887,7 @@
           maxRedemptions,
           streakRequirement: streakReq,
           expiresAt,
-          status: 'active'
+          status: (editingRewardId && editingRewardId !== 'new') ? (rewardsObj[editingRewardId]?.status || 'active') : 'active'
         };
 
         if (editingRewardId && editingRewardId !== 'new') {
