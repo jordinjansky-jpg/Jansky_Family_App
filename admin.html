@@ -2333,20 +2333,24 @@
       // ── Achievement definitions list ──
       html += `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="badgesSearch" placeholder="Search badges…" value="${esc(badgesSearch)}">
-  <select class="admin-select" id="badgesSort">
-    <option value="name"${badgesSort === 'name' ? ' selected' : ''}>Name</option>
-    <option value="unlocked"${badgesSort === 'unlocked' ? ' selected' : ''}>Unlock count</option>
-  </select>
+  ${renderFilterSortChip('badgesFilterSortBtn', badgesFilterActiveCount())}
   <button class="btn btn--primary btn--sm" id="addAchBtn" type="button">+ Add Badge</button>
 </div>`;
 
       let defsEntries = Object.entries(allDefs);
       if (badgesSearch) defsEntries = defsEntries.filter(([, def]) => (def.label || '').toLowerCase().includes(badgesSearch.toLowerCase()));
+      if (badgesFilter === 'earned') defsEntries = defsEntries.filter(([key]) => Object.values(allAchievements).some(pa => pa[key]?.unlockedAt && !pa[key]?.revoked));
+      else if (badgesFilter === 'not-earned') defsEntries = defsEntries.filter(([key]) => !Object.values(allAchievements).some(pa => pa[key]?.unlockedAt && !pa[key]?.revoked));
       defsEntries.sort((a, b) => {
         if (badgesSort === 'unlocked') {
           const ua = Object.values(allAchievements).filter(pa => pa[a[0]]?.unlockedAt && !pa[a[0]]?.revoked).length;
           const ub = Object.values(allAchievements).filter(pa => pa[b[0]]?.unlockedAt && !pa[b[0]]?.revoked).length;
           return ub - ua;
+        }
+        if (badgesSort === 'least-unlocked') {
+          const ua = Object.values(allAchievements).filter(pa => pa[a[0]]?.unlockedAt && !pa[a[0]]?.revoked).length;
+          const ub = Object.values(allAchievements).filter(pa => pa[b[0]]?.unlockedAt && !pa[b[0]]?.revoked).length;
+          return ua - ub;
         }
         if (a[1].isDefault && !b[1].isDefault) return -1;
         if (!a[1].isDefault && b[1].isDefault) return 1;
@@ -2381,6 +2385,68 @@
       }
 
       return html;
+    }
+
+    function openBadgesFilterSheet() {
+      const mount = document.getElementById('taskSheetMount');
+
+      const sortOpts = [
+        {v:'name',l:'Name'},
+        {v:'unlocked',l:'Most Unlocked'},
+        {v:'least-unlocked',l:'Least Unlocked'},
+      ];
+      const filterOpts = [{v:'',l:'All'},{v:'earned',l:'Earned'},{v:'not-earned',l:'Not Earned'}];
+
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">Filter &amp; Sort</h3>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Sort by</div>
+          <div class="chip-group" id="fs_sort">
+            ${sortOpts.map(({v,l}) => `<button class="chip chip--selectable${badgesSort===v?' chip--active':''}" data-sort="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Earned status</div>
+          <div class="chip-group" id="fs_filter">
+            ${filterOpts.map(({v,l}) => `<button class="chip chip--selectable${badgesFilter===v?' chip--active':''}" data-filter="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="sheet-actions">
+          <button class="btn btn--ghost" id="fsBadgesClear" type="button">Clear</button>
+          <button class="btn btn--primary" id="fsBadgesApply" type="button">Apply</button>
+        </div>
+      `);
+
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      mount.querySelector('.bottom-sheet')?.addEventListener('click', e => {
+        const chip = e.target.closest('.chip--selectable');
+        if (!chip) return;
+        const group = chip.closest('.chip-group');
+        if (!group) return;
+        group.querySelectorAll('.chip--selectable').forEach(c => c.classList.remove('chip--active'));
+        chip.classList.add('chip--active');
+      });
+
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
+
+      document.getElementById('fsBadgesApply')?.addEventListener('click', () => {
+        badgesSort = mount.querySelector('#fs_sort .chip--active')?.dataset.sort || 'name';
+        badgesFilter = mount.querySelector('#fs_filter .chip--active')?.dataset.filter || '';
+        closeAdminSheet();
+        render();
+      }, { once: true });
+
+      document.getElementById('fsBadgesClear')?.addEventListener('click', () => {
+        badgesSort = 'name'; badgesFilter = '';
+        closeAdminSheet();
+        render();
+      }, { once: true });
     }
 
     function renderAchievementForm(achKey) {
@@ -2616,7 +2682,7 @@
         const el = main.querySelector('#badgesSearch');
         if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
       });
-      main.querySelector('#badgesSort')?.addEventListener('change', e => { badgesSort = e.target.value; render(); });
+      main.querySelector('#badgesFilterSortBtn')?.addEventListener('click', openBadgesFilterSheet);
 
       // Hide/Show toggle for defaults
       for (const btn of main.querySelectorAll('.ach-toggle')) {
