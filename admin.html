@@ -694,15 +694,15 @@
 
       html += `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="eventsSearch" placeholder="Search events…" value="${esc(eventsSearch)}">
-  <select class="admin-select" id="eventsSort">
-    <option value="date"${eventsSort === 'date' ? ' selected' : ''}>Date</option>
-    <option value="name"${eventsSort === 'name' ? ' selected' : ''}>Name</option>
-  </select>
+  ${renderFilterSortChip('eventsFilterSortBtn', eventsFilterActiveCount())}
   <button class="btn btn--primary btn--sm" id="addEventBtn" type="button">+ Add Event</button>
 </div>`;
 
       let evEntries = Object.entries(eventsObj || {});
       if (eventsSearch) evEntries = evEntries.filter(([, ev]) => (ev.name || '').toLowerCase().includes(eventsSearch.toLowerCase()));
+      if (eventsOwner) evEntries = evEntries.filter(([, ev]) => (ev.people || []).includes(eventsOwner));
+      if (eventsTimeRange === 'upcoming') evEntries = evEntries.filter(([, ev]) => (ev.date || '') >= today);
+      else if (eventsTimeRange === 'past') evEntries = evEntries.filter(([, ev]) => (ev.date || '') < today);
       evEntries.sort((a, b) => eventsSort === 'name'
         ? (a[1].name || '').localeCompare(b[1].name || '')
         : (a[1].date || '').localeCompare(b[1].date || ''));
@@ -740,6 +740,74 @@
       }
 
       return html;
+    }
+
+    function openEventsFilterSheet() {
+      const mount = document.getElementById('taskSheetMount');
+      const pa = peopleArray();
+
+      const sortOpts = [{v:'date',l:'Date'},{v:'name',l:'Name'}];
+      const rangeOpts = [{v:'all',l:'All'},{v:'upcoming',l:'Upcoming'},{v:'past',l:'Past'}];
+
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">Filter &amp; Sort</h3>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Sort by</div>
+          <div class="chip-group" id="fs_sort">
+            ${sortOpts.map(({v,l}) => `<button class="chip chip--selectable${eventsSort===v?' chip--active':''}" data-sort="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Time range</div>
+          <div class="chip-group" id="fs_range">
+            ${rangeOpts.map(({v,l}) => `<button class="chip chip--selectable${eventsTimeRange===v?' chip--active':''}" data-range="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Person</div>
+          <div class="chip-group" id="fs_owner">
+            <button class="chip chip--selectable${!eventsOwner?' chip--active':''}" data-owner="" type="button">All</button>
+            ${pa.map(p => `<button class="chip chip--selectable${eventsOwner===p.id?' chip--active':''}" data-owner="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="sheet-actions">
+          <button class="btn btn--ghost" id="fsEventsClear" type="button">Clear</button>
+          <button class="btn btn--primary" id="fsEventsApply" type="button">Apply</button>
+        </div>
+      `);
+
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      mount.querySelector('.bottom-sheet')?.addEventListener('click', e => {
+        const chip = e.target.closest('.chip--selectable');
+        if (!chip) return;
+        const group = chip.closest('.chip-group');
+        if (!group) return;
+        group.querySelectorAll('.chip--selectable').forEach(c => c.classList.remove('chip--active'));
+        chip.classList.add('chip--active');
+      });
+
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
+
+      document.getElementById('fsEventsApply')?.addEventListener('click', () => {
+        eventsSort = mount.querySelector('#fs_sort .chip--active')?.dataset.sort || 'date';
+        eventsTimeRange = mount.querySelector('#fs_range .chip--active')?.dataset.range || 'all';
+        eventsOwner = mount.querySelector('#fs_owner .chip--active')?.dataset.owner || '';
+        closeAdminSheet();
+        render();
+      }, { once: true });
+
+      document.getElementById('fsEventsClear')?.addEventListener('click', () => {
+        eventsSort = 'date'; eventsTimeRange = 'all'; eventsOwner = '';
+        closeAdminSheet();
+        render();
+      }, { once: true });
     }
 
     function renderEventFormAdmin(eventId) {
@@ -3212,7 +3280,7 @@
         const el = main.querySelector('#eventsSearch');
         if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
       });
-      main.querySelector('#eventsSort')?.addEventListener('change', e => { eventsSort = e.target.value; render(); });
+      main.querySelector('#eventsFilterSortBtn')?.addEventListener('click', openEventsFilterSheet);
     }
 
     // ── People tab events ──
