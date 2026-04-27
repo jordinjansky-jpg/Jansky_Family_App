@@ -2793,7 +2793,7 @@
   margin-bottom: var(--spacing-lg);
 }
 
-.card-stack > .card { margin-bottom: 0; }
+.card-stack > .card + .card { margin-top: 0; }
 
 /* ── Score card variant — leaderboard card with person-color stripe ── */
 /* The left stripe comes from .card::before via --owner-color on the element */
@@ -2814,7 +2814,7 @@
 /* Score card avatar uses solid person color (not soft-tinted like default .avatar) */
 .card--score .avatar {
   background: var(--person-color, var(--accent));
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 700;
 }
 
@@ -2834,7 +2834,7 @@
   justify-content: center;
   font-size: var(--font-xs);
   font-weight: 700;
-  color: #fff;
+  color: var(--on-accent);
   flex-shrink: 0;
 }
 
