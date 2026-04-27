@@ -669,7 +669,7 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
 
   return `<button class="card card--score" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
     <div class="card__leading">
-      <div class="avatar" style="--person-color: ${esc(b.person.color)}">${esc(b.person.name[0].toUpperCase())}</div>
+      <div class="avatar" style="--person-color: ${esc(b.person.color)}">${esc((b.person.name || '?')[0].toUpperCase())}</div>
     </div>
     <div class="card__body">
       <div class="card__title">${esc(b.person.name)}${badges}</div>
@@ -677,7 +677,7 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
     </div>
     <div class="card__trailing">
       <span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
-      <span class="card--score__pct">${active.percentage}%</span>
+      <span class="card--score__pct">${esc(active.percentage)}%</span>
     </div>
   </button>`;
 }
