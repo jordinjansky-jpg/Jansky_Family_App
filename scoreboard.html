@@ -41,7 +41,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeSnapshot, updateData } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, showConfirm, showToast, applyDataColors } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, showConfirm, showToast, applyDataColors, renderScoreCard, renderSectionHead } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -240,6 +240,29 @@
     // ── Period selector state ──
     let selectedPeriod = linkedPerson?.prefs?.scoreboard?.period || 'week'; // 'today' | 'week' | 'month' | 'year'
 
+    // Build person data for leaderboard — precompute all display values here
+    const board = people.map(p => {
+      const td = todayScore(p.id);
+      const wk = weeklyGrade(p.id);
+      const mo = monthlyGrade(p.id);
+      const yr = yearGrade(p.id);
+      const streak = streaks[p.id] || { current: 0, best: 0 };
+      const trend = weeklyTrend(p.id);
+      const personMsgs = allMessages?.[p.id] || {};
+      const personAnchor = allAnchors?.[p.id] || null;
+      const { balance } = calculateBalance(p.id, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
+      const todayMult = allMultipliers?.[today]?.[p.id]?.multiplier || 1;
+      const liveBalance = Math.round(balance + (td.percentage || 0) * todayMult);
+      const personAchievements = allAchievementsData?.[p.id] || {};
+      const badgeIcons = Object.entries(personAchievements)
+        .filter(([, a]) => !a.revoked)
+        .map(([key]) => activeDefs[key]?.icon)
+        .filter(Boolean)
+        .slice(0, 5)
+        .join('');
+      return { person: p, today: td, week: wk, month: mo, year: yr, streak, trend, liveBalance, badgeIcons };
+    });
+
     // ── Render ──
 
     function render() {
@@ -250,217 +273,78 @@
         return;
       }
 
-      let html = '';
-
-      // Period selector tabs + store button
-      const hasRewards = sbRewards && Object.values(sbRewards).some(r => r.status === 'active');
-      html += `<div class="sb-period-tabs">
-        <button class="sb-tab${selectedPeriod === 'today' ? ' sb-tab--active' : ''}" data-period="today">Today</button>
-        <button class="sb-tab${selectedPeriod === 'week' ? ' sb-tab--active' : ''}" data-period="week">Week</button>
-        <button class="sb-tab${selectedPeriod === 'month' ? ' sb-tab--active' : ''}" data-period="month">Month</button>
-        <button class="sb-tab${selectedPeriod === 'year' ? ' sb-tab--active' : ''}" data-period="year">12 Mo</button>
-        ${hasRewards ? `<button class="sb-tab sb-tab--store" id="sbStoreBtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></button>` : ''}
-      </div>`;
-
-      // Build person data for leaderboard
-      const board = people.map(p => {
-        const td = todayScore(p.id);
-        const wk = weeklyGrade(p.id);
-        const mo = monthlyGrade(p.id);
-        const yr = yearGrade(p.id);
-        const streak = streaks[p.id] || { current: 0, best: 0 };
-        const trend = weeklyTrend(p.id);
-        const time = weeklyTime(p.id);
-        return { person: p, today: td, week: wk, month: mo, year: yr, streak, trend, time };
-      });
-
-      // Sort by selected period grade
-      const gradeKey = selectedPeriod === 'today' ? 'today' : selectedPeriod === 'week' ? 'week' : selectedPeriod === 'month' ? 'month' : 'year';
+      // Sort board by selected period grade
+      const gradeKey = selectedPeriod === 'today' ? 'today'
+        : selectedPeriod === 'week' ? 'week'
+        : selectedPeriod === 'month' ? 'month'
+        : 'year';
       board.sort((a, b) => b[gradeKey].percentage - a[gradeKey].percentage);
 
-      // ── Grade summary cards ──
-      html += `<div class="sb-cards">`;
+      let html = '';
+
+      // ── Period tabs ──
+      const periods = [
+        { key: 'today', label: 'Today' },
+        { key: 'week',  label: 'Week' },
+        { key: 'month', label: 'Month' },
+        { key: 'year',  label: '12 Mo' },
+      ];
+      html += `<nav class="tabs tabs--segmented">`;
+      for (const p of periods) {
+        html += `<button class="tab${selectedPeriod === p.key ? ' is-active' : ''}" data-period="${p.key}" type="button">${p.label}</button>`;
+      }
+      html += `</nav>`;
+
+      // ── Grade cards (hero leaderboard) ──
+      html += `<div class="card-stack">`;
       for (const b of board) {
         const active = b[gradeKey];
         const gd = gradeDisplay(active.percentage);
-        const trendIcon = b.trend === 'up' ? '↑' : b.trend === 'down' ? '↓' : '';
-        const trendClass = b.trend === 'up' ? 'sb-trend--up' : b.trend === 'down' ? 'sb-trend--down' : '';
-
-        const personAchievements = allAchievementsData?.[b.person.id] || {};
-        const badgeIcons = Object.entries(personAchievements)
-          .filter(([, a]) => !a.revoked)
-          .map(([key]) => activeDefs[key]?.icon)
-          .filter(Boolean)
-          .slice(0, 5)
-          .join('');
-
-        const personMsgs = allMessages?.[b.person.id] || {};
-        const personAnchor = allAnchors?.[b.person.id] || null;
-        const { balance } = calculateBalance(b.person.id, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
-        // Add today's live earnings (not yet snapshotted) to the displayed balance
-        const todayMult = allMultipliers?.[today]?.[b.person.id]?.multiplier || 1;
-        const liveBalance = Math.round(balance + (b.today.percentage || 0) * todayMult);
-
-        html += `<button class="sb-card" data-person-id="${b.person.id}" type="button" style="--person-color: ${b.person.color}">
-          <div class="sb-card__rank"></div>
-          <div class="sb-card__left">
-            <span class="sb-card__initial" style="background: ${b.person.color}">${b.person.name[0].toUpperCase()}</span>
-            <div class="sb-card__info">
-              <span class="sb-card__name">${esc(b.person.name)}</span>${badgeIcons ? `<span class="sb-card__badges">${badgeIcons}</span>` : ''}
-              <div class="sb-card__meta">
-                ${b.streak.current > 0 ? `<span class="sb-streak">🔥 ${b.streak.current}d</span>` : ''}
-                ${trendIcon ? `<span class="sb-trend ${trendClass}">${trendIcon}</span>` : ''}
-                <span class="sb-time">${formatMinutes(b.time)}</span>
-                <span class="sb-balance">💰 ${liveBalance.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-          <div class="sb-card__right">
-            <span class="sb-card__grade grade-badge grade-badge--${gd.tier}">${gd.grade}</span>
-            <span class="sb-card__pct">${active.percentage}%</span>
-          </div>
-        </button>`;
+        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons);
       }
       html += `</div>`;
 
-      // ── All grades at a glance ──
-      html += `<div class="sb-section-label">All Grades</div>`;
-      html += `<div class="sb-grades-table">`;
-      html += `<div class="sb-grades-row sb-grades-header">
-        <span class="sb-grades-cell sb-grades-cell--name"></span>
-        <span class="sb-grades-cell">Today</span>
-        <span class="sb-grades-cell">Week</span>
-        <span class="sb-grades-cell">Month</span>
-        <span class="sb-grades-cell">12 Mo</span>
-      </div>`;
+      // ── All Grades table ──
+      html += renderSectionHead('All Grades');
+      html += `<div class="card grades-card">
+        <div class="grades-header">
+          <span class="grades-cell grades-cell--name"></span>
+          <span class="grades-cell">Today</span>
+          <span class="grades-cell">Week</span>
+          <span class="grades-cell">Month</span>
+          <span class="grades-cell">12 Mo</span>
+        </div>`;
       for (const b of board) {
         const tdG = gradeDisplay(b.today.percentage);
         const wkG = gradeDisplay(b.week.percentage);
         const moG = gradeDisplay(b.month.percentage);
         const yrG = gradeDisplay(b.year.percentage);
-        html += `<div class="sb-grades-row">
-          <span class="sb-grades-cell sb-grades-cell--name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
-          <span class="sb-grades-cell">${renderGradeBadge(tdG.grade, tdG.tier)}</span>
-          <span class="sb-grades-cell">${renderGradeBadge(wkG.grade, wkG.tier)}</span>
-          <span class="sb-grades-cell">${renderGradeBadge(moG.grade, moG.tier)}</span>
-          <span class="sb-grades-cell">${renderGradeBadge(yrG.grade, yrG.tier)}</span>
+        html += `<div class="grades-row">
+          <span class="grades-cell grades-cell--name">
+            <span class="sb-mini-dot" style="--person-color: ${b.person.color}; background: var(--person-color)"></span>
+            ${esc(b.person.name)}
+          </span>
+          <span class="grades-cell">${renderGradeBadge(tdG.grade, tdG.tier)}</span>
+          <span class="grades-cell">${renderGradeBadge(wkG.grade, wkG.tier)}</span>
+          <span class="grades-cell">${renderGradeBadge(moG.grade, moG.tier)}</span>
+          <span class="grades-cell">${renderGradeBadge(yrG.grade, yrG.tier)}</span>
         </div>`;
       }
       html += `</div>`;
 
-      // ── Trends (sparklines as bar segments) ──
-      html += `<div class="sb-section-label">Weekly Trends</div>`;
-      html += `<div class="sb-trends">`;
-      for (const b of board) {
-        const history = weeklyHistory(b.person.id);
-        html += `<div class="sb-trend-row">
-          <span class="sb-trend-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
-          <div class="sb-sparkline">`;
-        for (let i = 0; i < history.length; i++) {
-          const h = history[i];
-          const pct = h.possible > 0 ? h.percentage : 0;
-          const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
-          const label = i === 3 ? 'This wk' : i === 2 ? 'Last wk' : `${3 - i} wks ago`;
-          html += `<div class="sb-spark-bar" title="${label}: ${pct}%">
-            <div class="sb-spark-fill sb-spark-fill--${tier}" style="height:${Math.max(pct, 4)}%"></div>
-          </div>`;
-        }
-        html += `</div></div>`;
+      // ── Store CTA row (Phase 6 will replace this with the unified Rewards Store) ──
+      const hasRewards = sbRewards && Object.values(sbRewards).some(r => r.status === 'active');
+      if (hasRewards) {
+        const totalBalance = board.reduce((sum, b) => sum + b.liveBalance, 0);
+        const giftIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>`;
+        const chevron = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+        html += `<button class="store-cta-row" type="button" id="sbStoreBtn">
+          ${giftIcon}
+          <span class="store-cta-row__label">Rewards Store</span>
+          <span class="store-cta-row__balance">💰 ${totalBalance.toLocaleString()} pts</span>
+          ${chevron}
+        </button>`;
       }
-      html += `</div>`;
-
-      // ── Category Breakdown (for selected period) ──
-      const periodDates = {
-        today: [today, today],
-        week: [wStart, wEnd],
-        month: [mStart, mEnd],
-        year: [y12Start, today]
-      };
-      const [catStart, catEnd] = periodDates[selectedPeriod];
-
-      html += `<div class="sb-section-label">Category Breakdown</div>`;
-      html += `<div class="sb-categories">`;
-      for (const b of board) {
-        const breakdown = categoryBreakdown(b.person.id, catStart, catEnd);
-        const catKeys = Object.keys(breakdown);
-        if (catKeys.length === 0) continue;
-
-        html += `<div class="sb-cat-person">
-          <span class="sb-cat-person-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
-          <div class="sb-cat-bars">`;
-        for (const ck of catKeys) {
-          const c = breakdown[ck];
-          const pct = c.possible > 0 ? Math.round((c.earned / c.possible) * 100) : 0;
-          const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
-          html += `<div class="sb-cat-row">
-            <span class="sb-cat-label">${c.icon} ${c.label}</span>
-            <div class="sb-cat-bar">
-              <div class="sb-cat-bar-fill sb-cat-bar-fill--${tier}" style="width:${pct}%"></div>
-            </div>
-            <span class="sb-cat-pct">${pct}%</span>
-          </div>`;
-        }
-        html += `</div></div>`;
-      }
-      html += `</div>`;
-
-      // ── Balance Trends (last 7 days) ──
-      html += `<div class="sb-section-label">Balance Trends</div>`;
-      html += `<div class="sb-trends">`;
-      for (const b of board) {
-        const personMsgs = allMessages?.[b.person.id] || {};
-        const personAnchor = allAnchors?.[b.person.id] || null;
-        // Compute balance at end of each of last 7 days by filtering snapshots
-        const balanceDays = [];
-        for (let i = 6; i >= 0; i--) {
-          const d = addDays(today, -i);
-          // Build filtered snapshots up to date d
-          const filteredSnaps = {};
-          if (allSnapshots) {
-            for (const [dk, ppl] of Object.entries(allSnapshots)) {
-              if (dk <= d) filteredSnaps[dk] = ppl;
-            }
-          }
-          // Filter messages up to date d (approximate by midnight)
-          const dEnd = new Date(d + 'T23:59:59Z').getTime();
-          const filteredMsgs = {};
-          for (const [mk, m] of Object.entries(personMsgs)) {
-            if (m.createdAt && m.createdAt <= dEnd) filteredMsgs[mk] = m;
-          }
-          const { balance: bal } = calculateBalance(b.person.id, filteredSnaps, filteredMsgs, personAnchor, allMultipliers, tz);
-          balanceDays.push({ date: d, balance: bal });
-        }
-        const maxBal = Math.max(...balanceDays.map(d => Math.abs(d.balance)), 1);
-        html += `<div class="sb-trend-row">
-          <span class="sb-trend-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
-          <div class="sb-sparkline">`;
-        for (let i = 0; i < balanceDays.length; i++) {
-          const bd = balanceDays[i];
-          const pct = Math.round(Math.abs(bd.balance) / maxBal * 100);
-          const label = i === 6 ? 'Today' : formatDateShort(bd.date);
-          html += `<div class="sb-spark-bar" title="${label}: ${bd.balance.toLocaleString()} pts">
-            <div class="sb-spark-fill sb-spark-fill--${bd.balance >= 0 ? 'a' : 'f'}" style="height:${Math.max(pct, 4)}%"></div>
-          </div>`;
-        }
-        html += `</div>
-          <span class="sb-balance-label" style="font-size: var(--font-sm); color: var(--text-muted); min-width: 50px; text-align: right;">${balanceDays[6].balance.toLocaleString()}</span>
-        </div>`;
-      }
-      html += `</div>`;
-
-      // ── Streaks ──
-      html += `<div class="sb-section-label">Streaks</div>`;
-      html += `<div class="sb-streaks">`;
-      for (const b of board) {
-        html += `<div class="sb-streak-row">
-          <span class="sb-streak-name"><span class="sb-mini-dot" style="background:${b.person.color}"></span>${esc(b.person.name)}</span>
-          <div class="sb-streak-vals">
-            <span class="sb-streak-current streak-value--animate">🔥 ${b.streak.current}d current</span>
-            <span class="sb-streak-best streak-value--animate">⭐ ${b.streak.best}d best</span>
-          </div>
-        </div>`;
-      }
-      html += `</div>`;
 
       main.innerHTML = html;
       applyDataColors(main);
@@ -471,7 +355,7 @@
 
     function bindEvents() {
       // Period tabs
-      document.querySelectorAll('.sb-tab[data-period]').forEach(btn => {
+      for (const btn of document.querySelectorAll('.tab[data-period]')) {
         btn.addEventListener('click', () => {
           selectedPeriod = btn.dataset.period;
           if (linkedPerson) {
@@ -482,36 +366,15 @@
           }
           render();
         });
-      });
+      }
 
-      // Store button
+      // Store CTA row
       document.getElementById('sbStoreBtn')?.addEventListener('click', openStorePicker);
 
-      // Person card long-press for drill-down
-      document.querySelectorAll('.sb-card').forEach(btn => {
-        let pressTimer = null;
-        let didLongPress = false;
-
-        const startPress = (e) => {
-          didLongPress = false;
-          pressTimer = setTimeout(() => {
-            didLongPress = true;
-            openDrilldown(btn.dataset.personId);
-          }, settings?.longPressMs ?? 500);
-        };
-        const endPress = (e) => {
-          clearTimeout(pressTimer);
-          if (!didLongPress) {
-            openDrilldown(btn.dataset.personId);
-          }
-        };
-        const cancelPress = () => { clearTimeout(pressTimer); };
-
-        btn.addEventListener('pointerdown', startPress);
-        btn.addEventListener('pointerup', endPress);
-        btn.addEventListener('pointerleave', cancelPress);
-        btn.addEventListener('contextmenu', (e) => e.preventDefault());
-      });
+      // Grade cards — single click opens drilldown (no long-press needed: no competing tap action)
+      for (const card of document.querySelectorAll('.card--score[data-person-id]')) {
+        card.addEventListener('click', () => openDrilldown(card.dataset.personId));
+      }
     }
 
     // ── Drill-down bottom sheet ──
