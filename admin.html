@@ -1309,10 +1309,7 @@
 
       html += `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="catsSearch" placeholder="Search categories…" value="${esc(catsSearch)}">
-  <select class="admin-select" id="catsSort">
-    <option value="name"${catsSort === 'name' ? ' selected' : ''}>Name</option>
-    <option value="tasks"${catsSort === 'tasks' ? ' selected' : ''}>Tasks</option>
-  </select>
+  ${renderFilterSortChip('catsFilterSortBtn', catsFilterActiveCount())}
   <button class="btn btn--primary btn--sm" id="addCatBtn" type="button">+ Add Category</button>
 </div>`;
 
@@ -1349,6 +1346,55 @@
       }
 
       return html;
+    }
+
+    function openCatsFilterSheet() {
+      const mount = document.getElementById('taskSheetMount');
+
+      const sortOpts = [{v:'name',l:'Name'},{v:'tasks',l:'Task Count'}];
+
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">Sort</h3>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Sort by</div>
+          <div class="chip-group" id="fs_sort">
+            ${sortOpts.map(({v,l}) => `<button class="chip chip--selectable${catsSort===v?' chip--active':''}" data-sort="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="sheet-actions">
+          <button class="btn btn--ghost" id="fsCatsClear" type="button">Clear</button>
+          <button class="btn btn--primary" id="fsCatsApply" type="button">Apply</button>
+        </div>
+      `);
+
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      mount.querySelector('.bottom-sheet')?.addEventListener('click', e => {
+        const chip = e.target.closest('.chip--selectable');
+        if (!chip) return;
+        const group = chip.closest('.chip-group');
+        if (!group) return;
+        group.querySelectorAll('.chip--selectable').forEach(c => c.classList.remove('chip--active'));
+        chip.classList.add('chip--active');
+      });
+
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
+
+      document.getElementById('fsCatsApply')?.addEventListener('click', () => {
+        catsSort = mount.querySelector('#fs_sort .chip--active')?.dataset.sort || 'name';
+        closeAdminSheet();
+        render();
+      }, { once: true });
+
+      document.getElementById('fsCatsClear')?.addEventListener('click', () => {
+        catsSort = 'name';
+        closeAdminSheet();
+        render();
+      }, { once: true });
     }
 
     function renderCategoryForm(catKey) {
@@ -3589,7 +3635,7 @@
         const el = main.querySelector('#catsSearch');
         if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
       });
-      main.querySelector('#catsSort')?.addEventListener('change', e => { catsSort = e.target.value; render(); });
+      main.querySelector('#catsFilterSortBtn')?.addEventListener('click', openCatsFilterSheet);
 
       if (editingCatKey !== null) {
         main.querySelector('#catFormBackdrop')?.addEventListener('click', e => {
