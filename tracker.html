@@ -39,7 +39,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderTrackerFilterSheet, renderSectionHead } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderSectionHead } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -121,8 +121,6 @@
     const _tp = linkedPerson?.prefs?.tracker || {};
     let activeView = _tp.view || 'weekly';  // 'weekly' | 'monthly'
     let activePerson = _tp.personFilter || null;
-    let activeCategory = _tp.category || null;
-    let activeStatus = _tp.status || null;    // null = all, or 'done'|'late'|'overdue'|'upcoming'|'skipped'
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
@@ -276,8 +274,6 @@
             return false;
           }
         }
-        if (activeCategory && row.task.category !== activeCategory) return false;
-        if (activeStatus && row.status !== activeStatus) return false;
         return true;
       });
     }
@@ -483,9 +479,6 @@
     function render() {
       const weeklyActive = activeView === 'weekly';
       const monthlyActive = activeView === 'monthly';
-      const activeFilterCount = (activeCategory ? 1 : 0) + (activeStatus ? 1 : 0);
-      const filterLabel = activeFilterCount > 0 ? `Filter · ${activeFilterCount}` : 'Filter';
-      const sliders = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`;
 
       let html = `
         <div class="tracker-top-bar">
@@ -497,9 +490,6 @@
         </div>
         <div class="tracker-filter-area">
           ${renderPersonFilter(people, activePerson)}
-          <button class="chip chip--filter${activeFilterCount > 0 ? ' chip--filter--active' : ''}" id="trackerFilterChip" type="button">
-            ${sliders} ${filterLabel}
-          </button>
         </div>
         <div class="tracker-content">
           ${activeView === 'weekly' ? renderWeeklyView() : renderMonthlyView()}
@@ -514,70 +504,10 @@
 
     function saveTrackerPrefs() {
       if (!linkedPerson) return;
-      const prefs = { ...(linkedPerson.prefs || {}), tracker: { view: activeView, personFilter: activePerson, category: activeCategory, status: activeStatus } };
+      const prefs = { ...(linkedPerson.prefs || {}), tracker: { view: activeView, personFilter: activePerson } };
       linkedPerson.prefs = prefs;
       const { id, ...data } = linkedPerson;
       writePerson(id, data);
-    }
-
-    function openFilterSheet() {
-      const mount = document.getElementById('taskSheetMount');
-      mount.innerHTML = renderBottomSheet(
-        renderTrackerFilterSheet(cats, activeCategory, activeStatus)
-      );
-      applyDataColors(mount);
-
-      // Track in-sheet state separately until Apply
-      let sheetCategory = activeCategory;
-      let sheetStatus = activeStatus;
-
-      const sheet = document.getElementById('bottomSheet');
-
-      function updateChipStates() {
-        for (const btn of mount.querySelectorAll('[data-filter-cat]')) {
-          btn.classList.toggle('chip--active', btn.dataset.filterCat === (sheetCategory || ''));
-        }
-        for (const btn of mount.querySelectorAll('[data-filter-status]')) {
-          btn.classList.toggle('chip--active', btn.dataset.filterStatus === (sheetStatus || ''));
-        }
-      }
-
-      for (const btn of mount.querySelectorAll('[data-filter-cat]')) {
-        btn.addEventListener('click', () => {
-          sheetCategory = btn.dataset.filterCat || null;
-          updateChipStates();
-        });
-      }
-
-      for (const btn of mount.querySelectorAll('[data-filter-status]')) {
-        btn.addEventListener('click', () => {
-          sheetStatus = btn.dataset.filterStatus || null;
-          updateChipStates();
-        });
-      }
-
-      mount.querySelector('#filterClear')?.addEventListener('click', () => {
-        activeCategory = null;
-        activeStatus = null;
-        saveTrackerPrefs();
-        mount.innerHTML = '';
-        render();
-      });
-
-      mount.querySelector('#filterApply')?.addEventListener('click', () => {
-        activeCategory = sheetCategory;
-        activeStatus = sheetStatus;
-        saveTrackerPrefs();
-        mount.innerHTML = '';
-        render();
-      });
-
-      requestAnimationFrame(() => {
-        sheet?.classList.add('active');
-        sheet?.addEventListener('click', (e) => {
-          if (e.target === sheet) mount.innerHTML = '';
-        });
-      });
     }
 
     function bindEvents() {
@@ -600,8 +530,7 @@
         });
       }
 
-      // Filter chip → opens filter sheet
-      main.querySelector('#trackerFilterChip')?.addEventListener('click', openFilterSheet);
+
 
       // Tap = complete/uncomplete. Long-press (500ms) = detail sheet.
       for (const card of main.querySelectorAll('.card--tracker[data-entry-key]:not([data-entry-key=""])')) {

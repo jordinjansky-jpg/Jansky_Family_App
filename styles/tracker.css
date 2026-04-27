@@ -21,7 +21,7 @@
   min-width: 140px;
 }
 
-/* ── Filter area (person pills + filter chip) ── */
+/* ── Filter area (person pills) ── */
 .tracker-filter-area {
   display: flex;
   align-items: center;
@@ -36,40 +36,6 @@
   min-width: 0;
 }
 
-/* ── Filter chip ── */
-.chip--filter {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: 6px var(--spacing-sm);
-  border-radius: var(--radius-full);
-  border: 1.5px solid var(--border);
-  background: var(--surface);
-  color: var(--text-faint);
-  font-size: var(--font-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--t-fast);
-  white-space: nowrap;
-  min-height: 36px;
-}
-
-.chip--filter--active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.chip--filter:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.chip--filter:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--accent-soft);
-  border-color: var(--accent);
-}
 
 /* ── Per-person summary line (shown when person filter active) ── */
 .tracker-person-summary {
