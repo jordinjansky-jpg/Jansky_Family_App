@@ -162,7 +162,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v75';
+const CACHE_NAME = 'family-hub-v76';
 
 const APP_SHELL = [
   '/',
