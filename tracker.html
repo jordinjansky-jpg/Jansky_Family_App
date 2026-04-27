@@ -353,9 +353,11 @@
 
       if (activePerson) {
         const person = people.find(p => p.id === activePerson);
-        const scheduled = filtered.filter(r => r.status !== 'skipped' && r.status !== 'cooldown');
-        const done = scheduled.filter(r => r.status === 'done' || r.status === 'late').length;
-        html += `<div class="tracker-person-summary">${esc(person?.name || '')} · ${done}/${scheduled.length} done this week</div>`;
+        if (person) {
+          const scheduled = filtered.filter(r => r.status !== 'skipped' && r.status !== 'cooldown');
+          const done = scheduled.filter(r => r.status === 'done' || r.status === 'late').length;
+          html += `<div class="tracker-person-summary">${esc(person.name)} · ${done}/${scheduled.length} done this week</div>`;
+        }
       }
 
       if (overdueRows.length > 0) {
@@ -396,25 +398,28 @@
         return renderEmptyState('', 'No monthly tasks', 'Nothing scheduled for this period.');
       }
 
+      // Separate skipped/cooldown from date-bucketed rows so the count chip stays accurate
+      const activeRows  = filtered.filter(r => r.status !== 'skipped' && r.status !== 'cooldown');
+      const skippedRows = filtered.filter(r => r.status === 'skipped' || r.status === 'cooldown');
+
       let html = '';
 
       if (activePerson) {
         const person = people.find(p => p.id === activePerson);
-        const scheduled = filtered.filter(r => r.status !== 'skipped' && r.status !== 'cooldown');
-        const done = scheduled.filter(r => r.status === 'done' || r.status === 'late').length;
-        html += `<div class="tracker-person-summary">${esc(person?.name || '')} · ${done}/${scheduled.length} done this month</div>`;
+        if (person) {
+          const done = activeRows.filter(r => r.status === 'done' || r.status === 'late').length;
+          html += `<div class="tracker-person-summary">${esc(person.name)} · ${done}/${activeRows.length} done this month</div>`;
+        }
       }
 
-      // Group by week start date key
+      // Group active rows by week start date key
       const weekGroups = {};
       const todayWeekStart = weekStart(today);
-      for (const row of filtered) {
-        const wkStart = row.dateKey ? weekStart(row.dateKey) : '0000-00-00';
-        const wkLabel = row.dateKey
-          ? `Week of ${formatDateShort(weekStart(row.dateKey))}`
-          : 'Unscheduled';
-        if (!weekGroups[wkStart]) weekGroups[wkStart] = { label: wkLabel, rows: [], isCurrent: wkStart === todayWeekStart };
-        weekGroups[wkStart].rows.push(row);
+      for (const row of activeRows) {
+        const wkKey2 = weekStart(row.dateKey);
+        const wkLabel = `Week of ${formatDateShort(wkKey2)}`;
+        if (!weekGroups[wkKey2]) weekGroups[wkKey2] = { label: wkLabel, rows: [], isCurrent: wkKey2 === todayWeekStart };
+        weekGroups[wkKey2].rows.push(row);
       }
 
       // Sort: current week first, then future weeks ascending, then past weeks descending
@@ -431,20 +436,18 @@
 
       for (const wkKey of sortedWeeks) {
         const group = weekGroups[wkKey];
-        const statusOrder = { overdue: 0, upcoming: 1, late: 2, done: 3, cooldown: 4, skipped: 5 };
-        group.rows.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
+        group.rows.sort((a, b) => {
+          const order = { overdue: 0, upcoming: 1, late: 2, done: 3 };
+          return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+        });
 
-        const scheduled = group.rows.filter(r => r.status !== 'skipped' && r.status !== 'cooldown');
-        const doneCount = scheduled.filter(r => r.status === 'done' || r.status === 'late').length;
+        const doneCount = group.rows.filter(r => r.status === 'done' || r.status === 'late').length;
         const hasOverdue = group.rows.some(r => r.status === 'overdue');
-        const metaText = scheduled.length > 0 ? `${doneCount}/${scheduled.length} done` : '';
         const metaClass = hasOverdue ? 'tracker-week-meta tracker-week-meta--overdue' : 'tracker-week-meta';
-        const metaHtml = metaText ? `<span class="${metaClass}">${esc(metaText)}</span>` : '';
+        const metaHtml = `<span class="${metaClass}">${esc(`${doneCount}/${group.rows.length} done`)}</span>`;
 
         const currentClass = group.isCurrent ? ' tracker-week-group--current' : '';
-        const tagHtml = group.isCurrent
-          ? `<span class="tracker-week-current-tag">This Week</span>`
-          : '';
+        const tagHtml = group.isCurrent ? `<span class="tracker-week-current-tag">This Week</span>` : '';
 
         html += `<div class="tracker-week-group${currentClass}">
           ${renderSectionHead(group.label, null, { trailingHtml: tagHtml, metaHtml })}
@@ -453,6 +456,11 @@
           html += renderRow(row);
         }
         html += `</div></div>`;
+      }
+
+      if (skippedRows.length > 0) {
+        html += renderSectionHead('Skipped', String(skippedRows.length));
+        html += `<div class="card-stack">${skippedRows.map(renderRow).join('')}</div>`;
       }
 
       return html;
