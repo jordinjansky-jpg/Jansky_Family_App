@@ -1,69 +1,27 @@
-/* v3 */
-/* tracker.css — Tracker page styles (Phase 5) */
-/* Tab and card-row component classes now live in components.css */
+/* v4 */
+/* tracker.css — Tracker page styles */
 
-/* ── Period navigation (kept — solid, correct tap targets) ── */
-.tracker-period {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.125rem;
-  margin: 0.5rem 0 0.75rem;
-  font-size: var(--font-md);
-  color: var(--text-faint);
-}
-
-.tracker-period__row {
+/* ── Top bar (period label left + compact toggle right) ── */
+.tracker-top-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
 }
 
-.tracker-period__label {
-  min-width: 10ch;
-  text-align: center;
+.tracker-period-label {
+  font-size: var(--font-sm);
   font-weight: 600;
   color: var(--text);
 }
 
-.tracker-period__nav {
-  background: transparent;
-  border: none;
-  color: var(--text-faint);
-  padding: 0.25rem 0.5rem;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  line-height: 1;
-  min-width: 44px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* Constrain the segmented toggle to fit-content when inside the top bar */
+.tracker-top-bar .tabs--segmented {
+  width: fit-content;
+  min-width: 140px;
 }
 
-.tracker-period__nav:hover { background: var(--surface-2); color: var(--text); }
-.tracker-period__nav:focus-visible { outline: none; color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
-
-.tracker-period__today {
-  background: transparent;
-  border: none;
-  color: var(--text-faint);
-  font-size: var(--font-sm);
-  font-weight: 500;
-  padding: 0.25rem 0.6rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tracker-period__today:hover { background: var(--surface-2); color: var(--text); }
-.tracker-period__today:focus-visible { outline: none; color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
-
-/* ── Filter area (person filter + filter chip row) ── */
+/* ── Filter area (person pills + filter chip) ── */
 .tracker-filter-area {
   display: flex;
   align-items: center;
@@ -96,43 +54,21 @@
   background: var(--accent-soft);
 }
 
-/* ── Summary bar ── */
-.tracker-summary {
-  margin-bottom: var(--spacing-sm);
+/* ── Per-person summary line (shown when person filter active) ── */
+.tracker-person-summary {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  padding: var(--spacing-xs) 0 var(--spacing-sm);
 }
 
-.tracker-summary__bar {
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: var(--spacing-xs);
+/* ── Overdue section — color the section title red ── */
+.tracker-section--overdue .section__title {
+  color: var(--danger);
 }
 
-.tracker-summary__fill {
-  height: 100%;
-  background: var(--success);
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-
-.tracker-summary__counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
-}
-
-.tracker-summary__count {
-  font-size: var(--font-xs);
-  font-weight: 600;
-}
-
-.tracker-summary__count--done     { color: var(--success); }
-.tracker-summary__count--late     { color: var(--warning); }
-.tracker-summary__count--overdue  { color: var(--danger); }
-.tracker-summary__count--upcoming { color: var(--text-faint); }
-.tracker-summary__count--cooldown { color: var(--text-faint); }
-.tracker-summary__count--skipped  { color: var(--text-faint); }
+/* ── Monthly week group completion meta ── */
+.tracker-week-meta { color: var(--text-muted); font-size: var(--font-sm); }
+.tracker-week-meta--overdue { color: var(--danger); }
 
 /* ── Task rows container ── */
 .tracker-rows { display: flex; flex-direction: column; }
@@ -159,7 +95,7 @@
   font-weight: 600;
 }
 
-/* ── Status badges (retained — utility, not a component class) ── */
+/* ── Status badges ── */
 .tracker-status {
   display: inline-flex;
   align-items: center;
