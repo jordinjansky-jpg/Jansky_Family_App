@@ -321,7 +321,7 @@
         const yrG = gradeDisplay(b.year.percentage);
         html += `<div class="grades-row">
           <span class="grades-cell grades-cell--name">
-            <span class="sb-mini-dot" style="--person-color: ${b.person.color}; background: var(--person-color)"></span>
+            <span class="sb-mini-dot" style="--person-color: ${esc(b.person.color)}; background: var(--person-color)"></span>
             ${esc(b.person.name)}
           </span>
           <span class="grades-cell">${renderGradeBadge(tdG.grade, tdG.tier)}</span>
