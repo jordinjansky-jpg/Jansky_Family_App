@@ -39,7 +39,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderTrackerFilterSheet, renderSectionHead } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -349,42 +349,6 @@
       </div>`;
     }
 
-    // ── Category filter dropdown ──
-
-    function renderCategoryFilter() {
-      const catEntries = Object.entries(cats);
-      if (catEntries.length === 0) return '';
-      let html = `<select class="tracker-select" id="categoryFilter">
-        <option value="">All Categories</option>`;
-      for (const [key, cat] of catEntries) {
-        const sel = activeCategory === key ? ' selected' : '';
-        html += `<option value="${esc(key)}"${sel}>${esc(cat.icon || '')} ${esc(cat.label || cat.name)}</option>`;
-      }
-      html += `</select>`;
-      return html;
-    }
-
-    // ── Status filter dropdown ──
-
-    function renderStatusFilter() {
-      const options = [
-        { value: '', label: 'All Statuses' },
-        { value: 'done', label: 'Done' },
-        { value: 'late', label: 'Done Late' },
-        { value: 'overdue', label: 'Overdue' },
-        { value: 'upcoming', label: 'Upcoming' },
-        { value: 'cooldown', label: 'Cooldown' },
-        { value: 'skipped', label: 'Skipped' }
-      ];
-      let html = `<select class="tracker-select" id="statusFilter">`;
-      for (const opt of options) {
-        const sel = activeStatus === (opt.value || null) ? ' selected' : '';
-        html += `<option value="${opt.value}"${sel}>${opt.label}</option>`;
-      }
-      html += `</select>`;
-      return html;
-    }
-
     // ── Weekly view ──
 
     function renderWeeklyView() {
@@ -489,14 +453,17 @@
     // ── Full render ──
 
     function render() {
-      const weeklyActive = activeView === 'weekly' ? ' tracker-tab--active' : '';
-      const monthlyActive = activeView === 'monthly' ? ' tracker-tab--active' : '';
+      const weeklyActive = activeView === 'weekly';
+      const monthlyActive = activeView === 'monthly';
+      const activeFilterCount = (activeCategory ? 1 : 0) + (activeStatus ? 1 : 0);
+      const filterLabel = activeFilterCount > 0 ? `Filter · ${activeFilterCount}` : 'Filter';
+      const sliders = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`;
 
       let html = `
-        <div class="tracker-tabs">
-          <button class="tracker-tab${weeklyActive}" data-view="weekly" type="button">Weekly</button>
-          <button class="tracker-tab${monthlyActive}" data-view="monthly" type="button">Monthly</button>
-        </div>
+        <nav class="tabs tabs--segmented">
+          <button class="tab${weeklyActive ? ' is-active' : ''}" data-view="weekly" type="button">Weekly</button>
+          <button class="tab${monthlyActive ? ' is-active' : ''}" data-view="monthly" type="button">Monthly</button>
+        </nav>
         <div class="tracker-period">
           <div class="tracker-period__row">
             <button class="tracker-period__nav" data-period-nav="prev" type="button" aria-label="Previous"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
@@ -505,10 +472,11 @@
           </div>
           <button class="tracker-period__today" data-period-nav="today" type="button">Today</button>
         </div>
-        ${renderPersonFilter(people, activePerson)}
-        <div class="tracker-filters">
-          ${renderCategoryFilter()}
-          ${renderStatusFilter()}
+        <div class="tracker-filter-area">
+          ${renderPersonFilter(people, activePerson)}
+          <button class="chip chip--filter${activeFilterCount > 0 ? ' chip--filter--active' : ''}" id="trackerFilterChip" type="button">
+            ${sliders} ${filterLabel}
+          </button>
         </div>
         <div class="tracker-content">
           ${activeView === 'weekly' ? renderWeeklyView() : renderMonthlyView()}
@@ -529,9 +497,69 @@
       writePerson(id, data);
     }
 
+    function openFilterSheet() {
+      const mount = document.getElementById('taskSheetMount');
+      mount.innerHTML = renderBottomSheet(
+        renderTrackerFilterSheet(cats, activeCategory, activeStatus)
+      );
+      applyDataColors(mount);
+
+      // Track in-sheet state separately until Apply
+      let sheetCategory = activeCategory;
+      let sheetStatus = activeStatus;
+
+      const sheet = document.getElementById('bottomSheet');
+
+      function updateChipStates() {
+        for (const btn of mount.querySelectorAll('[data-filter-cat]')) {
+          btn.classList.toggle('chip--active', btn.dataset.filterCat === (sheetCategory || ''));
+        }
+        for (const btn of mount.querySelectorAll('[data-filter-status]')) {
+          btn.classList.toggle('chip--active', btn.dataset.filterStatus === (sheetStatus || ''));
+        }
+      }
+
+      for (const btn of mount.querySelectorAll('[data-filter-cat]')) {
+        btn.addEventListener('click', () => {
+          sheetCategory = btn.dataset.filterCat || null;
+          updateChipStates();
+        });
+      }
+
+      for (const btn of mount.querySelectorAll('[data-filter-status]')) {
+        btn.addEventListener('click', () => {
+          sheetStatus = btn.dataset.filterStatus || null;
+          updateChipStates();
+        });
+      }
+
+      mount.querySelector('#filterClear')?.addEventListener('click', () => {
+        activeCategory = null;
+        activeStatus = null;
+        saveTrackerPrefs();
+        mount.innerHTML = '';
+        render();
+      });
+
+      mount.querySelector('#filterApply')?.addEventListener('click', () => {
+        activeCategory = sheetCategory;
+        activeStatus = sheetStatus;
+        saveTrackerPrefs();
+        mount.innerHTML = '';
+        render();
+      });
+
+      requestAnimationFrame(() => {
+        sheet?.classList.add('active');
+        sheet?.addEventListener('click', (e) => {
+          if (e.target === sheet) mount.innerHTML = '';
+        });
+      });
+    }
+
     function bindEvents() {
       // View tabs
-      for (const tab of main.querySelectorAll('.tracker-tab')) {
+      for (const tab of main.querySelectorAll('.tab[data-view]')) {
         tab.addEventListener('click', () => {
           activeView = tab.dataset.view;
           periodAnchor = today;  // Reset to current period on tab switch
@@ -549,25 +577,8 @@
         });
       }
 
-      // Category filter
-      const catSelect = main.querySelector('#categoryFilter');
-      if (catSelect) {
-        catSelect.addEventListener('change', () => {
-          activeCategory = catSelect.value || null;
-          saveTrackerPrefs();
-          render();
-        });
-      }
-
-      // Status filter
-      const statusSelect = main.querySelector('#statusFilter');
-      if (statusSelect) {
-        statusSelect.addEventListener('change', () => {
-          activeStatus = statusSelect.value || null;
-          saveTrackerPrefs();
-          render();
-        });
-      }
+      // Filter chip → opens filter sheet
+      main.querySelector('#trackerFilterChip')?.addEventListener('click', openFilterSheet);
 
       // Period navigation buttons
       for (const btn of main.querySelectorAll('[data-period-nav]')) {
@@ -579,23 +590,23 @@
         });
       }
 
-      // Long-press on tracker rows to open detail sheet
-      for (const row of main.querySelectorAll('.tracker-row[data-entry-key]')) {
-        if (!row.dataset.entryKey) continue; // skip skipped tasks (no entry)
+      // Long-press on tracker cards to open detail sheet (500ms per spec)
+      for (const card of main.querySelectorAll('.card--tracker[data-entry-key]')) {
+        if (!card.dataset.entryKey) continue;
         let pressTimer = null;
         let didLongPress = false;
 
-        row.addEventListener('pointerdown', () => {
+        card.addEventListener('pointerdown', () => {
           didLongPress = false;
           pressTimer = setTimeout(() => {
             didLongPress = true;
-            openTaskSheet(row.dataset.entryKey, row.dataset.dateKey);
+            openTaskSheet(card.dataset.entryKey, card.dataset.dateKey);
           }, settings?.longPressMs ?? 500);
         });
 
-        row.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
-        row.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
-        row.addEventListener('contextmenu', (e) => e.preventDefault());
+        card.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
+        card.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
+        card.addEventListener('contextmenu', (e) => e.preventDefault());
       }
     }
 
