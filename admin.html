@@ -1718,7 +1718,7 @@
             </div>
           </div>
 
-          <div class="admin-form__actions">
+          <div class="${isEdit ? 'admin-form__actions admin-form__actions--2col' : 'admin-form__actions'}">
             ${isEdit ? `<button class="btn btn--danger" id="rf_delete" type="button">Delete</button>` : ''}
             ${isEdit && isArchived ? `<button class="btn btn--secondary" id="rf_unarchive" type="button">Unarchive</button>` : ''}
             ${isEdit && !isArchived ? `<button class="btn btn--secondary" id="rf_archive" type="button">Archive</button>` : ''}

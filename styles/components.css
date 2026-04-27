@@ -617,6 +617,14 @@
 .admin-form__actions .btn {
   width: 100%;
 }
+.admin-form__actions--2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex-direction: unset;
+}
+.admin-form__actions--2col .btn {
+  width: auto;
+}
 
 /* ============ Add Menu (universal + button sheet) ============ */
 .add-menu {
