@@ -648,6 +648,87 @@ export function renderSectionHead(title, meta, options = {}) {
 }
 
 /**
+ * Scoreboard leaderboard card (.card.card--score).
+ * @param {Object} b  - Board entry: { person: {id, name, color}, streak: {current}, trend: 'up'|'down'|null }
+ * @param {Object} active - Grade data: { earned, possible, percentage }
+ * @param {Object} gd - Grade display: { grade, tier }
+ * @param {number} liveBalance - Computed reward balance for this person
+ * @param {string} badgeIcons - Raw emoji string (max 5 achievement icons)
+ */
+export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
+  const trendIcon = b.trend === 'up' ? '↑' : b.trend === 'down' ? '↓' : '';
+  const metaParts = [
+    b.streak.current > 0 ? `🔥 ${b.streak.current}d` : null,
+    `💰 ${liveBalance.toLocaleString()}`,
+    trendIcon || null,
+  ].filter(Boolean).join(' · ');
+
+  const badges = badgeIcons
+    ? `<span class="sb-badges">${esc(badgeIcons)}</span>`
+    : '';
+
+  return `<button class="card card--score" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
+    <div class="card__leading">
+      <div class="avatar" style="--person-color: ${esc(b.person.color)}">${esc(b.person.name[0].toUpperCase())}</div>
+    </div>
+    <div class="card__body">
+      <div class="card__title">${esc(b.person.name)}${badges}</div>
+      <div class="card__meta">${esc(metaParts)}</div>
+    </div>
+    <div class="card__trailing">
+      <span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
+      <span class="card--score__pct">${active.percentage}%</span>
+    </div>
+  </button>`;
+}
+
+/**
+ * Bottom sheet body for the tracker filter chip.
+ * Renders category chip group + status chip group + Clear/Apply actions.
+ * Mount inside renderBottomSheet(); bind #filterClear and #filterApply after mount.
+ * @param {Object} cats          - Categories object from Firebase { [key]: { name|label, icon? } }
+ * @param {string|null} activeCategory  - Currently selected category key, or null for All
+ * @param {string|null} activeStatus    - Currently selected status value, or null for All
+ */
+export function renderTrackerFilterSheet(cats, activeCategory, activeStatus) {
+  const catEntries = Object.entries(cats || {});
+  const statusOptions = [
+    { value: 'done',     label: 'Done' },
+    { value: 'late',     label: 'Done Late' },
+    { value: 'overdue',  label: 'Overdue' },
+    { value: 'upcoming', label: 'Upcoming' },
+    { value: 'cooldown', label: 'Cooldown' },
+    { value: 'skipped',  label: 'Skipped' },
+  ];
+
+  const catChips = [
+    `<button class="chip chip--selectable${!activeCategory ? ' chip--active' : ''}" data-filter-cat="" type="button">All</button>`,
+    ...catEntries.map(([key, cat]) => {
+      const label = ((cat.icon || '') + ' ' + (cat.label || cat.name || key)).trim();
+      return `<button class="chip chip--selectable${activeCategory === key ? ' chip--active' : ''}" data-filter-cat="${esc(key)}" type="button">${esc(label)}</button>`;
+    }),
+  ].join('');
+
+  const statusChips = [
+    `<button class="chip chip--selectable${!activeStatus ? ' chip--active' : ''}" data-filter-status="" type="button">All</button>`,
+    ...statusOptions.map(opt =>
+      `<button class="chip chip--selectable${activeStatus === opt.value ? ' chip--active' : ''}" data-filter-status="${esc(opt.value)}" type="button">${esc(opt.label)}</button>`
+    ),
+  ].join('');
+
+  return `<div class="sheet-body">
+    <div class="sheet-label sheet-label--spaced">Category</div>
+    <div class="chip-group">${catChips}</div>
+    <div class="sheet-label sheet-label--spaced">Status</div>
+    <div class="chip-group">${statusChips}</div>
+    <div class="sheet-actions">
+      <button class="btn btn--ghost" id="filterClear" type="button">Clear all</button>
+      <button class="btn btn--primary" id="filterApply" type="button">Apply</button>
+    </div>
+  </div>`;
+}
+
+/**
  * Items: Array<{ id, label, icon?: string (HTML/SVG), variant?: 'default'|'danger' }>.
  * Rendered inside a bottom sheet (the page calls renderBottomSheet(renderOverflowMenu(items))).
  * The page binds clicks via delegation: data-item-id attribute identifies the chosen row.
