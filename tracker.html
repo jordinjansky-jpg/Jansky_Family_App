@@ -396,7 +396,16 @@
         return renderEmptyState('', 'No monthly tasks', 'Nothing scheduled for this period.');
       }
 
-      // Group by week start date key for proper sorting
+      let html = '';
+
+      if (activePerson) {
+        const person = people.find(p => p.id === activePerson);
+        const scheduled = filtered.filter(r => r.status !== 'skipped' && r.status !== 'cooldown');
+        const done = scheduled.filter(r => r.status === 'done' || r.status === 'late').length;
+        html += `<div class="tracker-person-summary">${esc(person?.name || '')} · ${done}/${scheduled.length} done this month</div>`;
+      }
+
+      // Group by week start date key
       const weekGroups = {};
       const todayWeekStart = weekStart(today);
       for (const row of filtered) {
@@ -408,24 +417,29 @@
         weekGroups[wkStart].rows.push(row);
       }
 
-      // Sort: current week first, then future weeks, then past weeks (descending)
+      // Sort: current week first, then future weeks ascending, then past weeks descending
       const sortedWeeks = Object.keys(weekGroups).sort((a, b) => {
         const aIsCurrent = a === todayWeekStart ? 1 : 0;
         const bIsCurrent = b === todayWeekStart ? 1 : 0;
-        if (aIsCurrent !== bIsCurrent) return bIsCurrent - aIsCurrent; // current first
+        if (aIsCurrent !== bIsCurrent) return bIsCurrent - aIsCurrent;
         const aIsFuture = a > todayWeekStart ? 1 : 0;
         const bIsFuture = b > todayWeekStart ? 1 : 0;
-        if (aIsFuture !== bIsFuture) return bIsFuture - aIsFuture; // future before past
-        if (aIsFuture) return a < b ? -1 : 1; // future: ascending
-        return a > b ? -1 : 1; // past: descending (most recent first)
+        if (aIsFuture !== bIsFuture) return bIsFuture - aIsFuture;
+        if (aIsFuture) return a < b ? -1 : 1;
+        return a > b ? -1 : 1;
       });
-
-      let html = '';
 
       for (const wkKey of sortedWeeks) {
         const group = weekGroups[wkKey];
         const statusOrder = { overdue: 0, upcoming: 1, late: 2, done: 3, cooldown: 4, skipped: 5 };
         group.rows.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
+
+        const scheduled = group.rows.filter(r => r.status !== 'skipped' && r.status !== 'cooldown');
+        const doneCount = scheduled.filter(r => r.status === 'done' || r.status === 'late').length;
+        const hasOverdue = group.rows.some(r => r.status === 'overdue');
+        const metaText = scheduled.length > 0 ? `${doneCount}/${scheduled.length} done` : '';
+        const metaClass = hasOverdue ? 'tracker-week-meta tracker-week-meta--overdue' : 'tracker-week-meta';
+        const metaHtml = metaText ? `<span class="${metaClass}">${esc(metaText)}</span>` : '';
 
         const currentClass = group.isCurrent ? ' tracker-week-group--current' : '';
         const tagHtml = group.isCurrent
@@ -433,8 +447,8 @@
           : '';
 
         html += `<div class="tracker-week-group${currentClass}">
-          ${renderSectionHead(group.label, null, { trailingHtml: tagHtml })}
-          <div class="tracker-rows">`;
+          ${renderSectionHead(group.label, null, { trailingHtml: tagHtml, metaHtml })}
+          <div class="card-stack">`;
         for (const row of group.rows) {
           html += renderRow(row);
         }
