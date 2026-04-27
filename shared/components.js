@@ -656,12 +656,10 @@ export function renderSectionHead(title, meta, options = {}) {
  * @param {string} badgeIcons - Raw emoji string (max 5 achievement icons)
  */
 export function renderScoreCard(b, active, gd, liveBalance, badgeCount) {
-  const trendIcon = b.trend === 'up' ? '↑' : b.trend === 'down' ? '↓' : '';
   const metaParts = [
     b.streak.current > 0 ? `${b.streak.current}d streak` : null,
     `${liveBalance.toLocaleString()} pts`,
     badgeCount > 0 ? `${badgeCount} badge${badgeCount !== 1 ? 's' : ''}` : null,
-    trendIcon || null,
   ].filter(Boolean).join(' · ');
 
   return `<button class="card card--score" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
