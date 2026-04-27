@@ -199,6 +199,31 @@
   width: 100%;
 }
 
+/* ── Library Filter & Sort chip ── */
+.admin-filter-chip { white-space: nowrap; flex-shrink: 0; }
+.admin-filter-chip--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── Filter/Sort sheet sections ── */
+.fs-section { margin-bottom: var(--spacing-md); }
+.fs-section__label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-xs);
+}
+.sheet-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-subtle, var(--border));
+}
+.sheet-actions .btn { flex: 1; }
+
 /* Library toolbar (count + actions row) */
 .admin-list-toolbar {
   display: flex;
