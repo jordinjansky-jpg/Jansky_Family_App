@@ -659,15 +659,18 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeCount) {
   const metaParts = [
     b.streak.current > 0 ? `${b.streak.current}d streak` : null,
     `${liveBalance.toLocaleString()} pts`,
-    badgeCount > 0 ? `${badgeCount} badge${badgeCount !== 1 ? 's' : ''}` : null,
   ].filter(Boolean).join(' · ');
+
+  const badgeLabel = badgeCount > 0
+    ? `<span class="card--score__badge-count"> · ${badgeCount} badge${badgeCount !== 1 ? 's' : ''}</span>`
+    : '';
 
   return `<button class="card card--score" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
     <div class="card__leading">
       <div class="avatar" style="--person-color: ${esc(b.person.color)}">${esc((b.person.name || '?')[0].toUpperCase())}</div>
     </div>
     <div class="card__body">
-      <div class="card__title">${esc(b.person.name)}</div>
+      <div class="card__title">${esc(b.person.name)}${badgeLabel}</div>
       <div class="card__meta">${esc(metaParts)}</div>
     </div>
     <div class="card__trailing">

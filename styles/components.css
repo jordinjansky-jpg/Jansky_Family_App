@@ -2824,6 +2824,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.card--score__badge-count {
+  font-size: var(--font-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 /* ── Person dot (28px compact colored circle with initial) ── */
 .person-dot {
   width: 28px;

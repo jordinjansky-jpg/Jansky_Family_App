@@ -40,13 +40,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeSnapshot, updateData } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeAchievement, writeSnapshot, updateData } from './shared/firebase.js';
     import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, showConfirm, showToast, applyDataColors, renderScoreCard, renderSectionHead } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, findHighestDamagePenalty, buildSnapshot } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, findHighestDamagePenalty, buildSnapshot } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -239,6 +239,37 @@
 
     // ── Period selector state ──
     let selectedPeriod = linkedPerson?.prefs?.scoreboard?.period || 'week'; // 'today' | 'week' | 'month' | 'year'
+
+    // ── Check achievements for all people (covers adults who only use non-kid pages) ──
+    {
+      const writes = [];
+      for (const p of people) {
+        const existing = allAchievementsData?.[p.id] || {};
+        const msgs = allMessages?.[p.id] || {};
+        const anchor = allAnchors?.[p.id] || null;
+        const { totalEarned } = calculateBalance(p.id, allSnapshots, msgs, anchor, allMultipliers, tz);
+        const pStreak = streaks[p.id] || { current: 0, best: 0 };
+        const newKeys = checkNewAchievements({
+          streak: pStreak.current,
+          bestStreak: pStreak.best,
+          totalEarned,
+          existingAchievements: existing,
+          weeklyGrade: weeklyGrade(p.id).grade,
+          monthlyGrade: monthlyGrade(p.id).grade,
+          dailyGrade: todayScore(p.id).grade,
+          hasRedeemed: Object.values(msgs).some(m => m.type === 'redemption-approved'),
+          personId: p.id,
+          achievementDefs: activeDefs
+        });
+        for (const key of newKeys) {
+          if (existing[key]?.revoked) continue;
+          writes.push(writeAchievement(p.id, key, { unlockedAt: Date.now(), seen: false }));
+          if (!allAchievementsData[p.id]) allAchievementsData[p.id] = {};
+          allAchievementsData[p.id][key] = { unlockedAt: Date.now(), seen: false };
+        }
+      }
+      if (writes.length) await Promise.all(writes);
+    }
 
     // Build person data for leaderboard — precompute all display values here
     const board = people.map(p => {
