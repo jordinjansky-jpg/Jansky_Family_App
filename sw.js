@@ -9,6 +9,12 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v81 (2026-04-27) — admin library: unified Filter & Sort chip across all 6 sections
+//                    (Tasks, Events, Meals, Categories, Rewards, Badges);
+//                    tasks gains search; events gains time range + owner filter;
+//                    meals gains favorites filter + prep time sort; rewards gains
+//                    type + status filter with absorbed archived section;
+//                    badges gains earned/not-earned filter + least-unlocked sort.
 // v80 (2026-04-27) — tracker: remove filter chip and category/status filter
 // v79 (2026-04-27) — fix tracker: person pills scroll on mobile, swipe works on empty periods
 // v78 (2026-04-27) — tracker redesign: 2-row top chrome, status sections (weekly),
@@ -166,7 +172,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v80';
+const CACHE_NAME = 'family-hub-v81';
 
 const APP_SHELL = [
   '/',
