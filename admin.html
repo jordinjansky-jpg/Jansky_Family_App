@@ -399,18 +399,70 @@
     // Tasks Tab
     // ══════════════════════════════════════════
 
+    let taskSearch = '';
     let taskFilter = { rotation: '', owner: '', category: '', status: '', difficulty: '' };
     let taskSort = 'name';
     let editingTaskId = null;
     let selectMode = false;
     let selectedTaskIds = new Set();
 
-    // Per-section search + sort state
-    let eventsSearch = ''; let eventsSort = 'date';
-    let mealsSearch = '';  let mealsSort = 'lastUsed';
+    // Per-section search + sort + filter state
+    let eventsSearch = ''; let eventsSort = 'date'; let eventsOwner = ''; let eventsTimeRange = 'all';
+    let mealsSearch = '';  let mealsSort = 'lastUsed'; let mealsFavOnly = false;
     let catsSearch = '';   let catsSort = 'name';
-    let rewardsSearch = ''; let rewardsSort = 'name';
-    let badgesSearch = ''; let badgesSort = 'name';
+    let rewardsSearch = ''; let rewardsSort = 'name'; let rewardsType = ''; let rewardsStatus = 'active';
+    let badgesSearch = ''; let badgesSort = 'name'; let badgesFilter = '';
+
+    // ── Library filter chip helpers ──
+
+    function renderFilterSortChip(id, activeCount) {
+      const label = activeCount > 0 ? `Filter &amp; Sort · ${activeCount}` : 'Filter &amp; Sort';
+      const extraCls = activeCount > 0 ? ' admin-filter-chip--active' : '';
+      return `<button class="btn btn--ghost btn--sm admin-filter-chip${extraCls}" id="${id}" type="button">${label} ▾</button>`;
+    }
+
+    function closeAdminSheet() {
+      const sheet = document.getElementById('bottomSheet');
+      sheet?.classList.remove('active');
+      setTimeout(() => { document.getElementById('taskSheetMount').innerHTML = ''; }, 300);
+    }
+
+    function taskFilterActiveCount() {
+      return [
+        taskFilter.rotation, taskFilter.owner, taskFilter.category,
+        taskFilter.status, taskFilter.difficulty,
+        taskSort !== 'name' ? 'x' : '',
+      ].filter(Boolean).length;
+    }
+    function eventsFilterActiveCount() {
+      return [
+        eventsTimeRange !== 'all' ? 'x' : '',
+        eventsOwner,
+        eventsSort !== 'date' ? 'x' : '',
+      ].filter(Boolean).length;
+    }
+    function mealsFilterActiveCount() {
+      return [
+        mealsFavOnly ? 'x' : '',
+        mealsSort !== 'lastUsed' ? 'x' : '',
+      ].filter(Boolean).length;
+    }
+    function catsFilterActiveCount() {
+      return catsSort !== 'name' ? 1 : 0;
+    }
+    function rewardsFilterActiveCount() {
+      return [
+        rewardsType,
+        rewardsStatus !== 'active' ? 'x' : '',
+        rewardsSort !== 'name' ? 'x' : '',
+      ].filter(Boolean).length;
+    }
+    function badgesFilterActiveCount() {
+      return [
+        badgesFilter,
+        badgesSort !== 'name' ? 'x' : '',
+      ].filter(Boolean).length;
+    }
 
     function renderTasksTab() {
       const pa = peopleArray();
