@@ -430,10 +430,12 @@
         group.rows.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
 
         const currentClass = group.isCurrent ? ' tracker-week-group--current' : '';
-        const currentTag = group.isCurrent ? ' <span class="tracker-week-current-tag">This Week</span>' : '';
+        const tagHtml = group.isCurrent
+          ? `<span class="tracker-week-current-tag">This Week</span>`
+          : '';
 
         html += `<div class="tracker-week-group${currentClass}">
-          <div class="tracker-week-label">${group.label}${currentTag}</div>
+          ${renderSectionHead(group.label, null, { trailingHtml: tagHtml })}
           <div class="tracker-rows">`;
         for (const row of group.rows) {
           html += renderRow(row);
