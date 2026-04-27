@@ -385,18 +385,30 @@
 
       const periodDates = {
         today: [today, today],
-        week: [wStart, wEnd],
+        week:  [wStart, wEnd],
         month: [mStart, mEnd],
-        year: [y12Start, today]
+        year:  [y12Start, today],
       };
       const [dStart, dEnd] = periodDates[selectedPeriod];
       const periodLabels = { today: 'Today', week: 'This Week', month: 'This Month', year: '12 Months' };
 
+      const grade = selectedPeriod === 'today' ? todayScore(personId)
+        : selectedPeriod === 'week'  ? weeklyGrade(personId)
+        : selectedPeriod === 'month' ? monthlyGrade(personId)
+        : yearGrade(personId);
+      const gd = gradeDisplay(grade.percentage);
+      const streak = streaks[personId] || { current: 0, best: 0 };
+      const personMsgs = allMessages?.[personId] || {};
+      const personAnchor = allAnchors?.[personId] || null;
+      const { balance } = calculateBalance(personId, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
+      const todayMult = allMultipliers?.[today]?.[personId]?.multiplier || 1;
+      const currentBalance = Math.round(balance + (todayScore(personId).percentage || 0) * todayMult);
+
       // Gather task-level detail for this person in the period
       const taskDetails = [];
-      let current = dStart;
-      while (current <= dEnd && current <= today) {
-        const dayEntries = schedule[current] || {};
+      let cur = dStart;
+      while (cur <= dEnd && cur <= today) {
+        const dayEntries = schedule[cur] || {};
         for (const [k, e] of Object.entries(dayEntries)) {
           if (e.ownerId !== personId) continue;
           const task = tasks[e.taskId];
@@ -404,65 +416,137 @@
           const completion = comps[k] || null;
           const pts = basePoints(task, settings?.difficultyMultipliers);
           const earned = completion ? earnedPoints(task, completion, settings?.difficultyMultipliers) : 0;
-
           let status;
           if (completion) {
             status = completion.isLate ? 'Late' : 'Done';
-          } else if (current < today) {
+          } else if (cur < today) {
             status = 'Missed';
           } else {
             status = 'Pending';
           }
-
-          taskDetails.push({
-            name: task.name,
-            category: task.category ? (cats[task.category]?.icon || '') : '',
-            date: current,
-            pts,
-            earned,
-            status
-          });
+          const catIcon = task.category ? (cats[task.category]?.icon || '') : '';
+          taskDetails.push({ name: task.name, catIcon, date: cur, pts, earned, status });
         }
-        current = addDays(current, 1);
+        cur = addDays(cur, 1);
       }
 
-      // Build sheet content
+      // ── Category breakdown ──
+      const breakdown = categoryBreakdown(personId, dStart, dEnd);
+      const catKeys = Object.keys(breakdown).sort(
+        (a, b) => breakdown[b].possible - breakdown[a].possible
+      );
+
+      // ── Weekly sparkline (last 4 weeks) ──
+      const history = weeklyHistory(personId);
+
+      // ── Balance sparkline (last 7 days) ──
+      const balanceDays = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = addDays(today, -i);
+        const filteredSnaps = {};
+        if (allSnapshots) {
+          for (const [dk, ppl] of Object.entries(allSnapshots)) {
+            if (dk <= d) filteredSnaps[dk] = ppl;
+          }
+        }
+        const dEnd2 = new Date(d + 'T23:59:59Z').getTime();
+        const filteredMsgs = {};
+        for (const [mk, m] of Object.entries(personMsgs)) {
+          if (m.createdAt && m.createdAt <= dEnd2) filteredMsgs[mk] = m;
+        }
+        const { balance: bal } = calculateBalance(personId, filteredSnaps, filteredMsgs, personAnchor, allMultipliers, tz);
+        balanceDays.push({ date: d, balance: bal });
+      }
+      const maxBal = Math.max(...balanceDays.map(d => Math.abs(d.balance)), 1);
+
+      // ── Build sheet HTML ──
       let html = `<div class="sb-drilldown">`;
-      html += `<div class="sb-drilldown__header" style="--person-color: ${person.color}">
-        <span class="sb-card__initial" style="background: ${person.color}">${person.name[0].toUpperCase()}</span>
+
+      // Header
+      html += `<div class="sb-drilldown__header" style="--owner-color: ${esc(person.color)}">
+        <div class="avatar" style="--person-color: ${esc(person.color)}">${esc((person.name || '?')[0].toUpperCase())}</div>
         <span class="sb-drilldown__name">${esc(person.name)}</span>
         <span class="sb-drilldown__period">${periodLabels[selectedPeriod]}</span>
       </div>`;
 
       // Summary row
-      const grade = selectedPeriod === 'today' ? todayScore(personId)
-        : selectedPeriod === 'week' ? weeklyGrade(personId)
-        : selectedPeriod === 'month' ? monthlyGrade(personId)
-        : yearGrade(personId);
-      const gd = gradeDisplay(grade.percentage);
-
       html += `<div class="sb-drilldown__summary">
-        <span class="grade-badge grade-badge--${gd.tier} grade-badge--lg">${gd.grade}</span>
+        <span class="grade-badge grade-badge--${esc(gd.tier)} grade-badge--lg">${esc(gd.grade)}</span>
         <span class="sb-drilldown__stats">${grade.earned}/${grade.possible} pts · ${grade.percentage}%</span>
       </div>`;
 
-      // Task list grouped by status
+      // Category breakdown
+      if (catKeys.length > 0) {
+        html += renderSectionHead('Category Breakdown');
+        html += `<div class="sb-cat-bars">`;
+        for (const ck of catKeys) {
+          const c = breakdown[ck];
+          const pct = c.possible > 0 ? Math.round((c.earned / c.possible) * 100) : 0;
+          const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
+          html += `<div class="sb-cat-row">
+            <span class="sb-cat-label">${esc(c.icon)} ${esc(c.label)}</span>
+            <div class="sb-cat-bar">
+              <div class="sb-cat-bar-fill sb-cat-bar-fill--${esc(tier)}" style="width:${pct}%"></div>
+            </div>
+            <span class="sb-cat-pct">${pct}%</span>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      // Weekly trend sparkline
+      html += renderSectionHead('Weekly Trend');
+      html += `<div class="sb-sparkline">`;
+      const sparkLabels = ['3 wks ago', '2 wks ago', 'Last wk', 'This wk'];
+      for (let i = 0; i < history.length; i++) {
+        const h = history[i];
+        const pct = h.possible > 0 ? h.percentage : 0;
+        const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
+        html += `<div class="sb-spark-bar" title="${sparkLabels[i]}: ${pct}%">
+          <div class="sb-spark-fill sb-spark-fill--${tier}" style="height:${Math.max(pct, 4)}%"></div>
+        </div>`;
+      }
+      html += `</div>`;
+
+      // Streak
+      html += renderSectionHead('Streak');
+      html += `<div class="sb-drilldown__streak">
+        🔥 ${streak.current}-day current · ⭐ ${streak.best}-day best
+      </div>`;
+
+      // Balance sparkline
+      html += renderSectionHead('Balance');
+      html += `<div class="sb-drilldown__balance-row">
+        <div class="sb-sparkline">`;
+      for (let i = 0; i < balanceDays.length; i++) {
+        const bd = balanceDays[i];
+        const pct = Math.round(Math.abs(bd.balance) / maxBal * 100);
+        const label = i === 6 ? 'Today' : formatDateShort(bd.date);
+        html += `<div class="sb-spark-bar" title="${label}: ${bd.balance.toLocaleString()} pts">
+          <div class="sb-spark-fill sb-spark-fill--${bd.balance >= 0 ? 'a' : 'f'}" style="height:${Math.max(pct, 4)}%"></div>
+        </div>`;
+      }
+      html += `</div>
+        <span class="sb-drilldown__balance-val">💰 ${currentBalance.toLocaleString()}</span>
+      </div>`;
+
+      // Task list by status
+      html += renderSectionHead(`Tasks — ${periodLabels[selectedPeriod]}`);
       const statusOrder = ['Missed', 'Late', 'Pending', 'Done'];
       const statusGroups = {};
       for (const td of taskDetails) {
         if (!statusGroups[td.status]) statusGroups[td.status] = [];
         statusGroups[td.status].push(td);
       }
-
       for (const status of statusOrder) {
         const items = statusGroups[status];
-        if (!items || items.length === 0) continue;
+        if (!items?.length) continue;
         const statusClass = `sb-status--${status.toLowerCase()}`;
         html += `<div class="sb-drilldown__group">
           <div class="sb-drilldown__group-label ${statusClass}">${status} (${items.length})</div>`;
         for (const item of items) {
           html += `<div class="sb-drilldown__task">
-            <span class="sb-drilldown__task-name">${item.category ? esc(item.category) + ' ' : ''}${esc(item.name)}</span>
+            <span class="sb-drilldown__task-name">${item.catIcon ? esc(item.catIcon) + ' ' : ''}${esc(item.name)}</span>
             <span class="sb-drilldown__task-date">${formatDateShort(item.date)}</span>
             <span class="sb-drilldown__task-pts">${item.earned}/${item.pts}</span>
           </div>`;
