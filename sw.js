@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v82 (2026-04-27) — tracker: compact person pills (font-xs, tighter padding + gap)
 // v81 (2026-04-27) — admin library: unified Filter & Sort chip across all 6 sections
 //                    (Tasks, Events, Meals, Categories, Rewards, Badges);
 //                    tasks gains search; events gains time range + owner filter;
@@ -172,7 +173,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v81';
+const CACHE_NAME = 'family-hub-v82';
 
 const APP_SHELL = [
   '/',

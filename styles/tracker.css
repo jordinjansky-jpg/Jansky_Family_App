@@ -34,6 +34,15 @@
 .tracker-filter-area .person-filter {
   flex: 1;
   min-width: 0;
+  gap: var(--spacing-xs);
+}
+
+/* Compact person pills in tracker — smaller font + tighter padding so
+   all names fit without scrolling on typical family sizes */
+.tracker-filter-area .person-pill {
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+  min-height: 32px;
 }
 
 
