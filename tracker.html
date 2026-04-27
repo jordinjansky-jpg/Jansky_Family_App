@@ -604,8 +604,7 @@
       main.querySelector('#trackerFilterChip')?.addEventListener('click', openFilterSheet);
 
       // Tap = complete/uncomplete. Long-press (500ms) = detail sheet.
-      for (const card of main.querySelectorAll('.card--tracker[data-entry-key]')) {
-        if (!card.dataset.entryKey) continue;
+      for (const card of main.querySelectorAll('.card--tracker[data-entry-key]:not([data-entry-key=""])')) {
         let pressTimer = null;
         let didLongPress = false;
 
