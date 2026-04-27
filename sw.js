@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v78 (2026-04-27) — tracker redesign: 2-row top chrome, status sections (weekly),
+//                    completion ratios (monthly), tap-to-complete, swipe-only nav
 // v75 (2026-04-26) — cpick popover flips above button when too close to screen bottom
 // v74 (2026-04-26) — fix cpick popover positioning: sheet active state now uses
 //                    transform:none so position:fixed pops use viewport coords
@@ -162,7 +164,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v77';
+const CACHE_NAME = 'family-hub-v78';
 
 const APP_SHELL = [
   '/',
