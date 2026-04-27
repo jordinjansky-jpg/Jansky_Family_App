@@ -878,23 +878,16 @@
     function renderMealsTab() {
       let html = `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="mealsSearch" placeholder="Search meals…" value="${esc(mealsSearch)}">
-  <select class="admin-select" id="mealsSort">
-    <option value="lastUsed"${mealsSort === 'lastUsed' ? ' selected' : ''}>Recent</option>
-    <option value="name"${mealsSort === 'name' ? ' selected' : ''}>Name</option>
-    <option value="favorites"${mealsSort === 'favorites' ? ' selected' : ''}>Favorites</option>
-  </select>
+  ${renderFilterSortChip('mealsFilterSortBtn', mealsFilterActiveCount())}
   <button class="btn btn--primary btn--sm" id="addMealBtn" type="button">+ Add Meal</button>
 </div>`;
 
       let mealEntries = Object.entries(mealLibrary);
       if (mealsSearch) mealEntries = mealEntries.filter(([, m]) => (m.name || '').toLowerCase().includes(mealsSearch.toLowerCase()));
+      if (mealsFavOnly) mealEntries = mealEntries.filter(([, m]) => m.isFavorite);
       mealEntries.sort(([, a], [, b]) => {
         if (mealsSort === 'name') return (a.name || '').localeCompare(b.name || '');
-        if (mealsSort === 'favorites') {
-          if (a.isFavorite && !b.isFavorite) return -1;
-          if (!a.isFavorite && b.isFavorite) return 1;
-          return (a.name || '').localeCompare(b.name || '');
-        }
+        if (mealsSort === 'prepTime') return (a.prepTime || 0) - (b.prepTime || 0);
         // lastUsed (default): favorites first, then by lastUsed
         if (a.isFavorite && !b.isFavorite) return -1;
         if (!a.isFavorite && b.isFavorite) return 1;
@@ -922,6 +915,64 @@
       return html;
     }
 
+    function openMealsFilterSheet() {
+      const mount = document.getElementById('taskSheetMount');
+
+      const sortOpts = [{v:'lastUsed',l:'Recent'},{v:'name',l:'Name'},{v:'prepTime',l:'Prep Time'}];
+
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">Filter &amp; Sort</h3>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Sort by</div>
+          <div class="chip-group" id="fs_sort">
+            ${sortOpts.map(({v,l}) => `<button class="chip chip--selectable${mealsSort===v?' chip--active':''}" data-sort="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Show</div>
+          <div class="chip-group" id="fs_fav">
+            <button class="chip chip--selectable${!mealsFavOnly?' chip--active':''}" data-fav="" type="button">All</button>
+            <button class="chip chip--selectable${mealsFavOnly?' chip--active':''}" data-fav="fav" type="button">Favorites</button>
+          </div>
+        </div>
+
+        <div class="sheet-actions">
+          <button class="btn btn--ghost" id="fsMealsClear" type="button">Clear</button>
+          <button class="btn btn--primary" id="fsMealsApply" type="button">Apply</button>
+        </div>
+      `);
+
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      mount.querySelector('.bottom-sheet')?.addEventListener('click', e => {
+        const chip = e.target.closest('.chip--selectable');
+        if (!chip) return;
+        const group = chip.closest('.chip-group');
+        if (!group) return;
+        group.querySelectorAll('.chip--selectable').forEach(c => c.classList.remove('chip--active'));
+        chip.classList.add('chip--active');
+      });
+
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
+
+      document.getElementById('fsMealsApply')?.addEventListener('click', () => {
+        mealsSort = mount.querySelector('#fs_sort .chip--active')?.dataset.sort || 'lastUsed';
+        mealsFavOnly = (mount.querySelector('#fs_fav .chip--active')?.dataset.fav || '') === 'fav';
+        closeAdminSheet();
+        render();
+      }, { once: true });
+
+      document.getElementById('fsMealsClear')?.addEventListener('click', () => {
+        mealsSort = 'lastUsed'; mealsFavOnly = false;
+        closeAdminSheet();
+        render();
+      }, { once: true });
+    }
+
     function bindMealsTab() {
       main.querySelector('#addMealBtn')?.addEventListener('click', () => openAdminMealEditor(null));
 
@@ -937,7 +988,7 @@
         const el = main.querySelector('#mealsSearch');
         if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
       });
-      main.querySelector('#mealsSort')?.addEventListener('change', e => { mealsSort = e.target.value; render(); });
+      main.querySelector('#mealsFilterSortBtn')?.addEventListener('click', openMealsFilterSheet);
     }
 
     function openAdminMealEditor(mealId) {
