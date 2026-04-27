@@ -254,13 +254,8 @@
       const todayMult = allMultipliers?.[today]?.[p.id]?.multiplier || 1;
       const liveBalance = Math.round(balance + (td.percentage || 0) * todayMult);
       const personAchievements = allAchievementsData?.[p.id] || {};
-      const badgeIcons = Object.entries(personAchievements)
-        .filter(([, a]) => !a.revoked)
-        .map(([key]) => activeDefs[key]?.icon)
-        .filter(Boolean)
-        .slice(0, 5)
-        .join('');
-      return { person: p, today: td, week: wk, month: mo, year: yr, streak, trend, liveBalance, badgeIcons };
+      const badgeCount = Object.values(personAchievements).filter(a => !a.revoked).length;
+      return { person: p, today: td, week: wk, month: mo, year: yr, streak, trend, liveBalance, badgeCount };
     });
 
     // ── Render ──
@@ -300,7 +295,7 @@
       for (const b of board) {
         const active = b[gradeKey];
         const gd = gradeDisplay(active.percentage);
-        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons);
+        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeCount);
       }
       html += `</div>`;
 

@@ -655,24 +655,21 @@ export function renderSectionHead(title, meta, options = {}) {
  * @param {number} liveBalance - Computed reward balance for this person
  * @param {string} badgeIcons - Raw emoji string (max 5 achievement icons)
  */
-export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
+export function renderScoreCard(b, active, gd, liveBalance, badgeCount) {
   const trendIcon = b.trend === 'up' ? '↑' : b.trend === 'down' ? '↓' : '';
   const metaParts = [
     b.streak.current > 0 ? `${b.streak.current}d streak` : null,
     `${liveBalance.toLocaleString()} pts`,
+    badgeCount > 0 ? `${badgeCount} badge${badgeCount !== 1 ? 's' : ''}` : null,
     trendIcon || null,
   ].filter(Boolean).join(' · ');
-
-  const badges = badgeIcons
-    ? `<span class="sb-badges">${esc(badgeIcons)}</span>`
-    : '';
 
   return `<button class="card card--score" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
     <div class="card__leading">
       <div class="avatar" style="--person-color: ${esc(b.person.color)}">${esc((b.person.name || '?')[0].toUpperCase())}</div>
     </div>
     <div class="card__body">
-      <div class="card__title">${esc(b.person.name)}${badges}</div>
+      <div class="card__title">${esc(b.person.name)}</div>
       <div class="card__meta">${esc(metaParts)}</div>
     </div>
     <div class="card__trailing">
