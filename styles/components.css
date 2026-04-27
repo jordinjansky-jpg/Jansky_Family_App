@@ -2751,3 +2751,102 @@
 
 .form-hint--success { color: var(--success); }
 .form-hint--error   { color: var(--danger); }
+
+/* ── Tabs (shared segmented control) ── */
+.tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+.tab {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  min-height: 36px;
+}
+
+.tab.is-active { color: var(--text); }
+
+.tabs--segmented {
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+
+.tabs--segmented .tab.is-active {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Card stack (flex column wrapper — suppresses card self-margin) ── */
+.card-stack {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--spacing-lg);
+}
+
+.card-stack > .card { margin-bottom: 0; }
+
+/* ── Score card variant — leaderboard card with person-color stripe ── */
+/* The left stripe comes from .card::before via --owner-color on the element */
+.card--score {
+  min-height: 64px;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+  text-align: left;
+}
+
+.card--score:active { transform: scale(0.98); }
+
+.card--score .card__trailing {
+  gap: var(--spacing-xs);
+}
+
+/* Score card avatar uses solid person color (not soft-tinted like default .avatar) */
+.card--score .avatar {
+  background: var(--person-color, var(--accent));
+  color: #fff;
+  font-weight: 700;
+}
+
+.card--score__pct {
+  font-size: var(--font-sm);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Person dot (28px compact colored circle with initial) ── */
+.person-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* ── Tracker card — no extra structural changes, just gesture props ── */
+.card--tracker {
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* ── Overdue card — danger stripe + soft danger background ── */
+.card--overdue {
+  border-left: 3px solid var(--danger);
+  background: var(--danger-soft);
+}
