@@ -1826,23 +1826,23 @@
 
       html += `<div class="admin-filters admin-filters--row">
   <input class="admin-select" type="search" id="rewardsSearch" placeholder="Search rewards…" value="${esc(rewardsSearch)}">
-  <select class="admin-select" id="rewardsSort">
-    <option value="name"${rewardsSort === 'name' ? ' selected' : ''}>Name</option>
-    <option value="cost"${rewardsSort === 'cost' ? ' selected' : ''}>Cost</option>
-  </select>
+  ${renderFilterSortChip('rewardsFilterSortBtn', rewardsFilterActiveCount())}
   <button class="btn btn--primary btn--sm" id="addRewardBtn" type="button">+ Add Reward</button>
 </div>`;
 
-      let activeRewards = Object.entries(rewardsObj || {}).filter(([, r]) => r.status !== 'archived');
-      if (rewardsSearch) activeRewards = activeRewards.filter(([, r]) => (r.name || '').toLowerCase().includes(rewardsSearch.toLowerCase()));
-      if (rewardsSort === 'cost') activeRewards.sort((a, b) => (a[1].pointCost ?? 0) - (b[1].pointCost ?? 0));
-      else activeRewards.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
+      let rewardEntries = Object.entries(rewardsObj || {});
+      if (rewardsStatus === 'active') rewardEntries = rewardEntries.filter(([, r]) => r.status !== 'archived');
+      else if (rewardsStatus === 'archived') rewardEntries = rewardEntries.filter(([, r]) => r.status === 'archived');
+      if (rewardsType) rewardEntries = rewardEntries.filter(([, r]) => (r.rewardType || 'custom') === rewardsType);
+      if (rewardsSearch) rewardEntries = rewardEntries.filter(([, r]) => (r.name || '').toLowerCase().includes(rewardsSearch.toLowerCase()));
+      if (rewardsSort === 'cost') rewardEntries.sort((a, b) => (a[1].pointCost ?? 0) - (b[1].pointCost ?? 0));
+      else rewardEntries.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
 
-      if (activeRewards.length === 0) {
+      if (rewardEntries.length === 0) {
         html += `<div class="admin-empty">No rewards defined yet. Tap + Add Reward to create one.</div>`;
       } else {
         html += `<div class="admin-list" id="rewardList">`;
-        for (const [id, r] of activeRewards) {
+        for (const [id, r] of rewardEntries) {
           const icon = renderEmojiTile(r.icon || '🎁');
           const secondary = `${r.pointCost ?? 0} pts · ${r.rewardType || 'custom'}`;
           html += renderAdminRow({
@@ -1863,22 +1863,24 @@
         </div>`;
       }
 
-      // Archived rewards toggle
-      const archived = Object.entries(rewardsObj).filter(([, r]) => r.status === 'archived');
-      if (archived.length > 0) {
-        html += `<details class="admin-archived-rewards" style="margin-top: 16px;">
-          <summary style="cursor: pointer; color: var(--text-muted); font-size: var(--font-sm);">${archived.length} archived reward${archived.length > 1 ? 's' : ''}</summary>
-          <div class="reward-list" style="margin-top: 8px;">`;
-        for (const [id, reward] of archived) {
-          html += `<div class="reward-card reward-card--archived" data-reward-id="${id}">
-            <div class="reward-card__icon" style="opacity: 0.5;">${esc(reward.icon || '🎁')}</div>
-            <div class="reward-card__body">
-              <div class="reward-card__name" style="text-decoration: line-through;">${esc(reward.name)}</div>
-              <div class="reward-card__meta"><span class="reward-card__cost">${reward.pointCost} pts</span></div>
-            </div>
-          </div>`;
+      // Archived rewards toggle — only show when status filter is 'active' (archived not already in main list)
+      if (rewardsStatus === 'active') {
+        const archived = Object.entries(rewardsObj).filter(([, r]) => r.status === 'archived');
+        if (archived.length > 0) {
+          html += `<details class="admin-archived-rewards" style="margin-top: 16px;">
+            <summary style="cursor: pointer; color: var(--text-muted); font-size: var(--font-sm);">${archived.length} archived reward${archived.length > 1 ? 's' : ''}</summary>
+            <div class="reward-list" style="margin-top: 8px;">`;
+          for (const [id, reward] of archived) {
+            html += `<div class="reward-card reward-card--archived" data-reward-id="${id}">
+              <div class="reward-card__icon" style="opacity: 0.5;">${esc(reward.icon || '🎁')}</div>
+              <div class="reward-card__body">
+                <div class="reward-card__name" style="text-decoration: line-through;">${esc(reward.name)}</div>
+                <div class="reward-card__meta"><span class="reward-card__cost">${reward.pointCost} pts</span></div>
+              </div>
+            </div>`;
+          }
+          html += `</div></details>`;
         }
-        html += `</div></details>`;
       }
 
       // ── Redemption History ──
@@ -1924,6 +1926,73 @@
       }
 
       return html;
+    }
+
+    function openRewardsFilterSheet() {
+      const mount = document.getElementById('taskSheetMount');
+
+      const sortOpts = [{v:'name',l:'Name'},{v:'cost',l:'Points'}];
+      const typeOpts = [{v:'',l:'All'},{v:'custom',l:'Custom'},{v:'task-skip',l:'Task Skip'},{v:'penalty-removal',l:'No Penalty'}];
+      const statusOpts = [{v:'active',l:'Active'},{v:'archived',l:'Archived'},{v:'',l:'All'}];
+
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">Filter &amp; Sort</h3>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Sort by</div>
+          <div class="chip-group" id="fs_sort">
+            ${sortOpts.map(({v,l}) => `<button class="chip chip--selectable${rewardsSort===v?' chip--active':''}" data-sort="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Type</div>
+          <div class="chip-group" id="fs_type">
+            ${typeOpts.map(({v,l}) => `<button class="chip chip--selectable${rewardsType===v?' chip--active':''}" data-type="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="fs-section">
+          <div class="fs-section__label">Status</div>
+          <div class="chip-group" id="fs_status">
+            ${statusOpts.map(({v,l}) => `<button class="chip chip--selectable${rewardsStatus===v?' chip--active':''}" data-status="${v}" type="button">${l}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="sheet-actions">
+          <button class="btn btn--ghost" id="fsRewardsClear" type="button">Clear</button>
+          <button class="btn btn--primary" id="fsRewardsApply" type="button">Apply</button>
+        </div>
+      `);
+
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      mount.querySelector('.bottom-sheet')?.addEventListener('click', e => {
+        const chip = e.target.closest('.chip--selectable');
+        if (!chip) return;
+        const group = chip.closest('.chip-group');
+        if (!group) return;
+        group.querySelectorAll('.chip--selectable').forEach(c => c.classList.remove('chip--active'));
+        chip.classList.add('chip--active');
+      });
+
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
+
+      document.getElementById('fsRewardsApply')?.addEventListener('click', () => {
+        rewardsSort = mount.querySelector('#fs_sort .chip--active')?.dataset.sort || 'name';
+        rewardsType = mount.querySelector('#fs_type .chip--active')?.dataset.type || '';
+        rewardsStatus = mount.querySelector('#fs_status .chip--active')?.dataset.status ?? 'active';
+        closeAdminSheet();
+        render();
+      }, { once: true });
+
+      document.getElementById('fsRewardsClear')?.addEventListener('click', () => {
+        rewardsSort = 'name'; rewardsType = ''; rewardsStatus = 'active';
+        closeAdminSheet();
+        render();
+      }, { once: true });
     }
 
     function renderRewardForm(rewardId) {
@@ -2040,7 +2109,7 @@
         const el = main.querySelector('#rewardsSearch');
         if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
       });
-      main.querySelector('#rewardsSort')?.addEventListener('change', e => { rewardsSort = e.target.value; render(); });
+      main.querySelector('#rewardsFilterSortBtn')?.addEventListener('click', openRewardsFilterSheet);
 
       // Bind modal form if visible
       const form = main.querySelector('#rewardForm');
