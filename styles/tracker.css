@@ -54,6 +54,17 @@
   background: var(--accent-soft);
 }
 
+.chip--filter:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip--filter:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  border-color: var(--accent);
+}
+
 /* ── Per-person summary line (shown when person filter active) ── */
 .tracker-person-summary {
   font-size: var(--font-sm);
@@ -106,7 +117,7 @@
   white-space: nowrap;
 }
 
-.tracker-status--done     { background: var(--success-soft, var(--surface-2)); color: var(--success); }
+.tracker-status--done     { background: var(--success-soft); color: var(--success); }
 .tracker-status--late     { background: var(--warning-soft); color: var(--warning); }
 .tracker-status--overdue  { background: var(--danger-soft);  color: var(--danger); }
 .tracker-status--upcoming { background: var(--surface-2);    color: var(--text-faint); }
