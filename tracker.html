@@ -469,7 +469,7 @@
 
       let html = `
         <div class="tracker-top-bar">
-          <span class="tracker-period-label">${renderPeriodLabel()}</span>
+          <span class="tracker-period-label">${esc(renderPeriodLabel())}</span>
           <nav class="tabs tabs--segmented">
             <button class="tab${weeklyActive ? ' is-active' : ''}" data-view="weekly" type="button">Weekly</button>
             <button class="tab${monthlyActive ? ' is-active' : ''}" data-view="monthly" type="button">Monthly</button>
