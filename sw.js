@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v84 (2026-04-27) — Phase 6 Rewards Unification: add rewards.html, rewards.js,
+//                    styles/rewards.css to precache.
 // v83 (2026-04-27) — tracker: Back to Today pill + slide animation on period nav
 // v82 (2026-04-27) — tracker: compact person pills (font-xs, tighter padding + gap)
 // v81 (2026-04-27) — admin library: unified Filter & Sort chip across all 6 sections
@@ -174,19 +176,21 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v83';
+const CACHE_NAME = 'family-hub-v84';
 
 const APP_SHELL = [
   '/',
   '/index.html',
   '/person.html',
   '/dashboard.js',
+  '/rewards.js',
   '/calendar.html',
   '/scoreboard.html',
   '/tracker.html',
   '/kid.html',
   '/admin.html',
   '/setup.html',
+  '/rewards.html',
   '/manifest.json',
   '/App Icon.png',
   // CSS (modular)
@@ -198,6 +202,7 @@ const APP_SHELL = [
   '/styles/scoreboard.css',
   '/styles/tracker.css',
   '/styles/admin.css',
+  '/styles/rewards.css',
   '/styles/kid.css',
   '/styles/responsive.css',
   // JS modules
