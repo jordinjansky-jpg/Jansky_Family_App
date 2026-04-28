@@ -487,6 +487,7 @@ async function handleApprove(msgId, personId, rewardId, intent) {
   const ts = firebase.database.ServerValue.TIMESTAMP;
 
   if (msg?.type === 'use-request') {
+    if (!msg.bankTokenId) { showToast('Cannot approve: missing bank token reference.'); return; }
     await markBankTokenUsed(personId, msg.bankTokenId, null);
     await writeMessage(personId, {
       type: 'use-approved',
@@ -562,8 +563,9 @@ async function handleDeny(msgId, personId) {
   });
   if (!confirmed) return;
 
+  const deniedType = msg?.type === 'use-request' ? 'use-denied' : 'redemption-denied';
   await writeMessage(personId, {
-    type: 'redemption-denied',
+    type: deniedType,
     title: msg?.title || 'Request denied',
     body: null,
     amount: 0,
@@ -775,9 +777,11 @@ function openIntentSheet(reward, rewardId) {
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
 
-  const ts = firebase.database.ServerValue.TIMESTAMP;
+  let submitting = false;
 
   async function sendRequest(intent) {
+    if (submitting) return;
+    submitting = true;
     mount.innerHTML = '';
     await writeMessage(activePerson.id, {
       type: 'redemption-request',
@@ -789,10 +793,12 @@ function openIntentSheet(reward, rewardId) {
       rewardIcon: reward.icon || '',
       intent,
       seen: false,
-      createdAt: ts,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
       createdBy: activePerson.id
     });
     showToast('Request sent! Waiting for approval…');
+    await refreshData();
+    renderActiveTab();
   }
 
   document.getElementById('intentUseNow')?.addEventListener('click', () => sendRequest('use-now'));
