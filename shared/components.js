@@ -216,7 +216,7 @@ export function renderNavBar(activePage, options = {}) {
  * @param {HTMLElement} sheetMount - element to mount the sheet into
  * @param {object} [familyTheme] - current family theme for openDeviceThemeSheet
  */
-export function initNavMore(sheetMount, getTheme) {
+export function initNavMore(sheetMount, getTheme, personOpts) {
   const btn = document.getElementById('navMore');
   if (!btn) return;
 
@@ -244,7 +244,7 @@ export function initNavMore(sheetMount, getTheme) {
       const id = row.dataset.itemId;
       if (id === 'admin')    location.href = 'admin.html';
       if (id === 'calendar') location.href = 'calendar.html';
-      if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme);
+      if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, undefined, personOpts);
     });
   });
 }

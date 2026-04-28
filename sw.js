@@ -9,6 +9,10 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v93 (2026-04-28) — Calendar, scoreboard, tracker now read linkedPerson.theme
+//                    on load and write theme changes to person.theme in Firebase
+//                    (same fix as v92 for rewards). initNavMore gains personOpts
+//                    so the More → Theme path also syncs correctly.
 // v92 (2026-04-28) — Rewards theme now reads/writes person.theme in Firebase
 //                    (same store as dashboard) so theme syncs across all pages.
 // v91 (2026-04-28) — Center text in view-as select dropdown.
@@ -191,7 +195,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v92';
+const CACHE_NAME = 'family-hub-v93';
 
 const APP_SHELL = [
   '/',

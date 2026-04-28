@@ -91,6 +91,7 @@
     const linkedPerson = personParam
       ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
       : null;
+    if (linkedPerson?.theme?.preset) applyTheme(linkedPerson.theme);
 
     // ── App state ──
     let currentView = defaultView; // 'week' | 'month' | 'day'
@@ -119,7 +120,8 @@
       showBell: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
-    initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme);
+    initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme,
+      linkedPerson ? { person: linkedPerson, writePerson } : undefined);
     initOfflineBanner(onConnectionChange);
     initBell(() => people, () => calRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
 
@@ -1510,7 +1512,8 @@
     // ── Theme button — opens device theme sheet directly ──
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
       const mount = document.getElementById('taskSheetMount');
-      openDeviceThemeSheet(mount, settings?.theme);
+      openDeviceThemeSheet(mount, settings?.theme, undefined,
+        linkedPerson ? { person: linkedPerson, writePerson } : undefined);
       document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
         if (e.target.id === 'bottomSheet') {
           e.target.classList.remove('active');

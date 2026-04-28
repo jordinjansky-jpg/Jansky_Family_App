@@ -80,6 +80,7 @@
     const linkedPerson = personParam
       ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
       : null;
+    if (linkedPerson?.theme?.preset) applyTheme(linkedPerson.theme);
 
     // ── Date ranges ──
     const wStart = weekStart(today);
@@ -100,10 +101,12 @@
       showBell: true
     });
     document.getElementById('navMount').innerHTML = renderNavBar('scoreboard');
-    initNavMore(document.getElementById('drilldownMount'), () => settings?.theme);
+    initNavMore(document.getElementById('drilldownMount'), () => settings?.theme,
+      linkedPerson ? { person: linkedPerson, writePerson } : undefined);
 
     document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
-      openDeviceThemeSheet(document.getElementById('themeSheetMount'), settings?.theme);
+      openDeviceThemeSheet(document.getElementById('themeSheetMount'), settings?.theme, undefined,
+        linkedPerson ? { person: linkedPerson, writePerson } : undefined);
     });
 
     // ── Connection status + Offline/Online banner ──
