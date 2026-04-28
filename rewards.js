@@ -481,8 +481,101 @@ function bindApprovalsTab() {
   });
 }
 
-async function handleApprove(msgId, personId, rewardId, intent) {} // Task 13
-async function handleDeny(msgId, personId) {} // Task 13
+async function handleApprove(msgId, personId, rewardId, intent) {
+  const msg = allMessages?.[personId]?.[msgId];
+  const reward = rewardsObj?.[rewardId] || {};
+  const ts = firebase.database.ServerValue.TIMESTAMP;
+
+  if (msg?.type === 'use-request') {
+    await markBankTokenUsed(personId, msg.bankTokenId, null);
+    await writeMessage(personId, {
+      type: 'use-approved',
+      title: msg.title,
+      body: null,
+      amount: 0,
+      seen: false,
+      createdAt: ts,
+      createdBy: 'parent'
+    });
+    await markMessageSeen(personId, msgId);
+    showToast('Approved!');
+  } else if (msg?.type === 'redemption-request' && intent === 'use-now') {
+    // Immediately consumed — no bank token
+    await writeMessage(personId, {
+      type: 'redemption-approved',
+      title: msg.title || reward.name || '',
+      body: null,
+      amount: 0,
+      seen: false,
+      createdAt: ts,
+      createdBy: 'parent',
+      rewardId,
+      rewardName: reward.name || '',
+      rewardIcon: reward.icon || ''
+    });
+    await writeMessage(personId, {
+      type: 'reward-used',
+      title: 'Used: ' + (reward.name || msg.title || ''),
+      body: null,
+      amount: 0,
+      seen: true,
+      createdAt: ts,
+      createdBy: 'parent'
+    });
+    await markMessageSeen(personId, msgId);
+    showToast('Approved and used!');
+  } else if (msg?.type === 'redemption-request') {
+    // intent === 'save' — bank the token
+    await writeBankToken(personId, {
+      rewardType: reward.rewardType || 'custom',
+      rewardId,
+      rewardName: reward.name || msg.title || '',
+      rewardIcon: reward.icon || '',
+      acquiredAt: ts,
+      used: false
+    });
+    await writeMessage(personId, {
+      type: 'redemption-approved',
+      title: msg.title || reward.name || '',
+      body: null,
+      amount: 0,
+      seen: false,
+      createdAt: ts,
+      createdBy: 'parent',
+      rewardId,
+      rewardName: reward.name || '',
+      rewardIcon: reward.icon || ''
+    });
+    await markMessageSeen(personId, msgId);
+    showToast('Approved!');
+  }
+
+  await refreshData();
+  renderActiveTab();
+}
+
+async function handleDeny(msgId, personId) {
+  const msg = allMessages?.[personId]?.[msgId];
+  const confirmed = await showConfirm({
+    title: 'Deny this request?',
+    message: msg?.title || 'Reward request'
+  });
+  if (!confirmed) return;
+
+  await writeMessage(personId, {
+    type: 'redemption-denied',
+    title: msg?.title || 'Request denied',
+    body: null,
+    amount: 0,
+    seen: false,
+    createdAt: firebase.database.ServerValue.TIMESTAMP,
+    createdBy: 'parent'
+  });
+  await markMessageSeen(personId, msgId);
+  showToast('Request denied.');
+  await refreshData();
+  renderActiveTab();
+}
 
 // ── Bank tab ──
 
@@ -591,7 +684,119 @@ async function handleUseToken(tokenId, rewardType, tokenName, rewardId, rewardIc
   }
 }
 
-function handleGetReward(rewardId) {} // implemented in Task 13
+async function handleGetReward(rewardId) {
+  const reward = rewardsObj?.[rewardId];
+  if (!reward) return;
+
+  const balance = getBalance(activePerson.id);
+  if (balance < (reward.pointCost || 0)) {
+    showToast('Not enough points.');
+    return;
+  }
+
+  const ts = firebase.database.ServerValue.TIMESTAMP;
+  const isAdult = activePerson.role !== 'child';
+
+  if (isAdult) {
+    // Adult path — confirm then bank immediately
+    const confirmed = await showConfirm({ title: 'Add to your Bank?', message: reward.name });
+    if (!confirmed) return;
+    await writeBankToken(activePerson.id, {
+      rewardType: reward.rewardType || 'custom',
+      rewardId,
+      rewardName: reward.name || '',
+      rewardIcon: reward.icon || '',
+      acquiredAt: ts,
+      used: false
+    });
+    showToast('Added to Bank!');
+    await refreshData();
+    render();
+    return;
+  }
+
+  if (!reward.approvalRequired) {
+    // Path 1 — self-serve
+    await writeBankToken(activePerson.id, {
+      rewardType: reward.rewardType || 'custom',
+      rewardId,
+      rewardName: reward.name || '',
+      rewardIcon: reward.icon || '',
+      acquiredAt: ts,
+      used: false
+    });
+    // Notify all parents
+    const parents = people.filter(p => p.role !== 'child');
+    for (const parent of parents) {
+      await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id);
+    }
+    showToast('Saved to your Bank!');
+    await refreshData();
+    render();
+    return;
+  }
+
+  const isFunctional = reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal';
+  if (isFunctional) {
+    // Path 3 — functional with approval: auto-send as save, no intent sheet
+    await writeMessage(activePerson.id, {
+      type: 'redemption-request',
+      title: reward.name,
+      body: null,
+      amount: -(reward.pointCost || 0),
+      rewardId,
+      rewardName: reward.name,
+      rewardIcon: reward.icon || '',
+      intent: 'save',
+      seen: false,
+      createdAt: ts,
+      createdBy: activePerson.id
+    });
+    showToast('Request sent! Waiting for approval…');
+    return;
+  }
+
+  // Path 2 — custom with approval: show intent sheet
+  openIntentSheet(reward, rewardId);
+}
+
+function openIntentSheet(reward, rewardId) {
+  const mount = document.getElementById('sheetMount');
+  const html = `<div id="intentSheet">
+    <div class="sheet-icon">${esc(reward.icon || '🎁')}</div>
+    <div class="sheet-title">${esc(reward.name)}</div>
+    <p class="text-muted">Your parent will approve before it’s used.</p>
+    <button class="btn btn--primary btn--full" id="intentUseNow" type="button">Use Now</button>
+    <button class="btn btn--secondary btn--full" id="intentSave" type="button">Save for Later</button>
+    <button class="btn btn--ghost btn--full" id="intentCancel" type="button">Cancel</button>
+  </div>`;
+  mount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  const ts = firebase.database.ServerValue.TIMESTAMP;
+
+  async function sendRequest(intent) {
+    mount.innerHTML = '';
+    await writeMessage(activePerson.id, {
+      type: 'redemption-request',
+      title: reward.name,
+      body: null,
+      amount: -(reward.pointCost || 0),
+      rewardId,
+      rewardName: reward.name,
+      rewardIcon: reward.icon || '',
+      intent,
+      seen: false,
+      createdAt: ts,
+      createdBy: activePerson.id
+    });
+    showToast('Request sent! Waiting for approval…');
+  }
+
+  document.getElementById('intentUseNow')?.addEventListener('click', () => sendRequest('use-now'));
+  document.getElementById('intentSave')?.addEventListener('click', () => sendRequest('save'));
+  document.getElementById('intentCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+}
 
 function bindTabs() {
   document.querySelectorAll('.tabs__tab').forEach(btn => {
