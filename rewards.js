@@ -130,41 +130,25 @@ function render() {
   bindTabs();
   if (!isKidMode) {
     const chipMount = document.getElementById('personChipMount');
-    if (chipMount) chipMount.innerHTML = renderPersonSwitcherChip();
+    if (chipMount) {
+      chipMount.innerHTML = renderPersonSwitcherChip();
+      document.getElementById('personSwitcherSelect')?.addEventListener('change', e => {
+        activePerson = people.find(p => p.id === e.target.value) || activePerson;
+        render();
+      });
+    }
   }
 }
 
 function renderPersonSwitcherChip() {
   if (!activePerson || people.length <= 1) return '';
-  return `<button class="chip chip--person" id="personSwitcherChip" type="button" aria-label="Switch person">
-    <span class="chip__dot" style="background:${esc(activePerson.color)}"></span>
-    ${esc(activePerson.name)}
-  </button>`;
-}
-
-function openPersonSwitcherSheet() {
-  const mount = document.getElementById('sheetMount');
-  const rows = people.map(p => `
-    <button class="list-row" type="button" data-person-id="${esc(p.id)}">
-      <div class="avatar avatar--sm" style="--person-color:${esc(p.color)}">${esc((p.name || '?')[0].toUpperCase())}</div>
-      <span class="list-row__label">${esc(p.name)}</span>
-      ${activePerson?.id === p.id ? '<span class="badge badge--accent">Viewing</span>' : ''}
-    </button>`).join('');
-  mount.innerHTML = renderBottomSheet(`
-    <h3 class="sheet-section-title">View Rewards for</h3>
-    <div class="list-group">${rows}</div>
-  `);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-  document.getElementById('bottomSheet')?.addEventListener('click', e => {
-    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
-  });
-  mount.querySelectorAll('[data-person-id]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activePerson = people.find(p => p.id === btn.dataset.personId) || activePerson;
-      mount.innerHTML = '';
-      render();
-    });
-  });
+  const opts = people.map(p =>
+    `<option value="${esc(p.id)}"${p.id === activePerson.id ? ' selected' : ''}>${esc(p.name)}</option>`
+  ).join('');
+  return `<label class="rewards-view-as">
+    <span class="rewards-view-as__label">View as</span>
+    <select class="rewards-view-as__select" id="personSwitcherSelect">${opts}</select>
+  </label>`;
 }
 
 function getBalance(personId) {
@@ -263,7 +247,6 @@ function renderFilterSortChip(id, activeCount) {
 function getShopFilterCount() {
   let n = 0;
   if (shopFilter.type !== 'all') n++;
-  if (shopFilter.sort !== 'name') n++;
   return n;
 }
 
@@ -916,7 +899,7 @@ function bindPage() {
   document.getElementById('rewardsFab')?.addEventListener('click', () => openRewardCreateForm());
   document.addEventListener('click', e => {
     if (e.target.id === 'bannerReviewBtn') { activeTab = 'approvals'; render(); }
-    if (e.target.closest('#personSwitcherChip')) openPersonSwitcherSheet();
+    if (e.target.id === 'personSwitcherSelect') {/* handled by change listener added in render */}
     if (e.target.closest('#headerOverflow')) openHeaderOverflowSheet();
   });
 }

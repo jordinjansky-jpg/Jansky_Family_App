@@ -1,3 +1,23 @@
+/* ── View-as inline selector (header actions area) ── */
+.rewards-view-as {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.rewards-view-as__select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--font-sm);
+  padding: 2px var(--spacing-xs);
+  cursor: pointer;
+  max-width: 120px;
+}
+
 /* ============ Rewards page — Balance Header ============ */
 .rewards-balance-zone {
   padding-top: var(--spacing-md);
