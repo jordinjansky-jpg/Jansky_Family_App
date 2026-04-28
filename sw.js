@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v91 (2026-04-28) — Center text in view-as select dropdown.
 // v90 (2026-04-28) — View-as dropdown replaces person chip + sheet; filter badge
 //                    no longer counts sort (cost is default, not a filter).
 // v89 (2026-04-28) — Increase .list-row gap sm→md, default shop sort = cost (cheap first).
@@ -188,7 +189,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v90';
+const CACHE_NAME = 'family-hub-v91';
 
 const APP_SHELL = [
   '/',

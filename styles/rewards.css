@@ -16,6 +16,7 @@
   padding: 2px var(--spacing-xs);
   cursor: pointer;
   max-width: 120px;
+  text-align: center;
 }
 
 /* ============ Rewards page — Balance Header ============ */
