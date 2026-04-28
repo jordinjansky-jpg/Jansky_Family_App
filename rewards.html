@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!-- v2 -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
+  <meta name="theme-color" content="#6c63ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="/App Icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/App Icon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>Family Hub — Rewards</title>
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/rewards.css">
+  <link rel="stylesheet" href="styles/responsive.css">
+</head>
+<body>
+  <div id="bannerMount"></div>
+  <div id="headerMount"></div>
+  <div class="page-content" id="app">
+    <div id="rewardsBalanceZone"></div>
+    <div id="rewardsBannerZone"></div>
+    <div id="rewardsTabsMount"></div>
+    <div id="rewardsContent"></div>
+  </div>
+  <div id="fabMount"></div>
+  <div id="navMount"></div>
+  <div id="sheetMount"></div>
+  <div id="toastMount"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+
+  <script type="module" src="rewards.js"></script>
+</body>
+</html>
