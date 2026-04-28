@@ -829,7 +829,128 @@ function bindPage() {
   });
 }
 
-function openRewardCreateForm() {} // implemented in Task 14
+function openRewardCreateForm() {
+  const mount = document.getElementById('sheetMount');
+  const html = `<div id="rewardCreateForm">
+    <div class="sheet-title">Create Reward</div>
+
+    <div class="form-group">
+      <label class="form-label" for="rcf_name">Name</label>
+      <input class="form-input" type="text" id="rcf_name" placeholder="Reward name" autocomplete="off">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="rcf_icon">Icon</label>
+      <input class="form-input" type="text" id="rcf_icon" placeholder="🎁" maxlength="4" autocomplete="off">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <div class="filter-chips" id="rcf_typeChips">
+        <button class="chip chip--active" data-type="custom" type="button">Custom</button>
+        <button class="chip" data-type="task-skip" type="button">Task Skip</button>
+        <button class="chip" data-type="penalty-removal" type="button">No Penalty</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="rcf_pointCost">Point cost</label>
+      <input class="form-input" type="number" id="rcf_pointCost" placeholder="0" min="0">
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Approval required</div>
+      <label class="form-toggle">
+        <input type="checkbox" id="rcf_approvalRequired" checked>
+        <span class="form-toggle__track"></span>
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Visible to</label>
+      <div class="filter-chips" id="rcf_personChips">
+        ${people.map(p => `<button class="chip chip--active" data-person-id="${esc(p.id)}" type="button">${esc(p.name)}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="rcf_maxRedemptions">Max redemptions (optional)</label>
+      <input class="form-input" type="number" id="rcf_maxRedemptions" placeholder="Unlimited" min="1">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="rcf_streakRequirement">Streak required (optional)</label>
+      <input class="form-input" type="number" id="rcf_streakRequirement" placeholder="None" min="1">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="rcf_expiresAt">Expires on (optional)</label>
+      <input class="form-input" type="date" id="rcf_expiresAt">
+    </div>
+
+    <button class="btn btn--primary btn--full" id="rcf_save" type="button">Create Reward</button>
+    <button class="btn btn--ghost btn--full" id="rcf_cancel" type="button">Cancel</button>
+  </div>`;
+
+  mount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  // Type chip — mutually exclusive
+  mount.querySelectorAll('#rcf_typeChips .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mount.querySelectorAll('#rcf_typeChips .chip').forEach(b => b.classList.remove('chip--active'));
+      btn.classList.add('chip--active');
+    });
+  });
+
+  // Person chips — multi-select toggle
+  mount.querySelectorAll('#rcf_personChips .chip').forEach(btn => {
+    btn.addEventListener('click', () => btn.classList.toggle('chip--active'));
+  });
+
+  // Cancel
+  mount.querySelector('#rcf_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  // Save
+  mount.querySelector('#rcf_save')?.addEventListener('click', async () => {
+    const nameInput = mount.querySelector('#rcf_name');
+    const iconInput = mount.querySelector('#rcf_icon');
+    const costInput = mount.querySelector('#rcf_pointCost');
+    const approvalToggle = mount.querySelector('#rcf_approvalRequired');
+    const maxInput = mount.querySelector('#rcf_maxRedemptions');
+    const streakInput = mount.querySelector('#rcf_streakRequirement');
+    const expiresInput = mount.querySelector('#rcf_expiresAt');
+
+    const name = nameInput?.value.trim() || '';
+    if (!name) {
+      showToast('Please enter a reward name.');
+      return;
+    }
+
+    const selectedType = mount.querySelector('#rcf_typeChips .chip--active')?.dataset.type || 'custom';
+    const selectedPeopleIds = [...mount.querySelectorAll('#rcf_personChips .chip--active')]
+      .map(b => b.dataset.personId);
+
+    const rewardData = {
+      name,
+      icon: iconInput?.value.trim() || '🎁',
+      rewardType: selectedType,
+      pointCost: parseInt(costInput?.value) || 0,
+      approvalRequired: approvalToggle?.checked !== false,
+      perPerson: selectedPeopleIds,
+      maxRedemptions: maxInput?.value ? parseInt(maxInput.value) : null,
+      streakRequirement: streakInput?.value ? parseInt(streakInput.value) : null,
+      expiresAt: expiresInput?.value ? new Date(expiresInput.value).getTime() : null,
+      status: 'active'
+    };
+
+    await pushReward(rewardData);
+    mount.innerHTML = '';
+    showToast('Reward created!');
+    await refreshData();
+    render();
+  });
+}
 
 async function refreshData() {
   [rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers] = await Promise.all([
