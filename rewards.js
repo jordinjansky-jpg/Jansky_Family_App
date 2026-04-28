@@ -753,6 +753,8 @@ async function handleGetReward(rewardId) {
       createdBy: activePerson.id
     });
     showToast('Request sent! Waiting for approval…');
+    await refreshData();
+    renderActiveTab();
     return;
   }
 
