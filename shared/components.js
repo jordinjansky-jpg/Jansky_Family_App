@@ -160,10 +160,10 @@ function formatMovedDate(dateStr) {
  * Adding a page = adding one entry here + creating the HTML file.
  */
 const NAV_ITEMS = [
-  { icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>', label: 'Home', href: 'index.html', id: 'home' },
-  { icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', label: 'Calendar', href: 'calendar.html', id: 'calendar' },
-  { icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15l-2 5l9-11h-5l2-5l-9 11z"/></svg>', label: 'Scores', href: 'scoreboard.html', id: 'scoreboard' },
-  { icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', label: 'Tracker', href: 'tracker.html', id: 'tracker' }
+  { label: 'Home',    href: 'index.html',      id: 'home' },
+  { label: 'Rewards', href: 'rewards.html',    id: 'rewards' },
+  { label: 'Scores',  href: 'scoreboard.html', id: 'scoreboard' },
+  { label: 'Tracker', href: 'tracker.html',    id: 'tracker' }
 ];
 
 /**
@@ -223,7 +223,6 @@ export function initNavMore(sheetMount, getTheme) {
   const items = [
     { id: 'admin',    label: 'Admin' },
     { id: 'calendar', label: 'Calendar' },
-    { id: 'rewards',  label: 'Rewards' },
     { id: 'theme',    label: 'Theme' },
   ];
 
@@ -245,7 +244,6 @@ export function initNavMore(sheetMount, getTheme) {
       const id = row.dataset.itemId;
       if (id === 'admin')    location.href = 'admin.html';
       if (id === 'calendar') location.href = 'calendar.html';
-      if (id === 'rewards')  location.href = 'scoreboard.html';
       if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme);
     });
   });
