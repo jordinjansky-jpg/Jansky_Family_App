@@ -4,16 +4,17 @@ import { initFirebase, readSettings, readPeople, readRewards, readAllMessages,
   markBankTokenUsed, removeBankToken, onConnectionChange, pushReward,
   onAllMessages, removeMessage, writeMultiplier
 } from './shared/firebase.js';
-import { applyTheme, loadCachedTheme } from './shared/theme.js';
+import { applyTheme, resolveTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
-  renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow
+  renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
+  openDeviceThemeSheet, renderOverflowMenu
 } from './shared/components.js';
 import { todayKey } from './shared/utils.js';
 
 await initFirebase();
-loadCachedTheme();
+applyTheme(resolveTheme());
 
 // ── URL param detection ──
 const params = new URLSearchParams(location.search);
@@ -49,13 +50,13 @@ async function loadData() {
 
 async function init() {
   await loadData();
-  const theme = settings?.theme || {};
-  applyTheme(theme, settings);
+  applyTheme(resolveTheme(settings?.theme));
 
   if (!isKidMode) {
     document.getElementById('headerMount').innerHTML = renderHeader({
       title: 'Rewards',
-      showBell: true
+      showBell: true,
+      overflowItems: [{ id: 'admin', label: 'Admin' }, { id: 'theme', label: 'Theme' }]
     });
     // Add person switcher chip slot into the header actions area
     document.querySelector('.app-header__actions')?.insertAdjacentHTML(
@@ -149,10 +150,13 @@ function openPersonSwitcherSheet() {
       <span class="list-row__label">${esc(p.name)}</span>
       ${activePerson?.id === p.id ? '<span class="badge badge--accent">Viewing</span>' : ''}
     </button>`).join('');
-  mount.innerHTML = renderBottomSheet({
-    title: 'View Rewards for',
-    body: `<div class="list-group">${rows}</div>`,
-    noActions: true
+  mount.innerHTML = renderBottomSheet(`
+    <h3 class="sheet-section-title">View Rewards for</h3>
+    <div class="list-group">${rows}</div>
+  `);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  document.getElementById('bottomSheet')?.addEventListener('click', e => {
+    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
   });
   mount.querySelectorAll('[data-person-id]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -161,7 +165,6 @@ function openPersonSwitcherSheet() {
       render();
     });
   });
-  mount.querySelector('[data-dismiss]')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
 
 function getBalance(personId) {
@@ -228,8 +231,8 @@ function renderTabsHtml() {
   const tabs = isKidMode
     ? [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }]
     : [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }, { id: 'approvals', label: 'Approvals' }];
-  return `<div class="tabs" role="tablist">
-    ${tabs.map(t => `<button class="tabs__tab${activeTab === t.id ? ' tabs__tab--active' : ''}" role="tab" aria-selected="${activeTab === t.id}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
+  return `<div class="tabs tabs--segmented" role="tablist">
+    ${tabs.map(t => `<button class="tab${activeTab === t.id ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === t.id}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
   </div>`;
 }
 
@@ -334,6 +337,9 @@ function openShopFilterSheet() {
   </div>`;
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  document.getElementById('bottomSheet')?.addEventListener('click', e => {
+    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+  });
   mount.querySelectorAll('[data-filter-type]').forEach(b =>
     b.addEventListener('click', () => { mount.querySelectorAll('[data-filter-type]').forEach(x => x.classList.remove('chip--active')); b.classList.add('chip--active'); }));
   mount.querySelectorAll('[data-filter-sort]').forEach(b =>
@@ -425,6 +431,9 @@ function openHistoryFilterSheet() {
   </div>`;
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  document.getElementById('bottomSheet')?.addEventListener('click', e => {
+    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+  });
   mount.querySelectorAll('[data-history-filter-type]').forEach(b =>
     b.addEventListener('click', () => {
       mount.querySelectorAll('[data-history-filter-type]').forEach(x => x.classList.remove('chip--active'));
@@ -888,11 +897,11 @@ function openIntentSheet(reward, rewardId) {
 }
 
 function bindTabs() {
-  document.querySelectorAll('.tabs__tab').forEach(btn => {
+  document.querySelectorAll('.tabs .tab').forEach(btn => {
     btn.addEventListener('click', () => {
       activeTab = btn.dataset.tab;
-      document.querySelectorAll('.tabs__tab').forEach(b => {
-        b.classList.toggle('tabs__tab--active', b.dataset.tab === activeTab);
+      document.querySelectorAll('.tabs .tab').forEach(b => {
+        b.classList.toggle('is-active', b.dataset.tab === activeTab);
         b.setAttribute('aria-selected', b.dataset.tab === activeTab);
       });
       renderActiveTab();
@@ -908,14 +917,51 @@ function bindPage() {
   document.addEventListener('click', e => {
     if (e.target.id === 'bannerReviewBtn') { activeTab = 'approvals'; render(); }
     if (e.target.closest('#personSwitcherChip')) openPersonSwitcherSheet();
+    if (e.target.closest('#headerOverflow')) openHeaderOverflowSheet();
+  });
+}
+
+function openHeaderOverflowSheet() {
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(
+    `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu([
+      { id: 'admin', label: 'Admin' },
+      { id: 'theme', label: 'Theme' }
+    ])}`
+  );
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  document.getElementById('bottomSheet')?.addEventListener('click', e => {
+    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+  });
+  mount.querySelector('.overflow-menu')?.addEventListener('click', ev => {
+    const btn = ev.target.closest('[data-item-id]');
+    if (!btn) return;
+    mount.innerHTML = '';
+    if (btn.dataset.itemId === 'admin') {
+      location.href = 'admin.html';
+    } else if (btn.dataset.itemId === 'theme') {
+      openDeviceThemeSheet(
+        document.getElementById('sheetMount'),
+        settings?.theme,
+        () => render()
+      );
+    }
   });
 }
 
 const REWARD_EMOJIS = ['🍕','🎮','🍦','⭐','🎬','📱','🛹','🧁','🎯','🏆','🎪','🏊','🎨','🎵','🛍️','🧸'];
 
+const PRICING_AVERAGES = [
+  { label: 'A (95%)', value: 95 },
+  { label: 'B+ (88%)', value: 88 },
+  { label: 'B (85%)', value: 85 },
+  { label: 'C+ (78%)', value: 78 },
+  { label: 'C (75%)', value: 75 }
+];
+
 function openRewardCreateForm() {
   const mount = document.getElementById('sheetMount');
-  const html = `<div id="rewardCreateForm">
+  const html = `<div id="rewardCreateForm" class="form-compact">
     <div class="sheet-title">Create Reward</div>
 
     <div class="form-group">
@@ -940,9 +986,24 @@ function openRewardCreateForm() {
       </div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label" for="rcf_pointCost">Point cost</label>
-      <input class="form-input" type="number" id="rcf_pointCost" placeholder="0" min="0">
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label" for="rcf_pointCost">Point Cost</label>
+        <input class="form-input" type="number" id="rcf_pointCost" placeholder="e.g. 500" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Earn in ~ days</label>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="number" id="rcf_daysInput" class="form-input" value="7" min="1" style="width:56px;">
+          <select id="rcf_avgSelect" class="form-input" style="flex:1;font-size:var(--font-xs);">
+            ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <input type="range" id="rcf_daysSlider" min="1" max="30" value="7" style="width:100%;margin-top:-4px;">
+    <div id="rcf_suggestion" class="form-hint" style="cursor:pointer;color:var(--accent);margin-bottom:var(--spacing-xs);">
+      → <strong>615 pts</strong> (tap to apply)
     </div>
 
     <div class="form-group">
@@ -981,6 +1042,32 @@ function openRewardCreateForm() {
 
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  // Pricing helper
+  const rcfDaysInput = mount.querySelector('#rcf_daysInput');
+  const rcfAvgSelect = mount.querySelector('#rcf_avgSelect');
+  const rcfSlider = mount.querySelector('#rcf_daysSlider');
+  const rcfSuggestion = mount.querySelector('#rcf_suggestion');
+  const rcfPointCost = mount.querySelector('#rcf_pointCost');
+
+  function updateRcfSuggestion() {
+    const days = parseInt(rcfDaysInput.value) || 7;
+    const avg = parseInt(rcfAvgSelect.value) || 88;
+    const cost = Math.round((days * avg) / 5) * 5;
+    const avgLabel = PRICING_AVERAGES.find(a => a.value === avg)?.label || avg + '%';
+    rcfSuggestion.innerHTML = `${days} day${days > 1 ? 's' : ''} at ${avgLabel} average &rarr; <strong>${cost} pts</strong> (tap to apply)`;
+    rcfSuggestion.dataset.cost = cost;
+  }
+
+  rcfSlider.addEventListener('input', () => { rcfDaysInput.value = rcfSlider.value; updateRcfSuggestion(); });
+  rcfDaysInput.addEventListener('input', () => {
+    const v = parseInt(rcfDaysInput.value);
+    if (v && v <= 30) rcfSlider.value = v;
+    updateRcfSuggestion();
+  });
+  rcfAvgSelect.addEventListener('change', updateRcfSuggestion);
+  rcfSuggestion.addEventListener('click', () => { rcfPointCost.value = rcfSuggestion.dataset.cost; });
+  updateRcfSuggestion();
 
   // Emoji picker
   mount.querySelectorAll('#rcf_emojiPicker .emoji-btn').forEach(btn => {

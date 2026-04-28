@@ -2044,10 +2044,9 @@
               <input type="number" id="rf_pointCost" class="form-input" value="${reward.pointCost || ''}" min="1" placeholder="e.g. 500">
             </div>
             <div class="form-group">
-              <label class="form-label">Earn in ~</label>
+              <label class="form-label">Earn in ~ days</label>
               <div style="display: flex; gap: 4px; align-items: center;">
                 <input type="number" id="rf_daysInput" class="form-input" value="7" min="1" style="width: 56px;">
-                <span style="font-size: var(--font-sm);">days</span>
                 <select id="rf_avgSelect" class="form-input" style="flex: 1; font-size: var(--font-xs);">
                   ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
                 </select>

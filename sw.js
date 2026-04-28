@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v85 (2026-04-27) — Rewards page bug fixes: person switcher, filter sheets, pricing
+//                    helper in FAB form, filter-chips CSS, admin label tweak.
 // v84 (2026-04-27) — Phase 6 Rewards Unification: add rewards.html, rewards.js,
 //                    styles/rewards.css to precache.
 // v83 (2026-04-27) — tracker: Back to Today pill + slide animation on period nav
@@ -176,7 +178,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v84';
+const CACHE_NAME = 'family-hub-v85';
 
 const APP_SHELL = [
   '/',
