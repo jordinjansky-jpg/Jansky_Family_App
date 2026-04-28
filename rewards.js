@@ -104,11 +104,93 @@ function render() {
   bindTabs();
 }
 
-function renderBalanceZone() { return ''; } // implemented in Task 8
-function renderApprovalsBanner() { return ''; } // implemented in Task 8
-function renderTabsHtml() { return ''; } // implemented in Task 8
-function renderActiveTab() {} // implemented in Task 9+
-function bindTabs() {} // implemented in Task 8
+function getBalance(personId) {
+  const msgs = allMessages?.[personId] || {};
+  const anchor = allAnchors?.[personId] || null;
+  const tz = settings?.timezone || 'UTC';
+  const result = calculateBalance(personId, allSnapshots, msgs, anchor, allMultipliers, tz);
+  return Math.round(result?.balance ?? result ?? 0);
+}
+
+function renderTrendLine(personId) {
+  const tz = settings?.timezone || 'UTC';
+  const today = todayKey(tz);
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(new Date(today + 'T00:00:00').getTime() - i * 86400000)
+      .toLocaleDateString('en-CA', { timeZone: tz });
+    const snap = allSnapshots?.[d]?.[personId];
+    days.push(snap ? (snap.earned || 0) : 0);
+  }
+  const max = Math.max(...days, 1);
+  const W = 80, H = 24;
+  const pts = days.map((v, i) => {
+    const x = Math.round((i / (days.length - 1)) * W);
+    const y = Math.round(H - (v / max) * H);
+    return `${x},${y}`;
+  }).join(' ');
+  return `<svg class="rewards-trend" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function renderBalanceZone() {
+  if (!activePerson) return '';
+  const balance = getBalance(activePerson.id);
+  return `<div class="rewards-balance-zone">
+    <div class="avatar" style="--person-color:${esc(activePerson.color)}">${esc(activePerson.name[0].toUpperCase())}</div>
+    <div class="rewards-balance__info">
+      <div class="rewards-balance__name">${esc(activePerson.name)}</div>
+      <div class="rewards-balance__amount">${balance.toLocaleString()}<span class="rewards-balance__unit">pts</span></div>
+    </div>
+    ${renderTrendLine(activePerson.id)}
+  </div>`;
+}
+
+function renderApprovalsBanner() {
+  if (isKidMode) return '';
+  let count = 0;
+  for (const msgs of Object.values(allMessages || {})) {
+    for (const m of Object.values(msgs || {})) {
+      if (m.type === 'redemption-request' && !m.seen) count++;
+    }
+  }
+  if (count === 0) return '';
+  return `<div class="rewards-approval-banner">
+    <div class="banner banner--warning">
+      ${count} reward${count > 1 ? 's' : ''} waiting for approval
+      <button class="btn btn--ghost btn--sm" id="bannerReviewBtn" type="button">Review</button>
+    </div>
+  </div>`;
+}
+
+function renderTabsHtml() {
+  const tabs = isKidMode
+    ? [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }]
+    : [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }, { id: 'approvals', label: 'Approvals' }];
+  return `<div class="tabs" role="tablist">
+    ${tabs.map(t => `<button class="tabs__tab${activeTab === t.id ? ' tabs__tab--active' : ''}" role="tab" aria-selected="${activeTab === t.id}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
+  </div>`;
+}
+
+function renderActiveTab() {
+  const content = document.getElementById('rewardsContent');
+  if (!content) return;
+  content.innerHTML = `<div class="empty-state"><p>Loading…</p></div>`;
+}
+
+function bindTabs() {
+  document.querySelectorAll('.tabs__tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      document.querySelectorAll('.tabs__tab').forEach(b => {
+        b.classList.toggle('tabs__tab--active', b.dataset.tab === activeTab);
+        b.setAttribute('aria-selected', b.dataset.tab === activeTab);
+      });
+      renderActiveTab();
+    });
+  });
+}
 
 function bindPage() {
   document.getElementById('kidBackBtn')?.addEventListener('click', () => {
