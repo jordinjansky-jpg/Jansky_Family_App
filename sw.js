@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v92 (2026-04-28) — Rewards theme now reads/writes person.theme in Firebase
+//                    (same store as dashboard) so theme syncs across all pages.
 // v91 (2026-04-28) — Center text in view-as select dropdown.
 // v90 (2026-04-28) — View-as dropdown replaces person chip + sheet; filter badge
 //                    no longer counts sort (cost is default, not a filter).
@@ -189,7 +191,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v91';
+const CACHE_NAME = 'family-hub-v92';
 
 const APP_SHELL = [
   '/',

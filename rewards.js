@@ -2,7 +2,7 @@ import { initFirebase, readSettings, readPeople, readRewards, readAllMessages,
   readAllBalanceAnchors, readAllSnapshots, readBank, readMultipliers,
   writeFyiMessage, writeMessage, markMessageSeen, writeBankToken,
   markBankTokenUsed, removeBankToken, onConnectionChange, pushReward,
-  onAllMessages, removeMessage, writeMultiplier
+  onAllMessages, removeMessage, writeMultiplier, writePerson
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
@@ -28,6 +28,7 @@ const isKidMode = !!kidName;
 let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers;
 let people = [];
 let activePerson = null;
+let viewerPerson = null; // the person whose perspective owns this session (theme, etc.)
 let activeTab = tabParam || 'shop';
 let shopFilter = { type: 'all', sort: 'cost', search: '' };
 let historyFilter = { type: 'all' };
@@ -46,11 +47,13 @@ async function loadData() {
   } else {
     activePerson = people.find(p => p.role !== 'child') || people[0];
   }
+  if (!viewerPerson) viewerPerson = activePerson; // set once on first load
 }
 
 async function init() {
   await loadData();
   applyTheme(resolveTheme(settings?.theme));
+  if (viewerPerson?.theme?.preset) applyTheme(viewerPerson.theme);
 
   if (!isKidMode) {
     document.getElementById('headerMount').innerHTML = renderHeader({
@@ -929,7 +932,8 @@ function openHeaderOverflowSheet() {
       openDeviceThemeSheet(
         document.getElementById('sheetMount'),
         settings?.theme,
-        () => render()
+        () => render(),
+        viewerPerson ? { person: viewerPerson, writePerson } : undefined
       );
     }
   });
