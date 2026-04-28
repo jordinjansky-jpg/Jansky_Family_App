@@ -28,6 +28,7 @@ let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allM
 let people = [];
 let activePerson = null;
 let activeTab = tabParam || 'shop';
+let shopFilter = { type: 'all', sort: 'name', search: '' };
 
 async function loadData() {
   [settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers] = await Promise.all([
@@ -176,8 +177,114 @@ function renderTabsHtml() {
 function renderActiveTab() {
   const content = document.getElementById('rewardsContent');
   if (!content) return;
-  content.innerHTML = `<div class="empty-state"><p>Loading…</p></div>`;
+  if (activeTab === 'shop')           content.innerHTML = renderShopTab();
+  else if (activeTab === 'bank')      content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  else if (activeTab === 'history')   content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  else if (activeTab === 'approvals') content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  bindActiveTab();
 }
+
+function bindActiveTab() {
+  if (activeTab === 'shop') bindShopTab();
+}
+
+function renderFilterSortChip(id, activeCount) {
+  const label = activeCount > 0 ? `Filter & Sort · ${activeCount}` : 'Filter & Sort';
+  const extraCls = activeCount > 0 ? ' chip--active' : '';
+  return `<button class="chip${extraCls}" id="${id}" type="button">${label} &#9662;</button>`;
+}
+
+function getShopFilterCount() {
+  let n = 0;
+  if (shopFilter.type !== 'all') n++;
+  if (shopFilter.sort !== 'name') n++;
+  return n;
+}
+
+function renderShopTab() {
+  if (!activePerson) return '<div class="empty-state"><p>No person selected.</p></div>';
+  const balance = getBalance(activePerson.id);
+
+  let visible = Object.entries(rewardsObj || {}).filter(([id, r]) => {
+    if (r.status !== 'active') return false;
+    if (r.expiresAt && Date.now() > r.expiresAt) return false;
+    if (Array.isArray(r.perPerson) && !r.perPerson.includes(activePerson.id)) return false;
+    if (shopFilter.type !== 'all') {
+      if (shopFilter.type === 'custom' && r.rewardType !== 'custom') return false;
+      if (shopFilter.type === 'functional' && r.rewardType !== 'task-skip' && r.rewardType !== 'penalty-removal') return false;
+      if (shopFilter.type === 'bounties' && !r.bounty) return false;
+    }
+    if (shopFilter.search) {
+      if (!(r.name || '').toLowerCase().includes(shopFilter.search.toLowerCase())) return false;
+    }
+    return true;
+  }).map(([id, r]) => ({ id, ...r }));
+
+  if (shopFilter.sort === 'cost') visible.sort((a, b) => (a.pointCost || 0) - (b.pointCost || 0));
+  else visible.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  let html = `<div class="rewards-filter-bar">
+    <input type="search" class="form-input rewards-search" id="shopSearch" placeholder="Search rewards…" value="${esc(shopFilter.search)}">
+    ${renderFilterSortChip('shopFilterBtn', getShopFilterCount())}
+  </div>`;
+
+  if (visible.length === 0) {
+    html += `<div class="empty-state"><p>No rewards available for you yet.</p></div>`;
+  } else {
+    html += visible.map(r => renderRewardCard(r, balance, { showGet: true })).join('');
+  }
+  return html;
+}
+
+function bindShopTab() {
+  document.getElementById('shopSearch')?.addEventListener('input', e => {
+    shopFilter.search = e.target.value;
+    const content = document.getElementById('rewardsContent');
+    if (content) { content.innerHTML = renderShopTab(); bindShopTab(); }
+    document.getElementById('shopSearch')?.focus();
+  });
+  document.getElementById('shopFilterBtn')?.addEventListener('click', openShopFilterSheet);
+  document.querySelectorAll('.reward-get-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleGetReward(btn.dataset.rewardId));
+  });
+}
+
+function openShopFilterSheet() {
+  const mount = document.getElementById('sheetMount');
+  const typeOpts = [
+    { v: 'all', l: 'All Types' }, { v: 'custom', l: 'Custom' },
+    { v: 'functional', l: 'Functional' }, { v: 'bounties', l: 'Bounties' }
+  ];
+  const sortOpts = [{ v: 'name', l: 'Name' }, { v: 'cost', l: 'Cost' }];
+  const html = `<div id="shopFilterSheet">
+    <div class="filter-section"><div class="filter-section__label">Type</div>
+      <div class="filter-chips">
+        ${typeOpts.map(o => `<button class="chip${shopFilter.type === o.v ? ' chip--active' : ''}" data-filter-type="${o.v}" type="button">${o.l}</button>`).join('')}
+      </div>
+    </div>
+    <div class="filter-section"><div class="filter-section__label">Sort by</div>
+      <div class="filter-chips">
+        ${sortOpts.map(o => `<button class="chip${shopFilter.sort === o.v ? ' chip--active' : ''}" data-filter-sort="${o.v}" type="button">${o.l}</button>`).join('')}
+      </div>
+    </div>
+    <button class="btn btn--primary btn--full" id="shopFilterApply" type="button">Apply</button>
+  </div>`;
+  mount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  mount.querySelectorAll('[data-filter-type]').forEach(b =>
+    b.addEventListener('click', () => { mount.querySelectorAll('[data-filter-type]').forEach(x => x.classList.remove('chip--active')); b.classList.add('chip--active'); }));
+  mount.querySelectorAll('[data-filter-sort]').forEach(b =>
+    b.addEventListener('click', () => { mount.querySelectorAll('[data-filter-sort]').forEach(x => x.classList.remove('chip--active')); b.classList.add('chip--active'); }));
+  mount.querySelector('#shopFilterApply')?.addEventListener('click', () => {
+    shopFilter.type = mount.querySelector('[data-filter-type].chip--active')?.dataset.filterType || 'all';
+    shopFilter.sort = mount.querySelector('[data-filter-sort].chip--active')?.dataset.filterSort || 'name';
+    mount.innerHTML = '';
+    const content = document.getElementById('rewardsContent');
+    if (content) { content.innerHTML = renderShopTab(); bindShopTab(); }
+  });
+}
+
+function handleGetReward(rewardId) {} // implemented in Task 13
 
 function bindTabs() {
   document.querySelectorAll('.tabs__tab').forEach(btn => {
