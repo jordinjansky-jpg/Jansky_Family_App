@@ -441,7 +441,7 @@ function renderApprovalsTab() {
   // Render recent section (only if there are recent items)
   if (recentItems.length > 0) {
     html += `<div class="rewards-section-heading">Recent</div>
-      <button class="rewards-show-more" id="approvalsRecentToggle" type="button">Show ${recentItems.length} recent</button>
+      <button class="rewards-show-more" id="approvalsRecentToggle" type="button" data-count="${recentItems.length}">Show ${recentItems.length} recent</button>
       <div id="approvalsRecentList" hidden>
         ${recentItems.map(({ msg }) => renderHistoryRow(msg, tz)).join('')}
       </div>`;
@@ -455,8 +455,7 @@ function bindApprovalsTab() {
     const list = document.getElementById('approvalsRecentList');
     if (list) {
       list.hidden = !list.hidden;
-      const count = list.querySelectorAll('.history-row, .approval-row, [class*="row"]').length ||
-        list.children.length;
+      const count = Number(this.dataset.count);
       this.textContent = list.hidden ? `Show ${count} recent` : 'Hide recent';
     }
   });

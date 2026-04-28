@@ -296,7 +296,7 @@ Bell renders FYI messages with an info icon and no action buttons. Marking seen 
 | `renderRewardCard(reward, balance, opts)` | `.card.card--reward` — used in Shop and Bank tabs |
 | `renderBankToken(token, opts)` | Bank tab active token row |
 | `renderHistoryRow(entry)` | Compact `.list-row` for History tab |
-| `renderApprovalRow(request, people, rewards)` | Pending approval row with inline buttons |
+| `renderApprovalRow(msgId, msg, person, reward)` | Pending approval row with inline buttons |
 
 All four replace today's bespoke `store-card` HTML strings scattered across `scoreboard.html` and `kid.html`. One shape, one definition.
 
