@@ -715,8 +715,8 @@ async function handleGetReward(rewardId) {
     return;
   }
 
-  if (!reward.approvalRequired) {
-    // Path 1 — self-serve
+  if (reward.approvalRequired === false) {
+    // Path 1 — self-serve (only when explicitly set false; undefined defaults to approval-required)
     await writeBankToken(activePerson.id, {
       rewardType: reward.rewardType || 'custom',
       rewardId,
