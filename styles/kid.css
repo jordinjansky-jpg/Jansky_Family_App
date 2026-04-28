@@ -498,9 +498,6 @@
     @keyframes kidScaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     @keyframes kidFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-    /* ── Reward Store (kid mode overrides) ── */
-    .store-header { text-align: center; font-size: 1.25rem; }
-
     /* ── History ── */
     .history-date { font-weight: 600; font-size: var(--font-sm); color: var(--text-faint); padding: 8px 0 4px; border-bottom: 1px solid var(--border); margin-top: 8px; }
     .history-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
