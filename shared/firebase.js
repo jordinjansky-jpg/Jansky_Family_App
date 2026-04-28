@@ -439,7 +439,7 @@ export async function writeMessage(personId, data) {
   return pushData(`messages/${personId}`, data);
 }
 
-export async function writeFyiMessage(parentPersonId, kidName, rewardName, pointCost, rewardId, kidPersonId) {
+export async function writeFyiMessage(parentPersonId, kidName, rewardName, pointCost, rewardId, createdByPersonId) {
   return pushData(`messages/${parentPersonId}`, {
     type: 'fyi',
     title: `${kidName} got ${rewardName} from the store.`,
@@ -448,7 +448,7 @@ export async function writeFyiMessage(parentPersonId, kidName, rewardName, point
     rewardId,
     seen: false,
     createdAt: firebase.database.ServerValue.TIMESTAMP,
-    createdBy: kidPersonId
+    createdBy: createdByPersonId
   });
 }
 
