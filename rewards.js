@@ -178,7 +178,7 @@ function renderActiveTab() {
   const content = document.getElementById('rewardsContent');
   if (!content) return;
   if (activeTab === 'shop')           content.innerHTML = renderShopTab();
-  else if (activeTab === 'bank')      content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  else if (activeTab === 'bank')      { content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>'; loadAndRenderBankTab(); }
   else if (activeTab === 'history')   content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
   else if (activeTab === 'approvals') content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
   bindActiveTab();
@@ -186,6 +186,7 @@ function renderActiveTab() {
 
 function bindActiveTab() {
   if (activeTab === 'shop') bindShopTab();
+  else if (activeTab === 'bank') {} // binding done inside loadAndRenderBankTab
 }
 
 function renderFilterSortChip(id, activeCount) {
@@ -282,6 +283,112 @@ function openShopFilterSheet() {
     const content = document.getElementById('rewardsContent');
     if (content) { content.innerHTML = renderShopTab(); bindShopTab(); }
   });
+}
+
+// ── Bank tab ──
+
+function renderBankTab() {
+  return '<div class="empty-state"><p>Loading…</p></div>';
+}
+
+async function loadAndRenderBankTab() {
+  const content = document.getElementById('rewardsContent');
+  if (!content) return;
+  const personBank = (await readBank(activePerson.id)) || {};
+  const isAdult = activePerson.role !== 'child';
+
+  const activeTokens = Object.entries(personBank).filter(([, t]) => !t.used);
+  const usedTokens = Object.entries(personBank).filter(([, t]) => t.used)
+    .sort((a, b) => (b[1].usedAt || 0) - (a[1].usedAt || 0));
+
+  let html = '';
+  if (activeTokens.length === 0 && usedTokens.length === 0) {
+    html += '<div class="empty-state"><p>No saved rewards yet.</p></div>';
+  } else {
+    activeTokens.forEach(([tokenId, token]) => {
+      const reward = rewardsObj?.[token.rewardId] || {};
+      html += renderBankTokenEl(tokenId, token, {
+        showUse: true,
+        isAdult,
+        approvalRequired: reward.approvalRequired !== false
+      });
+    });
+
+    if (usedTokens.length > 0) {
+      html += `<div class="rewards-show-more" id="bankUsedToggle">Show ${usedTokens.length} used</div>
+        <div id="bankUsedList" hidden>`;
+      usedTokens.forEach(([tokenId, token]) => {
+        html += renderBankTokenEl(tokenId, token, { showUse: false });
+      });
+      html += '</div>';
+    }
+  }
+
+  if (content) content.innerHTML = html;
+  bindBankTabContent(personBank, isAdult);
+}
+
+function bindBankTabContent(personBank, isAdult) {
+  document.getElementById('bankUsedToggle')?.addEventListener('click', function() {
+    const list = document.getElementById('bankUsedList');
+    if (list) {
+      list.hidden = !list.hidden;
+      const usedCount = Object.values(personBank).filter(t => t.used).length;
+      this.textContent = list.hidden ? `Show ${usedCount} used` : 'Hide used';
+    }
+  });
+
+  document.querySelectorAll('.bank-use-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleUseToken(
+      btn.dataset.tokenId,
+      btn.dataset.rewardType,
+      btn.dataset.tokenName,
+      btn.dataset.rewardId,
+      btn.dataset.rewardIcon,
+      btn.dataset.canInstant === 'true'
+    ));
+  });
+}
+
+async function handleUseToken(tokenId, rewardType, tokenName, rewardId, rewardIcon, canInstant) {
+  if (rewardType === 'task-skip') {
+    showToast('Task Skip: open the dashboard to skip a task from your Bank.');
+    return;
+  }
+  if (rewardType === 'penalty-removal') {
+    showToast('Penalty Removal: open a task completion to apply this.');
+    return;
+  }
+  if (canInstant) {
+    if (!await showConfirm({ title: `Use ${tokenName}?` })) return;
+    await markBankTokenUsed(activePerson.id, tokenId, null);
+    await writeMessage(activePerson.id, {
+      type: 'reward-used',
+      title: `Used: ${tokenName}`,
+      body: null,
+      amount: 0,
+      rewardId: rewardId || null,
+      seen: true,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      createdBy: 'self'
+    });
+    showToast(`Used ${tokenName}!`);
+    await refreshData();
+    render();
+  } else {
+    if (!await showConfirm({ title: `Request to use ${tokenName}?`, message: 'Your parent will get a notification to approve.' })) return;
+    await writeMessage(activePerson.id, {
+      type: 'use-request',
+      title: tokenName,
+      body: null,
+      amount: 0,
+      rewardId: rewardId || null,
+      seen: false,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      createdBy: activePerson.id
+    });
+    showToast('Requested! Waiting for approval…');
+  }
 }
 
 function handleGetReward(rewardId) {} // implemented in Task 13
