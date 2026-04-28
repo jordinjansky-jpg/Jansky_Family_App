@@ -1108,11 +1108,11 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   return `<div class="task-detail-sheet">
     <h3 class="admin-form__title">${title}</h3>
-    <div class="admin-form__group">
+    <div class="form-group">
       <label class="form-label" for="ef_name">Event name</label>
       <input class="form-input" id="ef_name" type="text" placeholder="Soccer practice, Dentist, etc." value="${esc(event.name || '')}" autocomplete="off">
     </div>
-    <div class="admin-form__group">
+    <div class="form-group">
       <div class="ef-date-row">
         <div class="ef-date-field">
           <label class="form-label" for="ef_date">Date</label>
@@ -1131,29 +1131,22 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
         </div>
       </div>
     </div>
-    <div class="admin-form__group">
+    <div class="form-group">
       <label class="form-label">People</label>
       <div class="owner-chips" id="ef_people">${peoplePills}</div>
     </div>
-    <details class="ef-more-options">
-      <summary class="form-label ef-more-toggle">More options</summary>
-      <div class="admin-form__group">
-        <label class="form-label">Color</label>
-        ${renderColorButton(currentColor, 'ef_colorPicker')}
-      </div>
-      <div class="admin-form__group">
-        <label class="form-label" for="ef_location">Location</label>
-        <input class="form-input" id="ef_location" type="text" placeholder="Optional" value="${esc(event.location || '')}">
-      </div>
-      <div class="admin-form__group">
-        <label class="form-label" for="ef_notes">Notes</label>
-        <textarea class="form-input form-textarea" id="ef_notes" rows="2" placeholder="Optional">${esc(event.notes || '')}</textarea>
-      </div>
-      <div class="admin-form__group">
-        <label class="form-label" for="ef_url">Link / URL</label>
-        <input class="form-input" id="ef_url" type="url" placeholder="Optional" value="${esc(event.url || '')}">
-      </div>
-    </details>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      ${renderColorButton(currentColor, 'ef_colorPicker')}
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="ef_location">Location</label>
+      <input class="form-input" id="ef_location" type="text" placeholder="Optional" value="${esc(event.location || '')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="ef_notes">Notes</label>
+      <textarea class="form-input form-textarea" id="ef_notes" rows="2" placeholder="Optional">${esc(event.notes || '')}</textarea>
+    </div>
     <div class="admin-form__actions mt-md">
       ${isEdit ? `<button class="btn btn--danger" id="ef_delete" type="button" data-event-id="${eventId}">Delete Event</button>` : ''}
       <button class="btn btn--secondary" id="ef_cancel" type="button">Cancel</button>

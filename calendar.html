@@ -652,7 +652,7 @@
           people: selectedPeople,
           location: document.getElementById('ef_location')?.value.trim() || null,
           notes: document.getElementById('ef_notes')?.value.trim() || null,
-          url: document.getElementById('ef_url')?.value.trim() || null,
+          url: existingEventId ? (events[existingEventId]?.url || null) : null,
           recurrence: null,
           reminders: null,
           createdDate: today

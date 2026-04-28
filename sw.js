@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v86 (2026-04-28) — Rewards layout (remove double padding, tab spacing), dashboard
+//                    overflow replaces Rewards→Calendar, event form matches admin,
+//                    backdrop close on reward create, filter/tab gap tightened.
 // v85 (2026-04-27) — Rewards page bug fixes: person switcher, filter sheets, pricing
 //                    helper in FAB form, filter-chips CSS, admin label tweak.
 // v84 (2026-04-27) — Phase 6 Rewards Unification: add rewards.html, rewards.js,
@@ -178,7 +181,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v85';
+const CACHE_NAME = 'family-hub-v86';
 
 const APP_SHELL = [
   '/',

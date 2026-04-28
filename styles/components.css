@@ -2787,6 +2787,7 @@
   background: var(--surface-2);
   border-radius: var(--radius-md);
   padding: 3px;
+  gap: 2px;
 }
 
 .tabs--segmented .tab.is-active {

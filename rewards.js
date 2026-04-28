@@ -56,7 +56,7 @@ async function init() {
     document.getElementById('headerMount').innerHTML = renderHeader({
       title: 'Rewards',
       showBell: true,
-      overflowItems: [{ id: 'admin', label: 'Admin' }, { id: 'theme', label: 'Theme' }]
+      overflowItems: [{ id: 'admin', label: 'Admin' }, { id: 'calendar', label: 'Calendar' }, { id: 'theme', label: 'Theme' }]
     });
     // Add person switcher chip slot into the header actions area
     document.querySelector('.app-header__actions')?.insertAdjacentHTML(
@@ -231,7 +231,7 @@ function renderTabsHtml() {
   const tabs = isKidMode
     ? [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }]
     : [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }, { id: 'approvals', label: 'Approvals' }];
-  return `<div class="tabs tabs--segmented" role="tablist">
+  return `<div class="tabs tabs--segmented rewards-tabs" role="tablist">
     ${tabs.map(t => `<button class="tab${activeTab === t.id ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === t.id}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
   </div>`;
 }
@@ -926,6 +926,7 @@ function openHeaderOverflowSheet() {
   mount.innerHTML = renderBottomSheet(
     `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu([
       { id: 'admin', label: 'Admin' },
+      { id: 'calendar', label: 'Calendar' },
       { id: 'theme', label: 'Theme' }
     ])}`
   );
@@ -939,6 +940,8 @@ function openHeaderOverflowSheet() {
     mount.innerHTML = '';
     if (btn.dataset.itemId === 'admin') {
       location.href = 'admin.html';
+    } else if (btn.dataset.itemId === 'calendar') {
+      location.href = 'calendar.html';
     } else if (btn.dataset.itemId === 'theme') {
       openDeviceThemeSheet(
         document.getElementById('sheetMount'),
@@ -1042,6 +1045,9 @@ function openRewardCreateForm() {
 
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  document.getElementById('bottomSheet')?.addEventListener('click', e => {
+    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+  });
 
   // Pricing helper
   const rcfDaysInput = mount.querySelector('#rcf_daysInput');

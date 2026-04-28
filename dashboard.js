@@ -94,7 +94,7 @@ if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appN
 // ── Header & Nav ──
 function buildHeaderOverflow() {
   const items = [];
-  items.push({ id: 'rewards', label: 'Rewards' });
+  items.push({ id: 'calendar', label: 'Calendar' });
   items.push({ id: 'admin', label: 'Admin' });
   items.push({ id: 'theme', label: 'Theme' });
   if (localStorage.getItem('dr-debug') === 'true') {
@@ -122,9 +122,8 @@ function openOverflowOrMoreSheet() {
     const itemId = btn.dataset.itemId;
     closeTaskSheet();
     setTimeout(() => {
-      if (itemId === 'rewards') {
-        // Rewards store currently lives on scoreboard; dedicated sheet lands in Phase 6.
-        location.href = 'scoreboard.html';
+      if (itemId === 'calendar') {
+        location.href = 'calendar.html';
       } else if (itemId === 'admin') {
         location.href = 'admin.html';
       } else if (itemId === 'theme') {

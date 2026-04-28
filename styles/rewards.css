@@ -1,6 +1,6 @@
 /* ============ Rewards page — Balance Header ============ */
 .rewards-balance-zone {
-  padding: var(--spacing-md) var(--spacing-md) 0;
+  padding-top: var(--spacing-md);
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
@@ -37,12 +37,12 @@
 
 /* ============ Approval Banner ============ */
 .rewards-approval-banner {
-  margin: var(--spacing-sm) var(--spacing-md) 0;
+  margin-top: var(--spacing-sm);
 }
 
 /* ============ Tab Content ============ */
 #rewardsContent {
-  padding: var(--spacing-md);
+  padding-top: var(--spacing-sm);
   padding-bottom: calc(var(--nav-height, 68px) + var(--spacing-lg));
 }
 .rewards-section-heading {
@@ -84,6 +84,12 @@
 #shopFilterApply,
 #historyFilterApply {
   margin-top: var(--spacing-md);
+}
+
+/* ── Rewards tab bar spacing ── */
+.rewards-tabs {
+  margin-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
 }
 
 /* ============ Filter chip bar ============ */
