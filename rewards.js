@@ -383,6 +383,7 @@ async function handleUseToken(tokenId, rewardType, tokenName, rewardId, rewardIc
       body: null,
       amount: 0,
       rewardId: rewardId || null,
+      bankTokenId: tokenId,
       seen: false,
       createdAt: firebase.database.ServerValue.TIMESTAMP,
       createdBy: activePerson.id
