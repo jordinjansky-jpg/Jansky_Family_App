@@ -29,6 +29,7 @@ let people = [];
 let activePerson = null;
 let activeTab = tabParam || 'shop';
 let shopFilter = { type: 'all', sort: 'name', search: '' };
+let historyFilter = { type: 'all' };
 
 async function loadData() {
   [settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers] = await Promise.all([
@@ -93,6 +94,24 @@ function renderKidHeader() {
 
 function esc(str) {
   return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+const ADULT_HISTORY_TYPES = new Set([
+  'bonus','deduction','redemption-request','redemption-approved','redemption-denied',
+  'use-request','use-approved','use-denied','task-skip-used','penalty-removed','reward-used','fyi'
+]);
+const KID_HISTORY_TYPES = new Set([
+  'redemption-request','redemption-approved','redemption-denied',
+  'use-request','use-approved','use-denied','reward-used','task-skip-used','penalty-removed','fyi'
+]);
+
+function matchesHistoryGroup(type, group) {
+  if (group === 'all') return true;
+  if (group === 'purchases') return ['redemption-request','redemption-approved','redemption-denied','fyi'].includes(type);
+  if (group === 'uses') return ['use-request','use-approved','use-denied','reward-used','task-skip-used','penalty-removed'].includes(type);
+  if (group === 'bonuses') return type === 'bonus';
+  if (group === 'deductions') return type === 'deduction';
+  return false;
 }
 
 function render() {
@@ -179,7 +198,7 @@ function renderActiveTab() {
   if (!content) return;
   if (activeTab === 'shop')           content.innerHTML = renderShopTab();
   else if (activeTab === 'bank')      { content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>'; loadAndRenderBankTab(); }
-  else if (activeTab === 'history')   content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  else if (activeTab === 'history')   { content.innerHTML = renderHistoryTab(); }
   else if (activeTab === 'approvals') content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
   bindActiveTab();
 }
@@ -187,6 +206,7 @@ function renderActiveTab() {
 function bindActiveTab() {
   if (activeTab === 'shop') bindShopTab();
   else if (activeTab === 'bank') {} // binding done inside loadAndRenderBankTab
+  else if (activeTab === 'history') bindHistoryTab();
 }
 
 function renderFilterSortChip(id, activeCount) {
@@ -282,6 +302,106 @@ function openShopFilterSheet() {
     mount.innerHTML = '';
     const content = document.getElementById('rewardsContent');
     if (content) { content.innerHTML = renderShopTab(); bindShopTab(); }
+  });
+}
+
+// ── History tab ──
+
+function renderHistoryTab() {
+  if (!activePerson) return '<div class="empty-state"><p>No person selected.</p></div>';
+  const tz = settings?.timezone || 'UTC';
+  const allowedTypes = isKidMode ? KID_HISTORY_TYPES : ADULT_HISTORY_TYPES;
+
+  const raw = allMessages?.[activePerson.id] || {};
+  let entries = Object.values(raw)
+    .filter(msg => allowedTypes.has(msg.type) && matchesHistoryGroup(msg.type, historyFilter.type))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  const adultFilterOpts = [
+    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' },
+    { v: 'uses', l: 'Uses' }, { v: 'bonuses', l: 'Bonuses' }, { v: 'deductions', l: 'Deductions' }
+  ];
+  const kidFilterOpts = [
+    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' }, { v: 'uses', l: 'Uses' }
+  ];
+  const filterOpts = isKidMode ? kidFilterOpts : adultFilterOpts;
+  const activeFilterLabel = filterOpts.find(o => o.v === historyFilter.type)?.l || 'All';
+  const filterActiveCount = historyFilter.type !== 'all' ? 1 : 0;
+
+  let html = `<div class="rewards-filter-bar">
+    ${renderFilterSortChip('historyFilterBtn', filterActiveCount)}
+  </div>`;
+
+  if (entries.length === 0) {
+    html += '<div class="empty-state"><p>No history yet.</p></div>';
+    return html;
+  }
+
+  const PAGE = 50;
+  const visible = entries.slice(0, PAGE);
+  const remaining = entries.slice(PAGE);
+
+  html += visible.map(msg => renderHistoryRow(msg, tz)).join('');
+
+  if (remaining.length > 0) {
+    html += `<button class="rewards-show-more" id="historyShowMore" type="button" data-remaining-count="${remaining.length}">+ ${remaining.length} more</button>`;
+  }
+
+  return html;
+}
+
+function bindHistoryTab() {
+  document.getElementById('historyFilterBtn')?.addEventListener('click', openHistoryFilterSheet);
+  document.getElementById('historyShowMore')?.addEventListener('click', function() {
+    const tz = settings?.timezone || 'UTC';
+    const allowedTypes = isKidMode ? KID_HISTORY_TYPES : ADULT_HISTORY_TYPES;
+    const raw = allMessages?.[activePerson.id] || {};
+    const entries = Object.values(raw)
+      .filter(msg => allowedTypes.has(msg.type) && matchesHistoryGroup(msg.type, historyFilter.type))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const remaining = entries.slice(50);
+    const content = document.getElementById('rewardsContent');
+    if (!content) return;
+    // Append remaining rows before removing the button
+    const fragment = document.createElement('div');
+    fragment.innerHTML = remaining.map(msg => renderHistoryRow(msg, tz)).join('');
+    while (fragment.firstChild) {
+      this.before(fragment.firstChild);
+    }
+    this.remove();
+  });
+}
+
+function openHistoryFilterSheet() {
+  const mount = document.getElementById('sheetMount');
+  const adultOpts = [
+    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' },
+    { v: 'uses', l: 'Uses' }, { v: 'bonuses', l: 'Bonuses' }, { v: 'deductions', l: 'Deductions' }
+  ];
+  const kidOpts = [
+    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' }, { v: 'uses', l: 'Uses' }
+  ];
+  const opts = isKidMode ? kidOpts : adultOpts;
+  const html = `<div id="historyFilterSheet">
+    <div class="filter-section"><div class="filter-section__label">Type</div>
+      <div class="filter-chips">
+        ${opts.map(o => `<button class="chip${historyFilter.type === o.v ? ' chip--active' : ''}" data-history-filter-type="${o.v}" type="button">${o.l}</button>`).join('')}
+      </div>
+    </div>
+    <button class="btn btn--primary btn--full" id="historyFilterApply" type="button">Apply</button>
+  </div>`;
+  mount.innerHTML = renderBottomSheet(html);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  mount.querySelectorAll('[data-history-filter-type]').forEach(b =>
+    b.addEventListener('click', () => {
+      mount.querySelectorAll('[data-history-filter-type]').forEach(x => x.classList.remove('chip--active'));
+      b.classList.add('chip--active');
+    }));
+  mount.querySelector('#historyFilterApply')?.addEventListener('click', () => {
+    historyFilter.type = mount.querySelector('[data-history-filter-type].chip--active')?.dataset.historyFilterType || 'all';
+    mount.innerHTML = '';
+    const content = document.getElementById('rewardsContent');
+    if (content) { content.innerHTML = renderHistoryTab(); bindHistoryTab(); }
   });
 }
 
