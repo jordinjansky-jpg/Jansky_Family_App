@@ -167,7 +167,7 @@ const NAV_ITEMS = [
 ];
 
 /**
- * Bottom navigation. 5 items: Home, Calendar, Scores, Tracker, More.
+ * Bottom navigation. 5 items: Home, Rewards, Scores, Tracker, More.
  * More is a button (opens a sheet in-page); the first four are anchors.
  *
  * Signatures:
@@ -180,7 +180,7 @@ const NAV_ITEMS = [
 export function renderNavBar(activePage, options = {}) {
   const items = [
     { page: 'home', href: 'index.html', label: 'Home', svg: `<path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path>` },
-    { page: 'calendar', href: 'calendar.html', label: 'Calendar', svg: `<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>` },
+    { page: 'rewards', href: 'rewards.html', label: 'Rewards', svg: `<path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>` },
     { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores', svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
     { page: 'tracker', href: 'tracker.html', label: 'Tracker', svg: `<polyline points="3 12 8 7 13 12 17 8 21 12"></polyline><polyline points="3 18 8 13 13 18 17 14 21 18"></polyline>` }
   ];
@@ -211,7 +211,7 @@ export function renderNavBar(activePage, options = {}) {
 
 /**
  * Wire the #navMore button on non-dashboard pages.
- * Shows a sheet with Admin, Rewards, Theme options (alphabetical).
+ * Shows a sheet with Admin, Calendar, Rewards, Theme options (alphabetical).
  * Call after renderNavBar() has mounted to DOM.
  * @param {HTMLElement} sheetMount - element to mount the sheet into
  * @param {object} [familyTheme] - current family theme for openDeviceThemeSheet
@@ -221,9 +221,10 @@ export function initNavMore(sheetMount, getTheme) {
   if (!btn) return;
 
   const items = [
-    { id: 'admin',   label: 'Admin' },
-    { id: 'rewards', label: 'Rewards' },
-    { id: 'theme',   label: 'Theme' },
+    { id: 'admin',    label: 'Admin' },
+    { id: 'calendar', label: 'Calendar' },
+    { id: 'rewards',  label: 'Rewards' },
+    { id: 'theme',    label: 'Theme' },
   ];
 
   btn.addEventListener('click', () => {
@@ -242,9 +243,10 @@ export function initNavMore(sheetMount, getTheme) {
       if (!row) return;
       sheetMount.innerHTML = '';
       const id = row.dataset.itemId;
-      if (id === 'admin')   location.href = 'admin.html';
-      if (id === 'rewards') location.href = 'scoreboard.html';
-      if (id === 'theme')   openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme);
+      if (id === 'admin')    location.href = 'admin.html';
+      if (id === 'calendar') location.href = 'calendar.html';
+      if (id === 'rewards')  location.href = 'scoreboard.html';
+      if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme);
     });
   });
 }
