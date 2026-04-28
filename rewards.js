@@ -829,6 +829,8 @@ function bindPage() {
   });
 }
 
+const REWARD_EMOJIS = ['🍕','🎮','🍦','⭐','🎬','📱','🛹','🧁','🎯','🏆','🎪','🏊','🎨','🎵','🛍️','🧸'];
+
 function openRewardCreateForm() {
   const mount = document.getElementById('sheetMount');
   const html = `<div id="rewardCreateForm">
@@ -840,16 +842,19 @@ function openRewardCreateForm() {
     </div>
 
     <div class="form-group">
-      <label class="form-label" for="rcf_icon">Icon</label>
-      <input class="form-input" type="text" id="rcf_icon" placeholder="🎁" maxlength="4" autocomplete="off">
+      <label class="form-label">Emoji</label>
+      <div class="emoji-picker" id="rcf_emojiPicker">
+        ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn" data-emoji="${e}">${e}</button>`).join('')}
+        <input type="text" id="rcf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2">
+      </div>
     </div>
 
     <div class="form-group">
       <label class="form-label">Type</label>
-      <div class="filter-chips" id="rcf_typeChips">
-        <button class="chip chip--active" data-type="custom" type="button">Custom</button>
-        <button class="chip" data-type="task-skip" type="button">Task Skip</button>
-        <button class="chip" data-type="penalty-removal" type="button">No Penalty</button>
+      <div class="segmented-control" id="rcf_typeChips">
+        <button class="segmented-btn segmented-btn--active" data-value="custom" type="button">Custom</button>
+        <button class="segmented-btn" data-value="task-skip" type="button">Task Skip</button>
+        <button class="segmented-btn" data-value="penalty-removal" type="button">No Penalty</button>
       </div>
     </div>
 
@@ -895,11 +900,21 @@ function openRewardCreateForm() {
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
 
-  // Type chip — mutually exclusive
-  mount.querySelectorAll('#rcf_typeChips .chip').forEach(btn => {
+  // Emoji picker
+  mount.querySelectorAll('#rcf_emojiPicker .emoji-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      mount.querySelectorAll('#rcf_typeChips .chip').forEach(b => b.classList.remove('chip--active'));
-      btn.classList.add('chip--active');
+      mount.querySelectorAll('#rcf_emojiPicker .emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
+      btn.classList.add('emoji-btn--selected');
+      const customInput = mount.querySelector('#rcf_customEmoji');
+      if (customInput) customInput.value = '';
+    });
+  });
+
+  // Type segmented control — mutually exclusive
+  mount.querySelectorAll('#rcf_typeChips .segmented-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mount.querySelectorAll('#rcf_typeChips .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+      btn.classList.add('segmented-btn--active');
     });
   });
 
@@ -914,7 +929,6 @@ function openRewardCreateForm() {
   // Save
   mount.querySelector('#rcf_save')?.addEventListener('click', async () => {
     const nameInput = mount.querySelector('#rcf_name');
-    const iconInput = mount.querySelector('#rcf_icon');
     const costInput = mount.querySelector('#rcf_pointCost');
     const approvalToggle = mount.querySelector('#rcf_approvalRequired');
     const maxInput = mount.querySelector('#rcf_maxRedemptions');
@@ -927,13 +941,15 @@ function openRewardCreateForm() {
       return;
     }
 
-    const selectedType = mount.querySelector('#rcf_typeChips .chip--active')?.dataset.type || 'custom';
+    const selectedType = mount.querySelector('#rcf_typeChips .segmented-btn--active')?.dataset.value || 'custom';
     const selectedPeopleIds = [...mount.querySelectorAll('#rcf_personChips .chip--active')]
       .map(b => b.dataset.personId);
+    const selectedEmoji = mount.querySelector('#rcf_emojiPicker .emoji-btn--selected')?.dataset.emoji
+      || mount.querySelector('#rcf_customEmoji')?.value.trim() || '🎁';
 
     const rewardData = {
       name,
-      icon: iconInput?.value.trim() || '🎁',
+      icon: selectedEmoji,
       rewardType: selectedType,
       pointCost: parseInt(costInput?.value) || 0,
       approvalRequired: approvalToggle?.checked !== false,
