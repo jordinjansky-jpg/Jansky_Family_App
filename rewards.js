@@ -199,7 +199,7 @@ function renderActiveTab() {
   if (activeTab === 'shop')           content.innerHTML = renderShopTab();
   else if (activeTab === 'bank')      { content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>'; loadAndRenderBankTab(); }
   else if (activeTab === 'history')   { content.innerHTML = renderHistoryTab(); }
-  else if (activeTab === 'approvals') content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  else if (activeTab === 'approvals') content.innerHTML = renderApprovalsTab();
   bindActiveTab();
 }
 
@@ -207,6 +207,7 @@ function bindActiveTab() {
   if (activeTab === 'shop') bindShopTab();
   else if (activeTab === 'bank') {} // binding done inside loadAndRenderBankTab
   else if (activeTab === 'history') bindHistoryTab();
+  else if (activeTab === 'approvals') bindApprovalsTab();
 }
 
 function renderFilterSortChip(id, activeCount) {
@@ -395,6 +396,94 @@ function openHistoryFilterSheet() {
     if (content) { content.innerHTML = renderHistoryTab(); bindHistoryTab(); }
   });
 }
+
+// ── Approvals tab ──
+
+function renderApprovalsTab() {
+  // Build pending list: all people, redemption-request + use-request, seen === false
+  const pendingItems = [];
+  for (const [personId, msgs] of Object.entries(allMessages || {})) {
+    for (const [msgId, msg] of Object.entries(msgs || {})) {
+      if ((msg.type === 'redemption-request' || msg.type === 'use-request') && msg.seen === false) {
+        pendingItems.push({ msgId, msg, personId });
+      }
+    }
+  }
+  pendingItems.sort((a, b) => (b.msg.createdAt || 0) - (a.msg.createdAt || 0));
+
+  // Build recent resolved list: approved/denied types, last 30 days
+  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+  const resolvedTypes = ['redemption-approved', 'redemption-denied', 'use-approved', 'use-denied'];
+  const recentItems = [];
+  for (const [personId, msgs] of Object.entries(allMessages || {})) {
+    for (const [, msg] of Object.entries(msgs || {})) {
+      if (resolvedTypes.includes(msg.type) && Date.now() - (msg.createdAt || 0) < THIRTY_DAYS) {
+        recentItems.push({ msg, personId });
+      }
+    }
+  }
+  recentItems.sort((a, b) => (b.msg.createdAt || 0) - (a.msg.createdAt || 0));
+
+  const tz = settings?.timezone || 'UTC';
+
+  // Render pending section
+  let html = `<div class="rewards-section-heading">Pending</div>`;
+  if (pendingItems.length === 0) {
+    html += `<div class="empty-state"><p>No pending approvals.</p></div>`;
+  } else {
+    html += pendingItems.map(({ msgId, msg, personId }) => {
+      const person = people.find(p => p.id === personId) || null;
+      const reward = rewardsObj?.[msg.rewardId] || null;
+      return renderApprovalRow(msgId, msg, person, reward);
+    }).join('');
+  }
+
+  // Render recent section (only if there are recent items)
+  if (recentItems.length > 0) {
+    html += `<div class="rewards-section-heading">Recent</div>
+      <button class="rewards-show-more" id="approvalsRecentToggle" type="button">Show ${recentItems.length} recent</button>
+      <div id="approvalsRecentList" hidden>
+        ${recentItems.map(({ msg }) => renderHistoryRow(msg, tz)).join('')}
+      </div>`;
+  }
+
+  return html;
+}
+
+function bindApprovalsTab() {
+  document.getElementById('approvalsRecentToggle')?.addEventListener('click', function() {
+    const list = document.getElementById('approvalsRecentList');
+    if (list) {
+      list.hidden = !list.hidden;
+      const count = list.querySelectorAll('.history-row, .approval-row, [class*="row"]').length ||
+        list.children.length;
+      this.textContent = list.hidden ? `Show ${count} recent` : 'Hide recent';
+    }
+  });
+
+  document.querySelectorAll('.approval-approve-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('[data-msg-id]');
+      const msgId = row?.dataset.msgId || btn.dataset.msgId;
+      const personId = row?.dataset.personId || '';
+      const rewardId = row?.dataset.rewardId || '';
+      const intent = row?.dataset.intent || '';
+      handleApprove(msgId, personId, rewardId, intent);
+    });
+  });
+
+  document.querySelectorAll('.approval-deny-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('[data-msg-id]');
+      const msgId = row?.dataset.msgId || btn.dataset.msgId;
+      const personId = row?.dataset.personId || '';
+      handleDeny(msgId, personId);
+    });
+  });
+}
+
+async function handleApprove(msgId, personId, rewardId, intent) {} // Task 13
+async function handleDeny(msgId, personId) {} // Task 13
 
 // ── Bank tab ──
 
