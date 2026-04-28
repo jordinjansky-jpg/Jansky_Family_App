@@ -1434,8 +1434,8 @@
   color: var(--text-faint);
 }
 .chip--warning {
-  background: var(--warning-soft, rgba(251, 146, 60, 0.1));
-  color: var(--warning-dark, #c2410c);
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 /* ── Send Message Sheet ── */
