@@ -29,7 +29,7 @@ let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allM
 let people = [];
 let activePerson = null;
 let activeTab = tabParam || 'shop';
-let shopFilter = { type: 'all', sort: 'name', search: '' };
+let shopFilter = { type: 'all', sort: 'cost', search: '' };
 let historyFilter = { type: 'all' };
 
 async function loadData() {

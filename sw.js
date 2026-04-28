@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v89 (2026-04-28) — Increase .list-row gap sm→md, default shop sort = cost (cheap first).
 // v88 (2026-04-28) — Fix sb-balances layout (display:block so rows stack), add
 //                    gap to .list-row so avatar doesn't cramp the name.
 // v87 (2026-04-28) — Card gap fix (reset legacy margin-top), emoji picker CSS moved
@@ -185,7 +186,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v87';
+const CACHE_NAME = 'family-hub-v89';
 
 const APP_SHELL = [
   '/',
