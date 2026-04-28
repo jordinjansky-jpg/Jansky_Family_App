@@ -439,6 +439,19 @@ export async function writeMessage(personId, data) {
   return pushData(`messages/${personId}`, data);
 }
 
+export async function writeFyiMessage(parentPersonId, kidName, rewardName, pointCost, rewardId, kidPersonId) {
+  return pushData(`messages/${parentPersonId}`, {
+    type: 'fyi',
+    title: `${kidName} got ${rewardName} from the store.`,
+    body: null,
+    amount: -pointCost,
+    rewardId,
+    seen: false,
+    createdAt: firebase.database.ServerValue.TIMESTAMP,
+    createdBy: kidPersonId
+  });
+}
+
 export async function markMessageSeen(personId, msgId) {
   await updateData(`messages/${personId}/${msgId}`, { seen: true });
 }
