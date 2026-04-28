@@ -2017,15 +2017,15 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Require approval to buy</label>
-            <div class="form-toggle-row">
-              <label class="form-toggle">
-                <input type="checkbox" id="rf_approvalRequired" ${isApprovalRequired ? 'checked' : ''}>
-                <span class="form-toggle__track"></span>
-              </label>
-              <span class="form-hint" id="rf_approvalHint">${isApprovalRequired ? '' : "Kids can buy this instantly — you'll get a notification."}</span>
-            </div>
+          <div class="admin-toggle-row">
+            <span class="admin-toggle-row__label">
+              Require approval to buy
+              <span class="admin-toggle-row__hint" id="rf_approvalHint">${isApprovalRequired ? '' : "Kids can buy this instantly — you'll get a notification."}</span>
+            </span>
+            <label class="form-toggle">
+              <input type="checkbox" id="rf_approvalRequired" ${isApprovalRequired ? 'checked' : ''}>
+              <span class="form-toggle__track"></span>
+            </label>
           </div>
 
           <div class="form-group">
