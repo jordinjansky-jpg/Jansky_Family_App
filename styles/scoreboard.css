@@ -59,113 +59,39 @@
   margin-left: var(--spacing-xs);
 }
 
-/* ── Store CTA row (Phase 6 will replace with unified Rewards Store) ── */
-.store-cta-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
+/* ── Balance summary rows ── */
+.sb-balances {
+  padding: 0;
+  overflow: hidden;
   margin-bottom: var(--spacing-lg);
 }
 
-.store-cta-row__label { flex: 1; font-size: var(--font-sm); font-weight: 500; }
-.store-cta-row__balance { font-size: var(--font-xs); color: var(--accent); font-weight: 600; }
-
-/* ── Store picker (who's shopping) ── */
-.store-picker-body { padding: var(--spacing-xs) 0; }
-.store-picker-title {
-  font-size: var(--font-md);
-  font-weight: 600;
-  margin-bottom: var(--spacing-sm);
-}
-
-.store-person-btn {
+.sb-balance-row {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  cursor: pointer;
-  margin-bottom: var(--spacing-sm);
-  font: inherit;
-  font-size: var(--font-md);
-  color: inherit;
-  text-align: left;
-  transition: background var(--t-fast);
-}
-
-.store-person-btn:hover { background: var(--surface-2); }
-.store-person-btn__name { flex: 1; font-weight: 500; }
-.store-person-btn__balance { font-size: var(--font-sm); color: var(--text-muted); }
-
-/* ── Store open (individual person store) ── */
-.store-header__title { font-weight: 600; }
-.store-section { margin-bottom: var(--spacing-md); }
-.store-section-heading {
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-  margin-bottom: var(--spacing-xs);
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-}
-
-.store-card--pending {
-  border-color: var(--warning);
-  opacity: 0.8;
-}
-
-.store-card__date {
-  font-size: var(--font-xs);
-  color: var(--text-muted);
-}
-
-.store-remove-token {
   background: none;
   border: none;
-  font-size: 1.25rem;
-  cursor: pointer;
-  color: var(--danger);
-}
-
-.store-remove-token:hover { opacity: 0.75; }
-
-/* ── Skip task picker ── */
-.skip-picker-title {
-  font-size: var(--font-md);
-  font-weight: 600;
-  margin-bottom: var(--spacing-sm);
-}
-
-.skip-pick-btn {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: var(--spacing-sm) var(--spacing-md);
-  margin-bottom: var(--spacing-xs);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  cursor: pointer;
+  border-bottom: 1px solid var(--border);
   font: inherit;
-  font-size: var(--font-sm);
   color: inherit;
+  cursor: pointer;
+  text-align: left;
   transition: background var(--t-fast);
 }
 
-.skip-pick-btn:hover { background: var(--surface-2); }
+.sb-balance-row:last-child { border-bottom: none; }
+.sb-balance-row:hover { background: var(--surface-2); }
+
+.sb-balance-row__pts {
+  margin-left: auto;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── Drilldown sheet ── */
 .sb-drilldown { padding: 0; }
@@ -301,14 +227,3 @@
 .sb-cat-bar-fill--f, .sb-cat-bar-fill--none { background: var(--grade-f); }
 .sb-cat-pct { font-size: var(--font-xs); color: var(--text-faint); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
 
-/* ── Empty store state ── */
-.store-empty {
-  text-align: center;
-  padding: var(--spacing-xl, 2rem);
-  color: var(--text-muted);
-}
-
-.store-empty__icon {
-  font-size: 2rem;
-  margin-bottom: var(--spacing-sm);
-}

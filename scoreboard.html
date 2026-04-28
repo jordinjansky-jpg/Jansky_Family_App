@@ -30,7 +30,6 @@
   </div>
   <div id="navMount"></div>
   <div id="drilldownMount"></div>
-  <div id="storeMount"></div>
   <div id="themeSheetMount"></div>
 
   <!-- Firebase SDK -->
@@ -40,13 +39,13 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, removeBankToken, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, countGlobalRedemptions, readAchievementDefs, writeAchievement, writeSnapshot, updateData } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, showConfirm, showToast, applyDataColors, renderScoreCard, renderSectionHead } from './shared/components.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, findHighestDamagePenalty, buildSnapshot } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -358,19 +357,19 @@
       }
       html += `</div>`;
 
-      // ── Store CTA row (Phase 6 will replace this with the unified Rewards Store) ──
-      const hasRewards = sbRewards && Object.values(sbRewards).some(r => r.status === 'active');
-      if (hasRewards) {
-        const totalBalance = board.reduce((sum, b) => sum + b.liveBalance, 0);
-        const giftIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>`;
+      // ── Balance summary — one tappable row per person linking to rewards.html ──
+      html += renderSectionHead('Balances');
+      html += `<div class="card sb-balances">`;
+      for (const b of board) {
         const chevron = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
-        html += `<button class="store-cta-row" type="button" id="sbStoreBtn">
-          ${giftIcon}
-          <span class="store-cta-row__label">Rewards Store</span>
-          <span class="store-cta-row__balance">${totalBalance.toLocaleString()} pts</span>
-          ${chevron}
+        html += `<button class="list-row sb-balance-row" type="button" data-href="rewards.html?person=${encodeURIComponent(b.person.name)}">
+          <div class="avatar avatar--sm" style="--person-color: ${esc(b.person.color)}">${esc((b.person.name || '?')[0].toUpperCase())}</div>
+          <span class="list-row__label">${esc(b.person.name)}</span>
+          <span class="sb-balance-row__pts">${b.liveBalance.toLocaleString()} pts</span>
+          <span class="list-row__chevron">${chevron}</span>
         </button>`;
       }
+      html += `</div>`;
 
       main.innerHTML = html;
       applyDataColors(main);
@@ -394,8 +393,10 @@
         });
       }
 
-      // Store CTA row
-      document.getElementById('sbStoreBtn')?.addEventListener('click', openStorePicker);
+      // Balance rows — navigate to rewards.html for that person
+      for (const row of document.querySelectorAll('.sb-balance-row[data-href]')) {
+        row.addEventListener('click', () => { location.href = row.dataset.href; });
+      }
 
       // Grade cards — single click opens drilldown (no long-press needed: no competing tap action)
       for (const card of document.querySelectorAll('.card--score[data-person-id]')) {
@@ -610,359 +611,6 @@
           document.getElementById('drilldownMount').innerHTML = '';
         }, 300);
       }
-    }
-
-    // ── Store ──
-
-    async function openStore(personId) {
-      const person = people.find(p => p.id === personId);
-      if (!person) return;
-      const rewards = sbRewards || {};
-      const personMsgs = allMessages?.[personId] || {};
-      const personAnchor = allAnchors?.[personId] || null;
-      const { balance } = calculateBalance(personId, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
-      const personStreak = streaks[personId] || { current: 0, best: 0 };
-      const personBank = (await readBank(personId)) || {};
-
-      // Count redemptions for max-limit rewards
-      const redemptionCounts = {};
-      for (const [rid, r] of Object.entries(rewards)) {
-        if (r.maxRedemptions) redemptionCounts[rid] = await countGlobalRedemptions(rid);
-      }
-
-      // Track pending requests
-      const pendingRewardIds = new Set(
-        Object.values(personMsgs)
-          .filter(m => m.type === 'redemption-request' && !m.seen)
-          .map(m => m.rewardId)
-      );
-
-      const available = Object.entries(rewards)
-        .filter(([id, r]) => {
-          if (r.status !== 'active') return false;
-          if (r.expiresAt && Date.now() > r.expiresAt) return false;
-          if (r.perPerson && !r.perPerson.includes(personId)) return false;
-          if (pendingRewardIds.has(id)) return false;
-          if (r.maxRedemptions && (redemptionCounts[id] || 0) >= r.maxRedemptions) return false;
-          return true;
-        })
-        .map(([id, r]) => ({ id, ...r }));
-
-      available.sort((a, b) => {
-        const aOk = balance >= a.pointCost && personStreak.current >= (a.streakRequirement || 0);
-        const bOk = balance >= b.pointCost && personStreak.current >= (b.streakRequirement || 0);
-        if (aOk && !bOk) return -1;
-        if (!aOk && bOk) return 1;
-        return a.pointCost - b.pointCost;
-      });
-
-      // Pending requests
-      const pendingRequests = Object.entries(personMsgs)
-        .filter(([, m]) => m.type === 'redemption-request' && !m.seen)
-        .map(([msgId, m]) => ({ msgId, reward: rewards[m.rewardId] || {}, amount: Math.abs(m.amount) }));
-
-      let html = `<div class="store-header">
-        <div class="avatar avatar--sm" style="--person-color: ${esc(person.color)}">${esc((person.name || '?')[0].toUpperCase())}</div>
-        <span class="store-header__title">${esc(person.name)}'s Store</span>
-        <span class="store-balance">${Math.round(balance).toLocaleString()} pts</span>
-      </div>`;
-
-      // Saved rewards section
-      const savedTokens = Object.entries(personBank).filter(([, t]) => !t.used);
-      const isAdult = person.role !== 'child';
-      if (savedTokens.length > 0) {
-        html += `<div class="store-section"><h4 class="store-section-heading"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Saved (${savedTokens.length})</h4>`;
-        for (const [tokenId, token] of savedTokens) {
-          const typeLabel = token.rewardType === 'task-skip' ? 'Task Skip'
-            : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
-            : (token.rewardName || 'Reward');
-          const icon = token.rewardType === 'task-skip' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>'
-            : token.rewardType === 'penalty-removal' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
-            : esc(token.rewardIcon || '🎁');
-          const useBtn = isAdult ? `<button class="btn btn--xs btn--primary store-use-token" data-token-id="${esc(tokenId)}" data-reward-type="${esc(token.rewardType || 'custom')}" data-token-name="${esc(typeLabel)}" data-reward-id="${esc(token.rewardId || '')}" data-reward-icon="${esc(token.rewardIcon || '🎁')}" type="button">Use</button>` : '';
-          html += `<div class="store-card store-card--available">
-            <div class="store-card__icon">${icon}</div>
-            <div class="store-card__body">
-              <div class="store-card__name">${esc(typeLabel)}</div>
-              <div class="store-card__date">Saved ${new Date(token.acquiredAt).toLocaleDateString('en-US', { timeZone: tz })}</div>
-            </div>
-            <div class="store-card__actions">
-              ${useBtn}
-              <button class="store-remove-token" data-token-id="${esc(tokenId)}" data-token-name="${esc(typeLabel)}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
-          </div>`;
-        }
-        html += `</div>`;
-      }
-
-      if (pendingRequests.length > 0) {
-        html += `<div class="store-section"><h4 class="store-section-heading">Pending Requests</h4>`;
-        for (const req of pendingRequests) {
-          html += `<div class="store-card store-card--pending">
-            <div class="store-card__icon">${esc(req.reward.icon || '🎁')}</div>
-            <div class="store-card__body">
-              <div class="store-card__name">${esc(req.reward.name || 'Reward')}</div>
-              <div class="store-card__cost">${req.amount} pts — waiting for approval</div>
-            </div>
-          </div>`;
-        }
-        html += `</div>`;
-      }
-
-      if (available.length === 0 && pendingRequests.length === 0) {
-        html += `<div class="store-empty"><div class="store-empty__icon">🏪</div><p>No rewards available!</p></div>`;
-      }
-
-      for (const reward of available) {
-        const canAfford = balance >= reward.pointCost;
-        const meetsStreak = personStreak.current >= (reward.streakRequirement || 0);
-        const canRequest = canAfford && meetsStreak;
-        const storeProgress = Math.min(100, Math.round((balance / reward.pointCost) * 100));
-
-        let stockLabel = '';
-        if (reward.maxRedemptions) {
-          const used = redemptionCounts[reward.id] || 0;
-          stockLabel = `<span class="store-card__badge">${reward.maxRedemptions - used} left</span>`;
-        }
-
-        let expiryLabel = '';
-        if (reward.expiresAt) {
-          const daysLeft = Math.ceil((reward.expiresAt - Date.now()) / 86400000);
-          if (daysLeft <= 7) expiryLabel = `<span class="store-card__badge store-card__badge--warning">Expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}</span>`;
-        }
-
-        html += `<div class="store-card ${canRequest ? 'store-card--available' : ''}" data-reward-id="${reward.id}">
-          <div class="store-card__icon">${esc(reward.icon || '🎁')}</div>
-          <div class="store-card__body">
-            <div class="store-card__name">${esc(reward.name)}</div>
-            <div class="store-card__cost">${reward.pointCost.toLocaleString()} pts</div>
-            <div class="store-card__badges">
-              ${reward.streakRequirement ? `<span class="store-card__badge">${reward.streakRequirement}-day streak${!meetsStreak ? ` (need ${reward.streakRequirement - personStreak.current} more)` : ''}</span>` : ''}
-              ${stockLabel}${expiryLabel}
-            </div>
-            <div class="store-card__progress"><div class="store-card__progress-bar" style="width: ${storeProgress}%"></div></div>
-            ${!canAfford ? `<div class="store-card__need">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
-          </div>
-          <div class="store-card__actions">
-            ${canRequest ? `<button class="btn btn--sm btn--primary store-get-btn" data-reward-id="${reward.id}" type="button">Get it!</button>` : ''}
-          </div>
-        </div>`;
-      }
-
-      const mount = document.getElementById('storeMount');
-      mount.innerHTML = renderBottomSheet(html);
-      applyDataColors(mount);
-      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-      // Bind "Get it!" buttons
-      for (const btn of mount.querySelectorAll('.store-get-btn')) {
-        btn.addEventListener('click', async () => {
-          const rewardId = btn.dataset.rewardId;
-          const reward = rewards[rewardId];
-          if (!reward) return;
-          if (!await showConfirm({ title: `Spend ${reward.pointCost} pts on ${reward.name}?` })) return;
-
-          if (person.role !== 'child') {
-            // Adult: instant approve — seen:true suppresses bell, redemption-request deducts balance
-            await writeMessage(personId, {
-              type: 'redemption-request',
-              title: reward.name,
-              body: null,
-              amount: -reward.pointCost,
-              rewardId,
-              entryKey: null,
-              seen: true,
-              createdAt: firebase.database.ServerValue.TIMESTAMP,
-              createdBy: 'self'
-            });
-            await writeBankToken(personId, {
-              rewardType: reward.rewardType || 'custom',
-              rewardId,
-              rewardName: reward.name,
-              rewardIcon: reward.icon || '🎁',
-              acquiredAt: Date.now(),
-              used: false,
-              usedAt: null,
-              targetEntryKey: null
-            });
-            mount.innerHTML = '';
-            showToast(`Got ${reward.name}!`);
-          } else {
-            // Child: send request for parent approval
-            await writeMessage(personId, {
-              type: 'redemption-request',
-              title: reward.name,
-              body: null,
-              amount: -reward.pointCost,
-              rewardId,
-              entryKey: null,
-              seen: false,
-              createdAt: firebase.database.ServerValue.TIMESTAMP,
-              createdBy: personId
-            });
-            mount.innerHTML = '';
-            showToast(`Requested ${reward.name}! Waiting for approval...`);
-          }
-        });
-      }
-
-      // Bind remove-token buttons
-      for (const btn of mount.querySelectorAll('.store-remove-token')) {
-        btn.addEventListener('click', async () => {
-          const tokenId = btn.dataset.tokenId;
-          const tokenName = btn.dataset.tokenName;
-          if (!await showConfirm({ title: `Remove "${tokenName}" from ${person.name}'s bank?`, danger: true })) return;
-          await removeBankToken(personId, tokenId);
-          mount.innerHTML = '';
-          await openStore(personId);
-        });
-      }
-
-      // Bind "Use" buttons for adult saved tokens
-      for (const btn of mount.querySelectorAll('.store-use-token')) {
-        btn.addEventListener('click', async () => {
-          const tokenId = btn.dataset.tokenId;
-          const rewardType = btn.dataset.rewardType;
-          const tokenName = btn.dataset.tokenName;
-          const rewardId = btn.dataset.rewardId;
-
-          if (rewardType === 'custom' || rewardType === '' || !rewardType) {
-            // Custom reward: confirm and mark used
-            if (!await showConfirm({ title: `Use ${tokenName}?` })) return;
-            await markBankTokenUsed(personId, tokenId, null);
-            await writeMessage(personId, {
-              type: 'reward-used',
-              title: `Used: ${tokenName}`,
-              body: null,
-              amount: 0,
-              rewardId: rewardId || null,
-              entryKey: null,
-              seen: true,
-              createdAt: firebase.database.ServerValue.TIMESTAMP,
-              createdBy: 'self'
-            });
-            mount.innerHTML = '';
-            showToast(`Used ${tokenName}!`);
-          } else if (rewardType === 'task-skip') {
-            // Task skip: show task picker bottom sheet
-            const todaySched = schedule[today] || {};
-            const skippable = Object.entries(todaySched).filter(([key, entry]) => {
-              if (entry.ownerId !== personId) return false;
-              if (comps[key]) return false;
-              const task = tasks[entry.taskId];
-              if (!task) return false;
-              const cat = cats[task.category];
-              if (cat?.isEvent) return false;
-              if (entry.exempt || entry.skipped) return false;
-              return true;
-            });
-
-            if (skippable.length === 0) {
-              await showConfirm({ title: 'No skippable tasks today!', alert: true });
-              return;
-            }
-
-            let skipHtml = '<h3 class="skip-picker-title">Pick a task to skip</h3>';
-            for (const [key, entry] of skippable) {
-              const task = tasks[entry.taskId];
-              skipHtml += `<button class="skip-pick-btn" data-entry-key="${key}" type="button">${esc(task.name)}</button>`;
-            }
-
-            mount.innerHTML = renderBottomSheet(skipHtml);
-            applyDataColors(mount);
-            requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-            for (const skipBtn of mount.querySelectorAll('.skip-pick-btn')) {
-              skipBtn.addEventListener('click', async () => {
-                const skipEntryKey = skipBtn.dataset.entryKey;
-                await updateData(`schedule/${today}/${skipEntryKey}`, { exempt: true, skipped: true });
-                await markBankTokenUsed(personId, tokenId, skipEntryKey);
-                const skipEntry = todaySched[skipEntryKey];
-                const skipTask = tasks[skipEntry?.taskId];
-                await writeMessage(personId, { type: 'task-skip-used', title: `Skipped: ${skipTask?.name || 'task'}`, body: null, amount: 0, rewardId: null, entryKey: skipEntryKey, seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'self' });
-                mount.innerHTML = '';
-                showToast(`Skipped ${skipTask?.name}!`);
-              });
-            }
-
-            mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
-              if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
-            });
-          } else if (rewardType === 'penalty-removal') {
-            // Penalty removal: find and remove highest-damage penalty
-            const freshCompletions = await readCompletions();
-            const freshSchedule = await readAllSchedule();
-            const penalty = findHighestDamagePenalty(freshCompletions || {}, freshSchedule || {}, tasks, settings, personId);
-
-            if (!penalty) {
-              await showConfirm({ title: 'No penalties to remove right now', alert: true });
-              return;
-            }
-
-            if (!await showConfirm({ title: `Restore full points for "${penalty.taskName}"?`, message: `${penalty.dateKey} — +${penalty.pointsRestored} pts` })) return;
-
-            await updateData(`completions/${penalty.entryKey}`, { isLate: null, pointsOverride: null });
-            await markBankTokenUsed(personId, tokenId, penalty.entryKey);
-            await writeMessage(personId, { type: 'penalty-removed', title: `Restored: ${penalty.taskName}`, body: `Full points restored for ${penalty.dateKey} (+${penalty.pointsRestored} pts)`, amount: penalty.pointsRestored, rewardId: null, entryKey: penalty.entryKey, seen: true, createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: 'self' });
-
-            // Rebuild snapshot for the affected date — apply mutation locally to avoid race
-            const freshComps = { ...(freshCompletions || {}) };
-            if (freshComps[penalty.entryKey]) {
-              freshComps[penalty.entryKey] = { ...freshComps[penalty.entryKey], isLate: null, pointsOverride: null };
-            }
-            const penDaySched = (freshSchedule || {})[penalty.dateKey] || {};
-            const penPersonEntries = {};
-            for (const [k, e] of Object.entries(penDaySched)) {
-              if (e.ownerId === personId) penPersonEntries[k] = e;
-            }
-            const newSnap = buildSnapshot(penPersonEntries, freshComps, tasks, cats, settings, penalty.dateKey);
-            if (newSnap) await writeSnapshot(penalty.dateKey, personId, newSnap);
-
-            mount.innerHTML = '';
-            showToast(`Restored full points for ${penalty.taskName}!`);
-          }
-        });
-      }
-
-      // Backdrop close
-      mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
-        if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
-      });
-    }
-
-    function openStorePicker() {
-      if (people.length === 1) {
-        openStore(people[0].id);
-        return;
-      }
-      let html = `<div class="store-picker-body">
-        <h3 class="store-picker-title">Who's shopping?</h3>`;
-      for (const p of people) {
-        const personMsgs = allMessages?.[p.id] || {};
-        const personAnchor = allAnchors?.[p.id] || null;
-        const { balance } = calculateBalance(p.id, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
-        html += `<button class="store-person-btn" data-person-id="${esc(p.id)}" type="button">
-          <div class="avatar" style="--person-color: ${esc(p.color)}">${esc((p.name || '?')[0].toUpperCase())}</div>
-          <span class="store-person-btn__name">${esc(p.name)}</span>
-          <span class="store-person-btn__balance">${Math.round(balance).toLocaleString()} pts</span>
-        </button>`;
-      }
-      html += `</div>`;
-
-      const mount = document.getElementById('storeMount');
-      mount.innerHTML = renderBottomSheet(html);
-      applyDataColors(mount);
-      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-      for (const btn of mount.querySelectorAll('.store-person-btn')) {
-        btn.addEventListener('click', () => {
-          mount.innerHTML = '';
-          openStore(btn.dataset.personId);
-        });
-      }
-      mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
-        if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
-      });
     }
 
     // ── Init ──
