@@ -61,6 +61,7 @@
 
 /* ── Balance summary rows ── */
 .sb-balances {
+  display: block;
   padding: 0;
   overflow: hidden;
   margin-bottom: var(--spacing-lg);

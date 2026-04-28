@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v88 (2026-04-28) — Fix sb-balances layout (display:block so rows stack), add
+//                    gap to .list-row so avatar doesn't cramp the name.
 // v87 (2026-04-28) — Card gap fix (reset legacy margin-top), emoji picker CSS moved
 //                    to components.css so FAB reward form matches admin.
 // v86 (2026-04-28) — Rewards layout (remove double padding, tab spacing), dashboard
