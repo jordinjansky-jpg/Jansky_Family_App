@@ -172,7 +172,7 @@ function renderApprovalsBanner() {
   let count = 0;
   for (const msgs of Object.values(allMessages || {})) {
     for (const m of Object.values(msgs || {})) {
-      if (m.type === 'redemption-request' && !m.seen) count++;
+      if ((m.type === 'redemption-request' || m.type === 'use-request') && m.seen === false) count++;
     }
   }
   if (count === 0) return '';
@@ -462,8 +462,8 @@ function bindApprovalsTab() {
 
   document.querySelectorAll('.approval-approve-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const row = btn.closest('[data-msg-id]');
-      const msgId = row?.dataset.msgId || btn.dataset.msgId;
+      const row = btn.closest('.approval-row');
+      const msgId = row?.dataset.msgId || '';
       const personId = row?.dataset.personId || '';
       const rewardId = row?.dataset.rewardId || '';
       const intent = row?.dataset.intent || '';
@@ -473,8 +473,8 @@ function bindApprovalsTab() {
 
   document.querySelectorAll('.approval-deny-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const row = btn.closest('[data-msg-id]');
-      const msgId = row?.dataset.msgId || btn.dataset.msgId;
+      const row = btn.closest('.approval-row');
+      const msgId = row?.dataset.msgId || '';
       const personId = row?.dataset.personId || '';
       handleDeny(msgId, personId);
     });
