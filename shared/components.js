@@ -734,6 +734,111 @@ export function renderRewardCard(reward, balance, opts = {}) {
 }
 
 /**
+ * Render a bank token (saved reward) card.
+ * @param {string} tokenId      - Token ID from bank
+ * @param {Object} token        - Token record { rewardType, rewardName?, rewardIcon?, acquiredAt, used?, ... }
+ * @param {Object} opts         - { showUse, isAdult, approvalRequired }
+ */
+export function renderBankToken(tokenId, token, opts = {}) {
+  const { showUse = true, isAdult = false, approvalRequired = true } = opts;
+  const isFunctional = token.rewardType === 'task-skip' || token.rewardType === 'penalty-removal';
+  const canUseInstant = isAdult || isFunctional || !approvalRequired;
+  const typeLabel = token.rewardType === 'task-skip' ? 'Task Skip'
+    : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
+    : esc(token.rewardName || 'Reward');
+  const acquired = new Date(token.acquiredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  return `<div class="card card--reward" data-token-id="${esc(tokenId)}" data-reward-type="${esc(token.rewardType || 'custom')}">
+    <div class="card__leading">
+      <span class="icon-tile">${esc(token.rewardIcon || '🎁')}</span>
+    </div>
+    <div class="card__body">
+      <div class="card__title">${typeLabel}</div>
+      <div class="card__meta">Saved ${acquired}</div>
+    </div>
+    ${showUse ? `<div class="card__trailing">
+      <button class="btn btn--sm btn--primary bank-use-btn"
+        data-token-id="${esc(tokenId)}"
+        data-reward-type="${esc(token.rewardType || 'custom')}"
+        data-token-name="${esc(typeLabel)}"
+        data-reward-id="${esc(token.rewardId || '')}"
+        data-reward-icon="${esc(token.rewardIcon || '🎁')}"
+        data-can-instant="${canUseInstant}"
+        type="button">Use</button>
+    </div>` : ''}
+  </div>`;
+}
+
+/**
+ * Render a history row (balance message entry).
+ * @param {Object} entry  - Message record { title?, type, amount?, createdAt }
+ * @param {string} tz     - Timezone for date formatting
+ */
+export function renderHistoryRow(entry, tz) {
+  const isPositive = (entry.amount || 0) > 0;
+  const isNegative = (entry.amount || 0) < 0;
+  const amountStr = entry.amount
+    ? `${isPositive ? '+' : ''}${Math.round(entry.amount).toLocaleString()} pts`
+    : '';
+  const amountClass = isPositive ? 'history-row__amount--pos' : isNegative ? 'history-row__amount--neg' : '';
+  const date = entry.createdAt
+    ? new Date(entry.createdAt).toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric' })
+    : '';
+
+  const typeIcons = {
+    'redemption-request': '🎁',
+    'redemption-approved': '✅',
+    'redemption-denied': '❌',
+    'use-request': '🎁',
+    'use-approved': '✅',
+    'use-denied': '❌',
+    'reward-used': '🎁',
+    'bonus': '⭐',
+    'deduction': '📉',
+    'fyi': 'ℹ️',
+  };
+  const icon = typeIcons[entry.type] || '•';
+
+  return `<div class="history-row">
+    <span class="history-row__icon">${icon}</span>
+    <span class="history-row__label">${esc(entry.title || entry.type)}</span>
+    ${amountStr ? `<span class="history-row__amount ${amountClass}">${amountStr}</span>` : ''}
+    <span class="history-row__date">${date}</span>
+  </div>`;
+}
+
+/**
+ * Render an approval row (pending redemption/use request).
+ * @param {string} msgId    - Message ID
+ * @param {Object} msg      - Message record { amount, rewardId?, intent?, ... }
+ * @param {Object} person   - Person object { id, name, color }
+ * @param {Object} reward   - Reward object { pointCost, name, icon }
+ */
+export function renderApprovalRow(msgId, msg, person, reward) {
+  const intent = msg.intent || 'save';
+  const intentLabel = intent === 'use-now' ? 'Use Now' : 'Save for Later';
+  const intentClass = intent === 'use-now' ? 'chip--accent' : 'chip--muted';
+  const cost = Math.abs(msg.amount || reward?.pointCost || 0);
+
+  return `<div class="approval-row" data-msg-id="${esc(msgId)}" data-person-id="${esc(person?.id || '')}" data-reward-id="${esc(msg.rewardId || '')}" data-intent="${esc(intent)}">
+    <div class="approval-row__who">
+      <span class="avatar avatar--xs" style="--person-color:${esc(person?.color || '#888')}">${esc((person?.name || '?')[0].toUpperCase())}</span>
+      <span class="approval-row__name">${esc(person?.name || '?')}</span>
+    </div>
+    <div class="approval-row__reward">
+      <span>${esc(reward?.icon || '🎁')}</span>
+      <span>${esc(reward?.name || msg.title || 'Reward')}</span>
+      <span class="chip ${intentClass}">${intentLabel}</span>
+    </div>
+    <div class="approval-row__cost">${cost.toLocaleString()} pts</div>
+    <div class="approval-row__actions">
+      <button class="btn btn--sm btn--primary approval-approve-btn" data-msg-id="${esc(msgId)}" type="button">Approve</button>
+      <button class="btn btn--sm btn--danger approval-deny-btn" data-msg-id="${esc(msgId)}" type="button">Deny</button>
+    </div>
+  </div>`;
+}
+
+/**
  * Bottom sheet body for the tracker filter chip.
  * Renders category chip group + status chip group + Clear/Apply actions.
  * Mount inside renderBottomSheet(); bind #filterClear and #filterApply after mount.

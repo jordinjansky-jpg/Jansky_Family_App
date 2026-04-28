@@ -2899,3 +2899,35 @@
   gap: var(--spacing-xs);
   margin-top: var(--spacing-xs);
 }
+
+/* ============ History Row ============ */
+.history-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-sm);
+}
+.history-row:last-child { border-bottom: none; }
+.history-row__icon { text-align: center; }
+.history-row__label { color: var(--text); }
+.history-row__amount { font-variant-numeric: tabular-nums; font-weight: 600; }
+.history-row__amount--pos { color: var(--success); }
+.history-row__amount--neg { color: var(--text-muted); }
+.history-row__date { color: var(--text-muted); white-space: nowrap; }
+
+/* ============ Approval Row ============ */
+.approval-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--border);
+}
+.approval-row:last-child { border-bottom: none; }
+.approval-row__who { display: flex; align-items: center; gap: var(--spacing-xs); font-weight: 600; }
+.approval-row__reward { display: flex; align-items: center; gap: var(--spacing-xs); font-size: var(--font-sm); }
+.approval-row__cost { font-size: var(--font-sm); color: var(--text-muted); }
+.approval-row__actions { display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-xs); }
