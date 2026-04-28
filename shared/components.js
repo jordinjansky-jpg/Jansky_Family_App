@@ -681,6 +681,59 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeCount) {
 }
 
 /**
+ * Reward card (.card--reward).
+ * Shows reward icon, name, point cost, eligibility criteria, progress bar, and optional "Get it" button.
+ * @param {Object} reward - Reward object: { id, name, icon, pointCost, streakRequirement?, maxRedemptions?, expiresAt? }
+ * @param {number} balance - Current point balance of the viewer
+ * @param {Object} opts - Options: { showGet, streak, redemptionCount }
+ *   showGet: whether to show the "Get it" button
+ *   streak: current streak (for eligibility check)
+ *   redemptionCount: number of times already redeemed (for stock check)
+ */
+export function renderRewardCard(reward, balance, opts = {}) {
+  const { showGet = false, streak = 0, redemptionCount = 0 } = opts;
+  const canAfford = balance >= reward.pointCost;
+  const meetsStreak = streak >= (reward.streakRequirement || 0);
+  const stockOk = !reward.maxRedemptions || redemptionCount < reward.maxRedemptions;
+  const notExpired = !reward.expiresAt || Date.now() <= reward.expiresAt;
+  const canGet = canAfford && meetsStreak && stockOk && notExpired;
+  const progress = Math.min(100, Math.round((balance / Math.max(reward.pointCost, 1)) * 100));
+
+  let badges = '';
+  if (reward.streakRequirement) {
+    const needed = reward.streakRequirement - streak;
+    badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak${!meetsStreak ? ` · need ${needed} more` : ''}</span>`;
+  }
+  if (reward.maxRedemptions && stockOk) {
+    badges += `<span class="chip chip--muted">${reward.maxRedemptions - redemptionCount} left</span>`;
+  }
+  if (!stockOk) {
+    badges += `<span class="chip chip--muted">Out of stock</span>`;
+  }
+  if (reward.expiresAt && notExpired) {
+    const daysLeft = Math.ceil((reward.expiresAt - Date.now()) / 86400000);
+    if (daysLeft <= 7) badges += `<span class="chip chip--warning">Expires in ${daysLeft}d</span>`;
+  }
+
+  const dimClass = canGet || !showGet ? '' : ' card--dim';
+  return `<div class="card card--reward${dimClass}" data-reward-id="${esc(reward.id)}">
+    <div class="card__leading">
+      <span class="icon-tile">${esc(reward.icon || '🎁')}</span>
+    </div>
+    <div class="card__body">
+      <div class="card__title">${esc(reward.name)}</div>
+      <div class="card__meta">${(reward.pointCost || 0).toLocaleString()} pts</div>
+      ${badges ? `<div class="card__badges">${badges}</div>` : ''}
+      <div class="reward-progress"><div class="reward-progress__bar" style="width:${progress}%"></div></div>
+      ${!canAfford && showGet ? `<div class="card__hint">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
+    </div>
+    ${showGet ? `<div class="card__trailing">
+      ${canGet ? `<button class="btn btn--sm btn--primary reward-get-btn" data-reward-id="${esc(reward.id)}" type="button">Get it</button>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+
+/**
  * Bottom sheet body for the tracker filter chip.
  * Renders category chip group + status chip group + Clear/Apply actions.
  * Mount inside renderBottomSheet(); bind #filterClear and #filterApply after mount.

@@ -1429,6 +1429,14 @@
   background: var(--accent);
   color: var(--on-accent);
 }
+.chip--muted {
+  background: var(--surface-2);
+  color: var(--text-faint);
+}
+.chip--warning {
+  background: var(--warning-soft, rgba(251, 146, 60, 0.1));
+  color: var(--warning-dark, #c2410c);
+}
 
 /* ── Send Message Sheet ── */
 .msg-type-toggle .msg-type-btn--active {
@@ -2855,4 +2863,39 @@
 .card--overdue {
   border-left: 3px solid var(--danger);
   background: var(--danger-soft);
+}
+
+/* ============ Reward Card (.card--reward) ============ */
+.card--reward {
+  align-items: flex-start;
+}
+.card--reward.card--dim {
+  opacity: 0.6;
+}
+.card--reward .card__leading {
+  padding-top: 2px;
+}
+.card--reward .reward-progress {
+  height: 3px;
+  background: var(--border);
+  border-radius: var(--radius-full);
+  margin-top: var(--spacing-xs);
+  overflow: hidden;
+}
+.card--reward .reward-progress__bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+.card--reward .card__hint {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.card--reward .card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
 }
