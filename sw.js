@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v87 (2026-04-28) — Card gap fix (reset legacy margin-top), emoji picker CSS moved
+//                    to components.css so FAB reward form matches admin.
 // v86 (2026-04-28) — Rewards layout (remove double padding, tab spacing), dashboard
 //                    overflow replaces Rewards→Calendar, event form matches admin,
 //                    backdrop close on reward create, filter/tab gap tightened.
@@ -181,7 +183,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v86';
+const CACHE_NAME = 'family-hub-v87';
 
 const APP_SHELL = [
   '/',

@@ -707,6 +707,20 @@
   color: var(--text-faint);
 }
 
+/* ============ Emoji Picker ============ */
+.emoji-picker { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.emoji-btn {
+  font-size: 1.3rem;
+  padding: 3px 4px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.emoji-btn:hover { border-color: var(--border); }
+.emoji-btn--selected { border-color: var(--accent); background: var(--accent-soft, rgba(108,99,255,0.1)); }
+
 /* ============ Utilities ============ */
 .visually-hidden {
   position: absolute;
@@ -1629,6 +1643,8 @@
   overflow: hidden;
   transition: transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
 }
+/* Reset the legacy top-margin rule — new card uses margin-bottom only */
+.card + .card { margin-top: 0; }
 .card::before {
   content: "";
   position: absolute; inset: 0 auto 0 0;

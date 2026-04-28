@@ -976,7 +976,7 @@ function openRewardCreateForm() {
       <label class="form-label">Emoji</label>
       <div class="emoji-picker" id="rcf_emojiPicker">
         ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn" data-emoji="${e}">${e}</button>`).join('')}
-        <input type="text" id="rcf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2">
+        <input type="text" id="rcf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width:44px;text-align:center;">
       </div>
     </div>
 
