@@ -317,15 +317,6 @@ function renderHistoryTab() {
     .filter(msg => allowedTypes.has(msg.type) && matchesHistoryGroup(msg.type, historyFilter.type))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-  const adultFilterOpts = [
-    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' },
-    { v: 'uses', l: 'Uses' }, { v: 'bonuses', l: 'Bonuses' }, { v: 'deductions', l: 'Deductions' }
-  ];
-  const kidFilterOpts = [
-    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' }, { v: 'uses', l: 'Uses' }
-  ];
-  const filterOpts = isKidMode ? kidFilterOpts : adultFilterOpts;
-  const activeFilterLabel = filterOpts.find(o => o.v === historyFilter.type)?.l || 'All';
   const filterActiveCount = historyFilter.type !== 'all' ? 1 : 0;
 
   let html = `<div class="rewards-filter-bar">
@@ -344,7 +335,7 @@ function renderHistoryTab() {
   html += visible.map(msg => renderHistoryRow(msg, tz)).join('');
 
   if (remaining.length > 0) {
-    html += `<button class="rewards-show-more" id="historyShowMore" type="button" data-remaining-count="${remaining.length}">+ ${remaining.length} more</button>`;
+    html += `<button class="rewards-show-more" id="historyShowMore" type="button">+ ${remaining.length} more</button>`;
   }
 
   return html;
