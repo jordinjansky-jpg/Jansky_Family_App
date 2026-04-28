@@ -1999,6 +1999,7 @@
       const reward = rewardId ? rewardsObj[rewardId] : {};
       const isEdit = !!rewardId;
       const isArchived = isEdit && reward.status === 'archived';
+      const isApprovalRequired = reward.approvalRequired !== false; // default true
       const title = isArchived ? 'Archived Reward' : (isEdit ? 'Edit Reward' : 'New Reward');
 
       return `<div class="form-compact" id="rewardForm">
@@ -2013,6 +2014,17 @@
             <div class="emoji-picker" id="rf_emojiPicker">
               ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn${reward.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
               <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Require approval to buy</label>
+            <div class="form-toggle-row">
+              <label class="form-toggle">
+                <input type="checkbox" id="rf_approvalRequired" ${isApprovalRequired ? 'checked' : ''}>
+                <span class="form-toggle__track"></span>
+              </label>
+              <span class="form-hint" id="rf_approvalHint">${isApprovalRequired ? '' : "Kids can buy this instantly — you'll get a notification."}</span>
             </div>
           </div>
 
@@ -2150,6 +2162,13 @@
         });
       }
 
+      // Approval toggle hint
+      const approvalToggle = form.querySelector('#rf_approvalRequired');
+      const approvalHint = form.querySelector('#rf_approvalHint');
+      approvalToggle?.addEventListener('change', () => {
+        approvalHint.textContent = approvalToggle.checked ? '' : "Kids can buy this instantly — you'll get a notification.";
+      });
+
       // Pricing helper
       const slider = form.querySelector('#rf_daysSlider');
       const daysInput = form.querySelector('#rf_daysInput');
@@ -2238,6 +2257,7 @@
           icon: selectedEmoji,
           pointCost: cost,
           rewardType,
+          approvalRequired: form.querySelector('#rf_approvalRequired')?.checked !== false,
           perPerson: selectedPeople.length > 0 ? selectedPeople : null,
           maxRedemptions,
           streakRequirement: streakReq,
