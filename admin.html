@@ -2060,14 +2060,14 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Available to</label>
-            <div class="chip-group" id="rf_people">
+            <label class="form-label">Visible to</label>
+            <div class="owner-chips" id="rf_people">
               ${peopleArray().map(p => {
-                const selected = reward.perPerson && reward.perPerson.includes(p.id);
-                return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+                const isVisible = !reward.perPerson || reward.perPerson.includes(p.id);
+                return `<button type="button" class="chip${isVisible ? ' chip--active' : ''}" data-person-id="${esc(p.id)}" style="--person-color:${esc(p.color)}">${esc(p.name)}</button>`;
               }).join('')}
-              <span class="form-hint" style="margin-left: 4px;">None = all</span>
             </div>
+            <span class="form-hint">Deselect anyone who shouldn't see this reward.</span>
           </div>
 
           <div class="form-row-3">
@@ -2196,7 +2196,7 @@
       updateSuggestion();
 
       // Person chips
-      for (const chip of form.querySelectorAll('#rf_people .chip--selectable')) {
+      for (const chip of form.querySelectorAll('#rf_people .chip')) {
         chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
       }
 
@@ -2258,7 +2258,7 @@
           pointCost: cost,
           rewardType,
           approvalRequired: form.querySelector('#rf_approvalRequired')?.checked !== false,
-          perPerson: selectedPeople.length > 0 ? selectedPeople : null,
+          perPerson: selectedPeople,
           maxRedemptions,
           streakRequirement: streakReq,
           expiresAt,
