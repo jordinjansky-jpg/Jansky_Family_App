@@ -7,7 +7,7 @@ import { initFirebase, readSettings, readPeople, readRewards, readAllMessages,
 import { applyTheme, loadCachedTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, renderHeader, initBell, initOfflineBanner,
-  showConfirm, showToast, renderBottomSheet,
+  showConfirm, showToast, renderBottomSheet, applyDataColors,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow
 } from './shared/components.js';
 import { todayKey } from './shared/utils.js';
@@ -57,6 +57,11 @@ async function init() {
       title: 'Rewards',
       showBell: true
     });
+    // Add person switcher chip slot into the header actions area
+    document.querySelector('.app-header__actions')?.insertAdjacentHTML(
+      'afterbegin',
+      '<div id="personChipMount"></div>'
+    );
     document.getElementById('navMount').innerHTML = renderNavBar('rewards');
     document.getElementById('fabMount').innerHTML = renderFab();
     initBell(() => people, () => rewardsObj || {}, onAllMessages, {
@@ -122,6 +127,41 @@ function render() {
     `<div id="rewardsContent"></div>`;
   renderActiveTab();
   bindTabs();
+  if (!isKidMode) {
+    const chipMount = document.getElementById('personChipMount');
+    if (chipMount) chipMount.innerHTML = renderPersonSwitcherChip();
+  }
+}
+
+function renderPersonSwitcherChip() {
+  if (!activePerson || people.length <= 1) return '';
+  return `<button class="chip chip--person" id="personSwitcherChip" type="button" aria-label="Switch person">
+    <span class="chip__dot" style="background:${esc(activePerson.color)}"></span>
+    ${esc(activePerson.name)}
+  </button>`;
+}
+
+function openPersonSwitcherSheet() {
+  const mount = document.getElementById('sheetMount');
+  const rows = people.map(p => `
+    <button class="list-row" type="button" data-person-id="${esc(p.id)}">
+      <div class="avatar avatar--sm" style="--person-color:${esc(p.color)}">${esc((p.name || '?')[0].toUpperCase())}</div>
+      <span class="list-row__label">${esc(p.name)}</span>
+      ${activePerson?.id === p.id ? '<span class="badge badge--accent">Viewing</span>' : ''}
+    </button>`).join('');
+  mount.innerHTML = renderBottomSheet({
+    title: 'View Rewards for',
+    body: `<div class="list-group">${rows}</div>`,
+    noActions: true
+  });
+  mount.querySelectorAll('[data-person-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activePerson = people.find(p => p.id === btn.dataset.personId) || activePerson;
+      mount.innerHTML = '';
+      render();
+    });
+  });
+  mount.querySelector('[data-dismiss]')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
 
 function getBalance(personId) {
@@ -200,6 +240,7 @@ function renderActiveTab() {
   else if (activeTab === 'bank')      { content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>'; loadAndRenderBankTab(); }
   else if (activeTab === 'history')   { content.innerHTML = renderHistoryTab(); }
   else if (activeTab === 'approvals') content.innerHTML = renderApprovalsTab();
+  applyDataColors(content);
   bindActiveTab();
 }
 
@@ -262,7 +303,7 @@ function bindShopTab() {
   document.getElementById('shopSearch')?.addEventListener('input', e => {
     shopFilter.search = e.target.value;
     const content = document.getElementById('rewardsContent');
-    if (content) { content.innerHTML = renderShopTab(); bindShopTab(); }
+    if (content) { content.innerHTML = renderShopTab(); applyDataColors(content); bindShopTab(); }
     document.getElementById('shopSearch')?.focus();
   });
   document.getElementById('shopFilterBtn')?.addEventListener('click', openShopFilterSheet);
@@ -302,7 +343,7 @@ function openShopFilterSheet() {
     shopFilter.sort = mount.querySelector('[data-filter-sort].chip--active')?.dataset.filterSort || 'name';
     mount.innerHTML = '';
     const content = document.getElementById('rewardsContent');
-    if (content) { content.innerHTML = renderShopTab(); bindShopTab(); }
+    if (content) { content.innerHTML = renderShopTab(); applyDataColors(content); bindShopTab(); }
   });
 }
 
@@ -573,6 +614,18 @@ async function handleDeny(msgId, personId) {
     createdAt: firebase.database.ServerValue.TIMESTAMP,
     createdBy: 'parent'
   });
+  // Refund points when a buy request is denied (use-request denials have no cost to refund)
+  if (msg?.type === 'redemption-request' && Math.abs(msg?.amount || 0) > 0) {
+    await writeMessage(personId, {
+      type: 'bonus',
+      title: `Refund: ${msg.rewardName || 'Reward'}`,
+      body: null,
+      amount: Math.abs(msg.amount),
+      seen: true,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      createdBy: 'parent'
+    });
+  }
   await markMessageSeen(personId, msgId);
   showToast('Request denied.');
   await refreshData();
@@ -609,7 +662,7 @@ async function loadAndRenderBankTab() {
     });
 
     if (usedTokens.length > 0) {
-      html += `<div class="rewards-show-more" id="bankUsedToggle">Show ${usedTokens.length} used</div>
+      html += `<button class="rewards-show-more" id="bankUsedToggle" type="button">Show ${usedTokens.length} used</button>
         <div id="bankUsedList" hidden>`;
       usedTokens.forEach(([tokenId, token]) => {
         html += renderBankTokenEl(tokenId, token, { showUse: false });
@@ -700,9 +753,23 @@ async function handleGetReward(rewardId) {
   const isAdult = activePerson.role !== 'child';
 
   if (isAdult) {
-    // Adult path — confirm then bank immediately
+    // Adult path — confirm then bank immediately (no approval needed)
     const confirmed = await showConfirm({ title: 'Add to your Bank?', message: reward.name });
     if (!confirmed) return;
+    // Write a seen redemption-request so calculateBalance deducts the cost
+    await writeMessage(activePerson.id, {
+      type: 'redemption-request',
+      title: reward.name,
+      body: null,
+      amount: -(reward.pointCost || 0),
+      rewardId,
+      rewardName: reward.name,
+      rewardIcon: reward.icon || '',
+      intent: 'save',
+      seen: true,
+      createdAt: ts,
+      createdBy: activePerson.id
+    });
     await writeBankToken(activePerson.id, {
       rewardType: reward.rewardType || 'custom',
       rewardId,
@@ -719,6 +786,20 @@ async function handleGetReward(rewardId) {
 
   if (reward.approvalRequired === false) {
     // Path 1 — self-serve (only when explicitly set false; undefined defaults to approval-required)
+    // Write a seen redemption-request so calculateBalance deducts the cost
+    await writeMessage(activePerson.id, {
+      type: 'redemption-request',
+      title: reward.name,
+      body: null,
+      amount: -(reward.pointCost || 0),
+      rewardId,
+      rewardName: reward.name,
+      rewardIcon: reward.icon || '',
+      intent: 'save',
+      seen: true,
+      createdAt: ts,
+      createdBy: activePerson.id
+    });
     await writeBankToken(activePerson.id, {
       rewardType: reward.rewardType || 'custom',
       rewardId,
@@ -826,6 +907,7 @@ function bindPage() {
   document.getElementById('rewardsFab')?.addEventListener('click', () => openRewardCreateForm());
   document.addEventListener('click', e => {
     if (e.target.id === 'bannerReviewBtn') { activeTab = 'approvals'; render(); }
+    if (e.target.closest('#personSwitcherChip')) openPersonSwitcherSheet();
   });
 }
 
