@@ -19,7 +19,7 @@ import { todayKey, escapeHtml } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
 
 // Worker URL — set when Cloudflare Worker is deployed
-const KITCHEN_WORKER_URL = '';
+const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
 // Activate a sheet: animate it in and close on overlay click
 function activateSheet(mount, onClose) {
