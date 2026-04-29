@@ -96,6 +96,7 @@ function buildHeaderOverflow() {
   const items = [];
   items.push({ id: 'calendar', label: 'Calendar' });
   items.push({ id: 'admin', label: 'Admin' });
+  items.push({ id: 'kitchen', label: 'Kitchen' });
   items.push({ id: 'theme', label: 'Theme' });
   if (localStorage.getItem('dr-debug') === 'true') {
     items.push({ id: 'debug', label: 'Debug (turn off)' });
@@ -126,6 +127,8 @@ function openOverflowOrMoreSheet() {
         location.href = 'calendar.html';
       } else if (itemId === 'admin') {
         location.href = 'admin.html';
+      } else if (itemId === 'kitchen') {
+        location.href = 'kitchen.html';
       } else if (itemId === 'theme') {
         openDeviceThemeSheet(
           document.getElementById('taskSheetMount'),
