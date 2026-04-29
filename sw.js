@@ -197,7 +197,11 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v94';
+// v95 (2026-04-29) — Kitchen UX polish: tabs--pill CSS, sheet__header/footer/content CSS,
+//                    field/field__label CSS, recipe-pick-list CSS, kitchen.css padding fix,
+//                    initNavMore wires headerOverflow, click-outside sheets, slot edit sheet,
+//                    recipe picker replaces datalist.
+const CACHE_NAME = 'family-hub-v95';
 
 const APP_SHELL = [
   '/',

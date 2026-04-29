@@ -18,8 +18,19 @@ import { todayKey, escapeHtml } from './shared/utils.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
-// Worker URL — single constant, never hardcoded elsewhere
-const KITCHEN_WORKER_URL = ''; // Set when Worker is deployed (Task 13)
+// Worker URL — set when Cloudflare Worker is deployed
+const KITCHEN_WORKER_URL = '';
+
+// Activate a sheet: animate it in and close on overlay click
+function activateSheet(mount, onClose) {
+  requestAnimationFrame(() => {
+    const sheet = document.getElementById('bottomSheet');
+    sheet?.classList.add('active');
+    sheet?.addEventListener('click', (e) => {
+      if (e.target === sheet) { mount.innerHTML = ''; onClose?.(); }
+    });
+  });
+}
 
 // ── Phase 1: instant theme paint ──────────────────────────────────────────────
 applyTheme(resolveTheme());
@@ -178,6 +189,7 @@ async function renderMealsTab() {
   const planData = await Promise.all(weekDays.map(d => readKitchenPlan(dateKey(d)).then(r => r || {})));
   const weekPlan = {};
   weekDays.forEach((d, i) => { weekPlan[dateKey(d)] = planData[i]; });
+  planCache = weekPlan;
 
   const weekHtml = weekDays.map(d => {
     const dk = dateKey(d);
@@ -241,7 +253,13 @@ async function renderMealsTab() {
   bindWeekStripSwipe();
 
   content.querySelectorAll('.day-block__slot').forEach(slot => {
-    slot.addEventListener('click', () => openPlanMealSheet(slot.dataset.date, slot.dataset.slot));
+    slot.addEventListener('click', () => {
+      const dk = slot.dataset.date;
+      const s = slot.dataset.slot;
+      const entry = planCache[dk]?.[s];
+      if (entry) openSlotEditSheet(dk, s, entry);
+      else openPlanMealSheet(dk, s);
+    });
   });
 
   content.querySelectorAll('[data-recipe-id]').forEach(card => {
@@ -273,13 +291,12 @@ function bindWeekStripSwipe() {
   });
 }
 
-// Placeholders — implemented in Tasks 9-12
-function openPlanMealSheet(preDate, preSlot) {
+function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const mount = document.getElementById('sheetMount');
-  const recipeOptions = Object.entries(recipes)
-    .sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0))
-    .map(([id, r]) => `<option value="${esc(id)}">${esc(r.name)}</option>`)
-    .join('');
+  let selectedRecipeId = preRecipeId;
+
+  const recipeEntries = Object.entries(recipes)
+    .sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
 
   const slotOptions = SLOT_ORDER
     .map(s => `<option value="${esc(s)}"${s === preSlot ? ' selected' : ''}>${esc(SLOT_LABELS[s])}</option>`)
@@ -296,63 +313,141 @@ function openPlanMealSheet(preDate, preSlot) {
     return `<option value="${esc(dk)}"${dk === preDate ? ' selected' : ''}>${esc(label)}</option>`;
   }).join('');
 
+  function buildRecipeRows(filter) {
+    const lc = filter?.toLowerCase() || '';
+    const filtered = lc
+      ? recipeEntries.filter(([, r]) => r.name.toLowerCase().includes(lc))
+      : recipeEntries;
+    if (filtered.length === 0) {
+      return lc
+        ? `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`
+        : `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
+    }
+    return filtered.map(([id, r]) =>
+      `<button class="recipe-pick__row${selectedRecipeId === id ? ' is-selected' : ''}"
+        data-recipe-pick="${esc(id)}" type="button">
+        <span>${esc(r.name)}</span>
+        ${selectedRecipeId === id ? '<span class="recipe-pick__check">✓</span>' : ''}
+      </button>`
+    ).join('');
+  }
+
+  const preRecipeName = preRecipeId ? (recipes[preRecipeId]?.name || '') : '';
+
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">Plan a meal</h2>
-      <button class="btn-icon" id="closePlanMeal" aria-label="Close" type="button">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div class="sheet__content">
-      <label class="field">
-        <span class="field__label">Day</span>
-        <select class="field__input" id="pmDay">${dateOptions}</select>
-      </label>
-      <label class="field">
-        <span class="field__label">Slot</span>
-        <select class="field__input" id="pmSlot">${slotOptions}</select>
-      </label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)">
+        <label class="field" style="margin-bottom:0">
+          <span class="field__label">Day</span>
+          <select id="pmDay">${dateOptions}</select>
+        </label>
+        <label class="field" style="margin-bottom:0">
+          <span class="field__label">Meal slot</span>
+          <select id="pmSlot">${slotOptions}</select>
+        </label>
+      </div>
       <label class="field">
         <span class="field__label">Meal</span>
-        <input class="field__input" id="pmMealInput" type="text"
-          placeholder="Type a meal name..." autocomplete="off" list="pmRecipeList">
-        <datalist id="pmRecipeList">${recipeOptions}</datalist>
+        <input id="pmSearch" type="text" autocomplete="off"
+          placeholder="Search recipes or type any name…"
+          value="${esc(preRecipeName)}">
       </label>
+      <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
     </div>
     <div class="sheet__footer">
-      <button class="btn btn--secondary" id="cancelPlanMeal" type="button">Cancel</button>
-      <button class="btn btn--primary btn--full" id="savePlanMeal" type="button">Save</button>
+      <button class="btn btn--primary" id="savePlanMeal" type="button"
+        ${preRecipeName || selectedRecipeId ? '' : 'disabled'}>Save</button>
     </div>`);
-  requestAnimationFrame(() => {
-    document.getElementById('bottomSheet')?.classList.add('active');
-    document.getElementById('pmMealInput')?.focus();
-  });
+  activateSheet(mount);
+  if (!preRecipeName) document.getElementById('pmSearch')?.focus();
 
-  const close = () => { mount.innerHTML = ''; };
-  document.getElementById('closePlanMeal')?.addEventListener('click', close);
-  document.getElementById('cancelPlanMeal')?.addEventListener('click', close);
+  function updateSaveBtn() {
+    const val = document.getElementById('pmSearch')?.value.trim();
+    document.getElementById('savePlanMeal').disabled = !(val || selectedRecipeId);
+  }
+
+  function bindPickRows() {
+    document.getElementById('recipePick')?.querySelectorAll('[data-recipe-pick]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedRecipeId = btn.dataset.recipePick;
+        document.getElementById('pmSearch').value = recipes[selectedRecipeId]?.name || '';
+        document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('pmSearch').value);
+        bindPickRows();
+        updateSaveBtn();
+      });
+    });
+  }
+  bindPickRows();
+
+  document.getElementById('pmSearch')?.addEventListener('input', (e) => {
+    selectedRecipeId = null;
+    document.getElementById('recipePick').innerHTML = buildRecipeRows(e.target.value);
+    bindPickRows();
+    updateSaveBtn();
+  });
 
   document.getElementById('savePlanMeal')?.addEventListener('click', async () => {
     const day = document.getElementById('pmDay')?.value;
     const slot = document.getElementById('pmSlot')?.value;
-    const mealInput = document.getElementById('pmMealInput')?.value.trim();
-    if (!day || !slot || !mealInput) return;
+    const typed = document.getElementById('pmSearch')?.value.trim();
+    if (!day || !slot || (!selectedRecipeId && !typed)) return;
 
-    const matchedEntry = Object.entries(recipes).find(([, r]) => r.name.toLowerCase() === mealInput.toLowerCase());
-    const data = matchedEntry
-      ? { recipeId: matchedEntry[0], source: 'manual' }
-      : { customName: mealInput, source: 'manual' };
-
-    await writeKitchenPlanSlot(day, slot, data);
-
-    if (matchedEntry) {
-      await writeKitchenRecipe(matchedEntry[0], { ...matchedEntry[1], lastUsed: firebase.database.ServerValue.TIMESTAMP });
-      recipes[matchedEntry[0]].lastUsed = Date.now();
+    let data;
+    if (selectedRecipeId) {
+      data = { recipeId: selectedRecipeId, source: 'manual' };
+    } else {
+      const match = Object.entries(recipes).find(([, r]) => r.name.toLowerCase() === typed.toLowerCase());
+      if (match) {
+        selectedRecipeId = match[0];
+        data = { recipeId: match[0], source: 'manual' };
+      } else {
+        data = { customName: typed, source: 'manual' };
+      }
     }
 
-    close();
+    await writeKitchenPlanSlot(day, slot, data);
+    if (selectedRecipeId) {
+      await writeKitchenRecipe(selectedRecipeId, { ...recipes[selectedRecipeId], lastUsed: firebase.database.ServerValue.TIMESTAMP });
+      recipes[selectedRecipeId].lastUsed = Date.now();
+    }
+    mount.innerHTML = '';
     await renderMealsTab();
     showToast('Meal planned');
+  });
+}
+
+function openSlotEditSheet(dk, slot, entry) {
+  const mount = document.getElementById('sheetMount');
+  const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown recipe') : (entry.customName || '');
+  const d = new Date(dk + 'T12:00:00');
+  const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
+
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">${esc(SLOT_LABELS[slot] || slot)}</h2>
+      <span style="font-size:var(--font-sm);color:var(--text-muted)">${esc(dayLabel)}</span>
+    </div>
+    <div class="sheet__content">
+      <div style="font-size:var(--font-md);font-weight:600;margin-bottom:var(--spacing-md)">${esc(name)}</div>
+      <button class="btn btn--secondary btn--full" id="changeSlotMeal" type="button">Change meal</button>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--danger" id="removeSlotMeal" type="button">Remove</button>
+    </div>`);
+  activateSheet(mount);
+
+  document.getElementById('changeSlotMeal')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openPlanMealSheet(dk, slot, entry.recipeId || null);
+  });
+  document.getElementById('removeSlotMeal')?.addEventListener('click', async () => {
+    await removeKitchenPlanSlot(dk, slot);
+    mount.innerHTML = '';
+    await renderMealsTab();
+    showToast('Meal removed');
   });
 }
 function openRecipeDetailSheet(recipeId) {
@@ -399,7 +494,7 @@ function openRecipeDetailSheet(recipeId) {
       <button class="btn btn--secondary" id="editRecipeBtn" type="button">Edit</button>
       <button class="btn btn--danger btn--full" id="deleteRecipeBtn" type="button">Delete</button>
     </div>`);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('closeRecipeDetail')?.addEventListener('click', close);
@@ -407,11 +502,7 @@ function openRecipeDetailSheet(recipeId) {
   document.getElementById('planThisMealBtn')?.addEventListener('click', () => {
     close();
     const tz = settings?.timezone || 'America/Chicago';
-    openPlanMealSheet(todayKey(tz), 'dinner');
-    requestAnimationFrame(() => {
-      const input = document.getElementById('pmMealInput');
-      if (input) input.value = recipe.name;
-    });
+    openPlanMealSheet(todayKey(tz), 'dinner', recipeId);
   });
 
   document.getElementById('editRecipeBtn')?.addEventListener('click', () => {
@@ -468,7 +559,7 @@ async function pickList(listEntries) {
         ).join('')}
         <button class="btn btn--ghost btn--full" id="cancelPickList" type="button">Cancel</button>
       </div>`);
-    requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+    activateSheet(mount);
 
     mount.querySelectorAll('[data-pick-id]').forEach(btn => {
       btn.addEventListener('click', () => { mount.innerHTML = ''; resolve(btn.dataset.pickId); });
@@ -497,7 +588,7 @@ function openFindRecipesSheet() {
         ).join('')}
       </div>
     </div>`);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  activateSheet(mount);
   document.getElementById('closeFindRecipes')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
 function openMealFabSheet() {
@@ -513,7 +604,7 @@ function openMealFabSheet() {
       <button class="btn btn--secondary btn--full" id="fabPlanMeal" type="button">Plan a meal</button>
       <button class="btn btn--secondary btn--full" id="fabAddRecipe" type="button">Add recipe</button>
     </div>`);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('closeMealFab')?.addEventListener('click', close);
@@ -590,10 +681,8 @@ function openRecipeForm(recipeId) {
       <button class="btn btn--secondary" id="cancelRecipeForm" type="button">Cancel</button>
       <button class="btn btn--primary btn--full" id="saveRecipeForm" type="button">Save</button>
     </div>`);
-  requestAnimationFrame(() => {
-    document.getElementById('bottomSheet')?.classList.add('active');
-    document.getElementById('recipeName')?.focus();
-  });
+  activateSheet(mount);
+  requestAnimationFrame(() => document.getElementById('recipeName')?.focus());
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('closeRecipeForm')?.addEventListener('click', close);
@@ -802,10 +891,8 @@ function openCreateListSheet() {
       <button class="btn btn--secondary" id="cancelCreateList" type="button">Cancel</button>
       <button class="btn btn--primary btn--full" id="saveCreateList" type="button">Create</button>
     </div>`);
-  requestAnimationFrame(() => {
-    document.getElementById('bottomSheet')?.classList.add('active');
-    document.getElementById('newListName')?.focus();
-  });
+  activateSheet(mount);
+  requestAnimationFrame(() => document.getElementById('newListName')?.focus());
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('closeCreateList')?.addEventListener('click', close);
@@ -831,26 +918,24 @@ function openManageListSheet() {
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(listName)}</h2>
-      <button class="btn-icon" id="closeManageList" aria-label="Close" type="button">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div class="sheet__content">
       <label class="field">
         <span class="field__label">Rename</span>
-        <input class="field__input" id="renameListInput" type="text" value="${esc(listName)}" autocomplete="off">
+        <input id="renameListInput" type="text" value="${esc(listName)}" autocomplete="off">
       </label>
+      <div class="overflow-menu" style="margin-top:var(--spacing-sm)">
+        <button class="overflow-menu__item" id="copyListBtn" type="button">Copy list as text</button>
+        <button class="overflow-menu__item" id="clearCheckedBtn" type="button">Clear checked items</button>
+        <button class="overflow-menu__item overflow-menu__item--danger" id="deleteList" type="button">Delete list</button>
+      </div>
     </div>
-    <div class="sheet__footer" style="flex-direction:column;gap:var(--spacing-sm)">
-      <button class="btn btn--primary btn--full" id="saveRenameList" type="button">Save name</button>
-      <button class="btn btn--secondary btn--full" id="copyListBtn" type="button">Copy list as text</button>
-      <button class="btn btn--secondary btn--full" id="clearCheckedBtn" type="button">Clear checked items</button>
-      <button class="btn btn--danger btn--full" id="deleteList" type="button">Delete list</button>
+    <div class="sheet__footer">
+      <button class="btn btn--primary" id="saveRenameList" type="button">Save name</button>
     </div>`);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
-  document.getElementById('closeManageList')?.addEventListener('click', close);
 
   document.getElementById('saveRenameList')?.addEventListener('click', async () => {
     const name = document.getElementById('renameListInput')?.value.trim();
@@ -979,7 +1064,7 @@ function openStaplesSheet() {
           placeholder="Add a staple..." autocomplete="off">
       </div>
     </div>`);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  activateSheet(mount);
 
   document.getElementById('closeStaples')?.addEventListener('click', () => { mount.innerHTML = ''; });
 

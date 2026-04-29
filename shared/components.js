@@ -217,9 +217,6 @@ export function renderNavBar(activePage, options = {}) {
  * @param {object} [familyTheme] - current family theme for openDeviceThemeSheet
  */
 export function initNavMore(sheetMount, getTheme, personOpts) {
-  const btn = document.getElementById('navMore');
-  if (!btn) return;
-
   const items = [
     { id: 'admin',    label: 'Admin' },
     { id: 'calendar', label: 'Calendar' },
@@ -227,9 +224,11 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
     { id: 'theme',    label: 'Theme' },
   ];
 
-  btn.addEventListener('click', () => {
+  function openMoreSheet() {
+    const currentPage = location.pathname.split('/').pop().replace('.html', '');
+    const filtered = items.filter(item => item.id !== currentPage);
     sheetMount.innerHTML = renderBottomSheet(
-      `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(items)}`
+      `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(filtered)}`
     );
     requestAnimationFrame(() => {
       const sheet = document.getElementById('bottomSheet');
@@ -248,7 +247,10 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
       if (id === 'kitchen')  location.href = 'kitchen.html';
       if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, undefined, personOpts);
     });
-  });
+  }
+
+  document.getElementById('navMore')?.addEventListener('click', openMoreSheet);
+  document.getElementById('headerOverflow')?.addEventListener('click', openMoreSheet);
 }
 
 /**

@@ -409,7 +409,9 @@ Every feature (current + backlog) has a named home — see §2 in DESIGN.md. Enf
 - ❌ No CSS framework or bundler — vanilla ES modules + hand-written CSS only.
 - ❌ No `!linkedPerson` guards around core controls (bell, overflow Rewards/Admin, person filter chip, FAB). Person mode is the adult PWA shortcut with Home parity. Kid mode is the restricted variant.
 - ❌ No `var(--header-height)` in a page wrapper's `padding-top`. `.app-header` is `position: sticky` and reserves its own height in flow — double-counting it leaves a large blank gap below the header.
-- ❌ No horizontal margin/padding on `.section` and similar inner groups. The page wrapper (`.page-content` / `.app-shell`) owns the single horizontal gutter.
+- ❌ No horizontal margin/padding on `.section` and similar inner groups. The page wrapper (`.page-content` / `.app-shell`) owns the single horizontal gutter. Violation causes double-indentation: tabs and cards appear narrow instead of filling the content area.
+- ❌ No tab bar (`tabs tabs--pill`) without verifying `tabs--pill` CSS exists in `components.css`. `tabs--pill` (pill, full-width fill) and `tabs--segmented` (box, full-width fill) are the two variants. Both require their CSS or tabs render unstyled.
+- ❌ No sheet sub-structure classes (`sheet__header`, `sheet__footer`, `sheet__content`, `field`, `field__label`) without verifying they exist in `components.css`. These are the canonical classes; using them without CSS makes forms render unstyled. Sheet footer always uses `.sheet__footer` with `.btn` children — each btn gets `flex:1` automatically.
 
 ### Component reuse rule
 Before building any new visual element, search §5 of DESIGN.md. The catalog already covers: Card (+ variants), Tabs, Sheet, Modal, Button, Icon button, Chip, Field, Banner, Timer, Avatar, Check, FAB, Bottom nav, List group/row, Switch, Empty state, Loading skeleton, Error state, Toast, Celebration, Progress bar. If the right shape exists, **use it or add a variant** — don't fork.

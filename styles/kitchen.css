@@ -3,7 +3,7 @@
 
 /* ============ Tabs ============ */
 #kitchenTabsMount {
-  padding: var(--spacing-md) var(--spacing-md) 0;
+  padding: var(--spacing-sm) 0 0;
 }
 
 /* ============ Week strip (Meals tab) ============ */
@@ -20,7 +20,7 @@
 
 .week-strip__week {
   min-width: 100%;
-  padding: var(--spacing-md);
+  padding: var(--spacing-md) 0;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
@@ -108,7 +108,7 @@
 
 /* ============ Recipe library ============ */
 .recipe-library {
-  padding: 0 var(--spacing-md) var(--spacing-xl);
+  padding: 0 0 var(--spacing-xl);
 }
 
 .recipe-library__title {
@@ -125,7 +125,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-sm) 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -139,7 +139,7 @@
 }
 
 .list-content {
-  padding: 0 var(--spacing-md) var(--spacing-xl);
+  padding: 0 0 var(--spacing-xl);
 }
 
 /* Inline add field */
