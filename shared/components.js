@@ -223,6 +223,7 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
   const items = [
     { id: 'admin',    label: 'Admin' },
     { id: 'calendar', label: 'Calendar' },
+    { id: 'kitchen',  label: 'Kitchen' },
     { id: 'theme',    label: 'Theme' },
   ];
 
@@ -244,6 +245,7 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
       const id = row.dataset.itemId;
       if (id === 'admin')    location.href = 'admin.html';
       if (id === 'calendar') location.href = 'calendar.html';
+      if (id === 'kitchen')  location.href = 'kitchen.html';
       if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, undefined, personOpts);
     });
   });
