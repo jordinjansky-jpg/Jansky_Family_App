@@ -713,3 +713,89 @@ export async function writeMealLibrary(mealId, data) {
 export async function removeMealLibrary(mealId) {
   return removeData(`mealLibrary/${mealId}`);
 }
+
+// ─── Kitchen: Recipes ────────────────────────────────────────────────────────
+
+export async function readKitchenRecipes() {
+  return readOnce('kitchen/recipes');
+}
+
+export async function pushKitchenRecipe(data) {
+  return pushData('kitchen/recipes', data);
+}
+
+export async function writeKitchenRecipe(id, data) {
+  return writeData(`kitchen/recipes/${id}`, data);
+}
+
+export async function removeKitchenRecipe(id) {
+  return removeData(`kitchen/recipes/${id}`);
+}
+
+// ─── Kitchen: Meal Plan ───────────────────────────────────────────────────────
+
+export async function readKitchenPlan(dateKey) {
+  return readOnce(`kitchen/plan/${dateKey}`);
+}
+
+export async function writeKitchenPlanSlot(dateKey, slot, data) {
+  return writeData(`kitchen/plan/${dateKey}/${slot}`, data);
+}
+
+export async function removeKitchenPlanSlot(dateKey, slot) {
+  return removeData(`kitchen/plan/${dateKey}/${slot}`);
+}
+
+// ─── Kitchen: Lists ───────────────────────────────────────────────────────────
+
+export async function readKitchenLists() {
+  return readOnce('kitchen/lists');
+}
+
+export async function pushKitchenList(data) {
+  return pushData('kitchen/lists', data);
+}
+
+export async function writeKitchenList(id, data) {
+  return writeData(`kitchen/lists/${id}`, data);
+}
+
+export async function removeKitchenList(id) {
+  const updates = {
+    [`kitchen/lists/${id}`]: null,
+    [`kitchen/items/${id}`]: null,
+  };
+  return multiUpdate(updates);
+}
+
+// ─── Kitchen: Items ───────────────────────────────────────────────────────────
+
+export function onKitchenItems(listId, callback) {
+  return onValue(`kitchen/items/${listId}`, callback);
+}
+
+export async function pushKitchenItem(listId, data) {
+  return pushData(`kitchen/items/${listId}`, data);
+}
+
+export async function writeKitchenItem(listId, id, data) {
+  return writeData(`kitchen/items/${listId}/${id}`, data);
+}
+
+export async function removeKitchenItem(listId, id) {
+  return removeData(`kitchen/items/${listId}/${id}`);
+}
+
+// ─── Kitchen: Staples ────────────────────────────────────────────────────────
+
+export async function readKitchenStaples() {
+  return readOnce('kitchen/staples');
+}
+
+export async function pushKitchenStaple(data) {
+  return pushData('kitchen/staples', data);
+}
+
+export async function removeKitchenStaple(id) {
+  return removeData(`kitchen/staples/${id}`);
+}
