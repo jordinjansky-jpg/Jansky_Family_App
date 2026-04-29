@@ -6,7 +6,7 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
   readKitchenPlan, onKitchenItems,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
   pushKitchenItem, writeKitchenItem, pushKitchenStaple,
-  writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe
+  writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
@@ -354,7 +354,128 @@ function openPlanMealSheet(preDate, preSlot) {
     showToast('Meal planned');
   });
 }
-function openRecipeDetailSheet(recipeId) {}
+function openRecipeDetailSheet(recipeId) {
+  const recipe = recipes[recipeId];
+  if (!recipe) return;
+  const mount = document.getElementById('sheetMount');
+  const hasIngredients = (recipe.ingredients?.length || 0) > 0;
+  const listEntries = Object.entries(lists).sort((a, b) => (a[1].sortOrder || 0) - (b[1].sortOrder || 0));
+
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">${esc(recipe.name)}</h2>
+      <button class="btn-icon" id="closeRecipeDetail" aria-label="Close" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet__content">
+      ${recipe.url
+        ? `<a href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer"
+             class="btn btn--secondary btn--full" style="margin-bottom:var(--spacing-md)">
+             View recipe ↗
+           </a>`
+        : ''}
+
+      <div class="field__label" style="margin-bottom:var(--spacing-xs)">Ingredients</div>
+      ${hasIngredients
+        ? `<ul style="margin:0 0 var(--spacing-md);padding-left:var(--spacing-md);font-size:var(--font-sm)">
+            ${recipe.ingredients.map(i => `<li>${esc(i.name)}</li>`).join('')}
+           </ul>`
+        : `<p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-md)">No ingredients saved yet.</p>`}
+
+      ${listEntries.length > 0
+        ? `<button class="btn btn--secondary btn--full" id="addToListBtn"
+             ${hasIngredients ? '' : 'disabled'} type="button"
+             style="${hasIngredients ? '' : 'opacity:0.5;cursor:not-allowed'}">
+             ${hasIngredients ? 'Add ingredients to list' : 'No ingredients — add some first'}
+           </button>`
+        : ''}
+
+      <button class="btn btn--ghost btn--full" id="planThisMealBtn"
+        style="margin-top:var(--spacing-xs)" type="button">Plan this meal</button>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--secondary" id="editRecipeBtn" type="button">Edit</button>
+      <button class="btn btn--danger btn--full" id="deleteRecipeBtn" type="button">Delete</button>
+    </div>`);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  const close = () => { mount.innerHTML = ''; };
+  document.getElementById('closeRecipeDetail')?.addEventListener('click', close);
+
+  document.getElementById('planThisMealBtn')?.addEventListener('click', () => {
+    close();
+    const tz = settings?.timezone || 'America/Chicago';
+    openPlanMealSheet(todayKey(tz), 'dinner');
+    requestAnimationFrame(() => {
+      const input = document.getElementById('pmMealInput');
+      if (input) input.value = recipe.name;
+    });
+  });
+
+  document.getElementById('editRecipeBtn')?.addEventListener('click', () => {
+    close();
+    openRecipeForm(recipeId);
+  });
+
+  document.getElementById('deleteRecipeBtn')?.addEventListener('click', async () => {
+    const confirmed = await showConfirm({ title: `Delete "${recipe.name}"?`, confirmLabel: 'Delete', danger: true });
+    if (!confirmed) return;
+    await removeKitchenRecipe(recipeId);
+    delete recipes[recipeId];
+    close();
+    await renderMealsTab();
+    showToast('Recipe deleted');
+  });
+
+  document.getElementById('addToListBtn')?.addEventListener('click', async () => {
+    if (!hasIngredients) return;
+    let targetListId = activeListId;
+
+    if (listEntries.length > 1) {
+      targetListId = await pickList(listEntries);
+      if (!targetListId) return;
+    }
+
+    const added = [];
+    for (const ing of recipe.ingredients) {
+      const id = await pushKitchenItem(targetListId, {
+        name: ing.name,
+        checked: false,
+        addedAt: firebase.database.ServerValue.TIMESTAMP,
+        category: null,
+      });
+      added.push({ listId: targetListId, id, name: ing.name });
+    }
+
+    const listName = lists[targetListId]?.name || 'list';
+    showToast(`Added ${added.length} item${added.length !== 1 ? 's' : ''} to ${listName}`);
+    close();
+  });
+}
+
+async function pickList(listEntries) {
+  return new Promise((resolve) => {
+    const mount = document.getElementById('sheetMount');
+    mount.innerHTML = renderBottomSheet(`
+      <div class="sheet__header">
+        <h2 class="sheet__title">Add to which list?</h2>
+      </div>
+      <div class="sheet__content" style="display:flex;flex-direction:column;gap:var(--spacing-xs)">
+        ${listEntries.map(([id, l]) =>
+          `<button class="btn btn--secondary btn--full" data-pick-id="${esc(id)}" type="button">${esc(l.name)}</button>`
+        ).join('')}
+        <button class="btn btn--ghost btn--full" id="cancelPickList" type="button">Cancel</button>
+      </div>`);
+    requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+    mount.querySelectorAll('[data-pick-id]').forEach(btn => {
+      btn.addEventListener('click', () => { mount.innerHTML = ''; resolve(btn.dataset.pickId); });
+    });
+    document.getElementById('cancelPickList')?.addEventListener('click', () => { mount.innerHTML = ''; resolve(null); });
+  });
+}
+
 function openFindRecipesSheet() {}
 function openMealFabSheet() {
   const mount = document.getElementById('sheetMount');
