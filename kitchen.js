@@ -6,7 +6,7 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
   readKitchenPlan, onKitchenItems,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
   pushKitchenItem, writeKitchenItem, pushKitchenStaple,
-  writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe
+  writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
@@ -357,8 +357,152 @@ function openPlanMealSheet(preDate, preSlot) {
 function openRecipeDetailSheet(recipeId) {}
 function openFindRecipesSheet() {}
 function openMealFabSheet() {
-  const tz = settings?.timezone || 'America/Chicago';
-  openPlanMealSheet(todayKey(tz), 'dinner');
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">Add</h2>
+      <button class="btn-icon" id="closeMealFab" aria-label="Close" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet__content" style="display:flex;flex-direction:column;gap:var(--spacing-sm)">
+      <button class="btn btn--secondary btn--full" id="fabPlanMeal" type="button">Plan a meal</button>
+      <button class="btn btn--secondary btn--full" id="fabAddRecipe" type="button">Add recipe</button>
+    </div>`);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  const close = () => { mount.innerHTML = ''; };
+  document.getElementById('closeMealFab')?.addEventListener('click', close);
+  document.getElementById('fabPlanMeal')?.addEventListener('click', () => {
+    close();
+    const tz = settings?.timezone || 'America/Chicago';
+    openPlanMealSheet(todayKey(tz), 'dinner');
+  });
+  document.getElementById('fabAddRecipe')?.addEventListener('click', () => { close(); openRecipeForm(null); });
+}
+
+const RECIPE_SITES = [
+  { name: 'AllRecipes',     url: 'https://www.allrecipes.com' },
+  { name: 'Budget Bytes',   url: 'https://www.budgetbytes.com' },
+  { name: 'Food Network',   url: 'https://www.foodnetwork.com/recipes' },
+  { name: 'Tasty',          url: 'https://tasty.co' },
+  { name: 'Pinch of Yum',   url: 'https://pinchofyum.com' },
+  { name: 'Simply Recipes', url: 'https://www.simplyrecipes.com' },
+  { name: 'Delish',         url: 'https://www.delish.com/cooking/recipe-ideas/' },
+  { name: 'The Kitchn',     url: 'https://www.thekitchn.com/recipes' },
+];
+
+function openRecipeForm(recipeId) {
+  const existing = recipeId ? recipes[recipeId] : null;
+  const ingredients = existing?.ingredients ? [...existing.ingredients] : [];
+
+  const mount = document.getElementById('sheetMount');
+
+  function buildIngredientList() {
+    return ingredients.map((ing, i) =>
+      `<div class="ingredient-row" data-index="${i}" style="display:flex;align-items:center;gap:var(--spacing-xs);margin-bottom:var(--spacing-xs)">
+        <span style="flex:1;font-size:var(--font-sm)">${esc(ing.name)}</span>
+        <button class="btn-icon" data-remove-index="${i}" type="button" aria-label="Remove">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`
+    ).join('');
+  }
+
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">${existing ? 'Edit recipe' : 'New recipe'}</h2>
+      <button class="btn-icon" id="closeRecipeForm" aria-label="Close" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet__content">
+      <label class="field">
+        <span class="field__label">Name <span style="color:var(--danger)">*</span></span>
+        <input class="field__input" id="recipeName" type="text"
+          value="${esc(existing?.name || '')}" placeholder="e.g. Taco Night" autocomplete="off">
+      </label>
+
+      <div class="field">
+        <span class="field__label">Ingredients</span>
+        <div id="ingredientList">${buildIngredientList()}</div>
+        <div style="display:flex;gap:var(--spacing-xs);margin-top:var(--spacing-xs)">
+          <input class="field__input" id="newIngredientInput" type="text"
+            placeholder="Add ingredient..." autocomplete="off" style="flex:1">
+          <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:var(--spacing-md)">
+        <span class="field__label" style="margin-bottom:var(--spacing-xs);display:block">Import from</span>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--spacing-xs)">
+          <button class="btn btn--secondary btn--sm" disabled type="button">URL (coming soon)</button>
+          <button class="btn btn--secondary btn--sm" disabled type="button">TikTok (coming soon)</button>
+          <button class="btn btn--secondary btn--sm" disabled type="button">Screenshot (coming soon)</button>
+        </div>
+      </div>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--secondary" id="cancelRecipeForm" type="button">Cancel</button>
+      <button class="btn btn--primary btn--full" id="saveRecipeForm" type="button">Save</button>
+    </div>`);
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    document.getElementById('recipeName')?.focus();
+  });
+
+  const close = () => { mount.innerHTML = ''; };
+  document.getElementById('closeRecipeForm')?.addEventListener('click', close);
+  document.getElementById('cancelRecipeForm')?.addEventListener('click', close);
+
+  function addIngredient() {
+    const val = document.getElementById('newIngredientInput')?.value.trim();
+    if (!val) return;
+    ingredients.push({ name: val });
+    document.getElementById('newIngredientInput').value = '';
+    document.getElementById('ingredientList').innerHTML = buildIngredientList();
+    bindRemoveButtons();
+  }
+  document.getElementById('addIngredientBtn')?.addEventListener('click', addIngredient);
+  document.getElementById('newIngredientInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addIngredient(); }
+  });
+
+  function bindRemoveButtons() {
+    document.getElementById('ingredientList')?.querySelectorAll('[data-remove-index]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.removeIndex, 10);
+        ingredients.splice(idx, 1);
+        document.getElementById('ingredientList').innerHTML = buildIngredientList();
+        bindRemoveButtons();
+      });
+    });
+  }
+  bindRemoveButtons();
+
+  document.getElementById('saveRecipeForm')?.addEventListener('click', async () => {
+    const name = document.getElementById('recipeName')?.value.trim();
+    if (!name) { document.getElementById('recipeName')?.focus(); return; }
+    const data = {
+      name,
+      source: existing?.source || 'manual',
+      ingredients,
+      isFavorite: existing?.isFavorite || false,
+      lastUsed: existing?.lastUsed || null,
+    };
+    if (existing?.url) data.url = existing.url;
+
+    if (recipeId) {
+      await writeKitchenRecipe(recipeId, { ...data, createdAt: existing?.createdAt });
+      recipes[recipeId] = { ...data, createdAt: existing?.createdAt };
+    } else {
+      const id = await pushKitchenRecipe({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
+      recipes[id] = data;
+    }
+    close();
+    await renderMealsTab();
+    showToast(recipeId ? 'Recipe updated' : 'Recipe saved');
+  });
 }
 
 function renderListsTab() {
