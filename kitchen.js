@@ -32,6 +32,30 @@ function activateSheet(mount, onClose) {
   });
 }
 
+// Long-press helper: 600ms hold fires onLongPress; short tap fires onTap(e).
+// Movement > 12px cancels. Vibrates 30ms on fire. Touch-event-based for reliability.
+function bindLongPress(el, onLongPress, onTap) {
+  let timer = null, didLong = false, sx = 0, sy = 0;
+  el.addEventListener('touchstart', (e) => {
+    didLong = false;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    timer = setTimeout(() => {
+      didLong = true;
+      if (navigator.vibrate) navigator.vibrate(30);
+      onLongPress();
+    }, 600);
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    if (!timer) return;
+    if (Math.abs(e.touches[0].clientX - sx) > 12 || Math.abs(e.touches[0].clientY - sy) > 12) {
+      clearTimeout(timer); timer = null;
+    }
+  }, { passive: true });
+  el.addEventListener('touchend', () => { clearTimeout(timer); timer = null; });
+  el.addEventListener('touchcancel', () => { clearTimeout(timer); timer = null; });
+  el.addEventListener('click', (e) => { if (didLong) { didLong = false; return; } onTap(e); });
+}
+
 // ── Phase 1: instant theme paint ──────────────────────────────────────────────
 applyTheme(resolveTheme());
 initFirebase();
@@ -965,33 +989,11 @@ function renderItemsArea(items) {
 
   area.querySelectorAll('.card--shopping').forEach(card => {
     const id = card.dataset.itemId;
-    let pressTimer = null;
-    let didLongPress = false;
-    let startX = 0, startY = 0;
-
-    card.addEventListener('pointerdown', (e) => {
-      didLongPress = false;
-      startX = e.clientX; startY = e.clientY;
-      pressTimer = setTimeout(() => {
-        didLongPress = true;
-        openItemEditSheet(id, items[id] || { name: card.querySelector('.card__name')?.textContent?.trim() || '' });
-      }, 800);
-    }, { passive: true });
-
-    card.addEventListener('pointermove', (e) => {
-      if (!pressTimer) return;
-      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) {
-        clearTimeout(pressTimer); pressTimer = null;
-      }
-    }, { passive: true });
-
-    card.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
-    card.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
-
-    card.addEventListener('click', () => {
-      if (didLongPress) { didLongPress = false; return; }
-      toggleItem(id);
-    });
+    bindLongPress(
+      card,
+      () => openItemEditSheet(id, items[id] || { name: card.querySelector('.card__name')?.textContent?.trim() || '' }),
+      () => toggleItem(id)
+    );
   });
 }
 
@@ -1185,6 +1187,8 @@ function openItemAddField() {
 
 function openItemEditSheet(id, item) {
   const mount = document.getElementById('sheetMount');
+  const alreadyStaple = Object.values(staples).some(s => s.name.toLowerCase() === (item.name || '').toLowerCase());
+
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">Edit item</h2>
@@ -1194,6 +1198,7 @@ function openItemEditSheet(id, item) {
         <span class="field__label">Name</span>
         <input id="editItemName" type="text" value="${esc(item.name || '')}" autocomplete="off">
       </label>
+      ${!alreadyStaple ? `<button class="btn btn--ghost btn--full" id="addToStaplesBtn" type="button">Save to staples</button>` : ''}
     </div>
     <div class="sheet__footer">
       <button class="btn btn--danger" id="editItemDelete" type="button">Delete</button>
@@ -1217,19 +1222,32 @@ function openItemEditSheet(id, item) {
     await removeKitchenItem(activeListId, id);
     mount.innerHTML = '';
   });
+
+  document.getElementById('addToStaplesBtn')?.addEventListener('click', async () => {
+    const name = input?.value.trim() || item.name;
+    const sid = await pushKitchenStaple({ name, category: item.category || null });
+    staples[sid] = { name, category: item.category || null };
+    showToast(`"${name}" saved to staples`);
+    mount.innerHTML = '';
+  });
 }
 
 function openStaplesSheet() {
   const mount = document.getElementById('sheetMount');
+  const trashSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
 
-  function renderStaplesChips() {
+  function stapleRows() {
     const entries = Object.entries(staples);
     if (entries.length === 0) {
-      return `<p style="font-size:var(--font-sm);color:var(--text-muted)">Save items you buy every week.</p>`;
+      return `<p style="font-size:var(--font-sm);color:var(--text-muted)">No staples yet — add things you buy every week.</p>`;
     }
     return entries.map(([id, s]) =>
-      `<button class="chip chip--muted" data-staple-id="${esc(id)}" type="button">${esc(s.name)}</button>`
-    ).join(' ');
+      `<div class="staple-row" data-staple-id="${esc(id)}"
+           style="display:flex;align-items:center;gap:var(--spacing-sm);padding:10px 0;border-bottom:1px solid var(--border)">
+        <span class="staple-row__name" style="flex:1;font-size:var(--font-sm)">${esc(s.name)}</span>
+        <button class="btn-icon" data-delete-staple="${esc(id)}" aria-label="Delete" type="button">${trashSvg}</button>
+      </div>`
+    ).join('');
   }
 
   mount.innerHTML = renderBottomSheet(`
@@ -1240,42 +1258,116 @@ function openStaplesSheet() {
       </button>
     </div>
     <div class="sheet__content">
-      <div id="staplesChips" style="display:flex;flex-wrap:wrap;gap:var(--spacing-xs);margin-bottom:var(--spacing-md)">
-        ${renderStaplesChips()}
-      </div>
-      <div class="item-add-wrap">
-        <input class="item-add-field" id="newStapleField" type="text"
-          placeholder="Add a staple..." autocomplete="off">
-      </div>
+      <p style="font-size:var(--font-xs);color:var(--text-faint);margin-bottom:var(--spacing-sm)">Tap to add to list · Long-press to rename</p>
+      <div id="stapleRows">${stapleRows()}</div>
+    </div>
+    <div class="sheet__footer">
+      <input id="newStapleField" type="text" placeholder="New staple…" autocomplete="off" style="flex:1;min-width:0">
+      <button class="btn btn--secondary" id="addStapleBtn" type="button">Add</button>
     </div>`);
   activateSheet(mount);
 
   document.getElementById('closeStaples')?.addEventListener('click', () => { mount.innerHTML = ''; });
 
-  document.getElementById('staplesChips')?.addEventListener('click', async (e) => {
-    const chip = e.target.closest('[data-staple-id]');
-    if (!chip || !activeListId) return;
-    const stapleId = chip.dataset.stapleId;
-    const name = staples[stapleId]?.name;
-    if (!name) return;
-    await pushKitchenItem(activeListId, {
-      name, checked: false,
-      addedAt: firebase.database.ServerValue.TIMESTAMP,
-      category: staples[stapleId]?.category || null,
-    });
-    showToast(`Added "${name}"`);
-  });
+  function rebuildRows() {
+    document.getElementById('stapleRows').innerHTML = stapleRows();
+    bindStapleRows();
+  }
 
-  const newField = document.getElementById('newStapleField');
-  newField?.addEventListener('keydown', async (e) => {
-    if (e.key !== 'Enter') return;
-    const name = newField.value.trim();
+  function bindStapleRows() {
+    mount.querySelectorAll('.staple-row').forEach(row => {
+      const id = row.dataset.stapleId;
+      bindLongPress(
+        row,
+        () => openStapleEditSheet(id, rebuildRows),
+        (e) => {
+          if (e.target.closest('[data-delete-staple]')) return;
+          if (!activeListId || !staples[id]) return;
+          pushKitchenItem(activeListId, {
+            name: staples[id].name, checked: false,
+            addedAt: firebase.database.ServerValue.TIMESTAMP,
+            category: staples[id].category || null,
+          }).then(() => showToast(`Added "${staples[id].name}"`));
+        }
+      );
+    });
+
+    mount.querySelectorAll('[data-delete-staple]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.deleteStaple;
+        const confirmed = await showConfirm({
+          title: `Remove "${staples[id]?.name}" from staples?`,
+          confirmLabel: 'Remove', danger: true,
+        });
+        if (!confirmed) return;
+        await getDb().ref(`rundown/kitchen/staples/${id}`).remove();
+        delete staples[id];
+        rebuildRows();
+      });
+    });
+  }
+  bindStapleRows();
+
+  async function addStaple() {
+    const field = document.getElementById('newStapleField');
+    const name = field?.value.trim();
     if (!name) return;
-    newField.value = '';
+    field.value = '';
     const id = await pushKitchenStaple({ name, category: null });
     staples[id] = { name, category: null };
     if (KITCHEN_WORKER_URL) categorizeStaple(id, name);
-    document.getElementById('staplesChips').innerHTML = renderStaplesChips();
+    rebuildRows();
+  }
+
+  document.getElementById('addStapleBtn')?.addEventListener('click', addStaple);
+  document.getElementById('newStapleField')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addStaple(); }
+  });
+}
+
+function openStapleEditSheet(id, onDone) {
+  const mount = document.getElementById('sheetMount');
+  const staple = staples[id];
+  if (!staple) return;
+
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">Edit staple</h2>
+    </div>
+    <div class="sheet__content">
+      <label class="field">
+        <span class="field__label">Name</span>
+        <input id="editStapleName" type="text" value="${esc(staple.name)}" autocomplete="off">
+      </label>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--danger" id="deleteStapleBtn" type="button">Delete</button>
+      <button class="btn btn--primary" id="saveStapleBtn" type="button">Save</button>
+    </div>`);
+  activateSheet(mount);
+  requestAnimationFrame(() => { document.getElementById('editStapleName')?.select(); });
+
+  document.getElementById('saveStapleBtn')?.addEventListener('click', async () => {
+    const name = document.getElementById('editStapleName')?.value.trim();
+    if (!name) return;
+    await getDb().ref(`rundown/kitchen/staples/${id}/name`).set(name);
+    staples[id].name = name;
+    mount.innerHTML = '';
+    onDone?.();
+    openStaplesSheet();
+  });
+
+  document.getElementById('deleteStapleBtn')?.addEventListener('click', async () => {
+    const confirmed = await showConfirm({
+      title: `Remove "${staple.name}" from staples?`,
+      confirmLabel: 'Remove', danger: true,
+    });
+    if (!confirmed) return;
+    await getDb().ref(`rundown/kitchen/staples/${id}`).remove();
+    delete staples[id];
+    mount.innerHTML = '';
+    openStaplesSheet();
   });
 }
 
