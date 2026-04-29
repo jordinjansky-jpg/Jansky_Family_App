@@ -12,7 +12,7 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
   initOfflineBanner, showConfirm, showToast, renderFab,
-  renderBottomSheet, renderEmptyState
+  renderBottomSheet, renderEmptyState, renderAddMenu
 } from './shared/components.js';
 import { todayKey, escapeHtml } from './shared/utils.js';
 
@@ -145,10 +145,10 @@ function renderActiveTab() {
 // ── FAB ───────────────────────────────────────────────────────────────────────
 function bindFab() {
   const mount = document.getElementById('fabMount');
-  mount.innerHTML = renderFab({ id: 'kitchenFab', label: activeTab === 'meals' ? 'Add' : 'Add item' });
+  mount.innerHTML = renderFab({ id: 'kitchenFab', label: activeTab === 'meals' ? 'Add' : 'Add items' });
   document.getElementById('kitchenFab')?.addEventListener('click', () => {
     if (activeTab === 'meals') openMealFabSheet();
-    else openItemAddField();
+    else openBulkAddSheet();
   });
 }
 
@@ -349,12 +349,15 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
           <select id="pmSlot">${slotOptions}</select>
         </label>
       </div>
-      <label class="field">
-        <span class="field__label">Meal</span>
+      <div class="field">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--spacing-xs)">
+          <span class="field__label">Meal</span>
+          <button class="btn btn--ghost btn--sm" id="pmCreateRecipe" type="button">+ New recipe</button>
+        </div>
         <input id="pmSearch" type="text" autocomplete="off"
           placeholder="Search recipes or type any name…"
           value="${esc(preRecipeName)}">
-      </label>
+      </div>
       <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
     </div>
     <div class="sheet__footer">
@@ -363,6 +366,13 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     </div>`);
   activateSheet(mount);
   if (!preRecipeName) document.getElementById('pmSearch')?.focus();
+
+  document.getElementById('pmCreateRecipe')?.addEventListener('click', () => {
+    const day = document.getElementById('pmDay')?.value || preDate;
+    const slot = document.getElementById('pmSlot')?.value || preSlot;
+    mount.innerHTML = '';
+    openRecipeForm(null, (newId) => openPlanMealSheet(day, slot, newId));
+  });
 
   function updateSaveBtn() {
     const val = document.getElementById('pmSearch')?.value.trim();
@@ -593,27 +603,116 @@ function openFindRecipesSheet() {
 }
 function openMealFabSheet() {
   const mount = document.getElementById('sheetMount');
+  const options = [
+    {
+      key: 'schedule',
+      label: 'Schedule meal',
+      icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    },
+    {
+      key: 'recipe',
+      label: 'Create recipe',
+      icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>',
+    },
+  ];
+  mount.innerHTML = renderBottomSheet(renderAddMenu(options));
+  activateSheet(mount);
+
+  mount.querySelector('.add-menu')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    mount.innerHTML = '';
+    if (btn.dataset.action === 'schedule') {
+      const tz = settings?.timezone || 'America/Chicago';
+      openPlanMealSheet(todayKey(tz), 'dinner');
+    } else {
+      openRecipeForm(null);
+    }
+  });
+}
+
+function openBulkAddSheet() {
+  if (!activeListId) { openCreateListSheet(); return; }
+  const mount = document.getElementById('sheetMount');
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
-      <h2 class="sheet__title">Add</h2>
-      <button class="btn-icon" id="closeMealFab" aria-label="Close" type="button">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <h2 class="sheet__title">Add items</h2>
     </div>
-    <div class="sheet__content" style="display:flex;flex-direction:column;gap:var(--spacing-sm)">
-      <button class="btn btn--secondary btn--full" id="fabPlanMeal" type="button">Plan a meal</button>
-      <button class="btn btn--secondary btn--full" id="fabAddRecipe" type="button">Add recipe</button>
+    <div class="sheet__content">
+      <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">
+        Type each item and press Enter, or paste a list.
+      </p>
+      <label class="field">
+        <input class="field__input" id="bulkAddInput" type="text"
+          placeholder="e.g. Milk" autocomplete="off" autocorrect="off">
+      </label>
+      <div id="bulkAddedList"></div>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--primary" id="bulkAddDone" type="button">Done</button>
     </div>`);
   activateSheet(mount);
 
-  const close = () => { mount.innerHTML = ''; };
-  document.getElementById('closeMealFab')?.addEventListener('click', close);
-  document.getElementById('fabPlanMeal')?.addEventListener('click', () => {
-    close();
-    const tz = settings?.timezone || 'America/Chicago';
-    openPlanMealSheet(todayKey(tz), 'dinner');
+  let addedItems = [];
+
+  function refreshAddedList() {
+    const el = document.getElementById('bulkAddedList');
+    if (!el) return;
+    el.innerHTML = addedItems.map((n, i) =>
+      `<div style="display:flex;align-items:center;gap:var(--spacing-xs);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
+        <span style="flex:1;font-size:var(--font-sm)">${esc(n)}</span>
+        <button class="btn-icon" data-remove="${i}" type="button" aria-label="Remove">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`
+    ).join('');
+    el.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        addedItems.splice(parseInt(btn.dataset.remove, 10), 1);
+        refreshAddedList();
+      });
+    });
+  }
+
+  async function addItem(name) {
+    const trimmed = name.trim();
+    if (!trimmed || !activeListId) return;
+    addedItems.push(trimmed);
+    const id = await pushKitchenItem(activeListId, {
+      name: trimmed,
+      checked: false,
+      addedAt: firebase.database.ServerValue.TIMESTAMP,
+      category: null,
+    });
+    if (KITCHEN_WORKER_URL) categorizeItem(activeListId, id, trimmed);
+    refreshAddedList();
+  }
+
+  const input = document.getElementById('bulkAddInput');
+  input?.focus();
+
+  input?.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = input.value.trim();
+      if (val) { input.value = ''; await addItem(val); input.focus(); }
+    }
   });
-  document.getElementById('fabAddRecipe')?.addEventListener('click', () => { close(); openRecipeForm(null); });
+
+  input?.addEventListener('paste', async (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    const lines = text.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+    if (lines.length <= 1) { input.value = (input.value + text).trim(); return; }
+    for (const line of lines) await addItem(line);
+    input.value = '';
+    input.focus();
+  });
+
+  document.getElementById('bulkAddDone')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    if (addedItems.length > 0) showToast(`Added ${addedItems.length} item${addedItems.length !== 1 ? 's' : ''}`);
+  });
 }
 
 const RECIPE_SITES = [
@@ -627,7 +726,7 @@ const RECIPE_SITES = [
   { name: 'The Kitchn',     url: 'https://www.thekitchn.com/recipes' },
 ];
 
-function openRecipeForm(recipeId) {
+function openRecipeForm(recipeId, onSave = null) {
   const existing = recipeId ? recipes[recipeId] : null;
   const ingredients = existing?.ingredients ? [...existing.ingredients] : [];
 
@@ -728,13 +827,16 @@ function openRecipeForm(recipeId) {
     if (recipeId) {
       await writeKitchenRecipe(recipeId, { ...data, createdAt: existing?.createdAt });
       recipes[recipeId] = { ...data, createdAt: existing?.createdAt };
+      close();
+      if (onSave) { onSave(recipeId); } else { await renderMealsTab(); }
+      showToast('Recipe updated');
     } else {
       const id = await pushKitchenRecipe({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
       recipes[id] = data;
+      close();
+      if (onSave) { onSave(id); } else { await renderMealsTab(); }
+      showToast('Recipe saved');
     }
-    close();
-    await renderMealsTab();
-    showToast(recipeId ? 'Recipe updated' : 'Recipe saved');
   });
 }
 

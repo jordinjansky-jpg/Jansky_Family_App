@@ -201,7 +201,7 @@
 //                    field/field__label CSS, recipe-pick-list CSS, kitchen.css padding fix,
 //                    initNavMore wires headerOverflow, click-outside sheets, slot edit sheet,
 //                    recipe picker replaces datalist.
-const CACHE_NAME = 'family-hub-v95';
+const CACHE_NAME = 'family-hub-v96';
 
 const APP_SHELL = [
   '/',
