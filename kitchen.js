@@ -6,7 +6,8 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
   readKitchenPlan, onKitchenItems,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
   pushKitchenItem, writeKitchenItem, pushKitchenStaple,
-  writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe
+  writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe,
+  getDb
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
@@ -931,12 +932,13 @@ function openItemAddField() {
     if (!name) { wrap.remove(); return; }
     if (!activeListId) return;
     field.value = '';
-    await pushKitchenItem(activeListId, {
+    const id = await pushKitchenItem(activeListId, {
       name,
       checked: false,
       addedAt: firebase.database.ServerValue.TIMESTAMP,
       category: null,
     });
+    if (KITCHEN_WORKER_URL) categorizeItem(activeListId, id, name);
   }
 
   field.addEventListener('keydown', (e) => {
@@ -1003,16 +1005,42 @@ function openStaplesSheet() {
     newField.value = '';
     const id = await pushKitchenStaple({ name, category: null });
     staples[id] = { name, category: null };
+    if (KITCHEN_WORKER_URL) categorizeStaple(id, name);
     document.getElementById('staplesChips').innerHTML = renderStaplesChips();
   });
 }
 
-function categorizeItem(listId, itemId, name) {
-  // Implemented in Task 14
+async function categorizeItem(listId, itemId, name) {
+  if (!KITCHEN_WORKER_URL) return;
+  try {
+    const res = await fetch(KITCHEN_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'categorize', input: name }),
+    });
+    if (!res.ok) return;
+    const { category } = await res.json();
+    if (!category || category === 'Other') return;
+    await getDb().ref(`rundown/kitchen/items/${listId}/${itemId}/category`).set(category);
+  } catch {
+    // Silently fail — item stays in Other
+  }
 }
 
-function categorizeStaple(stapleId, name) {
-  // Implemented in Task 14
+async function categorizeStaple(stapleId, name) {
+  if (!KITCHEN_WORKER_URL) return;
+  try {
+    const res = await fetch(KITCHEN_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'categorize', input: name }),
+    });
+    if (!res.ok) return;
+    const { category } = await res.json();
+    if (!category || category === 'Other') return;
+    await getDb().ref(`rundown/kitchen/staples/${stapleId}/category`).set(category);
+    staples[stapleId].category = category;
+  } catch {}
 }
 
 init().catch(err => {
