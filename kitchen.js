@@ -117,8 +117,8 @@ async function loadData() {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 function renderTabs() {
-  const tabs = ['meals', 'lists'];
-  const labels = { meals: 'Meals', lists: 'Lists' };
+  const tabs = ['meals', 'recipes', 'lists'];
+  const labels = { meals: 'Meals', recipes: 'Recipes', lists: 'Lists' };
   document.getElementById('kitchenTabsMount').innerHTML = `
     <nav class="tabs tabs--pill tabs--md" id="kitchenTabs">
       ${tabs.map(t => `
@@ -139,15 +139,18 @@ function renderTabs() {
 
 function renderActiveTab() {
   if (activeTab === 'meals') renderMealsTab().catch(console.error);
+  else if (activeTab === 'recipes') renderRecipesTab();
   else renderListsTab();
 }
 
 // ── FAB ───────────────────────────────────────────────────────────────────────
 function bindFab() {
   const mount = document.getElementById('fabMount');
-  mount.innerHTML = renderFab({ id: 'kitchenFab', label: activeTab === 'meals' ? 'Add' : 'Add items' });
+  const label = activeTab === 'meals' ? 'Add' : activeTab === 'recipes' ? 'New recipe' : 'Add items';
+  mount.innerHTML = renderFab({ id: 'kitchenFab', label });
   document.getElementById('kitchenFab')?.addEventListener('click', () => {
     if (activeTab === 'meals') openMealFabSheet();
+    else if (activeTab === 'recipes') openRecipeForm(null);
     else openBulkAddSheet();
   });
 }
@@ -225,32 +228,11 @@ async function renderMealsTab() {
     </div>`;
   }).join('');
 
-  const recipeEntries = Object.entries(recipes).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
-  const recipeLibHtml = recipeEntries.length > 0
-    ? recipeEntries.map(([id, r]) => `
-        <article class="card" data-recipe-id="${esc(id)}" style="cursor:pointer">
-          <div class="card__body">
-            <div class="card__title">${esc(r.name)}</div>
-            <div class="card__meta">
-              ${r.ingredients?.length ? `${r.ingredients.length} ingredient${r.ingredients.length !== 1 ? 's' : ''}` : 'No ingredients yet'}
-              ${r.url ? ' · <span style="color:var(--accent)">&#x2197; Recipe</span>' : ''}
-            </div>
-          </div>
-        </article>`).join('')
-    : renderEmptyState('', 'No recipes yet', 'Add a recipe to start planning meals.');
-
   content.innerHTML = `
     <div class="week-strip" id="weekStrip">
       <div class="week-strip__track" id="weekTrack">
         <div class="week-strip__week">${weekHtml}</div>
       </div>
-    </div>
-    <div class="recipe-library">
-      <div class="recipe-library__title">Recipes</div>
-      <div id="recipeLibrary">${recipeLibHtml}</div>
-      <button class="btn btn--ghost" id="findRecipesBtn" style="margin-top:var(--spacing-sm)" type="button">
-        Find recipe ideas &#x2197;
-      </button>
     </div>`;
 
   bindWeekStripSwipe();
@@ -264,12 +246,44 @@ async function renderMealsTab() {
       else openPlanMealSheet(dk, s);
     });
   });
+}
 
-  content.querySelectorAll('[data-recipe-id]').forEach(card => {
-    card.addEventListener('click', () => openRecipeDetailSheet(card.dataset.recipeId));
-  });
+function renderRecipesTab() {
+  const content = document.getElementById('kitchenContent');
+  const recipeEntries = Object.entries(recipes).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
+  const linkIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+
+  const recipeLibHtml = recipeEntries.length > 0
+    ? recipeEntries.map(([id, r]) => `
+        <article class="card" data-recipe-id="${esc(id)}" style="cursor:pointer;display:flex;align-items:center">
+          <div class="card__body" style="flex:1;min-width:0">
+            <div class="card__title">${esc(r.name)}</div>
+            <div class="card__meta">
+              ${r.ingredients?.length ? `${r.ingredients.length} ingredient${r.ingredients.length !== 1 ? 's' : ''}` : 'No ingredients'}
+            </div>
+          </div>
+          ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"
+              class="btn-icon" style="flex-shrink:0;color:var(--accent)"
+              aria-label="Open recipe link" data-recipe-link="${esc(id)}">${linkIcon}</a>` : ''}
+        </article>`).join('')
+    : renderEmptyState('', 'No recipes yet', 'Tap "New recipe" to add your first.');
+
+  content.innerHTML = `
+    <div style="padding:var(--spacing-sm) 0 var(--spacing-xl)">
+      <button class="btn btn--ghost" id="findRecipesBtn" style="margin-bottom:var(--spacing-sm)" type="button">
+        Find recipe ideas &#x2197;
+      </button>
+      <div id="recipeLibrary">${recipeLibHtml}</div>
+    </div>`;
 
   document.getElementById('findRecipesBtn')?.addEventListener('click', openFindRecipesSheet);
+
+  content.querySelectorAll('[data-recipe-id]').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('[data-recipe-link]')) return;
+      openRecipeDetailSheet(card.dataset.recipeId);
+    });
+  });
 }
 
 function bindWeekStripSwipe() {
@@ -529,7 +543,7 @@ function openRecipeDetailSheet(recipeId) {
     await removeKitchenRecipe(recipeId);
     delete recipes[recipeId];
     close();
-    await renderMealsTab();
+    renderActiveTab();
     showToast('Recipe deleted');
   });
 
@@ -770,13 +784,14 @@ function openRecipeForm(recipeId, onSave = null) {
         </div>
       </div>
 
-      <div class="field" style="margin-top:var(--spacing-md)">
-        <span class="field__label" style="margin-bottom:var(--spacing-xs);display:block">Import from</span>
-        <div style="display:flex;flex-wrap:wrap;gap:var(--spacing-xs)">
-          <button class="btn btn--secondary btn--sm" disabled type="button">URL (coming soon)</button>
-          <button class="btn btn--secondary btn--sm" disabled type="button">TikTok (coming soon)</button>
-          <button class="btn btn--secondary btn--sm" disabled type="button">Screenshot (coming soon)</button>
-        </div>
+      <label class="field">
+        <span class="field__label">Recipe link</span>
+        <input id="recipeUrl" type="url" placeholder="https://…"
+          value="${esc(existing?.url || '')}" autocomplete="off">
+      </label>
+      <div class="field">
+        <span class="field__label" style="display:block;margin-bottom:var(--spacing-xs)">Import from screenshot</span>
+        <button class="btn btn--secondary btn--sm" disabled type="button">Screenshot (coming soon)</button>
       </div>
     </div>
     <div class="sheet__footer">
@@ -818,26 +833,27 @@ function openRecipeForm(recipeId, onSave = null) {
   document.getElementById('saveRecipeForm')?.addEventListener('click', async () => {
     const name = document.getElementById('recipeName')?.value.trim();
     if (!name) { document.getElementById('recipeName')?.focus(); return; }
+    const url = document.getElementById('recipeUrl')?.value.trim() || null;
     const data = {
       name,
+      url,
       source: existing?.source || 'manual',
       ingredients,
       isFavorite: existing?.isFavorite || false,
       lastUsed: existing?.lastUsed || null,
     };
-    if (existing?.url) data.url = existing.url;
 
     if (recipeId) {
       await writeKitchenRecipe(recipeId, { ...data, createdAt: existing?.createdAt });
       recipes[recipeId] = { ...data, createdAt: existing?.createdAt };
       close();
-      if (onSave) { onSave(recipeId); } else { await renderMealsTab(); }
+      if (onSave) { onSave(recipeId); } else { renderActiveTab(); }
       showToast('Recipe updated');
     } else {
       const id = await pushKitchenRecipe({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
       recipes[id] = data;
       close();
-      if (onSave) { onSave(id); } else { await renderMealsTab(); }
+      if (onSave) { onSave(id); } else { renderActiveTab(); }
       showToast('Recipe saved');
     }
   });
@@ -951,18 +967,26 @@ function renderItemsArea(items) {
     const id = card.dataset.itemId;
     let pressTimer = null;
     let didLongPress = false;
+    let startX = 0, startY = 0;
 
-    card.addEventListener('pointerdown', () => {
+    card.addEventListener('pointerdown', (e) => {
       didLongPress = false;
+      startX = e.clientX; startY = e.clientY;
       pressTimer = setTimeout(() => {
         didLongPress = true;
         openItemEditSheet(id, items[id] || { name: card.querySelector('.card__name')?.textContent?.trim() || '' });
       }, 800);
     }, { passive: true });
 
-    card.addEventListener('pointerup', () => clearTimeout(pressTimer));
-    card.addEventListener('pointercancel', () => clearTimeout(pressTimer));
-    card.addEventListener('pointermove', () => clearTimeout(pressTimer));
+    card.addEventListener('pointermove', (e) => {
+      if (!pressTimer) return;
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) {
+        clearTimeout(pressTimer); pressTimer = null;
+      }
+    }, { passive: true });
+
+    card.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
+    card.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
 
     card.addEventListener('click', () => {
       if (didLongPress) { didLongPress = false; return; }
