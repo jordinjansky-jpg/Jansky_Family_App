@@ -178,7 +178,10 @@ async function renderMealsTab() {
   const tz = settings?.timezone || 'America/Chicago';
   const todayStr = todayKey(tz);
 
-  if (!currentWeekStart) currentWeekStart = getMondayOf(new Date());
+  if (!currentWeekStart) {
+    currentWeekStart = new Date();
+    currentWeekStart.setHours(0, 0, 0, 0);
+  }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(currentWeekStart);
@@ -945,7 +948,26 @@ function renderItemsArea(items) {
   document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
 
   area.querySelectorAll('.card--shopping').forEach(card => {
-    card.addEventListener('click', () => toggleItem(card.dataset.itemId));
+    const id = card.dataset.itemId;
+    let pressTimer = null;
+    let didLongPress = false;
+
+    card.addEventListener('pointerdown', () => {
+      didLongPress = false;
+      pressTimer = setTimeout(() => {
+        didLongPress = true;
+        openItemEditSheet(id, items[id] || { name: card.querySelector('.card__name')?.textContent?.trim() || '' });
+      }, 800);
+    }, { passive: true });
+
+    card.addEventListener('pointerup', () => clearTimeout(pressTimer));
+    card.addEventListener('pointercancel', () => clearTimeout(pressTimer));
+    card.addEventListener('pointermove', () => clearTimeout(pressTimer));
+
+    card.addEventListener('click', () => {
+      if (didLongPress) { didLongPress = false; return; }
+      toggleItem(id);
+    });
   });
 }
 
@@ -1134,6 +1156,42 @@ function openItemAddField() {
   });
   field.addEventListener('blur', () => {
     if (!field.value.trim()) wrap.remove();
+  });
+}
+
+function openItemEditSheet(id, item) {
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">Edit item</h2>
+    </div>
+    <div class="sheet__content">
+      <label class="field">
+        <span class="field__label">Name</span>
+        <input id="editItemName" type="text" value="${esc(item.name || '')}" autocomplete="off">
+      </label>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--danger" id="editItemDelete" type="button">Delete</button>
+      <button class="btn btn--primary" id="editItemSave" type="button">Save</button>
+    </div>`);
+  activateSheet(mount);
+
+  const input = document.getElementById('editItemName');
+  requestAnimationFrame(() => { input?.select(); });
+
+  document.getElementById('editItemSave')?.addEventListener('click', async () => {
+    const name = input?.value.trim();
+    if (!name || !activeListId) return;
+    await writeKitchenItem(activeListId, id, { ...item, name });
+    mount.innerHTML = '';
+  });
+
+  document.getElementById('editItemDelete')?.addEventListener('click', async () => {
+    const confirmed = await showConfirm({ title: `Remove "${item.name}"?`, confirmLabel: 'Remove', danger: true });
+    if (!confirmed) return;
+    await removeKitchenItem(activeListId, id);
+    mount.innerHTML = '';
   });
 }
 

@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealPlanSheet, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -1150,132 +1150,136 @@ function openEventDetailSheet(eventId) {
 
 function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
   const date = preDate || viewDate;
-  const currentMealId = viewMeals?.[preSlot]?.recipeId || null;
-  const html = renderMealPlanSheet({ date, slot: preSlot, library: recipes, currentMealId });
-  taskSheetMount.innerHTML = renderBottomSheet(html);
-  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-  const overlay = document.getElementById('bottomSheet');
-  const searchInput = document.getElementById('mp_search');
-  const resultsDiv = document.getElementById('mp_results');
-  const inlineEditor = document.getElementById('mp_inlineEditor');
+  const SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
+  const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
   let selectedSlot = preSlot;
-  let selectedMealId = currentMealId;
+  let selectedMealId = viewMeals?.[selectedSlot]?.recipeId || null;
 
-  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
-
-  // Slot tab switching
-  document.getElementById('mp_slotTabs')?.addEventListener('click', e => {
-    const btn = e.target.closest('.mp-slot-tab');
-    if (!btn) return;
-    selectedSlot = btn.dataset.slot;
-    selectedMealId = viewMeals?.[selectedSlot]?.recipeId || null;
-    document.getElementById('mp_selectedMealId').value = selectedMealId || '';
-    document.querySelectorAll('.mp-slot-tab').forEach(b => {
-      b.classList.toggle('is-active', b.dataset.slot === selectedSlot);
-      b.setAttribute('aria-selected', b.dataset.slot === selectedSlot);
-    });
-    const removeLink = document.getElementById('mp_removeLink');
-    if (removeLink) {
-      const cur = viewMeals?.[selectedSlot];
-      const curRecipe = cur?.recipeId ? recipes[cur.recipeId] : null;
-      const curName = curRecipe?.name || cur?.customName || null;
-      removeLink.style.display = curName ? '' : 'none';
-      if (curName) {
-        removeLink.textContent = `Remove "${curName}" from this slot`;
-      }
-    }
-    filterOptions('');
-    searchInput.value = '';
+  const sortedEntries = Object.entries(recipes).sort(([, a], [, b]) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    return (b.lastUsed || 0) - (a.lastUsed || 0);
   });
 
-  const searchRow = document.querySelector('.mp-search-row');
-
-  function filterOptions(query) {
-    const q = query.toLowerCase().trim();
-    const entries = Object.entries(recipes).sort(([, a], [, b]) => {
-      if (a.isFavorite && !b.isFavorite) return -1;
-      if (!a.isFavorite && b.isFavorite) return 1;
-      return (b.lastUsed || 0) - (a.lastUsed || 0);
-    });
-    const filtered = q ? entries.filter(([, m]) => m.name.toLowerCase().includes(q)) : entries;
-    const checkSvg = `<svg class="meal-option__check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
-    resultsDiv.innerHTML = filtered.map(([id, m]) =>
-      `<button class="meal-option${id === selectedMealId ? ' is-selected' : ''}"
-               data-meal-id="${esc(id)}" type="button">
-        <span class="meal-option__name">${esc(m.name)}</span>
-        ${checkSvg}
-      </button>`
+  function buildSlotTabs() {
+    return SLOTS.map(s =>
+      `<button class="tab${s === selectedSlot ? ' is-active' : ''}" data-slot="${s}" type="button">${SLOT_LABELS[s]}</button>`
     ).join('');
-    bindOptionClicks();
   }
 
-  function bindOptionClicks() {
-    resultsDiv.querySelectorAll('.meal-option').forEach(btn => {
+  function buildRecipeRows(filter) {
+    const lc = filter?.toLowerCase() || '';
+    const filtered = lc ? sortedEntries.filter(([, r]) => r.name.toLowerCase().includes(lc)) : sortedEntries;
+    if (filtered.length === 0) {
+      return lc
+        ? `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`
+        : `<div class="recipe-pick__none">No recipes yet.</div>`;
+    }
+    return filtered.map(([id, r]) =>
+      `<button class="recipe-pick__row${selectedMealId === id ? ' is-selected' : ''}"
+        data-recipe-pick="${esc(id)}" type="button">
+        <span>${esc(r.name)}</span>
+        ${selectedMealId === id ? '<span class="recipe-pick__check">✓</span>' : ''}
+      </button>`
+    ).join('');
+  }
+
+  function slotHasMeal(slot) {
+    const e = viewMeals?.[slot];
+    return !!(e?.recipeId && recipes[e.recipeId]) || !!(e?.customName);
+  }
+
+  taskSheetMount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">Plan a meal</h2>
+    </div>
+    <div class="sheet__content">
+      <div class="field" style="margin-bottom:var(--spacing-md)">
+        <span class="field__label">Slot</span>
+        <nav class="tabs tabs--segmented" id="mpSlotTabs" style="margin-top:var(--spacing-xs)">${buildSlotTabs()}</nav>
+      </div>
+      <div class="field">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--spacing-xs)">
+          <span class="field__label">Meal</span>
+          <button class="btn btn--ghost btn--sm" id="mpCreateRecipe" type="button">+ New recipe</button>
+        </div>
+        <input id="mpSearch" type="text" autocomplete="off"
+          placeholder="Search recipes or type any name…">
+      </div>
+      <div class="recipe-pick-list" id="mpRecipePick">${buildRecipeRows('')}</div>
+      ${slotHasMeal(selectedSlot) ? '<button class="mp-remove-link" id="mpRemoveLink" type="button">Remove from this slot</button>' : ''}
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--primary" id="mpSave" type="button">Save</button>
+    </div>`);
+
+  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
+
+  function bindPickRows() {
+    document.getElementById('mpRecipePick')?.querySelectorAll('[data-recipe-pick]').forEach(btn => {
       btn.addEventListener('click', () => {
-        selectedMealId = btn.dataset.mealId;
-        document.getElementById('mp_selectedMealId').value = selectedMealId;
-        resultsDiv.querySelectorAll('.meal-option').forEach(b =>
-          b.classList.toggle('is-selected', b.dataset.mealId === selectedMealId)
-        );
+        selectedMealId = btn.dataset.recipePick;
+        document.getElementById('mpSearch').value = recipes[selectedMealId]?.name || '';
+        document.getElementById('mpRecipePick').innerHTML = buildRecipeRows(document.getElementById('mpSearch').value);
+        bindPickRows();
       });
     });
   }
+  bindPickRows();
 
-  searchInput?.addEventListener('input', () => filterOptions(searchInput.value));
-  bindOptionClicks();
+  document.getElementById('mpSlotTabs')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-slot]');
+    if (!btn) return;
+    selectedSlot = btn.dataset.slot;
+    selectedMealId = viewMeals?.[selectedSlot]?.recipeId || null;
+    document.querySelectorAll('#mpSlotTabs .tab').forEach(b =>
+      b.classList.toggle('is-active', b.dataset.slot === selectedSlot)
+    );
+    document.getElementById('mpSearch').value = '';
+    document.getElementById('mpRecipePick').innerHTML = buildRecipeRows('');
+    bindPickRows();
+    const removeLink = document.getElementById('mpRemoveLink');
+    if (removeLink) removeLink.style.display = slotHasMeal(selectedSlot) ? '' : 'none';
+  });
 
-  // "+" opens full meal editor and returns to this slot on save
-  document.getElementById('mp_createNew')?.addEventListener('click', () => {
+  document.getElementById('mpSearch')?.addEventListener('input', e => {
+    selectedMealId = null;
+    document.getElementById('mpRecipePick').innerHTML = buildRecipeRows(e.target.value);
+    bindPickRows();
+  });
+
+  document.getElementById('mpCreateRecipe')?.addEventListener('click', () => {
     closeTaskSheet();
     setTimeout(() => openMealEditorSheet(null, preSlot), 320);
   });
 
-  // Remove existing assignment
-  document.getElementById('mp_removeLink')?.addEventListener('click', async () => {
-    const planDate = document.getElementById('mp_date').value || viewDate;
-    await removeKitchenPlanSlot(planDate, selectedSlot);
+  document.getElementById('mpRemoveLink')?.addEventListener('click', async () => {
+    await removeKitchenPlanSlot(date, selectedSlot);
     viewMeals = (await readKitchenPlan(viewDate)) || {};
     closeTaskSheet();
     render();
   });
 
-  // Save
-  document.getElementById('mpForm')?.addEventListener('submit', async e => {
-    e.preventDefault();
-    const planDate = document.getElementById('mp_date').value || viewDate;
-
-    if (!inlineEditor.hidden) {
-      // Create new meal inline
-      const inlineName = document.getElementById('mp_inlineName').value.trim();
-      if (!inlineName) {
-        document.getElementById('mp_inlineNameError').textContent = 'Name is required';
-        return;
-      }
-      const inlineUrl = document.getElementById('mp_inlineUrl').value.trim() || null;
-      const newId = await pushKitchenRecipe({
-        name: inlineName,
-        url: inlineUrl,
-        ingredients: [],
-        tags: [],
-        notes: null,
-        prepTime: null,
-        isFavorite: false,
-        createdAt: firebase.database.ServerValue.TIMESTAMP,
-        lastUsed: firebase.database.ServerValue.TIMESTAMP,
-      });
-      recipes[newId] = { name: inlineName, url: inlineUrl, ingredients: [], tags: [], isFavorite: false, notes: null, prepTime: null };
-      await writeKitchenPlanSlot(planDate, selectedSlot, { recipeId: newId, source: 'manual' });
-    } else {
-      if (!selectedMealId) return;
-      await writeKitchenPlanSlot(planDate, selectedSlot, { recipeId: selectedMealId, source: 'manual' });
+  document.getElementById('mpSave')?.addEventListener('click', async () => {
+    const typed = document.getElementById('mpSearch')?.value.trim();
+    if (!selectedMealId && !typed) return;
+    if (selectedMealId) {
+      await writeKitchenPlanSlot(date, selectedSlot, { recipeId: selectedMealId, source: 'manual' });
       const entry = recipes[selectedMealId];
       if (entry) {
         await writeKitchenRecipe(selectedMealId, { ...entry, lastUsed: firebase.database.ServerValue.TIMESTAMP });
         entry.lastUsed = Date.now();
       }
+    } else {
+      const match = Object.entries(recipes).find(([, r]) => r.name.toLowerCase() === typed.toLowerCase());
+      if (match) {
+        await writeKitchenPlanSlot(date, selectedSlot, { recipeId: match[0], source: 'manual' });
+      } else {
+        await writeKitchenPlanSlot(date, selectedSlot, { customName: typed, source: 'manual' });
+      }
     }
-
     viewMeals = (await readKitchenPlan(viewDate)) || {};
     recipes = (await readKitchenRecipes()) || {};
     closeTaskSheet();
