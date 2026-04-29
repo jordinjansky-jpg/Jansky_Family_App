@@ -68,10 +68,9 @@
       readMessages, readAllMessages, writeMessage, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
       readAllAchievements, writeAchievement, deleteAchievement,
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
-      readBank, writeBankToken, removeBankToken,
-      readMealLibrary, pushMealLibrary, writeMealLibrary, removeMealLibrary, readAllMeals, removeMeal
+      readBank, writeBankToken, removeBankToken
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, renderMealEditorSheet, showToast, renderColorButton, initColorButton } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -130,7 +129,6 @@
     let rewardsObj = (await readRewards()) || {};
     let allAchievements = (await readAllAchievements()) || {};
     let allMessagesObj = (await readAllMessages()) || {};
-    let mealLibrary = (await readMealLibrary()) || {};
     let allBankData = {};
     let achievementDefsObj = (await readAchievementDefs()) || {};
 
@@ -230,7 +228,6 @@
     const LIBRARY_SECTIONS = [
       { id: 'tasks',      label: 'Tasks'      },
       { id: 'events',     label: 'Events'     },
-      { id: 'meals',      label: 'Meals'      },
       { id: 'categories', label: 'Categories' },
       { id: 'rewards',    label: 'Rewards'    },
       { id: 'badges',     label: 'Badges'     },
@@ -342,7 +339,6 @@
           switch (activeLibrarySection) {
             case 'tasks':      html += renderTasksTab();      break;
             case 'events':     html += renderEventsTab();     break;
-            case 'meals':      html += renderMealsTab();      break;
             case 'categories': html += renderCategoriesTab(); break;
             case 'rewards':    html += renderRewardsTab();    break;
             case 'badges':     html += renderAchievementsTab(); break;
@@ -408,7 +404,6 @@
 
     // Per-section search + sort + filter state
     let eventsSearch = ''; let eventsSort = 'date'; let eventsOwner = ''; let eventsTimeRange = 'all';
-    let mealsSearch = '';  let mealsSort = 'lastUsed'; let mealsFavOnly = false;
     let catsSearch = '';   let catsSort = 'name';
     let rewardsSearch = ''; let rewardsSort = 'name'; let rewardsType = ''; let rewardsStatus = 'active';
     let badgesSearch = ''; let badgesSort = 'name'; let badgesFilter = '';
@@ -439,12 +434,6 @@
         eventsTimeRange !== 'all' ? 'x' : '',
         eventsOwner,
         eventsSort !== 'date' ? 'x' : '',
-      ].filter(Boolean).length;
-    }
-    function mealsFilterActiveCount() {
-      return [
-        mealsFavOnly ? 'x' : '',
-        mealsSort !== 'lastUsed' ? 'x' : '',
       ].filter(Boolean).length;
     }
     function catsFilterActiveCount() {
@@ -871,288 +860,8 @@
     }
 
     // ══════════════════════════════════════════
-    // ══════════════════════════════════════════
-    // Meals Tab
-    // ══════════════════════════════════════════
-
-    function renderMealsTab() {
-      let html = `<div class="admin-filters admin-filters--row">
-  <input class="admin-select" type="search" id="mealsSearch" placeholder="Search meals…" value="${esc(mealsSearch)}">
-  ${renderFilterSortChip('mealsFilterSortBtn', mealsFilterActiveCount())}
-  <button class="btn btn--primary btn--sm" id="addMealBtn" type="button">+ Add Meal</button>
-</div>`;
-
-      let mealEntries = Object.entries(mealLibrary);
-      if (mealsSearch) mealEntries = mealEntries.filter(([, m]) => (m.name || '').toLowerCase().includes(mealsSearch.toLowerCase()));
-      if (mealsFavOnly) mealEntries = mealEntries.filter(([, m]) => m.isFavorite);
-      mealEntries.sort(([, a], [, b]) => {
-        if (mealsSort === 'name') return (a.name || '').localeCompare(b.name || '');
-        if (mealsSort === 'prepTime') return (a.prepTime || 0) - (b.prepTime || 0);
-        // lastUsed (default): favorites first, then by lastUsed
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
-        return (b.lastUsed || 0) - (a.lastUsed || 0);
-      });
-
-      if (mealEntries.length === 0) {
-        html += `<div class="admin-empty">No meals in the library yet. Tap + Add Meal to create one.</div>`;
-      } else {
-        html += `<div class="admin-list" id="mealList">`;
-        for (const [id, meal] of mealEntries) {
-          const icon = renderEmojiTile(meal.isFavorite ? '⭐' : '🍽');
-          const tags = (meal.tags || []).slice(0, 2).join(', ');
-          const extraTags = (meal.tags || []).length > 2 ? ` +${(meal.tags || []).length - 2}` : '';
-          const secondary = tags ? esc(tags + extraTags) : '';
-          html += renderAdminRow({
-            icon,
-            primary: esc(meal.name || 'Untitled'),
-            secondary,
-            dataAttrs: `data-meal-id="${esc(id)}"`,
-          });
-        }
-        html += `</div>`;
-      }
-      return html;
-    }
-
-    function openMealsFilterSheet() {
-      const mount = document.getElementById('taskSheetMount');
-
-      const sortOpts = [{v:'lastUsed',l:'Recent'},{v:'name',l:'Name'},{v:'prepTime',l:'Prep Time'}];
-
-      mount.innerHTML = renderBottomSheet(`
-        <h3 class="sheet-section-title">Filter &amp; Sort</h3>
-
-        <div class="fs-section">
-          <div class="fs-section__label">Sort by</div>
-          <div class="chip-group" id="fs_sort">
-            ${sortOpts.map(({v,l}) => `<button class="chip chip--selectable${mealsSort===v?' chip--active':''}" data-sort="${v}" type="button">${l}</button>`).join('')}
-          </div>
-        </div>
-
-        <div class="fs-section">
-          <div class="fs-section__label">Show</div>
-          <div class="chip-group" id="fs_fav">
-            <button class="chip chip--selectable${!mealsFavOnly?' chip--active':''}" data-fav="" type="button">All</button>
-            <button class="chip chip--selectable${mealsFavOnly?' chip--active':''}" data-fav="fav" type="button">Favorites</button>
-          </div>
-        </div>
-
-        <div class="sheet-actions">
-          <button class="btn btn--ghost" id="fsMealsClear" type="button">Clear</button>
-          <button class="btn btn--primary" id="fsMealsApply" type="button">Apply</button>
-        </div>
-      `);
-
-      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-      mount.querySelector('.bottom-sheet')?.addEventListener('click', e => {
-        const chip = e.target.closest('.chip--selectable');
-        if (!chip) return;
-        const group = chip.closest('.chip-group');
-        if (!group) return;
-        group.querySelectorAll('.chip--selectable').forEach(c => c.classList.remove('chip--active'));
-        chip.classList.add('chip--active');
-      });
-
-      document.getElementById('bottomSheet')?.addEventListener('click', e => {
-        if (e.target.id === 'bottomSheet') closeAdminSheet();
-      });
-
-      document.getElementById('fsMealsApply')?.addEventListener('click', () => {
-        mealsSort = mount.querySelector('#fs_sort .chip--active')?.dataset.sort || 'lastUsed';
-        mealsFavOnly = (mount.querySelector('#fs_fav .chip--active')?.dataset.fav || '') === 'fav';
-        closeAdminSheet();
-        render();
-      }, { once: true });
-
-      document.getElementById('fsMealsClear')?.addEventListener('click', () => {
-        mealsSort = 'lastUsed'; mealsFavOnly = false;
-        closeAdminSheet();
-        render();
-      }, { once: true });
-    }
-
-    function bindMealsTab() {
-      main.querySelector('#addMealBtn')?.addEventListener('click', () => openAdminMealEditor(null));
-
-      main.querySelector('#mealList')?.addEventListener('click', e => {
-        const row = e.target.closest('[data-meal-id]');
-        if (!row) return;
-        openAdminMealEditor(row.dataset.mealId);
-      });
-
-      main.querySelector('#mealsSearch')?.addEventListener('input', e => {
-        mealsSearch = e.target.value;
-        render();
-        const el = main.querySelector('#mealsSearch');
-        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-      });
-      main.querySelector('#mealsFilterSortBtn')?.addEventListener('click', openMealsFilterSheet);
-    }
-
-    function openAdminMealEditor(mealId) {
-      const meal = mealId ? mealLibrary[mealId] : null;
-      const mount = document.getElementById('taskSheetMount');
-      mount.innerHTML = `<div class="task-form-backdrop" id="mealFormBackdrop"><div class="task-form-modal">${renderMealEditorSheet(meal, mealId)}</div></div>`;
-
-      const backdrop = document.getElementById('mealFormBackdrop');
-      backdrop?.addEventListener('click', e => { if (e.target === backdrop) mount.innerHTML = ''; });
-
-      document.getElementById('me_fav')?.addEventListener('click', e => {
-        const btn = e.currentTarget;
-        const pressed = btn.getAttribute('aria-pressed') === 'true';
-        btn.setAttribute('aria-pressed', String(!pressed));
-        btn.classList.toggle('is-active', !pressed);
-      });
-
-      const urlInput = document.getElementById('me_url');
-      const urlOpen = document.getElementById('me_urlOpen');
-      urlInput?.addEventListener('input', () => {
-        const val = urlInput.value.trim();
-        if (urlOpen) { urlOpen.href = val || '#'; urlOpen.hidden = !val; }
-      });
-
-      let ingredients = meal ? [...(meal.ingredients || [])] : [];
-      let tags = meal ? [...(meal.tags || [])] : [];
-
-      function refreshIngredients() {
-        const container = document.getElementById('me_ingredients');
-        if (!container) return;
-        container.innerHTML = ingredients.map((item, i) =>
-          `<div class="me-ingredient-row">
-            <input type="text" value="${esc(item)}" placeholder="e.g. 2 cups flour"
-                   data-ingr-index="${i}" aria-label="Ingredient ${i + 1}">
-            <button class="me-ingredient-remove" data-ingr-index="${i}" type="button" aria-label="Remove ingredient">&times;</button>
-          </div>`
-        ).join('');
-        bindIngrEvents();
-      }
-
-      function bindIngrEvents() {
-        const container = document.getElementById('me_ingredients');
-        container?.querySelectorAll('input[data-ingr-index]').forEach(inp => {
-          inp.addEventListener('input', () => { ingredients[parseInt(inp.dataset.ingrIndex)] = inp.value; });
-        });
-        container?.querySelectorAll('.me-ingredient-remove').forEach(btn => {
-          btn.addEventListener('click', () => {
-            ingredients.splice(parseInt(btn.dataset.ingrIndex), 1);
-            refreshIngredients();
-          });
-        });
-      }
-      bindIngrEvents();
-
-      document.getElementById('me_addIngredient')?.addEventListener('click', () => {
-        ingredients.push('');
-        refreshIngredients();
-        const inputs = document.querySelectorAll('#me_ingredients input');
-        inputs[inputs.length - 1]?.focus();
-      });
-
-      function refreshTags() {
-        const container = document.getElementById('me_tags');
-        if (!container) return;
-        container.innerHTML = tags.map((t, i) =>
-          `<span class="me-tag">
-            <span>${esc(t)}</span>
-            <button class="me-tag__remove" data-tag-index="${i}" type="button" aria-label="Remove tag">&times;</button>
-          </span>`
-        ).join('');
-        container.querySelectorAll('.me-tag__remove').forEach(btn => {
-          btn.addEventListener('click', () => { tags.splice(parseInt(btn.dataset.tagIndex), 1); refreshTags(); });
-        });
-      }
-
-      document.getElementById('me_tagInput')?.addEventListener('keydown', e => {
-        if ((e.key === 'Enter' || e.key === ',') && e.target.value.trim()) {
-          e.preventDefault();
-          tags.push(e.target.value.trim());
-          e.target.value = '';
-          refreshTags();
-        }
-      });
-
-      document.getElementById('meDelete')?.addEventListener('click', async () => {
-        const confirmed = await showConfirm({
-          title: 'Delete meal?',
-          message: `"${esc(meal?.name ?? '')}" will be removed from any planned days.`,
-          confirmLabel: 'Delete',
-          danger: true,
-        });
-        if (!confirmed) return;
-        const allMealsSnap = await readOnce('meals');
-        const cascadeUpdates = {};
-        if (allMealsSnap) {
-          for (const [dateKey, slots] of Object.entries(allMealsSnap)) {
-            for (const [s, entry] of Object.entries(slots || {})) {
-              if (entry?.mealId === mealId) cascadeUpdates[`meals/${dateKey}/${s}`] = null;
-            }
-          }
-        }
-        cascadeUpdates[`mealLibrary/${mealId}`] = null;
-        await multiUpdate(cascadeUpdates);
-        delete mealLibrary[mealId];
-        mount.innerHTML = '';
-        render();
-      });
-
-      document.getElementById('meForm')?.addEventListener('submit', async e => {
-        e.preventDefault();
-        const name = document.getElementById('me_name').value.trim();
-        if (!name) { document.getElementById('me_nameError').textContent = 'Name is required'; return; }
-        document.querySelectorAll('#me_ingredients input[data-ingr-index]').forEach(inp => {
-          ingredients[parseInt(inp.dataset.ingrIndex)] = inp.value;
-        });
-        const data = {
-          name,
-          isFavorite: document.getElementById('me_fav')?.getAttribute('aria-pressed') === 'true',
-          prepTime: document.getElementById('me_prepTime').value.trim() || null,
-          tags: tags.filter(Boolean),
-          ingredients: ingredients.filter(Boolean),
-          url: document.getElementById('me_url').value.trim() || null,
-          notes: document.getElementById('me_notes').value.trim() || null,
-          lastUsed: meal?.lastUsed || null,
-          createdAt: meal?.createdAt || firebase.database.ServerValue.TIMESTAMP,
-        };
-        if (mealId) {
-          await writeMealLibrary(mealId, data);
-          mealLibrary[mealId] = data;
-        } else {
-          const newId = await pushMealLibrary({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
-          mealLibrary[newId] = data;
-        }
-        mount.innerHTML = '';
-        render();
-      });
-    }
-
-    async function deleteAdminMeal(mealId) {
-      const meal = mealLibrary[mealId];
-      if (!meal) return;
-      const confirmed = await showConfirm({
-        title: 'Delete meal?',
-        message: `"${esc(meal.name)}" will be removed from any planned days.`,
-        confirmLabel: 'Delete',
-        danger: true,
-      });
-      if (!confirmed) return;
-      const allMealsSnap = await readOnce('meals');
-      const cascadeUpdates = {};
-      if (allMealsSnap) {
-        for (const [dateKey, slots] of Object.entries(allMealsSnap)) {
-          for (const [s, entry] of Object.entries(slots || {})) {
-            if (entry?.mealId === mealId) cascadeUpdates[`meals/${dateKey}/${s}`] = null;
-          }
-        }
-      }
-      cascadeUpdates[`mealLibrary/${mealId}`] = null;
-      await multiUpdate(cascadeUpdates);
-      delete mealLibrary[mealId];
-      render();
-    }
-
     // People Tab
+    // (Meals tab removed — recipe library is now in Kitchen)
     // ══════════════════════════════════════════
 
     let editingPersonId = null;
@@ -2880,7 +2589,6 @@
           switch (activeLibrarySection) {
             case 'tasks':      bindTasksTab();      break;
             case 'events':     bindEventsTab();     break;
-            case 'meals':      bindMealsTab();      break;
             case 'categories': bindCategoriesTab(); break;
             case 'rewards':    bindRewardsTab();    break;
             case 'badges':     bindAchievementsTab(); break;
