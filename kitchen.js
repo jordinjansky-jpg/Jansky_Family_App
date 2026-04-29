@@ -476,7 +476,29 @@ async function pickList(listEntries) {
   });
 }
 
-function openFindRecipesSheet() {}
+function openFindRecipesSheet() {
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">Find recipe ideas</h2>
+      <button class="btn-icon" id="closeFindRecipes" aria-label="Close" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet__content">
+      <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-md)">
+        These sites work great with URL import.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:var(--spacing-xs)">
+        ${RECIPE_SITES.map(site =>
+          `<a href="${esc(site.url)}" target="_blank" rel="noopener noreferrer"
+              class="btn btn--secondary btn--full">${esc(site.name)} &#x2197;</a>`
+        ).join('')}
+      </div>
+    </div>`);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  document.getElementById('closeFindRecipes')?.addEventListener('click', () => { mount.innerHTML = ''; });
+}
 function openMealFabSheet() {
   const mount = document.getElementById('sheetMount');
   mount.innerHTML = renderBottomSheet(`
