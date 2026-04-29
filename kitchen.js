@@ -125,7 +125,7 @@ function renderTabs() {
 }
 
 function renderActiveTab() {
-  if (activeTab === 'meals') renderMealsTab();
+  if (activeTab === 'meals') renderMealsTab().catch(console.error);
   else renderListsTab();
 }
 
@@ -139,10 +139,143 @@ function bindFab() {
   });
 }
 
-// Placeholder render functions — implemented in subsequent tasks
-function renderMealsTab() {
-  document.getElementById('kitchenContent').innerHTML = `<p style="padding:var(--spacing-md)">Meals tab — coming in next task</p>`;
+// ── Meals tab helpers ──────────────────────────────────────────────────────────
+const SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'dinner', 'snack'];
+const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School', dinner: 'Dinner', snack: 'Snack' };
+const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function getMondayOf(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
+
+function dateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+async function renderMealsTab() {
+  const content = document.getElementById('kitchenContent');
+  const tz = settings?.timezone || 'America/Chicago';
+  const todayStr = todayKey(tz);
+
+  if (!currentWeekStart) currentWeekStart = getMondayOf(new Date());
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const planData = await Promise.all(weekDays.map(d => readKitchenPlan(dateKey(d)).then(r => r || {})));
+  const weekPlan = {};
+  weekDays.forEach((d, i) => { weekPlan[dateKey(d)] = planData[i]; });
+
+  const weekHtml = weekDays.map(d => {
+    const dk = dateKey(d);
+    const plan = weekPlan[dk] || {};
+    const isToday = dk === todayStr;
+    const dayName = DAY_ABBR[d.getDay()];
+    const dayNum = d.getDate();
+
+    const plannedSlots = SLOT_ORDER.filter(s => plan[s]);
+    const slotsHtml = plannedSlots.length > 0
+      ? plannedSlots.map(s => {
+          const entry = plan[s];
+          const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.customName || '');
+          const isSchool = s === 'school-lunch';
+          return `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
+            <span class="day-block__slot-label">${esc(SLOT_LABELS[s])}</span>
+            <span class="day-block__slot-name">${esc(name)}${isSchool ? ' <span class="day-block__slot-school">school</span>' : ''}</span>
+          </div>`;
+        }).join('')
+      : `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
+          <span class="day-block__slot-name day-block__slot-name--empty">Tap to plan</span>
+        </div>`;
+
+    return `<div class="day-block">
+      <div class="day-block__head${isToday ? ' day-block__head--today' : ''}">
+        <span>${dayName} ${dayNum}</span>
+        ${isToday ? '<span class="day-block__today-pill">Today</span>' : ''}
+      </div>
+      <div class="day-block__slots">${slotsHtml}</div>
+    </div>`;
+  }).join('');
+
+  const recipeEntries = Object.entries(recipes).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
+  const recipeLibHtml = recipeEntries.length > 0
+    ? recipeEntries.map(([id, r]) => `
+        <article class="card" data-recipe-id="${esc(id)}" style="cursor:pointer">
+          <div class="card__body">
+            <div class="card__title">${esc(r.name)}</div>
+            <div class="card__meta">
+              ${r.ingredients?.length ? `${r.ingredients.length} ingredient${r.ingredients.length !== 1 ? 's' : ''}` : 'No ingredients yet'}
+              ${r.url ? ' · <span style="color:var(--accent)">&#x2197; Recipe</span>' : ''}
+            </div>
+          </div>
+        </article>`).join('')
+    : renderEmptyState('', 'No recipes yet', 'Add a recipe to start planning meals.');
+
+  content.innerHTML = `
+    <div class="week-strip" id="weekStrip">
+      <div class="week-strip__track" id="weekTrack">
+        <div class="week-strip__week">${weekHtml}</div>
+      </div>
+    </div>
+    <div class="recipe-library">
+      <div class="recipe-library__title">Recipes</div>
+      <div id="recipeLibrary">${recipeLibHtml}</div>
+      <button class="btn btn--ghost" id="findRecipesBtn" style="margin-top:var(--spacing-sm)" type="button">
+        Find recipe ideas &#x2197;
+      </button>
+    </div>`;
+
+  bindWeekStripSwipe();
+
+  content.querySelectorAll('.day-block__slot').forEach(slot => {
+    slot.addEventListener('click', () => openPlanMealSheet(slot.dataset.date, slot.dataset.slot));
+  });
+
+  content.querySelectorAll('[data-recipe-id]').forEach(card => {
+    card.addEventListener('click', () => openRecipeDetailSheet(card.dataset.recipeId));
+  });
+
+  document.getElementById('findRecipesBtn')?.addEventListener('click', openFindRecipesSheet);
+}
+
+function bindWeekStripSwipe() {
+  const strip = document.getElementById('weekStrip');
+  if (!strip) return;
+  let startX = 0, startY = 0, moved = false;
+  strip.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    moved = false;
+  }, { passive: true });
+  strip.addEventListener('touchmove', () => { moved = true; }, { passive: true });
+  strip.addEventListener('touchend', async (e) => {
+    if (!moved) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    const dir = dx < 0 ? 1 : -1;
+    currentWeekStart = new Date(currentWeekStart);
+    currentWeekStart.setDate(currentWeekStart.getDate() + dir * 7);
+    await renderMealsTab();
+  });
+}
+
+// Placeholders — implemented in Tasks 9-12
+function openPlanMealSheet(date, slot) {}
+function openRecipeDetailSheet(recipeId) {}
+function openFindRecipesSheet() {}
+function openMealFabSheet() {}
 
 function renderListsTab() {
   const content = document.getElementById('kitchenContent');
@@ -404,8 +537,6 @@ function copyListAsText() {
     navigator.clipboard.writeText(text).then(() => showToast('List copied'));
   }
 }
-
-function openMealFabSheet() {}
 
 function openItemAddField() {
   const area = document.getElementById('listItemsArea');
