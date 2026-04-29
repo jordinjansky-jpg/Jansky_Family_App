@@ -5,7 +5,8 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
   readKitchenPlan, onKitchenItems,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
-  pushKitchenItem, writeKitchenItem, pushKitchenStaple
+  pushKitchenItem, writeKitchenItem, pushKitchenStaple,
+  writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
@@ -272,10 +273,93 @@ function bindWeekStripSwipe() {
 }
 
 // Placeholders — implemented in Tasks 9-12
-function openPlanMealSheet(date, slot) {}
+function openPlanMealSheet(preDate, preSlot) {
+  const mount = document.getElementById('sheetMount');
+  const recipeOptions = Object.entries(recipes)
+    .sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0))
+    .map(([id, r]) => `<option value="${esc(id)}">${esc(r.name)}</option>`)
+    .join('');
+
+  const slotOptions = SLOT_ORDER
+    .map(s => `<option value="${esc(s)}"${s === preSlot ? ' selected' : ''}>${esc(SLOT_LABELS[s])}</option>`)
+    .join('');
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const dateOptions = weekDays.map(d => {
+    const dk = dateKey(d);
+    const label = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
+    return `<option value="${esc(dk)}"${dk === preDate ? ' selected' : ''}>${esc(label)}</option>`;
+  }).join('');
+
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">Plan a meal</h2>
+      <button class="btn-icon" id="closePlanMeal" aria-label="Close" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet__content">
+      <label class="field">
+        <span class="field__label">Day</span>
+        <select class="field__input" id="pmDay">${dateOptions}</select>
+      </label>
+      <label class="field">
+        <span class="field__label">Slot</span>
+        <select class="field__input" id="pmSlot">${slotOptions}</select>
+      </label>
+      <label class="field">
+        <span class="field__label">Meal</span>
+        <input class="field__input" id="pmMealInput" type="text"
+          placeholder="Type a meal name..." autocomplete="off" list="pmRecipeList">
+        <datalist id="pmRecipeList">${recipeOptions}</datalist>
+      </label>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--secondary" id="cancelPlanMeal" type="button">Cancel</button>
+      <button class="btn btn--primary btn--full" id="savePlanMeal" type="button">Save</button>
+    </div>`);
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    document.getElementById('pmMealInput')?.focus();
+  });
+
+  const close = () => { mount.innerHTML = ''; };
+  document.getElementById('closePlanMeal')?.addEventListener('click', close);
+  document.getElementById('cancelPlanMeal')?.addEventListener('click', close);
+
+  document.getElementById('savePlanMeal')?.addEventListener('click', async () => {
+    const day = document.getElementById('pmDay')?.value;
+    const slot = document.getElementById('pmSlot')?.value;
+    const mealInput = document.getElementById('pmMealInput')?.value.trim();
+    if (!day || !slot || !mealInput) return;
+
+    const matchedEntry = Object.entries(recipes).find(([, r]) => r.name.toLowerCase() === mealInput.toLowerCase());
+    const data = matchedEntry
+      ? { recipeId: matchedEntry[0], source: 'manual' }
+      : { customName: mealInput, source: 'manual' };
+
+    await writeKitchenPlanSlot(day, slot, data);
+
+    if (matchedEntry) {
+      await writeKitchenRecipe(matchedEntry[0], { ...matchedEntry[1], lastUsed: firebase.database.ServerValue.TIMESTAMP });
+      recipes[matchedEntry[0]].lastUsed = Date.now();
+    }
+
+    close();
+    await renderMealsTab();
+    showToast('Meal planned');
+  });
+}
 function openRecipeDetailSheet(recipeId) {}
 function openFindRecipesSheet() {}
-function openMealFabSheet() {}
+function openMealFabSheet() {
+  const tz = settings?.timezone || 'America/Chicago';
+  openPlanMealSheet(todayKey(tz), 'dinner');
+}
 
 function renderListsTab() {
   const content = document.getElementById('kitchenContent');
