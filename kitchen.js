@@ -699,14 +699,33 @@ function openBulkAddSheet() {
   function refreshAddedList() {
     const el = document.getElementById('bulkAddedList');
     if (!el) return;
-    el.innerHTML = addedItems.map((n, i) =>
-      `<div style="display:flex;align-items:center;gap:var(--spacing-xs);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
+    const starFilled = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+    const starEmpty = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+    el.innerHTML = addedItems.map((n, i) => {
+      const isSaved = Object.values(staples).some(s => s.name.toLowerCase() === n.toLowerCase());
+      return `<div style="display:flex;align-items:center;gap:var(--spacing-xs);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
         <span style="flex:1;font-size:var(--font-sm)">${esc(n)}</span>
+        <button class="btn-icon${isSaved ? ' is-saved-staple' : ''}" data-staple="${i}"
+          type="button" aria-label="${isSaved ? 'Saved to staples' : 'Save to staples'}"
+          style="${isSaved ? 'color:var(--accent)' : 'color:var(--text-faint)'}">
+          ${isSaved ? starFilled : starEmpty}
+        </button>
         <button class="btn-icon" data-remove="${i}" type="button" aria-label="Remove">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
+    el.querySelectorAll('[data-staple]').forEach(btn => {
+      if (btn.classList.contains('is-saved-staple')) return;
+      btn.addEventListener('click', async () => {
+        const name = addedItems[parseInt(btn.dataset.staple, 10)];
+        if (!name) return;
+        const sid = await pushKitchenStaple({ name, category: null });
+        staples[sid] = { name, category: null };
+        showToast(`"${name}" saved to staples`);
+        refreshAddedList();
+      });
+    });
     el.querySelectorAll('[data-remove]').forEach(btn => {
       btn.addEventListener('click', () => {
         addedItems.splice(parseInt(btn.dataset.remove, 10), 1);
