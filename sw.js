@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v94 (2026-04-29) — Kitchen shell: add kitchen.html + styles/kitchen.css to
+//                    precache. No kitchen.js in APP_SHELL (entry + CSS only).
 // v93 (2026-04-28) — Calendar, scoreboard, tracker now read linkedPerson.theme
 //                    on load and write theme changes to person.theme in Firebase
 //                    (same fix as v92 for rewards). initNavMore gains personOpts
@@ -195,7 +197,7 @@
 //                    pattern; settings theme preset → select dropdown.
 // v68 (2026-04-26) — Admin settings redesign: section-divider layout CSS,
 //                    balance ID fix (person.id→personId), data-person-id fix.
-const CACHE_NAME = 'family-hub-v93';
+const CACHE_NAME = 'family-hub-v94';
 
 const APP_SHELL = [
   '/',
@@ -210,6 +212,7 @@ const APP_SHELL = [
   '/admin.html',
   '/setup.html',
   '/rewards.html',
+  '/kitchen.html',
   '/manifest.json',
   '/App Icon.png',
   // CSS (modular)
@@ -222,6 +225,7 @@ const APP_SHELL = [
   '/styles/tracker.css',
   '/styles/admin.css',
   '/styles/rewards.css',
+  '/styles/kitchen.css',
   '/styles/kid.css',
   '/styles/responsive.css',
   // JS modules

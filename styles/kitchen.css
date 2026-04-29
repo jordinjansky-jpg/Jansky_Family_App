@@ -1,0 +1,173 @@
+/* v1 */
+/* kitchen.css — Kitchen page (meal planning + shopping lists) */
+
+/* ============ Tabs ============ */
+#kitchenTabsMount {
+  padding: var(--spacing-md) var(--spacing-md) 0;
+}
+
+/* ============ Week strip (Meals tab) ============ */
+.week-strip {
+  overflow-x: hidden;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.week-strip__track {
+  display: flex;
+  transition: transform var(--t-base);
+}
+
+.week-strip__week {
+  min-width: 100%;
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.day-block {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.day-block__head {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  border-bottom: 1px solid var(--border);
+}
+
+.day-block__head--today {
+  color: var(--accent);
+}
+
+.day-block__today-pill {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.day-block__slots {
+  padding: var(--spacing-xs) 0;
+}
+
+.day-block__slot {
+  padding: var(--spacing-xs) var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 40px;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.day-block__slot:active {
+  background: var(--surface-2);
+}
+
+.day-block__slot-label {
+  font-size: var(--font-xs);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.day-block__slot-name {
+  font-size: var(--font-sm);
+  color: var(--text);
+  flex: 1;
+}
+
+.day-block__slot-name--empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.day-block__slot-school {
+  font-size: var(--font-xs);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+/* ============ Recipe library ============ */
+.recipe-library {
+  padding: 0 var(--spacing-md) var(--spacing-xl);
+}
+
+.recipe-library__title {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: var(--spacing-md) 0 var(--spacing-sm);
+}
+
+/* ============ Lists tab ============ */
+.list-switcher {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.list-switcher::-webkit-scrollbar { display: none; }
+
+.list-switcher__manage {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.list-content {
+  padding: 0 var(--spacing-md) var(--spacing-xl);
+}
+
+/* Inline add field */
+.item-add-wrap {
+  padding: var(--spacing-sm) 0 var(--spacing-md);
+}
+
+.item-add-field {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--font-md);
+  outline: none;
+}
+
+/* Staples quick-add */
+.staples-btn {
+  font-size: var(--font-sm);
+  color: var(--accent);
+  font-weight: 600;
+  background: none;
+  border: none;
+  padding: var(--spacing-xs) 0;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  text-align: left;
+}
