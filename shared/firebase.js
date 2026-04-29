@@ -738,6 +738,11 @@ export async function readKitchenPlan(dateKey) {
   return readOnce(`kitchen/plan/${dateKey}`);
 }
 
+/** Read the entire kitchen/plan/ tree (all dates). Used by calendar for one-shot load. */
+export async function readAllKitchenPlan() {
+  return readOnce('kitchen/plan');
+}
+
 export async function writeKitchenPlanSlot(dateKey, slot, data) {
   return writeData(`kitchen/plan/${dateKey}/${slot}`, data);
 }

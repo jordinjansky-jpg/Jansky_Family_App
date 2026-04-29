@@ -1,4 +1,4 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readMeals, readMealLibrary, writeMeal, removeMeal, pushMealLibrary, writeMealLibrary, removeMealLibrary } from './shared/firebase.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe } from './shared/firebase.js';
 import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealPlanSheet, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
@@ -42,8 +42,8 @@ const tasks = tasksObj || {};
 const cats = catsObj || {};
 let events = eventsObj || {};
 const rewardsData = await readRewards() || {};
-let mealLibrary = (await readMealLibrary()) || {};
-let viewMeals = (await readMeals(today)) || {};
+let recipes = (await readKitchenRecipes()) || {};
+let viewMeals = (await readKitchenPlan(today)) || {};
 let activePressTimer = null;
 let pendingSliderOverride = null; // { entryKey, value } — set by slider, consumed by toggleTask/closeSheet
 
@@ -307,8 +307,9 @@ async function render() {
     const weatherData = await fetchWeather(viewDate, settings);
     lastWeatherData = weatherData;
     const dinnerPlan = viewMeals?.dinner;
-    const dinnerEntry = (dinnerPlan?.mealId && mealLibrary[dinnerPlan.mealId]) || null;
-    const dinnerData = dinnerEntry ? { name: dinnerEntry.name, source: dinnerPlan.source } : null;
+    const dinnerEntry = dinnerPlan?.recipeId ? recipes[dinnerPlan.recipeId] : null;
+    const dinnerName = dinnerEntry?.name || dinnerPlan?.customName || null;
+    const dinnerData = dinnerName ? { name: dinnerName, source: dinnerPlan?.source } : null;
     html += renderAmbientStrip({ weather: weatherData, dinner: dinnerData });
   }
 
@@ -665,7 +666,7 @@ function bindEvents() {
     celebrationShown = false;
     updateHeaderSubtitle();
     subscribeSchedule(viewDate);
-    viewMeals = (await readMeals(viewDate)) || {};
+    viewMeals = (await readKitchenPlan(viewDate)) || {};
     await loadData();
   });
 
@@ -731,7 +732,7 @@ function bindEvents() {
       const which = chip.dataset.chip;
       if (which !== 'dinner') return;
       const dinnerPlan = viewMeals?.dinner;
-      if (!dinnerPlan?.mealId || !mealLibrary[dinnerPlan.mealId]) return;
+      if (!dinnerPlan?.recipeId && !dinnerPlan?.customName) return;
       pressTimer = setTimeout(() => {
         didLongPress = true;
         pressTimer = null;
@@ -754,7 +755,7 @@ function bindEvents() {
       const which = chip.dataset.chip;
       if (which === 'dinner') {
         const dinnerPlan = viewMeals?.dinner;
-        if (dinnerPlan?.mealId && mealLibrary[dinnerPlan.mealId]) {
+        if (dinnerPlan?.recipeId || dinnerPlan?.customName) {
           openMealDetailSheet(dinnerPlan, 'dinner');
         } else {
           openMealPlanSheet('dinner');
@@ -805,7 +806,7 @@ function bindEvents() {
         celebrationShown = false;
         updateHeaderSubtitle();
         subscribeSchedule(viewDate);
-        viewMeals = (await readMeals(viewDate)) || {};
+        viewMeals = (await readKitchenPlan(viewDate)) || {};
         await loadData();
       });
     });
@@ -856,7 +857,7 @@ async function changeDay(delta) {
   celebrationShown = false;
   updateHeaderSubtitle();
   subscribeSchedule(viewDate);
-  viewMeals = (await readMeals(viewDate)) || {};
+  viewMeals = (await readKitchenPlan(viewDate)) || {};
   await loadData();
 }
 
@@ -1146,8 +1147,8 @@ function openEventDetailSheet(eventId) {
 
 function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
   const date = preDate || viewDate;
-  const currentMealId = viewMeals?.[preSlot]?.mealId || null;
-  const html = renderMealPlanSheet({ date, slot: preSlot, library: mealLibrary, currentMealId });
+  const currentMealId = viewMeals?.[preSlot]?.recipeId || null;
+  const html = renderMealPlanSheet({ date, slot: preSlot, library: recipes, currentMealId });
   taskSheetMount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
@@ -1165,7 +1166,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
     const btn = e.target.closest('.mp-slot-tab');
     if (!btn) return;
     selectedSlot = btn.dataset.slot;
-    selectedMealId = viewMeals?.[selectedSlot]?.mealId || null;
+    selectedMealId = viewMeals?.[selectedSlot]?.recipeId || null;
     document.getElementById('mp_selectedMealId').value = selectedMealId || '';
     document.querySelectorAll('.mp-slot-tab').forEach(b => {
       b.classList.toggle('is-active', b.dataset.slot === selectedSlot);
@@ -1174,9 +1175,11 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
     const removeLink = document.getElementById('mp_removeLink');
     if (removeLink) {
       const cur = viewMeals?.[selectedSlot];
-      removeLink.style.display = (cur?.mealId && mealLibrary[cur.mealId]) ? '' : 'none';
-      if (cur?.mealId && mealLibrary[cur.mealId]) {
-        removeLink.textContent = `Remove "${mealLibrary[cur.mealId].name}" from this slot`;
+      const curRecipe = cur?.recipeId ? recipes[cur.recipeId] : null;
+      const curName = curRecipe?.name || cur?.customName || null;
+      removeLink.style.display = curName ? '' : 'none';
+      if (curName) {
+        removeLink.textContent = `Remove "${curName}" from this slot`;
       }
     }
     filterOptions('');
@@ -1187,7 +1190,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
 
   function filterOptions(query) {
     const q = query.toLowerCase().trim();
-    const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
+    const entries = Object.entries(recipes).sort(([, a], [, b]) => {
       if (a.isFavorite && !b.isFavorite) return -1;
       if (!a.isFavorite && b.isFavorite) return 1;
       return (b.lastUsed || 0) - (a.lastUsed || 0);
@@ -1228,8 +1231,8 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
   // Remove existing assignment
   document.getElementById('mp_removeLink')?.addEventListener('click', async () => {
     const planDate = document.getElementById('mp_date').value || viewDate;
-    await removeMeal(planDate, selectedSlot);
-    viewMeals = (await readMeals(viewDate)) || {};
+    await removeKitchenPlanSlot(planDate, selectedSlot);
+    viewMeals = (await readKitchenPlan(viewDate)) || {};
     closeTaskSheet();
     render();
   });
@@ -1247,7 +1250,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
         return;
       }
       const inlineUrl = document.getElementById('mp_inlineUrl').value.trim() || null;
-      const newId = await pushMealLibrary({
+      const newId = await pushKitchenRecipe({
         name: inlineName,
         url: inlineUrl,
         ingredients: [],
@@ -1258,27 +1261,27 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
         createdAt: firebase.database.ServerValue.TIMESTAMP,
         lastUsed: firebase.database.ServerValue.TIMESTAMP,
       });
-      mealLibrary[newId] = { name: inlineName, url: inlineUrl, ingredients: [], tags: [], isFavorite: false, notes: null, prepTime: null };
-      await writeMeal(planDate, selectedSlot, { mealId: newId, source: 'manual' });
+      recipes[newId] = { name: inlineName, url: inlineUrl, ingredients: [], tags: [], isFavorite: false, notes: null, prepTime: null };
+      await writeKitchenPlanSlot(planDate, selectedSlot, { recipeId: newId, source: 'manual' });
     } else {
       if (!selectedMealId) return;
-      await writeMeal(planDate, selectedSlot, { mealId: selectedMealId, source: 'manual' });
-      const entry = mealLibrary[selectedMealId];
+      await writeKitchenPlanSlot(planDate, selectedSlot, { recipeId: selectedMealId, source: 'manual' });
+      const entry = recipes[selectedMealId];
       if (entry) {
-        await writeMealLibrary(selectedMealId, { ...entry, lastUsed: firebase.database.ServerValue.TIMESTAMP });
+        await writeKitchenRecipe(selectedMealId, { ...entry, lastUsed: firebase.database.ServerValue.TIMESTAMP });
         entry.lastUsed = Date.now();
       }
     }
 
-    viewMeals = (await readMeals(viewDate)) || {};
-    mealLibrary = (await readMealLibrary()) || {};
+    viewMeals = (await readKitchenPlan(viewDate)) || {};
+    recipes = (await readKitchenRecipes()) || {};
     closeTaskSheet();
     render();
   });
 }
 
 function openMealDetailSheet(planEntry, slot) {
-  const meal = planEntry?.mealId ? mealLibrary[planEntry.mealId] : null;
+  const meal = planEntry?.recipeId ? recipes[planEntry.recipeId] : null;
   const html = renderMealDetailSheet(meal, planEntry, false);
   taskSheetMount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
@@ -1289,12 +1292,12 @@ function openMealDetailSheet(planEntry, slot) {
   // Pencil button in header — open full editor, return to recipe view on save
   document.getElementById('mdEdit')?.addEventListener('click', () => {
     closeTaskSheet();
-    setTimeout(() => openMealEditorSheet(planEntry.mealId, slot), 320);
+    setTimeout(() => openMealEditorSheet(planEntry.recipeId, slot), 320);
   });
 }
 
 function openMealManageSheet(planEntry, slot) {
-  const meal = planEntry?.mealId ? mealLibrary[planEntry.mealId] : null;
+  const meal = planEntry?.recipeId ? recipes[planEntry.recipeId] : null;
   if (!meal) return;
   taskSheetMount.innerHTML = renderBottomSheet(renderMealManageSheet(meal, slot));
   requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
@@ -1304,7 +1307,7 @@ function openMealManageSheet(planEntry, slot) {
 
   document.getElementById('mdEdit')?.addEventListener('click', () => {
     closeTaskSheet();
-    setTimeout(() => openMealEditorSheet(planEntry.mealId, slot), 320);
+    setTimeout(() => openMealEditorSheet(planEntry.recipeId, slot), 320);
   });
 
   document.getElementById('mdChange')?.addEventListener('click', () => {
@@ -1313,15 +1316,15 @@ function openMealManageSheet(planEntry, slot) {
   });
 
   document.getElementById('mdRemove')?.addEventListener('click', async () => {
-    await removeMeal(viewDate, slot);
-    viewMeals = (await readMeals(viewDate)) || {};
+    await removeKitchenPlanSlot(viewDate, slot);
+    viewMeals = (await readKitchenPlan(viewDate)) || {};
     closeTaskSheet();
     render();
   });
 }
 
 function openMealEditorSheet(mealId = null, returnSlot = null) {
-  const meal = mealId ? mealLibrary[mealId] : null;
+  const meal = mealId ? recipes[mealId] : null;
   const html = renderMealEditorSheet(meal, mealId);
   taskSheetMount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
@@ -1415,19 +1418,19 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
       danger: true,
     });
     if (!confirmed) return;
-    const allMealsSnap = await readOnce('meals');
+    const allPlanSnap = await readOnce('kitchen/plan');
     const cascadeUpdates = {};
-    if (allMealsSnap) {
-      for (const [dateKey, slots] of Object.entries(allMealsSnap)) {
+    if (allPlanSnap) {
+      for (const [dateKey, slots] of Object.entries(allPlanSnap)) {
         for (const [s, entry] of Object.entries(slots || {})) {
-          if (entry?.mealId === mealId) cascadeUpdates[`meals/${dateKey}/${s}`] = null;
+          if (entry?.recipeId === mealId) cascadeUpdates[`kitchen/plan/${dateKey}/${s}`] = null;
         }
       }
     }
-    cascadeUpdates[`mealLibrary/${mealId}`] = null;
+    cascadeUpdates[`kitchen/recipes/${mealId}`] = null;
     await multiUpdate(cascadeUpdates);
-    delete mealLibrary[mealId];
-    viewMeals = (await readMeals(viewDate)) || {};
+    delete recipes[mealId];
+    viewMeals = (await readKitchenPlan(viewDate)) || {};
     closeTaskSheet();
     render();
   });
@@ -1455,11 +1458,11 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
       createdAt: meal?.createdAt || firebase.database.ServerValue.TIMESTAMP,
     };
     if (mealId) {
-      await writeMealLibrary(mealId, data);
-      mealLibrary[mealId] = data;
+      await writeKitchenRecipe(mealId, data);
+      recipes[mealId] = data;
     } else {
-      const newId = await pushMealLibrary({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
-      mealLibrary[newId] = data;
+      const newId = await pushKitchenRecipe({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
+      recipes[newId] = data;
     }
     closeTaskSheet();
     if (returnSlot) setTimeout(() => openMealPlanSheet(returnSlot), 320);

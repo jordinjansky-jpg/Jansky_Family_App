@@ -39,7 +39,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readMealLibrary, readAllMeals, writeMeal, removeMeal, pushMealLibrary, writeMealLibrary, readMeals } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
     import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderQuickAddSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -102,7 +102,7 @@
     let completions = {};
     let allSchedule = {};
     let allMeals = {};
-    let mealLibrary = {};
+    let recipes = {};
     let suppressedCooldownTaskIds = new Set();
     let pendingSliderOverride = null;
     let daySwipeController = null;
@@ -139,9 +139,9 @@
       const sched = await readAllSchedule();
       allSchedule = sched || {};
       suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
-      [allMeals, mealLibrary] = await Promise.all([
-        readAllMeals().then(v => v || {}),
-        readMealLibrary().then(v => v || {}),
+      [allMeals, recipes] = await Promise.all([
+        readAllKitchenPlan().then(v => v || {}),
+        readKitchenRecipes().then(v => v || {}),
       ]);
     }
 
@@ -178,7 +178,7 @@
         html += renderDayView({
           dateKey: viewDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings,
           dayMeals: allMeals[viewDay] || {},
-          mealLibrary
+          recipes
         });
         html += `</div>`;
         main.innerHTML = html;
@@ -440,10 +440,10 @@
       // Meal cards
       main.querySelectorAll('.card--meal:not(.card--meal--school)').forEach(card => {
         card.addEventListener('click', () => {
-          const mealId = card.dataset.mealId;
+          const recipeId = card.dataset.mealId;
           const slot = card.dataset.slot;
           const plan = allMeals[viewDay]?.[slot];
-          if (!plan || !mealLibrary[mealId]) return;
+          if (!plan) return;
           openCalMealDetailSheet(plan, slot);
         });
       });
@@ -722,7 +722,7 @@
     // ══════════════════════════════════════════
 
     function openCalMealDetailSheet(planEntry, slot) {
-      const meal = planEntry?.mealId ? mealLibrary[planEntry.mealId] : null;
+      const meal = planEntry?.recipeId ? recipes[planEntry.recipeId] : null;
       const html = renderMealDetailSheet(meal, planEntry, true); // readonly=true
       taskSheetMount.innerHTML = renderBottomSheet(html);
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
@@ -732,9 +732,9 @@
 
     function openCalMealPlanSheet(preSlot = 'dinner') {
       const date = viewDay;
-      const currentMealId = allMeals[date]?.[preSlot]?.mealId || null;
+      const currentMealId = allMeals[date]?.[preSlot]?.recipeId || null;
       taskSheetMount.innerHTML = renderBottomSheet(
-        renderMealPlanSheet({ date, slot: preSlot, library: mealLibrary, currentMealId })
+        renderMealPlanSheet({ date, slot: preSlot, library: recipes, currentMealId })
       );
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
@@ -751,7 +751,7 @@
         const btn = e.target.closest('.mp-slot-tab');
         if (!btn) return;
         selectedSlot = btn.dataset.slot;
-        selectedMealId = allMeals[date]?.[selectedSlot]?.mealId || null;
+        selectedMealId = allMeals[date]?.[selectedSlot]?.recipeId || null;
         document.getElementById('mp_selectedMealId').value = selectedMealId || '';
         document.querySelectorAll('.mp-slot-tab').forEach(b => {
           b.classList.toggle('is-active', b.dataset.slot === selectedSlot);
@@ -760,9 +760,10 @@
         const removeLink = document.getElementById('mp_removeLink');
         if (removeLink) {
           const cur = allMeals[date]?.[selectedSlot];
-          const curMeal = cur?.mealId ? mealLibrary[cur.mealId] : null;
-          removeLink.style.display = curMeal ? '' : 'none';
-          if (curMeal) removeLink.textContent = `Remove "${curMeal.name}" from this slot`;
+          const curRecipe = cur?.recipeId ? recipes[cur.recipeId] : null;
+          const curName = curRecipe?.name || cur?.customName || null;
+          removeLink.style.display = curName ? '' : 'none';
+          if (curName) removeLink.textContent = `Remove "${curName}" from this slot`;
         }
         filterOptions('');
         searchInput.value = '';
@@ -772,7 +773,7 @@
 
       function filterOptions(query) {
         const q = query.toLowerCase().trim();
-        const entries = Object.entries(mealLibrary).sort(([, a], [, b]) => {
+        const entries = Object.entries(recipes).sort(([, a], [, b]) => {
           if (a.isFavorite && !b.isFavorite) return -1;
           if (!a.isFavorite && b.isFavorite) return 1;
           return (b.lastUsed || 0) - (a.lastUsed || 0);
@@ -818,8 +819,8 @@
       });
 
       document.getElementById('mp_removeLink')?.addEventListener('click', async () => {
-        await removeMeal(date, selectedSlot);
-        allMeals = (await readAllMeals()) || {};
+        await removeKitchenPlanSlot(date, selectedSlot);
+        allMeals = (await readAllKitchenPlan()) || {};
         taskSheetMount.innerHTML = '';
         render();
       });
@@ -837,25 +838,25 @@
           const inlineUrl = document.getElementById('mp_inlineUrl').value.trim() || null;
           const inlinePrepTime = document.getElementById('mp_inlinePrepTime')?.value.trim() || null;
           const inlineNotes = document.getElementById('mp_inlineNotes')?.value.trim() || null;
-          const newId = await pushMealLibrary({
+          const newId = await pushKitchenRecipe({
             name: inlineName, url: inlineUrl, prepTime: inlinePrepTime, notes: inlineNotes,
             ingredients: [], tags: [], isFavorite: false,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             lastUsed: firebase.database.ServerValue.TIMESTAMP,
           });
-          mealLibrary[newId] = { name: inlineName, url: inlineUrl, prepTime: inlinePrepTime, notes: inlineNotes, ingredients: [], tags: [], isFavorite: false };
-          await writeMeal(planDate, selectedSlot, { mealId: newId, source: 'manual' });
+          recipes[newId] = { name: inlineName, url: inlineUrl, prepTime: inlinePrepTime, notes: inlineNotes, ingredients: [], tags: [], isFavorite: false };
+          await writeKitchenPlanSlot(planDate, selectedSlot, { recipeId: newId, source: 'manual' });
         } else {
           if (!selectedMealId) return;
-          await writeMeal(planDate, selectedSlot, { mealId: selectedMealId, source: 'manual' });
-          const entry = mealLibrary[selectedMealId];
+          await writeKitchenPlanSlot(planDate, selectedSlot, { recipeId: selectedMealId, source: 'manual' });
+          const entry = recipes[selectedMealId];
           if (entry) {
             entry.lastUsed = Date.now();
-            await writeMealLibrary(selectedMealId, { ...entry, lastUsed: firebase.database.ServerValue.TIMESTAMP });
+            await writeKitchenRecipe(selectedMealId, { ...entry, lastUsed: firebase.database.ServerValue.TIMESTAMP });
           }
         }
-        allMeals = (await readAllMeals()) || {};
-        mealLibrary = (await readMealLibrary()) || {};
+        allMeals = (await readAllKitchenPlan()) || {};
+        recipes = (await readKitchenRecipes()) || {};
         taskSheetMount.innerHTML = '';
         render();
       });

@@ -198,7 +198,7 @@ export function renderWeekView(opts) {
  * Render the day view.
  */
 export function renderDayView(opts) {
-  const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, mealLibrary = {} } = opts;
+  const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {} } = opts;
 
   // Events section
   let dayEvents = getEventsForDate(events, dateKey);
@@ -300,18 +300,19 @@ export function renderDayView(opts) {
   let mealsHtml = '';
   for (const slot of SLOTS) {
     const plan = dayMeals?.[slot];
-    if (!plan?.mealId) continue;
-    const meal = mealLibrary[plan.mealId];
-    if (!meal) continue;
+    if (!plan) continue;
+    const recipe = plan.recipeId ? recipes[plan.recipeId] : null;
+    const mealName = recipe?.name || plan.customName || null;
+    if (!mealName) continue;
     const isSchool = plan.source === 'school';
     const schoolIcon = isSchool
       ? `<span class="card--meal__school-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M3 22V8l9-6 9 6v14M10 22v-6h4v6"/></svg></span>`
       : '';
     mealsHtml += `<button class="card--meal${isSchool ? ' card--meal--school' : ''}"
-                          data-meal-id="${esc(plan.mealId)}" data-slot="${esc(slot)}"
+                          data-meal-id="${esc(plan.recipeId || '')}" data-slot="${esc(slot)}"
                           type="button"${isSchool ? ' aria-disabled="true"' : ''}>
       ${schoolIcon}
-      <span class="card--meal__name">${esc(meal.name)}</span>
+      <span class="card--meal__name">${esc(mealName)}</span>
       <span class="card--meal__slot">${esc(SLOT_LABELS[slot])}</span>
     </button>`;
   }
