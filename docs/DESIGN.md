@@ -47,11 +47,10 @@ Every current and backlog feature has a named home. If a proposal doesn't fit he
 | Achievements (current) | Kid trophy case | Scoreboard badge strip, Admin Badges | inside Scores & Kid |
 | Setup wizard (current) | `setup.html` | — | first-run only |
 | Admin (current) | Admin page | — | header overflow |
-| **1.3 Meals** | Calendar day view | Dashboard ambient strip (dinner only), Kiosk, Kid tile | NO nav tab |
+| **Kitchen (1.3+1.7)** | `kitchen.html` | Dashboard ambient strip (dinner chip), Calendar day view (read-only), More sheet | More tab (phone) → future: promoted to tab after usage review |
 | **1.4 Weather** | Calendar header chip, Kiosk header | Dashboard ambient strip (optional), Kid tile | NO nav tab |
 | **1.5 Kiosk** | `display.html` (own layout, own CSS) | — | NO nav tab (own entry) |
 | **1.6 Activities** | Activities page | Scoreboard Tabs variant, Kid tile, shared timer | More tab (phone), left rail (tablet) |
-| **1.7 Shopping** | Shopping page | Kiosk menu, Kid read-only peek | More tab (phone), left rail (tablet) |
 | **2.1 Push Notifications** | Bell dropdown + OS-level | Admin → People → Notifications, Settings global prefs | existing bell |
 | **2.2 Flexible Recurrence** | Task/Event form (progressive disclosure) | Calendar preview of next occurrences | inside existing forms |
 | **2.3 School lunch PDF** | Admin → Advanced → Import | Calendar day meals with `source: school` tag | inside Admin |
@@ -61,8 +60,8 @@ Every current and backlog feature has a named home. If a proposal doesn't fit he
 
 **Hard rules enforced by this table:**
 - Phone tab bar never exceeds 5 slots: Home, Calendar, Scores, Tracker, More.
-- Meals, Weather, Kiosk, Vacation, Recurrence, Timer, PDF import, Delegation never become tabs.
-- Activities and Shopping are the only backlog features that earn nav placement (inside More on phone).
+- Weather, Kiosk, Vacation, Recurrence, Timer, PDF import, Delegation never become tabs.
+- Kitchen (1.3+1.7), Activities (1.6) are the only backlog features that earn nav placement (inside More on phone); Kitchen's tab promotion is subject to usage review.
 
 ---
 
@@ -226,7 +225,7 @@ Do not use z-index values outside this table.
   - Calendar: month/week grid | selected day detail
   - Admin: section nav | content
   - Activities: library | session detail
-  - Shopping: list chooser | active list
+  - Kitchen: meal plan | shopping list
 - **Content width scales:** 900px @ 768, 1200px @ 1024, 1600px @ 1400. Never stretch phone content to fill a widescreen.
 - **Type +12.5%** at ≥1024px (via `html { font-size: 18px }`).
 - **Sheet width clamped to 520px** centered on tablet; it becomes a floating card rather than a full-width drawer.
@@ -236,7 +235,7 @@ Do not use z-index values outside this table.
 - **Own layout file** (`styles/display.css`), own HTML shell (`display.html`). Does not inherit dashboard CSS.
 - **Week grid default.** Tap day → drilldown. No modals; inline editors only.
 - **Type +25%.** Minimum tap target 56×56.
-- **No admin, no PIN entry.** Kiosk is read/write for tasks/events/meals/shopping, but never authentication.
+- **No admin, no PIN entry.** Kiosk is read/write for tasks/events/meals/shopping (via Kitchen), but never authentication.
 - **Ambient idle:** 30s of inactivity returns to the default week view. Optional night mode after configured hour.
 - **Every new feature ships its kiosk appearance on the same PR as its phone appearance.** "Kiosk later" is prohibited.
 
@@ -437,7 +436,7 @@ Tap toggles completion. Long-press elsewhere on card opens detail sheet.
 - One per page at most.
 - 56px circular, `--accent` bg, white icon.
 - Position: `bottom: calc(--nav-height + --spacing-md); right: --spacing-md` (respects safe-area-inset-right).
-- Used for: Dashboard (add task), Calendar (add event/meal), Shopping (add item), Activities (start activity).
+- Used for: Dashboard (add task), Calendar (add event), Kitchen (add meal / add item), Activities (start activity).
 - Never used for: navigation, secondary actions, kid mode.
 
 ### 5.14 Bottom nav
@@ -535,14 +534,14 @@ Each area lists: current contents, expansion plan, layout rules, component usage
 5. **Coming up rail** *(3.3)* — collapsed by default: `Coming up · N events this week` / `Coming up · clear week`. Expands inline to day-blocks (today excluded; events-only count, no task summaries). Tapping a day-block head jumps `viewDate`. Persists state in `localStorage['dr-coming-up-state']`.
 6. **Events section** — `.card.card--event` list (events before tasks). Tap = detail sheet; long-press 800ms = same.
 7. **Today section** — `.card` task list. Flat sort: incomplete (owner → late-today → TOD → name), completed (owner → TOD → name). Section meta carries score chips when filter set to one person: `X of Y done · NN pt · GRADE`. `pt` = store-economy points (today's percentage × multiplier). When filter = All, meta = `X of Y done` only. `settings.showPoints` and per-card scoring-point chips removed.
-8. **FAB** + **Bottom nav** — FAB pre-fills `viewDate` and `activePerson`. Phone tab bar = 4 slots (Home · Scores · Tracker · More); 5th slot reserved for Activities (1.6) or Shopping (1.7), whichever ships first.
+8. **FAB** + **Bottom nav** — FAB pre-fills `viewDate` and `activePerson`. Phone tab bar = 4 slots (Home · Scores · Tracker · More); 5th slot reserved for Kitchen or Activities, whichever earns promotion first.
 
 **Tablet:** two-pane. **Left pane** (~520px) = action surface (Header + Banner are full-width above; left pane has Today section + filter chip). **Right pane** (~380px) = day's context (Ambient strip 1-up vertical → Coming up always-expanded → Events). FAB lives bottom-right of the right pane.
 
 **Kiosk:** dashboard doesn't exist; kiosk uses its own `display.html` week-grid layout. Dashboard sections reflect onto kiosk per the reflection table in the final-form spec §2.4.
 
 **Backlog integration:**
-- **Meals (1.3):** dinner chip lands in the ambient strip; "Plan a meal" item joins the FAB add-menu. Never a full meal section here; full meals live in Calendar.
+- **Kitchen (1.3+1.7):** dinner chip lands in the ambient strip; "Plan a meal" item joins the FAB add-menu. Never a full meal section here; full meals and shopping live in `kitchen.html`.
 - **Weather (1.4):** weather chip lands in the ambient strip; chip is `viewDate`-aware via 7-day forecast.
 - **Vacation (2.4):** `--vacation` banner variant in the priority queue while any person is away.
 - **Push notifications (2.1):** bell badge updates.
@@ -555,7 +554,7 @@ Each area lists: current contents, expansion plan, layout rules, component usage
 - Weather forecast cards ≥ 2 rows (that's a weather app, not a hub).
 - Meal cards beyond a 1-chip strip.
 - Activities summaries (go to Activities page).
-- Shopping preview (goes to Shopping).
+- Shopping preview (goes to Kitchen).
 - Gradient text, raw colors, theme/debug icons in header.
 - Rotation subheaders (Daily/Weekly/Monthly) in Today section — flat list rule.
 - Score chips when filter = All (the "whose number" problem).
@@ -583,14 +582,13 @@ Each area lists: current contents, expansion plan, layout rules, component usage
 **Day/Week nav:** prev/next chevrons + date label (centered). Swipe left/right also navigates.
 **Filters:** person chips below nav. On phone, collapse into a "Filter" sheet trigger when > 4 people.
 
-**FAB:** add event or meal (sheet with type selector first).
+**FAB:** add event (sheet with type selector first). Meal planning lives in `kitchen.html`.
 
 **Forms:**
 - Event form: shorter than task form. Title, When, Who, Notes, Recurrence. Progressive disclosure.
-- Meal form: Slot, Name, URL, Notes.
 
 **Backlog integration:**
-- **Meals (1.3):** Meals section in day view. School-imported: `--accent-muted` tag.
+- **Kitchen (1.3+1.7):** Meals section in day view (read-only). School-imported: `--accent-muted` tag. Full meal management and shopping lists live in `kitchen.html`.
 - **Weather (1.4):** chip in header + per-day chip in week view, full strip in month header on tablet.
 - **Recurrence (2.2):** extends Event/Task form. Preview of next 5 occurrences inline.
 - **Vacation (2.4):** shaded stripe per person per day.
@@ -641,7 +639,7 @@ Each area lists: current contents, expansion plan, layout rules, component usage
 ### 6.5 Admin (`admin.html`)
 
 **Top-level sections (5, not 11):**
-1. **Library** — Tasks | Events | Categories *(| Meals | Activities when 1.3/1.6 ship)*
+1. **Library** — Tasks | Events | Categories *(| Activities when 1.6 ships — Meals/Shopping moved to `kitchen.html`)*
 2. **People** — People | Schedule
 3. **Rewards** — Rewards | Badges
 4. **Settings** — Family | Scoring | Appearance
@@ -655,7 +653,7 @@ Header: back chevron + `Admin` title + search. Section switcher: horizontal pill
 
 > **Token note:** hero text (person name, kid-mode greeting) should NOT default to `--font-2xl` — that token was rescaled to 24px for the dashboard header title on 2026-04-24. Future mockup ports should either define their own hero-text token or use `--font-3xl` (36px) scaled down contextually.
 
-**Tasks / Events / Categories / Rewards / Badges / Meals / Activities library:** same pattern — row list with one chevron per row. Tap for detail page. Inline "Add X" row at bottom of list.
+**Tasks / Events / Categories / Rewards / Badges / Activities library:** same pattern — row list with one chevron per row. Tap for detail page. Inline "Add X" row at bottom of list. (Meal library managed from `kitchen.html`, not Admin.)
 
 **Settings:**
 - **Family:** family name, timezone, week start, admin PIN, session timeout, location, temperature unit.
@@ -668,7 +666,7 @@ Header: back chevron + `Admin` title + search. Section switcher: horizontal pill
 - **Imports (2.3):** school lunch PDF upload with preview sheet before writing.
 
 **Backlog integration:**
-- **Meals library (1.3):** Library → Meals. Standard row pattern.
+- **Kitchen (1.3+1.7):** Meal library and shopping list management live in `kitchen.html`, not Admin. Admin has no Meals tab.
 - **Activities library (1.6):** Library → Activities.
 - **Vacation (2.4):** per-person in People detail → Availability.
 - **Notifications (2.1):** per-person in People detail → Notifications + global in Settings.
@@ -699,11 +697,10 @@ Header: back chevron + `Admin` title + search. Section switcher: horizontal pill
 **Parent escape:** `⚙` top-right opens PIN overlay. Long-press fallback on any non-interactive area. Triple-tap on avatar is an additional escape.
 
 **Backlog integration (each has a reserved tile):**
-- **Meals (1.3):** Dinner tile.
+- **Kitchen (1.3+1.7):** Dinner tile (Tonight's Dinner). Optional read-only shopping peek if a parent marks the list kid-visible.
 - **Weather (1.4):** Weather tile, playful copy ("☀️ Sunny, 72°").
 - **Activities (1.6):** Activity goal tile with Start button → opens shared timer.
 - **Task Timer (3.1):** Start button inside task cards → shared timer.
-- **Shopping (1.7):** Optional read-only list if a parent marks the list kid-visible.
 - **Vacation (2.4):** Friendly "Vacation mode 🌴" tile when family is away.
 
 **Kid component rules:**
@@ -783,18 +780,18 @@ Person-specific behavior is limited to: title = person's name, saved filter pers
 
 **Shell parity:** `person.html` must include the same mount points as `index.html` (`#headerMount`, `#app`/`.app-shell`, `#fabMount`, `#navMount`, `#toastMount`, `#celebrationMount`, `#taskSheetMount`). Missing mount points cause `dashboard.js` to throw on `document.getElementById(...).innerHTML` and halt init.
 
-### 6.10 Shopping (new page, 1.7)
+### 6.10 Kitchen (`kitchen.html`, 1.3+1.7)
 
-**Purpose:** Shared grocery lists with real-time sync.
+**Purpose:** Combined home for meal planning and shared shopping lists — supersedes the standalone 1.3 Meals and 1.7 Shopping backlog items.
 
 **Layout:**
-- Header: `Shopping` + list chooser (Tabs: Grocery | Costco | Target | +).
-- List: `.card.card--shopping` rows. Checkbox in leading slot. Strikethrough + sink on check.
-- FAB: add item. Autocomplete from past items.
-- Category grouping optional (admin toggle).
+- Header: `Kitchen` + top-level Tabs: `Meals | Shopping`.
+- **Meals tab:** week-at-a-glance meal planner. Rows = days; columns = slots (Breakfast / Lunch / Dinner / Snack). Tap a slot → meal picker sheet with library autocomplete. `.card.card--meal` for library rows. FAB: add/plan a meal.
+- **Shopping tab:** shared grocery lists. Sub-Tabs: Grocery | Costco | Target | +. List rows: `.card.card--shopping`, checkbox in leading slot, strikethrough + sink on check. FAB: add item. Autocomplete from past items. Category grouping optional.
+- Meal library management (add/edit/archive saved meals) lives in the Meals tab overflow menu, not in Admin.
 
-**Kid view:** read-only peek for lists marked kid-visible.
-**Kiosk:** prominent tile in kiosk More menu.
+**Kid view:** read-only Tonight's Dinner tile; optional shopping peek for lists marked kid-visible.
+**Kiosk:** prominent tile in kiosk More menu; meals section in day-column view.
 
 ### 6.11 Activities (new page, 1.6)
 
@@ -819,7 +816,7 @@ Person-specific behavior is limited to: title = person's name, saved filter pers
 **Default view:** current week grid (7 columns, landscape).
 - Each day column: day head (num + weather) → events → tasks → meals → activities log.
 - Persistent family balance row at bottom (all people).
-- Persistent bottom bar: Menu (opens tile grid: Calendar, Scores, Shopping, Admin-lite, Display settings).
+- Persistent bottom bar: Menu (opens tile grid: Calendar, Scores, Kitchen, Admin-lite, Display settings).
 
 **Day drilldown:** tap a day → slides up detail view.
 **Inline editing:** tap an item → inline edit in-place (no modals).
@@ -1135,9 +1132,9 @@ Violations: multiple inline actions, no detail drilldown, emoji button, no pill 
 ```
 Violations: weather is not dashboard's job, feature creep beyond spec, competes with tasks.
 
-### 13.6 Adding Meals
-**Correct:** meals as a section in Calendar day view using `.card.card--meal`.
-**Incorrect:** Meals as a 6th nav tab or as a hero on Dashboard.
+### 13.6 Adding Meals / Shopping (Kitchen, 1.3+1.7)
+**Correct:** meals and shopping live in `kitchen.html` (Meals tab + Shopping tab). Calendar day view shows meals read-only using `.card.card--meal`. Dinner chip surfaces in dashboard ambient strip.
+**Incorrect:** Meals or Shopping as a 6th nav tab; meal library managed from Admin; shopping as a bottom sheet.
 
 ### 13.7 Adding Activities
 **Correct:** scoreboard gains a top-level Tabs variant "Tasks | Activities" using existing `.tabs` and `.card`.
@@ -1165,10 +1162,6 @@ renderBanner(root, {
 ### 13.10 Adding Push
 **Correct:** route to Bell; OS push only when backgrounded; toast only when foregrounded.
 **Incorrect:** custom in-app notification tray + red dot on header + blocking modal per push.
-
-### 13.11 Shopping
-**Correct:** standalone page, same shell, `.card.card--shopping` rows, FAB add, Tabs for list chooser.
-**Incorrect:** sheet-based shopping list (too long); custom checkbox; bespoke row class.
 
 ### 13.12 Responsive
 **Correct:**
