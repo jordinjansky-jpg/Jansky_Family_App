@@ -114,13 +114,18 @@ Identical structure to `rewards.html`:
 Tab state persists in `localStorage['dr-kitchen-tab']` so returning to the page restores where you were.
 
 ### Bottom nav
-Standard 4-slot nav, no active tab highlighted (Kitchen is not a tab slot). More button functional.
+`renderNavBar('kitchen')` — since `'kitchen'` is not in `NAV_ITEMS`, no tab highlights. More button functional. `initNavMore` and `initOfflineBanner(onConnectionChange)` both called on init, same as `rewards.js`.
 
 ### Theme
-Two-phase load — mandatory, not optional:
-1. `loadDeviceTheme()` from `shared/theme.js` on first paint (localStorage cache → instant).
-2. Await Firebase `readSettings()` → `applyTheme(settings.theme)` before rendering content.
-This is the same fix applied to `rewards.js` after the theme-mismatch bug (2026-04-26). Do not skip step 2.
+Two-phase load — mandatory, not optional. Exact pattern from `rewards.js` and `dashboard.js`:
+```js
+// Phase 1 — before any Firebase call, instant paint
+applyTheme(resolveTheme());
+
+// Phase 2 — after readSettings() resolves
+applyTheme(resolveTheme(settings?.theme));
+```
+`resolveTheme()` (from `shared/theme.js`) resolves: device override → cached family theme → settings theme → default. Never call `loadDeviceTheme()` directly — always go through `resolveTheme()`. Do not skip phase 2; skipping it was the root cause of the rewards theme-mismatch bug.
 
 ---
 
@@ -349,7 +354,7 @@ removeKitchenStaple(id)       → remove kitchen/staples/{id}
 ### `shared/components.js`
 - `initNavMore` updated to add Kitchen entry (alphabetical: Admin, Calendar, Kitchen, Theme).
 - No new render functions — Kitchen uses existing `.card`, `.sheet`, `.tabs`, `.fab`, `.chip`, `renderEmptyState`, `renderErrorState`, `showConfirm` patterns.
-- The `--shopping` card variant is already defined in the component catalog.
+- **`card--shopping` CSS variant must be created** in `components.css` as part of this build. The DESIGN.md component catalog lists it but it was never implemented. It needs: checkbox in leading slot, standard card body, no trailing slot. Style consistent with `card--task`.
 
 ### New files
 - `kitchen.html` — page shell
