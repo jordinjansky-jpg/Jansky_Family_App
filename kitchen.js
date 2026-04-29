@@ -4,7 +4,8 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
   writeBankToken, markBankTokenUsed, readBank, writeMultiplier,
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
   readKitchenPlan, onKitchenItems,
-  pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem
+  pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
+  pushKitchenItem, writeKitchenItem
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
@@ -189,7 +190,92 @@ function renderListsTab() {
 }
 
 function subscribeListItems() {
-  // Implemented in Task 6
+  if (itemsUnsub) { itemsUnsub(); itemsUnsub = null; }
+  if (!activeListId) { renderItemsArea({}); return; }
+  itemsUnsub = onKitchenItems(activeListId, (items) => renderItemsArea(items || {}));
+}
+
+function renderItemsArea(items) {
+  const area = document.getElementById('listItemsArea');
+  if (!area) return;
+
+  const allItems = Object.entries(items);
+  const unchecked = allItems.filter(([, v]) => !v.checked).sort((a, b) => (a[1].addedAt || 0) - (b[1].addedAt || 0));
+  const checked   = allItems.filter(([, v]) => v.checked).sort((a, b) => (b[1].checkedAt || 0) - (a[1].checkedAt || 0));
+
+  if (allItems.length === 0) {
+    area.innerHTML =
+      renderEmptyState('', 'List is empty', 'Tap + to add your first item.') +
+      `<button class="staples-btn" id="staplesQuickBtn">Add from staples</button>`;
+    document.getElementById('staplesQuickBtn')?.addEventListener('click', openStaplesSheet);
+    return;
+  }
+
+  // Group unchecked by category
+  const byCategory = {};
+  for (const [id, item] of unchecked) {
+    const cat = item.category || 'Other';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push([id, item]);
+  }
+
+  const CATEGORY_ORDER = ['Produce','Meat & Seafood','Dairy','Bakery','Frozen','Pantry',
+    'Beverages','Snacks','Household','Personal Care','Baby & Kids','Pets',
+    'Clothing','Electronics','Toys','Other'];
+
+  const sortedCats = Object.keys(byCategory).sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(a); const bi = CATEGORY_ORDER.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  let html = `<button class="staples-btn" id="staplesTopBtn">Add from staples</button>`;
+
+  for (const cat of sortedCats) {
+    html += `<div class="shopping-category-label">${esc(cat)}</div>`;
+    for (const [id, item] of byCategory[cat]) {
+      html += renderShoppingCard(id, item, false);
+    }
+  }
+
+  if (checked.length > 0) {
+    html += `<div class="shopping-checked-divider"></div>`;
+    for (const [id, item] of checked) {
+      html += renderShoppingCard(id, item, true);
+    }
+  }
+
+  area.innerHTML = html;
+
+  document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
+
+  area.querySelectorAll('.card--shopping').forEach(card => {
+    card.addEventListener('click', () => toggleItem(card.dataset.itemId));
+  });
+}
+
+function renderShoppingCard(id, item, isChecked) {
+  return `<article class="card card--shopping${isChecked ? ' is-checked' : ''}" data-item-id="${esc(id)}">
+    <span class="card__check" aria-hidden="true"></span>
+    <span class="card__name">${esc(item.name)}</span>
+  </article>`;
+}
+
+async function toggleItem(id) {
+  if (!activeListId || !id) return;
+  const area = document.getElementById('listItemsArea');
+  const card = area?.querySelector(`[data-item-id="${id}"]`);
+  if (!card) return;
+
+  const isNowChecked = !card.classList.contains('is-checked');
+  card.classList.toggle('is-checked', isNowChecked);
+
+  await writeKitchenItem(activeListId, id, {
+    name: card.querySelector('.card__name')?.textContent || '',
+    checked: isNowChecked,
+    checkedAt: isNowChecked ? firebase.database.ServerValue.TIMESTAMP : null,
+    addedAt: Date.now(),
+    category: null,
+  });
 }
 
 function openCreateListSheet() {
@@ -320,7 +406,49 @@ function copyListAsText() {
 }
 
 function openMealFabSheet() {}
-function openItemAddField() {}
+
+function openItemAddField() {
+  const area = document.getElementById('listItemsArea');
+  if (!area) return;
+
+  if (document.getElementById('itemAddField')) {
+    document.getElementById('itemAddField').focus();
+    return;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'item-add-wrap';
+  wrap.innerHTML = `<input class="item-add-field" id="itemAddField" type="text"
+    placeholder="What do you need?" autocomplete="off" autocorrect="off">`;
+  area.prepend(wrap);
+  const field = document.getElementById('itemAddField');
+  field.focus();
+
+  async function addItem() {
+    const name = field.value.trim();
+    if (!name) { wrap.remove(); return; }
+    if (!activeListId) return;
+    field.value = '';
+    await pushKitchenItem(activeListId, {
+      name,
+      checked: false,
+      addedAt: firebase.database.ServerValue.TIMESTAMP,
+      category: null,
+    });
+  }
+
+  field.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addItem(); }
+    if (e.key === 'Escape') { wrap.remove(); }
+  });
+  field.addEventListener('blur', () => {
+    if (!field.value.trim()) wrap.remove();
+  });
+}
+
+function openStaplesSheet() {
+  // Implemented in Task 7
+}
 
 init().catch(err => {
   console.error('[Kitchen] init failed', err);
