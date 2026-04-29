@@ -5,7 +5,7 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
   readKitchenPlan, onKitchenItems,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
-  pushKitchenItem, writeKitchenItem
+  pushKitchenItem, writeKitchenItem, pushKitchenStaple
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
@@ -447,7 +447,70 @@ function openItemAddField() {
 }
 
 function openStaplesSheet() {
-  // Implemented in Task 7
+  const mount = document.getElementById('sheetMount');
+
+  function renderStaplesChips() {
+    const entries = Object.entries(staples);
+    if (entries.length === 0) {
+      return `<p style="font-size:var(--font-sm);color:var(--text-muted)">Save items you buy every week.</p>`;
+    }
+    return entries.map(([id, s]) =>
+      `<button class="chip chip--muted" data-staple-id="${esc(id)}" type="button">${esc(s.name)}</button>`
+    ).join(' ');
+  }
+
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">Staples</h2>
+      <button class="btn-icon" id="closeStaples" aria-label="Close" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet__content">
+      <div id="staplesChips" style="display:flex;flex-wrap:wrap;gap:var(--spacing-xs);margin-bottom:var(--spacing-md)">
+        ${renderStaplesChips()}
+      </div>
+      <div class="item-add-wrap">
+        <input class="item-add-field" id="newStapleField" type="text"
+          placeholder="Add a staple..." autocomplete="off">
+      </div>
+    </div>`);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  document.getElementById('closeStaples')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  document.getElementById('staplesChips')?.addEventListener('click', async (e) => {
+    const chip = e.target.closest('[data-staple-id]');
+    if (!chip || !activeListId) return;
+    const stapleId = chip.dataset.stapleId;
+    const name = staples[stapleId]?.name;
+    if (!name) return;
+    await pushKitchenItem(activeListId, {
+      name, checked: false,
+      addedAt: firebase.database.ServerValue.TIMESTAMP,
+      category: staples[stapleId]?.category || null,
+    });
+    showToast(`Added "${name}"`);
+  });
+
+  const newField = document.getElementById('newStapleField');
+  newField?.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter') return;
+    const name = newField.value.trim();
+    if (!name) return;
+    newField.value = '';
+    const id = await pushKitchenStaple({ name, category: null });
+    staples[id] = { name, category: null };
+    document.getElementById('staplesChips').innerHTML = renderStaplesChips();
+  });
+}
+
+function categorizeItem(listId, itemId, name) {
+  // Implemented in Task 14
+}
+
+function categorizeStaple(stapleId, name) {
+  // Implemented in Task 14
 }
 
 init().catch(err => {
