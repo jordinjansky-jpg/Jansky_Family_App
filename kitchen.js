@@ -952,7 +952,7 @@ function openRecipeForm(recipeId, onSave = null) {
     const file = e.target.files?.[0];
     if (!file) return;
     const { base64, mediaType } = await resizeImageForUpload(file);
-    runImport('screenshot', { base64, mediaType }, 'importScreenshotBtn', 'screenshotStatus');
+    await runImport('screenshot', { base64, mediaType }, 'importScreenshotBtn', 'screenshotStatus');
   });
 
   document.getElementById('saveRecipeForm')?.addEventListener('click', async () => {
@@ -1571,7 +1571,7 @@ function openPhotoToListSheet() {
             <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
             <div class="sheet__content">
               <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
-              <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${err?.message || 'Check your connection.'}</p>
+              <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || 'Check your connection.'}</p>
             </div>
             <div class="sheet__footer">
               <button class="btn btn--secondary" id="ptlRetry">Try again</button>
