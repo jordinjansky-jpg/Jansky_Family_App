@@ -71,7 +71,7 @@ export function renderConfirmRow(item, { labelKey = 'name', subKey, confidenceKe
   const dot = hasDot ? `<span class="confidence-dot" aria-hidden="true">·</span>` : '';
   const rowClass = ['confirm-row', isLow ? 'confidence-low' : ''].filter(Boolean).join(' ');
   const subClass = ['confirm-row__sub', subConfidence === 'low' ? 'confidence-date-low' : ''].filter(Boolean).join(' ');
-  return `<div class="${rowClass}" data-key="${key}">
+  return `<div class="${rowClass}" data-key="${esc(key)}">
   <div class="confirm-row__body">
     <span class="confirm-row__label">${dot}${esc(label)}</span>
     ${sub ? `<span class="${subClass}">${esc(sub)}</span>` : ''}
@@ -135,8 +135,9 @@ export function openMonthClarificationSheet(assumedMonth, onConfirm) {
   overlay.querySelector('#monthClarifyCancel').addEventListener('click', close);
   overlay.querySelector('#monthClarifyConfirm').addEventListener('click', () => {
     const val = overlay.querySelector('#monthClarifyInput').value;
+    if (!val) return;
     close();
-    if (val) onConfirm(val);
+    onConfirm(val);
   });
 
   return { close };
