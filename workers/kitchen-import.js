@@ -75,22 +75,28 @@ Return JSON: {"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "
 If completely unparseable as an event, return {"error": "explanation"}.
 Return only valid JSON, nothing else.`;
 
-const HOMEWORK_PROMPT = (contextDate) =>
-  `Extract homework assignments from this image. Today is ${contextDate}.
+const TASK_SCAN_PROMPT = (contextDate) =>
+  `Extract actionable tasks from this document or image. Today is ${contextDate}.
 
-ASSIGNMENT READING RULES:
-- The image may be a printed sheet, handwritten notebook page, whiteboard, or digital screenshot (e.g. Google Classroom).
-- Look for assignments, readings, projects, or anything that needs to be completed and turned in.
-- Due dates may appear as "Monday", "4/28", "May 2nd", "next week" — calculate the full date from today (${contextDate}) for relative dates.
-- If no due date is visible for an assignment, set dueDate to null.
-- Include the subject (Math, Reading, etc.) in notes if visible.
-- Include ALL assignments even if the due date is unclear or missing.
+DOCUMENT TYPES (handle all of these):
+- Homework/assignment sheets: assignments, readings, projects with due dates
+- Permission slips: what needs to be signed, returned, or paid, and by when
+- School newsletters or flyers: action items, RSVPs, forms to return
+- Medical/appointment follow-up forms: tasks to complete before next visit
+- Chore charts, to-do lists, reminder notes: anything written as a task
+- Any other document where someone needs to DO something by a certain date
+
+FOR EACH TASK:
+- name: clear, actionable description (e.g. "Sign permission slip — Science Museum trip", "Read Chapter 4", "Return immunization form")
+- dueDate: the deadline — calculate relative dates (e.g. "next Monday", "by Friday") from today (${contextDate}); set null if no date is visible
+- notes: subject, who it's for, or any extra context (null if none)
+- Include ALL action items even if the due date is missing
 
 Return JSON:
 {
-  "tasks": [{"name": "assignment description", "dueDate": "YYYY-MM-DD or null", "notes": "subject or extra info or null"}]
+  "tasks": [{"name": "task description", "dueDate": "YYYY-MM-DD or null", "notes": "context or null"}]
 }
-If no assignments found, return {"tasks": []}. Return only valid JSON, nothing else.`;
+If no actionable tasks found, return {"tasks": []}. Return only valid JSON, nothing else.`;
 
 const PHOTO_TO_LIST_PROMPT =
   `Extract items for a shopping list from this photo.
@@ -408,7 +414,7 @@ async function handleParseEvent(input, env, corsHeaders) {
   }
 }
 
-async function handleHomeworkScan(input, env, corsHeaders) {
+async function handleTaskScan(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No image provided', 400, corsHeaders);
 
   const contextDate = input.contextDate || todayIso();
@@ -417,7 +423,7 @@ async function handleHomeworkScan(input, env, corsHeaders) {
       role: 'user',
       content: [
         imageContent(input.base64, input.mediaType),
-        { type: 'text', text: HOMEWORK_PROMPT(contextDate) },
+        { type: 'text', text: TASK_SCAN_PROMPT(contextDate) },
       ],
     }], env, 1024);
     const parsed = parseJson(raw);
@@ -468,7 +474,8 @@ const HANDLERS = {
   calendarPhoto: (input, env) => handleCalendarPhoto(input, env, CORS),
   ical:          (input, env) => handleIcal(input, env, CORS),
   parseEvent:    (input, env) => handleParseEvent(input, env, CORS),
-  homeworkScan:  (input, env) => handleHomeworkScan(input, env, CORS),
+  taskScan:      (input, env) => handleTaskScan(input, env, CORS),
+  homeworkScan:  (input, env) => handleTaskScan(input, env, CORS),
   photoToList:   (input, env) => handlePhotoToList(input, env, CORS),
 };
 
