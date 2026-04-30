@@ -49,6 +49,8 @@
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
     import { renderWeekView, renderDayView, renderMonthView, renderCalendarNav } from './shared/calendar-views.js';
 
+    const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
+
     // ── Cached theme ──
     applyTheme(resolveTheme());
 
@@ -562,9 +564,11 @@
     // ══════════════════════════════════════════
 
     function openAddMenu() {
+      const importIcon = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>';
       const options = [
         { key: 'event', label: 'New Event', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>' },
-        { key: 'task', label: 'New Task', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>' }
+        { key: 'task', label: 'New Task', icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>' },
+        ...(KITCHEN_WORKER_URL ? [{ key: 'import', label: 'Import Events', icon: importIcon }] : []),
       ];
       const html = renderAddMenu(options);
       taskSheetMount.innerHTML = renderBottomSheet(html);
@@ -582,12 +586,237 @@
         btn.addEventListener('click', () => {
           const action = btn.dataset.action;
           closeTaskSheet();
-          if (action === 'event') {
-            setTimeout(() => openEventForm(), 320);
-          } else if (action === 'task') {
-            setTimeout(() => openQuickAddSheet(), 320);
-          }
+          if (action === 'event') setTimeout(() => openEventForm(), 320);
+          else if (action === 'task') setTimeout(() => openQuickAddSheet(), 320);
+          else if (action === 'import') setTimeout(() => openImportEventsSheet(), 320);
         });
+      });
+    }
+
+    // ══════════════════════════════════════════
+    // Import Events (iCal, photo, text)
+    // ══════════════════════════════════════════
+
+    function openImportEventsSheet() {
+      const icalIcon = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+      const photoIcon = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+      const textIcon = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>';
+      const options = [
+        { key: 'ical',  label: 'Subscribe (iCal URL)', icon: icalIcon },
+        { key: 'photo', label: 'Photo of flyer / whiteboard', icon: photoIcon },
+        { key: 'text',  label: 'Type it (e.g. "dentist Fri 3pm")', icon: textIcon },
+      ];
+      taskSheetMount.innerHTML = renderBottomSheet(renderAddMenu(options));
+      applyDataColors(taskSheetMount);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
+      });
+      taskSheetMount.querySelectorAll('.add-menu__item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = btn.dataset.action;
+          closeTaskSheet();
+          if (action === 'ical')  setTimeout(() => openIcalImportSheet(), 320);
+          if (action === 'photo') setTimeout(() => openCalendarPhotoImport(), 320);
+          if (action === 'text')  setTimeout(() => openTextEventSheet(), 320);
+        });
+      });
+    }
+
+    function openIcalImportSheet() {
+      taskSheetMount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header"><h2 class="sheet__title">Import iCal</h2></div>
+        <div class="sheet__content">
+          <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">
+            Paste a calendar subscription URL from TeamSnap, your school, or any app that exports iCal.
+          </p>
+          <div class="field">
+            <label class="field__label" for="icalUrl">Calendar URL (.ics)</label>
+            <input class="field__input" id="icalUrl" type="url" placeholder="https://…/calendar.ics" autocomplete="off">
+          </div>
+          <div id="icalStatus" style="font-size:var(--font-sm);color:var(--text-muted);margin-top:var(--spacing-xs)"></div>
+        </div>
+        <div class="sheet__footer">
+          <button class="btn btn--secondary" id="icalCancel">Cancel</button>
+          <button class="btn btn--primary" id="icalImport">Import</button>
+        </div>`);
+      applyDataColors(taskSheetMount);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('icalCancel')?.addEventListener('click', closeTaskSheet);
+      document.getElementById('icalImport')?.addEventListener('click', async () => {
+        const url = document.getElementById('icalUrl')?.value?.trim();
+        if (!url) return;
+        const status = document.getElementById('icalStatus');
+        const btn = document.getElementById('icalImport');
+        btn.disabled = true; btn.textContent = 'Importing…';
+        if (status) status.textContent = 'Fetching calendar…';
+        try {
+          const res = await fetch(KITCHEN_WORKER_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'ical', input: url }),
+          });
+          const data = await res.json();
+          if (data.error) { if (status) status.textContent = data.error; btn.disabled = false; btn.textContent = 'Import'; return; }
+          if (!data.events?.length) { if (status) status.textContent = 'No upcoming events found in that calendar.'; btn.disabled = false; btn.textContent = 'Import'; return; }
+          closeTaskSheet();
+          setTimeout(() => openImportEventsConfirm(data.events, data.hadRecurring), 320);
+        } catch {
+          if (status) status.textContent = 'Could not fetch that calendar. Check the URL.';
+          btn.disabled = false; btn.textContent = 'Import';
+        }
+      });
+    }
+
+    function openCalendarPhotoImport() {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        document.body.removeChild(input);
+        if (!file) return;
+        taskSheetMount.innerHTML = renderBottomSheet(`
+          <div class="sheet__header"><h2 class="sheet__title">Reading photo…</h2></div>
+          <div class="sheet__content" style="text-align:center;padding:var(--spacing-xl) 0">
+            <span style="color:var(--text-muted);font-size:var(--font-sm)">Extracting events…</span>
+          </div>`);
+        applyDataColors(taskSheetMount);
+        requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+        try {
+          const base64 = await new Promise((res, rej) => {
+            const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+          });
+          const resp = await fetch(KITCHEN_WORKER_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'calendarPhoto', input: { base64, mediaType: file.type || 'image/jpeg', contextDate: today } }),
+          });
+          const data = await resp.json();
+          closeTaskSheet();
+          if (data.error || !data.events?.length) {
+            setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
+              <div class="sheet__header"><h2 class="sheet__title">No events found</h2></div>
+              <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">${data.error || 'No events could be extracted from that photo.'}</p></div>
+              <div class="sheet__footer"><button class="btn btn--secondary" id="cpClose">Close</button></div>`);
+              applyDataColors(taskSheetMount);
+              requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+              document.getElementById('cpClose')?.addEventListener('click', closeTaskSheet);
+            }, 320);
+            return;
+          }
+          setTimeout(() => openImportEventsConfirm(data.events, false), 320);
+        } catch {
+          closeTaskSheet();
+          setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
+            <div class="sheet__header"><h2 class="sheet__title">Error</h2></div>
+            <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">Could not reach import service.</p></div>
+            <div class="sheet__footer"><button class="btn btn--secondary" id="cpClose">Close</button></div>`);
+            applyDataColors(taskSheetMount);
+            requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+            document.getElementById('cpClose')?.addEventListener('click', closeTaskSheet);
+          }, 320);
+        }
+      });
+      input.click();
+    }
+
+    function openTextEventSheet() {
+      taskSheetMount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header"><h2 class="sheet__title">Quick add event</h2></div>
+        <div class="sheet__content">
+          <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">
+            Describe an event and we'll fill in the form. E.g. "dentist Thursday 3pm" or "soccer tournament Saturday all day".
+          </p>
+          <div class="field">
+            <label class="field__label" for="textEvent">Event description</label>
+            <input class="field__input" id="textEvent" type="text" placeholder="dentist Thursday 3pm" autocomplete="off">
+          </div>
+          <div id="textEventStatus" style="font-size:var(--font-sm);color:var(--text-muted);margin-top:var(--spacing-xs)"></div>
+        </div>
+        <div class="sheet__footer">
+          <button class="btn btn--secondary" id="textEventCancel">Cancel</button>
+          <button class="btn btn--primary" id="textEventParse">Add</button>
+        </div>`);
+      applyDataColors(taskSheetMount);
+      requestAnimationFrame(() => {
+        document.getElementById('bottomSheet')?.classList.add('active');
+        document.getElementById('textEvent')?.focus();
+      });
+      document.getElementById('textEventCancel')?.addEventListener('click', closeTaskSheet);
+      async function doParse() {
+        const text = document.getElementById('textEvent')?.value?.trim();
+        if (!text) return;
+        const status = document.getElementById('textEventStatus');
+        const btn = document.getElementById('textEventParse');
+        btn.disabled = true; btn.textContent = 'Parsing…';
+        if (status) status.textContent = '';
+        try {
+          const res = await fetch(KITCHEN_WORKER_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'parseEvent', input: { text, contextDate: today } }),
+          });
+          const data = await res.json();
+          if (data.error) { if (status) status.textContent = data.error; btn.disabled = false; btn.textContent = 'Add'; return; }
+          closeTaskSheet();
+          setTimeout(() => openEventForm(null, data), 320);
+        } catch {
+          if (status) status.textContent = 'Could not parse. Try again.';
+          btn.disabled = false; btn.textContent = 'Add';
+        }
+      }
+      document.getElementById('textEventParse')?.addEventListener('click', doParse);
+      document.getElementById('textEvent')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doParse(); });
+    }
+
+    function openImportEventsConfirm(eventsArr, hadRecurring) {
+      const formatDate = (d) => {
+        const [y, m, day] = d.split('-');
+        return new Date(+y, +m - 1, +day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      };
+      const rows = eventsArr.map((ev, i) =>
+        `<label style="display:flex;align-items:flex-start;gap:var(--spacing-sm);padding:var(--spacing-sm) 0;border-bottom:1px solid var(--border)">
+          <input type="checkbox" class="iev-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0;margin-top:2px">
+          <div>
+            <div style="font-size:var(--font-base);font-weight:500">${escapeHtml(ev.name)}</div>
+            <div style="font-size:var(--font-sm);color:var(--text-muted)">${formatDate(ev.date)}${ev.time ? ' · ' + ev.time : ev.allDay ? ' · All day' : ''}</div>
+          </div>
+        </label>`
+      ).join('');
+      const warning = hadRecurring
+        ? `<p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">Recurring events were skipped — only one-time events are shown.</p>`
+        : '';
+      taskSheetMount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header"><h2 class="sheet__title">Import ${eventsArr.length} event${eventsArr.length !== 1 ? 's' : ''}</h2></div>
+        <div class="sheet__content">
+          ${warning}
+          <div id="ievItems">${rows}</div>
+        </div>
+        <div class="sheet__footer">
+          <button class="btn btn--secondary" id="ievCancel">Cancel</button>
+          <button class="btn btn--primary" id="ievImport">Add selected</button>
+        </div>`);
+      applyDataColors(taskSheetMount);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('ievCancel')?.addEventListener('click', closeTaskSheet);
+      document.getElementById('ievImport')?.addEventListener('click', async () => {
+        const selected = [...taskSheetMount.querySelectorAll('.iev-check:checked')].map(el => eventsArr[+el.dataset.idx]);
+        if (!selected.length) { closeTaskSheet(); return; }
+        const btn = document.getElementById('ievImport');
+        btn.disabled = true; btn.textContent = 'Adding…';
+        for (const ev of selected) {
+          const eventData = {
+            name: ev.name, date: ev.date, allDay: ev.allDay ?? true,
+            startTime: ev.time || null, endTime: null,
+            color: people[0]?.color || '#4285f4',
+            people: [], notes: ev.notes || null, url: null,
+          };
+          const newId = await pushEvent(eventData);
+          events[newId] = eventData;
+          const schedKey = `sched_${Date.now()}_evt_${Math.random().toString(36).slice(2, 6)}`;
+          await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+        }
+        closeTaskSheet();
+        render();
       });
     }
 
@@ -597,10 +826,16 @@
     // Event Form (Create / Edit)
     // ══════════════════════════════════════════
 
-    function openEventForm(existingEventId = null) {
-      const event = existingEventId ? events[existingEventId] : {};
+    function openEventForm(existingEventId = null, prefill = null) {
+      const event = existingEventId ? events[existingEventId] : (prefill ? {
+        name: prefill.name || '',
+        date: prefill.date || viewDay || today,
+        allDay: prefill.allDay ?? true,
+        startTime: prefill.time || '',
+        notes: prefill.notes || '',
+      } : {});
       const mode = existingEventId ? 'edit' : 'create';
-      const dateKey = viewDay || today;
+      const dateKey = event.date || viewDay || today;
       const html = renderEventForm({ event, eventId: existingEventId, people, dateKey, mode });
       taskSheetMount.innerHTML = renderBottomSheet(html);
       applyDataColors(taskSheetMount);

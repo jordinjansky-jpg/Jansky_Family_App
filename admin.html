@@ -78,6 +78,7 @@
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
     import { clearWeatherCache } from './shared/weather.js';
+    const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
     const MSG_POSITIVE = ['Awesome Job!','Super Star','Great Teamwork','Above & Beyond',
       'So Proud of You','Way to Go!','Amazing Effort','Kindness Award',
@@ -3907,6 +3908,9 @@
         <h3 class="admin-form__title">Schedule</h3>
         ${renderScheduleTab()}
         <hr class="admin-section-divider">
+        <h3 class="admin-form__title">AI Imports</h3>
+        ${renderAiImportsTab()}
+        <hr class="admin-section-divider">
         <h3 class="admin-form__title">Data</h3>
         ${renderDataTab()}
       </div>`;
@@ -3914,7 +3918,252 @@
 
     function bindToolsTab() {
       bindScheduleTab();
+      bindAiImportsTab();
       bindDataTab();
+    }
+
+    // ── AI Imports tab ──────────────────────────────────────────────────────────
+
+    function renderAiImportsTab() {
+      return `
+        <div class="admin-form__section">
+          <h4 class="admin-form__subtitle">School Lunch Menu</h4>
+          <p class="form-hint mb-md">Upload the school's monthly lunch PDF. Menus will be imported as school lunch entries visible in the Kitchen meal plan.</p>
+          <div class="admin-form__actions">
+            <label class="btn btn--secondary" style="cursor:pointer" id="schoolLunchLabel">
+              Upload PDF
+              <input type="file" id="schoolLunchInput" accept="application/pdf,.pdf" style="display:none">
+            </label>
+          </div>
+          <div id="schoolLunchStatus" class="mt-sm"></div>
+        </div>
+
+        <div class="admin-form__section mt-lg">
+          <h4 class="admin-form__subtitle">Homework Scanner</h4>
+          <p class="form-hint mb-md">Take a photo of an assignment sheet. Detected tasks will appear as one-time tasks ready to add to the schedule.</p>
+          <div class="admin-form__actions">
+            <label class="btn btn--secondary" style="cursor:pointer" id="homeworkLabel">
+              Upload Photo
+              <input type="file" id="homeworkInput" accept="image/*" capture="environment" style="display:none">
+            </label>
+          </div>
+          <div id="homeworkStatus" class="mt-sm"></div>
+        </div>
+
+        <div class="admin-form__section mt-lg" id="emailImportsSection">
+          <h4 class="admin-form__subtitle">Email Imports</h4>
+          <p class="form-hint mb-md">Events extracted from forwarded emails appear here for review.</p>
+          <div id="emailImportsList"><span style="color:var(--text-muted);font-size:var(--font-sm)">Loading…</span></div>
+        </div>`;
+    }
+
+    function bindAiImportsTab() {
+      if (!KITCHEN_WORKER_URL) return;
+
+      // ── School Lunch PDF ──
+      main.querySelector('#schoolLunchInput')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const statusEl = main.querySelector('#schoolLunchStatus');
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Reading PDF…</span>';
+        try {
+          const base64 = await new Promise((res, rej) => {
+            const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+          });
+          const resp = await fetch(KITCHEN_WORKER_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType: 'application/pdf' } }),
+          });
+          const data = await resp.json();
+          if (data.error || !data.days?.length) {
+            if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">${data.error || 'No lunch entries found.'}</span>`;
+            return;
+          }
+          renderSchoolLunchConfirm(data.days, statusEl);
+        } catch {
+          if (statusEl) statusEl.innerHTML = '<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">Import failed. Check your connection.</span>';
+        }
+        e.target.value = '';
+      });
+
+      // ── Homework Scanner ──
+      main.querySelector('#homeworkInput')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const statusEl = main.querySelector('#homeworkStatus');
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Scanning…</span>';
+        try {
+          const base64 = await new Promise((res, rej) => {
+            const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+          });
+          const resp = await fetch(KITCHEN_WORKER_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'homeworkScan', input: { base64, mediaType: file.type || 'image/jpeg', contextDate: todayKey(settings?.timezone || 'America/Chicago') } }),
+          });
+          const data = await resp.json();
+          if (data.error || !data.tasks?.length) {
+            if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">${data.error || 'No assignments found.'}</span>`;
+            return;
+          }
+          renderHomeworkConfirm(data.tasks, statusEl);
+        } catch {
+          if (statusEl) statusEl.innerHTML = '<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">Scan failed. Check your connection.</span>';
+        }
+        e.target.value = '';
+      });
+
+      // ── Email Imports ──
+      loadEmailImports();
+    }
+
+    function renderSchoolLunchConfirm(days, statusEl) {
+      if (!statusEl) return;
+      const rows = days.map((d, i) => {
+        const label = d.lunch2 ? `${esc(d.lunch1)} / ${esc(d.lunch2)}` : esc(d.lunch1);
+        return `<div style="display:flex;align-items:center;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
+          <input type="checkbox" class="sl-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0">
+          <span style="font-size:var(--font-sm);flex:1"><strong>${esc(d.date)}</strong> — ${label}</span>
+        </div>`;
+      }).join('');
+      statusEl.innerHTML = `
+        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${days.length} day${days.length !== 1 ? 's' : ''} found — uncheck any to skip.</p>
+        <div id="slItems">${rows}</div>
+        <div class="admin-form__actions mt-md">
+          <button class="btn btn--secondary btn--sm" id="slCancel">Cancel</button>
+          <button class="btn btn--primary btn--sm" id="slSave">Import selected</button>
+        </div>`;
+      statusEl.querySelector('#slCancel')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
+      statusEl.querySelector('#slSave')?.addEventListener('click', async () => {
+        const selected = [...statusEl.querySelectorAll('.sl-check:checked')].map(el => days[+el.dataset.idx]);
+        if (!selected.length) { statusEl.innerHTML = ''; return; }
+        const btn = statusEl.querySelector('#slSave');
+        btn.disabled = true; btn.textContent = 'Saving…';
+        const db = firebase.database();
+        for (const d of selected) {
+          await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch`).set({ mealName: d.lunch1, source: 'school' });
+          if (d.lunch2) await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch-2`).set({ mealName: d.lunch2, source: 'school' });
+        }
+        statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-sm)">${selected.length} day${selected.length !== 1 ? 's' : ''} imported.</span>`;
+      });
+    }
+
+    function renderHomeworkConfirm(tasks, statusEl) {
+      if (!statusEl) return;
+      const rows = tasks.map((t, i) =>
+        `<div style="display:flex;align-items:flex-start;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
+          <input type="checkbox" class="hw-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0;margin-top:2px">
+          <div>
+            <div style="font-size:var(--font-sm);font-weight:500">${esc(t.name)}</div>
+            <div style="font-size:var(--font-xs,0.75rem);color:var(--text-muted)">Due ${esc(t.dueDate)}${t.notes ? ' · ' + esc(t.notes) : ''}</div>
+          </div>
+        </div>`
+      ).join('');
+      statusEl.innerHTML = `
+        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${tasks.length} assignment${tasks.length !== 1 ? 's' : ''} found.</p>
+        <div id="hwItems">${rows}</div>
+        <div class="admin-form__actions mt-md">
+          <button class="btn btn--secondary btn--sm" id="hwCancel">Cancel</button>
+          <button class="btn btn--primary btn--sm" id="hwSave">Add to schedule</button>
+        </div>`;
+      statusEl.querySelector('#hwCancel')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
+      statusEl.querySelector('#hwSave')?.addEventListener('click', async () => {
+        const selected = [...statusEl.querySelectorAll('.hw-check:checked')].map(el => tasks[+el.dataset.idx]);
+        if (!selected.length) { statusEl.innerHTML = ''; return; }
+        const btn = statusEl.querySelector('#hwSave');
+        btn.disabled = true; btn.textContent = 'Adding…';
+        const tz = settings?.timezone || 'America/Chicago';
+        for (const t of selected) {
+          const firstPersonId = Object.keys(peopleObj)[0] || null;
+          const taskData = {
+            name: t.name, rotation: 'once', owners: firstPersonId ? [firstPersonId] : [],
+            ownerAssignmentMode: 'fixed', timeOfDay: 'anytime',
+            dedicatedDate: t.dueDate, estMin: 30, difficulty: 'medium',
+            category: 'general', status: 'active',
+            createdDate: todayKey(tz), notes: t.notes || null, exempt: false,
+          };
+          const taskId = await pushTask(taskData);
+          const schedKey = `sched_${Date.now()}_hw_${Math.random().toString(36).slice(2,6)}`;
+          await multiUpdate({ [`schedule/${t.dueDate}/${schedKey}`]: { taskId, ownerId: taskData.owners[0], rotationType: 'once', ownerAssignmentMode: 'fixed', timeOfDay: 'anytime' } });
+        }
+        statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-sm)">${selected.length} task${selected.length !== 1 ? 's' : ''} added.</span>`;
+      });
+    }
+
+    async function loadEmailImports() {
+      const listEl = main.querySelector('#emailImportsList');
+      if (!listEl) return;
+      try {
+        const db = firebase.database();
+        const snap = await db.ref('rundown/emailImports').orderByChild('processed').equalTo(false).once('value');
+        const imports = snap.val();
+        if (!imports) {
+          listEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">No pending email imports.</span>';
+          return;
+        }
+        const entries = Object.entries(imports).sort((a, b) => (b[1].receivedAt || 0) - (a[1].receivedAt || 0));
+        let html = '';
+        for (const [id, entry] of entries) {
+          const evRows = (entry.events || []).map((ev, i) =>
+            `<div style="display:flex;align-items:flex-start;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
+              <input type="checkbox" class="em-check" data-ev='${JSON.stringify(ev)}' checked style="width:18px;height:18px;flex-shrink:0;margin-top:2px">
+              <div>
+                <div style="font-size:var(--font-sm);font-weight:500">${esc(ev.name)}</div>
+                <div style="font-size:var(--font-xs,0.75rem);color:var(--text-muted)">${esc(ev.date)}${ev.time ? ' · ' + esc(ev.time) : ''}</div>
+              </div>
+            </div>`
+          ).join('');
+          html += `<div class="admin-form__section" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--spacing-md);margin-bottom:var(--spacing-md)" data-email-id="${id}">
+            <div style="font-size:var(--font-sm);font-weight:500;margin-bottom:var(--spacing-xs)">${esc(entry.subject || '(no subject)')}</div>
+            <div style="font-size:var(--font-xs,0.75rem);color:var(--text-muted);margin-bottom:var(--spacing-sm)">From: ${esc(entry.from || '?')} · ${new Date(entry.receivedAt || 0).toLocaleString()}</div>
+            <div class="em-events">${evRows}</div>
+            <div class="admin-form__actions mt-sm">
+              <button class="btn btn--secondary btn--sm em-dismiss">Dismiss</button>
+              <button class="btn btn--primary btn--sm em-import">Add selected</button>
+            </div>
+            <div class="em-status" style="font-size:var(--font-sm);margin-top:var(--spacing-xs)"></div>
+          </div>`;
+        }
+        listEl.innerHTML = html;
+
+        listEl.querySelectorAll('.em-dismiss').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const card = btn.closest('[data-email-id]');
+            const id = card?.dataset.emailId;
+            if (!id) return;
+            await firebase.database().ref(`rundown/emailImports/${id}/processed`).set(true);
+            card.remove();
+            if (!listEl.querySelector('[data-email-id]')) {
+              listEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">No pending email imports.</span>';
+            }
+          });
+        });
+
+        listEl.querySelectorAll('.em-import').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const card = btn.closest('[data-email-id]');
+            const id = card?.dataset.emailId;
+            const statusEl = card?.querySelector('.em-status');
+            const checked = [...card.querySelectorAll('.em-check:checked')].map(el => JSON.parse(el.dataset.ev));
+            if (!checked.length) return;
+            btn.disabled = true; btn.textContent = 'Adding…';
+            for (const ev of checked) {
+              const newId = await pushEvent({
+                name: ev.name, date: ev.date, allDay: ev.allDay ?? true,
+                startTime: ev.time || null, endTime: null,
+                color: people?.[0]?.color || '#4285f4',
+                people: [], notes: ev.notes || null, url: null,
+              });
+              const schedKey = `sched_${Date.now()}_em_${Math.random().toString(36).slice(2,6)}`;
+              await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+            }
+            await firebase.database().ref(`rundown/emailImports/${id}/processed`).set(true);
+            if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60)">${checked.length} event${checked.length !== 1 ? 's' : ''} added.</span>`;
+            setTimeout(() => card.remove(), 2000);
+          });
+        });
+      } catch {
+        if (listEl) listEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Could not load email imports.</span>';
+      }
     }
 
     // ── Initial render if PIN session was cached or bypass applies ──

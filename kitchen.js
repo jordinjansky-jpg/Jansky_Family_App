@@ -175,7 +175,7 @@ function bindFab() {
   document.getElementById('kitchenFab')?.addEventListener('click', () => {
     if (activeTab === 'meals') openMealFabSheet();
     else if (activeTab === 'recipes') openRecipeForm(null);
-    else openBulkAddSheet();
+    else openListFabSheet();
   });
 }
 
@@ -832,9 +832,14 @@ function openRecipeForm(recipeId, onSave = null) {
         <input id="recipeUrl" type="url" placeholder="https://…"
           value="${esc(existing?.url || '')}" autocomplete="off">
       </label>
-      <div class="field">
-        <span class="field__label" style="display:block;margin-bottom:var(--spacing-xs)">Import from screenshot</span>
-        <button class="btn btn--secondary btn--sm" disabled type="button">Screenshot (coming soon)</button>
+      <div class="field" style="display:flex;align-items:center;gap:var(--spacing-xs);flex-wrap:wrap">
+        <button class="btn btn--secondary btn--sm" id="importFromUrlBtn" type="button">Import from URL</button>
+        <span id="urlImportStatus" style="display:none;font-size:var(--font-sm)"></span>
+      </div>
+      <div class="field" style="display:flex;align-items:center;gap:var(--spacing-xs);flex-wrap:wrap">
+        <input id="screenshotInput" type="file" accept="image/*" style="display:none">
+        <button class="btn btn--secondary btn--sm" id="importScreenshotBtn" type="button">Import from photo</button>
+        <span id="screenshotStatus" style="display:none;font-size:var(--font-sm)"></span>
       </div>
     </div>
     <div class="sheet__footer">
@@ -873,6 +878,74 @@ function openRecipeForm(recipeId, onSave = null) {
   }
   bindRemoveButtons();
 
+  let importedNotes = existing?.notes || null;
+
+  async function runImport(type, input, btnId, statusId) {
+    const btn = document.getElementById(btnId);
+    const status = document.getElementById(statusId);
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = 'Importing…';
+    status.style.display = 'none';
+    try {
+      const res = await fetch(KITCHEN_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, input }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        status.textContent = data.error === 'not a recipe' ? 'No recipe found.' : 'Import failed.';
+        status.style.color = 'var(--danger)';
+        status.style.display = 'inline';
+        return;
+      }
+      if (data.name && !document.getElementById('recipeName').value) {
+        document.getElementById('recipeName').value = data.name;
+      }
+      if (data.url && !document.getElementById('recipeUrl').value) {
+        document.getElementById('recipeUrl').value = data.url;
+      }
+      if (data.ingredients?.length) {
+        data.ingredients.forEach(ing => { if (ing.name) ingredients.push({ name: ing.name }); });
+        document.getElementById('ingredientList').innerHTML = buildIngredientList();
+        bindRemoveButtons();
+      }
+      if (data.notes) importedNotes = data.notes;
+      status.textContent = 'Done!';
+      status.style.color = 'var(--text-muted)';
+      status.style.display = 'inline';
+    } catch {
+      status.textContent = 'Import failed.';
+      status.style.color = 'var(--danger)';
+      status.style.display = 'inline';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  }
+
+  document.getElementById('importFromUrlBtn')?.addEventListener('click', () => {
+    const url = document.getElementById('recipeUrl')?.value.trim();
+    if (!url) { document.getElementById('recipeUrl')?.focus(); return; }
+    runImport('url', url, 'importFromUrlBtn', 'urlImportStatus');
+  });
+
+  document.getElementById('importScreenshotBtn')?.addEventListener('click', () => {
+    document.getElementById('screenshotInput')?.click();
+  });
+
+  document.getElementById('screenshotInput')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      runImport('screenshot', { base64, mediaType: file.type || 'image/jpeg' }, 'importScreenshotBtn', 'screenshotStatus');
+    };
+    reader.readAsDataURL(file);
+  });
+
   document.getElementById('saveRecipeForm')?.addEventListener('click', async () => {
     const name = document.getElementById('recipeName')?.value.trim();
     if (!name) { document.getElementById('recipeName')?.focus(); return; }
@@ -880,6 +953,7 @@ function openRecipeForm(recipeId, onSave = null) {
     const data = {
       name,
       url,
+      notes: importedNotes || existing?.notes || null,
       source: existing?.source || 'manual',
       ingredients,
       isFavorite: existing?.isFavorite || false,
@@ -1387,6 +1461,111 @@ function openStapleEditSheet(id, onDone) {
     delete staples[id];
     mount.innerHTML = '';
     openStaplesSheet();
+  });
+}
+
+async function addItemToActiveList(name) {
+  const trimmed = name.trim();
+  if (!trimmed || !activeListId) return;
+  const id = await pushKitchenItem(activeListId, {
+    name: trimmed, checked: false,
+    addedAt: firebase.database.ServerValue.TIMESTAMP, category: null,
+  });
+  if (KITCHEN_WORKER_URL) categorizeItem(activeListId, id, trimmed);
+}
+
+function openListFabSheet() {
+  if (!activeListId) { openCreateListSheet(); return; }
+  if (!KITCHEN_WORKER_URL) { openBulkAddSheet(); return; }
+  const mount = document.getElementById('sheetMount');
+  const cameraIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+  const listIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+  const options = [
+    { key: 'type', label: 'Add items', icon: listIcon },
+    { key: 'photo', label: 'Scan fridge / pantry', icon: cameraIcon },
+  ];
+  mount.innerHTML = renderBottomSheet(renderAddMenu(options));
+  activateSheet(mount);
+  mount.querySelector('.add-menu')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    mount.innerHTML = '';
+    if (btn.dataset.action === 'photo') setTimeout(() => openPhotoToListSheet(), 320);
+    else setTimeout(() => openBulkAddSheet(), 320);
+  });
+}
+
+function openPhotoToListSheet() {
+  if (!activeListId || !KITCHEN_WORKER_URL) return;
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    document.body.removeChild(input);
+    if (!file) return;
+    const mount = document.getElementById('sheetMount');
+    mount.innerHTML = renderBottomSheet(`
+      <div class="sheet__header"><h2 class="sheet__title">Scanning photo…</h2></div>
+      <div class="sheet__content" style="text-align:center;padding:var(--spacing-xl) 0">
+        <span style="color:var(--text-muted);font-size:var(--font-sm)">Identifying items…</span>
+      </div>`);
+    activateSheet(mount);
+    try {
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+      });
+      const resp = await fetch(KITCHEN_WORKER_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType: file.type || 'image/jpeg' } }),
+      });
+      const data = await resp.json();
+      if (data.error || !data.items?.length) {
+        mount.innerHTML = renderBottomSheet(`
+          <div class="sheet__header"><h2 class="sheet__title">No items found</h2></div>
+          <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">${data.error || 'No items detected in that photo.'}</p></div>
+          <div class="sheet__footer"><button class="btn btn--secondary" id="ptlClose">Close</button></div>`);
+        activateSheet(mount);
+        mount.querySelector('#ptlClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+        return;
+      }
+      renderPhotoToListConfirm(mount, data.items);
+    } catch {
+      mount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header"><h2 class="sheet__title">Error</h2></div>
+        <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">Could not reach import service. Check your connection.</p></div>
+        <div class="sheet__footer"><button class="btn btn--secondary" id="ptlClose">Close</button></div>`);
+      activateSheet(mount);
+      mount.querySelector('#ptlClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    }
+  });
+  input.click();
+}
+
+function renderPhotoToListConfirm(mount, items) {
+  const rows = items.map((item, i) =>
+    `<label style="display:flex;align-items:center;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
+      <input type="checkbox" class="ptl-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0">
+      <span style="font-size:var(--font-base)">${esc(item.name)}</span>
+    </label>`
+  ).join('');
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header"><h2 class="sheet__title">Add to list</h2></div>
+    <div class="sheet__content">
+      <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${items.length} item${items.length !== 1 ? 's' : ''} detected — uncheck any you don't need.</p>
+      <div id="ptlItems">${rows}</div>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--secondary" id="ptlCancel">Cancel</button>
+      <button class="btn btn--primary" id="ptlAdd">Add selected</button>
+    </div>`);
+  activateSheet(mount);
+  mount.querySelector('#ptlCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  mount.querySelector('#ptlAdd')?.addEventListener('click', async () => {
+    const checked = [...mount.querySelectorAll('.ptl-check:checked')].map(el => items[+el.dataset.idx].name);
+    mount.innerHTML = '';
+    for (const name of checked) await addItemToActiveList(name);
   });
 }
 

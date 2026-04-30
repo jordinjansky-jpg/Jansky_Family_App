@@ -6,12 +6,18 @@ A family chore/task management app with scheduling, scoring, and gamification. E
 - **Frontend:** Vanilla JS (ES modules), HTML, CSS — no framework, no bundler, no npm
 - **Database:** Firebase Realtime Database (compat SDK via CDN — `firebase.` global, not modular imports)
 - **Hosting:** Cloudflare Pages — static files served as-is via `git push` to `main`
+- **Auth:** Cloudflare Zero Trust / Access — family-only access via Google Sign-In. Team: `jansky-family`. App URL: `dashboard.jansky.app`.
+- **Workers:** Cloudflare Workers (`workers/kitchen-import.js`) — AI features via Claude Haiku API. Deploy with `wrangler deploy workers/kitchen-import.js`.
 - **Styling:** Modular CSS split by responsibility, themed via JS at runtime. Service worker caches app shell for offline support.
 
 ## Commands
 ```bash
-# Deploy (auto-deploys on push to main via Cloudflare Pages)
+# Deploy frontend (auto-deploys on push to main via Cloudflare Pages)
 git push origin main
+
+# Deploy Cloudflare Worker (requires terminal; or use Cloudflare dashboard → Workers & Pages → Edit code)
+npx wrangler deploy workers/kitchen-import.js
+# Note: wrangler may fail in PowerShell due to execution policy — use cmd.exe or the dashboard editor
 
 # No build step, no test suite, no package.json
 # Open any .html file directly in browser for local dev (needs Firebase connection)
@@ -22,7 +28,9 @@ git push origin main
 /                         ← Served as-is by Cloudflare Pages
 ├── index.html            ← Dashboard shell — loads dashboard.js
 ├── dashboard.js          ← Dashboard logic — daily task list, completion toggling, progress, overdue banner
-├── person.html           ← Per-person PWA entry (?person=Name) — installable home screen shortcut with unique manifest (served by sw.js)
+├── kitchen.html          ← Kitchen hub — shopping lists, recipes, staples, meal look-ahead
+├── kitchen.js            ← Kitchen logic — list CRUD, auto-categorize via Worker, recipe import, staples
+├── person.html           ← Per-person PWA entry (?person=Name) — installable home screen shortcut
 ├── calendar.html         ← Three-view calendar (month/week/day) with swipe nav, quick-add events, person filters
 ├── scoreboard.html       ← Leaderboard, grades table, trend sparklines, category breakdown
 ├── tracker.html          ← Weekly/monthly task status rows, filters, skipped task detection
@@ -30,6 +38,8 @@ git push origin main
 ├── kid.html              ← Kid-friendly view (?kid=Name), emoji hints, celebrations, simplified UI
 ├── setup.html            ← First-run wizard (6 steps: info, people, categories, theme, PIN, finish)
 ├── manifest.json         ← PWA manifest for home screen installability
+├── workers/
+│   └── kitchen-import.js ← Cloudflare Worker — AI categorization, recipe import (URL + photo), future: school lunch PDF, iCal, email
 ├── shared/
 │   ├── firebase.js       ← Firebase init + CRUD helpers + real-time listener wrappers (~25 exports). Only module that touches DB.
 │   ├── scheduler.js      ← Schedule generation: rotation, cooldown, load balancing, duplicate mode (~850 lines)
@@ -49,6 +59,7 @@ git push origin main
     ├── scoreboard.css    ← Leaderboard, sparklines, category breakdown
     ├── tracker.css       ← Status rows, filters, weekly/monthly grids
     ├── admin.css         ← Admin forms, tabs, PIN screen, setup wizard
+    ├── kitchen.css       ← Kitchen hub styles
     ├── kid.css           ← Kid mode specific styles
     └── responsive.css    ← Breakpoint overrides (400px, 768px, 1024px)
 ```
@@ -60,10 +71,11 @@ git push origin main
 - **Rendering:** Full re-render on data/filter changes (not incremental). Bottom sheets mount/unmount rather than persist.
 - **Imports:** All ES module imports use relative paths with `.js` extensions — bare imports break without bundler.
 - **Schema:** Changes require a migration plan since data is live in production Firebase.
-- **CSS split:** Styles are split into 10 files by responsibility. Each page loads only the CSS it needs via multiple `<link>` tags. Order matters: base → layout → components → page-specific → responsive.
+- **CSS split:** Styles are split into 11 files by responsibility. Each page loads only the CSS it needs via multiple `<link>` tags. Order matters: base → layout → components → page-specific → responsive.
 - **Offline support:** Service worker caches the full app shell (network-first strategy). Firebase API calls are network-only. The app loads and functions offline; writes queue and sync on reconnect.
 - **Real-time updates:** Dashboard, calendar, and kid mode use Firebase `onValue` listeners for completions and schedule. Renders are debounced at 100ms. Scoreboard and tracker use one-shot reads (historical data).
 - **Swipe gestures:** Horizontal swipe anywhere on page navigates between days (dashboard/kid) or months (calendar).
+- **Workers:** `workers/kitchen-import.js` is a Cloudflare Worker handling AI tasks. It uses `callClaude()` (shared Haiku helper) and routes on `body.type` (`categorize` | `url` | `screenshot` | future types). Secrets: `CLAUDE_API_KEY` via `wrangler secret put`.
 
 ## Firebase Schema (`rundown/`)
 ```
@@ -119,6 +131,24 @@ rundown/
 ├── multipliers/
 │   └── {YYYY-MM-DD}/
 │       └── {personId} ← { multiplier, note?, createdBy }
+├── meals/
+│   └── {YYYY-MM-DD}/
+│       └── {slot}     ← { mealId, source: 'manual'|'school' }
+│                        slot: 'breakfast'|'lunch'|'dinner'|'snack'|'school-lunch'|'school-lunch-2'
+├── mealLibrary/
+│   └── {pushId}      ← { name, url?, notes?, tags?, ingredients?, isFavorite, prepTime?, createdAt, lastUsed }
+├── kitchen/
+│   ├── lists/
+│   │   └── {listId}  ← { name, createdAt, sortOrder }
+│   ├── lists/{listId}/items/
+│   │   └── {itemId}  ← { name, checked, category?, addedBy?, addedAt }
+│   ├── recipes/
+│   │   └── {pushId}  ← { name, url?, notes?, ingredients: [{name, qty?}], createdAt, lastUsed? }
+│   ├── staples/
+│   │   └── {itemId}  ← { name, category? }
+│   └── plan/
+│       └── {YYYY-MM-DD}/
+│           └── {slot} ← { mealId } (mirrors rundown/meals for kitchen context)
 └── debug/eventLog/    ← { ...data, timestamp }
 ```
 
@@ -143,7 +173,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **Completion:** Allowed on any date (no future-date blocking). Completed tasks render at the bottom of all task lists. **Past daily tasks are tap-blocked** — tapping opens the detail sheet instead of toggling. Long-press or sheet button required to complete. All past-date completions (any rotation) get `isLate: true` + `pointsOverride: pastDueCreditPct`.
 - **Task grouping order (dashboard/kid):** Events → Daily → Weekly → Monthly → One-Time, then by owner within each group.
 - **Task grouping order (calendar day sheet):** Events → Monthly → Weekly → One-Time → Daily. Different from dashboard intentionally — calendar emphasizes uncommon recurrences first since users open the sheet for scheduling visibility, not the daily grind.
-- **Long-press:** Opens detail sheet. Tap toggles completion. Horizontal swipe navigates days (dashboard) or months (calendar). Timing: **500ms on tracker**, **800ms on calendar/kid mode** (longer hold required there because those views are more touch-scroll-heavy and false-fires are more disruptive).
+- **Long-press:** Opens detail sheet. Tap toggles completion. Horizontal swipe navigates days (dashboard) or months (calendar). Timing: **500ms on tracker**, **800ms on calendar/kid/dashboard**.
 - **Duplicate mode:** Creates one schedule entry per owner. Fixed mode always uses first owner (used for events).
 - **Daily cooldown:** Tasks with `cooldownDays` are spaced at fixed intervals (`cooldownDays + 1` days apart).
 - **Scoreboard blending:** Weekly grades blend snapshots (past days) + live daily score (today) for accuracy.
@@ -158,6 +188,7 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - **Notification bell:** Shared `initBell()` on all non-kid pages. Shows unseen count badge, pending approval requests, recent activity. Parents approve/deny redemptions, send bonus/deduction messages, and create bonus multiplier days from the bell dropdown.
 - **Achievements:** 13 milestone badges checked on kid mode load. Unseen achievements show full-screen unlock overlays. Trophy case displays in kid mode; badge icons show on scoreboard cards.
 - **Person delete cascade:** Removing a person in admin also cleans up messages, balance anchors, bank tokens, wishlist, and achievements via `deletePersonRewardsData()`.
+- **Kitchen Worker routing:** `POST {type, input}` → `categorize` (item name string) | `url` (URL string) | `screenshot` ({base64, mediaType}). Returns `{category}` or `{name, ingredients:[{name,qty}], notes, url}`. CLAUDE_API_KEY secret required.
 
 ## Gotchas (Critical)
 - Firebase RTDB compat SDK (not modular) — all access via `firebase.` global after CDN load
@@ -175,215 +206,148 @@ These are non-obvious rules that can't be derived from reading the code in isola
 - CSS has `--font-size-md: 1rem` between `sm` (0.8125rem) and `base` (0.9375rem) — used by scoreboard cards
 - SW cache list must be updated manually when files are added/renamed (bump `CACHE_NAME` version in sw.js)
 - CSS `<link>` tag order matters: base, layout, components, page-specific, responsive
+- **Cloudflare Access:** App is locked to Google Sign-In via Zero Trust. The Access application is configured for `dashboard.jansky.app` (subdomain `dashboard`, domain `jansky.app`) — NOT `jansky.app` root. Session duration: 1 month. Kids use parent's login. Path-based Bypass for kid.html is unreliable on the free tier — removed; parents log in once per device.
+- **Worker deploy:** Workers are NOT auto-deployed with `git push`. Must run `wrangler deploy` separately (terminal or Cloudflare dashboard editor). PowerShell may block `npx` due to execution policy — use cmd.exe or paste code directly in dashboard.
 
 ## Changelog (last 5)
-- Meal Planning (1.3, 2026-04-25): meal library (`mealLibrary/{pushId}`) + per-day slot assignments (`meals/{date}/{slot}` with `mealId` reference). Components: `renderMealEditorSheet`, `renderMealPlanSheet`, `renderMealDetailSheet` in `shared/components.js`. Calendar day view gains meals section with school-entry styling; admin gains Meals library tab (CRUD + ingredient/tag editor); kid mode gains Tonight's dinner tile; dashboard ambient strip wired for dinner chip (shows when `ambientStrip` enabled). Settings: `ambientStrip` toggle (Display), per-kid `showMeals` pref. Firebase helpers in `shared/firebase.js`: `readMeals`, `writeMeal`, `removeMeal`, `readMealLibrary`, `pushMealLibrary`, `writeMealLibrary`, `removeMealLibrary`, `readAllMeals`. SW cache v64.
-- Dashboard final-form design (2026-04-25): 8-section spec ([docs/superpowers/specs/2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md)) — Header → Banner → Back-to-Today → Ambient → Coming up → Events → Today → FAB+Nav. New: Coming up rail (3.3, collapsed-by-default, events-only count, day-block head jumps viewDate); Ambient strip (1.3+1.4 wiring, viewDate-aware, on-by-default once both ship); Today section meta gains `· NN pt · GRADE` chips when filter set to one person, where `pt` is store-economy points (not scoring). Removed: `settings.showPoints` and per-card scoring-pt chips entirely; person-link "Viewing as" pill (title-becomes-name carries identity). Restructured: long-press default 500→800ms on dashboard (settings override preserved), Back-to-Today pill moves to between Banner and Ambient, banner queue persists onto Scoreboard + Tracker so 1.6's running-activity `--info` banner stays visible across pages. Implementation plan to follow.
-- Phase 2 calendar rework SHELVED (2026-04-25): Eight-task Phase 1.5-aligned rework reached final review (PR #3) and was paused. On phone, agenda views duplicated the dashboard and Month was hidden — calendar page can't earn its tab slot until tablet/kiosk. Phone tab bar dropped to 4 slots (Calendar removed). New backlog 3.3 captures the dashboard "Coming up" rail that replaces the phone-side need. Calendar resumes during 1.5 (Kiosk). PR #3 closed; branch `phase-2-calendar` deleted; plan moved to docs/superpowers/plans/shelved/.
-- Phase 1.5 dashboard polish: card density + stripe geometry + shadow leak fix, completed-card mute (no strikethrough), check hover/press, section-head grid + divider + muted meta, larger header title + narrow-phone subtitle, FAB depth + nav active rail, Back-to-Today chevron + entrance, filter chip dot/verb + section cue, bell pulse, tap-target/contrast/tap-feedback audit. Theme fixes: `data-theme` now follows preset.mode (not stale themeConfig.mode); switching presets strips stale inline var overrides so light presets can't inherit dark tokens. SW cache v50.
-- Phase 1 dashboard rework: mockup-aligned header, card-slot DOM, priority banner queue (vacation > freeze > overdue > multiplier > info), FAB + 5-tab bottom nav with More sheet, person filter chip, owner left-stripe, empty state. SW cache v46.
-- Adult rewards + confirm modals: Adults skip approval for buying/using rewards (instant). "Use" button on saved tokens in scoreboard store (custom, task-skip picker, penalty removal). All browser confirm()/alert() replaced with polished in-app showConfirm() modals. Toast styles shared across all pages.
-- Reward bank + fixes: All approved rewards banked (not just functional), custom rewards require parent approval to use, kid Use Now/Save overlay, bank visible in kid mode + scoreboard store + admin, achievement revoke (won't re-fire) vs reset (re-earnable), scoreboard clear now resets balances/messages/tokens
-- Rewards Store polish: Bounties section in kid store, animated balance count-up, "Skipped" badge on task cards, achievements re-check on task completion, admin achievements view, redemption history in admin, balance trend sparkline on scoreboard
-- Rewards Store (1.2): Points economy (100 pts/day), parent-defined rewards, bonus/deduction messages, notification bell on all pages, functional rewards (task skip, penalty removal), bounty tasks, 13 achievement badges, bonus multiplier days, balance on scoreboard, admin balance management
-- Calendar mobile week view: days reorder like dashboard (today first, future next, past at bottom via CSS `order`), "Today" tag pill, past days faded, dead auto-scroll code removed
-- Calendar overhaul (1.1): three-view calendar (month/week/day), first-class events with quick-add, time-grid day view, swipe navigation, person filters, `calendar-views.js` shared module
-- Points system rescale: new formula `basePoints = max(estMin, 5) × difficultyMultiplier` replaces `round(mult × (1 + estMin/30))`. Difficulty multipliers configurable per-family via `settings.difficultyMultipliers`. Zero data migration — percentages identical pre/post.
-- Late completion penalties: moved late penalty from scoring-time detection to completion-time recording. Past daily tasks tap-blocked. `isLate` flag + `pointsOverride` set at completion time. Slider shows penalty, parent-adjustable.
-- Codebase audit fixes: XSS hardening, CSS variable fixes, scheduler bug fixes (cooldown anchor leak, past-date one-time tasks), scoring late-completion detection, calendar listener leak fix, DOM helpers extracted
+- Kitchen hub (2026-04-29): kitchen.html — combined shopping lists + meals + recipes + staples (supersedes 1.3+1.7). AI auto-categorize (deployed), URL/photo recipe import (built, needs Worker redeploy). SW cache v94.
+- Weather widget (1.4): `shared/weather.js` + ambient strip chip on dashboard. OpenWeatherMap free tier, 5-day forecast sheet, admin location/API key settings, `viewDate`-aware, localStorage cache. `settings.ambientStrip` now defaults to `true`.
+- Meal Planning (1.3): meal library + per-day slot assignments, plan/detail/editor sheets, calendar day view, admin Meals tab, kid Tonight tile, ambient strip wired. (Schema migrated into Kitchen.) SW cache v64.
+- Dashboard final-form spec (2026-04-25): 8-section layout (Header→Banner→Ambient→Coming up→Events→Today→FAB+Nav), Coming up rail (3.3), Today meta pt+grade chips, banner queue persists to Scoreboard+Tracker. See [docs/superpowers/specs/2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md).
+- Phase 2 calendar SHELVED (2026-04-25): phone agenda duplicates dashboard; tab bar → 4 slots (Calendar removed). Shelved plan at [docs/superpowers/plans/shelved/](docs/superpowers/plans/shelved/).
 
 ## Backlog
 
-Product direction: evolve Daily Rundown from a task manager into a **Skylight Calendar competitor** — a free, web-based family hub. The app already has a superior task/scoring engine; the goal is to add the hub features (calendar, meals, lists, display) that make it the family's single go-to screen. Design bar: as clean as Skylight, as easy to use as Google Calendar. All features below run on free tiers (Firebase Spark, Cloudflare free, OpenWeatherMap free, FCM free) except school lunch PDF import which costs ~$0.03/month via Claude API.
+Product direction: evolve Daily Rundown from a task manager into a **Skylight Calendar competitor** — a free, web-based family hub. The app already has a superior task/scoring engine; the goal is to add the hub features (calendar, meals, lists, display) that make it the family's single go-to screen. Design bar: as clean as Skylight, as easy to use as Google Calendar. All features run on free tiers except AI import features (~$0.03/month via Claude API).
 
-### Tier 1 — The Family Hub Transformation (build in order)
+### Tier 1 — The Family Hub Transformation
 
-~~**1.1 — Calendar Overhaul (Family Hub)** · DONE — shipped 2026-04-16. Three-view calendar (month/week/day), first-class events with quick-add, time-grid layout, swipe navigation, person filters.~~
+~~**1.1 — Calendar Overhaul** · DONE — shipped 2026-04-16. Three-view calendar (month/week/day), first-class events with quick-add, time-grid layout, swipe navigation, person filters.~~
 
-> **Phase 2 calendar rework — SHELVED 2026-04-25.** A Phase 1.5-aligned rework (PR #3) was completed end-to-end and then shelved. The agenda-first phone designs duplicate the dashboard (Week = scrollable dashboard, Day = dashboard); only Month grid earns its keep, and only on tablet/kiosk. Phone agenda needs are moving to the dashboard via backlog item **3.3 — Dashboard "Coming up" rail** (below). The calendar page resumes during backlog **1.5 (Kiosk)** when Month finally has a screen size that works for it. Shelved plan: [docs/superpowers/plans/shelved/2026-04-24-phase-2-calendar.md](docs/superpowers/plans/shelved/2026-04-24-phase-2-calendar.md). Spec still valid for the eventual tablet build: [docs/superpowers/specs/2026-04-24-phase-2-calendar-rework.md](docs/superpowers/specs/2026-04-24-phase-2-calendar-rework.md). Phone tab bar is now 4 slots (Calendar removed); see Design Rules digest below.
+> Phase 2 calendar rework shelved 2026-04-25. Phone agenda duplicates dashboard; Month needs kiosk. Shelved plan: [docs/superpowers/plans/shelved/2026-04-24-phase-2-calendar.md](docs/superpowers/plans/shelved/2026-04-24-phase-2-calendar.md).
 
----
+~~**1.2 — Rewards Store** · DONE — shipped 2026-04-18. Points economy (100 pts/day), parent-defined rewards, notification bell, approval flow, kid store/history/wishlist, functional rewards (task skip, penalty removal), bounty tasks, 13 achievement badges, bonus multiplier days, admin balance management.~~
 
-~~**1.2 — Rewards Store** · DONE — shipped 2026-04-18. Points economy (100 pts/day), parent-defined rewards with emoji/pricing helper, notification bell on all pages, bonus/deduction messages, approval flow, kid mode store/history/wishlist, functional rewards (task skip, penalty removal), bounty tasks, 13 achievement badges with trophy case, bonus multiplier days, balance on scoreboard, admin balance management and person delete cascade.~~
-
----
-
-~~**1.3 — Meal Planning (Lightweight)** · DONE — shipped 2026-04-25. Meal library + per-day slot assignments, plan/detail/editor sheets, calendar day view meals section, admin Meals library tab, kid Tonight tile, dashboard ambient strip dinner chip wired, ambientStrip setting, per-kid showMeals pref. SW cache v64.~~
-
-Simple "what are we eating" system — not a recipe database. Answers "what's for dinner?" at a glance from the wall display or phone.
-
-*Core features:*
-- Per-day meal slots: Breakfast, Lunch, Dinner, Snack (configurable — some families only plan dinner).
-- Each entry: meal name + optional recipe URL + optional notes.
-- Recipe links: tap a meal name to open the recipe website. On kiosk/wall display, show a QR code so someone can scan with their phone to pull up the recipe.
-- Saved meals library: builds organically. Every meal you add gets saved. When planning a new day, autocomplete suggests from your library. "Taco Tuesday" should take 2 seconds to add after the first time.
-- Quick-plan: week view in admin or calendar where you can drag saved meals onto day slots.
-- School lunch entries (from PDF import, see 2.3) display distinctly — school emoji, different styling, read-only.
-
-*Schema:*
-```
-rundown/meals/{YYYY-MM-DD}/{slot}  ← { mealId, source: 'manual'|'school' }
-                                     slot: 'breakfast'|'lunch'|'dinner'|'snack'
-                                     mealId references mealLibrary entry
-rundown/mealLibrary/{pushId}       ← { name, url?, notes?, tags?, ingredients?,
-                                       isFavorite, prepTime?, createdAt, lastUsed }
-```
-
-*Display:* Meals appear in the calendar day view (all three views), on the kiosk display, and in kid mode. Keep it visually light — a small section, not competing with events and tasks for attention.
+~~**1.3 — Meal Planning** · DONE — shipped 2026-04-25. Meal library + per-day slots, plan/detail/editor sheets, calendar day view, admin Meals tab, kid Tonight tile, ambient strip wired. SW cache v64.~~
 
 ---
 
-**1.4 — Weather Widget** · Low (~0.5 session) · No dependencies · Cost: $0
-
-> **Dashboard wiring (per [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.3):** when 1.4 ships, the weather chip lands in the dashboard ambient strip. Chip is `viewDate`-aware via the 7-day forecast already returned by OpenWeatherMap (cache key `dr-weather-{viewDate}` in localStorage; one network fetch per day). Past dates render `Past day` (no historical lookup); beyond 7 days renders `—° · No forecast yet`. Chip leading icon is an SVG glyph (sun/cloud/rain/snow/fog) — no emoji in chrome. Tap chip → 3-day forecast sheet. Once both 1.3 and 1.4 ship, `settings.ambientStrip` defaults to `true`.
-
-Current conditions + forecast on dashboard and calendar. OpenWeatherMap free tier (1,000 calls/day — app uses ~50). Single family location from `rundown/settings`. Show temperature, conditions icon, high/low on calendar day view and kiosk display header. Cache in localStorage (refresh every 30-60 min). Small footprint — ambient info, not a weather app.
+~~**1.4 — Weather Widget** · DONE — shipped. `shared/weather.js` + dashboard ambient strip chip. OpenWeatherMap free tier, 5-day forecast sheet, admin location/API key settings, `viewDate`-aware, localStorage cache. `settings.ambientStrip` defaults to `true`.~~
 
 ---
 
-**1.5 — Kiosk / Wall Display Mode** · Medium (~1-2 sessions) · Depends on 1.1, 1.3, 1.4 · Cost: $0 (hardware ~$175-255 one-time: Raspberry Pi 5 + 27" touchscreen + wall mount)
+**1.5 — Kiosk / Wall Display Mode** · Medium (~1-2 sessions) · Depends on 1.1, 1.3, 1.4 · Cost: $0 (hardware ~$175-255 one-time)
 
-A dedicated full-screen mode (`display.html`) designed for a 27" wall-mounted touchscreen. This is NOT a passive read-only dashboard — it's the full app in a large-format, always-on layout. The family can do everything from the wall: add events, check off tasks, plan meals, browse the week, drill into any day. Think of it as an iPad app permanently mounted on the kitchen wall, not a PowerPoint slide with checkboxes.
-
-*Default state:* Week overview showing the current week's events, tasks, meals, and weather. This is what you see when you walk into the kitchen — a full picture of the family's week at a glance.
-
-*Full interactivity:*
-- Tap any day to drill into the day/agenda view with full detail.
-- Tap "+" to add events or meals — same easy creation flow as the calendar hub.
-- Tap tasks to check them off, open detail sheets, mark late.
-- Swipe or tap arrows to navigate weeks/months.
-- Access the scoreboard, rewards, shopping list from a slide-out menu or tab bar.
-- Kid mode accessible per-child (tap their avatar to see their view).
-
-*What makes it "kiosk" rather than just "the app on a big screen":*
-- No browser chrome — full-screen, immersive.
-- Larger touch targets and fonts optimized for arm's-length interaction on a 27" display.
-- Auto-wake/sleep on configurable schedule (screen dims at 10pm, brightens at 6am).
-- Optional ambient mode during sleep: clock, tomorrow's first event, weather.
-- No admin access from this view (PIN-protected settings stay on phone only).
-- Designed to launch on boot via Raspberry Pi Chromium `--kiosk` flag or Android tablet full-screen mode.
-
-*Not just for the wall:* Should also work well on a 10" tablet propped on a kitchen counter. Layout adapts to both 27" landscape and 10" tablet landscape.
+Dedicated full-screen mode (`display.html`) for a 27" wall-mounted touchscreen (or 10" tablet). NOT read-only — full app interactivity at large scale: check off tasks, add events/meals, navigate weeks, kid mode per-child avatar. Default state: week overview (events + tasks + meals + weather). Larger touch targets, no browser chrome, auto-wake/sleep schedule, optional ambient clock mode. No admin access from this view. Launches via Raspberry Pi Chromium `--kiosk` flag or Android tablet full-screen. This is when the Calendar page earns its tab slot back.
 
 ---
 
 **1.6 — Activities** · Medium-high (~3-4 sessions, two phases) · No dependencies · Cost: $0
 
-> **Dashboard wiring (per [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.2 + §4.6):** running session surfaces as the `--info` `running-activity` sub-variant in the dashboard banner queue (`Reading session · 12:34 · [Stop]`). Lowest priority — yields to vacation/freeze/overdue/multiplier and returns when those clear. The banner mount is added to scoreboard.html and tracker.html so the running session stays visible while the user navigates ([DESIGN.md §7.3](docs/DESIGN.md#L860) amendment). Activities itself remains a More-tab destination on phone; no Activities tile on the dashboard.
+Family activity tracker — shared library of optional activities (walk, read, jog) with persistent stopwatch. Weekly goals with tiered point payouts. Separate activity scoreboard. Timer built as `shared/timer.js` (reusable by 3.1). Running session surfaces as `--info` `running-activity` banner (lowest priority, visible on Scoreboard + Tracker too). Activities lives in More tab on phone. Full spec: [docs/superpowers/specs/2026-04-19-activities-design.md](docs/superpowers/specs/2026-04-19-activities-design.md).
 
-Family activity tracker — shared library of optional activities (walk, read, jog, etc.) anyone can do on-demand with a persistent stopwatch. Weekly goals with tiered point payouts into the rewards store. Separate activity scoreboard (time leaderboard + goal achievement views). Shares categories with tasks; timer built as shared component (`shared/timer.js`) reusable by backlog 3.1. Two phases: Phase 1 is core loop (library, stopwatch, session logging, time scoreboard), Phase 2 adds goals, points, goal scoreboard, kid mode, admin. See full spec: `docs/superpowers/specs/2026-04-19-activities-design.md`.
+> Dashboard wiring: see [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.2 + §4.6.
 
 ---
 
-**1.7 — Shopping Lists** · Medium (~1-2 sessions) · No dependencies · Cost: $0
+~~**1.7 — Shopping Lists** · SUPERSEDED — kitchen.html covers shopping lists. See 1.8 Kitchen Hub.~~
 
-Shared grocery/shopping lists with real-time Firebase sync. Two people at the store see the same list — items checked off by one update instantly for both.
+---
 
-*Core features:*
-- Quick-add with autocomplete from past items.
-- Tap to cross off (strikethrough, item sinks to bottom of list).
-- Optional category grouping (produce, dairy, frozen, etc.) — categories auto-suggested based on past categorization of the same item.
-- Multiple lists (Grocery, Costco, Target, etc.).
-- Anyone can add/edit — no PIN required.
-- Accessible from nav bar, kiosk display menu, and as a standalone page on phone.
+**1.8 — Kitchen Hub** · Mostly shipped · In progress
 
-*Schema:*
-```
-rundown/lists/{listId}              ← { name, createdAt, sortOrder }
-rundown/lists/{listId}/items/{id}   ← { name, checked, category?, addedBy?, addedAt }
-```
+kitchen.html / kitchen.js — combined hub (Lists, Recipes, Staples, Plan) superseding both 1.3 Meal Planning and 1.7 Shopping Lists. **What's shipped:** list CRUD with AI auto-categorize, recipe library (URL field + link icons), staples with star/long-press-edit, bulk-add FAB, 7-day meal look-ahead, plan-a-meal sheet. **What's pending:** redeploy Worker with `url` + `screenshot` handlers (fills name + all ingredients with qty from recipe pages); school-lunch-2 slot display in week view plan; add-from-recipe shortcut to shopping list.
 
 ---
 
 ### Tier 2 — Deepening the Platform
 
-**2.1 — Push Notifications** · High (~2-3 sessions) · Depends on 1.1 · Cost: $0 (FCM is free unlimited; Cloudflare Workers free tier is 100K req/day)
+**2.1 — Push Notifications** · High (~2-3 sessions) · Depends on 1.1 · Cost: $0
 
-Daily reminders, upcoming event alerts (15/30/60 min before), task nudges. Requires FCM (Firebase Cloud Messaging) + Cloudflare Worker for server-side scheduling. Per-person notification preferences (what types, quiet hours). Include in-app notification sound/vibration for the notification bell (achievement unlocks, reward approvals, bounty grants) using Web Audio API or `navigator.vibrate()`. This is the feature that enables "replace Google Calendar" — without buzzing your phone before the dentist appointment, people will keep Google Calendar alongside this app. See notifications uplift assessment from 2026-04-03.
+Daily reminders, upcoming event alerts (15/30/60 min before), task nudges. Requires FCM + Cloudflare Worker for server-side scheduling. Per-person notification preferences (what types, quiet hours). This is the feature that enables "replace Google Calendar" — people keep Google Calendar alongside this app until it buzzes their phone before the dentist appointment.
 
 ---
 
 **2.2 — Flexible Recurrence** · High (~2 sessions) · Depends on 1.1 · Cost: $0
 
-Support "every N days", "every other week", "1st and 15th of month", "every other Tuesday" beyond daily/weekly/monthly/once. Schema: add `recurrenceRule` object to task/event (e.g., `{ type: 'interval', every: 14 }` or `{ type: 'dates', days: [1, 15] }`). Essential for the calendar to be a real Google Calendar replacement — family events need real recurrence rules. Extends the scheduler (~850 lines). Consider: extend `placeDailyTask` with interval support, add new `placeCustomTask` for date-based rules.
+Support "every N days", "every other week", "1st and 15th of month" beyond daily/weekly/monthly/once. Schema: add `recurrenceRule` object to task/event. Essential for real Google Calendar replacement. Extends scheduler (~850 lines).
 
 ---
 
-**2.3 — School Lunch PDF Import** · Medium (~1-2 sessions) · Depends on 1.3 · Cost: ~$0.03/month (Claude API via Haiku 4.5, one-time $5 credit lasts years)
+**2.3 — AI Import Suite** · Medium (~1-2 sessions) · Depends on 1.3, 1.8 · Cost: ~$0.03/month
 
-AI-powered import of school lunch calendars. Parent uploads PDF in admin → Cloudflare Worker receives it → sends to Claude API (Haiku 4.5) with extraction prompt → structured menu data returned as JSON → written to Firebase as school lunch entries tagged with `source: "school"`. First Cloudflare Worker and first external API dependency. The Worker pattern is reusable for future AI features. Requires Anthropic API key stored as Cloudflare Worker secret.
+All Claude Haiku-powered import features routing through `workers/kitchen-import.js`. Worker pattern is already built; each type adds a handler + UI trigger:
+
+- **School lunch PDF** — parent uploads PDF in admin → Worker extracts menu → writes to `meals/{date}/school-lunch` + `school-lunch-2` tagged `source:'school'`. Display: school emoji, different styling, read-only.
+- **Calendar photo → events** — photo of a flyer/whiteboard → Worker returns event objects → confirm sheet → write to schedule.
+- **iCal subscription import** — enter TeamSnap/school iCal URL → Worker fetches (avoids browser CORS) + parses → bulk-import events.
+- **Email → calendar** — forward emails to a family address (Cloudflare Email Routing, free) → Worker `email` handler extracts events → confirm sheet. Replaces Skylight's "Magic Import".
+- **Text/voice → events** — type or speak "dentist Thursday 3pm" → Worker parses → event form pre-filled.
+- **Homework scanner** — photo of assignment sheet → Worker extracts tasks with due dates → adds to schedule.
+- **Photo → shopping list** — photo of fridge/pantry → Worker identifies what's low → adds to shopping list.
+
+> Worker CLAUDE_API_KEY secret already set. `categorize`, `url`, `screenshot` handlers already deployed (or pending redeploy from 1.8). Add each new type as a handler in the same Worker file.
 
 ---
 
 **2.4 — Vacation / Skip Mode** · Medium (~1-2 sessions) · No dependencies · Cost: $0
 
-> **Dashboard wiring (per [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.2):** vacation surfaces as the `--vacation` banner variant in the priority queue (highest priority — outranks freeze/overdue/multiplier/info). Title example: `Jordin is away until Apr 25`. When the dashboard filter is set to the away person, the banner gains an `End early` action button. Banner-only — no separate dashboard tile or section. (Other vacation surfaces — calendar shading, tracker tag, kid tile, scoreboard exclusion — are unchanged from the existing 2.4 plan.)
+Mark a person as "away" for a date range. Schema: `rundown/people/{id}/away: [{start, end}]`. Scheduler skips placing tasks for away people. Per-person "Away" toggle in admin with date picker. Family-wide "vacation mode" pauses all non-daily tasks. Dashboard: `--vacation` banner (highest priority — outranks freeze/overdue/multiplier/info). Calendar shading for away days.
 
-Mark a person as "away" for a date range. Schema: `rundown/people/{id}/away: [{ start, end }]`. Scheduler skips placing tasks for away people. Optionally redistribute to other owners (rotate-mode only) or mark exempt for scoring. Per-person "Away" toggle in admin with date picker. Family-wide "vacation mode" pauses all non-daily tasks.
+---
+
+**2.5 — Birthday & Milestone Tracking** · Low (~0.5 session) · No dependencies · Cost: $0
+
+Add `birthday` field to people. Auto-creates annual recurring "birthday" events. Countdown chip in kid mode and on person's profile card. Same pattern as event tasks but non-deletable + self-scheduling. Extend to family milestones (anniversaries, first day of school). Research-validated: Skylight and Cozi both feature this prominently.
 
 ---
 
 ### Tier 3 — Polish & Engagement
 
-**3.0 — Dashboard loading skeleton** · Low (~0.5 session) · No dependencies · Cost: $0
-
-> **Status:** rolled into the [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) implementation plan — ships with the dashboard final-form work, not as a standalone item.
-
-Replace the current inline "Loading..." spinner on the dashboard with a card-shaped skeleton that matches the real card layout (owner-stripe placeholder + title bar + meta bar + check placeholder). Respects reduced-motion (skeleton stays static, no shimmer). Rationale: at first paint the user sees a convincing skeleton for ~200ms before Firebase responds, which feels more polished than a centered spinner against the empty page. Noted for future upgrade during Phase 1.5 polish review (2026-04-24).
+**3.0 — Dashboard loading skeleton** · Low · Rolled into dashboard final-form implementation plan. Card-shaped skeleton (owner-stripe + title bar + meta bar + check placeholder). Respects reduced-motion.
 
 ---
 
 **3.1 — Task Timer / Stopwatch** · Medium (~1-2 sessions) · Depends on 1.6 (shared timer component) · Cost: $0
 
-Visible countdown in kid mode and dashboard using `estMin`. Uses shared timer component from Activities (`shared/timer.js`). Start button on task card launches timer overlay. Optional auto-complete on finish. Sounds/vibration. Timer-based bounties: countdown to expiration (unclaimed = gone) and countdown to completion (read for X min).
+Visible countdown in kid mode and dashboard using `estMin`. Uses `shared/timer.js` from Activities. Start button on card → timer overlay. Optional auto-complete on finish. Timer-based bounties.
 
 ---
 
 **3.2 — Task Delegation / Swaps** · Medium-high (~2 sessions) · Depends on 2.1 · Cost: $0
 
-Family members propose trades ("I'll do your dishes if you do my laundry"). Schema: `rundown/trades/{pushId}` with `{ proposerId, proposerTaskKey, targetId, targetTaskKey, status: 'pending'|'accepted'|'declined', createdAt }`. Accepting swaps `ownerId` on schedule entries. UI: notification badge, trade proposal from detail sheet, accept/decline list.
+Family members propose trades. Schema: `rundown/trades/{pushId}` with proposer/target task keys + status. UI: notification badge, trade proposal from detail sheet, accept/decline list.
 
 ---
 
 **3.3 — Dashboard "Coming up" rail** · Medium (~1-2 sessions) · No dependencies · Cost: $0
 
-> **Status:** fully specced — see [2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.4 for the canonical design. Collapsed by default; expanded shows day-blocks for the next 7 days (today excluded; days with zero events collapse out). **Events-only count** in the summary (`Coming up · 3 events this week` / `Coming up · clear week`); tasks are not counted (Tracker covers forward-task visibility). Tapping a day-block head jumps the dashboard's `viewDate` to that day. Filter-aware: when `activePerson` is set, summary and day-blocks scope to that person. Rail sits between Coming up's mockup-original "below tasks" position **revised to above the Today section** — see spec §2.1 layout.
+Collapsible 7-day forward look on the dashboard. Events-only count in the collapsed summary. Day-blocks expand to show upcoming events; tapping a day-block jumps `viewDate`. Filter-aware (scopes to `activePerson`). Collapsed state persists in `localStorage['dr-coming-up-state']`. Full spec: [docs/superpowers/specs/2026-04-25-dashboard-final-design.md](docs/superpowers/specs/2026-04-25-dashboard-final-design.md) §3.4.
 
-Collapsible 7-day forward look on the dashboard. Replaces the phone-side need for the (shelved) Calendar page by surfacing upcoming events without a context switch. Pattern matches Skylight Mobile and Hearth phone apps — agenda-first; today is hero, then a quiet "Upcoming" section that expands. Cozi uses the same 5-7 day collapsed-agenda pattern.
+---
 
-*Core features:*
-- Collapsed by default. Single muted row: "Coming up · 4 events this week" with chevron. Sits between the Ambient strip and the Events section (above tasks).
-- Expanded: 7 day-blocks (today excluded — already visible above), only days with events render; empty days collapse out of view entirely.
-- Each day-block reuses the Phase 2 calendar `.cal-day-block` + `renderEventCard` primitives (already designed in the shelved plan — see [shared/calendar-views.js](shared/calendar-views.js) before deletion / shelved plan §3, §4 for shape). Migration is mechanical, not a rewrite.
-- Tap a day-block head → jumps dashboard `viewDate` to that day (preserves expanded state across the date change).
-- Tap an event row → opens existing Event detail sheet.
-- The dashboard FAB pre-fills the form with `viewDate` (so swiping forward + tapping FAB creates an item on that day) and `activePerson` (default owner).
+**3.4 — Kid Feelings Check-in** · Low (~0.5 session) · No dependencies · Cost: $0
 
-*Why this instead of the calendar page:* On phone, Week view is a scrollable dashboard, Day view is the dashboard, Month is hidden. The calendar page can't earn its tab slot until tablet/kiosk renders Month. The rail gives families "what's next" in one tap from where they already are.
+Quick daily mood check-in in kid mode — 5 emoji options (great/good/ok/sad/rough). Logged once per day to `rundown/feelings/{personId}/{YYYY-MM-DD}`. Parent can view in kid's profile or admin. Resets each morning. Research-validated: among top differentiators of family-focused apps vs task managers.
 
-*Design rules:* Card spacing/radius/divider follows Phase 1.5 dashboard primitives. Chevron rotation respects `prefers-reduced-motion`. Collapsed state stores in `localStorage['dr-coming-up-state']` so each session opens to the user's last preference. Empty state ("No events in the next 7 days") shows in expanded mode when there's nothing scheduled — collapsed row reads "Coming up · clear week" rather than hiding the rail entirely.
+---
 
-*Schema:* No changes — reads from existing `rundown/events/` collection via `getEventsForDate(events, dateKey)` for `today + 1 .. today + 7`.
+**3.5 — Family Message Board** · Medium (~1 session) · No dependencies · Cost: $0
+
+Shared sticky-note style message thread visible on dashboard and kiosk. Any family member can post a short note ("Don't forget soccer cleats!"). Notes expire after 7 days or are manually dismissed. Distinct from the notification bell (which is parent→kid messages only). Lives on dashboard below events.
+
+---
 
 **Full spec:** [docs/DESIGN.md](docs/DESIGN.md) — single source of truth for all UI decisions. Read it before designing, building, or reviewing anything visual. Mockups live in [mockups/](mockups/).
 
 This digest exists so that if context gets compacted mid-task, the non-negotiables survive. It is not a substitute for the full spec.
 
-### Core principles (8)
-1. **Calm, confident, quiet.** No dev-tool vibes. No gradient text in chrome. No "designed for a design reel" moments.
-2. **One component per shape.** One Card, one Tabs, one Sheet, one Modal, one Banner, one Timer. Variants, not forks.
-3. **Mobile is the default.** Tablet is a deliberate two-pane redesign. Kiosk is a separate layout file (`display.html`). Desktop is not a target.
-4. **Every area budgets for growth.** Reserve room for the backlog features that map to it. Don't ship screens with no room for what's already planned.
-5. **Design the whole flow.** Every feature ships with empty, loading, error, and success states.
-6. **Consistency beats cleverness.** The product should feel like one designer made it in one sitting.
-7. **Accessibility is not optional.** 44×44 tap targets (56×56 kid mode). Keyboard-navigable. `prefers-reduced-motion` respected. Contrast verified.
-8. **No dev-tool vibes.** No inline styles, no raw hex in component CSS, no console-flavored debug chrome, no `window.confirm`/`window.alert`.
-
 ### Feature-home map (hard rules)
-Every feature (current + backlog) has a named home — see §2 in DESIGN.md. Enforced:
-- Phone tab bar is currently 4 slots: **Home · Scores · Tracker · More** (cap is still 5; Calendar slot was removed when Phase 2 calendar was shelved 2026-04-25 — see backlog 1.1 note. The 5th slot is reserved for whichever of Activities (1.6) or Shopping (1.7) ships first).
-- Meals, Weather, Kiosk, Vacation, Recurrence, Timer, School-lunch import, Delegation **never** become tabs.
-- Activities and Shopping are the only backlog features that earn nav placement (inside More on phone).
+Every feature has a named home — see §2 in DESIGN.md. Enforced:
+- Phone tab bar is currently **4 slots: Home · Scores · Tracker · More** (cap is 5; Calendar removed 2026-04-25. 5th slot reserved for Activities 1.6, whichever ships first).
+- Meals, Weather, Kiosk, Vacation, Recurrence, Timer, AI Import, Delegation **never** become tabs.
+- Activities is the only backlog feature that earns a new nav slot. Kitchen Hub already lives in More sheet.
+- Kitchen Hub lives in More sheet (not a tab); accessible via nav overflow or direct URL.
 - No new top-level tab without retiring capacity elsewhere.
 
 ### Hard do-not rules (non-negotiable)
@@ -413,33 +377,13 @@ Every feature (current + backlog) has a named home — see §2 in DESIGN.md. Enf
 - ❌ No tab bar (`tabs tabs--pill`) without verifying `tabs--pill` CSS exists in `components.css`. `tabs--pill` (pill, full-width fill) and `tabs--segmented` (box, full-width fill) are the two variants. Both require their CSS or tabs render unstyled.
 - ❌ No sheet sub-structure classes (`sheet__header`, `sheet__footer`, `sheet__content`, `field`, `field__label`) without verifying they exist in `components.css`. These are the canonical classes; using them without CSS makes forms render unstyled. Sheet footer always uses `.sheet__footer` with `.btn` children — each btn gets `flex:1` automatically.
 
-### Component reuse rule
-Before building any new visual element, search §5 of DESIGN.md. The catalog already covers: Card (+ variants), Tabs, Sheet, Modal, Button, Icon button, Chip, Field, Banner, Timer, Avatar, Check, FAB, Bottom nav, List group/row, Switch, Empty state, Loading skeleton, Error state, Toast, Celebration, Progress bar. If the right shape exists, **use it or add a variant** — don't fork.
-
-### Layout cheatsheet
-- **≤600px (phone):** single column, bottom nav, FAB for primary action.
-- **≥768px (tablet):** two-pane (left rail 280px + main), not stretched phone.
-- **≥1400px (kiosk):** `display.html` — separate layout, own CSS, large touch targets, full interactivity (not read-only).
-
 ### Long-press & gestures
 - Tap = primary action. Long-press = detail sheet. Horizontal swipe = day/month nav.
 - Timings: **500ms tracker**, **800ms calendar/kid/dashboard**.
 - Every gesture has a non-gesture fallback (visible button).
 
-### Pre-PR checklist (abbreviated — full list in DESIGN.md §11)
-- [ ] Feature-home map updated if the feature is new or moved.
-- [ ] Tested at 375px, 768px, 1024px, and 1920×1080 if touching kiosk.
-- [ ] 44×44 tap targets (56×56 kid mode).
-- [ ] No inline styles, no raw hex in component CSS, no `window.confirm`/`window.alert`.
-- [ ] Any new pattern is a variant of an existing component (or spec updated in the same PR).
-- [ ] Empty, loading, error, success states designed.
-- [ ] Tested in ≥2 themes, light + dark.
-- [ ] `prefers-reduced-motion` respected. Focus rings visible.
-- [ ] Header not gaining icons. Bottom nav not exceeding 5 tabs.
-- [ ] Kid mode and kiosk appearance considered.
-- [ ] Notifications routed through Bell, not ad-hoc surfaces.
-- [ ] Banner budget respected (one at a time).
-- [ ] Gestures have non-gesture fallbacks.
+### Component reuse rule
+Before building any new visual element, search §5 of DESIGN.md. The catalog covers: Card, Tabs, Sheet, Modal, Button, Icon button, Chip, Field, Banner, Timer, Avatar, Check, FAB, Bottom nav, List group/row, Switch, Empty state, Loading skeleton, Error state, Toast, Celebration, Progress bar. Use it or add a variant — never fork.
 
 ### When spec is silent
 If a situation isn't covered: **stop, update DESIGN.md in the same PR that adds the pattern.** Don't improvise in the component code and skip the spec — drift compounds. Deviation from the spec requires a named exception in the PR description.
