@@ -829,6 +829,11 @@ function openRecipeForm(recipeId, onSave = null) {
       </div>
 
       <label class="field">
+        <span class="field__label">Notes</span>
+        <textarea id="recipeNotes" class="field__input" rows="2" placeholder="Description, tips, source…" autocomplete="off" style="resize:vertical">${esc(existing?.notes || '')}</textarea>
+      </label>
+
+      <label class="field">
         <span class="field__label">Recipe link</span>
         <input id="recipeUrl" type="url" placeholder="https://…"
           value="${esc(existing?.url || '')}" autocomplete="off">
@@ -879,8 +884,6 @@ function openRecipeForm(recipeId, onSave = null) {
   }
   bindRemoveButtons();
 
-  let importedNotes = existing?.notes || null;
-
   async function runImport(type, input, btnId, statusId) {
     const btn = document.getElementById(btnId);
     const status = document.getElementById(statusId);
@@ -912,7 +915,9 @@ function openRecipeForm(recipeId, onSave = null) {
         document.getElementById('ingredientList').innerHTML = buildIngredientList();
         bindRemoveButtons();
       }
-      if (data.notes) importedNotes = data.notes;
+      if (data.notes && !document.getElementById('recipeNotes').value) {
+        document.getElementById('recipeNotes').value = data.notes;
+      }
       status.textContent = 'Done!';
       status.style.color = 'var(--text-muted)';
       status.style.display = 'inline';
@@ -954,7 +959,7 @@ function openRecipeForm(recipeId, onSave = null) {
     const data = {
       name,
       url,
-      notes: importedNotes || existing?.notes || null,
+      notes: document.getElementById('recipeNotes')?.value.trim() || null,
       source: existing?.source || 'manual',
       ingredients,
       isFavorite: existing?.isFavorite || false,
