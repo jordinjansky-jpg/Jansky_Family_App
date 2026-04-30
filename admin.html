@@ -3930,9 +3930,13 @@
           <h4 class="admin-form__subtitle">School Lunch Menu</h4>
           <p class="form-hint mb-md">Upload the school's monthly lunch PDF. Menus will be imported as school lunch entries visible in the Kitchen meal plan.</p>
           <div class="admin-form__actions">
-            <label class="btn btn--secondary" style="cursor:pointer" id="schoolLunchLabel">
-              Upload PDF
-              <input type="file" id="schoolLunchInput" accept="application/pdf,.pdf,image/*" style="display:none">
+            <label class="btn btn--secondary" style="cursor:pointer">
+              Camera
+              <input type="file" id="schoolLunchCameraInput" accept="image/*" capture="environment" style="display:none">
+            </label>
+            <label class="btn btn--secondary" style="cursor:pointer">
+              Upload File
+              <input type="file" id="schoolLunchFileInput" accept="application/pdf,.pdf,image/*" style="display:none">
             </label>
           </div>
           <div id="schoolLunchStatus" class="mt-sm"></div>
@@ -3942,9 +3946,13 @@
           <h4 class="admin-form__subtitle">Homework Scanner</h4>
           <p class="form-hint mb-md">Take a photo of an assignment sheet. Detected tasks will appear as one-time tasks ready to add to the schedule.</p>
           <div class="admin-form__actions">
-            <label class="btn btn--secondary" style="cursor:pointer" id="homeworkLabel">
-              Upload Photo
-              <input type="file" id="homeworkInput" accept="image/*" style="display:none">
+            <label class="btn btn--secondary" style="cursor:pointer">
+              Camera
+              <input type="file" id="homeworkCameraInput" accept="image/*" capture="environment" style="display:none">
+            </label>
+            <label class="btn btn--secondary" style="cursor:pointer">
+              Gallery
+              <input type="file" id="homeworkGalleryInput" accept="image/*" style="display:none">
             </label>
           </div>
           <div id="homeworkStatus" class="mt-sm"></div>
@@ -3960,19 +3968,19 @@
     function bindAiImportsTab() {
       if (!KITCHEN_WORKER_URL) return;
 
-      // ── School Lunch PDF ──
-      main.querySelector('#schoolLunchInput')?.addEventListener('change', async (e) => {
+      // ── School Lunch ──
+      const onSchoolLunch = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const statusEl = main.querySelector('#schoolLunchStatus');
-        if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Reading PDF…</span>';
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Reading file…</span>';
         try {
           const base64 = await new Promise((res, rej) => {
             const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
           });
           const resp = await fetch(KITCHEN_WORKER_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType: 'application/pdf' } }),
+            body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType: file.type || 'application/pdf' } }),
           });
           const data = await resp.json();
           if (data.error || !data.days?.length) {
@@ -3984,10 +3992,12 @@
           if (statusEl) statusEl.innerHTML = '<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">Import failed. Check your connection.</span>';
         }
         e.target.value = '';
-      });
+      };
+      main.querySelector('#schoolLunchCameraInput')?.addEventListener('change', onSchoolLunch);
+      main.querySelector('#schoolLunchFileInput')?.addEventListener('change', onSchoolLunch);
 
       // ── Homework Scanner ──
-      main.querySelector('#homeworkInput')?.addEventListener('change', async (e) => {
+      const onHomework = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const statusEl = main.querySelector('#homeworkStatus');
@@ -4010,7 +4020,9 @@
           if (statusEl) statusEl.innerHTML = '<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">Scan failed. Check your connection.</span>';
         }
         e.target.value = '';
-      });
+      };
+      main.querySelector('#homeworkCameraInput')?.addEventListener('change', onHomework);
+      main.querySelector('#homeworkGalleryInput')?.addEventListener('change', onHomework);
 
       // ── Email Imports ──
       loadEmailImports();

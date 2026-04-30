@@ -1497,50 +1497,68 @@ function openListFabSheet() {
 
 function openPhotoToListSheet() {
   if (!activeListId || !KITCHEN_WORKER_URL) return;
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*';
-  input.style.display = 'none';
-  document.body.appendChild(input);
-  input.addEventListener('change', async () => {
-    const file = input.files?.[0];
-    document.body.removeChild(input);
-    if (!file) return;
-    const mount = document.getElementById('sheetMount');
-    mount.innerHTML = renderBottomSheet(`
-      <div class="sheet__header"><h2 class="sheet__title">Scanning photo…</h2></div>
-      <div class="sheet__content" style="text-align:center;padding:var(--spacing-xl) 0">
-        <span style="color:var(--text-muted);font-size:var(--font-sm)">Identifying items…</span>
-      </div>`);
-    activateSheet(mount);
-    try {
-      const base64 = await new Promise((res, rej) => {
-        const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
-      });
-      const resp = await fetch(KITCHEN_WORKER_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType: file.type || 'image/jpeg' } }),
-      });
-      const data = await resp.json();
-      if (data.error || !data.items?.length) {
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
+    <div class="sheet__content">
+      <div style="display:flex;flex-direction:column;gap:var(--spacing-sm)">
+        <button class="btn btn--secondary" data-pick="camera">Camera</button>
+        <button class="btn btn--secondary" data-pick="gallery">Gallery</button>
+      </div>
+    </div>
+    <div class="sheet__footer"><button class="btn btn--ghost" id="ptlCancel">Cancel</button></div>`);
+  activateSheet(mount);
+  mount.querySelector('#ptlCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  mount.querySelectorAll('[data-pick]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mount.innerHTML = '';
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*';
+      if (btn.dataset.pick === 'camera') input.capture = 'environment';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        document.body.removeChild(input);
+        if (!file) return;
         mount.innerHTML = renderBottomSheet(`
-          <div class="sheet__header"><h2 class="sheet__title">No items found</h2></div>
-          <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">${data.error || 'No items detected in that photo.'}</p></div>
-          <div class="sheet__footer"><button class="btn btn--secondary" id="ptlClose">Close</button></div>`);
+          <div class="sheet__header"><h2 class="sheet__title">Scanning photo…</h2></div>
+          <div class="sheet__content" style="text-align:center;padding:var(--spacing-xl) 0">
+            <span style="color:var(--text-muted);font-size:var(--font-sm)">Identifying items…</span>
+          </div>`);
         activateSheet(mount);
-        mount.querySelector('#ptlClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
-        return;
-      }
-      renderPhotoToListConfirm(mount, data.items);
-    } catch {
-      mount.innerHTML = renderBottomSheet(`
-        <div class="sheet__header"><h2 class="sheet__title">Error</h2></div>
-        <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">Could not reach import service. Check your connection.</p></div>
-        <div class="sheet__footer"><button class="btn btn--secondary" id="ptlClose">Close</button></div>`);
-      activateSheet(mount);
-      mount.querySelector('#ptlClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
-    }
+        try {
+          const base64 = await new Promise((res, rej) => {
+            const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+          });
+          const resp = await fetch(KITCHEN_WORKER_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType: file.type || 'image/jpeg' } }),
+          });
+          const data = await resp.json();
+          if (data.error || !data.items?.length) {
+            mount.innerHTML = renderBottomSheet(`
+              <div class="sheet__header"><h2 class="sheet__title">No items found</h2></div>
+              <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">${data.error || 'No items detected in that photo.'}</p></div>
+              <div class="sheet__footer"><button class="btn btn--secondary" id="ptlClose">Close</button></div>`);
+            activateSheet(mount);
+            mount.querySelector('#ptlClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+            return;
+          }
+          renderPhotoToListConfirm(mount, data.items);
+        } catch {
+          mount.innerHTML = renderBottomSheet(`
+            <div class="sheet__header"><h2 class="sheet__title">Error</h2></div>
+            <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">Could not reach import service. Check your connection.</p></div>
+            <div class="sheet__footer"><button class="btn btn--secondary" id="ptlClose">Close</button></div>`);
+          activateSheet(mount);
+          mount.querySelector('#ptlClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+        }
+      });
+      input.click();
+      setTimeout(() => { if (document.body.contains(input)) document.body.removeChild(input); }, 60000);
+    });
   });
-  input.click();
 }
 
 function renderPhotoToListConfirm(mount, items) {

@@ -668,56 +668,77 @@
     }
 
     function openCalendarPhotoImport() {
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*';
-      input.style.display = 'none';
-      document.body.appendChild(input);
-      input.addEventListener('change', async () => {
-        const file = input.files?.[0];
-        document.body.removeChild(input);
-        if (!file) return;
-        taskSheetMount.innerHTML = renderBottomSheet(`
-          <div class="sheet__header"><h2 class="sheet__title">Reading photo…</h2></div>
-          <div class="sheet__content" style="text-align:center;padding:var(--spacing-xl) 0">
-            <span style="color:var(--text-muted);font-size:var(--font-sm)">Extracting events…</span>
-          </div>`);
-        applyDataColors(taskSheetMount);
-        requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-        try {
-          const base64 = await new Promise((res, rej) => {
-            const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
-          });
-          const resp = await fetch(KITCHEN_WORKER_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'calendarPhoto', input: { base64, mediaType: file.type || 'image/jpeg', contextDate: today } }),
-          });
-          const data = await resp.json();
+      taskSheetMount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header"><h2 class="sheet__title">Photo of flyer</h2></div>
+        <div class="sheet__content">
+          <div style="display:flex;flex-direction:column;gap:var(--spacing-sm)">
+            <button class="btn btn--secondary" data-pick="camera">Camera</button>
+            <button class="btn btn--secondary" data-pick="gallery">Gallery</button>
+          </div>
+        </div>
+        <div class="sheet__footer"><button class="btn btn--ghost" id="cpPickCancel">Cancel</button></div>`);
+      applyDataColors(taskSheetMount);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('cpPickCancel')?.addEventListener('click', closeTaskSheet);
+      taskSheetMount.querySelectorAll('[data-pick]').forEach(btn => {
+        btn.addEventListener('click', () => {
           closeTaskSheet();
-          if (data.error || !data.events?.length) {
-            setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
-              <div class="sheet__header"><h2 class="sheet__title">No events found</h2></div>
-              <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">${data.error || 'No events could be extracted from that photo.'}</p></div>
-              <div class="sheet__footer"><button class="btn btn--secondary" id="cpClose">Close</button></div>`);
+          setTimeout(() => {
+            const input = document.createElement('input');
+            input.type = 'file'; input.accept = 'image/*';
+            if (btn.dataset.pick === 'camera') input.capture = 'environment';
+            input.style.display = 'none';
+            document.body.appendChild(input);
+            input.addEventListener('change', async () => {
+              const file = input.files?.[0];
+              document.body.removeChild(input);
+              if (!file) return;
+              taskSheetMount.innerHTML = renderBottomSheet(`
+                <div class="sheet__header"><h2 class="sheet__title">Reading photo…</h2></div>
+                <div class="sheet__content" style="text-align:center;padding:var(--spacing-xl) 0">
+                  <span style="color:var(--text-muted);font-size:var(--font-sm)">Extracting events…</span>
+                </div>`);
               applyDataColors(taskSheetMount);
               requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-              document.getElementById('cpClose')?.addEventListener('click', closeTaskSheet);
-            }, 320);
-            return;
-          }
-          setTimeout(() => openImportEventsConfirm(data.events, false), 320);
-        } catch {
-          closeTaskSheet();
-          setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
-            <div class="sheet__header"><h2 class="sheet__title">Error</h2></div>
-            <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">Could not reach import service.</p></div>
-            <div class="sheet__footer"><button class="btn btn--secondary" id="cpClose">Close</button></div>`);
-            applyDataColors(taskSheetMount);
-            requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-            document.getElementById('cpClose')?.addEventListener('click', closeTaskSheet);
+              try {
+                const base64 = await new Promise((res, rej) => {
+                  const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+                });
+                const resp = await fetch(KITCHEN_WORKER_URL, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ type: 'calendarPhoto', input: { base64, mediaType: file.type || 'image/jpeg', contextDate: today } }),
+                });
+                const data = await resp.json();
+                closeTaskSheet();
+                if (data.error || !data.events?.length) {
+                  setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
+                    <div class="sheet__header"><h2 class="sheet__title">No events found</h2></div>
+                    <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">${data.error || 'No events could be extracted from that photo.'}</p></div>
+                    <div class="sheet__footer"><button class="btn btn--secondary" id="cpClose">Close</button></div>`);
+                    applyDataColors(taskSheetMount);
+                    requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+                    document.getElementById('cpClose')?.addEventListener('click', closeTaskSheet);
+                  }, 320);
+                  return;
+                }
+                setTimeout(() => openImportEventsConfirm(data.events, false), 320);
+              } catch {
+                closeTaskSheet();
+                setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
+                  <div class="sheet__header"><h2 class="sheet__title">Error</h2></div>
+                  <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">Could not reach import service.</p></div>
+                  <div class="sheet__footer"><button class="btn btn--secondary" id="cpClose">Close</button></div>`);
+                  applyDataColors(taskSheetMount);
+                  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+                  document.getElementById('cpClose')?.addEventListener('click', closeTaskSheet);
+                }, 320);
+              }
+            });
+            input.click();
+            setTimeout(() => { if (document.body.contains(input)) document.body.removeChild(input); }, 60000);
           }, 320);
-        }
+        });
       });
-      input.click();
     }
 
     function openTextEventSheet() {
