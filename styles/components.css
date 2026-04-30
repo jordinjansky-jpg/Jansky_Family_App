@@ -3112,3 +3112,115 @@
   margin: var(--spacing-md) 0;
 }
 .approval-row__actions { display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-xs); }
+
+/* ── AI confirm rows ──────────────────────────────────────────── */
+.confirm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.confirm-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s, background 0.1s;
+}
+
+.confirm-row:active {
+  background: var(--bg-secondary);
+}
+
+.confirm-row.confidence-low {
+  opacity: 0.7;
+}
+
+.confirm-row__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.confirm-row__label {
+  font-size: var(--font-size-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s, text-decoration 0.15s;
+}
+
+.confirm-row.is-deselected .confirm-row__label {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.confirm-row__sub {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.confirm-row__sub.confidence-date-low {
+  color: var(--c-warning);
+}
+
+.confirm-row__check {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+
+.confirm-row.is-deselected .confirm-row__check {
+  color: var(--border);
+}
+
+.confirm-row .check-filled { display: block; }
+.confirm-row .check-empty  { display: none;  }
+.confirm-row.is-deselected .check-filled { display: none;  }
+.confirm-row.is-deselected .check-empty  { display: block; }
+
+.confidence-dot {
+  color: var(--c-warning);
+  margin-right: 4px;
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* ── AI loading state ─────────────────────────────────────────── */
+.ai-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) 0;
+  gap: var(--spacing-sm);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.ai-loading__spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ai-spin 0.7s linear infinite;
+}
+
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-loading__spinner { animation: none; border-top-color: var(--accent); opacity: 0.6; }
+}
