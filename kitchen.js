@@ -15,6 +15,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderBottomSheet, renderEmptyState, renderAddMenu
 } from './shared/components.js';
 import { todayKey, escapeHtml } from './shared/utils.js';
+import { resizeImageForUpload, renderConfirmRow } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -904,6 +905,12 @@ function openRecipeForm(recipeId, onSave = null) {
         status.style.display = 'inline';
         return;
       }
+      if (!data.name && !data.ingredients?.length) {
+        status.textContent = 'Couldn\'t read that URL — check the link or try a photo instead.';
+        status.style.color = 'var(--text-muted)';
+        status.style.display = 'inline';
+        return;
+      }
       if (data.name && !document.getElementById('recipeName').value) {
         document.getElementById('recipeName').value = data.name;
       }
@@ -941,15 +948,11 @@ function openRecipeForm(recipeId, onSave = null) {
     document.getElementById('screenshotInput')?.click();
   });
 
-  document.getElementById('screenshotInput')?.addEventListener('change', (e) => {
+  document.getElementById('screenshotInput')?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
-      runImport('screenshot', { base64, mediaType: file.type || 'image/jpeg' }, 'importScreenshotBtn', 'screenshotStatus');
-    };
-    reader.readAsDataURL(file);
+    const { base64, mediaType } = await resizeImageForUpload(file);
+    runImport('screenshot', { base64, mediaType }, 'importScreenshotBtn', 'screenshotStatus');
   });
 
   document.getElementById('saveRecipeForm')?.addEventListener('click', async () => {
@@ -1534,37 +1537,47 @@ function openPhotoToListSheet() {
         document.body.removeChild(input);
         if (!file) return;
         mount.innerHTML = renderBottomSheet(`
-          <div class="sheet__header"><h2 class="sheet__title">Scanning photo…</h2></div>
-          <div class="sheet__content" style="text-align:center;padding:var(--spacing-xl) 0">
-            <span style="color:var(--text-muted);font-size:var(--font-sm)">Identifying items…</span>
+          <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
+          <div class="sheet__content">
+            <div class="ai-loading">
+              <div class="ai-loading__spinner"></div>
+              Scanning photo…
+            </div>
           </div>`);
         activateSheet(mount);
         try {
-          const base64 = await new Promise((res, rej) => {
-            const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
-          });
+          const { base64, mediaType } = await resizeImageForUpload(file);
           const resp = await fetch(KITCHEN_WORKER_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType: file.type || 'image/jpeg' } }),
+            body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType } }),
           });
           const data = await resp.json();
           if (data.error || !data.items?.length) {
             mount.innerHTML = renderBottomSheet(`
-              <div class="sheet__header"><h2 class="sheet__title">No items found</h2></div>
-              <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">${data.error || 'No items detected in that photo.'}</p></div>
-              <div class="sheet__footer"><button class="btn btn--secondary" id="ptlClose">Close</button></div>`);
+              <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
+              <div class="sheet__content">
+                <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No items detected — try a clearer photo.</p>
+              </div>
+              <div class="sheet__footer">
+                <button class="btn btn--secondary" id="ptlRetry">Try again</button>
+              </div>`);
             activateSheet(mount);
-            mount.querySelector('#ptlClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+            mount.querySelector('#ptlRetry')?.addEventListener('click', () => openPhotoToListSheet());
             return;
           }
           renderPhotoToListConfirm(mount, data.items);
-        } catch {
+        } catch (err) {
           mount.innerHTML = renderBottomSheet(`
-            <div class="sheet__header"><h2 class="sheet__title">Error</h2></div>
-            <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">Could not reach import service. Check your connection.</p></div>
-            <div class="sheet__footer"><button class="btn btn--secondary" id="ptlClose">Close</button></div>`);
+            <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
+            <div class="sheet__content">
+              <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
+              <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${err?.message || 'Check your connection.'}</p>
+            </div>
+            <div class="sheet__footer">
+              <button class="btn btn--secondary" id="ptlRetry">Try again</button>
+            </div>`);
           activateSheet(mount);
-          mount.querySelector('#ptlClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+          mount.querySelector('#ptlRetry')?.addEventListener('click', () => openPhotoToListSheet());
         }
       });
       input.click();
@@ -1574,28 +1587,44 @@ function openPhotoToListSheet() {
 }
 
 function renderPhotoToListConfirm(mount, items) {
-  const rows = items.map((item, i) =>
-    `<label style="display:flex;align-items:center;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
-      <input type="checkbox" class="ptl-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0">
-      <span style="font-size:var(--font-base)">${esc(item.name)}</span>
-    </label>`
-  ).join('');
+  const rows = items.map((item, i) => renderConfirmRow(
+    { ...item, _cat: item.category || 'Uncategorised' },
+    { labelKey: 'name', subKey: '_cat', confidenceKey: 'confidence', key: i }
+  )).join('');
+
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header"><h2 class="sheet__title">Add to list</h2></div>
     <div class="sheet__content">
-      <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${items.length} item${items.length !== 1 ? 's' : ''} detected — uncheck any you don't need.</p>
-      <div id="ptlItems">${rows}</div>
+      <div class="confirm-list" id="ptlList">${rows}</div>
     </div>
     <div class="sheet__footer">
       <button class="btn btn--secondary" id="ptlCancel">Cancel</button>
-      <button class="btn btn--primary" id="ptlAdd">Add selected</button>
+      <button class="btn btn--primary" id="ptlAdd">Add ${items.length} item${items.length !== 1 ? 's' : ''}</button>
     </div>`);
   activateSheet(mount);
+
+  const list = mount.querySelector('#ptlList');
+  const addBtn = mount.querySelector('#ptlAdd');
+
+  function updateBtn() {
+    const n = list.querySelectorAll('.confirm-row:not(.is-deselected)').length;
+    addBtn.textContent = `Add ${n} item${n !== 1 ? 's' : ''}`;
+    addBtn.disabled = n === 0;
+  }
+
+  list.addEventListener('click', (e) => {
+    const row = e.target.closest('.confirm-row');
+    if (!row) return;
+    row.classList.toggle('is-deselected');
+    updateBtn();
+  });
+
   mount.querySelector('#ptlCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
-  mount.querySelector('#ptlAdd')?.addEventListener('click', async () => {
-    const checked = [...mount.querySelectorAll('.ptl-check:checked')].map(el => items[+el.dataset.idx].name);
+  addBtn.addEventListener('click', async () => {
+    const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
+      .map(row => items[+row.dataset.key].name);
     mount.innerHTML = '';
-    for (const name of checked) await addItemToActiveList(name);
+    for (const name of selected) await addItemToActiveList(name);
   });
 }
 
