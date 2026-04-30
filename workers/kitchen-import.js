@@ -15,13 +15,15 @@ const CATEGORY_LIST = [
 
 // ── Prompts ───────────────────────────────────────────────────────────────────
 
-const RECIPE_PROMPT = `Extract recipe information. Return JSON:
+const RECIPE_PROMPT = `Extract recipe information. The source may be a recipe website, blog post, social media post, or photo of a recipe card — formats vary widely.
+Return JSON:
 {
   "name": "recipe name",
-  "ingredients": [{"name": "ingredient name", "qty": "amount and unit, e.g. 2 cups or null"}],
-  "notes": "brief description (optional, max 200 chars)"
+  "ingredients": [{"name": "ingredient name", "qty": "amount and unit or null"}],
+  "notes": "brief description or prep note (optional, max 200 chars)"
 }
-If this is not a recipe, return { "error": "not a recipe" }.
+If multiple recipes appear, extract the primary or most prominent one. Extract as much as is visible even if some fields are incomplete.
+If there is no recipe at all, return {"error": "not a recipe"}.
 Return only valid JSON, nothing else.`;
 
 const EVENTS_PROMPT = (contextDate) =>
@@ -36,52 +38,89 @@ CALENDAR READING RULES:
 - For events with no year shown, use the year that makes the date upcoming or within the next 12 months.
 - For events with no time shown, set allDay: true.
 
+If you had to guess or assume the month (i.e. it was not clearly labeled anywhere on the image), set monthUncertain: true and provide your best guess as assumedMonth (e.g. "May 2026"). If the month was clearly visible, set monthUncertain: false and assumedMonth: null.
+
 Return JSON:
 {
-  "events": [{"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": true/false, "notes": "string or null"}]
+  "events": [{"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": true/false, "notes": "string or null"}],
+  "monthUncertain": false,
+  "assumedMonth": null
 }
-If no events found, return {"events": []}. Return only valid JSON, nothing else.`;
+If no events found, return {"events": [], "monthUncertain": false, "assumedMonth": null}. Return only valid JSON, nothing else.`;
 
 const SCHOOL_LUNCH_PROMPT = (contextDate) =>
-  `Extract the school lunch menu from this document. Today is ${contextDate}.
+  `Extract the school lunch menu. Today is ${contextDate}.
+
+MENU READING RULES:
+- The source may be a PDF, photo of a printout, or a column-style table (Mon–Fri).
+- Date formats vary: "Monday April 28", "4/28", "Week of April 28", or just weekday column headers.
+- For column-based menus with a "Week of [date]" header, calculate each weekday's full date from that anchor.
+- If no year is shown, use the upcoming school year (whichever semester is next from today).
+- Each day may have one main option and one alternative — if only one, set lunch2: null.
+- If you had to guess or assume the month/year (not clearly labeled), set monthUncertain: true and provide assumedMonth (e.g. "May 2026").
+
 Return JSON:
 {
-  "days": [{"date": "YYYY-MM-DD", "lunch1": "main option", "lunch2": "second option or null"}]
+  "days": [{"date": "YYYY-MM-DD", "lunch1": "main option", "lunch2": "second option or null"}],
+  "monthUncertain": false,
+  "assumedMonth": null
 }
-Include only days with lunch entries. Use the exact dates shown. If year is ambiguous use the upcoming school year.
-Return only valid JSON, nothing else.`;
+Include only days with lunch entries. Return only valid JSON, nothing else.`;
 
 const PARSE_EVENT_PROMPT = (text, contextDate) =>
-  `Parse this text as a single calendar event. Today is ${contextDate}.
-Text: "${text.replace(/"/g, '\\"')}"
+  `Parse this as a calendar event. Today is ${contextDate}.
+Input: "${text.replace(/"/g, '\\"')}"
+Interpret natural language freely: "dentist Thursday 3pm", "soccer tournament May 10 all day", "book club next Tuesday at 7".
 Return JSON: {"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": boolean, "notes": "string or null"}
-If this cannot be parsed as an event, return {"error": "explanation"}.
+If completely unparseable as an event, return {"error": "explanation"}.
 Return only valid JSON, nothing else.`;
 
 const HOMEWORK_PROMPT = (contextDate) =>
   `Extract homework assignments from this image. Today is ${contextDate}.
+
+ASSIGNMENT READING RULES:
+- The image may be a printed sheet, handwritten notebook page, whiteboard, or digital screenshot (e.g. Google Classroom).
+- Look for assignments, readings, projects, or anything that needs to be completed and turned in.
+- Due dates may appear as "Monday", "4/28", "May 2nd", "next week" — calculate the full date from today (${contextDate}) for relative dates.
+- If no due date is visible for an assignment, set dueDate to null.
+- Include the subject (Math, Reading, etc.) in notes if visible.
+- Include ALL assignments even if the due date is unclear or missing.
+
 Return JSON:
 {
-  "tasks": [{"name": "assignment description", "dueDate": "YYYY-MM-DD", "notes": "subject or extra info or null"}]
+  "tasks": [{"name": "assignment description", "dueDate": "YYYY-MM-DD or null", "notes": "subject or extra info or null"}]
 }
 If no assignments found, return {"tasks": []}. Return only valid JSON, nothing else.`;
 
 const PHOTO_TO_LIST_PROMPT =
-  `Look at this photo of a fridge, pantry, or kitchen storage area.
-Identify items that appear to be running low, nearly empty, or missing that should go on a shopping list.
+  `Extract items for a shopping list from this photo.
+
+PHOTO TYPES:
+- Fridge/pantry/kitchen storage: identify items that appear low, nearly empty, or absent.
+- Handwritten or printed shopping list: extract the written items directly.
+- Whiteboard list: read all items written on it.
+- Grocery receipt: extract the purchased items (useful for recurring staples).
+- Other: return {"items": []}.
+
 Return JSON: {"items": [{"name": "item name"}]}
-Aim for 5-15 practical grocery items. If this is not a kitchen/food storage photo, return {"items": []}.
+Use specific names where visible (e.g. "whole milk" not just "milk"). Aim for 3–20 items.
 Return only valid JSON, nothing else.`;
 
 const EMAIL_PROMPT = (subject, contextDate) =>
   `Extract calendar events from this email. Today is ${contextDate}. Subject: "${subject.replace(/"/g, '\\"')}"
+
+EVENT EXTRACTION RULES:
+- Extract real events: appointments, games, practices, meetings, performances, trips, school events, etc.
+- A single email may contain multiple events (e.g. a monthly newsletter, a sports schedule digest).
+- Ignore promotional offers, order confirmations, shipping notices, and unsubscribe footers.
+- For dates written as "Monday May 5" or "next Thursday", calculate the full date from today (${contextDate}).
+- If a time range is given (e.g. "6–8pm"), use the start time.
+
 Return JSON:
 {
   "events": [{"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": boolean, "notes": "string or null"}]
 }
-Only extract real events (appointments, games, meetings, practices, etc.).
-Ignore promotional or transactional emails. If no events, return {"events": []}.
-Return only valid JSON, nothing else.
+If no real events found, return {"events": []}. Return only valid JSON, nothing else.
 
 Email content:`;
 
@@ -285,19 +324,24 @@ async function handleSchoolLunch(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No file provided', 400, corsHeaders);
 
   const today = todayIso();
+  const isPdf = input.mediaType === 'application/pdf' || input.mediaType?.includes('pdf');
+  const contentBlock = isPdf
+    ? documentContent(input.base64, input.mediaType)
+    : imageContent(input.base64, input.mediaType);
   try {
     const raw = await callClaude([{
       role: 'user',
-      content: [
-        documentContent(input.base64, input.mediaType),
-        { type: 'text', text: SCHOOL_LUNCH_PROMPT(today) },
-      ],
+      content: [contentBlock, { type: 'text', text: SCHOOL_LUNCH_PROMPT(today) }],
     }], env, 2048);
     const parsed = parseJson(raw);
     const days = Array.isArray(parsed.days)
       ? parsed.days.filter(d => d.date && d.lunch1)
       : [];
-    return jsonOk({ days }, corsHeaders);
+    return jsonOk({
+      days,
+      monthUncertain: parsed.monthUncertain === true,
+      assumedMonth: parsed.assumedMonth || null,
+    }, corsHeaders);
   } catch {
     return jsonError('Could not extract lunch menu', 500, corsHeaders);
   }
@@ -319,7 +363,11 @@ async function handleCalendarPhoto(input, env, corsHeaders) {
     const events = Array.isArray(parsed.events)
       ? parsed.events.filter(e => e.name && e.date)
       : [];
-    return jsonOk({ events }, corsHeaders);
+    return jsonOk({
+      events,
+      monthUncertain: parsed.monthUncertain === true,
+      assumedMonth: parsed.assumedMonth || null,
+    }, corsHeaders);
   } catch {
     return jsonError('Could not extract events', 500, corsHeaders);
   }
@@ -374,9 +422,10 @@ async function handleHomeworkScan(input, env, corsHeaders) {
     }], env, 1024);
     const parsed = parseJson(raw);
     const tasks = Array.isArray(parsed.tasks)
-      ? parsed.tasks.filter(t => t.name && t.dueDate)
+      ? parsed.tasks.filter(t => t.name)
       : [];
-    return jsonOk({ tasks }, corsHeaders);
+    const hasUncertainDates = tasks.some(t => !t.dueDate);
+    return jsonOk({ tasks, hasUncertainDates }, corsHeaders);
   } catch {
     return jsonError('Could not extract assignments', 500, corsHeaders);
   }

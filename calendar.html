@@ -727,7 +727,11 @@
                   }, 320);
                   return;
                 }
-                setTimeout(() => openImportEventsConfirm(data.events, false), 320);
+                if (data.monthUncertain) {
+                  setTimeout(() => openMonthClarificationSheet(data.events, data.assumedMonth), 320);
+                } else {
+                  setTimeout(() => openImportEventsConfirm(data.events, false), 320);
+                }
               } catch {
                 closeTaskSheet();
                 setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
@@ -744,6 +748,46 @@
             setTimeout(() => { if (document.body.contains(input)) document.body.removeChild(input); }, 60000);
           }, 320);
         });
+      });
+    }
+
+    function remapEventMonth(events, yearMonth) {
+      return events.map(e => {
+        if (!e.date) return e;
+        return { ...e, date: `${yearMonth}-${e.date.slice(8, 10)}` };
+      });
+    }
+
+    function openMonthClarificationSheet(events, assumedMonth) {
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const parts = (assumedMonth || '').split(' ');
+      const mIdx = monthNames.findIndex(m => m.toLowerCase() === parts[0]?.toLowerCase());
+      const year = parts[1];
+      const monthVal = (mIdx >= 0 && year) ? `${year}-${String(mIdx + 1).padStart(2, '0')}` : '';
+
+      taskSheetMount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header"><h2 class="sheet__title">Confirm month</h2></div>
+        <div class="sheet__content">
+          <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-md)">
+            I couldn't clearly read the month on this calendar${assumedMonth ? ` — I guessed <strong>${assumedMonth}</strong>` : ''}. Set the correct month before importing.
+          </p>
+          <div class="field">
+            <label class="field__label">Month</label>
+            <input type="month" id="clarifyMonth" class="field__input" value="${monthVal}">
+          </div>
+        </div>
+        <div class="sheet__footer">
+          <button class="btn btn--ghost" id="clarifyCancel">Cancel</button>
+          <button class="btn btn--primary" id="clarifyConfirm">Continue</button>
+        </div>`);
+      applyDataColors(taskSheetMount);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('clarifyCancel')?.addEventListener('click', closeTaskSheet);
+      document.getElementById('clarifyConfirm')?.addEventListener('click', () => {
+        const val = document.getElementById('clarifyMonth')?.value;
+        const remapped = val ? remapEventMonth(events, val) : events;
+        closeTaskSheet();
+        setTimeout(() => openImportEventsConfirm(remapped, false), 320);
       });
     }
 

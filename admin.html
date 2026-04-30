@@ -3991,7 +3991,11 @@
             if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">${data.error || 'No lunch entries found.'}</span>`;
             return;
           }
-          renderSchoolLunchConfirm(data.days, statusEl);
+          if (data.monthUncertain) {
+            renderSchoolLunchClarification(data.days, data.assumedMonth, statusEl);
+          } else {
+            renderSchoolLunchConfirm(data.days, statusEl);
+          }
         } catch {
           if (statusEl) statusEl.innerHTML = '<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">Import failed. Check your connection.</span>';
         }
@@ -4019,7 +4023,7 @@
             if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">${data.error || 'No assignments found.'}</span>`;
             return;
           }
-          renderHomeworkConfirm(data.tasks, statusEl);
+          renderHomeworkConfirm(data.tasks, statusEl, data.hasUncertainDates);
         } catch {
           if (statusEl) statusEl.innerHTML = '<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">Scan failed. Check your connection.</span>';
         }
@@ -4030,6 +4034,33 @@
 
       // ── Email Imports ──
       loadEmailImports();
+    }
+
+    function renderSchoolLunchClarification(days, assumedMonth, statusEl) {
+      if (!statusEl) return;
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const parts = (assumedMonth || '').split(' ');
+      const mIdx = monthNames.findIndex(m => m.toLowerCase() === parts[0]?.toLowerCase());
+      const year = parts[1];
+      const monthVal = (mIdx >= 0 && year) ? `${year}-${String(mIdx + 1).padStart(2, '0')}` : '';
+      statusEl.innerHTML = `
+        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">
+          I couldn't clearly read the month on this menu${assumedMonth ? ` — I guessed <strong>${assumedMonth}</strong>` : ''}. Set the correct month to continue.
+        </p>
+        <div class="field mb-md">
+          <label class="field__label">Month</label>
+          <input type="month" id="slClarifyMonth" class="field__input" value="${monthVal}">
+        </div>
+        <div class="admin-form__actions">
+          <button class="btn btn--secondary btn--sm" id="slClarifyCancel">Cancel</button>
+          <button class="btn btn--primary btn--sm" id="slClarifyConfirm">Continue</button>
+        </div>`;
+      statusEl.querySelector('#slClarifyCancel')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
+      statusEl.querySelector('#slClarifyConfirm')?.addEventListener('click', () => {
+        const val = statusEl.querySelector('#slClarifyMonth')?.value;
+        const remapped = val ? days.map(d => ({ ...d, date: `${val}-${d.date.slice(8, 10)}` })) : days;
+        renderSchoolLunchConfirm(remapped, statusEl);
+      });
     }
 
     function renderSchoolLunchConfirm(days, statusEl) {
@@ -4063,19 +4094,28 @@
       });
     }
 
-    function renderHomeworkConfirm(tasks, statusEl) {
+    function renderHomeworkConfirm(tasks, statusEl, hasUncertainDates) {
       if (!statusEl) return;
       const rows = tasks.map((t, i) =>
         `<div style="display:flex;align-items:flex-start;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
           <input type="checkbox" class="hw-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0;margin-top:2px">
-          <div>
+          <div style="flex:1;min-width:0">
             <div style="font-size:var(--font-sm);font-weight:500">${esc(t.name)}</div>
-            <div style="font-size:var(--font-xs,0.75rem);color:var(--text-muted)">Due ${esc(t.dueDate)}${t.notes ? ' · ' + esc(t.notes) : ''}</div>
+            <div style="font-size:var(--font-xs,0.75rem);color:var(--text-muted);margin-top:2px">
+              ${t.dueDate
+                ? `Due ${esc(t.dueDate)}${t.notes ? ' · ' + esc(t.notes) : ''}`
+                : `<label style="display:inline-flex;align-items:center;gap:4px">Due <input type="date" class="hw-date" data-idx="${i}" style="border:1px solid var(--border);border-radius:var(--radius-xs);padding:2px 6px;font-size:var(--font-xs,0.75rem);background:var(--bg)"></label>${t.notes ? ' · ' + esc(t.notes) : ''}`
+              }
+            </div>
           </div>
         </div>`
       ).join('');
+      const hint = hasUncertainDates
+        ? `<p style="font-size:var(--font-xs,0.75rem);color:var(--text-muted);margin-bottom:var(--spacing-sm)">Some assignments had no due date — add dates below or leave blank to skip them.</p>`
+        : '';
       statusEl.innerHTML = `
-        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${tasks.length} assignment${tasks.length !== 1 ? 's' : ''} found.</p>
+        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-xs)">${tasks.length} assignment${tasks.length !== 1 ? 's' : ''} found.</p>
+        ${hint}
         <div id="hwItems">${rows}</div>
         <div class="admin-form__actions mt-md">
           <button class="btn btn--secondary btn--sm" id="hwCancel">Cancel</button>
@@ -4083,7 +4123,14 @@
         </div>`;
       statusEl.querySelector('#hwCancel')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
       statusEl.querySelector('#hwSave')?.addEventListener('click', async () => {
-        const selected = [...statusEl.querySelectorAll('.hw-check:checked')].map(el => tasks[+el.dataset.idx]);
+        const selected = [...statusEl.querySelectorAll('.hw-check:checked')].map(el => {
+          const t = tasks[+el.dataset.idx];
+          if (!t.dueDate) {
+            const dateEl = statusEl.querySelector(`.hw-date[data-idx="${el.dataset.idx}"]`);
+            return { ...t, dueDate: dateEl?.value || null };
+          }
+          return t;
+        }).filter(t => t.dueDate);
         if (!selected.length) { statusEl.innerHTML = ''; return; }
         const btn = statusEl.querySelector('#hwSave');
         btn.disabled = true; btn.textContent = 'Adding…';
