@@ -78,6 +78,7 @@
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
     import { clearWeatherCache } from './shared/weather.js';
+    import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
     const MSG_POSITIVE = ['Awesome Job!','Super Star','Great Teamwork','Above & Beyond',
@@ -3979,12 +3980,10 @@
         const statusEl = main.querySelector('#schoolLunchStatus');
         if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Reading file…</span>';
         try {
-          const base64 = await new Promise((res, rej) => {
-            const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
-          });
+          const { base64, mediaType } = await resizeImageForUpload(file);
           const resp = await fetch(KITCHEN_WORKER_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType: file.type || 'application/pdf' } }),
+            body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType } }),
           });
           const data = await resp.json();
           if (data.error || !data.days?.length) {
@@ -4011,12 +4010,10 @@
         const statusEl = main.querySelector('#taskScanStatus');
         if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Scanning…</span>';
         try {
-          const base64 = await new Promise((res, rej) => {
-            const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
-          });
+          const { base64, mediaType } = await resizeImageForUpload(file);
           const resp = await fetch(KITCHEN_WORKER_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'taskScan', input: { base64, mediaType: file.type || 'image/jpeg', contextDate: todayKey(settings?.timezone || 'America/Chicago') } }),
+            body: JSON.stringify({ type: 'taskScan', input: { base64, mediaType, contextDate: todayKey(settings?.timezone || 'America/Chicago') } }),
           });
           const data = await resp.json();
           if (data.error || !data.tasks?.length) {

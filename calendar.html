@@ -48,6 +48,7 @@
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
     import { renderWeekView, renderDayView, renderMonthView, renderCalendarNav } from './shared/calendar-views.js';
+    import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
@@ -707,12 +708,10 @@
               applyDataColors(taskSheetMount);
               requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
               try {
-                const base64 = await new Promise((res, rej) => {
-                  const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
-                });
+                const { base64, mediaType } = await resizeImageForUpload(file);
                 const resp = await fetch(KITCHEN_WORKER_URL, {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ type: 'calendarPhoto', input: { base64, mediaType: file.type || 'image/jpeg', contextDate: today } }),
+                  body: JSON.stringify({ type: 'calendarPhoto', input: { base64, mediaType, contextDate: today } }),
                 });
                 const data = await resp.json();
                 closeTaskSheet();
