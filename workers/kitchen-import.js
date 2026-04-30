@@ -25,13 +25,22 @@ If this is not a recipe, return { "error": "not a recipe" }.
 Return only valid JSON, nothing else.`;
 
 const EVENTS_PROMPT = (contextDate) =>
-  `Extract all calendar events from this content. Today's date is ${contextDate}.
+  `Extract all calendar events from this image. Today's date is ${contextDate}.
+
+CALENDAR READING RULES:
+- The image may show a printed, handwritten, or school-style calendar — often colorful, dense, or missing a clear month/year label.
+- If two months appear on the page, extract events from both.
+- To determine the month: look for any month name anywhere on the page (headers, footers, small print). If absent, use today (${contextDate}) as the anchor and assign day numbers to the nearest upcoming month that makes sense (prefer future dates over past).
+- Day cells may contain handwriting, stickers, colored text, or small annotations — read ALL text in each cell, not just large/clear text.
+- Ignore decorative elements (borders, clip art, logos) but capture every day cell that has any text beyond its day number.
+- For events with no year shown, use the year that makes the date upcoming or within the next 12 months.
+- For events with no time shown, set allDay: true.
+
 Return JSON:
 {
   "events": [{"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": true/false, "notes": "string or null"}]
 }
-For relative dates like "next Tuesday" calculate from today. If no events, return {"events": []}.
-Return only valid JSON, nothing else.`;
+If no events found, return {"events": []}. Return only valid JSON, nothing else.`;
 
 const SCHOOL_LUNCH_PROMPT = (contextDate) =>
   `Extract the school lunch menu from this document. Today is ${contextDate}.
