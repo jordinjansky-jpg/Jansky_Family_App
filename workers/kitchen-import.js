@@ -8,41 +8,60 @@
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const CATEGORY_LIST = [
-  'Produce','Dairy','Meat & Seafood','Bakery','Frozen','Pantry',
-  'Beverages','Snacks','Household','Personal Care','Baby & Kids',
-  'Pets','Clothing','Electronics','Toys','Other'
-].join(', ');
+  'Produce', 'Dairy', 'Meat & Seafood', 'Bakery', 'Frozen', 'Pantry',
+  'Beverages', 'Snacks', 'Household', 'Personal Care', 'Baby & Kids',
+  'Pets', 'Clothing', 'Electronics', 'Toys', 'Other',
+];
+const CATEGORY_STR = CATEGORY_LIST.join(', ');
+const CATEGORY_SET = new Set(CATEGORY_LIST);
 
 // ── Prompts ───────────────────────────────────────────────────────────────────
 
 const RECIPE_PROMPT = `Extract recipe information. The source may be a recipe website, blog post, social media post, or photo of a recipe card — formats vary widely.
+
 Return JSON:
 {
-  "name": "recipe name",
-  "ingredients": [{"name": "ingredient name", "qty": "amount and unit or null"}],
-  "notes": "brief description or prep note (optional, max 200 chars)"
+  "name": "recipe name or null",
+  "ingredients": [{"name": "ingredient name", "qty": "amount with unit, or null"}],
+  "notes": "brief description or prep note (max 200 chars), or null",
+  "error": "reason if no recipe at all, else null"
 }
-If multiple recipes appear, extract the primary or most prominent one. Extract as much as is visible even if some fields are incomplete.
-If there is no recipe at all, return {"error": "not a recipe"}.
-Return only valid JSON, nothing else.`;
+If multiple recipes appear, extract the primary or most prominent one. Extract as much as is visible even if some fields are incomplete. Return only valid JSON, nothing else.`;
 
 const EVENTS_PROMPT = (contextDate) =>
-  `Extract all calendar events from this image. Today's date is ${contextDate}.
+  `Extract all calendar events from this image. Today is ${contextDate}.
 
 CALENDAR READING RULES:
 - The image may show a printed, handwritten, or school-style calendar — often colorful, dense, or missing a clear month/year label.
 - If two months appear on the page, extract events from both.
-- To determine the month: look for any month name anywhere on the page (headers, footers, small print). If absent, use today (${contextDate}) as the anchor and assign day numbers to the nearest upcoming month that makes sense (prefer future dates over past).
-- Day cells may contain handwriting, stickers, colored text, or small annotations — read ALL text in each cell, not just large/clear text.
-- Ignore decorative elements (borders, clip art, logos) but capture every day cell that has any text beyond its day number.
+- To determine the month: look for any month name anywhere on the page (headers, footers, small print, watermarks). If absent, use today (${contextDate}) as the anchor and assign day numbers to the nearest upcoming month that makes sense — prefer future dates over past.
+- Day cells may contain handwriting, stickers, colored text, or small annotations — read ALL text in each cell, not just large or clearly printed text.
+- Ignore purely decorative elements (borders, clip art, school logos) but capture every day cell that has any text beyond just the day number.
 - For events with no year shown, use the year that makes the date upcoming or within the next 12 months.
 - For events with no time shown, set allDay: true.
+- Do not merge or summarize — create one event entry per unique day-cell occurrence.
 
-If you had to guess or assume the month (i.e. it was not clearly labeled anywhere on the image), set monthUncertain: true and provide your best guess as assumedMonth (e.g. "May 2026"). If the month was clearly visible, set monthUncertain: false and assumedMonth: null.
+CONFIDENCE RULES:
+- confidence: "high" = clearly printed or typed event name; "medium" = handwritten, partially obscured, or abbreviated; "low" = barely visible, cut off, or guessed from context.
+- dateConfidence: "high" = month name clearly visible on the image; "medium" = month inferred from adjacent months or partial label; "low" = month was assumed because nothing was visible.
+
+MONTH UNCERTAINTY:
+- If the month was NOT clearly labeled anywhere on the image, set monthUncertain: true and provide your best guess as assumedMonth (e.g. "May 2026").
+- If the month WAS clearly visible, set monthUncertain: false and assumedMonth: null.
 
 Return JSON:
 {
-  "events": [{"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": true/false, "notes": "string or null"}],
+  "events": [
+    {
+      "name": "event name",
+      "date": "YYYY-MM-DD",
+      "time": "HH:MM or null",
+      "allDay": true,
+      "notes": "extra detail or null",
+      "confidence": "high|medium|low",
+      "dateConfidence": "high|medium|low"
+    }
+  ],
   "monthUncertain": false,
   "assumedMonth": null
 }
@@ -52,79 +71,141 @@ const SCHOOL_LUNCH_PROMPT = (contextDate) =>
   `Extract the school lunch menu. Today is ${contextDate}.
 
 MENU READING RULES:
-- The source may be a PDF, photo of a printout, or a column-style table (Mon–Fri).
-- Date formats vary: "Monday April 28", "4/28", "Week of April 28", or just weekday column headers.
-- For column-based menus with a "Week of [date]" header, calculate each weekday's full date from that anchor.
-- If no year is shown, use the upcoming school year (whichever semester is next from today).
-- Each day may have one main option and one alternative — if only one, set lunch2: null.
-- If you had to guess or assume the month/year (not clearly labeled), set monthUncertain: true and provide assumedMonth (e.g. "May 2026").
+- The source may be a PDF, a photo of a printout, or a column-style table (Mon–Fri layout).
+- Date formats vary widely: "Monday April 28", "4/28", "Week of April 28", or just weekday column headers with no explicit dates.
+- For column-based menus with a "Week of [date]" or "Week of [Monday's date]" header, calculate each weekday's full date from that Monday anchor (Mon = +0, Tue = +1, Wed = +2, Thu = +3, Fri = +4).
+- If no year is shown, use whichever school semester is next from today (${contextDate}).
+- Each day may have a main option and an alternative — capture both if present; set lunch2: null if only one option.
+- Skip days with no lunch listed (holidays, breaks, no school).
+- If you had to guess or assume the month or year (not clearly labeled), set monthUncertain: true and provide assumedMonth (e.g. "May 2026").
+
+CONFIDENCE RULES:
+- confidence per day: "high" = clearly printed text; "medium" = partially legible or abbreviated; "low" = blurry, guessed, or reconstructed.
 
 Return JSON:
 {
-  "days": [{"date": "YYYY-MM-DD", "lunch1": "main option", "lunch2": "second option or null"}],
+  "days": [
+    {"date": "YYYY-MM-DD", "lunch1": "main option", "lunch2": "second option or null", "confidence": "high|medium|low"}
+  ],
   "monthUncertain": false,
   "assumedMonth": null
 }
-Include only days with lunch entries. Return only valid JSON, nothing else.`;
+Include only days that have at least one lunch entry. Return only valid JSON, nothing else.`;
 
 const PARSE_EVENT_PROMPT = (text, contextDate) =>
-  `Parse this as a calendar event. Today is ${contextDate}.
+  `Parse this text as a calendar event. Today is ${contextDate}.
 Input: "${text.replace(/"/g, '\\"')}"
-Interpret natural language freely: "dentist Thursday 3pm", "soccer tournament May 10 all day", "book club next Tuesday at 7".
-Return JSON: {"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": boolean, "notes": "string or null"}
-If completely unparseable as an event, return {"error": "explanation"}.
-Return only valid JSON, nothing else.`;
 
-const TASK_SCAN_PROMPT = (contextDate) =>
-  `Extract actionable tasks from this document or image. Today is ${contextDate}.
-
-DOCUMENT TYPES (handle all of these):
-- Homework/assignment sheets: assignments, readings, projects with due dates
-- Permission slips: what needs to be signed, returned, or paid, and by when
-- School newsletters or flyers: action items, RSVPs, forms to return
-- Medical/appointment follow-up forms: tasks to complete before next visit
-- Chore charts, to-do lists, reminder notes: anything written as a task
-- Any other document where someone needs to DO something by a certain date
-
-FOR EACH TASK:
-- name: clear, actionable description (e.g. "Sign permission slip — Science Museum trip", "Read Chapter 4", "Return immunization form")
-- dueDate: the deadline — calculate relative dates (e.g. "next Monday", "by Friday") from today (${contextDate}); set null if no date is visible
-- notes: subject, who it's for, or any extra context (null if none)
-- Include ALL action items even if the due date is missing
+Interpret natural language freely. Examples:
+- "dentist Thursday 3pm" → next Thursday at 15:00
+- "soccer tournament May 10 all day" → May 10, allDay: true
+- "book club next Tuesday at 7" → next Tuesday at 19:00
+- "mom's birthday April 2" → April 2, allDay: true
 
 Return JSON:
 {
-  "tasks": [{"name": "task description", "dueDate": "YYYY-MM-DD or null", "notes": "context or null"}]
+  "name": "event name or null",
+  "date": "YYYY-MM-DD or null",
+  "time": "HH:MM (24h) or null",
+  "allDay": true or false or null,
+  "notes": "any extra context or null",
+  "error": "explanation if completely unparseable as an event, else null"
 }
-If no actionable tasks found, return {"tasks": []}. Return only valid JSON, nothing else.`;
+Return only valid JSON, nothing else.`;
 
-const PHOTO_TO_LIST_PROMPT =
-  `Extract items for a shopping list from this photo.
+const TASK_SCAN_PROMPT = (contextDate) =>
+  `Extract all actionable tasks from this document or image. Today is ${contextDate}.
+
+DOCUMENT TYPES — handle all of these:
+- Homework / assignment sheets: readings, projects, worksheets with due dates
+- Permission slips: what needs to be signed, returned, or paid and by when
+- School newsletters or flyers: RSVPs, forms to return, items to bring
+- Medical / appointment follow-up forms: tasks to complete before next visit
+- Chore charts, to-do lists, reminder notes: anything written as a task
+- Any other document where someone needs to DO something by a date
+
+FOR EACH TASK:
+- name: clear, actionable description — include who it's for and what it is (e.g. "Sign permission slip — Science Museum trip", "Read Chapter 4", "Return immunization form to office")
+- dueDate: deadline in YYYY-MM-DD — calculate relative dates ("next Monday", "by Friday") from today (${contextDate}); null if no date is visible anywhere on the document
+- notes: subject name, grade, additional instructions, or who the task is for (null if none)
+- confidence: "high" = clearly stated task with name and action; "medium" = implied task or ambiguous wording; "low" = guessed from context or partially illegible
+- Include ALL action items even when the due date is missing — do not filter out undated tasks
+
+Return JSON:
+{
+  "tasks": [
+    {"name": "task description", "dueDate": "YYYY-MM-DD or null", "notes": "context or null", "confidence": "high|medium|low"}
+  ]
+}
+If no actionable tasks are found, return {"tasks": []}. Return only valid JSON, nothing else.`;
+
+const PHOTO_TO_LIST_PROMPT = `Extract items for a shopping list from this photo. For each item, also assign a shopping category.
 
 PHOTO TYPES:
-- Fridge/pantry/kitchen storage: identify items that appear low, nearly empty, or absent.
+- Fridge / pantry / kitchen storage: identify items that appear low, nearly empty, or absent — these are what needs to be bought.
 - Handwritten or printed shopping list: extract the written items directly.
 - Whiteboard list: read all items written on it.
-- Grocery receipt: extract the purchased items (useful for recurring staples).
-- Other: return {"items": []}.
+- Grocery receipt: extract the purchased items (useful for building a recurring staples list).
+- Other / unclear: return {"items": []}.
 
-Return JSON: {"items": [{"name": "item name"}]}
-Use specific names where visible (e.g. "whole milk" not just "milk"). Aim for 3–20 items.
-Return only valid JSON, nothing else.`;
+CATEGORIES: ${CATEGORY_STR}
+
+FOR EACH ITEM:
+- name: specific and descriptive (e.g. "whole milk" not "milk", "sharp cheddar" not "cheese")
+- category: one of the categories above — pick the best fit
+- confidence: "high" = clearly visible and readable; "medium" = partially visible or inferred; "low" = guessed from blurry or cut-off text
+
+Return JSON: {"items": [{"name": "item name", "category": "category", "confidence": "high|medium|low"}]}
+Aim for 3–20 items. Return only valid JSON, nothing else.`;
+
+const SCAN_PROMPT = (contextDate) =>
+  `Analyze this image carefully and extract ALL of the following that are present:
+1. Calendar events (appointments, activities, school events)
+2. Actionable tasks (things someone needs to do, sign, return, or pay)
+3. School lunch menu entries (daily lunch options)
+
+Today is ${contextDate}.
+
+EVENTS — extract from any calendar, schedule, or event list:
+- name: event description. date: YYYY-MM-DD. time: HH:MM or null. allDay: true/false. notes: extra detail or null.
+- dateConfidence: "high" = month clearly labeled; "medium" = inferred from context; "low" = guessed.
+
+TASKS — extract from homework sheets, permission slips, newsletters, reminder notes, chore charts:
+- name: clear actionable description including who and what. dueDate: YYYY-MM-DD or null. notes: subject/context or null.
+
+LUNCH — extract from any school lunch menu or meal schedule:
+- date: YYYY-MM-DD. lunch1: main option (required). lunch2: alternate option or null.
+
+For ALL items: confidence = "high" (clearly readable), "medium" (partially visible or abbreviated), "low" (guessed or blurry).
+
+MONTH UNCERTAINTY: If the month was not clearly labeled on the image, set monthUncertain: true and provide assumedMonth (e.g. "May 2026"). If clearly visible, set monthUncertain: false and assumedMonth: null.
+
+Return JSON:
+{
+  "events": [{"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": true, "notes": "string or null", "confidence": "high|medium|low", "dateConfidence": "high|medium|low"}],
+  "tasks": [{"name": "string", "dueDate": "YYYY-MM-DD or null", "notes": "string or null", "confidence": "high|medium|low"}],
+  "lunch": [{"date": "YYYY-MM-DD", "lunch1": "string", "lunch2": "string or null", "confidence": "high|medium|low"}],
+  "monthUncertain": false,
+  "assumedMonth": null
+}
+If a category has nothing, return an empty array for that key. Return only valid JSON, nothing else.`;
 
 const EMAIL_PROMPT = (subject, contextDate) =>
   `Extract calendar events from this email. Today is ${contextDate}. Subject: "${subject.replace(/"/g, '\\"')}"
 
 EVENT EXTRACTION RULES:
-- Extract real events: appointments, games, practices, meetings, performances, trips, school events, etc.
-- A single email may contain multiple events (e.g. a monthly newsletter, a sports schedule digest).
-- Ignore promotional offers, order confirmations, shipping notices, and unsubscribe footers.
-- For dates written as "Monday May 5" or "next Thursday", calculate the full date from today (${contextDate}).
+- Extract real events: appointments, games, practices, meetings, performances, trips, school events, parties, etc.
+- A single email may contain multiple events (e.g. a monthly newsletter, a sports schedule digest, a school calendar).
+- IGNORE: promotional offers, order confirmations, shipping notices, unsubscribe footers, account alerts.
+- For relative dates ("Monday May 5", "next Thursday", "this Saturday"), calculate the exact date from today (${contextDate}).
 - If a time range is given (e.g. "6–8pm"), use the start time.
+- confidence: "high" = date and event name explicitly stated; "medium" = inferred or approximate; "low" = guessed from vague language.
 
 Return JSON:
 {
-  "events": [{"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": boolean, "notes": "string or null"}]
+  "events": [
+    {"name": "string", "date": "YYYY-MM-DD", "time": "HH:MM or null", "allDay": boolean, "notes": "string or null", "confidence": "high|medium|low"}
+  ]
 }
 If no real events found, return {"events": []}. Return only valid JSON, nothing else.
 
@@ -158,21 +239,33 @@ function cleanHtml(html) {
     .slice(0, 15000);
 }
 
+// Retries on HTTP 529 (overloaded) up to 3 times with exponential backoff.
 async function callClaude(messages, env, maxTokens = 1024) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': env.CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages }),
-  });
-  if (!res.ok) throw new Error(`Claude API ${res.status}`);
-  const data = await res.json();
-  return data.content?.[0]?.text?.trim() || '';
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': env.CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages }),
+      });
+      if (res.status === 529) { lastErr = new Error('Claude overloaded'); continue; }
+      if (!res.ok) throw new Error(`Claude API ${res.status}`);
+      const data = await res.json();
+      return data.content?.[0]?.text?.trim() || '';
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
+// Strips markdown code fences Claude sometimes wraps around JSON.
 function parseJson(raw) {
   return JSON.parse(raw.replace(/^```json\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim());
 }
@@ -258,14 +351,13 @@ function parseIcal(text) {
 async function handleCategorize(itemName, env, corsHeaders) {
   if (!itemName || typeof itemName !== 'string') return jsonOk({ category: 'Other' }, corsHeaders);
 
-  const prompt = `Categorize this shopping item into exactly one of: ${CATEGORY_LIST}.
+  const prompt = `Categorize this shopping item into exactly one of: ${CATEGORY_STR}.
 Item: "${itemName}"
 Reply with only the category name, nothing else.`;
 
   try {
-    const VALID = new Set(CATEGORY_LIST.split(', '));
     const raw = await callClaude([{ role: 'user', content: prompt }], env, 20);
-    const category = VALID.has(raw) ? raw : 'Other';
+    const category = CATEGORY_SET.has(raw) ? raw : 'Other';
     return jsonOk({ category }, corsHeaders);
   } catch {
     return jsonOk({ category: 'Other' }, corsHeaders);
@@ -291,7 +383,7 @@ async function handleUrl(url, env, corsHeaders) {
     const raw = await callClaude([{
       role: 'user',
       content: `${RECIPE_PROMPT}\n\nSource URL: ${url}\n\nPage content:\n${text}`,
-    }], env);
+    }], env, 1024);
     const parsed = parseJson(raw);
     if (parsed.error) return jsonOk({ error: parsed.error }, corsHeaders);
     return jsonOk({
@@ -312,7 +404,7 @@ async function handleScreenshot(input, env, corsHeaders) {
     const raw = await callClaude([{
       role: 'user',
       content: [imageContent(input.base64, input.mediaType), { type: 'text', text: RECIPE_PROMPT }],
-    }], env);
+    }], env, 1024);
     const parsed = parseJson(raw);
     if (parsed.error) return jsonOk({ error: parsed.error }, corsHeaders);
     return jsonOk({
@@ -329,11 +421,12 @@ async function handleScreenshot(input, env, corsHeaders) {
 async function handleSchoolLunch(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No file provided', 400, corsHeaders);
 
-  const today = todayIso();
+  const today = input.contextDate || todayIso();
   const isPdf = input.mediaType === 'application/pdf' || input.mediaType?.includes('pdf');
   const contentBlock = isPdf
     ? documentContent(input.base64, input.mediaType)
     : imageContent(input.base64, input.mediaType);
+
   try {
     const raw = await callClaude([{
       role: 'user',
@@ -364,7 +457,7 @@ async function handleCalendarPhoto(input, env, corsHeaders) {
         imageContent(input.base64, input.mediaType),
         { type: 'text', text: EVENTS_PROMPT(contextDate) },
       ],
-    }], env, 1024);
+    }], env, 2048);
     const parsed = parseJson(raw);
     const events = Array.isArray(parsed.events)
       ? parsed.events.filter(e => e.name && e.date)
@@ -430,10 +523,9 @@ async function handleTaskScan(input, env, corsHeaders) {
     const tasks = Array.isArray(parsed.tasks)
       ? parsed.tasks.filter(t => t.name)
       : [];
-    const hasUncertainDates = tasks.some(t => !t.dueDate);
-    return jsonOk({ tasks, hasUncertainDates }, corsHeaders);
+    return jsonOk({ tasks, hasUncertainDates: tasks.some(t => !t.dueDate) }, corsHeaders);
   } catch {
-    return jsonError('Could not extract assignments', 500, corsHeaders);
+    return jsonError('Could not extract tasks', 500, corsHeaders);
   }
 }
 
@@ -447,14 +539,46 @@ async function handlePhotoToList(input, env, corsHeaders) {
         imageContent(input.base64, input.mediaType),
         { type: 'text', text: PHOTO_TO_LIST_PROMPT },
       ],
-    }], env, 512);
+    }], env, 768);
     const parsed = parseJson(raw);
     const items = Array.isArray(parsed.items)
-      ? parsed.items.filter(i => i.name)
+      ? parsed.items
+          .filter(i => i.name)
+          .map(i => ({
+            name: i.name,
+            category: CATEGORY_SET.has(i.category) ? i.category : 'Other',
+            confidence: i.confidence || 'high',
+          }))
       : [];
     return jsonOk({ items }, corsHeaders);
   } catch {
     return jsonError('Could not identify items', 500, corsHeaders);
+  }
+}
+
+// Unified scan: one image → events + tasks + lunch in a single Claude call.
+async function handleScan(input, env, corsHeaders) {
+  if (!input?.base64 || !input?.mediaType) return jsonError('No image provided', 400, corsHeaders);
+
+  const contextDate = input.contextDate || todayIso();
+  try {
+    const raw = await callClaude([{
+      role: 'user',
+      content: [
+        imageContent(input.base64, input.mediaType),
+        { type: 'text', text: SCAN_PROMPT(contextDate) },
+      ],
+    }], env, 3000);
+    const parsed = parseJson(raw);
+    return jsonOk({
+      events: Array.isArray(parsed.events) ? parsed.events.filter(e => e.name && e.date) : [],
+      tasks:  Array.isArray(parsed.tasks)  ? parsed.tasks.filter(t => t.name) : [],
+      lunch:  Array.isArray(parsed.lunch)  ? parsed.lunch.filter(l => l.date && l.lunch1) : [],
+      monthUncertain: parsed.monthUncertain === true,
+      assumedMonth:   parsed.assumedMonth || null,
+    }, corsHeaders);
+  } catch {
+    return jsonError('Could not scan image', 500, corsHeaders);
   }
 }
 
@@ -475,8 +599,9 @@ const HANDLERS = {
   ical:          (input, env) => handleIcal(input, env, CORS),
   parseEvent:    (input, env) => handleParseEvent(input, env, CORS),
   taskScan:      (input, env) => handleTaskScan(input, env, CORS),
-  homeworkScan:  (input, env) => handleTaskScan(input, env, CORS),
+  homeworkScan:  (input, env) => handleTaskScan(input, env, CORS),   // backward compat alias
   photoToList:   (input, env) => handlePhotoToList(input, env, CORS),
+  scan:          (input, env) => handleScan(input, env, CORS),
 };
 
 // ── email export ───────────────────────────────────────────────────────────────
@@ -487,7 +612,6 @@ async function handleEmailMessage(message, env) {
   const subject = message.headers.get('subject') || '(no subject)';
   const from = message.from || '';
 
-  // Read raw email stream
   const reader = message.raw.getReader();
   const chunks = [];
   while (true) {
