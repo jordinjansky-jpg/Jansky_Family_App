@@ -1498,7 +1498,7 @@ function openListFabSheet() {
 function openPhotoToListSheet() {
   if (!activeListId || !KITCHEN_WORKER_URL) return;
   const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+  input.type = 'file'; input.accept = 'image/*';
   input.style.display = 'none';
   document.body.appendChild(input);
   input.addEventListener('change', async () => {
