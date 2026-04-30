@@ -795,6 +795,7 @@ function openRecipeForm(recipeId, onSave = null) {
   function buildIngredientList() {
     return ingredients.map((ing, i) =>
       `<div class="ingredient-row" data-index="${i}" style="display:flex;align-items:center;gap:var(--spacing-xs);margin-bottom:var(--spacing-xs)">
+        ${ing.qty ? `<span style="font-size:var(--font-sm);color:var(--text-muted);white-space:nowrap">${esc(ing.qty)}</span>` : ''}
         <span style="flex:1;font-size:var(--font-sm)">${esc(ing.name)}</span>
         <button class="btn-icon" data-remove-index="${i}" type="button" aria-label="Remove">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -907,7 +908,7 @@ function openRecipeForm(recipeId, onSave = null) {
         document.getElementById('recipeUrl').value = data.url;
       }
       if (data.ingredients?.length) {
-        data.ingredients.forEach(ing => { if (ing.name) ingredients.push({ name: ing.name }); });
+        data.ingredients.forEach(ing => { if (ing.name) ingredients.push({ name: ing.name, qty: ing.qty || null }); });
         document.getElementById('ingredientList').innerHTML = buildIngredientList();
         bindRemoveButtons();
       }
