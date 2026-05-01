@@ -623,7 +623,6 @@ function openRecipeDetailSheet(recipeId) {
           addedAt: firebase.database.ServerValue.TIMESTAMP,
           category: null,
         });
-        if (KITCHEN_WORKER_URL) categorizeItem(targetListId, id, cleanName);
         addedCount++;
       }
     }
@@ -784,7 +783,6 @@ function openBulkAddSheet() {
       addedAt: firebase.database.ServerValue.TIMESTAMP,
       category: null,
     });
-    if (KITCHEN_WORKER_URL) categorizeItem(activeListId, id, trimmed);
     refreshAddedList();
   }
 
@@ -834,9 +832,9 @@ function openRecipeForm(recipeId, onSave = null) {
 
   function buildIngredientList() {
     return ingredients.map((ing, i) =>
-      `<div class="ingredient-row" data-index="${i}" style="display:flex;align-items:center;gap:var(--spacing-xs);margin-bottom:var(--spacing-xs)">
-        ${ing.qty ? `<span style="font-size:var(--font-sm);color:var(--text-muted);white-space:nowrap">${esc(ing.qty)}</span>` : ''}
-        <span style="flex:1;font-size:var(--font-sm)">${esc(ing.name)}</span>
+      `<div class="ingredient-row" data-index="${i}">
+        <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off">
+        <input class="ingredient-name" data-edit-index="${i}" data-edit-field="name" type="text" value="${esc(ing.name || '')}" placeholder="ingredient" autocomplete="off">
         <button class="btn-icon" data-remove-index="${i}" type="button" aria-label="Remove">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -905,7 +903,7 @@ function openRecipeForm(recipeId, onSave = null) {
     ingredients.push({ name: cleanIngredientName(val) });
     document.getElementById('newIngredientInput').value = '';
     document.getElementById('ingredientList').innerHTML = buildIngredientList();
-    bindRemoveButtons();
+    bindIngredientRowEvents();
   }
   document.getElementById('addIngredientBtn')?.addEventListener('click', addIngredient);
   document.getElementById('newIngredientInput')?.addEventListener('keydown', (e) => {
@@ -918,11 +916,27 @@ function openRecipeForm(recipeId, onSave = null) {
         const idx = parseInt(btn.dataset.removeIndex, 10);
         ingredients.splice(idx, 1);
         document.getElementById('ingredientList').innerHTML = buildIngredientList();
-        bindRemoveButtons();
+        bindIngredientRowEvents();
       });
     });
   }
-  bindRemoveButtons();
+
+  function bindEditInputs() {
+    document.getElementById('ingredientList')?.querySelectorAll('[data-edit-index]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const idx = parseInt(inp.dataset.editIndex, 10);
+        const field = inp.dataset.editField;
+        if (!ingredients[idx]) return;
+        ingredients[idx] = { ...ingredients[idx], [field]: inp.value.trim() || null };
+      });
+    });
+  }
+
+  function bindIngredientRowEvents() {
+    bindRemoveButtons();
+    bindEditInputs();
+  }
+  bindIngredientRowEvents();
 
   async function runImport(type, input, btnId, statusId) {
     const btn = document.getElementById(btnId);
@@ -963,7 +977,7 @@ function openRecipeForm(recipeId, onSave = null) {
           if (cleaned) ingredients.push({ name: cleaned, qty: ing.qty || null });
         });
         document.getElementById('ingredientList').innerHTML = buildIngredientList();
-        bindRemoveButtons();
+        bindIngredientRowEvents();
       }
       if (data.notes && !document.getElementById('recipeNotes').value) {
         document.getElementById('recipeNotes').value = data.notes;
@@ -1323,7 +1337,6 @@ function openItemAddField() {
       addedAt: firebase.database.ServerValue.TIMESTAMP,
       category: null,
     });
-    if (KITCHEN_WORKER_URL) categorizeItem(activeListId, id, name);
   }
 
   field.addEventListener('keydown', (e) => {
@@ -1348,6 +1361,10 @@ function openItemEditSheet(id, item) {
         <span class="field__label">Name</span>
         <input id="editItemName" type="text" value="${esc(item.name || '')}" autocomplete="off">
       </label>
+      <label class="field">
+        <span class="field__label">Quantity</span>
+        <input id="editItemQty" type="text" value="${esc(item.qty || '')}" placeholder="e.g. 2 cups, 1 lb" autocomplete="off">
+      </label>
       ${!alreadyStaple ? `<button class="btn btn--ghost btn--full" id="addToStaplesBtn" type="button">Save to staples</button>` : ''}
     </div>
     <div class="sheet__footer">
@@ -1357,12 +1374,14 @@ function openItemEditSheet(id, item) {
   activateSheet(mount);
 
   const input = document.getElementById('editItemName');
+  const qtyInput = document.getElementById('editItemQty');
   requestAnimationFrame(() => { input?.select(); });
 
   document.getElementById('editItemSave')?.addEventListener('click', async () => {
     const name = input?.value.trim();
+    const qty = qtyInput?.value.trim() || null;
     if (!name || !activeListId) return;
-    await writeKitchenItem(activeListId, id, { ...item, name });
+    await writeKitchenItem(activeListId, id, { ...item, name, qty });
     mount.innerHTML = '';
   });
 
@@ -1528,7 +1547,6 @@ async function addItemToActiveList(name) {
     name: trimmed, checked: false,
     addedAt: firebase.database.ServerValue.TIMESTAMP, category: null,
   });
-  if (KITCHEN_WORKER_URL) categorizeItem(activeListId, id, trimmed);
 }
 
 function openListFabSheet() {

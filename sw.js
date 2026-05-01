@@ -214,7 +214,8 @@
 // v110 (2026-05-01) — Kitchen: cleanIngredientName heuristic + dedupIngredients AI handler — clean names on every entry, smart name+qty merge.
 // v111 (2026-05-01) — Kitchen: list cleanup wand button (cleanList Worker handler) — drop per-add AI for heuristic-only.
 // v112 (2026-05-01) — Event form photo: explicit context note input in source sheet (was relying on title field, undiscoverable).
-const CACHE_NAME = 'family-hub-v112';
+// v113 (2026-05-01) — Kitchen: drop per-add categorize (wand only), editable qty in shopping list edit, editable ingredient name+qty in recipe form.
+const CACHE_NAME = 'family-hub-v113';
 
 const APP_SHELL = [
   '/',
