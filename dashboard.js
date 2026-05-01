@@ -1496,6 +1496,20 @@ function openEventForm(existingEventId = null, savedState = null) {
     if (mode === 'create') document.getElementById('ef2_name')?.focus();
   });
 
+  // Restore family mode visual state if returning from a sub-sheet
+  if (savedState?.isFamilyMode) {
+    requestAnimationFrame(() => {
+      const pw = document.getElementById('ef2_people');
+      pw?.querySelectorAll('.ef2-person-chip').forEach(chip => {
+        if (chip.dataset.personId === '__family__') {
+          chip.setAttribute('data-state', 'primary');
+        } else {
+          chip.setAttribute('data-state', 'attending');
+        }
+      });
+    });
+  }
+
   // ── Close / Cancel ───────────────────────────────────────────
   document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
   document.getElementById('ef2_cancel')?.addEventListener('click', closeTaskSheet);
@@ -1639,6 +1653,7 @@ function openEventForm(existingEventId = null, savedState = null) {
   let currentRepeat = event.repeat || null;
 
   document.getElementById('ef2_repeatChip')?.addEventListener('click', () => {
+    if (typeof openRepeatSheet !== 'function') return;
     const formState = captureFormState();
     openRepeatSheet(currentRepeat, (newRule) => {
       currentRepeat = newRule;
@@ -1670,6 +1685,7 @@ function openEventForm(existingEventId = null, savedState = null) {
       allDay: document.getElementById('ef2_allDay')?.classList.contains('chip--active') || false,
       startTime: document.getElementById('ef2_startTime')?.value || '09:00',
       endTime: document.getElementById('ef2_endTime')?.value || '10:00',
+      isFamilyMode,
       people: peoplArr,
       notes: document.getElementById('ef2_notes')?.value || '',
       location: document.getElementById('ef2_location')?.value || '',
@@ -1709,7 +1725,9 @@ function openEventForm(existingEventId = null, savedState = null) {
       location: formState.location || null,
       notes: formState.notes || null,
       repeat: formState.repeat || null,
-      createdDate: todayKey(settings?.timezone || 'America/Chicago'),
+      createdDate: existingEventId
+        ? (events[existingEventId]?.createdDate || todayKey(settings?.timezone || 'America/Chicago'))
+        : todayKey(settings?.timezone || 'America/Chicago'),
     };
 
     const saveBtn = document.getElementById('ef2_save');
@@ -1773,6 +1791,8 @@ function openEventForm(existingEventId = null, savedState = null) {
       document.getElementById('ef2_deleteConfirm')?.classList.remove('is-open');
       const btn = document.getElementById('ef2_deleteBtn');
       if (btn) btn.style.display = '';
+      const errEl = document.getElementById('ef2_importError');
+      if (errEl) { errEl.textContent = "Couldn't delete — try again."; errEl.classList.add('is-visible'); }
     }
   });
 
