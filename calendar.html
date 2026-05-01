@@ -744,9 +744,10 @@
                 if (data.monthUncertain) {
                   setTimeout(() => {
                     openMonthClarificationSheet(data.assumedMonth, (yearMonth) => {
-                      const remapped = data.events.map(ev => ev.date
-                        ? { ...ev, date: `${yearMonth}-${ev.date.slice(8, 10)}` }
-                        : ev);
+                      const remapped = data.events.map(ev => {
+                        if (!ev.date || !/^\d{4}-\d{2}-\d{2}$/.test(ev.date)) return ev;
+                        return { ...ev, date: `${yearMonth}-${ev.date.slice(8, 10)}` };
+                      });
                       openImportEventsConfirm(remapped, false);
                     });
                   }, 320);
@@ -893,23 +894,30 @@
 
       importBtn.addEventListener('click', async () => {
         const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
-          .map(row => eventsArr[+row.dataset.key]);
+          .map(row => eventsArr[+row.dataset.key])
+          .filter(ev => ev.date);
         if (!selected.length) { closeTaskSheet(); return; }
         importBtn.disabled = true; importBtn.textContent = 'Adding…';
-        for (const ev of selected) {
-          const eventData = {
-            name: ev.name, date: ev.date, allDay: ev.allDay ?? true,
-            startTime: ev.time || null, endTime: null,
-            color: people[0]?.color || '#4285f4',
-            people: [], notes: ev.notes || null, url: null,
-          };
-          const newId = await pushEvent(eventData);
-          events[newId] = eventData;
-          const schedKey = `sched_${Date.now()}_evt_${Math.random().toString(36).slice(2, 6)}`;
-          await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+        try {
+          let counter = 0;
+          for (const ev of selected) {
+            const eventData = {
+              name: ev.name, date: ev.date, allDay: ev.allDay ?? true,
+              startTime: ev.time || null, endTime: null,
+              color: people[0]?.color || '#4285f4',
+              people: [], notes: ev.notes || null, url: null,
+            };
+            const newId = await pushEvent(eventData);
+            events[newId] = eventData;
+            const schedKey = `sched_${Date.now()}_evt_${counter++}`;
+            await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+          }
+          closeTaskSheet();
+          render();
+        } catch {
+          importBtn.disabled = false;
+          importBtn.textContent = `Import ${selected.length} event${selected.length !== 1 ? 's' : ''}`;
         }
-        closeTaskSheet();
-        render();
       });
     }
 
