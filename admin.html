@@ -4182,12 +4182,14 @@
         const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
           .map(row => {
             const t = tasks[+row.dataset.key];
+            if (!t) return null;
             if (!t.dueDate) {
               const dateEl = list.querySelector(`.hw-date[data-idx="${row.dataset.key}"]`);
               return { ...t, dueDate: dateEl?.value || null };
             }
             return t;
           })
+          .filter(Boolean)
           .filter(t => t.dueDate);
         if (!selected.length) { statusEl.innerHTML = ''; return; }
         saveBtn.disabled = true; saveBtn.textContent = 'Adding…';
@@ -4204,11 +4206,13 @@
               createdDate: todayKey(tz), notes: t.notes || null, exempt: false,
             };
             const taskId = await pushTask(taskData);
-            const schedKey = `sched_${Date.now()}_hw_${counter++}`;
-            await multiUpdate({ [`schedule/${t.dueDate}/${schedKey}`]: {
-              taskId, ownerId: taskData.owners[0], rotationType: 'once',
-              ownerAssignmentMode: 'fixed', timeOfDay: 'anytime',
-            }});
+            if (taskData.owners[0]) {
+              const schedKey = `sched_${Date.now()}_hw_${counter++}`;
+              await multiUpdate({ [`schedule/${t.dueDate}/${schedKey}`]: {
+                taskId, ownerId: taskData.owners[0], rotationType: 'once',
+                ownerAssignmentMode: 'fixed', timeOfDay: 'anytime',
+              }});
+            }
           }
           statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-size-sm)">${selected.length} task${selected.length !== 1 ? 's' : ''} added.</span>`;
         } catch (err) {
