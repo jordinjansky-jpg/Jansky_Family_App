@@ -836,28 +836,25 @@
     }
 
     function openImportEventsConfirm(eventsArr, hadRecurring) {
-      const formatDate = (d) => {
-        if (!d) return '—';
-        const [y, m, day] = d.split('-');
-        return new Date(+y, +m - 1, +day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      };
-
       const recurringBanner = hadRecurring
         ? `<div class="banner banner--info" role="status" style="margin-bottom:var(--spacing-sm)">Recurring events were skipped — only one-time events are supported.</div>`
         : '';
 
-      const enriched = eventsArr.map((ev, i) => ({
-        ...ev,
-        _sub: `${formatDate(ev.date)}${ev.time ? ' · ' + ev.time : ev.allDay ? ' · All day' : ''}`,
-      }));
-
-      const rows = enriched.map((ev, i) => renderConfirmRow(ev, {
-        labelKey: 'name',
-        subKey: '_sub',
-        confidenceKey: 'confidence',
-        subConfidenceKey: 'dateConfidence',
-        key: i,
-      })).join('');
+      const rows = eventsArr.map((ev, i) => {
+        const timeSub = ev.time ? ev.time : (ev.allDay ? 'All day' : null);
+        const row = renderConfirmRow(
+          { ...ev, _sub: timeSub },
+          { labelKey: 'name', subKey: '_sub', confidenceKey: 'confidence', key: i }
+        );
+        const dateLabel = ev.dateConfidence === 'low'
+          ? `<label style="font-size:var(--font-size-xs);color:var(--c-warning)">Date (uncertain — please verify)</label>`
+          : `<label style="font-size:var(--font-size-xs);color:var(--text-muted)">Date</label>`;
+        const dateWrap = `<div class="ev-date-wrap" data-idx="${i}" style="padding:0 var(--spacing-md) var(--spacing-xs)">
+          ${dateLabel}
+          <input type="date" class="field__input ev-date" data-idx="${i}" value="${ev.date || ''}" style="margin-top:4px">
+        </div>`;
+        return row + dateWrap;
+      }).join('');
 
       const n = eventsArr.length;
 
@@ -877,16 +874,20 @@
       const list = taskSheetMount.querySelector('#ievList');
       const importBtn = taskSheetMount.querySelector('#ievImport');
 
-      function updateBtn() {
+      const updateBtn = () => {
         const count = list.querySelectorAll('.confirm-row:not(.is-deselected)').length;
         importBtn.textContent = `Import ${count} event${count !== 1 ? 's' : ''}`;
         importBtn.disabled = count === 0;
-      }
+      };
 
       list.addEventListener('click', (e) => {
+        if (e.target.closest('.ev-date-wrap')) return;
         const row = e.target.closest('.confirm-row');
         if (!row) return;
+        const idx = row.dataset.key;
         row.classList.toggle('is-deselected');
+        const dateWrap = list.querySelector(`.ev-date-wrap[data-idx="${idx}"]`);
+        if (dateWrap) dateWrap.style.display = row.classList.contains('is-deselected') ? 'none' : '';
         updateBtn();
       });
 
@@ -894,8 +895,13 @@
 
       importBtn.addEventListener('click', async () => {
         const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
-          .map(row => eventsArr[+row.dataset.key])
-          .filter(ev => ev.date);
+          .map(row => {
+            const ev = eventsArr[+row.dataset.key];
+            const dateEl = list.querySelector(`.ev-date[data-idx="${row.dataset.key}"]`);
+            const date = dateEl?.value || ev.date || null;
+            return date ? { ...ev, date } : null;
+          })
+          .filter(Boolean);
         if (!selected.length) { closeTaskSheet(); return; }
         importBtn.disabled = true; importBtn.textContent = 'Adding…';
         try {
