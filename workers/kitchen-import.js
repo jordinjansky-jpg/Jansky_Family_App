@@ -36,13 +36,18 @@ Return JSON:
 }
 If multiple recipes appear, extract the primary or most prominent one. Extract as much as is visible even if some fields are incomplete. Return only valid JSON, nothing else.`;
 
-const EVENTS_PROMPT = (contextDate) =>
+const EVENTS_PROMPT = (contextDate, userContext) =>
   `Extract all calendar events from this image. Today is ${contextDate}.
 
-CALENDAR READING RULES:
+${userContext ? `USER-PROVIDED CONTEXT (TRUST THIS — IT OVERRIDES YOUR GUESSES):
+"${userContext}"
+
+If the user states a month, year, or date range in this context, USE IT directly. Do not mark monthUncertain when user context resolves the month. If the user says the calendar spans two months, assign each day number to the correct month based on their range (e.g. days 25-30 in the first month, days 1-15 in the second).
+
+` : ''}CALENDAR READING RULES:
 - The image may show a printed, handwritten, or school-style calendar — often colorful, dense, or missing a clear month/year label.
-- If two months appear on the page, extract events from both.
-- To determine the month: look for any month name anywhere on the page (headers, footers, small print, watermarks). If absent, use today (${contextDate}) as the anchor and assign day numbers to the nearest upcoming month that makes sense — prefer future dates over past.
+- If two months appear on the page, extract events from both — the calendar likely spans a month boundary, with later day numbers (25, 26...) belonging to the earlier month and lower day numbers (1, 2...) belonging to the later month.
+- To determine the month: ${userContext ? 'first use the user-provided context above. If still unclear, ' : ''}look for any month name anywhere on the page (headers, footers, small print, watermarks). If absent, use today (${contextDate}) as the anchor and assign day numbers to the nearest upcoming month that makes sense — prefer future dates over past.
 - Day cells may contain handwriting, stickers, colored text, or small annotations — read ALL text in each cell, not just large or clearly printed text.
 - Ignore purely decorative elements (borders, clip art, school logos) but capture every day cell that has any text beyond just the day number.
 - For events with no year shown, use the year that makes the date upcoming or within the next 12 months.
@@ -51,10 +56,11 @@ CALENDAR READING RULES:
 
 CONFIDENCE RULES:
 - confidence: "high" = clearly printed or typed event name; "medium" = handwritten, partially obscured, or abbreviated; "low" = barely visible, cut off, or guessed from context.
-- dateConfidence: "high" = month name clearly visible on the image; "medium" = month inferred from adjacent months or partial label; "low" = month was assumed because nothing was visible.
+- dateConfidence: "high" = month name clearly visible on the image OR provided by user context; "medium" = month inferred from adjacent months or partial label; "low" = month was assumed because nothing was visible.
 
 MONTH UNCERTAINTY:
-- If the month was NOT clearly labeled anywhere on the image, set monthUncertain: true and provide your best guess as assumedMonth (e.g. "May 2026").
+- If the user provided a clear month/range in their context, set monthUncertain: false (their context resolves it).
+- If the month was NOT clearly labeled anywhere on the image AND no user context, set monthUncertain: true and provide your best guess as assumedMonth (e.g. "May 2026").
 - If the month WAS clearly visible, set monthUncertain: false and assumedMonth: null.
 
 Return JSON:
@@ -610,12 +616,13 @@ async function handleCalendarPhoto(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No image provided', 400, corsHeaders);
 
   const contextDate = input.contextDate || todayIso();
+  const userContext = (input.context && typeof input.context === 'string') ? input.context.slice(0, 500).trim() : '';
   try {
     const raw = await callClaude([{
       role: 'user',
       content: [
         imageContent(input.base64, input.mediaType),
-        { type: 'text', text: EVENTS_PROMPT(contextDate) },
+        { type: 'text', text: EVENTS_PROMPT(contextDate, userContext) },
       ],
     }], env, 2048);
     const parsed = parseJson(raw);
