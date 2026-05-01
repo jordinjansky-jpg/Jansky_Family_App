@@ -2871,6 +2871,443 @@
 }
 .sheet__footer .btn { flex: 1; }
 
+/* ── Event Form v2 ─────────────────────────────────────────────── */
+.ef2-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.ef2-title-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--font-size-lg, 1.125rem);
+  font-weight: 500;
+  color: var(--text);
+  padding: var(--spacing-xs) 0;
+}
+
+.ef2-title-input::placeholder { color: var(--text-faint); }
+
+.ef2-title-input.ef2-shake {
+  animation: ef2-shake 0.35s ease;
+  border-bottom: 1.5px solid var(--danger);
+}
+
+@keyframes ef2-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-5px); }
+  40%       { transform: translateX(5px); }
+  60%       { transform: translateX(-3px); }
+  80%       { transform: translateX(3px); }
+}
+
+.ef2-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  transition: color var(--t-fast);
+}
+
+.ef2-icon-btn:hover { color: var(--text); }
+label.ef2-icon-btn  { cursor: pointer; }
+.ef2-icon-btn--loading { pointer-events: none; opacity: 0.5; }
+
+.ef2-import-feedback {
+  padding: 0 var(--spacing-md) var(--spacing-xs);
+  min-height: 20px;
+}
+
+.ef2-import-loading {
+  display: none;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.ef2-import-loading.is-visible { display: flex; }
+
+.ef2-import-error {
+  display: none;
+  font-size: var(--font-sm);
+  color: var(--danger);
+}
+
+.ef2-import-error.is-visible { display: block; }
+
+.ef2-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0;
+}
+
+/* Date / time */
+.ef2-datetime-section {
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.ef2-date-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  text-align: left;
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-base);
+  color: var(--text);
+  font-weight: 500;
+  min-height: 44px;
+}
+
+.ef2-picker-wrap {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.2s ease;
+}
+
+.ef2-picker-wrap.is-open { max-height: 80px; }
+
+.ef2-picker-wrap input[type="date"],
+.ef2-picker-wrap input[type="time"] {
+  width: 100%;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  margin-bottom: var(--spacing-xs);
+  box-sizing: border-box;
+}
+
+.ef2-time-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.ef2-time-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: transparent;
+  text-align: left;
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-base);
+  color: var(--text);
+  min-height: 44px;
+}
+
+.ef2-time-picker-row {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.ef2-time-picker-row input[type="time"] { flex: 1; width: auto; }
+
+.ef2-allday { font-size: var(--font-xs); white-space: nowrap; }
+
+.ef2-time-section { overflow: hidden; }
+.ef2-time-section.ef2-hidden { display: none; }
+
+/* Person chips */
+.ef2-for-section {
+  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+}
+
+.ef2-section-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+}
+
+.ef2-person-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.ef2-person-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 36px;
+  user-select: none;
+}
+
+.ef2-person-chip[data-state="primary"] {
+  background: var(--chip-color, var(--accent));
+  border-color: var(--chip-color, var(--accent));
+  color: #fff;
+}
+
+.ef2-person-chip[data-state="attending"] {
+  background: transparent;
+  border-color: var(--chip-color, var(--accent));
+  color: var(--chip-color, var(--chip-color, var(--accent)));
+}
+
+.ef2-person-chip--family[data-state="primary"],
+.ef2-person-chip--family[data-state="attending"] {
+  --chip-color: var(--accent);
+}
+
+/* Secondary fields */
+.ef2-secondary-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.ef2-add-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.ef2-add-chip:hover,
+.ef2-add-chip.is-active { border-color: var(--accent); color: var(--accent); border-style: solid; }
+
+.ef2-field-reveal {
+  display: none;
+  padding: 0 var(--spacing-md) var(--spacing-sm);
+}
+
+.ef2-field-reveal.is-open { display: block; }
+
+.ef2-field-reveal-inner { position: relative; }
+
+.ef2-field-reveal textarea,
+.ef2-field-reveal input[type="text"] {
+  width: 100%;
+  padding: var(--spacing-sm);
+  padding-right: 36px;
+  font-size: var(--font-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  resize: none;
+  box-sizing: border-box;
+}
+
+.ef2-field-reveal textarea:focus,
+.ef2-field-reveal input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+.ef2-field-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Sticky footer — breaks out of bottom-sheet__content padding via negative margin */
+.ef2-footer {
+  position: sticky;
+  bottom: calc(-1 * var(--spacing-lg));
+  margin: var(--spacing-sm) calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg));
+  padding: var(--spacing-sm) var(--spacing-md);
+  padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--spacing-sm);
+  z-index: 1;
+}
+
+.ef2-footer .btn { flex: 1; }
+
+/* Delete zone (edit mode, below sticky footer) */
+.ef2-delete-zone {
+  padding: var(--spacing-xs) var(--spacing-md) var(--spacing-md);
+  text-align: center;
+  padding-bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom, 0px));
+}
+
+.ef2-delete-btn {
+  background: transparent;
+  color: var(--danger);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  padding: var(--spacing-xs) var(--spacing-md);
+  min-height: 44px;
+  width: 100%;
+}
+
+.ef2-delete-confirm {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  padding-top: var(--spacing-xs);
+}
+
+.ef2-delete-confirm.is-open { display: flex; }
+
+.ef2-delete-confirm-msg {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  width: 100%;
+  text-align: center;
+}
+
+/* iCal URL sub-sheet — second overlay stacked on top of event form */
+.ef2-subsheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: 300;
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--t-base);
+  display: flex;
+  align-items: flex-end;
+}
+
+.ef2-subsheet-overlay.active { opacity: 1; visibility: visible; }
+
+.ef2-subsheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--spacing-md);
+  padding-bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom, 0px));
+  transform: translateY(100%);
+  transition: transform var(--t-base);
+}
+
+.ef2-subsheet-overlay.active .ef2-subsheet { transform: translateY(0); }
+
+/* Repeat sub-sheet option rows */
+.ef2-repeat-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+  min-height: 48px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-base);
+}
+
+.ef2-repeat-option:last-child { border-bottom: none; }
+
+.ef2-repeat-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.ef2-repeat-option.is-selected .ef2-repeat-radio {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.ef2-repeat-option.is-selected .ef2-repeat-radio::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.ef2-repeat-sub {
+  display: none;
+  padding: var(--spacing-sm) 0;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.ef2-repeat-sub.is-open { display: flex; }
+
+.ef2-day-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+
+.ef2-day-chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.ef2-repeat-end {
+  display: none;
+  padding: var(--spacing-sm) 0;
+}
+
+.ef2-repeat-end.is-open { display: block; }
+
+.ef2-date-label {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ef2-date-label--warn { color: var(--c-warning, var(--danger)); }
+/* ── End Event Form v2 ──────────────────────────────────────────── */
+
 /* ── Recipe picker (plan-meal sheet) ── */
 .recipe-pick-list {
   border: 1px solid var(--border);
