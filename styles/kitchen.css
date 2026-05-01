@@ -167,7 +167,39 @@
   border: none;
   padding: var(--spacing-xs) 0;
   cursor: pointer;
-  display: block;
-  width: 100%;
+  flex: 1;
   text-align: left;
+}
+
+/* List toolbar (staples + AI cleanup) */
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.list-wand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.list-wand-btn:hover { color: var(--accent); border-color: var(--accent); }
+.list-wand-btn:focus-visible { outline: none; background: var(--surface-2); color: var(--text); }
+.list-wand-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.list-wand-btn.is-loading { animation: list-wand-pulse 1s ease-in-out infinite; }
+
+@keyframes list-wand-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }

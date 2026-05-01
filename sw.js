@@ -212,7 +212,8 @@
 // v108 (2026-05-01) — Kitchen: preserve recipe qty on add to list, show qty on shopping cards, dedup ingredients, auto-create list, categorize from recipe.
 // v109 (2026-05-01) — Kitchen: AI mergeQty handler for smart unit-aware ingredient combination.
 // v110 (2026-05-01) — Kitchen: cleanIngredientName heuristic + dedupIngredients AI handler — clean names on every entry, smart name+qty merge.
-const CACHE_NAME = 'family-hub-v110';
+// v111 (2026-05-01) — Kitchen: list cleanup wand button (cleanList Worker handler) — drop per-add AI for heuristic-only.
+const CACHE_NAME = 'family-hub-v111';
 
 const APP_SHELL = [
   '/',

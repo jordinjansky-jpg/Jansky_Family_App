@@ -372,6 +372,72 @@ Reply with only the category name, nothing else.`;
   }
 }
 
+async function handleCleanList(input, env, corsHeaders) {
+  const items = Array.isArray(input?.items) ? input.items.filter(i => i && i.id && i.name) : [];
+  if (items.length === 0) return jsonOk({ items: [] }, corsHeaders);
+
+  const itemsForPrompt = items.map(i => ({
+    id: i.id,
+    name: i.name,
+    qty: i.qty || null,
+    category: i.category || null,
+  }));
+
+  const prompt = `You are tidying up a shopping list. Each item has an id, name, qty, and current category.
+
+Categories: ${CATEGORY_STR}
+
+DO THREE THINGS:
+1. Find duplicates (same grocery SKU under different names) and merge them — keep one id, drop the others.
+2. Strip prep modifiers from names: "black pepper (freshly cracked)" → "black pepper", "garlic, minced" → "garlic", "freshly grated parmesan" → "parmesan", parentheticals removed.
+3. Re-categorize items with wrong, missing, or "Other" categories.
+
+DUPLICATE MATCHING:
+- "olive oil" matches "extra virgin olive oil" — same SKU.
+- "black pepper" matches "black pepper (freshly cracked)" — same SKU.
+- "tomatoes" does NOT match "diced tomatoes" — fresh vs canned.
+- "chicken breast" matches "boneless skinless chicken breast" — same product.
+- Be tolerant of pluralization ("onion" = "onions") and case.
+
+QTY MERGING (when combining duplicates):
+- Same units → sum: "2 cups" + "1 cup" = "3 cups".
+- Compatible units → convert + sum: "1 lb" + "8 oz" = "1.5 lb".
+- Incompatible → join with " + ": "2 cups + 1 lb".
+- Numbers only → sum: "2" + "3" = "5".
+
+INPUT ITEMS:
+${JSON.stringify(itemsForPrompt)}
+
+Return the FINAL list. Use existing item IDs for kept items. For merged dupes, keep one id and drop the others (omit them from the result entirely). Use exact category names from the categories list above.
+
+{
+  "items": [
+    {"id": "existing-id", "name": "clean grocery name", "qty": "merged qty or null", "category": "category name"}
+  ]
+}
+
+Reply with valid JSON only.`;
+
+  try {
+    const raw = await callClaude([{ role: 'user', content: prompt }], env, 2048);
+    const parsed = parseJson(raw);
+    if (!Array.isArray(parsed.items)) {
+      return jsonOk({ items: itemsForPrompt }, corsHeaders);
+    }
+    const sanitized = parsed.items
+      .filter(it => it && it.id && it.name)
+      .map(it => ({
+        id: it.id,
+        name: String(it.name).slice(0, 120),
+        qty: it.qty ? String(it.qty).slice(0, 60) : null,
+        category: CATEGORY_SET.has(it.category) ? it.category : null,
+      }));
+    return jsonOk({ items: sanitized }, corsHeaders);
+  } catch {
+    return jsonOk({ items: itemsForPrompt }, corsHeaders);
+  }
+}
+
 async function handleDedupIngredients(input, env, corsHeaders) {
   const existing = Array.isArray(input?.existing) ? input.existing : [];
   const incoming = Array.isArray(input?.incoming) ? input.incoming.filter(i => i && i.name) : [];
@@ -688,6 +754,7 @@ const HANDLERS = {
   categorize:        (input, env) => handleCategorize(input, env, CORS),
   mergeQty:          (input, env) => handleMergeQty(input, env, CORS),
   dedupIngredients:  (input, env) => handleDedupIngredients(input, env, CORS),
+  cleanList:         (input, env) => handleCleanList(input, env, CORS),
   url:           (input, env) => handleUrl(input, env, CORS),
   screenshot:    (input, env) => handleScreenshot(input, env, CORS),
   schoolLunch:   (input, env) => handleSchoolLunch(input, env, CORS),

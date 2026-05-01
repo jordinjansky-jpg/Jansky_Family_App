@@ -594,61 +594,39 @@ function openRecipeDetailSheet(recipeId) {
     }
 
     const existingItems = await readOnce(`kitchen/lists/${targetListId}/items`);
-    const existingArr = Object.entries(existingItems || {})
-      .filter(([, it]) => it && !it.checked && it.name)
-      .map(([id, it]) => ({ id, name: it.name, qty: it.qty || null, item: it }));
-    const existingById = new Map(existingArr.map(e => [e.id, e]));
+    const existingByName = new Map();
+    Object.entries(existingItems || {}).forEach(([id, it]) => {
+      if (it && !it.checked && it.name) {
+        existingByName.set(it.name.toLowerCase().trim(), { id, item: it });
+      }
+    });
 
-    // Pre-clean incoming names with heuristic A so the AI sees normalized data.
-    const incoming = recipe.ingredients
-      .map(ing => ({ name: cleanIngredientName(ing.name), qty: ing.qty || null }))
-      .filter(ing => ing.name);
-
-    // Try AI dedup (option B). Falls back to heuristic name match if Worker fails.
-    const aiPlan = await dedupIngredientsAi(
-      existingArr.map(e => ({ id: e.id, name: e.name, qty: e.qty })),
-      incoming
-    );
-
-    let toAdd = [];
-    let toUpdate = [];
-    if (aiPlan) {
-      toAdd = aiPlan.toAdd;
-      toUpdate = aiPlan.toUpdate;
-    } else {
-      // Fallback: simple case-insensitive match using already-cleaned names.
-      const existingByName = new Map();
-      existingArr.forEach(e => existingByName.set(e.name.toLowerCase().trim(), e));
-      for (const ing of incoming) {
-        const match = existingByName.get(ing.name.toLowerCase().trim());
-        if (match) {
-          const qtys = [match.qty, ing.qty].filter(Boolean);
-          const combined = qtys.length > 1 ? await mergeQtyAi(ing.name, qtys) : (qtys[0] || null);
-          toUpdate.push({ id: match.id, qty: combined });
-        } else {
-          toAdd.push(ing);
-        }
+    // Heuristic-only dedup at add time (fast, free). Wand button on the list
+    // does the AI deep clean afterwards if needed.
+    let mergedCount = 0;
+    let addedCount = 0;
+    for (const raw of recipe.ingredients) {
+      const cleanName = cleanIngredientName(raw.name);
+      if (!cleanName) continue;
+      const key = cleanName.toLowerCase();
+      const match = existingByName.get(key);
+      if (match) {
+        const qtys = [match.item.qty, raw.qty].filter(Boolean);
+        const combined = qtys.length > 1 ? `${qtys[0]} + ${qtys[1]}` : (qtys[0] || null);
+        await writeKitchenItem(targetListId, match.id, { ...match.item, qty: combined });
+        mergedCount++;
+      } else {
+        const id = await pushKitchenItem(targetListId, {
+          name: cleanName,
+          qty: raw.qty || null,
+          checked: false,
+          addedAt: firebase.database.ServerValue.TIMESTAMP,
+          category: null,
+        });
+        if (KITCHEN_WORKER_URL) categorizeItem(targetListId, id, cleanName);
+        addedCount++;
       }
     }
-
-    for (const upd of toUpdate) {
-      const ex = existingById.get(upd.id);
-      if (!ex) continue;
-      await writeKitchenItem(targetListId, upd.id, { ...ex.item, qty: upd.qty || null });
-    }
-    for (const ing of toAdd) {
-      const cleanName = cleanIngredientName(ing.name);
-      const id = await pushKitchenItem(targetListId, {
-        name: cleanName,
-        qty: ing.qty || null,
-        checked: false,
-        addedAt: firebase.database.ServerValue.TIMESTAMP,
-        category: null,
-      });
-      if (KITCHEN_WORKER_URL) categorizeItem(targetListId, id, cleanName);
-    }
-    const addedCount = toAdd.length;
-    const mergedCount = toUpdate.length;
 
     const listName = lists[targetListId]?.name || 'list';
     const parts = [];
@@ -1134,7 +1112,11 @@ function renderItemsArea(items) {
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
-  let html = `<button class="staples-btn" id="staplesTopBtn">Add from staples</button>`;
+  const WAND_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
+  let html = `<div class="list-toolbar">
+    <button class="staples-btn" id="staplesTopBtn">Add from staples</button>
+    <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list">${WAND_SVG}</button>
+  </div>`;
 
   for (const cat of sortedCats) {
     html += `<div class="shopping-category-label">${esc(cat)}</div>`;
@@ -1153,6 +1135,7 @@ function renderItemsArea(items) {
   area.innerHTML = html;
 
   document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
+  document.getElementById('listCleanupBtn')?.addEventListener('click', () => runListCleanup(items));
 
   area.querySelectorAll('.card--shopping').forEach(card => {
     const id = card.dataset.itemId;
@@ -1704,6 +1687,76 @@ function cleanIngredientName(name) {
   cleaned = cleaned.split(',')[0];
   while (PREP_PREFIXES.test(cleaned)) cleaned = cleaned.replace(PREP_PREFIXES, '');
   return cleaned.replace(/\s+/g, ' ').trim();
+}
+
+async function cleanListAi(items) {
+  if (!KITCHEN_WORKER_URL) return null;
+  try {
+    const res = await fetch(KITCHEN_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'cleanList', input: { items } }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data.items)) return null;
+    return data.items;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function runListCleanup(currentItems) {
+  if (!activeListId) return;
+  const btn = document.getElementById('listCleanupBtn');
+  if (btn) { btn.disabled = true; btn.classList.add('is-loading'); }
+
+  const unchecked = Object.entries(currentItems || {})
+    .filter(([, it]) => it && !it.checked && it.name)
+    .map(([id, it]) => ({ id, name: it.name, qty: it.qty || null, category: it.category || null, raw: it }));
+
+  if (unchecked.length === 0) {
+    if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); }
+    showToast('Nothing to clean');
+    return;
+  }
+
+  const cleaned = await cleanListAi(unchecked.map(u => ({ id: u.id, name: u.name, qty: u.qty, category: u.category })));
+  if (!cleaned) {
+    if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); }
+    showToast('Cleanup unavailable — try again');
+    return;
+  }
+
+  const keptIds = new Set(cleaned.map(c => c.id));
+  const removedIds = unchecked.filter(u => !keptIds.has(u.id)).map(u => u.id);
+  const byId = new Map(unchecked.map(u => [u.id, u]));
+
+  let changedCount = 0;
+  let removedCount = 0;
+
+  for (const c of cleaned) {
+    const original = byId.get(c.id);
+    if (!original) continue;
+    const newName = (c.name || original.name).slice(0, 120);
+    const newQty = c.qty || null;
+    const newCategory = c.category || original.category || null;
+    const changed = newName !== original.name || newQty !== original.qty || newCategory !== original.category;
+    if (changed) {
+      await writeKitchenItem(activeListId, c.id, { ...original.raw, name: newName, qty: newQty, category: newCategory });
+      changedCount++;
+    }
+  }
+  for (const id of removedIds) {
+    await removeKitchenItem(activeListId, id);
+    removedCount++;
+  }
+
+  if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); }
+  const parts = [];
+  if (removedCount) parts.push(`merged ${removedCount} duplicate${removedCount !== 1 ? 's' : ''}`);
+  if (changedCount) parts.push(`updated ${changedCount}`);
+  showToast(parts.length ? `Cleaned up — ${parts.join(', ')}` : 'List already clean');
 }
 
 async function dedupIngredientsAi(existing, incoming) {
