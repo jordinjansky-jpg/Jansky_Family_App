@@ -3978,7 +3978,7 @@
         const file = e.target.files?.[0];
         if (!file) return;
         const statusEl = main.querySelector('#schoolLunchStatus');
-        if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Reading file…</span>';
+        if (statusEl) statusEl.innerHTML = `<div class="ai-loading"><div class="ai-loading__spinner"></div>Parsing lunch menu…</div>`;
         try {
           const { base64, mediaType } = await resizeImageForUpload(file);
           const resp = await fetch(KITCHEN_WORKER_URL, {
@@ -3987,16 +3987,28 @@
           });
           const data = await resp.json();
           if (data.error || !data.days?.length) {
-            if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">${data.error || 'No lunch entries found.'}</span>`;
+            if (statusEl) statusEl.innerHTML = `
+              <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No lunch items found — try a clearer photo or PDF.</p>
+              <button class="btn btn--secondary btn--sm" id="slRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
+            statusEl?.querySelector('#slRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
             return;
           }
           if (data.monthUncertain) {
-            renderSchoolLunchClarification(data.days, data.assumedMonth, statusEl);
+            openMonthClarificationSheet(data.assumedMonth, (yearMonth) => {
+              const remapped = data.days.map(d => d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)
+                ? { ...d, date: `${yearMonth}-${d.date.slice(8, 10)}` }
+                : d);
+              renderSchoolLunchConfirm(remapped, statusEl);
+            });
           } else {
             renderSchoolLunchConfirm(data.days, statusEl);
           }
-        } catch {
-          if (statusEl) statusEl.innerHTML = '<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">Import failed. Check your connection.</span>';
+        } catch (err) {
+          if (statusEl) statusEl.innerHTML = `
+            <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
+            <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || 'Check your connection.'}</p>
+            <button class="btn btn--secondary btn--sm" id="slRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
+          statusEl?.querySelector('#slRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
         }
         e.target.value = '';
       };
@@ -4033,61 +4045,69 @@
       loadEmailImports();
     }
 
-    function renderSchoolLunchClarification(days, assumedMonth, statusEl) {
-      if (!statusEl) return;
-      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const parts = (assumedMonth || '').split(' ');
-      const mIdx = monthNames.findIndex(m => m.toLowerCase() === parts[0]?.toLowerCase());
-      const year = parts[1];
-      const monthVal = (mIdx >= 0 && year) ? `${year}-${String(mIdx + 1).padStart(2, '0')}` : '';
-      statusEl.innerHTML = `
-        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">
-          I couldn't clearly read the month on this menu${assumedMonth ? ` — I guessed <strong>${assumedMonth}</strong>` : ''}. Set the correct month to continue.
-        </p>
-        <div class="field mb-md">
-          <label class="field__label">Month</label>
-          <input type="month" id="slClarifyMonth" class="field__input" value="${monthVal}">
-        </div>
-        <div class="admin-form__actions">
-          <button class="btn btn--secondary btn--sm" id="slClarifyCancel">Cancel</button>
-          <button class="btn btn--primary btn--sm" id="slClarifyConfirm">Continue</button>
-        </div>`;
-      statusEl.querySelector('#slClarifyCancel')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
-      statusEl.querySelector('#slClarifyConfirm')?.addEventListener('click', () => {
-        const val = statusEl.querySelector('#slClarifyMonth')?.value;
-        const remapped = val ? days.map(d => ({ ...d, date: `${val}-${d.date.slice(8, 10)}` })) : days;
-        renderSchoolLunchConfirm(remapped, statusEl);
-      });
-    }
-
     function renderSchoolLunchConfirm(days, statusEl) {
       if (!statusEl) return;
-      const rows = days.map((d, i) => {
-        const label = d.lunch2 ? `${esc(d.lunch1)} / ${esc(d.lunch2)}` : esc(d.lunch1);
-        return `<div style="display:flex;align-items:center;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
-          <input type="checkbox" class="sl-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0">
-          <span style="font-size:var(--font-sm);flex:1"><strong>${esc(d.date)}</strong> — ${label}</span>
-        </div>`;
-      }).join('');
+
+      const formatLunchDate = (d) => {
+        if (!d) return d;
+        const [y, m, day] = d.split('-');
+        return new Date(+y, +m - 1, +day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      };
+
+      const enriched = days.map((d, i) => ({
+        ...d,
+        _label: formatLunchDate(d.date),
+        _sub: d.lunch2 ? `${d.lunch1} · ${d.lunch2}` : d.lunch1,
+      }));
+
+      const rows = enriched.map((d, i) => renderConfirmRow(d, {
+        labelKey: '_label',
+        subKey: '_sub',
+        confidenceKey: 'confidence',
+        key: i,
+      })).join('');
+
       statusEl.innerHTML = `
-        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${days.length} day${days.length !== 1 ? 's' : ''} found — uncheck any to skip.</p>
-        <div id="slItems">${rows}</div>
+        <div class="confirm-list" id="slItems">${rows}</div>
         <div class="admin-form__actions mt-md">
           <button class="btn btn--secondary btn--sm" id="slCancel">Cancel</button>
-          <button class="btn btn--primary btn--sm" id="slSave">Import selected</button>
+          <button class="btn btn--primary btn--sm" id="slSave">Import ${days.length} day${days.length !== 1 ? 's' : ''}</button>
         </div>`;
+
+      const list = statusEl.querySelector('#slItems');
+      const saveBtn = statusEl.querySelector('#slSave');
+
+      function updateBtn() {
+        const n = list.querySelectorAll('.confirm-row:not(.is-deselected)').length;
+        saveBtn.textContent = `Import ${n} day${n !== 1 ? 's' : ''}`;
+        saveBtn.disabled = n === 0;
+      }
+
+      list.addEventListener('click', (e) => {
+        const row = e.target.closest('.confirm-row');
+        if (!row) return;
+        row.classList.toggle('is-deselected');
+        updateBtn();
+      });
+
       statusEl.querySelector('#slCancel')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
-      statusEl.querySelector('#slSave')?.addEventListener('click', async () => {
-        const selected = [...statusEl.querySelectorAll('.sl-check:checked')].map(el => days[+el.dataset.idx]);
+
+      saveBtn.addEventListener('click', async () => {
+        const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
+          .map(row => days[+row.dataset.key]);
         if (!selected.length) { statusEl.innerHTML = ''; return; }
-        const btn = statusEl.querySelector('#slSave');
-        btn.disabled = true; btn.textContent = 'Saving…';
-        const db = firebase.database();
-        for (const d of selected) {
-          await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch`).set({ mealName: d.lunch1, source: 'school' });
-          if (d.lunch2) await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch-2`).set({ mealName: d.lunch2, source: 'school' });
+        saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+        try {
+          const db = firebase.database();
+          for (const d of selected) {
+            await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch`).set({ mealName: d.lunch1, source: 'school' });
+            if (d.lunch2) await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch-2`).set({ mealName: d.lunch2, source: 'school' });
+          }
+          statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-size-sm)">${selected.length} day${selected.length !== 1 ? 's' : ''} imported.</span>`;
+        } catch (err) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = `Import ${selected.length} day${selected.length !== 1 ? 's' : ''}`;
         }
-        statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-sm)">${selected.length} day${selected.length !== 1 ? 's' : ''} imported.</span>`;
       });
     }
 
