@@ -658,7 +658,11 @@
           });
           const data = await res.json();
           if (data.error) { if (status) status.textContent = data.error; btn.disabled = false; btn.textContent = 'Import'; return; }
-          if (!data.events?.length) { if (status) status.textContent = 'No upcoming events found in that calendar.'; btn.disabled = false; btn.textContent = 'Import'; return; }
+          if (!data.events?.length) {
+            if (status) status.textContent = 'No events found in that calendar.';
+            btn.disabled = false; btn.textContent = 'Import';
+            return;
+          }
           closeTaskSheet();
           setTimeout(() => openImportEventsConfirm(data.events, data.hadRecurring), 320);
         } catch {
@@ -701,9 +705,12 @@
               document.body.removeChild(input);
               if (!file) return;
               taskSheetMount.innerHTML = renderBottomSheet(`
-                <div class="sheet__header"><h2 class="sheet__title">Reading photo…</h2></div>
-                <div class="sheet__content" style="text-align:center;padding:var(--spacing-xl) 0">
-                  <span style="color:var(--text-muted);font-size:var(--font-sm)">Extracting events…</span>
+                <div class="sheet__header"><h2 class="sheet__title">Photo of flyer</h2></div>
+                <div class="sheet__content">
+                  <div class="ai-loading">
+                    <div class="ai-loading__spinner"></div>
+                    Reading calendar…
+                  </div>
                 </div>`);
               applyDataColors(taskSheetMount);
               requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
@@ -716,30 +723,54 @@
                 const data = await resp.json();
                 closeTaskSheet();
                 if (data.error || !data.events?.length) {
-                  setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
-                    <div class="sheet__header"><h2 class="sheet__title">No events found</h2></div>
-                    <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">${data.error || 'No events could be extracted from that photo.'}</p></div>
-                    <div class="sheet__footer"><button class="btn btn--secondary" id="cpClose">Close</button></div>`);
+                  setTimeout(() => {
+                    taskSheetMount.innerHTML = renderBottomSheet(`
+                      <div class="sheet__header"><h2 class="sheet__title">Photo of flyer</h2></div>
+                      <div class="sheet__content">
+                        <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No events found — try a clearer photo.</p>
+                      </div>
+                      <div class="sheet__footer">
+                        <button class="btn btn--secondary" id="cpRetry">Try again</button>
+                      </div>`);
                     applyDataColors(taskSheetMount);
                     requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-                    document.getElementById('cpClose')?.addEventListener('click', closeTaskSheet);
+                    taskSheetMount.querySelector('#cpRetry')?.addEventListener('click', () => {
+                      closeTaskSheet();
+                      setTimeout(() => openCalendarPhotoImport(), 320);
+                    });
                   }, 320);
                   return;
                 }
                 if (data.monthUncertain) {
-                  setTimeout(() => openMonthClarificationSheet(data.events, data.assumedMonth), 320);
+                  setTimeout(() => {
+                    openMonthClarificationSheet(data.assumedMonth, (yearMonth) => {
+                      const remapped = data.events.map(ev => ev.date
+                        ? { ...ev, date: `${yearMonth}-${ev.date.slice(8, 10)}` }
+                        : ev);
+                      openImportEventsConfirm(remapped, false);
+                    });
+                  }, 320);
                 } else {
                   setTimeout(() => openImportEventsConfirm(data.events, false), 320);
                 }
-              } catch {
+              } catch (err) {
                 closeTaskSheet();
-                setTimeout(() => { taskSheetMount.innerHTML = renderBottomSheet(`
-                  <div class="sheet__header"><h2 class="sheet__title">Error</h2></div>
-                  <div class="sheet__content"><p style="color:var(--text-muted);font-size:var(--font-sm)">Could not reach import service.</p></div>
-                  <div class="sheet__footer"><button class="btn btn--secondary" id="cpClose">Close</button></div>`);
+                setTimeout(() => {
+                  taskSheetMount.innerHTML = renderBottomSheet(`
+                    <div class="sheet__header"><h2 class="sheet__title">Photo of flyer</h2></div>
+                    <div class="sheet__content">
+                      <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
+                      <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${escapeHtml(err?.message || 'Check your connection.')}</p>
+                    </div>
+                    <div class="sheet__footer">
+                      <button class="btn btn--secondary" id="cpRetry">Try again</button>
+                    </div>`);
                   applyDataColors(taskSheetMount);
                   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-                  document.getElementById('cpClose')?.addEventListener('click', closeTaskSheet);
+                  taskSheetMount.querySelector('#cpRetry')?.addEventListener('click', () => {
+                    closeTaskSheet();
+                    setTimeout(() => openCalendarPhotoImport(), 320);
+                  });
                 }, 320);
               }
             });
@@ -747,46 +778,6 @@
             setTimeout(() => { if (document.body.contains(input)) document.body.removeChild(input); }, 60000);
           }, 320);
         });
-      });
-    }
-
-    function remapEventMonth(events, yearMonth) {
-      return events.map(e => {
-        if (!e.date) return e;
-        return { ...e, date: `${yearMonth}-${e.date.slice(8, 10)}` };
-      });
-    }
-
-    function openMonthClarificationSheet(events, assumedMonth) {
-      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const parts = (assumedMonth || '').split(' ');
-      const mIdx = monthNames.findIndex(m => m.toLowerCase() === parts[0]?.toLowerCase());
-      const year = parts[1];
-      const monthVal = (mIdx >= 0 && year) ? `${year}-${String(mIdx + 1).padStart(2, '0')}` : '';
-
-      taskSheetMount.innerHTML = renderBottomSheet(`
-        <div class="sheet__header"><h2 class="sheet__title">Confirm month</h2></div>
-        <div class="sheet__content">
-          <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-md)">
-            I couldn't clearly read the month on this calendar${assumedMonth ? ` — I guessed <strong>${assumedMonth}</strong>` : ''}. Set the correct month before importing.
-          </p>
-          <div class="field">
-            <label class="field__label">Month</label>
-            <input type="month" id="clarifyMonth" class="field__input" value="${monthVal}">
-          </div>
-        </div>
-        <div class="sheet__footer">
-          <button class="btn btn--ghost" id="clarifyCancel">Cancel</button>
-          <button class="btn btn--primary" id="clarifyConfirm">Continue</button>
-        </div>`);
-      applyDataColors(taskSheetMount);
-      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-      document.getElementById('clarifyCancel')?.addEventListener('click', closeTaskSheet);
-      document.getElementById('clarifyConfirm')?.addEventListener('click', () => {
-        const val = document.getElementById('clarifyMonth')?.value;
-        const remapped = val ? remapEventMonth(events, val) : events;
-        closeTaskSheet();
-        setTimeout(() => openImportEventsConfirm(remapped, false), 320);
       });
     }
 
@@ -827,6 +818,11 @@
           });
           const data = await res.json();
           if (data.error) { if (status) status.textContent = data.error; btn.disabled = false; btn.textContent = 'Add'; return; }
+          if (!data.name) {
+            if (status) status.textContent = 'Couldn\'t parse that — try being more specific (e.g. "dentist Friday May 2 at 3pm").';
+            btn.disabled = false; btn.textContent = 'Add';
+            return;
+          }
           closeTaskSheet();
           setTimeout(() => openEventForm(null, data), 320);
         } catch {
@@ -840,39 +836,66 @@
 
     function openImportEventsConfirm(eventsArr, hadRecurring) {
       const formatDate = (d) => {
+        if (!d) return '—';
         const [y, m, day] = d.split('-');
         return new Date(+y, +m - 1, +day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       };
-      const rows = eventsArr.map((ev, i) =>
-        `<label style="display:flex;align-items:flex-start;gap:var(--spacing-sm);padding:var(--spacing-sm) 0;border-bottom:1px solid var(--border)">
-          <input type="checkbox" class="iev-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0;margin-top:2px">
-          <div>
-            <div style="font-size:var(--font-base);font-weight:500">${escapeHtml(ev.name)}</div>
-            <div style="font-size:var(--font-sm);color:var(--text-muted)">${formatDate(ev.date)}${ev.time ? ' · ' + ev.time : ev.allDay ? ' · All day' : ''}</div>
-          </div>
-        </label>`
-      ).join('');
-      const warning = hadRecurring
-        ? `<p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">Recurring events were skipped — only one-time events are shown.</p>`
+
+      const recurringBanner = hadRecurring
+        ? `<div class="banner banner--info" role="status" style="margin-bottom:var(--spacing-sm)">Recurring events were skipped — only one-time events are supported.</div>`
         : '';
+
+      const enriched = eventsArr.map((ev, i) => ({
+        ...ev,
+        _sub: `${formatDate(ev.date)}${ev.time ? ' · ' + ev.time : ev.allDay ? ' · All day' : ''}`,
+      }));
+
+      const rows = enriched.map((ev, i) => renderConfirmRow(ev, {
+        labelKey: 'name',
+        subKey: '_sub',
+        confidenceKey: 'confidence',
+        subConfidenceKey: 'dateConfidence',
+        key: i,
+      })).join('');
+
+      const n = eventsArr.length;
+
       taskSheetMount.innerHTML = renderBottomSheet(`
-        <div class="sheet__header"><h2 class="sheet__title">Import ${eventsArr.length} event${eventsArr.length !== 1 ? 's' : ''}</h2></div>
+        <div class="sheet__header"><h2 class="sheet__title">Import events</h2></div>
         <div class="sheet__content">
-          ${warning}
-          <div id="ievItems">${rows}</div>
+          ${recurringBanner}
+          <div class="confirm-list" id="ievList">${rows}</div>
         </div>
         <div class="sheet__footer">
           <button class="btn btn--secondary" id="ievCancel">Cancel</button>
-          <button class="btn btn--primary" id="ievImport">Add selected</button>
+          <button class="btn btn--primary" id="ievImport">Import ${n} event${n !== 1 ? 's' : ''}</button>
         </div>`);
       applyDataColors(taskSheetMount);
       requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-      document.getElementById('ievCancel')?.addEventListener('click', closeTaskSheet);
-      document.getElementById('ievImport')?.addEventListener('click', async () => {
-        const selected = [...taskSheetMount.querySelectorAll('.iev-check:checked')].map(el => eventsArr[+el.dataset.idx]);
+
+      const list = taskSheetMount.querySelector('#ievList');
+      const importBtn = taskSheetMount.querySelector('#ievImport');
+
+      function updateBtn() {
+        const count = list.querySelectorAll('.confirm-row:not(.is-deselected)').length;
+        importBtn.textContent = `Import ${count} event${count !== 1 ? 's' : ''}`;
+        importBtn.disabled = count === 0;
+      }
+
+      list.addEventListener('click', (e) => {
+        const row = e.target.closest('.confirm-row');
+        if (!row) return;
+        row.classList.toggle('is-deselected');
+        updateBtn();
+      });
+
+      taskSheetMount.querySelector('#ievCancel')?.addEventListener('click', closeTaskSheet);
+
+      importBtn.addEventListener('click', async () => {
+        const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
+          .map(row => eventsArr[+row.dataset.key]);
         if (!selected.length) { closeTaskSheet(); return; }
-        const btn = document.getElementById('ievImport');
-        btn.disabled = true; btn.textContent = 'Adding…';
+        importBtn.disabled = true; importBtn.textContent = 'Adding…';
         for (const ev of selected) {
           const eventData = {
             name: ev.name, date: ev.date, allDay: ev.allDay ?? true,
