@@ -516,6 +516,116 @@ Never dumps raw error objects. Debug details available only in Admin → Advance
 - Fill uses `--accent`. Background `--surface-2`.
 - Single component; Score card progress, store card progress, calendar density all share.
 
+### 5.23 Form sheet pattern (the Event Form is the canonical reference)
+**Reference implementation:** `renderEventForm()` in [shared/components.js](../shared/components.js) + `openEventForm()` in [dashboard.js](../dashboard.js). Spec at [docs/superpowers/specs/2026-05-01-event-form-redesign.md](../superpowers/specs/2026-05-01-event-form-redesign.md). All other form sheets in the app (task creation/edit, recipe form, reward form, person form, list form, settings forms, etc.) must adopt this pattern — match it intentionally and document why if you deviate.
+
+**Architecture split:**
+- **HTML generator** lives in `shared/components.js` (e.g. `renderEventForm`). Pure function — no DOM access, no side effects. Returns a string. Takes `{ existing?, mode: 'create'|'edit', ...context }`.
+- **DOM wiring** lives in the page-level JS (e.g. `openEventForm` in `dashboard.js`). Mounts via `taskSheetMount.innerHTML = renderBottomSheet(html)`, attaches listeners, manages state, calls Firebase writes.
+- **CSS classes use a per-form prefix** (`ef2-*` for event form). New forms get a new prefix (e.g. `tf-*` for task form, `rf-*` for recipe form). Never reuse another form's prefix — keeps CSS isolated and scopeable.
+
+**Vertical structure (top-to-bottom):**
+```
+sheet__header             ← title + ✕ close
+ef2-title-row             ← large input + import icons (create mode only)
+ef2-import-feedback       ← AI loading/error inline (reserves space; min-height)
+ef2-divider               ← 1px hairline
+ef2-datetime-section      ← (or whatever primary fields)
+  ef2-date-row            ← date button + All-day pill on one row
+  ef2-picker-wrap         ← inline collapsible date picker
+  ef2-time-section        ← time button + collapsible time picker
+ef2-divider
+ef2-for-section           ← "For" header line + person chips below
+  ef2-for-header          ← section label + Family chip inline
+  ef2-person-chips        ← horizontal-scrolling row, fade gradient on right edge
+ef2-divider
+ef2-secondary-row         ← + Notes / + Location / + Repeat dashed chips
+ef2-field-reveal × N      ← progressive disclosure (notes textarea, location input)
+ef2-footer                ← STICKY: Cancel + primary action
+ef2-delete-zone           ← edit-mode only, below sticky footer
+```
+
+**Padding rules (critical):**
+- **Form sections have NO horizontal padding.** `.bottom-sheet__content` already supplies the single layer of `var(--spacing-md)`. Adding more on each section double-indents content and the title sits flush-left while everything else is squeezed inward. Use vertical padding only on sections.
+- Title row uses `padding: var(--spacing-xs) 0` (tight vertical, no horizontal).
+- Datetime/For/secondary sections use `padding: var(--spacing-sm) 0`.
+- Padding above and below each section should match (no asymmetric gaps between visual blocks).
+
+**Sticky footer pattern (the ef2-footer rule):**
+The footer needs to break out of `.bottom-sheet__content`'s padding so it spans edge-to-edge AND stick to the bottom of the scrollable container.
+```css
+.ef2-footer {
+  position: sticky;
+  bottom: 0;
+  margin: var(--spacing-sm) calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg));
+  padding: var(--spacing-sm) var(--spacing-md);
+  padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--spacing-sm);
+  z-index: 1;
+}
+.ef2-footer .btn { flex: 1; }
+```
+- Negative side+bottom margin breaks out of `.bottom-sheet__content` padding.
+- Footer's own padding brings content back to the right indent.
+- `bottom: 0` (NOT a negative value) — sticks to the visible bottom of the scrollable container.
+- `safe-area-inset-bottom` for notched devices.
+
+**Sub-sheet stacking (when a form opens another sheet):**
+Use a SECOND overlay (`.ef2-subsheet-overlay`) on top of the existing bottom-sheet, NOT a navigation push. The Repeat sub-sheet, Photo source picker, and iCal URL prompt all use this pattern. Animate up from bottom; close removes from DOM after the transition. Returning to the parent form re-mounts via `openEventForm(existingId, savedFormState)` — see "Form state preservation" below.
+
+**Form state preservation across sub-sheets:**
+Inner function `captureFormState()` serializes the live form to a plain object before navigating to a sub-sheet. On return, the parent form re-renders with `existingId` and `savedState` so the user's in-progress edits don't vanish. Capture EVERY field including transient UI state (`notesOpen`, `isFamilyMode`) — fields that only exist in DOM state will be lost on round-trip otherwise. The `event` object passed to the renderer accepts these transient flags as overrides (`event.notesOpen ? ' is-open' : ''`).
+
+**Inline pickers (date / time / repeat day selector):**
+Use `<div class="ef2-picker-wrap">` with `max-height: 0; transition: max-height 0.2s ease;` collapsed; `is-open` class sets `max-height: <enough-for-content>`. Tapping the trigger button toggles `is-open`. Tapping the inline input or selecting a value collapses it. Multiple pickers in the same section are mutually exclusive (opening one closes the others).
+
+**Time picker (replace `<input type="time">` everywhere):**
+Native `<input type="time">` on Android = the awful number wheel. Use the 6-select pattern from `renderEventForm`: hour (1-12, 42px) + colon + minute (5-min increments, 46px) + AM/PM (50px), then arrow → repeat for end time. Helpers `ef2ParseTime`, `ef2HourOpts`, `ef2MinOpts`, `ef2AmPmOpts` already exist in `shared/components.js` — reuse them.
+
+**Person chip state machine:**
+- **Unselected**: gray chip, color dot before name (uses `--chip-color` per-chip CSS var set via JS).
+- **Primary** (`data-state="primary"`): solid fill in person's color, white text.
+- **Attending** (`data-state="attending"`): outlined in person's color, person color text.
+- **Family** chip (`.ef2-person-chip--family`) uses `--accent` not a person color; lives next to the section label, not in the scrollable row.
+- Click rules: unselected → primary if no primary set, else attending. Attending → primary (demote old). Primary → deselect (promote first attending).
+- Set `--chip-color` after mount: `chip.style.setProperty('--chip-color', chip.dataset.personColor)`.
+- Container is `flex-wrap: nowrap; overflow-x: auto` with a `mask-image` fade gradient on the right edge for scroll affordance. Hide scrollbar.
+
+**Add chips (Notes / Location / Repeat / etc.):**
+- Dashed border when off, solid border when active. Same color either way (no big visual weight change).
+- Toggle the reveal: tap once to open and focus, tap again to close. The ✕ button inside the reveal is a secondary close path.
+- `min-height: 32px`, `padding: 4px 10px`, `font-size: var(--font-sm)`. Compact — these are not primary actions.
+
+**Title input focus:**
+`outline: none; box-shadow: none; border-color: transparent;` on `:focus`. The input is large enough that browser focus chrome reads as visual noise. Validation failure uses a shake animation + bottom-border in `--danger`.
+
+**Icon button focus:**
+`outline: none; background: var(--surface-2); color: var(--text);` on `:focus-visible`. NOT an outline ring — that lingers visibly when the icon's sub-sheet opens on top of the form and looks broken.
+
+**Validation:**
+- Required fields: pulse-shake animation + red bottom-border. Don't show inline error text; the shake is enough.
+- No `window.confirm` or `window.alert`. Use inline confirm patterns (e.g. delete zone with "Delete this? [Delete] [Keep]" buttons that toggle visibility) or the shared `showConfirm()` helper.
+
+**AI integration in forms:**
+- Inline NL parse (magic wand): single tap → fills fields. Show error inline below the title for ~3s then fade. Use a stored `errDismissTimer` so a second tap clears the first timer (don't clobber a fresh error with a stale timeout).
+- Photo / URL / file imports: open a picker sheet. Optional context input above the source buttons — pre-fill from the title field if non-empty. The context goes to the AI as `input.context` and the prompt must be designed to honor it.
+- Heuristic-only on auto-runs (free, instant). AI on explicit user action (wand button, import tap). See §13.13 "Form authoring recipe" for the full pattern.
+
+**Edit-mode delete zone:**
+Below the sticky footer, separated by a visible gap. Destructive red text style. Tap reveals inline confirm (`Delete this event? [Delete] [Keep]`) — never a separate sheet, never `window.confirm`. On error, route message through the same `ef2_importError` slot the save errors use.
+
+**Don'ts:**
+- ❌ Don't use `<input type="time">` (the wheel).
+- ❌ Don't add horizontal padding to form sections — `.bottom-sheet__content` provides it.
+- ❌ Don't use outline rings on focus inside the form — use background tint.
+- ❌ Don't push a new bottom-sheet for sub-flows; stack with `.ef2-subsheet-overlay`.
+- ❌ Don't lose form state when navigating to a sub-sheet — `captureFormState` + `savedState` pass-through is required.
+- ❌ Don't put inline `style=""` in HTML — set CSS vars via JS (`element.style.setProperty('--var', value)`) instead.
+- ❌ Don't reuse another form's CSS prefix. Pick a new one (`tf-*`, `rf-*`, etc.).
+
 ---
 
 ## 6. Per-area specs
@@ -993,6 +1103,7 @@ Themes redefine color tokens at `:root[data-theme="sage"]` etc. Never redefine s
 
 - ❌ Do not add a fifth tab style; use `.tabs` with variants.
 - ❌ Do not add a seventh card pattern; add a `.card--variant`.
+- ❌ Do not build a new form sheet without following §5.23 (Form sheet pattern). The Event Form is the canonical reference. Don't use `<input type="time">`, don't add horizontal padding to form sections (the bottom-sheet provides it), don't use outline focus rings inside a form, don't push a separate bottom-sheet for sub-flows (use `.&lt;prefix&gt;-subsheet-overlay`), don't lose form state across sub-sheets (`captureFormState` + `savedState` pattern).
 - ❌ Do not use emoji in nav, tabs, buttons, banners, status chips, headers, form labels.
 - ❌ Do not lock the page with `overflow:hidden; height:100dvh` outside kiosk.
 - ❌ Do not put Theme/Debug/Add icons in the header — they live in overflow, admin, or a FAB.
@@ -1179,6 +1290,46 @@ Violations: tablet-as-wider-phone, no layout change, no density change, no left 
 
 ---
 
+### 13.13 Form authoring recipe (build a new form to match Event Form)
+
+When porting an existing form (task, recipe, person, reward, list, etc.) to the new pattern, follow these steps in order. The Event Form is the reference — read §5.23 alongside this recipe.
+
+**Step 1 — Pick a CSS prefix.** New prefix per form. Examples: `tf-` task form, `rf-` recipe form, `pf-` person form. Append your CSS block to `styles/components.css` after the existing form sections; bracket it with `/* ── <Form name> ─────── */` and `/* ── End <Form name> ── */` comments.
+
+**Step 2 — Add the renderer to `shared/components.js`.** Pure HTML generator, exported. Signature: `renderXForm({ existing?, mode: 'create'|'edit', ...context })` returning a string. Mirror the section order from §5.23. Use `esc()` on every interpolated value. Do not call `document.*` from this function.
+
+**Step 3 — Add the wiring function to the page-level JS.** Signature: `openXForm(existingId = null, savedState = null)`. Pattern matches `openEventForm`:
+1. Resolve `event = savedState || (existingId ? collection[existingId] : {})`.
+2. Set `mode` from `existingId`.
+3. `taskSheetMount.innerHTML = renderBottomSheet(renderXForm({ event, eventId: existingId, ...context, mode }))`.
+4. Apply per-element CSS vars via JS (e.g. `chip.style.setProperty('--chip-color', chip.dataset.personColor)`).
+5. `requestAnimationFrame` to add `.active` and focus the first input in create mode.
+6. Wire all listeners.
+7. Define `captureFormState()` inner function — must serialize EVERY field including transient UI state.
+8. Save handler: validate, build object, call Firebase write, `closeTaskSheet()`, `render()`. On error: re-enable button, show error in the import-feedback slot.
+
+**Step 4 — Reuse helpers, don't recreate.** From `shared/components.js`: `ef2ParseTime`, `ef2HourOpts`, `ef2MinOpts`, `ef2AmPmOpts` for time pickers. From `shared/ai-helpers.js`: `resizeImageForUpload`, `renderConfirmRow`, `openMonthClarificationSheet`. From `shared/components.js`: `renderBottomSheet`, `showConfirm`, `showToast`. Don't import per-form variants.
+
+**Step 5 — Sticky footer.** Copy the `ef2-footer` CSS block, rename the prefix. Don't try to use the global `.sheet__footer` — it doesn't break out of the bottom-sheet padding the same way. The sticky-footer rule from §5.23 is non-negotiable.
+
+**Step 6 — Form sections get NO horizontal padding.** Vertical only. The bottom-sheet content provides the single layer of horizontal padding. Verify on a 360px-wide viewport — title and section content should sit at the same left edge.
+
+**Step 7 — Focus styling.** Title input: `outline: none; box-shadow: none; border-color: transparent` on `:focus`. Icon buttons: `outline: none; background: var(--surface-2)` on `:focus-visible`. NEVER an outline ring inside a form sheet.
+
+**Step 8 — Validation.** Required field empty on save? Pulse-shake the field with a red bottom border. No inline error text — the shake is enough. Use the same `<form-prefix>-shake` keyframe pattern as `ef2-shake`.
+
+**Step 9 — Sub-sheets.** If the form has any "secondary picker" flow (recurrence, source picker, list picker), use a second `<div class="<prefix>-subsheet-overlay">` appended to `document.body`. Capture form state before opening; on cancel/return, re-call `openXForm(existingId, savedState)`.
+
+**Step 10 — Edit mode delete.** Below the sticky footer in a `<form-prefix>-delete-zone`. Inline confirm with two buttons. Never `window.confirm`. Hide the trigger button when the confirm is open; restore on "Keep".
+
+**Step 11 — AI features (if applicable).** Wand for NL parse fills directly. Photo/file import opens a source picker sheet with an "Optional note for AI" input pre-filled from the title field. Worker calls always have a fallback (heuristic for dedup, no-op for autofill). Errors show in the import-feedback slot, auto-dismiss after 3s using a stored timer (clear before setting a new one).
+
+**Step 12 — Bump the SW cache** (`sw.js` `CACHE_NAME`) when you ship. New version number, add a one-line comment in the changelog block.
+
+**Step 13 — Update this doc.** If your new form deviates from §5.23 in any way, document the deviation here in §13 with a named example. Drift compounds — a one-off "this form is special" becomes the next person's reference if it isn't called out.
+
+---
+
 ## 14. Terminology glossary
 
 - **Chrome:** the app's own UI (header, nav, banners, page structure). Distinct from *content* (user-authored data).
@@ -1198,6 +1349,7 @@ Violations: tablet-as-wider-phone, no layout change, no density change, no left 
 | 2026-04-19 | v1.0 initial spec | Design audit + rework planning |
 | 2026-04-24 | §6.9 person-mode parity rule + mount-point shell parity; §12 added three non-negotiables (no `!linkedPerson` core-control gates, no `header-height` on wrapper padding, single-gutter rule) | Phase 1 + 1.5 shipped with `!linkedPerson` hiding bell/overflow/filter chip and a missing `#fabMount` in `person.html`; also surfaced double-counted header-height and double horizontal gutter after the card density pass. Codifying so future work doesn't regress. |
 | 2026-04-25 | §6.1 dashboard rewritten as 8-section final form (adds Coming up rail, codifies ambient strip default, defines tablet two-pane split, declares kiosk reflection); §6.9 retired the `Viewing as {Name}` pill; §7.3 expanded banner-mount list to scoreboard + tracker and documented overdue body-tappable + `--info` sub-uses; §5.9 documented `--info` sub-uses. | Final-form dashboard design spec ([2026-04-25-dashboard-final-design.md](../superpowers/specs/2026-04-25-dashboard-final-design.md)) approved after Phase 2 calendar shelving made the dashboard the only phone-side surface for forward-look. Doc edits ride in the same PR that ships the spec so docs stay coherent ahead of implementation. |
+| 2026-05-01 | §5.23 Form sheet pattern (Event Form as canonical reference) + §13.13 form authoring recipe + §12 non-negotiable for new forms. | Event Form Redesign ([2026-05-01-event-form-redesign.md](../superpowers/specs/2026-05-01-event-form-redesign.md)) shipped. Pattern cascades to all other forms (task, recipe, person, reward, list, settings). Codifying so the next form session matches without reinventing — sticky-footer breakout, no horizontal padding on sections, custom time picker (no native wheel), inline pickers, person chip state machine, sub-sheet stacking via second overlay, captureFormState round-trip. |
 
 Updates to this doc require the PR description to cite the section changed and the reason.
 
