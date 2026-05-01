@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet, renderRepeatSheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
@@ -2096,6 +2096,75 @@ function openEfImportConfirm(eventsArr, hadRecurring, onCancel) {
       importBtn.disabled = false;
       importBtn.textContent = `Import ${selected.length} event${selected.length !== 1 ? 's' : ''}`;
     }
+  });
+}
+
+function openRepeatSheet(currentRule, onDone, onCancel) {
+  taskSheetMount.innerHTML = renderBottomSheet(renderRepeatSheet(currentRule));
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  const getSelectedType = () => {
+    const sel = taskSheetMount.querySelector('.ef2-repeat-option.is-selected');
+    return sel?.dataset.type || 'none';
+  };
+
+  taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(o => o.classList.remove('is-selected'));
+      opt.classList.add('is-selected');
+      const type = opt.dataset.type;
+      const weeklySub = document.getElementById('rptWeeklySub');
+      const customSub = document.getElementById('rptCustomSub');
+      const endSection = document.getElementById('rptEndSection');
+      weeklySub?.classList.toggle('is-open', type === 'weekly');
+      customSub?.classList.toggle('is-open', type === 'custom');
+      endSection?.classList.toggle('is-open', type !== 'none');
+    });
+  });
+
+  taskSheetMount.querySelectorAll('.ef2-day-chip').forEach(chip => {
+    chip.addEventListener('click', () => chip.classList.toggle('is-active'));
+  });
+
+  document.getElementById('rptEndType')?.addEventListener('change', (e) => {
+    document.getElementById('rptEndDateWrap').style.display = e.target.value === 'on' ? 'block' : 'none';
+    document.getElementById('rptEndCountWrap').style.display = e.target.value === 'after' ? 'flex' : 'none';
+  });
+
+  document.getElementById('rptBack')?.addEventListener('click', () => {
+    closeTaskSheet();
+    if (onCancel) setTimeout(onCancel, 320);
+  });
+  document.getElementById('rptCancel')?.addEventListener('click', () => {
+    closeTaskSheet();
+    if (onCancel) setTimeout(onCancel, 320);
+  });
+
+  document.getElementById('rptDone')?.addEventListener('click', () => {
+    const type = getSelectedType();
+    if (type === 'none') {
+      closeTaskSheet();
+      if (onDone) setTimeout(() => onDone(null), 320);
+      return;
+    }
+    const rule = { type };
+    if (type === 'weekly') {
+      rule.days = [...taskSheetMount.querySelectorAll('.ef2-day-chip.is-active')].map(c => c.dataset.day);
+    }
+    if (type === 'custom') {
+      rule.every = parseInt(document.getElementById('rptEvery')?.value, 10) || 2;
+      rule.unit = document.getElementById('rptUnit')?.value || 'weeks';
+    }
+    const endType = document.getElementById('rptEndType')?.value || 'never';
+    if (endType === 'on') {
+      rule.end = { type: 'on', date: document.getElementById('rptEndDate')?.value || '' };
+    } else if (endType === 'after') {
+      rule.end = { type: 'after', count: parseInt(document.getElementById('rptEndCount')?.value, 10) || 5 };
+    } else {
+      rule.end = { type: 'never' };
+    }
+    closeTaskSheet();
+    if (onDone) setTimeout(() => onDone(rule), 320);
   });
 }
 

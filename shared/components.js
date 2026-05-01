@@ -3007,3 +3007,80 @@ export function renderMealManageSheet(meal, slot) {
     </div>
   </div>`;
 }
+
+/**
+ * Render the Repeat sub-sheet HTML.
+ * rule: null | { type, days?, every?, unit?, end? }
+ */
+export function renderRepeatSheet(rule) {
+  const t = rule?.type || 'none';
+  const selectedDays = new Set(rule?.days || []);
+  const DAY_KEYS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'];
+  const DAY_LABELS = { S: 'S', M: 'M', T: 'T', W: 'W', Th: 'T', F: 'F', Sa: 'S' };
+
+  function opt(key, label) {
+    const sel = t === key;
+    return `<div class="ef2-repeat-option${sel ? ' is-selected' : ''}" data-type="${key}">
+      <span class="ef2-repeat-radio"></span>
+      <span>${label}</span>
+    </div>`;
+  }
+
+  const dayChips = DAY_KEYS.map(d =>
+    `<button class="ef2-day-chip${selectedDays.has(d) ? ' is-active' : ''}" data-day="${d}" type="button">${DAY_LABELS[d]}</button>`
+  ).join('');
+
+  const weeklySubOpen = t === 'weekly' ? ' is-open' : '';
+  const customSubOpen = t === 'custom' ? ' is-open' : '';
+  const endSectionOpen = (t !== 'none' && t !== '') ? ' is-open' : '';
+  const every = rule?.every || 2;
+  const unit = rule?.unit || 'weeks';
+  const endType = rule?.end?.type || 'never';
+  const endDate = rule?.end?.date || '';
+  const endCount = rule?.end?.count || 5;
+
+  return `<div class="sheet__header">
+    <button class="btn btn--ghost btn--sm" id="rptBack" type="button">← Back</button>
+    <h2 class="sheet__title">Repeat</h2>
+  </div>
+  <div class="sheet__content">
+    ${opt('none', 'None')}
+    ${opt('daily', 'Daily')}
+    ${opt('weekly', 'Weekly')}
+    <div class="ef2-repeat-sub${weeklySubOpen}" id="rptWeeklySub">${dayChips}</div>
+    ${opt('monthly', 'Monthly')}
+    ${opt('yearly', 'Yearly')}
+    ${opt('custom', 'Custom')}
+    <div class="ef2-repeat-sub${customSubOpen}" id="rptCustomSub">
+      <div class="field" style="display:flex;align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
+        <span style="font-size:var(--font-sm);white-space:nowrap">Every</span>
+        <input class="field__input" id="rptEvery" type="number" min="1" max="99" value="${every}" style="width:64px">
+        <select class="field__input" id="rptUnit" style="flex:1">
+          <option value="days"${unit === 'days' ? ' selected' : ''}>Days</option>
+          <option value="weeks"${unit === 'weeks' ? ' selected' : ''}>Weeks</option>
+          <option value="months"${unit === 'months' ? ' selected' : ''}>Months</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ef2-repeat-end${endSectionOpen}" id="rptEndSection">
+      <div class="ef2-section-label" style="margin-top:var(--spacing-md)">Ends</div>
+      <select class="field__input" id="rptEndType" style="width:100%">
+        <option value="never"${endType === 'never' ? ' selected' : ''}>Never</option>
+        <option value="on"${endType === 'on' ? ' selected' : ''}>On date</option>
+        <option value="after"${endType === 'after' ? ' selected' : ''}>After</option>
+      </select>
+      <div id="rptEndDateWrap" style="margin-top:var(--spacing-xs);display:${endType === 'on' ? 'block' : 'none'}">
+        <input class="field__input" id="rptEndDate" type="date" value="${endDate}">
+      </div>
+      <div id="rptEndCountWrap" style="display:${endType === 'after' ? 'flex' : 'none'};align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
+        <input class="field__input" id="rptEndCount" type="number" min="1" max="999" value="${endCount}" style="width:80px">
+        <span style="font-size:var(--font-sm)">occurrences</span>
+      </div>
+    </div>
+  </div>
+  <div class="sheet__footer">
+    <button class="btn btn--ghost" id="rptCancel" type="button">Cancel</button>
+    <button class="btn btn--primary" id="rptDone" type="button">Done</button>
+  </div>`;
+}
