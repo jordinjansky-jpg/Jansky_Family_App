@@ -594,35 +594,61 @@ function openRecipeDetailSheet(recipeId) {
     }
 
     const existingItems = await readOnce(`kitchen/lists/${targetListId}/items`);
-    const existingByName = new Map();
-    Object.entries(existingItems || {}).forEach(([id, it]) => {
-      if (it && !it.checked && it.name) existingByName.set(it.name.toLowerCase().trim(), { id, item: it });
-    });
+    const existingArr = Object.entries(existingItems || {})
+      .filter(([, it]) => it && !it.checked && it.name)
+      .map(([id, it]) => ({ id, name: it.name, qty: it.qty || null, item: it }));
+    const existingById = new Map(existingArr.map(e => [e.id, e]));
 
-    let mergedCount = 0;
-    let addedCount = 0;
-    for (const ing of recipe.ingredients) {
-      const key = ing.name.toLowerCase().trim();
-      const existing = existingByName.get(key);
-      if (existing) {
-        const qtys = [existing.item.qty, ing.qty].filter(Boolean);
-        let combinedQty = null;
-        if (qtys.length === 1) combinedQty = qtys[0];
-        else if (qtys.length > 1) combinedQty = await mergeQtyAi(ing.name, qtys);
-        await writeKitchenItem(targetListId, existing.id, { ...existing.item, qty: combinedQty });
-        mergedCount++;
-      } else {
-        const id = await pushKitchenItem(targetListId, {
-          name: ing.name,
-          qty: ing.qty || null,
-          checked: false,
-          addedAt: firebase.database.ServerValue.TIMESTAMP,
-          category: null,
-        });
-        if (KITCHEN_WORKER_URL) categorizeItem(targetListId, id, ing.name);
-        addedCount++;
+    // Pre-clean incoming names with heuristic A so the AI sees normalized data.
+    const incoming = recipe.ingredients
+      .map(ing => ({ name: cleanIngredientName(ing.name), qty: ing.qty || null }))
+      .filter(ing => ing.name);
+
+    // Try AI dedup (option B). Falls back to heuristic name match if Worker fails.
+    const aiPlan = await dedupIngredientsAi(
+      existingArr.map(e => ({ id: e.id, name: e.name, qty: e.qty })),
+      incoming
+    );
+
+    let toAdd = [];
+    let toUpdate = [];
+    if (aiPlan) {
+      toAdd = aiPlan.toAdd;
+      toUpdate = aiPlan.toUpdate;
+    } else {
+      // Fallback: simple case-insensitive match using already-cleaned names.
+      const existingByName = new Map();
+      existingArr.forEach(e => existingByName.set(e.name.toLowerCase().trim(), e));
+      for (const ing of incoming) {
+        const match = existingByName.get(ing.name.toLowerCase().trim());
+        if (match) {
+          const qtys = [match.qty, ing.qty].filter(Boolean);
+          const combined = qtys.length > 1 ? await mergeQtyAi(ing.name, qtys) : (qtys[0] || null);
+          toUpdate.push({ id: match.id, qty: combined });
+        } else {
+          toAdd.push(ing);
+        }
       }
     }
+
+    for (const upd of toUpdate) {
+      const ex = existingById.get(upd.id);
+      if (!ex) continue;
+      await writeKitchenItem(targetListId, upd.id, { ...ex.item, qty: upd.qty || null });
+    }
+    for (const ing of toAdd) {
+      const cleanName = cleanIngredientName(ing.name);
+      const id = await pushKitchenItem(targetListId, {
+        name: cleanName,
+        qty: ing.qty || null,
+        checked: false,
+        addedAt: firebase.database.ServerValue.TIMESTAMP,
+        category: null,
+      });
+      if (KITCHEN_WORKER_URL) categorizeItem(targetListId, id, cleanName);
+    }
+    const addedCount = toAdd.length;
+    const mergedCount = toUpdate.length;
 
     const listName = lists[targetListId]?.name || 'list';
     const parts = [];
@@ -898,7 +924,7 @@ function openRecipeForm(recipeId, onSave = null) {
   function addIngredient() {
     const val = document.getElementById('newIngredientInput')?.value.trim();
     if (!val) return;
-    ingredients.push({ name: val });
+    ingredients.push({ name: cleanIngredientName(val) });
     document.getElementById('newIngredientInput').value = '';
     document.getElementById('ingredientList').innerHTML = buildIngredientList();
     bindRemoveButtons();
@@ -953,7 +979,11 @@ function openRecipeForm(recipeId, onSave = null) {
         document.getElementById('recipeUrl').value = data.url;
       }
       if (data.ingredients?.length) {
-        data.ingredients.forEach(ing => { if (ing.name) ingredients.push({ name: ing.name, qty: ing.qty || null }); });
+        data.ingredients.forEach(ing => {
+          if (!ing.name) return;
+          const cleaned = cleanIngredientName(ing.name);
+          if (cleaned) ingredients.push({ name: cleaned, qty: ing.qty || null });
+        });
         document.getElementById('ingredientList').innerHTML = buildIngredientList();
         bindRemoveButtons();
       }
@@ -1661,6 +1691,36 @@ function renderPhotoToListConfirm(mount, items) {
     mount.innerHTML = '';
     for (const name of selected) await addItemToActiveList(name);
   });
+}
+
+// Strip prep modifiers + parentheticals from an ingredient name so it reads
+// as a clean grocery-store product. Run on every entry point (manual add,
+// URL/screenshot import, before sending to the dedup AI).
+const PREP_PREFIXES = /^(freshly|finely|coarsely|roughly|thinly|thickly|chopped|diced|sliced|minced|grated|shredded|crushed|cracked|ground)\s+/i;
+
+function cleanIngredientName(name) {
+  if (!name || typeof name !== 'string') return name;
+  let cleaned = name.replace(/\s*\([^)]*\)\s*/g, ' ');
+  cleaned = cleaned.split(',')[0];
+  while (PREP_PREFIXES.test(cleaned)) cleaned = cleaned.replace(PREP_PREFIXES, '');
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
+async function dedupIngredientsAi(existing, incoming) {
+  if (!KITCHEN_WORKER_URL) return null;
+  try {
+    const res = await fetch(KITCHEN_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'dedupIngredients', input: { existing, incoming } }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data.toAdd) || !Array.isArray(data.toUpdate)) return null;
+    return data;
+  } catch (err) {
+    return null;
+  }
 }
 
 async function categorizeItem(listId, itemId, name) {

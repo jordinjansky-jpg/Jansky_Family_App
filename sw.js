@@ -211,7 +211,8 @@
 // v107 (2026-05-01) — Event form: remove duplicate horizontal padding on sections, shrink time selects to fit phone width.
 // v108 (2026-05-01) — Kitchen: preserve recipe qty on add to list, show qty on shopping cards, dedup ingredients, auto-create list, categorize from recipe.
 // v109 (2026-05-01) — Kitchen: AI mergeQty handler for smart unit-aware ingredient combination.
-const CACHE_NAME = 'family-hub-v109';
+// v110 (2026-05-01) — Kitchen: cleanIngredientName heuristic + dedupIngredients AI handler — clean names on every entry, smart name+qty merge.
+const CACHE_NAME = 'family-hub-v110';
 
 const APP_SHELL = [
   '/',

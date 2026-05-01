@@ -19,10 +19,18 @@ const CATEGORY_SET = new Set(CATEGORY_LIST);
 
 const RECIPE_PROMPT = `Extract recipe information. The source may be a recipe website, blog post, social media post, or photo of a recipe card — formats vary widely.
 
+INGREDIENT NAME RULES:
+- Use the bare grocery-store name only — no prep instructions, no parenthetical descriptions.
+- Strip prep modifiers from the name: "black pepper (freshly cracked)" → "black pepper". "garlic, minced" → "garlic". "freshly grated parmesan" → "parmesan". "finely diced onion" → "onion".
+- Strip parenthetical content entirely.
+- Strip everything after a comma (it's almost always prep).
+- Keep modifiers that change the SKU: "extra virgin olive oil" stays as is; "diced tomatoes" stays as is (canned, different from fresh tomatoes); "boneless skinless chicken breast" stays as is.
+- Lowercase the first letter unless it's a brand name.
+
 Return JSON:
 {
   "name": "recipe name or null",
-  "ingredients": [{"name": "ingredient name", "qty": "amount with unit, or null"}],
+  "ingredients": [{"name": "clean grocery name", "qty": "amount with unit, or null"}],
   "notes": "brief description or prep note (max 200 chars), or null",
   "error": "reason if no recipe at all, else null"
 }
@@ -364,6 +372,65 @@ Reply with only the category name, nothing else.`;
   }
 }
 
+async function handleDedupIngredients(input, env, corsHeaders) {
+  const existing = Array.isArray(input?.existing) ? input.existing : [];
+  const incoming = Array.isArray(input?.incoming) ? input.incoming.filter(i => i && i.name) : [];
+  if (incoming.length === 0) return jsonOk({ toAdd: [], toUpdate: [] }, corsHeaders);
+
+  const existingForPrompt = existing.map(e => ({ id: e.id, name: e.name, qty: e.qty || null }));
+  const incomingForPrompt = incoming.map(i => ({ name: i.name, qty: i.qty || null }));
+
+  const prompt = `You are deduplicating a shopping list. Match new items to existing items where they refer to the same grocery product.
+
+MATCHING RULES:
+- Match if same grocery SKU, ignoring prep instructions ("freshly cracked", "diced", "minced", parentheticals, leading adjectives like "freshly", "finely").
+- "black pepper" matches "black pepper (freshly cracked)" — same product.
+- "garlic" matches "garlic, minced" — same product.
+- "olive oil" matches "olive oil, extra virgin" — same product.
+- "tomatoes" does NOT match "diced tomatoes" — fresh vs canned, different SKU.
+- "chicken breast" matches "boneless skinless chicken breast" — same product.
+- Be case-insensitive and tolerant of pluralization ("onion" = "onions").
+
+QUANTITY MERGING (for matches):
+- Same units → sum: "2 cups" + "1 cup" = "3 cups".
+- Compatible units → convert + sum: "1 lb" + "8 oz" = "1.5 lb".
+- Incompatible → join with " + ": "2 cups + 1 lb".
+- Numbers only → sum: "2" + "3" = "5".
+- Use natural plurals.
+
+OUTPUT:
+- For each new item that matches an existing item, add to "toUpdate" with the existing item's id and the merged qty.
+- For each new item that does NOT match, add to "toAdd" with the cleaned grocery name (no prep, no parentheticals) and qty.
+- Never duplicate within incoming itself — if two new items match each other and not an existing item, combine them and add once.
+
+EXISTING ITEMS:
+${JSON.stringify(existingForPrompt)}
+
+NEW ITEMS:
+${JSON.stringify(incomingForPrompt)}
+
+Return JSON:
+{
+  "toAdd": [{"name": "clean grocery name", "qty": "merged qty or null"}],
+  "toUpdate": [{"id": "existing item id", "qty": "merged qty"}]
+}
+Reply with valid JSON only, no explanation.`;
+
+  try {
+    const raw = await callClaude([{ role: 'user', content: prompt }], env, 1024);
+    const parsed = parseJson(raw);
+    return jsonOk({
+      toAdd: Array.isArray(parsed.toAdd) ? parsed.toAdd : [],
+      toUpdate: Array.isArray(parsed.toUpdate) ? parsed.toUpdate : [],
+    }, corsHeaders);
+  } catch {
+    return jsonOk({
+      toAdd: incoming.map(i => ({ name: i.name, qty: i.qty || null })),
+      toUpdate: [],
+    }, corsHeaders);
+  }
+}
+
 async function handleMergeQty(input, env, corsHeaders) {
   const name = input?.name || '';
   const qtys = Array.isArray(input?.qtys) ? input.qtys.filter(q => q && typeof q === 'string') : [];
@@ -618,8 +685,9 @@ const CORS = {
 };
 
 const HANDLERS = {
-  categorize:    (input, env) => handleCategorize(input, env, CORS),
-  mergeQty:      (input, env) => handleMergeQty(input, env, CORS),
+  categorize:        (input, env) => handleCategorize(input, env, CORS),
+  mergeQty:          (input, env) => handleMergeQty(input, env, CORS),
+  dedupIngredients:  (input, env) => handleDedupIngredients(input, env, CORS),
   url:           (input, env) => handleUrl(input, env, CORS),
   screenshot:    (input, env) => handleScreenshot(input, env, CORS),
   schoolLunch:   (input, env) => handleSchoolLunch(input, env, CORS),
