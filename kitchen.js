@@ -1164,8 +1164,8 @@ function renderItemsArea(items) {
 function renderShoppingCard(id, item, isChecked) {
   return `<article class="card card--shopping${isChecked ? ' is-checked' : ''}" data-item-id="${esc(id)}">
     <span class="card__check" aria-hidden="true"></span>
-    <span class="card__name">${esc(item.name)}</span>
     ${item.qty ? `<span class="card__qty">${esc(item.qty)}</span>` : ''}
+    <span class="card__name">${esc(item.name)}</span>
   </article>`;
 }
 

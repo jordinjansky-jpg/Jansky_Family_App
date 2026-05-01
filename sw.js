@@ -215,7 +215,8 @@
 // v111 (2026-05-01) — Kitchen: list cleanup wand button (cleanList Worker handler) — drop per-add AI for heuristic-only.
 // v112 (2026-05-01) — Event form photo: explicit context note input in source sheet (was relying on title field, undiscoverable).
 // v113 (2026-05-01) — Kitchen: drop per-add categorize (wand only), editable qty in shopping list edit, editable ingredient name+qty in recipe form.
-const CACHE_NAME = 'family-hub-v113';
+// v114 (2026-05-01) — Kitchen: shopping list qty inline before name (matches recipe form layout).
+const CACHE_NAME = 'family-hub-v114';
 
 const APP_SHELL = [
   '/',
