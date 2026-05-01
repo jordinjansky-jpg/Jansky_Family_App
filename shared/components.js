@@ -1093,70 +1093,163 @@ export function renderViewSwitcher(currentView) {
   return `<button class="view-switcher" id="viewSwitcher" type="button" title="Switch to ${label} view">${icon}</button>`;
 }
 
+function ef2fmt12(t) {
+  if (!t) return '';
+  const [h, min] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return min === 0 ? `${h12} ${ampm}` : `${h12}:${String(min).padStart(2, '0')} ${ampm}`;
+}
+
+function ef2TimeDisplay(start, end) {
+  if (!start) return 'Set time';
+  if (!end) return ef2fmt12(start);
+  return `${ef2fmt12(start)} → ${ef2fmt12(end)}`;
+}
+
+function ef2RepeatLabel(rule) {
+  if (!rule || !rule.type || rule.type === 'none') return '+ Repeat';
+  if (rule.type === 'daily') return 'Daily';
+  if (rule.type === 'weekly') {
+    const days = (rule.days || []).join(' · ');
+    return `Weekly${days ? ' · ' + days : ''}`;
+  }
+  if (rule.type === 'monthly') return 'Monthly';
+  if (rule.type === 'yearly') return 'Yearly';
+  if (rule.type === 'custom') return `Every ${rule.every || 1} ${rule.unit || 'weeks'}`;
+  return '+ Repeat';
+}
+
 /**
- * Render the new event creation/edit form.
+ * Render the new event creation/edit form (v2).
  * options: { event?, eventId?, people, dateKey, mode: 'create'|'edit' }
+ * @caller After mounting, call: taskSheetMount.querySelectorAll('.ef2-person-chip[data-person-color]').forEach(c => c.style.setProperty('--chip-color', c.dataset.personColor));
  */
 export function renderEventForm({ event = {}, eventId = null, people = [], dateKey = '', mode = 'create' }) {
   const isEdit = mode === 'edit';
-  const title = isEdit ? 'Edit Event' : 'New Event';
-  const saveLabel = isEdit ? 'Save' : 'Create';
-  const peoplePills = people.map(p => {
-    const selected = (event.people || []).includes(p.id);
-    return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" data-person-color="${esc(p.color)}" type="button">${esc(p.name)}</button>`;
-  }).join('');
+  const saveLabel = isEdit ? 'Save Changes' : 'Add Event';
+  const dateVal = event.date || dateKey;
+  const dateDisplay = dateVal ? formatDateShort(dateVal) : 'Set date';
+  const startTime = event.startTime || '09:00';
+  const endTime = event.endTime || '10:00';
+  const timeDisplay = event.allDay ? 'All day' : ef2TimeDisplay(event.startTime, event.endTime);
 
-  const currentColor = event.color || people[0]?.color || '#4285f4';
+  const primaryId = (event.people || [])[0] || null;
+  const attendingIds = new Set((event.people || []).slice(1));
 
-  const timeGroupHiddenClass = event.allDay ? ' ef-time-row--hidden' : '';
+  const personChipsHtml = [
+    ...people.map(p => {
+      const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
+      return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
+    }),
+    `<button class="ef2-person-chip ef2-person-chip--family" data-person-id="__family__" type="button">Family</button>`,
+  ].join('');
 
-  return `<div class="task-detail-sheet">
-    <h3 class="admin-form__title">${title}</h3>
-    <div class="form-group">
-      <label class="form-label" for="ef_name">Event name</label>
-      <input class="form-input" id="ef_name" type="text" placeholder="Soccer practice, Dentist, etc." value="${esc(event.name || '')}" autocomplete="off">
+  const WAND_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
+  const PHOTO_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+  const ICAL_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+  const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+  const importIcons = isEdit ? '' : `
+    <button class="ef2-icon-btn" id="ef2_wand" type="button" aria-label="Parse title with AI">${WAND_SVG}</button>
+    <label class="ef2-icon-btn" title="Import from photo" aria-label="Import from photo">
+      <input type="file" accept="image/*" id="ef2_photoInput" hidden>
+      ${PHOTO_SVG}
+    </label>
+    <button class="ef2-icon-btn" id="ef2_ical" type="button" aria-label="Import from calendar URL">${ICAL_SVG}</button>`;
+
+  const notesOpen = event.notes ? ' is-open' : '';
+  const locOpen = event.location ? ' is-open' : '';
+  const repeatLabel = ef2RepeatLabel(event.repeat);
+  const repeatActive = (event.repeat && event.repeat.type && event.repeat.type !== 'none') ? ' is-active' : '';
+
+  return `<div class="ef2-form">
+  <div class="sheet__header">
+    <h2 class="sheet__title">${isEdit ? 'Edit Event' : 'New Event'}</h2>
+    <button class="ef2-icon-btn" id="ef2_close" type="button" aria-label="Close">${CLOSE_SVG}</button>
+  </div>
+
+  <div class="ef2-title-row">
+    <input class="ef2-title-input" id="ef2_name" type="text" placeholder="What's happening?" value="${esc(event.name || '')}" autocomplete="off">
+    ${importIcons}
+  </div>
+
+  <div class="ef2-import-feedback">
+    <div class="ef2-import-loading" id="ef2_importLoading">
+      <div class="spinner spinner--sm"></div>
+      <span id="ef2_importMsg">Reading…</span>
     </div>
-    <div class="form-group">
-      <div class="ef-date-row">
-        <div class="ef-date-field">
-          <label class="form-label" for="ef_date">Date</label>
-          <input class="form-input ef-date-input" id="ef_date" type="date" value="${event.date || dateKey}">
-        </div>
-        <button type="button" class="chip chip--selectable ef-allday-toggle${event.allDay ? ' chip--active' : ''}" id="ef_allDay">All Day</button>
+    <div class="ef2-import-error" id="ef2_importError"></div>
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="ef2-datetime-section">
+    <button class="ef2-date-btn" id="ef2_dateBtn" type="button">
+      <span id="ef2_dateDisplay">${esc(dateDisplay)}</span>
+    </button>
+    <div class="ef2-picker-wrap" id="ef2_datePicker">
+      <input type="date" id="ef2_date" value="${esc(dateVal)}">
+    </div>
+    <div class="ef2-time-section${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timeSection">
+      <div class="ef2-time-row">
+        <button class="ef2-time-btn" id="ef2_timeBtn" type="button">
+          <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
+        </button>
+        <button class="chip chip--selectable ef2-allday${event.allDay ? ' chip--active' : ''}" id="ef2_allDay" type="button">All day</button>
       </div>
-      <div class="ef-time-row${timeGroupHiddenClass}" id="ef_timeGroup">
-        <div class="ef-time-field">
-          <label class="form-label" for="ef_startTime">Start</label>
-          <input class="form-input" id="ef_startTime" type="time" value="${event.startTime || ''}">
-        </div>
-        <div class="ef-time-field">
-          <label class="form-label" for="ef_endTime">End</label>
-          <input class="form-input" id="ef_endTime" type="time" value="${event.endTime || ''}">
+      <div class="ef2-picker-wrap" id="ef2_timePicker">
+        <div class="ef2-time-picker-row">
+          <input type="time" id="ef2_startTime" value="${esc(startTime)}">
+          <input type="time" id="ef2_endTime" value="${esc(endTime)}">
         </div>
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">People</label>
-      <div class="owner-chips" id="ef_people">${peoplePills}</div>
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="ef2-for-section">
+    <div class="ef2-section-label">For</div>
+    <div class="ef2-person-chips" id="ef2_people">${personChipsHtml}</div>
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="ef2-secondary-row">
+    <button class="ef2-add-chip${notesOpen ? ' is-active' : ''}" id="ef2_notesChip" type="button">+ Notes</button>
+    <button class="ef2-add-chip${locOpen ? ' is-active' : ''}" id="ef2_locChip" type="button">+ Location</button>
+    <button class="ef2-add-chip${repeatActive}" id="ef2_repeatChip" type="button">${esc(repeatLabel)}</button>
+  </div>
+
+  <div class="ef2-field-reveal${notesOpen}" id="ef2_notesReveal">
+    <div class="ef2-field-reveal-inner">
+      <textarea id="ef2_notes" rows="3" placeholder="Notes…">${esc(event.notes || '')}</textarea>
+      <button class="ef2-field-close" id="ef2_notesClose" type="button" aria-label="Close notes">${CLOSE_SVG}</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">Color</label>
-      ${renderColorButton(currentColor, 'ef_colorPicker')}
+  </div>
+
+  <div class="ef2-field-reveal${locOpen}" id="ef2_locReveal">
+    <div class="ef2-field-reveal-inner">
+      <input type="text" id="ef2_location" placeholder="Location" value="${esc(event.location || '')}">
+      <button class="ef2-field-close" id="ef2_locClose" type="button" aria-label="Close location">${CLOSE_SVG}</button>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="ef_location">Location</label>
-      <input class="form-input" id="ef_location" type="text" placeholder="Optional" value="${esc(event.location || '')}">
+  </div>
+
+  <div class="ef2-footer">
+    <button class="btn btn--ghost" id="ef2_cancel" type="button">Cancel</button>
+    <button class="btn btn--primary" id="ef2_save" type="button">${esc(saveLabel)}</button>
+  </div>
+
+  ${isEdit ? `<div class="ef2-delete-zone">
+    <button class="ef2-delete-btn" id="ef2_deleteBtn" type="button">Delete Event</button>
+    <div class="ef2-delete-confirm" id="ef2_deleteConfirm">
+      <span class="ef2-delete-confirm-msg">Delete this event?</span>
+      <button class="btn btn--sm btn--danger" id="ef2_deleteYes" type="button">Delete</button>
+      <button class="btn btn--sm btn--secondary" id="ef2_deleteNo" type="button">Keep</button>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="ef_notes">Notes</label>
-      <textarea class="form-input form-textarea" id="ef_notes" rows="2" placeholder="Optional">${esc(event.notes || '')}</textarea>
-    </div>
-    <div class="admin-form__actions mt-md">
-      ${isEdit ? `<button class="btn btn--danger" id="ef_delete" type="button" data-event-id="${eventId}">Delete Event</button>` : ''}
-      <button class="btn btn--secondary" id="ef_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="ef_save" type="button" ${eventId ? `data-event-id="${eventId}"` : ''}>${saveLabel}</button>
-    </div>
-  </div>`;
+  </div>` : ''}
+</div>`;
 }
 
 /**
