@@ -1804,6 +1804,8 @@ function openEventForm(existingEventId = null, savedState = null) {
   });
   document.getElementById('ef2_ical')?.addEventListener('click', () => openEfIcalSheet());
 
+  let errDismissTimer = null;
+
   async function doWandParse() {
     const title = document.getElementById('ef2_name')?.value.trim();
     if (!title) return;
@@ -1828,7 +1830,8 @@ function openEventForm(existingEventId = null, savedState = null) {
 
       if (data.error || !data.name) {
         if (errEl) { errEl.textContent = 'Couldn\'t parse — fill manually.'; errEl.classList.add('is-visible'); }
-        setTimeout(() => errEl?.classList.remove('is-visible'), 3000);
+        clearTimeout(errDismissTimer);
+        errDismissTimer = setTimeout(() => errEl?.classList.remove('is-visible'), 3000);
       } else {
         if (data.name) {
           const inp = document.getElementById('ef2_name');
@@ -1871,7 +1874,8 @@ function openEventForm(existingEventId = null, savedState = null) {
       }
     } catch (err) {
       if (errEl) { errEl.textContent = 'Couldn\'t parse — fill manually.'; errEl.classList.add('is-visible'); }
-      setTimeout(() => errEl?.classList.remove('is-visible'), 3000);
+      clearTimeout(errDismissTimer);
+      errDismissTimer = setTimeout(() => errEl?.classList.remove('is-visible'), 3000);
     } finally {
       wandBtn?.classList.remove('ef2-icon-btn--loading');
       loadEl?.classList.remove('is-visible');
@@ -1987,9 +1991,12 @@ function openEventForm(existingEventId = null, savedState = null) {
         }
         closeIcal();
         const savedState = captureFormState();
-        setTimeout(() => openEfImportConfirm(data.events, data.hadRecurring || false, () => {
-          openEventForm(existingEventId, savedState);
-        }), 320);
+        setTimeout(() => {
+          if (!document.getElementById('bottomSheet')?.classList.contains('active')) return;
+          openEfImportConfirm(data.events, data.hadRecurring || false, () => {
+            openEventForm(existingEventId, savedState);
+          });
+        }, 320);
       } catch (err) {
         if (status) status.textContent = 'Couldn\'t fetch that calendar. Check the URL.';
         btn.disabled = false; btn.textContent = 'Import';
