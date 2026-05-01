@@ -1163,13 +1163,11 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   const primaryId = (event.people || [])[0] || null;
   const attendingIds = new Set((event.people || []).slice(1));
 
-  const personChipsHtml = [
-    `<button class="ef2-person-chip ef2-person-chip--family" data-person-id="__family__" type="button">Family</button>`,
-    ...people.map(p => {
-      const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
-      return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
-    }),
-  ].join('');
+  const familyChipHtml = `<button class="ef2-person-chip ef2-person-chip--family" data-person-id="__family__" type="button">Family</button>`;
+  const personChipsHtml = people.map(p => {
+    const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
+    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
+  }).join('');
 
   const WAND_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
   const PHOTO_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
@@ -1225,21 +1223,16 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
         <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
       </button>
       <div class="ef2-picker-wrap" id="ef2_timePicker">
-        <div class="ef2-time-grid">
-          <div class="ef2-time-line">
-            <span class="ef2-time-line-label">Starts</span>
-            <select id="ef2_startHour" class="ef2-time-select ef2-time-select--hour" aria-label="Start hour">${ef2HourOpts(ef2ParseTime(startTime).hour)}</select>
-            <span class="ef2-time-colon">:</span>
-            <select id="ef2_startMin" class="ef2-time-select ef2-time-select--min" aria-label="Start minute">${ef2MinOpts(ef2ParseTime(startTime).min)}</select>
-            <select id="ef2_startAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="Start AM or PM">${ef2AmPmOpts(ef2ParseTime(startTime).ampm)}</select>
-          </div>
-          <div class="ef2-time-line">
-            <span class="ef2-time-line-label">Ends</span>
-            <select id="ef2_endHour" class="ef2-time-select ef2-time-select--hour" aria-label="End hour">${ef2HourOpts(ef2ParseTime(endTime).hour)}</select>
-            <span class="ef2-time-colon">:</span>
-            <select id="ef2_endMin" class="ef2-time-select ef2-time-select--min" aria-label="End minute">${ef2MinOpts(ef2ParseTime(endTime).min)}</select>
-            <select id="ef2_endAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="End AM or PM">${ef2AmPmOpts(ef2ParseTime(endTime).ampm)}</select>
-          </div>
+        <div class="ef2-time-row-flat">
+          <select id="ef2_startHour" class="ef2-time-select ef2-time-select--hour" aria-label="Start hour">${ef2HourOpts(ef2ParseTime(startTime).hour)}</select>
+          <span class="ef2-time-colon">:</span>
+          <select id="ef2_startMin" class="ef2-time-select ef2-time-select--min" aria-label="Start minute">${ef2MinOpts(ef2ParseTime(startTime).min)}</select>
+          <select id="ef2_startAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="Start AM or PM">${ef2AmPmOpts(ef2ParseTime(startTime).ampm)}</select>
+          <span class="ef2-time-arrow" aria-hidden="true">→</span>
+          <select id="ef2_endHour" class="ef2-time-select ef2-time-select--hour" aria-label="End hour">${ef2HourOpts(ef2ParseTime(endTime).hour)}</select>
+          <span class="ef2-time-colon">:</span>
+          <select id="ef2_endMin" class="ef2-time-select ef2-time-select--min" aria-label="End minute">${ef2MinOpts(ef2ParseTime(endTime).min)}</select>
+          <select id="ef2_endAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="End AM or PM">${ef2AmPmOpts(ef2ParseTime(endTime).ampm)}</select>
         </div>
       </div>
     </div>
@@ -1247,9 +1240,12 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   <div class="ef2-divider"></div>
 
-  <div class="ef2-for-section">
-    <div class="ef2-section-label">For</div>
-    <div class="ef2-person-chips" id="ef2_people">${personChipsHtml}</div>
+  <div class="ef2-for-section" id="ef2_people">
+    <div class="ef2-for-header">
+      <span class="ef2-section-label">For</span>
+      ${familyChipHtml}
+    </div>
+    <div class="ef2-person-chips">${personChipsHtml}</div>
   </div>
 
   <div class="ef2-divider"></div>
