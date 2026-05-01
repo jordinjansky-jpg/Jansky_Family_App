@@ -1834,6 +1834,7 @@ function openEventForm(existingEventId = null, savedState = null) {
   document.getElementById('ef2_ical')?.addEventListener('click', () => openEfIcalSheet());
 
   let errDismissTimer = null;
+  let photoContextNote = '';
 
   async function doWandParse() {
     const title = document.getElementById('ef2_name')?.value.trim();
@@ -1928,7 +1929,8 @@ function openEventForm(existingEventId = null, savedState = null) {
     if (msgEl) msgEl.textContent = 'Reading photo…';
     if (errEl) errEl.classList.remove('is-visible');
 
-    const contextNote = document.getElementById('ef2_name')?.value.trim() || '';
+    const contextNote = photoContextNote || document.getElementById('ef2_name')?.value.trim() || '';
+    photoContextNote = '';
 
     try {
       const { base64, mediaType } = await resizeImageForUpload(file);
@@ -1980,11 +1982,16 @@ function openEventForm(existingEventId = null, savedState = null) {
 
     const overlay = document.createElement('div');
     overlay.className = 'ef2-subsheet-overlay';
+    const existingNote = document.getElementById('ef2_name')?.value.trim() || '';
     overlay.innerHTML = `<div class="ef2-subsheet">
       <div class="sheet__header">
         <h2 class="sheet__title">Import from</h2>
       </div>
       <div class="sheet__content">
+        <div class="field">
+          <label class="field__label" for="ef2_photoCtx">Optional note for AI</label>
+          <input class="field__input" id="ef2_photoCtx" type="text" placeholder="e.g. May 2026, Sophie's school" value="${existingNote.replace(/"/g, '&quot;')}" autocomplete="off">
+        </div>
         <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
         <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
         <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
@@ -2004,6 +2011,8 @@ function openEventForm(existingEventId = null, savedState = null) {
     overlay.querySelector('#ef2_photoSourceCancel')?.addEventListener('click', close);
     overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        const ctx = overlay.querySelector('#ef2_photoCtx')?.value.trim() || '';
+        photoContextNote = ctx;
         const src = btn.dataset.source;
         if (src === 'camera') document.getElementById('ef2_photoCamera')?.click();
         else if (src === 'gallery') document.getElementById('ef2_photoGallery')?.click();

@@ -213,7 +213,8 @@
 // v109 (2026-05-01) — Kitchen: AI mergeQty handler for smart unit-aware ingredient combination.
 // v110 (2026-05-01) — Kitchen: cleanIngredientName heuristic + dedupIngredients AI handler — clean names on every entry, smart name+qty merge.
 // v111 (2026-05-01) — Kitchen: list cleanup wand button (cleanList Worker handler) — drop per-add AI for heuristic-only.
-const CACHE_NAME = 'family-hub-v111';
+// v112 (2026-05-01) — Event form photo: explicit context note input in source sheet (was relying on title field, undiscoverable).
+const CACHE_NAME = 'family-hub-v112';
 
 const APP_SHELL = [
   '/',
