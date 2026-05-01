@@ -605,9 +605,10 @@ function openRecipeDetailSheet(recipeId) {
       const key = ing.name.toLowerCase().trim();
       const existing = existingByName.get(key);
       if (existing) {
-        const combinedQty = existing.item.qty && ing.qty
-          ? `${existing.item.qty} + ${ing.qty}`
-          : (existing.item.qty || ing.qty || null);
+        const qtys = [existing.item.qty, ing.qty].filter(Boolean);
+        let combinedQty = null;
+        if (qtys.length === 1) combinedQty = qtys[0];
+        else if (qtys.length > 1) combinedQty = await mergeQtyAi(ing.name, qtys);
         await writeKitchenItem(targetListId, existing.id, { ...existing.item, qty: combinedQty });
         mergedCount++;
       } else {
@@ -1676,6 +1677,25 @@ async function categorizeItem(listId, itemId, name) {
     await getDb().ref(`rundown/kitchen/items/${listId}/${itemId}/category`).set(category);
   } catch (err) {
     // Silently fail — item stays in Other
+  }
+}
+
+async function mergeQtyAi(name, qtys) {
+  const cleanQtys = (qtys || []).filter(q => q && typeof q === 'string');
+  if (cleanQtys.length === 0) return null;
+  if (cleanQtys.length === 1) return cleanQtys[0];
+  if (!KITCHEN_WORKER_URL) return cleanQtys.join(' + ');
+  try {
+    const res = await fetch(KITCHEN_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'mergeQty', input: { name, qtys: cleanQtys } }),
+    });
+    if (!res.ok) return cleanQtys.join(' + ');
+    const data = await res.json();
+    return data.qty || cleanQtys.join(' + ');
+  } catch (err) {
+    return cleanQtys.join(' + ');
   }
 }
 

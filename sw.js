@@ -210,7 +210,8 @@
 // v106 (2026-05-01) — Event form: Family chip up next to For label, single-line time picker, tighter add chips, balanced padding.
 // v107 (2026-05-01) — Event form: remove duplicate horizontal padding on sections, shrink time selects to fit phone width.
 // v108 (2026-05-01) — Kitchen: preserve recipe qty on add to list, show qty on shopping cards, dedup ingredients, auto-create list, categorize from recipe.
-const CACHE_NAME = 'family-hub-v108';
+// v109 (2026-05-01) — Kitchen: AI mergeQty handler for smart unit-aware ingredient combination.
+const CACHE_NAME = 'family-hub-v109';
 
 const APP_SHELL = [
   '/',

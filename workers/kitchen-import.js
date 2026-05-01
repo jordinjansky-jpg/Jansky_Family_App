@@ -364,6 +364,33 @@ Reply with only the category name, nothing else.`;
   }
 }
 
+async function handleMergeQty(input, env, corsHeaders) {
+  const name = input?.name || '';
+  const qtys = Array.isArray(input?.qtys) ? input.qtys.filter(q => q && typeof q === 'string') : [];
+  if (qtys.length === 0) return jsonOk({ qty: null }, corsHeaders);
+  if (qtys.length === 1) return jsonOk({ qty: qtys[0] }, corsHeaders);
+
+  const prompt = `You are combining shopping list quantities for the same item. Item: "${name}". Quantities to combine: ${JSON.stringify(qtys)}.
+
+Rules:
+- If the units match (e.g. "2 cups" + "1 cup"), sum them: "3 cups".
+- If units are compatible (e.g. "1 lb" + "8 oz"), convert and sum to the larger unit: "1.5 lb".
+- If units are incompatible (e.g. "2 cups" + "1 lb"), keep separate joined with "+": "2 cups + 1 lb".
+- If a quantity is just a number (e.g. "2" + "3"), sum it: "5".
+- Use natural plural/singular ("1 cup" vs "2 cups").
+- Strip leading zeros and unnecessary decimals.
+
+Reply with ONLY the combined quantity string, no quotes, no explanation. Maximum 30 characters.`;
+
+  try {
+    const raw = await callClaude([{ role: 'user', content: prompt }], env, 30);
+    const cleaned = (raw || '').trim().replace(/^["']|["']$/g, '').slice(0, 60);
+    return jsonOk({ qty: cleaned || qtys.join(' + ') }, corsHeaders);
+  } catch {
+    return jsonOk({ qty: qtys.join(' + ') }, corsHeaders);
+  }
+}
+
 async function handleUrl(url, env, corsHeaders) {
   if (!url || typeof url !== 'string') return jsonError('No URL provided', 400, corsHeaders);
 
@@ -592,6 +619,7 @@ const CORS = {
 
 const HANDLERS = {
   categorize:    (input, env) => handleCategorize(input, env, CORS),
+  mergeQty:      (input, env) => handleMergeQty(input, env, CORS),
   url:           (input, env) => handleUrl(input, env, CORS),
   screenshot:    (input, env) => handleScreenshot(input, env, CORS),
   schoolLunch:   (input, env) => handleSchoolLunch(input, env, CORS),
