@@ -952,23 +952,15 @@ function openRecipeForm(recipeId, onSave = null) {
         body: JSON.stringify({ type, input }),
       });
       const data = await res.json();
-      if (data.error) {
-        status.textContent = data.error === 'not a recipe' ? 'No recipe found.' : 'Import failed.';
-        status.style.color = 'var(--danger)';
-        status.style.display = 'inline';
-        return;
-      }
-      if (!data.name && !data.ingredients?.length) {
-        status.textContent = 'Couldn\'t read that URL — check the link or try a photo instead.';
-        status.style.color = 'var(--text-muted)';
-        status.style.display = 'inline';
-        return;
+      // Always preserve the URL — even on partial/full failure — so the user can save & view it.
+      if (data.url && !document.getElementById('recipeUrl').value) {
+        document.getElementById('recipeUrl').value = data.url;
       }
       if (data.name && !document.getElementById('recipeName').value) {
         document.getElementById('recipeName').value = data.name;
       }
-      if (data.url && !document.getElementById('recipeUrl').value) {
-        document.getElementById('recipeUrl').value = data.url;
+      if (data.notes && !document.getElementById('recipeNotes').value) {
+        document.getElementById('recipeNotes').value = data.notes;
       }
       if (data.ingredients?.length) {
         data.ingredients.forEach(ing => {
@@ -979,11 +971,19 @@ function openRecipeForm(recipeId, onSave = null) {
         document.getElementById('ingredientList').innerHTML = buildIngredientList();
         bindIngredientRowEvents();
       }
-      if (data.notes && !document.getElementById('recipeNotes').value) {
-        document.getElementById('recipeNotes').value = data.notes;
+
+      // Status messaging based on what we got
+      const ingCount = data.ingredients?.length || 0;
+      if (ingCount > 0) {
+        status.textContent = `Imported ${ingCount} ingredient${ingCount !== 1 ? 's' : ''}`;
+        status.style.color = 'var(--text-muted)';
+      } else if (data.name) {
+        status.textContent = 'Got the title, but no ingredients found. Saved as a link.';
+        status.style.color = 'var(--text-muted)';
+      } else {
+        status.textContent = 'Couldn\'t read that link — URL kept. Add a name and save anyway.';
+        status.style.color = 'var(--text-muted)';
       }
-      status.textContent = 'Done!';
-      status.style.color = 'var(--text-muted)';
       status.style.display = 'inline';
     } catch (err) {
       status.textContent = 'Import failed.';

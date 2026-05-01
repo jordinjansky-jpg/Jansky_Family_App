@@ -530,36 +530,184 @@ Reply with ONLY the combined quantity string, no quotes, no explanation. Maximum
   }
 }
 
+// Realistic browser UA — bare-bones UAs get blocked by TikTok / Instagram / etc.
+const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+function isTikTokUrl(url) {
+  return /(?:^|[./])tiktok\.com|^https?:\/\/(?:vm|vt)\.tiktok\.com/i.test(url);
+}
+
+function decodeEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+
+function extractMetadata(html) {
+  const result = { title: '', description: '', ogTitle: '', ogDescription: '', ogImage: '' };
+  const titleMatch = /<title[^>]*>([^<]+)<\/title>/i.exec(html);
+  if (titleMatch) result.title = decodeEntities(titleMatch[1].trim());
+  const metaTags = html.match(/<meta[^>]+>/gi) || [];
+  for (const tag of metaTags) {
+    const propMatch = /(?:property|name)=["']([^"']+)["']/i.exec(tag);
+    const contentMatch = /content=["']([^"']+)["']/i.exec(tag);
+    if (!propMatch || !contentMatch) continue;
+    const prop = propMatch[1].toLowerCase();
+    const content = decodeEntities(contentMatch[1]);
+    if (prop === 'description') result.description = content;
+    else if (prop === 'og:title') result.ogTitle = content;
+    else if (prop === 'og:description') result.ogDescription = content;
+    else if (prop === 'og:image') result.ogImage = content;
+  }
+  return result;
+}
+
+function extractTikTokRehydrationData(html) {
+  // TikTok injects __UNIVERSAL_DATA_FOR_REHYDRATION__ for client-side hydration.
+  // It contains the full caption, hashtags, music, and author info.
+  const match = html.match(/<script[^>]*id=["']__UNIVERSAL_DATA_FOR_REHYDRATION__["'][^>]*>([\s\S]*?)<\/script>/);
+  if (!match) return null;
+  try {
+    const data = JSON.parse(match[1]);
+    const itemStruct = data?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;
+    if (!itemStruct) return null;
+    const desc = itemStruct.desc || '';
+    const author = itemStruct.author?.nickname || itemStruct.author?.uniqueId || '';
+    const challenges = (itemStruct.challenges || []).map(c => `#${c.title}`).filter(Boolean).join(' ');
+    const music = itemStruct.music?.title || '';
+    if (!desc && !challenges && !author) return null;
+    return {
+      title: desc.split(/[.!?\n]/)[0].slice(0, 100).trim(),
+      text: [
+        desc && `Caption: ${desc}`,
+        challenges && `Hashtags: ${challenges}`,
+        author && `Author: ${author}`,
+        music && `Music: ${music}`,
+      ].filter(Boolean).join('\n'),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTikTokOembed(url) {
+  try {
+    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, {
+      headers: { 'User-Agent': BROWSER_UA, 'Accept': 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || (!data.title && !data.author_name)) return null;
+    return {
+      title: (data.title || '').split(/[.!?\n]/)[0].slice(0, 100).trim(),
+      text: [
+        data.title && `Caption: ${data.title}`,
+        data.author_name && `Author: ${data.author_name}`,
+      ].filter(Boolean).join('\n'),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function extractTikTokContent(url) {
+  // Try the page first for the richest data (rehydration JSON has full caption + hashtags).
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': BROWSER_UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      redirect: 'follow',
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const fromRehydration = extractTikTokRehydrationData(html);
+      if (fromRehydration && fromRehydration.text) return fromRehydration;
+      const meta = extractMetadata(html);
+      if (meta.ogDescription || meta.ogTitle) {
+        return {
+          title: (meta.ogTitle || '').split(/[.!?\n]/)[0].slice(0, 100).trim(),
+          text: [
+            meta.ogTitle && `Title: ${meta.ogTitle}`,
+            meta.ogDescription && `Description: ${meta.ogDescription}`,
+            meta.description && `Meta description: ${meta.description}`,
+          ].filter(Boolean).join('\n'),
+        };
+      }
+    }
+  } catch { /* fall through to oEmbed */ }
+  // Fallback: oEmbed endpoint (caption may be truncated).
+  return await fetchTikTokOembed(url);
+}
+
 async function handleUrl(url, env, corsHeaders) {
   if (!url || typeof url !== 'string') return jsonError('No URL provided', 400, corsHeaders);
 
-  let text;
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeImporter/1.0)' },
-      redirect: 'follow',
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    text = cleanHtml(await res.text());
-  } catch {
-    return jsonError('Could not fetch that URL', 400, corsHeaders);
+  // Always echo URL back so the client preserves it even on parse failure.
+  const partialResp = (extras = {}) => jsonOk({ url, name: '', ingredients: [], notes: '', ...extras }, corsHeaders);
+
+  let extractedText = '';
+  let fallbackTitle = '';
+
+  if (isTikTokUrl(url)) {
+    const tt = await extractTikTokContent(url);
+    if (tt) { extractedText = tt.text; fallbackTitle = tt.title; }
   }
+
+  if (!extractedText) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': BROWSER_UA,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        redirect: 'follow',
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const html = await res.text();
+      const meta = extractMetadata(html);
+      fallbackTitle = fallbackTitle || meta.ogTitle || meta.title || '';
+      const metaText = [
+        meta.title && `Title: ${meta.title}`,
+        meta.ogTitle && meta.ogTitle !== meta.title && `og:title: ${meta.ogTitle}`,
+        meta.ogDescription && `og:description: ${meta.ogDescription}`,
+        meta.description && meta.description !== meta.ogDescription && `description: ${meta.description}`,
+      ].filter(Boolean).join('\n');
+      extractedText = metaText ? `${metaText}\n---\n${cleanHtml(html)}` : cleanHtml(html);
+    } catch {
+      // Fetch failed entirely — return URL only so the client preserves it.
+      return partialResp();
+    }
+  }
+
+  if (!extractedText) return partialResp({ name: fallbackTitle });
 
   try {
     const raw = await callClaude([{
       role: 'user',
-      content: `${RECIPE_PROMPT}\n\nSource URL: ${url}\n\nPage content:\n${text}`,
+      content: `${RECIPE_PROMPT}\n\nSource URL: ${url}\n\nPage content:\n${extractedText}`,
     }], env, 1024);
     const parsed = parseJson(raw);
-    if (parsed.error) return jsonOk({ error: parsed.error }, corsHeaders);
-    return jsonOk({
-      name: parsed.name || '',
-      ingredients: Array.isArray(parsed.ingredients) ? parsed.ingredients : [],
-      notes: parsed.notes || '',
-      url,
-    }, corsHeaders);
+    const ingredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
+    const name = parsed.name || fallbackTitle || '';
+    const notes = parsed.notes || '';
+    // Even when the AI says "not a recipe", we keep the URL + any title we found.
+    if (parsed.error && !ingredients.length && !parsed.name) {
+      return partialResp({ name: fallbackTitle });
+    }
+    return jsonOk({ url, name, ingredients, notes }, corsHeaders);
   } catch {
-    return jsonError('Could not extract recipe', 500, corsHeaders);
+    return partialResp({ name: fallbackTitle });
   }
 }
 

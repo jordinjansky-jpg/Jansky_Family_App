@@ -217,7 +217,8 @@
 // v113 (2026-05-01) — Kitchen: drop per-add categorize (wand only), editable qty in shopping list edit, editable ingredient name+qty in recipe form.
 // v114 (2026-05-01) — Kitchen: shopping list qty inline before name (matches recipe form layout).
 // v115 (2026-05-01) — Kitchen: revert list display, fix edit sheet to inline qty+name row instead.
-const CACHE_NAME = 'family-hub-v115';
+// v116 (2026-05-01) — Kitchen: TikTok URL import (rehydration JSON + oEmbed + meta tags), partial-failure preserves URL.
+const CACHE_NAME = 'family-hub-v116';
 
 const APP_SHELL = [
   '/',
