@@ -204,7 +204,9 @@
 //                    recipe picker replaces datalist.
 // v101 (2026-04-29) — AI features polish: add shared/ai-helpers.js to cache.
 // v103 (2026-05-01) — Event form: photo source action sheet (Camera / Gallery / Files).
-const CACHE_NAME = 'family-hub-v103';
+// v104 (2026-05-01) — Event form polish: repeat header, Every/units inline, color dots on chips,
+//                     time button focus fix, scroll fade indicator, all-day pill outlined, checkmarks vs radios.
+const CACHE_NAME = 'family-hub-v104';
 
 const APP_SHELL = [
   '/',

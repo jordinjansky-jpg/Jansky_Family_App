@@ -3018,11 +3018,13 @@ export function renderRepeatSheet(rule) {
   const DAY_KEYS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'];
   const DAY_LABELS = { S: 'S', M: 'M', T: 'T', W: 'W', Th: 'T', F: 'F', Sa: 'S' };
 
+  const CHECK_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
   function opt(key, label) {
     const sel = t === key;
     return `<div class="ef2-repeat-option${sel ? ' is-selected' : ''}" data-type="${key}">
-      <span class="ef2-repeat-radio"></span>
-      <span>${label}</span>
+      <span class="ef2-repeat-label">${label}</span>
+      <span class="ef2-repeat-check" aria-hidden="true">${CHECK_SVG}</span>
     </div>`;
   }
 
@@ -3039,7 +3041,7 @@ export function renderRepeatSheet(rule) {
   const endDate = rule?.end?.date || '';
   const endCount = rule?.end?.count || 5;
 
-  return `<div class="sheet__header">
+  return `<div class="sheet__header sheet__header--with-back">
     <button class="btn btn--ghost btn--sm" id="rptBack" type="button">← Back</button>
     <h2 class="sheet__title">Repeat</h2>
   </div>
@@ -3052,10 +3054,10 @@ export function renderRepeatSheet(rule) {
     ${opt('yearly', 'Yearly')}
     ${opt('custom', 'Custom')}
     <div class="ef2-repeat-sub${customSubOpen}" id="rptCustomSub">
-      <div class="field" style="display:flex;align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
-        <span style="font-size:var(--font-sm);white-space:nowrap">Every</span>
-        <input class="field__input" id="rptEvery" type="number" min="1" max="99" value="${esc(every)}" style="width:64px">
-        <select class="field__input" id="rptUnit" style="flex:1">
+      <div class="ef2-repeat-custom-row">
+        <span class="ef2-repeat-custom-label">Every</span>
+        <input id="rptEvery" type="number" min="1" max="99" value="${esc(every)}">
+        <select id="rptUnit">
           <option value="days"${unit === 'days' ? ' selected' : ''}>Days</option>
           <option value="weeks"${unit === 'weeks' ? ' selected' : ''}>Weeks</option>
           <option value="months"${unit === 'months' ? ' selected' : ''}>Months</option>
