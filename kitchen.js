@@ -3,7 +3,7 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
   onAllMessages, writeMessage, markMessageSeen, removeMessage,
   writeBankToken, markBankTokenUsed, readBank, writeMultiplier,
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
-  readKitchenPlan, onKitchenItems,
+  readKitchenPlan, onKitchenItems, readOnce,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
   pushKitchenItem, writeKitchenItem, pushKitchenStaple,
   writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe,
@@ -527,17 +527,15 @@ function openRecipeDetailSheet(recipeId) {
       <div class="field__label" style="margin-bottom:var(--spacing-xs)">Ingredients</div>
       ${hasIngredients
         ? `<ul style="margin:0 0 var(--spacing-md);padding-left:var(--spacing-md);font-size:var(--font-sm)">
-            ${recipe.ingredients.map(i => `<li>${esc(i.name)}</li>`).join('')}
+            ${recipe.ingredients.map(i => `<li>${i.qty ? `<span style="color:var(--text-muted);margin-right:6px">${esc(i.qty)}</span>` : ''}${esc(i.name)}</li>`).join('')}
            </ul>`
         : `<p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-md)">No ingredients saved yet.</p>`}
 
-      ${listEntries.length > 0
-        ? `<button class="btn btn--secondary btn--full" id="addToListBtn"
-             ${hasIngredients ? '' : 'disabled'} type="button"
-             style="${hasIngredients ? '' : 'opacity:0.5;cursor:not-allowed'}">
-             ${hasIngredients ? 'Add ingredients to list' : 'No ingredients — add some first'}
-           </button>`
-        : ''}
+      <button class="btn btn--secondary btn--full" id="addToListBtn"
+        ${hasIngredients ? '' : 'disabled'} type="button"
+        style="${hasIngredients ? '' : 'opacity:0.5;cursor:not-allowed'}">
+        ${hasIngredients ? 'Add ingredients to list' : 'No ingredients — add some first'}
+      </button>
 
       <button class="btn btn--ghost btn--full" id="planThisMealBtn"
         style="margin-top:var(--spacing-xs)" type="button">Plan this meal</button>
@@ -576,24 +574,60 @@ function openRecipeDetailSheet(recipeId) {
     if (!hasIngredients) return;
     let targetListId = activeListId;
 
-    if (listEntries.length > 1) {
+    if (listEntries.length === 0) {
+      const confirmed = await showConfirm({
+        title: 'Create a shopping list?',
+        message: `You don't have any lists yet. Create "Shopping" and add ${recipe.ingredients.length} ingredient${recipe.ingredients.length !== 1 ? 's' : ''} to it?`,
+        confirmLabel: 'Create & add',
+      });
+      if (!confirmed) return;
+      const newId = await pushKitchenList({ name: 'Shopping', sortOrder: 0, createdAt: firebase.database.ServerValue.TIMESTAMP });
+      lists[newId] = { name: 'Shopping', sortOrder: 0 };
+      activeListId = newId;
+      localStorage.setItem('dr-kitchen-active-list', newId);
+      targetListId = newId;
+    } else if (listEntries.length > 1) {
       targetListId = await pickList(listEntries);
       if (!targetListId) return;
+    } else if (!targetListId) {
+      targetListId = listEntries[0][0];
     }
 
-    const added = [];
+    const existingItems = await readOnce(`kitchen/lists/${targetListId}/items`);
+    const existingByName = new Map();
+    Object.entries(existingItems || {}).forEach(([id, it]) => {
+      if (it && !it.checked && it.name) existingByName.set(it.name.toLowerCase().trim(), { id, item: it });
+    });
+
+    let mergedCount = 0;
+    let addedCount = 0;
     for (const ing of recipe.ingredients) {
-      const id = await pushKitchenItem(targetListId, {
-        name: ing.name,
-        checked: false,
-        addedAt: firebase.database.ServerValue.TIMESTAMP,
-        category: null,
-      });
-      added.push({ listId: targetListId, id, name: ing.name });
+      const key = ing.name.toLowerCase().trim();
+      const existing = existingByName.get(key);
+      if (existing) {
+        const combinedQty = existing.item.qty && ing.qty
+          ? `${existing.item.qty} + ${ing.qty}`
+          : (existing.item.qty || ing.qty || null);
+        await writeKitchenItem(targetListId, existing.id, { ...existing.item, qty: combinedQty });
+        mergedCount++;
+      } else {
+        const id = await pushKitchenItem(targetListId, {
+          name: ing.name,
+          qty: ing.qty || null,
+          checked: false,
+          addedAt: firebase.database.ServerValue.TIMESTAMP,
+          category: null,
+        });
+        if (KITCHEN_WORKER_URL) categorizeItem(targetListId, id, ing.name);
+        addedCount++;
+      }
     }
 
     const listName = lists[targetListId]?.name || 'list';
-    showToast(`Added ${added.length} item${added.length !== 1 ? 's' : ''} to ${listName}`);
+    const parts = [];
+    if (addedCount) parts.push(`Added ${addedCount} to ${listName}`);
+    if (mergedCount) parts.push(`merged ${mergedCount} duplicate${mergedCount !== 1 ? 's' : ''}`);
+    showToast(parts.join(', ') || `Added to ${listName}`);
     close();
   });
 }
@@ -1103,6 +1137,7 @@ function renderShoppingCard(id, item, isChecked) {
   return `<article class="card card--shopping${isChecked ? ' is-checked' : ''}" data-item-id="${esc(id)}">
     <span class="card__check" aria-hidden="true"></span>
     <span class="card__name">${esc(item.name)}</span>
+    ${item.qty ? `<span class="card__qty">${esc(item.qty)}</span>` : ''}
   </article>`;
 }
 
@@ -1115,12 +1150,11 @@ async function toggleItem(id) {
   const isNowChecked = !card.classList.contains('is-checked');
   card.classList.toggle('is-checked', isNowChecked);
 
+  const existing = await readOnce(`kitchen/lists/${activeListId}/items/${id}`);
   await writeKitchenItem(activeListId, id, {
-    name: card.querySelector('.card__name')?.textContent || '',
+    ...(existing || {}),
     checked: isNowChecked,
     checkedAt: isNowChecked ? firebase.database.ServerValue.TIMESTAMP : null,
-    addedAt: Date.now(),
-    category: null,
   });
 }
 

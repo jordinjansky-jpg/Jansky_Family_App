@@ -3688,6 +3688,16 @@ label.ef2-icon-btn  { cursor: pointer; }
   text-decoration: line-through;
 }
 
+.card--shopping .card__qty {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-left: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.card--shopping.is-checked .card__qty { color: var(--text-faint); }
+
 /* Category section headers in shopping list */
 .shopping-category-label {
   font-size: var(--font-xs);

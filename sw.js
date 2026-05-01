@@ -209,7 +209,8 @@
 // v105 (2026-05-01) — Event form: tighter person chips, custom time picker (hour/min/AMPM selects), icon focus tint.
 // v106 (2026-05-01) — Event form: Family chip up next to For label, single-line time picker, tighter add chips, balanced padding.
 // v107 (2026-05-01) — Event form: remove duplicate horizontal padding on sections, shrink time selects to fit phone width.
-const CACHE_NAME = 'family-hub-v107';
+// v108 (2026-05-01) — Kitchen: preserve recipe qty on add to list, show qty on shopping cards, dedup ingredients, auto-create list, categorize from recipe.
+const CACHE_NAME = 'family-hub-v108';
 
 const APP_SHELL = [
   '/',
