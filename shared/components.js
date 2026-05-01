@@ -1138,11 +1138,11 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   const attendingIds = new Set((event.people || []).slice(1));
 
   const personChipsHtml = [
+    `<button class="ef2-person-chip ef2-person-chip--family" data-person-id="__family__" type="button">Family</button>`,
     ...people.map(p => {
       const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
       return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
     }),
-    `<button class="ef2-person-chip ef2-person-chip--family" data-person-id="__family__" type="button">Family</button>`,
   ].join('');
 
   const WAND_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
@@ -1185,19 +1185,19 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   <div class="ef2-divider"></div>
 
   <div class="ef2-datetime-section">
-    <button class="ef2-date-btn" id="ef2_dateBtn" type="button">
-      <span id="ef2_dateDisplay">${esc(dateDisplay)}</span>
-    </button>
+    <div class="ef2-date-row">
+      <button class="ef2-date-btn" id="ef2_dateBtn" type="button">
+        <span id="ef2_dateDisplay">${esc(dateDisplay)}</span>
+      </button>
+      <button class="chip chip--selectable ef2-allday${event.allDay ? ' chip--active' : ''}" id="ef2_allDay" type="button">All day</button>
+    </div>
     <div class="ef2-picker-wrap" id="ef2_datePicker">
       <input type="date" id="ef2_date" value="${esc(dateVal)}">
     </div>
     <div class="ef2-time-section${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timeSection">
-      <div class="ef2-time-row">
-        <button class="ef2-time-btn" id="ef2_timeBtn" type="button">
-          <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
-        </button>
-        <button class="chip chip--selectable ef2-allday${event.allDay ? ' chip--active' : ''}" id="ef2_allDay" type="button">All day</button>
-      </div>
+      <button class="ef2-time-btn" id="ef2_timeBtn" type="button">
+        <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
+      </button>
       <div class="ef2-picker-wrap" id="ef2_timePicker">
         <div class="ef2-time-picker-row">
           <input type="time" id="ef2_startTime" value="${esc(startTime)}">

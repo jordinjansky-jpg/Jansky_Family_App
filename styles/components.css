@@ -2875,7 +2875,7 @@
 .ef2-title-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: 2px;
   padding: var(--spacing-sm) var(--spacing-md);
 }
 
@@ -2892,6 +2892,7 @@
 }
 
 .ef2-title-input::placeholder { color: var(--text-faint); }
+.ef2-title-input:focus { outline: none; box-shadow: none; border-color: transparent; }
 
 .ef2-title-input.ef2-shake {
   animation: ef2-shake 0.35s ease;
@@ -2910,7 +2911,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
+  width: 36px;
   height: 44px;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
@@ -2960,10 +2961,16 @@ label.ef2-icon-btn  { cursor: pointer; }
   flex-direction: column;
 }
 
+.ef2-date-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .ef2-date-btn {
   display: flex;
   align-items: center;
-  width: 100%;
+  flex: 1;
   background: transparent;
   text-align: left;
   padding: var(--spacing-xs) 0;
@@ -3042,14 +3049,17 @@ label.ef2-icon-btn  { cursor: pointer; }
 
 .ef2-person-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--spacing-xs);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ef2-person-chip {
   display: inline-flex;
   align-items: center;
-  padding: 7px 14px;
+  padding: 5px 10px;
   border-radius: 20px;
   font-size: var(--font-sm);
   font-weight: 500;
@@ -3058,7 +3068,9 @@ label.ef2-icon-btn  { cursor: pointer; }
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.15s;
-  min-height: 44px;
+  min-height: 36px;
+  white-space: nowrap;
+  flex-shrink: 0;
   user-select: none;
 }
 

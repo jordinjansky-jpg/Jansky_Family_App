@@ -1628,9 +1628,16 @@ function openEventForm(existingEventId = null, savedState = null) {
 
   // ── Secondary fields (Notes, Location) ──────────────────────
   document.getElementById('ef2_notesChip')?.addEventListener('click', () => {
-    document.getElementById('ef2_notesReveal')?.classList.add('is-open');
-    document.getElementById('ef2_notesChip')?.classList.add('is-active');
-    document.getElementById('ef2_notes')?.focus();
+    const reveal = document.getElementById('ef2_notesReveal');
+    const isOpen = reveal?.classList.contains('is-open');
+    if (isOpen) {
+      reveal.classList.remove('is-open');
+      document.getElementById('ef2_notesChip')?.classList.remove('is-active');
+    } else {
+      reveal?.classList.add('is-open');
+      document.getElementById('ef2_notesChip')?.classList.add('is-active');
+      document.getElementById('ef2_notes')?.focus();
+    }
   });
 
   document.getElementById('ef2_notesClose')?.addEventListener('click', () => {
@@ -1639,9 +1646,16 @@ function openEventForm(existingEventId = null, savedState = null) {
   });
 
   document.getElementById('ef2_locChip')?.addEventListener('click', () => {
-    document.getElementById('ef2_locReveal')?.classList.add('is-open');
-    document.getElementById('ef2_locChip')?.classList.add('is-active');
-    document.getElementById('ef2_location')?.focus();
+    const reveal = document.getElementById('ef2_locReveal');
+    const isOpen = reveal?.classList.contains('is-open');
+    if (isOpen) {
+      reveal.classList.remove('is-open');
+      document.getElementById('ef2_locChip')?.classList.remove('is-active');
+    } else {
+      reveal?.classList.add('is-open');
+      document.getElementById('ef2_locChip')?.classList.add('is-active');
+      document.getElementById('ef2_location')?.focus();
+    }
   });
 
   document.getElementById('ef2_locClose')?.addEventListener('click', () => {
