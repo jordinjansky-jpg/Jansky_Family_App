@@ -3832,3 +3832,181 @@ label.ef2-icon-btn  { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .ai-loading__spinner { animation: none; border-top-color: var(--accent); opacity: 0.6; }
 }
+
+/* ── Kitchen forms (kl- kb- ki- ks- km- kp- kr-) ────────────────────────── */
+
+/* Shared sticky footer — one rule covers all 7 kitchen form prefixes */
+.kl-footer, .kb-footer, .ki-footer, .ks-footer, .km-footer, .kp-footer, .kr-footer {
+  position: sticky;
+  bottom: 0;
+  margin: var(--spacing-sm) calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg));
+  padding: var(--spacing-sm) var(--spacing-md);
+  padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--spacing-sm);
+  z-index: 1;
+}
+.kl-footer .btn, .kb-footer .btn, .ki-footer .btn,
+.ks-footer .btn, .km-footer .btn, .kp-footer .btn, .kr-footer .btn { flex: 1; }
+
+/* Shared delete zone — below sticky footer in edit sheets */
+.ks-delete-zone, .ki-delete-zone, .km-delete-zone {
+  padding: var(--spacing-xs) 0;
+  text-align: center;
+  padding-bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom, 0px));
+}
+.ks-delete-btn, .ki-delete-btn, .km-delete-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+}
+.ks-delete-btn:focus-visible, .ki-delete-btn:focus-visible, .km-delete-btn:focus-visible {
+  outline: none;
+  background: var(--surface-2);
+}
+
+/* Shared shake animation for required-field validation */
+.kl-shake, .kr-shake {
+  animation: k-form-shake 0.35s ease;
+  border-color: var(--danger) !important;
+}
+@keyframes k-form-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60%  { transform: translateX(-5px); }
+  40%, 80%  { transform: translateX(5px); }
+}
+
+/* ── List form (kl-) ── */
+.kl-name-row {
+  padding: var(--spacing-md) 0 var(--spacing-sm);
+}
+.kl-name-input {
+  width: 100%;
+  font-size: var(--font-lg);
+  font-weight: 500;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: var(--spacing-xs) 0;
+}
+.kl-name-input::placeholder { color: var(--text-faint); }
+.kl-name-input:focus { outline: none; box-shadow: none; border-color: var(--accent); }
+
+/* ── Staple edit form (ks-) ── */
+.ks-name-row {
+  padding: var(--spacing-md) 0 var(--spacing-sm);
+}
+.ks-name-input {
+  width: 100%;
+  font-size: var(--font-lg);
+  font-weight: 500;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: var(--spacing-xs) 0;
+}
+.ks-name-input::placeholder { color: var(--text-faint); }
+.ks-name-input:focus { outline: none; box-shadow: none; border-color: var(--accent); }
+
+/* ── Item edit form (ki-) ── */
+.ki-item-section {
+  padding: var(--spacing-sm) 0;
+}
+.ki-staples-row {
+  padding: var(--spacing-xs) 0 0;
+}
+
+/* ── Bulk add sheet (kb-) ── */
+.kb-hint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  padding: var(--spacing-sm) 0 var(--spacing-xs);
+  margin: 0;
+}
+.kb-added-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) 0;
+  border-bottom: 1px solid var(--border);
+}
+.kb-added-name {
+  flex: 1;
+  font-size: var(--font-sm);
+}
+.kb-added-star { color: var(--text-faint); }
+.kb-added-star.is-saved-staple { color: var(--accent); }
+
+/* ── Manage list form (km-) ── */
+.km-rename-section {
+  padding: var(--spacing-sm) 0;
+}
+.km-actions-section {
+  padding: 0 0 var(--spacing-sm);
+}
+
+/* ── Plan meal form (kp-) ── */
+.kp-day-slot-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+}
+.kp-day-slot-row .field { margin-bottom: 0; }
+.kp-meal-section {
+  padding: var(--spacing-sm) 0;
+}
+.kp-meal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xs);
+}
+
+/* ── Recipe form (kr-) ── */
+.kr-title-row {
+  padding: var(--spacing-sm) 0 var(--spacing-xs);
+}
+.kr-title-input {
+  width: 100%;
+  font-size: var(--font-lg);
+  font-weight: 500;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: var(--spacing-xs) 0;
+}
+.kr-title-input::placeholder { color: var(--text-faint); }
+.kr-title-input:focus { outline: none; box-shadow: none; border-color: var(--accent); }
+.kr-section {
+  padding: var(--spacing-sm) 0;
+}
+.kr-add-ingredient-row {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+}
+.kr-add-ingredient-row .field__input { flex: 1; }
+.kr-notes { resize: vertical; }
+.kr-import-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  padding: var(--spacing-xs) 0 0;
+}
+.kr-import-status {
+  display: none;
+  font-size: var(--font-sm);
+}
+
+/* ── End Kitchen forms ────────────────────────────────────────────────────── */

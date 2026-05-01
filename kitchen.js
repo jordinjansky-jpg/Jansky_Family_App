@@ -379,54 +379,60 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">Plan a meal</h2>
+      <button class="ef2-icon-btn" id="kp_close" aria-label="Close" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
-    <div class="sheet__content">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)">
-        <label class="field" style="margin-bottom:0">
-          <span class="field__label">Day</span>
-          <select id="pmDay">${dateOptions}</select>
-        </label>
-        <label class="field" style="margin-bottom:0">
-          <span class="field__label">Meal slot</span>
-          <select id="pmSlot">${slotOptions}</select>
-        </label>
-      </div>
-      <div class="field">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--spacing-xs)">
-          <span class="field__label">Meal</span>
-          <button class="btn btn--ghost btn--sm" id="pmCreateRecipe" type="button">+ New recipe</button>
-        </div>
-        <input id="pmSearch" type="text" autocomplete="off"
-          placeholder="Search recipes or type any name…"
-          value="${esc(preRecipeName)}">
-      </div>
-      <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
+    <div class="kp-day-slot-row">
+      <label class="field">
+        <span class="field__label">Day</span>
+        <select id="kp_day">${dateOptions}</select>
+      </label>
+      <label class="field">
+        <span class="field__label">Meal slot</span>
+        <select id="kp_slot">${slotOptions}</select>
+      </label>
     </div>
-    <div class="sheet__footer">
-      <button class="btn btn--primary" id="savePlanMeal" type="button"
+    <div class="kp-meal-section">
+      <div class="kp-meal-header">
+        <span class="field__label">Meal</span>
+        <button class="btn btn--ghost btn--sm" id="kp_createRecipe" type="button">+ New recipe</button>
+      </div>
+      <input id="kp_search" type="text" autocomplete="off"
+        placeholder="Search recipes or type any name…"
+        value="${esc(preRecipeName)}">
+    </div>
+    <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
+    <div class="kp-footer">
+      <button class="btn btn--ghost" id="kp_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="kp_save" type="button"
         ${preRecipeName || selectedRecipeId ? '' : 'disabled'}>Save</button>
     </div>`);
   activateSheet(mount);
-  if (!preRecipeName) document.getElementById('pmSearch')?.focus();
+  if (!preRecipeName) document.getElementById('kp_search')?.focus();
 
-  document.getElementById('pmCreateRecipe')?.addEventListener('click', () => {
-    const day = document.getElementById('pmDay')?.value || preDate;
-    const slot = document.getElementById('pmSlot')?.value || preSlot;
+  const close = () => { mount.innerHTML = ''; };
+  document.getElementById('kp_close')?.addEventListener('click', close);
+  document.getElementById('kp_cancel')?.addEventListener('click', close);
+
+  document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
+    const day = document.getElementById('kp_day')?.value || preDate;
+    const slot = document.getElementById('kp_slot')?.value || preSlot;
     mount.innerHTML = '';
     openRecipeForm(null, (newId) => openPlanMealSheet(day, slot, newId));
   });
 
   function updateSaveBtn() {
-    const val = document.getElementById('pmSearch')?.value.trim();
-    document.getElementById('savePlanMeal').disabled = !(val || selectedRecipeId);
+    const val = document.getElementById('kp_search')?.value.trim();
+    document.getElementById('kp_save').disabled = !(val || selectedRecipeId);
   }
 
   function bindPickRows() {
     document.getElementById('recipePick')?.querySelectorAll('[data-recipe-pick]').forEach(btn => {
       btn.addEventListener('click', () => {
         selectedRecipeId = btn.dataset.recipePick;
-        document.getElementById('pmSearch').value = recipes[selectedRecipeId]?.name || '';
-        document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('pmSearch').value);
+        document.getElementById('kp_search').value = recipes[selectedRecipeId]?.name || '';
+        document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
         bindPickRows();
         updateSaveBtn();
       });
@@ -434,17 +440,17 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   }
   bindPickRows();
 
-  document.getElementById('pmSearch')?.addEventListener('input', (e) => {
+  document.getElementById('kp_search')?.addEventListener('input', (e) => {
     selectedRecipeId = null;
     document.getElementById('recipePick').innerHTML = buildRecipeRows(e.target.value);
     bindPickRows();
     updateSaveBtn();
   });
 
-  document.getElementById('savePlanMeal')?.addEventListener('click', async () => {
-    const day = document.getElementById('pmDay')?.value;
-    const slot = document.getElementById('pmSlot')?.value;
-    const typed = document.getElementById('pmSearch')?.value.trim();
+  document.getElementById('kp_save')?.addEventListener('click', async () => {
+    const day = document.getElementById('kp_day')?.value;
+    const slot = document.getElementById('kp_slot')?.value;
+    const typed = document.getElementById('kp_search')?.value.trim();
     if (!day || !slot || (!selectedRecipeId && !typed)) return;
 
     let data;
@@ -718,17 +724,13 @@ function openBulkAddSheet() {
     <div class="sheet__header">
       <h2 class="sheet__title">Add items</h2>
     </div>
-    <div class="sheet__content">
-      <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">
-        Type each item and press Enter, or paste a list.
-      </p>
-      <label class="field">
-        <input class="field__input" id="bulkAddInput" type="text"
-          placeholder="e.g. Milk" autocomplete="off" autocorrect="off">
-      </label>
-      <div id="bulkAddedList"></div>
-    </div>
-    <div class="sheet__footer">
+    <p class="kb-hint">Type each item and press Enter, or paste a list.</p>
+    <label class="field">
+      <input class="field__input" id="bulkAddInput" type="text"
+        placeholder="e.g. Milk" autocomplete="off" autocorrect="off">
+    </label>
+    <div id="bulkAddedList"></div>
+    <div class="kb-footer">
       <button class="btn btn--primary" id="bulkAddDone" type="button">Done</button>
     </div>`);
   activateSheet(mount);
@@ -742,11 +744,10 @@ function openBulkAddSheet() {
     const starEmpty = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
     el.innerHTML = addedItems.map((n, i) => {
       const isSaved = Object.values(staples).some(s => s.name.toLowerCase() === n.toLowerCase());
-      return `<div style="display:flex;align-items:center;gap:var(--spacing-xs);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
-        <span style="flex:1;font-size:var(--font-sm)">${esc(n)}</span>
-        <button class="btn-icon${isSaved ? ' is-saved-staple' : ''}" data-staple="${i}"
-          type="button" aria-label="${isSaved ? 'Saved to staples' : 'Save to staples'}"
-          style="${isSaved ? 'color:var(--accent)' : 'color:var(--text-faint)'}">
+      return `<div class="kb-added-row">
+        <span class="kb-added-name">${esc(n)}</span>
+        <button class="btn-icon kb-added-star${isSaved ? ' is-saved-staple' : ''}" data-staple="${i}"
+          type="button" aria-label="${isSaved ? 'Saved to staples' : 'Save to staples'}">
           ${isSaved ? starFilled : starEmpty}
         </button>
         <button class="btn-icon" data-remove="${i}" type="button" aria-label="Remove">
@@ -845,57 +846,59 @@ function openRecipeForm(recipeId, onSave = null) {
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">${existing ? 'Edit recipe' : 'New recipe'}</h2>
-      <button class="btn-icon" id="closeRecipeForm" aria-label="Close" type="button">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button class="ef2-icon-btn" id="kr_close" aria-label="Close" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="sheet__content">
-      <label class="field">
-        <span class="field__label">Name <span style="color:var(--danger)">*</span></span>
-        <input class="field__input" id="recipeName" type="text"
-          value="${esc(existing?.name || '')}" placeholder="e.g. Taco Night" autocomplete="off">
-      </label>
+    <div class="kr-title-row">
+      <input class="kr-title-input" id="recipeName" type="text"
+        value="${esc(existing?.name || '')}" placeholder="Recipe name…" autocomplete="off">
+    </div>
 
-      <div class="field">
-        <span class="field__label">Ingredients</span>
-        <div id="ingredientList">${buildIngredientList()}</div>
-        <div style="display:flex;gap:var(--spacing-xs);margin-top:var(--spacing-xs)">
-          <input class="field__input" id="newIngredientInput" type="text"
-            placeholder="Add ingredient..." autocomplete="off" style="flex:1">
-          <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
-        </div>
+    <div class="kr-section">
+      <span class="field__label">Ingredients</span>
+      <div id="ingredientList">${buildIngredientList()}</div>
+      <div class="kr-add-ingredient-row">
+        <input class="field__input" id="newIngredientInput" type="text"
+          placeholder="Add ingredient…" autocomplete="off">
+        <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
       </div>
+    </div>
 
+    <div class="kr-section">
       <label class="field">
         <span class="field__label">Notes</span>
-        <textarea id="recipeNotes" class="field__input" rows="2" placeholder="Description, tips, source…" autocomplete="off" style="resize:vertical">${esc(existing?.notes || '')}</textarea>
+        <textarea id="recipeNotes" class="field__input kr-notes" rows="2" placeholder="Description, tips, source…" autocomplete="off">${esc(existing?.notes || '')}</textarea>
       </label>
+    </div>
 
+    <div class="kr-section">
       <label class="field">
         <span class="field__label">Recipe link</span>
         <input id="recipeUrl" type="url" placeholder="https://…"
           value="${esc(existing?.url || '')}" autocomplete="off">
       </label>
-      <div class="field" style="display:flex;align-items:center;gap:var(--spacing-xs);flex-wrap:wrap">
+      <div class="kr-import-row">
         <button class="btn btn--secondary btn--sm" id="importFromUrlBtn" type="button">Import from URL</button>
-        <span id="urlImportStatus" style="display:none;font-size:var(--font-sm)"></span>
+        <span class="kr-import-status" id="urlImportStatus"></span>
       </div>
-      <div class="field" style="display:flex;align-items:center;gap:var(--spacing-xs);flex-wrap:wrap">
-        <input id="screenshotInput" type="file" accept="image/*" style="display:none">
+      <div class="kr-import-row">
+        <input id="screenshotInput" type="file" accept="image/*" hidden>
         <button class="btn btn--secondary btn--sm" id="importScreenshotBtn" type="button">Import from photo</button>
-        <span id="screenshotStatus" style="display:none;font-size:var(--font-sm)"></span>
+        <span class="kr-import-status" id="screenshotStatus"></span>
       </div>
     </div>
-    <div class="sheet__footer">
-      <button class="btn btn--secondary" id="cancelRecipeForm" type="button">Cancel</button>
-      <button class="btn btn--primary btn--full" id="saveRecipeForm" type="button">Save</button>
+
+    <div class="kr-footer">
+      <button class="btn btn--ghost" id="kr_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="kr_save" type="button">Save</button>
     </div>`);
   activateSheet(mount);
   requestAnimationFrame(() => document.getElementById('recipeName')?.focus());
 
   const close = () => { mount.innerHTML = ''; };
-  document.getElementById('closeRecipeForm')?.addEventListener('click', close);
-  document.getElementById('cancelRecipeForm')?.addEventListener('click', close);
+  document.getElementById('kr_close')?.addEventListener('click', close);
+  document.getElementById('kr_cancel')?.addEventListener('click', close);
 
   function addIngredient() {
     const val = document.getElementById('newIngredientInput')?.value.trim();
@@ -1012,9 +1015,14 @@ function openRecipeForm(recipeId, onSave = null) {
     await runImport('screenshot', { base64, mediaType }, 'importScreenshotBtn', 'screenshotStatus');
   });
 
-  document.getElementById('saveRecipeForm')?.addEventListener('click', async () => {
+  document.getElementById('kr_save')?.addEventListener('click', async () => {
     const name = document.getElementById('recipeName')?.value.trim();
-    if (!name) { document.getElementById('recipeName')?.focus(); return; }
+    if (!name) {
+      const inp = document.getElementById('recipeName');
+      inp?.classList.add('kr-shake');
+      inp?.addEventListener('animationend', () => inp.classList.remove('kr-shake'), { once: true });
+      return;
+    }
     const url = document.getElementById('recipeUrl')?.value.trim() || null;
     const data = {
       name,
@@ -1191,29 +1199,31 @@ function openCreateListSheet() {
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">New list</h2>
-      <button class="btn-icon" id="closeCreateList" aria-label="Close" type="button">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button class="ef2-icon-btn" id="kl_close" aria-label="Close" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="sheet__content">
-      <label class="field">
-        <span class="field__label">List name</span>
-        <input class="field__input" id="newListName" type="text" placeholder="e.g. Grocery, Costco, Target" autocomplete="off">
-      </label>
+    <div class="kl-name-row">
+      <input class="kl-name-input" id="kl_name" type="text" placeholder="Grocery, Costco, Target…" autocomplete="off">
     </div>
-    <div class="sheet__footer">
-      <button class="btn btn--secondary" id="cancelCreateList" type="button">Cancel</button>
-      <button class="btn btn--primary btn--full" id="saveCreateList" type="button">Create</button>
+    <div class="kl-footer">
+      <button class="btn btn--ghost" id="kl_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="kl_save" type="button">Create</button>
     </div>`);
   activateSheet(mount);
-  requestAnimationFrame(() => document.getElementById('newListName')?.focus());
+  requestAnimationFrame(() => document.getElementById('kl_name')?.focus());
 
   const close = () => { mount.innerHTML = ''; };
-  document.getElementById('closeCreateList')?.addEventListener('click', close);
-  document.getElementById('cancelCreateList')?.addEventListener('click', close);
-  document.getElementById('saveCreateList')?.addEventListener('click', async () => {
-    const name = document.getElementById('newListName')?.value.trim();
-    if (!name) return;
+  document.getElementById('kl_close')?.addEventListener('click', close);
+  document.getElementById('kl_cancel')?.addEventListener('click', close);
+  document.getElementById('kl_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('kl_name')?.value.trim();
+    if (!name) {
+      const inp = document.getElementById('kl_name');
+      inp?.classList.add('kl-shake');
+      inp?.addEventListener('animationend', () => inp.classList.remove('kl-shake'), { once: true });
+      return;
+    }
     const sortOrder = Object.keys(lists).length;
     const id = await pushKitchenList({ name, sortOrder, createdAt: firebase.database.ServerValue.TIMESTAMP });
     lists[id] = { name, sortOrder };
@@ -1232,27 +1242,37 @@ function openManageListSheet() {
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(listName)}</h2>
+      <button class="ef2-icon-btn" id="km_close" aria-label="Close" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
-    <div class="sheet__content">
+    <div class="km-rename-section">
       <label class="field">
         <span class="field__label">Rename</span>
-        <input id="renameListInput" type="text" value="${esc(listName)}" autocomplete="off">
+        <input id="km_name" type="text" value="${esc(listName)}" autocomplete="off">
       </label>
-      <div class="overflow-menu" style="margin-top:var(--spacing-sm)">
-        <button class="overflow-menu__item" id="copyListBtn" type="button">Copy list as text</button>
-        <button class="overflow-menu__item" id="clearCheckedBtn" type="button">Clear checked items</button>
-        <button class="overflow-menu__item overflow-menu__item--danger" id="deleteList" type="button">Delete list</button>
+    </div>
+    <div class="km-actions-section">
+      <div class="overflow-menu">
+        <button class="overflow-menu__item" id="km_copyBtn" type="button">Copy list as text</button>
+        <button class="overflow-menu__item" id="km_clearBtn" type="button">Clear checked items</button>
       </div>
     </div>
-    <div class="sheet__footer">
-      <button class="btn btn--primary" id="saveRenameList" type="button">Save name</button>
+    <div class="km-footer">
+      <button class="btn btn--ghost" id="km_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="km_save" type="button">Save name</button>
+    </div>
+    <div class="km-delete-zone">
+      <button class="km-delete-btn" id="km_deleteBtn" type="button">Delete list</button>
     </div>`);
   activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
+  document.getElementById('km_close')?.addEventListener('click', close);
+  document.getElementById('km_cancel')?.addEventListener('click', close);
 
-  document.getElementById('saveRenameList')?.addEventListener('click', async () => {
-    const name = document.getElementById('renameListInput')?.value.trim();
+  document.getElementById('km_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('km_name')?.value.trim();
     if (!name) return;
     await writeKitchenList(activeListId, { ...lists[activeListId], name });
     lists[activeListId].name = name;
@@ -1260,12 +1280,12 @@ function openManageListSheet() {
     renderListsTab();
   });
 
-  document.getElementById('copyListBtn')?.addEventListener('click', () => {
+  document.getElementById('km_copyBtn')?.addEventListener('click', () => {
     copyListAsText();
     close();
   });
 
-  document.getElementById('clearCheckedBtn')?.addEventListener('click', async () => {
+  document.getElementById('km_clearBtn')?.addEventListener('click', async () => {
     const confirmed = await showConfirm({ title: 'Remove all checked items?', confirmLabel: 'Clear' });
     if (!confirmed) return;
     const checkedCards = document.querySelectorAll('.card--shopping.is-checked');
@@ -1275,7 +1295,7 @@ function openManageListSheet() {
     close();
   });
 
-  document.getElementById('deleteList')?.addEventListener('click', async () => {
+  document.getElementById('km_deleteBtn')?.addEventListener('click', async () => {
     const itemCount = document.querySelectorAll('.card--shopping').length;
     const msg = itemCount > 0
       ? `Delete "${listName}"? It has ${itemCount} item${itemCount !== 1 ? 's' : ''}.`
@@ -1355,48 +1375,55 @@ function openItemEditSheet(id, item) {
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">Edit item</h2>
+      <button class="ef2-icon-btn" id="ki_close" aria-label="Close" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
-    <div class="sheet__content">
-      <div class="field">
-        <span class="field__label">Item</span>
-        <div class="ingredient-row">
-          <input id="editItemQty" class="ingredient-qty" type="text" value="${esc(item.qty || '')}" placeholder="qty" autocomplete="off">
-          <input id="editItemName" class="ingredient-name" type="text" value="${esc(item.name || '')}" placeholder="ingredient" autocomplete="off">
-        </div>
+    <div class="ki-item-section">
+      <div class="ingredient-row">
+        <input id="ki_qty" class="ingredient-qty" type="text" value="${esc(item.qty || '')}" placeholder="qty" autocomplete="off">
+        <input id="ki_name" class="ingredient-name" type="text" value="${esc(item.name || '')}" placeholder="item name" autocomplete="off">
       </div>
-      ${!alreadyStaple ? `<button class="btn btn--ghost btn--full" id="addToStaplesBtn" type="button">Save to staples</button>` : ''}
+      ${!alreadyStaple ? `<div class="ki-staples-row"><button class="btn btn--ghost btn--full" id="ki_addToStaples" type="button">Save to staples</button></div>` : ''}
     </div>
-    <div class="sheet__footer">
-      <button class="btn btn--danger" id="editItemDelete" type="button">Delete</button>
-      <button class="btn btn--primary" id="editItemSave" type="button">Save</button>
+    <div class="ki-footer">
+      <button class="btn btn--ghost" id="ki_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="ki_save" type="button">Save</button>
+    </div>
+    <div class="ki-delete-zone">
+      <button class="ki-delete-btn" id="ki_deleteBtn" type="button">Remove item</button>
     </div>`);
   activateSheet(mount);
 
-  const input = document.getElementById('editItemName');
-  const qtyInput = document.getElementById('editItemQty');
+  const input = document.getElementById('ki_name');
+  const qtyInput = document.getElementById('ki_qty');
   requestAnimationFrame(() => { input?.select(); });
 
-  document.getElementById('editItemSave')?.addEventListener('click', async () => {
+  const close = () => { mount.innerHTML = ''; };
+  document.getElementById('ki_close')?.addEventListener('click', close);
+  document.getElementById('ki_cancel')?.addEventListener('click', close);
+
+  document.getElementById('ki_save')?.addEventListener('click', async () => {
     const name = input?.value.trim();
     const qty = qtyInput?.value.trim() || null;
     if (!name || !activeListId) return;
     await writeKitchenItem(activeListId, id, { ...item, name, qty });
-    mount.innerHTML = '';
+    close();
   });
 
-  document.getElementById('editItemDelete')?.addEventListener('click', async () => {
+  document.getElementById('ki_deleteBtn')?.addEventListener('click', async () => {
     const confirmed = await showConfirm({ title: `Remove "${item.name}"?`, confirmLabel: 'Remove', danger: true });
     if (!confirmed) return;
     await removeKitchenItem(activeListId, id);
-    mount.innerHTML = '';
+    close();
   });
 
-  document.getElementById('addToStaplesBtn')?.addEventListener('click', async () => {
+  document.getElementById('ki_addToStaples')?.addEventListener('click', async () => {
     const name = input?.value.trim() || item.name;
     const sid = await pushKitchenStaple({ name, category: item.category || null });
     staples[sid] = { name, category: item.category || null };
     showToast(`"${name}" saved to staples`);
-    mount.innerHTML = '';
+    close();
   });
 }
 
@@ -1502,22 +1529,29 @@ function openStapleEditSheet(id, onDone) {
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">Edit staple</h2>
+      <button class="ef2-icon-btn" id="ks_close" aria-label="Close" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
-    <div class="sheet__content">
-      <label class="field">
-        <span class="field__label">Name</span>
-        <input id="editStapleName" type="text" value="${esc(staple.name)}" autocomplete="off">
-      </label>
+    <div class="ks-name-row">
+      <input class="ks-name-input" id="ks_name" type="text" value="${esc(staple.name)}" autocomplete="off">
     </div>
-    <div class="sheet__footer">
-      <button class="btn btn--danger" id="deleteStapleBtn" type="button">Delete</button>
-      <button class="btn btn--primary" id="saveStapleBtn" type="button">Save</button>
+    <div class="ks-footer">
+      <button class="btn btn--ghost" id="ks_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="ks_save" type="button">Save</button>
+    </div>
+    <div class="ks-delete-zone">
+      <button class="ks-delete-btn" id="ks_deleteBtn" type="button">Remove staple</button>
     </div>`);
   activateSheet(mount);
-  requestAnimationFrame(() => { document.getElementById('editStapleName')?.select(); });
+  requestAnimationFrame(() => { document.getElementById('ks_name')?.select(); });
 
-  document.getElementById('saveStapleBtn')?.addEventListener('click', async () => {
-    const name = document.getElementById('editStapleName')?.value.trim();
+  const back = () => { mount.innerHTML = ''; openStaplesSheet(); };
+  document.getElementById('ks_close')?.addEventListener('click', back);
+  document.getElementById('ks_cancel')?.addEventListener('click', back);
+
+  document.getElementById('ks_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('ks_name')?.value.trim();
     if (!name) return;
     await getDb().ref(`rundown/kitchen/staples/${id}/name`).set(name);
     staples[id].name = name;
@@ -1526,7 +1560,7 @@ function openStapleEditSheet(id, onDone) {
     openStaplesSheet();
   });
 
-  document.getElementById('deleteStapleBtn')?.addEventListener('click', async () => {
+  document.getElementById('ks_deleteBtn')?.addEventListener('click', async () => {
     const confirmed = await showConfirm({
       title: `Remove "${staple.name}" from staples?`,
       confirmLabel: 'Remove', danger: true,
