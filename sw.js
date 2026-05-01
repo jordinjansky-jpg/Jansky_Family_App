@@ -203,7 +203,8 @@
 //                    initNavMore wires headerOverflow, click-outside sheets, slot edit sheet,
 //                    recipe picker replaces datalist.
 // v101 (2026-04-29) — AI features polish: add shared/ai-helpers.js to cache.
-const CACHE_NAME = 'family-hub-v102';
+// v103 (2026-05-01) — Event form: photo source action sheet (Camera / Gallery / Files).
+const CACHE_NAME = 'family-hub-v103';
 
 const APP_SHELL = [
   '/',

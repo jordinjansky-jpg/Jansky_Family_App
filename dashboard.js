@@ -1813,9 +1813,13 @@ function openEventForm(existingEventId = null, savedState = null) {
 
   // ── Import flows (wired in Task 4) ──────────────────────────
   document.getElementById('ef2_wand')?.addEventListener('click', () => doWandParse());
-  document.getElementById('ef2_photoInput')?.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
-    if (file) doPhotoImport(file);
+  document.getElementById('ef2_photoBtn')?.addEventListener('click', () => openPhotoSourceSheet());
+  ['ef2_photoCamera', 'ef2_photoGallery', 'ef2_photoFiles'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) doPhotoImport(file);
+      e.target.value = '';
+    });
   });
   document.getElementById('ef2_ical')?.addEventListener('click', () => openEfIcalSheet());
 
@@ -1949,6 +1953,46 @@ function openEventForm(existingEventId = null, savedState = null) {
       loadEl?.classList.remove('is-visible');
       if (errEl) { errEl.textContent = 'Something went wrong — try again.'; errEl.classList.add('is-visible'); }
     }
+  }
+
+  function openPhotoSourceSheet() {
+    const CAM_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+    const GAL_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+    const FILE_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'ef2-subsheet-overlay';
+    overlay.innerHTML = `<div class="ef2-subsheet">
+      <div class="sheet__header">
+        <h2 class="sheet__title">Import from</h2>
+      </div>
+      <div class="sheet__content">
+        <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
+        <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
+        <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
+      </div>
+      <div class="sheet__footer">
+        <button class="btn btn--ghost" id="ef2_photoSourceCancel">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('active'));
+
+    function close() {
+      overlay.classList.remove('active');
+      setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
+    }
+
+    overlay.querySelector('#ef2_photoSourceCancel')?.addEventListener('click', close);
+    overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const src = btn.dataset.source;
+        if (src === 'camera') document.getElementById('ef2_photoCamera')?.click();
+        else if (src === 'gallery') document.getElementById('ef2_photoGallery')?.click();
+        else if (src === 'files') document.getElementById('ef2_photoFiles')?.click();
+        close();
+      });
+    });
   }
 
   function openEfIcalSheet() {

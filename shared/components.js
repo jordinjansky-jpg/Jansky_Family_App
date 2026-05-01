@@ -1152,10 +1152,10 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   const importIcons = isEdit ? '' : `
     <button class="ef2-icon-btn" id="ef2_wand" type="button" aria-label="Parse title with AI">${WAND_SVG}</button>
-    <label class="ef2-icon-btn" title="Import from photo" aria-label="Import from photo">
-      <input type="file" accept="image/*" id="ef2_photoInput" hidden>
-      ${PHOTO_SVG}
-    </label>
+    <button class="ef2-icon-btn" id="ef2_photoBtn" type="button" aria-label="Import from photo">${PHOTO_SVG}</button>
+    <input type="file" accept="image/*" capture="environment" id="ef2_photoCamera" hidden>
+    <input type="file" accept="image/*" id="ef2_photoGallery" hidden>
+    <input type="file" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" id="ef2_photoFiles" hidden>
     <button class="ef2-icon-btn" id="ef2_ical" type="button" aria-label="Import from calendar URL">${ICAL_SVG}</button>`;
 
   const notesOpen = (event.notes || event.notesOpen) ? ' is-open' : '';

@@ -3244,6 +3244,36 @@ label.ef2-icon-btn  { cursor: pointer; }
 
 .ef2-subsheet-overlay.active .ef2-subsheet { transform: translateY(0); }
 
+/* Photo source action sheet rows */
+.ef2-source-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  width: 100%;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-base);
+  color: var(--text);
+  text-align: left;
+  min-height: 56px;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.ef2-source-btn:hover { background: var(--surface-2); }
+.ef2-source-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.ef2-source-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
 /* Repeat sub-sheet option rows */
 .ef2-repeat-option {
   display: flex;
