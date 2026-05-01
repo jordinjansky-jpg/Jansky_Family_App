@@ -1653,7 +1653,6 @@ function openEventForm(existingEventId = null, savedState = null) {
   let currentRepeat = event.repeat || null;
 
   document.getElementById('ef2_repeatChip')?.addEventListener('click', () => {
-    if (typeof openRepeatSheet !== 'function') return;
     const formState = captureFormState();
     openRepeatSheet(currentRepeat, (newRule) => {
       currentRepeat = newRule;
@@ -1689,6 +1688,8 @@ function openEventForm(existingEventId = null, savedState = null) {
       people: peoplArr,
       notes: document.getElementById('ef2_notes')?.value || '',
       location: document.getElementById('ef2_location')?.value || '',
+      notesOpen: document.getElementById('ef2_notesReveal')?.classList.contains('is-open') || false,
+      locOpen: document.getElementById('ef2_locReveal')?.classList.contains('is-open') || false,
       repeat: currentRepeat,
     };
   }

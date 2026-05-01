@@ -1158,8 +1158,8 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     </label>
     <button class="ef2-icon-btn" id="ef2_ical" type="button" aria-label="Import from calendar URL">${ICAL_SVG}</button>`;
 
-  const notesOpen = event.notes ? ' is-open' : '';
-  const locOpen = event.location ? ' is-open' : '';
+  const notesOpen = (event.notes || event.notesOpen) ? ' is-open' : '';
+  const locOpen = (event.location || event.locOpen) ? ' is-open' : '';
   const repeatLabel = ef2RepeatLabel(event.repeat);
   const repeatActive = (event.repeat && event.repeat.type && event.repeat.type !== 'none') ? ' is-active' : '';
 
