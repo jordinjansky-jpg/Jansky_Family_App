@@ -201,7 +201,8 @@
 //                    field/field__label CSS, recipe-pick-list CSS, kitchen.css padding fix,
 //                    initNavMore wires headerOverflow, click-outside sheets, slot edit sheet,
 //                    recipe picker replaces datalist.
-const CACHE_NAME = 'family-hub-v100';
+// v101 (2026-04-29) — AI features polish: add shared/ai-helpers.js to cache.
+const CACHE_NAME = 'family-hub-v101';
 
 const APP_SHELL = [
   '/',
@@ -243,6 +244,7 @@ const APP_SHELL = [
   '/shared/utils.js',
   '/shared/weather.js',
   '/shared/calendar-views.js',
+  '/shared/ai-helpers.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js',
