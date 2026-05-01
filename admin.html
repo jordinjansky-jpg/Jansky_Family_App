@@ -4020,7 +4020,7 @@
         const file = e.target.files?.[0];
         if (!file) return;
         const statusEl = main.querySelector('#taskScanStatus');
-        if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Scanning…</span>';
+        if (statusEl) statusEl.innerHTML = `<div class="ai-loading"><div class="ai-loading__spinner"></div>Scanning document…</div>`;
         try {
           const { base64, mediaType } = await resizeImageForUpload(file);
           const resp = await fetch(KITCHEN_WORKER_URL, {
@@ -4029,12 +4029,19 @@
           });
           const data = await resp.json();
           if (data.error || !data.tasks?.length) {
-            if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">${data.error || 'No tasks found.'}</span>`;
+            if (statusEl) statusEl.innerHTML = `
+              <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No tasks found — try a clearer photo.</p>
+              <button class="btn btn--secondary btn--sm" id="hwRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
+            statusEl?.querySelector('#hwRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
             return;
           }
           renderTaskScanConfirm(data.tasks, statusEl, data.hasUncertainDates);
-        } catch {
-          if (statusEl) statusEl.innerHTML = '<span style="color:var(--c-danger,#c0392b);font-size:var(--font-sm)">Scan failed. Check your connection.</span>';
+        } catch (err) {
+          if (statusEl) statusEl.innerHTML = `
+            <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
+            <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || 'Check your connection.'}</p>
+            <button class="btn btn--secondary btn--sm" id="hwRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
+          statusEl?.querySelector('#hwRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
         }
         e.target.value = '';
       };
@@ -4113,59 +4120,101 @@
 
     function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
       if (!statusEl) return;
-      const rows = tasks.map((t, i) =>
-        `<div style="display:flex;align-items:flex-start;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
-          <input type="checkbox" class="hw-check" data-idx="${i}" checked style="width:18px;height:18px;flex-shrink:0;margin-top:2px">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:var(--font-sm);font-weight:500">${esc(t.name)}</div>
-            <div style="font-size:var(--font-xs,0.75rem);color:var(--text-muted);margin-top:2px">
-              ${t.dueDate
-                ? `Due ${esc(t.dueDate)}${t.notes ? ' · ' + esc(t.notes) : ''}`
-                : `<label style="display:inline-flex;align-items:center;gap:4px">Due <input type="date" class="hw-date" data-idx="${i}" style="border:1px solid var(--border);border-radius:var(--radius-xs);padding:2px 6px;font-size:var(--font-xs,0.75rem);background:var(--bg)"></label>${t.notes ? ' · ' + esc(t.notes) : ''}`
-              }
-            </div>
-          </div>
-        </div>`
-      ).join('');
-      const hint = hasUncertainDates
-        ? `<p style="font-size:var(--font-xs,0.75rem);color:var(--text-muted);margin-bottom:var(--spacing-sm)">Some assignments had no due date — add dates below or leave blank to skip them.</p>`
+
+      const formatDueDate = (d) => {
+        if (!d) return null;
+        const [y, m, day] = d.split('-');
+        return new Date(+y, +m - 1, +day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      };
+
+      const uncertainBanner = hasUncertainDates
+        ? `<p style="font-size:var(--font-size-sm);color:var(--c-warning);margin-bottom:var(--spacing-sm)">Some dates were unclear — review before importing.</p>`
         : '';
+
+      const rowsHtml = tasks.map((t, i) => {
+        const sub = t.dueDate ? `Due ${formatDueDate(t.dueDate)}${t.notes ? ' · ' + t.notes : ''}` : null;
+        const row = renderConfirmRow(
+          { ...t, _sub: sub },
+          { labelKey: 'name', subKey: '_sub', confidenceKey: 'confidence', key: i }
+        );
+        const dateInput = !t.dueDate
+          ? `<div class="hw-date-wrap" data-idx="${i}" style="padding:0 var(--spacing-md) var(--spacing-xs)">
+               <label style="font-size:var(--font-size-xs);color:var(--text-muted)">Due date (optional)</label>
+               <input type="date" class="field__input hw-date" data-idx="${i}" style="margin-top:4px">
+             </div>`
+          : '';
+        return row + dateInput;
+      }).join('');
+
       statusEl.innerHTML = `
-        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-xs)">${tasks.length} assignment${tasks.length !== 1 ? 's' : ''} found.</p>
-        ${hint}
-        <div id="hwItems">${rows}</div>
+        ${uncertainBanner}
+        <div class="confirm-list" id="hwItems">${rowsHtml}</div>
         <div class="admin-form__actions mt-md">
           <button class="btn btn--secondary btn--sm" id="hwCancel">Cancel</button>
-          <button class="btn btn--primary btn--sm" id="hwSave">Add to schedule</button>
+          <button class="btn btn--primary btn--sm" id="hwSave">Add ${tasks.length} task${tasks.length !== 1 ? 's' : ''}</button>
         </div>`;
+
+      const list = statusEl.querySelector('#hwItems');
+      const saveBtn = statusEl.querySelector('#hwSave');
+
+      function updateBtn() {
+        const n = list.querySelectorAll('.confirm-row:not(.is-deselected)').length;
+        saveBtn.textContent = `Add ${n} task${n !== 1 ? 's' : ''}`;
+        saveBtn.disabled = n === 0;
+      }
+
+      list.addEventListener('click', (e) => {
+        const row = e.target.closest('.confirm-row');
+        if (!row) return;
+        if (e.target.closest('.hw-date-wrap')) return;
+        const idx = row.dataset.key;
+        row.classList.toggle('is-deselected');
+        const dateWrap = list.querySelector(`.hw-date-wrap[data-idx="${idx}"]`);
+        if (dateWrap) dateWrap.style.display = row.classList.contains('is-deselected') ? 'none' : 'block';
+        updateBtn();
+      });
+
+      list.querySelectorAll('.hw-date-wrap').forEach(wrap => { wrap.style.display = 'block'; });
+
       statusEl.querySelector('#hwCancel')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
-      statusEl.querySelector('#hwSave')?.addEventListener('click', async () => {
-        const selected = [...statusEl.querySelectorAll('.hw-check:checked')].map(el => {
-          const t = tasks[+el.dataset.idx];
-          if (!t.dueDate) {
-            const dateEl = statusEl.querySelector(`.hw-date[data-idx="${el.dataset.idx}"]`);
-            return { ...t, dueDate: dateEl?.value || null };
-          }
-          return t;
-        }).filter(t => t.dueDate);
+
+      saveBtn.addEventListener('click', async () => {
+        const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
+          .map(row => {
+            const t = tasks[+row.dataset.key];
+            if (!t.dueDate) {
+              const dateEl = list.querySelector(`.hw-date[data-idx="${row.dataset.key}"]`);
+              return { ...t, dueDate: dateEl?.value || null };
+            }
+            return t;
+          })
+          .filter(t => t.dueDate);
         if (!selected.length) { statusEl.innerHTML = ''; return; }
-        const btn = statusEl.querySelector('#hwSave');
-        btn.disabled = true; btn.textContent = 'Adding…';
-        const tz = settings?.timezone || 'America/Chicago';
-        for (const t of selected) {
-          const firstPersonId = Object.keys(peopleObj)[0] || null;
-          const taskData = {
-            name: t.name, rotation: 'once', owners: firstPersonId ? [firstPersonId] : [],
-            ownerAssignmentMode: 'fixed', timeOfDay: 'anytime',
-            dedicatedDate: t.dueDate, estMin: 30, difficulty: 'medium',
-            category: 'general', status: 'active',
-            createdDate: todayKey(tz), notes: t.notes || null, exempt: false,
-          };
-          const taskId = await pushTask(taskData);
-          const schedKey = `sched_${Date.now()}_hw_${Math.random().toString(36).slice(2,6)}`;
-          await multiUpdate({ [`schedule/${t.dueDate}/${schedKey}`]: { taskId, ownerId: taskData.owners[0], rotationType: 'once', ownerAssignmentMode: 'fixed', timeOfDay: 'anytime' } });
+        saveBtn.disabled = true; saveBtn.textContent = 'Adding…';
+        try {
+          const tz = settings?.timezone || 'America/Chicago';
+          let counter = 0;
+          for (const t of selected) {
+            const firstPersonId = Object.keys(peopleObj)[0] || null;
+            const taskData = {
+              name: t.name, rotation: 'once', owners: firstPersonId ? [firstPersonId] : [],
+              ownerAssignmentMode: 'fixed', timeOfDay: 'anytime',
+              dedicatedDate: t.dueDate, estMin: 30, difficulty: 'medium',
+              category: 'general', status: 'active',
+              createdDate: todayKey(tz), notes: t.notes || null, exempt: false,
+            };
+            const taskId = await pushTask(taskData);
+            const schedKey = `sched_${Date.now()}_hw_${counter++}`;
+            await multiUpdate({ [`schedule/${t.dueDate}/${schedKey}`]: {
+              taskId, ownerId: taskData.owners[0], rotationType: 'once',
+              ownerAssignmentMode: 'fixed', timeOfDay: 'anytime',
+            }});
+          }
+          statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-size-sm)">${selected.length} task${selected.length !== 1 ? 's' : ''} added.</span>`;
+        } catch (err) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = `Add ${selected.length} task${selected.length !== 1 ? 's' : ''}`;
         }
-        statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-sm)">${selected.length} task${selected.length !== 1 ? 's' : ''} added.</span>`;
       });
     }
 
