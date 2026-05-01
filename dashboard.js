@@ -2,9 +2,11 @@ import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCate
 import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
+import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
+const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
@@ -1477,115 +1479,314 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
   });
 }
 
-function openEventForm(existingEventId = null) {
-  // FAB pre-fill (spec §3.8.1): when filtered, default the new event's people
-  // to the active person so creating an event for that person is one tap fewer.
-  const event = existingEventId
-    ? events[existingEventId]
-    : (activePerson ? { people: [activePerson] } : {});
+function openEventForm(existingEventId = null, savedState = null) {
+  const event = savedState
+    || (existingEventId ? events[existingEventId] : {});
   const mode = existingEventId ? 'edit' : 'create';
   const html = renderEventForm({ event, eventId: existingEventId, people, dateKey: viewDate, mode });
   taskSheetMount.innerHTML = renderBottomSheet(html);
-  applyDataColors(taskSheetMount);
+
+  // Apply person chip colors via JS (CSS var --chip-color per chip)
+  taskSheetMount.querySelectorAll('.ef2-person-chip[data-person-color]').forEach(chip => {
+    chip.style.setProperty('--chip-color', chip.dataset.personColor);
+  });
 
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
-    if (mode === 'create') document.getElementById('ef_name')?.focus();
+    if (mode === 'create') document.getElementById('ef2_name')?.focus();
   });
 
-  const overlay = document.getElementById('bottomSheet');
-  overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) closeTaskSheet();
+  // ── Close / Cancel ───────────────────────────────────────────
+  document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
+  document.getElementById('ef2_cancel')?.addEventListener('click', closeTaskSheet);
+  document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
   });
 
-  document.getElementById('ef_allDay')?.addEventListener('click', () => {
-    const btn = document.getElementById('ef_allDay');
-    btn.classList.toggle('chip--active');
-    const hide = btn.classList.contains('chip--active');
-    document.getElementById('ef_timeGroup')?.classList.toggle('ef-time-row--hidden', hide);
-    document.getElementById('ef_endTimeGroup')?.classList.toggle('ef-time-row--hidden', hide);
+  // ── Date picker toggle ───────────────────────────────────────
+  const dateBtn = document.getElementById('ef2_dateBtn');
+  const datePicker = document.getElementById('ef2_datePicker');
+  const dateDisplay = document.getElementById('ef2_dateDisplay');
+  const dateInput = document.getElementById('ef2_date');
+  const timePicker = document.getElementById('ef2_timePicker');
+  const timeBtn = document.getElementById('ef2_timeBtn');
+  const timeDisplay = document.getElementById('ef2_timeDisplay');
+  const startInput = document.getElementById('ef2_startTime');
+  const endInput = document.getElementById('ef2_endTime');
+
+  dateBtn?.addEventListener('click', () => {
+    const open = datePicker.classList.toggle('is-open');
+    if (open) timePicker?.classList.remove('is-open');
   });
 
-  document.querySelectorAll('#ef_colors .dt-color-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#ef_colors .dt-color-btn').forEach(b => b.classList.remove('dt-color-btn--active'));
-      btn.classList.add('dt-color-btn--active');
-    });
+  dateInput?.addEventListener('change', () => {
+    dateDisplay.textContent = dateInput.value ? formatDateShort(dateInput.value) : 'Set date';
+    datePicker?.classList.remove('is-open');
   });
 
-  document.querySelectorAll('#ef_people .chip--selectable').forEach(chip => {
-    chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
+  // ── Time picker toggle ───────────────────────────────────────
+  timeBtn?.addEventListener('click', () => {
+    const open = timePicker.classList.toggle('is-open');
+    if (open) datePicker?.classList.remove('is-open');
   });
 
-  document.getElementById('ef_cancel')?.addEventListener('click', closeTaskSheet);
+  function updateTimeDisplay() {
+    if (document.getElementById('ef2_allDay')?.classList.contains('chip--active')) return;
+    const s = startInput?.value;
+    const e = endInput?.value;
+    if (timeDisplay) {
+      const fmt = (t) => {
+        if (!t) return '';
+        const [h, min] = t.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        return min === 0 ? `${h12} ${ampm}` : `${h12}:${String(min).padStart(2, '0')} ${ampm}`;
+      };
+      timeDisplay.textContent = s ? `${fmt(s)} → ${fmt(e)}` : 'Set time';
+    }
+  }
 
-  document.getElementById('ef_save')?.addEventListener('click', async () => {
-    const name = document.getElementById('ef_name')?.value.trim();
-    if (!name) { document.getElementById('ef_name')?.focus(); return; }
+  startInput?.addEventListener('change', () => { updateTimeDisplay(); timePicker?.classList.remove('is-open'); });
+  endInput?.addEventListener('change', () => { updateTimeDisplay(); timePicker?.classList.remove('is-open'); });
 
-    const selectedPeople = [];
-    document.querySelectorAll('#ef_people .chip--active').forEach(c => {
-      if (c.dataset.personId) selectedPeople.push(c.dataset.personId);
-    });
+  // ── All day toggle ───────────────────────────────────────────
+  document.getElementById('ef2_allDay')?.addEventListener('click', () => {
+    const allDayBtn = document.getElementById('ef2_allDay');
+    const timeSection = document.getElementById('ef2_timeSection');
+    allDayBtn.classList.toggle('chip--active');
+    const isAllDay = allDayBtn.classList.contains('chip--active');
+    timeSection?.classList.toggle('ef2-hidden', isAllDay);
+    if (!isAllDay) updateTimeDisplay();
+  });
 
-    const selectedColor = document.querySelector('#ef_colors .dt-color-btn--active')?.dataset.color
-      || (selectedPeople[0] ? people.find(p => p.id === selectedPeople[0])?.color : null)
-      || '#4285f4';
+  // ── Person chip primary / attending state machine ─────────────
+  const peopleWrap = document.getElementById('ef2_people');
 
-    const eventData = {
-      name,
-      date: document.getElementById('ef_date')?.value || viewDate,
-      allDay: document.getElementById('ef_allDay')?.classList.contains('chip--active') || false,
-      startTime: document.getElementById('ef_allDay')?.classList.contains('chip--active') ? null : (document.getElementById('ef_startTime')?.value || null),
-      endTime: document.getElementById('ef_allDay')?.classList.contains('chip--active') ? null : (document.getElementById('ef_endTime')?.value || null),
-      color: selectedColor,
-      people: selectedPeople,
-      location: document.getElementById('ef_location')?.value.trim() || null,
-      notes: document.getElementById('ef_notes')?.value.trim() || null,
-      url: document.getElementById('ef_url')?.value.trim() || null,
-      createdDate: todayKey(settings?.timezone || 'America/Chicago')
-    };
+  function getPrimaryChip() {
+    return peopleWrap?.querySelector('.ef2-person-chip[data-state="primary"]');
+  }
 
-    if (existingEventId) {
-      const oldEvent = events[existingEventId];
-      await writeEvent(existingEventId, eventData);
-      events[existingEventId] = eventData;
+  function getPersonChips() {
+    return [...(peopleWrap?.querySelectorAll('.ef2-person-chip') || [])];
+  }
 
-      if (oldEvent && oldEvent.date !== eventData.date) {
-        const allSched = await readAllSchedule() || {};
-        const moveUpdates = {};
-        for (const [dk, dayEntries] of Object.entries(allSched)) {
-          for (const [ek, entry] of Object.entries(dayEntries || {})) {
-            if (entry.type === 'event' && entry.eventId === existingEventId) {
-              moveUpdates[`schedule/${dk}/${ek}`] = null;
-            }
-          }
-        }
-        const newSchedKey = `sched_${Date.now()}_event`;
-        moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId: existingEventId };
-        await multiUpdate(moveUpdates);
+  function setFamilyMode(on) {
+    getPersonChips().forEach(chip => {
+      if (chip.dataset.personId === '__family__') {
+        if (on) chip.setAttribute('data-state', 'primary');
+        else chip.removeAttribute('data-state');
+      } else {
+        if (on) chip.setAttribute('data-state', 'attending');
+        else chip.removeAttribute('data-state');
       }
-    } else {
-      const newId = await pushEvent(eventData);
-      events[newId] = eventData;
-      const schedKey = `sched_${Date.now()}_event`;
-      await multiUpdate({
-        [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId }
-      });
+    });
+  }
+
+  peopleWrap?.addEventListener('click', (e) => {
+    const chip = e.target.closest('.ef2-person-chip');
+    if (!chip) return;
+    const pid = chip.dataset.personId;
+
+    if (pid === '__family__') {
+      const isFamilyActive = chip.dataset.state === 'primary';
+      setFamilyMode(!isFamilyActive);
+      return;
     }
 
-    closeTaskSheet();
-    render();
+    // Clear family mode if a person chip is tapped
+    const familyChip = peopleWrap.querySelector('.ef2-person-chip--family');
+    if (familyChip?.dataset.state) setFamilyMode(false);
+
+    const currentState = chip.dataset.state;
+    if (!currentState) {
+      const hasPrimary = !!getPrimaryChip();
+      chip.setAttribute('data-state', hasPrimary ? 'attending' : 'primary');
+    } else if (currentState === 'attending') {
+      const oldPrimary = getPrimaryChip();
+      if (oldPrimary) oldPrimary.setAttribute('data-state', 'attending');
+      chip.setAttribute('data-state', 'primary');
+    } else if (currentState === 'primary') {
+      chip.removeAttribute('data-state');
+      const firstAttending = peopleWrap.querySelector('.ef2-person-chip[data-state="attending"]');
+      if (firstAttending) firstAttending.setAttribute('data-state', 'primary');
+    }
   });
 
-  document.getElementById('ef_delete')?.addEventListener('click', async () => {
-    if (!existingEventId) return;
-    if (!await showConfirm({ title: 'Delete this event?', danger: true })) return;
-    await removeEvent(existingEventId);
-    delete events[existingEventId];
-    closeTaskSheet();
-    render();
+  // ── Secondary fields (Notes, Location) ──────────────────────
+  document.getElementById('ef2_notesChip')?.addEventListener('click', () => {
+    document.getElementById('ef2_notesReveal')?.classList.add('is-open');
+    document.getElementById('ef2_notesChip')?.classList.add('is-active');
+    document.getElementById('ef2_notes')?.focus();
   });
+
+  document.getElementById('ef2_notesClose')?.addEventListener('click', () => {
+    document.getElementById('ef2_notesReveal')?.classList.remove('is-open');
+    document.getElementById('ef2_notesChip')?.classList.remove('is-active');
+  });
+
+  document.getElementById('ef2_locChip')?.addEventListener('click', () => {
+    document.getElementById('ef2_locReveal')?.classList.add('is-open');
+    document.getElementById('ef2_locChip')?.classList.add('is-active');
+    document.getElementById('ef2_location')?.focus();
+  });
+
+  document.getElementById('ef2_locClose')?.addEventListener('click', () => {
+    document.getElementById('ef2_locReveal')?.classList.remove('is-open');
+    document.getElementById('ef2_locChip')?.classList.remove('is-active');
+  });
+
+  // ── Repeat chip → sub-sheet (wired in Task 5) ─────────────
+  let currentRepeat = event.repeat || null;
+
+  document.getElementById('ef2_repeatChip')?.addEventListener('click', () => {
+    const formState = captureFormState();
+    openRepeatSheet(currentRepeat, (newRule) => {
+      currentRepeat = newRule;
+      openEventForm(existingEventId, { ...formState, repeat: currentRepeat });
+    }, () => {
+      openEventForm(existingEventId, formState);
+    });
+  });
+
+  // ── Capture form state (used before transitioning to sub-sheets) ──
+  function captureFormState() {
+    const primaryChip = getPrimaryChip();
+    const attendingChips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip[data-state="attending"]') || [])];
+    const isFamilyMode = !!peopleWrap?.querySelector('.ef2-person-chip--family[data-state="primary"]');
+    let peoplArr = [];
+    if (isFamilyMode) {
+      peoplArr = people.map(p => p.id);
+    } else {
+      if (primaryChip && primaryChip.dataset.personId !== '__family__') {
+        peoplArr.push(primaryChip.dataset.personId);
+      }
+      attendingChips.forEach(c => {
+        if (c.dataset.personId !== '__family__') peoplArr.push(c.dataset.personId);
+      });
+    }
+    return {
+      name: document.getElementById('ef2_name')?.value || '',
+      date: document.getElementById('ef2_date')?.value || viewDate,
+      allDay: document.getElementById('ef2_allDay')?.classList.contains('chip--active') || false,
+      startTime: document.getElementById('ef2_startTime')?.value || '09:00',
+      endTime: document.getElementById('ef2_endTime')?.value || '10:00',
+      people: peoplArr,
+      notes: document.getElementById('ef2_notes')?.value || '',
+      location: document.getElementById('ef2_location')?.value || '',
+      repeat: currentRepeat,
+    };
+  }
+
+  // ── Save ─────────────────────────────────────────────────────
+  document.getElementById('ef2_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('ef2_name')?.value.trim();
+    if (!name) {
+      const inp = document.getElementById('ef2_name');
+      inp?.classList.add('ef2-shake');
+      inp?.focus();
+      inp?.addEventListener('animationend', () => inp.classList.remove('ef2-shake'), { once: true });
+      return;
+    }
+
+    const formState = captureFormState();
+    formState.name = name;
+
+    const primaryId = formState.people[0] || null;
+    const primaryPerson = people.find(p => p.id === primaryId);
+    const isFamilyMode = !!peopleWrap?.querySelector('.ef2-person-chip--family[data-state="primary"]');
+    const color = isFamilyMode
+      ? (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4285f4')
+      : (primaryPerson?.color || people[0]?.color || '#4285f4');
+
+    const eventData = {
+      name: formState.name,
+      date: formState.date || viewDate,
+      allDay: formState.allDay,
+      startTime: formState.allDay ? null : (formState.startTime || null),
+      endTime: formState.allDay ? null : (formState.endTime || null),
+      color,
+      people: formState.people,
+      location: formState.location || null,
+      notes: formState.notes || null,
+      repeat: formState.repeat || null,
+      createdDate: todayKey(settings?.timezone || 'America/Chicago'),
+    };
+
+    const saveBtn = document.getElementById('ef2_save');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '…'; }
+
+    try {
+      if (existingEventId) {
+        const oldEvent = events[existingEventId];
+        await writeEvent(existingEventId, eventData);
+        events[existingEventId] = eventData;
+        if (oldEvent && oldEvent.date !== eventData.date) {
+          const allSched = await readAllSchedule() || {};
+          const moveUpdates = {};
+          for (const [dk, dayEntries] of Object.entries(allSched)) {
+            for (const [ek, entry] of Object.entries(dayEntries || {})) {
+              if (entry.type === 'event' && entry.eventId === existingEventId) {
+                moveUpdates[`schedule/${dk}/${ek}`] = null;
+              }
+            }
+          }
+          const newSchedKey = `sched_${Date.now()}_event`;
+          moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId: existingEventId };
+          await multiUpdate(moveUpdates);
+        }
+      } else {
+        const newId = await pushEvent(eventData);
+        events[newId] = eventData;
+        const schedKey = `sched_${Date.now()}_event`;
+        await multiUpdate({ [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+      }
+      closeTaskSheet();
+      render();
+    } catch (err) {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = existingEventId ? 'Save Changes' : 'Add Event'; }
+      const errEl = document.getElementById('ef2_importError');
+      if (errEl) { errEl.textContent = 'Couldn\'t save — try again.'; errEl.classList.add('is-visible'); }
+    }
+  });
+
+  // ── Delete (edit mode) ──────────────────────────────────────
+  document.getElementById('ef2_deleteBtn')?.addEventListener('click', () => {
+    const btn = document.getElementById('ef2_deleteBtn');
+    if (btn) btn.style.display = 'none';
+    document.getElementById('ef2_deleteConfirm')?.classList.add('is-open');
+  });
+
+  document.getElementById('ef2_deleteNo')?.addEventListener('click', () => {
+    document.getElementById('ef2_deleteConfirm')?.classList.remove('is-open');
+    const btn = document.getElementById('ef2_deleteBtn');
+    if (btn) btn.style.display = '';
+  });
+
+  document.getElementById('ef2_deleteYes')?.addEventListener('click', async () => {
+    if (!existingEventId) return;
+    try {
+      await removeEvent(existingEventId);
+      delete events[existingEventId];
+      closeTaskSheet();
+      render();
+    } catch (err) {
+      document.getElementById('ef2_deleteConfirm')?.classList.remove('is-open');
+      const btn = document.getElementById('ef2_deleteBtn');
+      if (btn) btn.style.display = '';
+    }
+  });
+
+  // ── Import flows (wired in Task 4) ──────────────────────────
+  document.getElementById('ef2_wand')?.addEventListener('click', () => doWandParse());
+  document.getElementById('ef2_photoInput')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (file) doPhotoImport(file);
+  });
+  document.getElementById('ef2_ical')?.addEventListener('click', () => openEfIcalSheet());
+
+  async function doWandParse() { /* Task 4 */ }
+  function doPhotoImport(file) { /* Task 4 */ }
+  function openEfIcalSheet() { /* Task 4 */ }
 }
 
 function openTaskSheet(entryKey, dateKey) {
