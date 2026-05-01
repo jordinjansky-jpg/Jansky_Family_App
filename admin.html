@@ -3726,7 +3726,7 @@
           resultEl.textContent = `✓ ${json.name} · ${temp}°F · ${cond}`;
           resultEl.className = 'form-hint form-hint--success';
           setTimeout(() => { resultEl.hidden = true; }, 10000);
-        } catch {
+        } catch (err) {
           resultEl.textContent = '✗ Couldn\'t fetch — check location and API key.';
           resultEl.className = 'form-hint form-hint--error';
           setTimeout(() => { resultEl.hidden = true; }, 10000);
@@ -4379,7 +4379,7 @@
           card.querySelector('.em-dismiss').addEventListener('click', async () => {
             try {
               await db.ref(`rundown/emailImports/${emailId}/processed`).set(true);
-            } catch { /* ignore — dismiss visually; write will retry on reconnect */ }
+            } catch (err) { /* ignore — dismiss visually; write will retry on reconnect */ }
             card.style.opacity = '0';
             card.style.transition = 'opacity 0.3s';
             setTimeout(() => {

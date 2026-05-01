@@ -665,7 +665,7 @@
           }
           closeTaskSheet();
           setTimeout(() => openImportEventsConfirm(data.events, data.hadRecurring), 320);
-        } catch {
+        } catch (err) {
           if (status) status.textContent = 'Could not fetch that calendar. Check the URL.';
           btn.disabled = false; btn.textContent = 'Import';
         }
@@ -914,7 +914,7 @@
           }
           closeTaskSheet();
           render();
-        } catch {
+        } catch (err) {
           importBtn.disabled = false;
           importBtn.textContent = `Import ${selected.length} event${selected.length !== 1 ? 's' : ''}`;
         }

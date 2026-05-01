@@ -1,7 +1,7 @@
 // shared/ai-helpers.js
 
 function esc(str) {
-  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 const CHECK_FILLED = `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="11" fill="currentColor"/><path d="M6.5 11l3 3 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -110,7 +110,7 @@ export function openMonthClarificationSheet(assumedMonth, onConfirm) {
           <h2 class="sheet__title">Confirm month</h2>
         </div>
         <div class="sheet__content">
-          <p style="font-size:var(--font-size-sm);color:var(--text-muted);margin-bottom:var(--spacing-md)">
+          <p class="sheet__hint">
             I couldn't clearly read the month${assumedMonth ? ` — I guessed <strong>${esc(assumedMonth)}</strong>` : ''}. Set the correct month to continue.
           </p>
           <div class="field">

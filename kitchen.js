@@ -928,7 +928,7 @@ function openRecipeForm(recipeId, onSave = null) {
       status.textContent = 'Done!';
       status.style.color = 'var(--text-muted)';
       status.style.display = 'inline';
-    } catch {
+    } catch (err) {
       status.textContent = 'Import failed.';
       status.style.color = 'var(--danger)';
       status.style.display = 'inline';
@@ -1640,7 +1640,7 @@ async function categorizeItem(listId, itemId, name) {
     const { category } = await res.json();
     if (!category || category === 'Other') return;
     await getDb().ref(`rundown/kitchen/items/${listId}/${itemId}/category`).set(category);
-  } catch {
+  } catch (err) {
     // Silently fail — item stays in Other
   }
 }
@@ -1658,7 +1658,7 @@ async function categorizeStaple(stapleId, name) {
     if (!category || category === 'Other') return;
     await getDb().ref(`rundown/kitchen/staples/${stapleId}/category`).set(category);
     staples[stapleId].category = category;
-  } catch {}
+  } catch (err) {}
 }
 
 init().catch(err => {

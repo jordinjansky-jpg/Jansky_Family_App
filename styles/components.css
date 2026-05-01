@@ -2861,6 +2861,7 @@
   color: var(--text);
 }
 .sheet__content { margin-bottom: var(--spacing-md); }
+.sheet__hint { font-size: var(--font-size-sm); color: var(--text-muted); margin-bottom: var(--spacing-md); }
 .sheet__footer {
   display: flex;
   gap: var(--spacing-sm);
