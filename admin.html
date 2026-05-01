@@ -3964,9 +3964,12 @@
         </div>
 
         <div class="admin-form__section mt-lg" id="emailImportsSection">
-          <h4 class="admin-form__subtitle">Email Imports</h4>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:var(--spacing-xs)">
+            <h4 class="admin-form__subtitle" style="margin:0">Email Imports</h4>
+            <button class="btn btn--ghost btn--sm" id="emailImportsRefresh" style="font-size:var(--font-size-xs)">Refresh</button>
+          </div>
           <p class="form-hint mb-md">Events extracted from forwarded emails appear here for review.</p>
-          <div id="emailImportsList"><span style="color:var(--text-muted);font-size:var(--font-sm)">Loading…</span></div>
+          <div id="emailImportsList"></div>
         </div>`;
     }
 
@@ -4050,6 +4053,7 @@
 
       // ── Email Imports ──
       loadEmailImports();
+      main.querySelector('#emailImportsRefresh')?.addEventListener('click', loadEmailImports);
     }
 
     function renderSchoolLunchConfirm(days, statusEl) {
@@ -4222,80 +4226,174 @@
       });
     }
 
+    function formatRelativeTime(epochMs) {
+      const diff = Date.now() - epochMs;
+      const mins = Math.floor(diff / 60000);
+      if (mins < 2) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      if (days === 1) return 'Yesterday';
+      if (days < 7) return `${days}d ago`;
+      return new Date(epochMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function parseSenderName(from) {
+      if (!from) return '?';
+      const m = from.match(/^([^<]+)</);
+      return m ? m[1].trim() : from.replace(/<[^>]+>/, '').trim() || from;
+    }
+
     async function loadEmailImports() {
       const listEl = main.querySelector('#emailImportsList');
       if (!listEl) return;
+
+      listEl.innerHTML = `<div class="ai-loading"><div class="ai-loading__spinner"></div>Loading email imports…</div>`;
+
       try {
         const db = firebase.database();
         const snap = await db.ref('rundown/emailImports').orderByChild('processed').equalTo(false).once('value');
         const imports = snap.val();
+
         if (!imports) {
-          listEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">No pending email imports.</span>';
+          listEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-size-sm)">No pending imports.</p>`;
           return;
         }
+
         const entries = Object.entries(imports).sort((a, b) => (b[1].receivedAt || 0) - (a[1].receivedAt || 0));
-        let html = '';
-        for (const [id, entry] of entries) {
-          const evRows = (entry.events || []).map((ev, i) =>
-            `<div style="display:flex;align-items:flex-start;gap:var(--spacing-sm);padding:var(--spacing-xs) 0;border-bottom:1px solid var(--border)">
-              <input type="checkbox" class="em-check" data-ev='${JSON.stringify(ev)}' checked style="width:18px;height:18px;flex-shrink:0;margin-top:2px">
-              <div>
-                <div style="font-size:var(--font-sm);font-weight:500">${esc(ev.name)}</div>
-                <div style="font-size:var(--font-xs,0.75rem);color:var(--text-muted)">${esc(ev.date)}${ev.time ? ' · ' + esc(ev.time) : ''}</div>
-              </div>
-            </div>`
-          ).join('');
-          html += `<div class="admin-form__section" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--spacing-md);margin-bottom:var(--spacing-md)" data-email-id="${id}">
-            <div style="font-size:var(--font-sm);font-weight:500;margin-bottom:var(--spacing-xs)">${esc(entry.subject || '(no subject)')}</div>
-            <div style="font-size:var(--font-xs,0.75rem);color:var(--text-muted);margin-bottom:var(--spacing-sm)">From: ${esc(entry.from || '?')} · ${new Date(entry.receivedAt || 0).toLocaleString()}</div>
-            <div class="em-events">${evRows}</div>
+        listEl.innerHTML = '';
+
+        for (const [emailId, entry] of entries) {
+          const events = entry.events || [];
+          const senderName = parseSenderName(entry.from);
+          const timestamp = entry.receivedAt ? formatRelativeTime(entry.receivedAt) : '';
+
+          let eventsHtml;
+          if (!events.length) {
+            eventsHtml = `<p style="color:var(--text-muted);font-size:var(--font-size-sm)">No events found.</p>`;
+          } else {
+            eventsHtml = events.map((ev, i) => {
+              const datePart = ev.date
+                ? new Date(...ev.date.split('-').map((v, j) => j === 1 ? +v - 1 : +v)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                : null;
+              const timePart = ev.time ? ` · ${ev.time}` : (ev.allDay ? ' · All day' : '');
+              const sub = datePart ? `${datePart}${timePart}` : null;
+              const row = renderConfirmRow(
+                { ...ev, _sub: sub },
+                { labelKey: 'name', subKey: '_sub', confidenceKey: 'confidence', key: i }
+              );
+              const dateInput = !ev.date
+                ? `<div class="em-date-wrap" data-idx="${i}" style="padding:0 var(--spacing-md) var(--spacing-xs)">
+                     <label style="font-size:var(--font-size-xs);color:var(--c-warning)">Date unknown — tap to set</label>
+                     <input type="date" class="field__input em-date" data-idx="${i}" style="margin-top:4px">
+                   </div>`
+                : '';
+              return row + dateInput;
+            }).join('');
+          }
+
+          const card = document.createElement('div');
+          card.className = 'admin-form__section';
+          card.style.cssText = 'border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--spacing-md);margin-bottom:var(--spacing-md)';
+          card.dataset.emailId = emailId;
+          card.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+              <span style="font-size:var(--font-size-sm);font-weight:600">${esc(senderName)}</span>
+              <span style="font-size:var(--font-size-xs);color:var(--text-muted)">${esc(timestamp)}</span>
+            </div>
+            <div style="font-size:var(--font-size-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${esc(entry.subject || '(no subject)')}</div>
+            <div class="confirm-list em-events">${eventsHtml}</div>
             <div class="admin-form__actions mt-sm">
               <button class="btn btn--secondary btn--sm em-dismiss">Dismiss</button>
-              <button class="btn btn--primary btn--sm em-import">Add selected</button>
+              ${events.length ? `<button class="btn btn--primary btn--sm em-import">Import ${events.length} event${events.length !== 1 ? 's' : ''}</button>` : ''}
             </div>
-            <div class="em-status" style="font-size:var(--font-sm);margin-top:var(--spacing-xs)"></div>
-          </div>`;
+            <div class="em-status" style="font-size:var(--font-size-sm);margin-top:var(--spacing-xs)"></div>`;
+
+          listEl.appendChild(card);
+
+          if (events.length) {
+            const evList = card.querySelector('.em-events');
+            const importBtn = card.querySelector('.em-import');
+
+            function updateImportBtn() {
+              const n = evList.querySelectorAll('.confirm-row:not(.is-deselected)').length;
+              importBtn.textContent = `Import ${n} event${n !== 1 ? 's' : ''}`;
+              importBtn.disabled = n === 0;
+            }
+
+            evList.addEventListener('click', (e) => {
+              if (e.target.closest('.em-date-wrap')) return;
+              const row = e.target.closest('.confirm-row');
+              if (!row) return;
+              row.classList.toggle('is-deselected');
+              updateImportBtn();
+            });
+
+            importBtn.addEventListener('click', async () => {
+              const selected = [...evList.querySelectorAll('.confirm-row:not(.is-deselected)')]
+                .map(row => {
+                  const ev = events[+row.dataset.key];
+                  if (!ev) return null;
+                  if (!ev.date) {
+                    const dateEl = evList.querySelector(`.em-date[data-idx="${row.dataset.key}"]`);
+                    return { ...ev, date: dateEl?.value || null };
+                  }
+                  return ev;
+                })
+                .filter(Boolean)
+                .filter(ev => ev.date);
+
+              if (!selected.length) return;
+              importBtn.disabled = true; importBtn.textContent = 'Adding…';
+
+              try {
+                let counter = 0;
+                for (const ev of selected) {
+                  const newId = await pushEvent({
+                    name: ev.name, date: ev.date, allDay: ev.allDay ?? true,
+                    startTime: ev.time || null, endTime: null,
+                    color: Object.values(peopleObj)[0]?.color || '#4285f4',
+                    people: [], notes: ev.notes || null, url: null,
+                  });
+                  const schedKey = `sched_${Date.now()}_em_${counter++}`;
+                  await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+                }
+
+                await db.ref(`rundown/emailImports/${emailId}/processed`).set(true);
+                const statusEl = card.querySelector('.em-status');
+                if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60)">${selected.length} event${selected.length !== 1 ? 's' : ''} added.</span>`;
+                showToast(`${selected.length} event${selected.length !== 1 ? 's' : ''} added to schedule`);
+                setTimeout(() => {
+                  card.style.opacity = '0';
+                  card.style.transition = 'opacity 0.3s';
+                  setTimeout(() => card.remove(), 300);
+                }, 1500);
+              } catch (err) {
+                importBtn.disabled = false;
+                importBtn.textContent = `Import ${selected.length} event${selected.length !== 1 ? 's' : ''}`;
+              }
+            });
+          }
+
+          card.querySelector('.em-dismiss').addEventListener('click', async () => {
+            await db.ref(`rundown/emailImports/${emailId}/processed`).set(true);
+            card.style.opacity = '0';
+            card.style.transition = 'opacity 0.3s';
+            setTimeout(() => {
+              card.remove();
+              if (!listEl.querySelector('[data-email-id]')) {
+                listEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-size-sm)">No pending imports.</p>`;
+              }
+            }, 300);
+          });
         }
-        listEl.innerHTML = html;
-
-        listEl.querySelectorAll('.em-dismiss').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const card = btn.closest('[data-email-id]');
-            const id = card?.dataset.emailId;
-            if (!id) return;
-            await firebase.database().ref(`rundown/emailImports/${id}/processed`).set(true);
-            card.remove();
-            if (!listEl.querySelector('[data-email-id]')) {
-              listEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">No pending email imports.</span>';
-            }
-          });
-        });
-
-        listEl.querySelectorAll('.em-import').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const card = btn.closest('[data-email-id]');
-            const id = card?.dataset.emailId;
-            const statusEl = card?.querySelector('.em-status');
-            const checked = [...card.querySelectorAll('.em-check:checked')].map(el => JSON.parse(el.dataset.ev));
-            if (!checked.length) return;
-            btn.disabled = true; btn.textContent = 'Adding…';
-            for (const ev of checked) {
-              const newId = await pushEvent({
-                name: ev.name, date: ev.date, allDay: ev.allDay ?? true,
-                startTime: ev.time || null, endTime: null,
-                color: people?.[0]?.color || '#4285f4',
-                people: [], notes: ev.notes || null, url: null,
-              });
-              const schedKey = `sched_${Date.now()}_em_${Math.random().toString(36).slice(2,6)}`;
-              await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
-            }
-            await firebase.database().ref(`rundown/emailImports/${id}/processed`).set(true);
-            if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60)">${checked.length} event${checked.length !== 1 ? 's' : ''} added.</span>`;
-            setTimeout(() => card.remove(), 2000);
-          });
-        });
-      } catch {
-        if (listEl) listEl.innerHTML = '<span style="color:var(--text-muted);font-size:var(--font-sm)">Could not load email imports.</span>';
+      } catch (err) {
+        listEl.innerHTML = `
+          <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Couldn't load imports.</p>
+          <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || ''}</p>
+          <button class="btn btn--secondary btn--sm" id="emRetry" style="margin-top:var(--spacing-sm)">Retry</button>`;
+        listEl.querySelector('#emRetry')?.addEventListener('click', loadEmailImports);
       }
     }
 
