@@ -208,7 +208,8 @@
 //                     time button focus fix, scroll fade indicator, all-day pill outlined, checkmarks vs radios.
 // v105 (2026-05-01) — Event form: tighter person chips, custom time picker (hour/min/AMPM selects), icon focus tint.
 // v106 (2026-05-01) — Event form: Family chip up next to For label, single-line time picker, tighter add chips, balanced padding.
-const CACHE_NAME = 'family-hub-v106';
+// v107 (2026-05-01) — Event form: remove duplicate horizontal padding on sections, shrink time selects to fit phone width.
+const CACHE_NAME = 'family-hub-v107';
 
 const APP_SHELL = [
   '/',
