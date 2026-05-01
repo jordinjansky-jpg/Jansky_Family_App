@@ -216,7 +216,8 @@
 // v112 (2026-05-01) — Event form photo: explicit context note input in source sheet (was relying on title field, undiscoverable).
 // v113 (2026-05-01) — Kitchen: drop per-add categorize (wand only), editable qty in shopping list edit, editable ingredient name+qty in recipe form.
 // v114 (2026-05-01) — Kitchen: shopping list qty inline before name (matches recipe form layout).
-const CACHE_NAME = 'family-hub-v114';
+// v115 (2026-05-01) — Kitchen: revert list display, fix edit sheet to inline qty+name row instead.
+const CACHE_NAME = 'family-hub-v115';
 
 const APP_SHELL = [
   '/',

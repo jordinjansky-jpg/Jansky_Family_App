@@ -1164,8 +1164,8 @@ function renderItemsArea(items) {
 function renderShoppingCard(id, item, isChecked) {
   return `<article class="card card--shopping${isChecked ? ' is-checked' : ''}" data-item-id="${esc(id)}">
     <span class="card__check" aria-hidden="true"></span>
-    ${item.qty ? `<span class="card__qty">${esc(item.qty)}</span>` : ''}
     <span class="card__name">${esc(item.name)}</span>
+    ${item.qty ? `<span class="card__qty">${esc(item.qty)}</span>` : ''}
   </article>`;
 }
 
@@ -1357,14 +1357,13 @@ function openItemEditSheet(id, item) {
       <h2 class="sheet__title">Edit item</h2>
     </div>
     <div class="sheet__content">
-      <label class="field">
-        <span class="field__label">Name</span>
-        <input id="editItemName" type="text" value="${esc(item.name || '')}" autocomplete="off">
-      </label>
-      <label class="field">
-        <span class="field__label">Quantity</span>
-        <input id="editItemQty" type="text" value="${esc(item.qty || '')}" placeholder="e.g. 2 cups, 1 lb" autocomplete="off">
-      </label>
+      <div class="field">
+        <span class="field__label">Item</span>
+        <div class="ingredient-row">
+          <input id="editItemQty" class="ingredient-qty" type="text" value="${esc(item.qty || '')}" placeholder="qty" autocomplete="off">
+          <input id="editItemName" class="ingredient-name" type="text" value="${esc(item.name || '')}" placeholder="ingredient" autocomplete="off">
+        </div>
+      </div>
       ${!alreadyStaple ? `<button class="btn btn--ghost btn--full" id="addToStaplesBtn" type="button">Save to staples</button>` : ''}
     </div>
     <div class="sheet__footer">

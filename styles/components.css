@@ -3692,8 +3692,8 @@ label.ef2-icon-btn  { cursor: pointer; }
   font-size: var(--font-sm);
   color: var(--text-muted);
   white-space: nowrap;
+  margin-left: var(--spacing-sm);
   flex-shrink: 0;
-  min-width: 56px;
 }
 
 .card--shopping.is-checked .card__qty { color: var(--text-faint); }
