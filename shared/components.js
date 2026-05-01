@@ -1107,6 +1107,32 @@ function ef2TimeDisplay(start, end) {
   return `${ef2fmt12(start)} → ${ef2fmt12(end)}`;
 }
 
+function ef2ParseTime(hhmm) {
+  if (!hhmm) return { hour: 9, min: 0, ampm: 'AM' };
+  const [h, m] = hhmm.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return { hour, min: m, ampm };
+}
+
+function ef2HourOpts(selectedHour) {
+  return Array.from({ length: 12 }, (_, i) => {
+    const h = i + 1;
+    return `<option value="${h}"${h === selectedHour ? ' selected' : ''}>${h}</option>`;
+  }).join('');
+}
+
+function ef2MinOpts(selectedMin) {
+  const rounded = Math.round(selectedMin / 5) * 5 % 60;
+  return ['00','05','10','15','20','25','30','35','40','45','50','55'].map(m =>
+    `<option value="${m}"${parseInt(m, 10) === rounded ? ' selected' : ''}>${m}</option>`
+  ).join('');
+}
+
+function ef2AmPmOpts(selected) {
+  return `<option value="AM"${selected === 'AM' ? ' selected' : ''}>AM</option><option value="PM"${selected === 'PM' ? ' selected' : ''}>PM</option>`;
+}
+
 function ef2RepeatLabel(rule) {
   if (!rule || !rule.type || rule.type === 'none') return '+ Repeat';
   if (rule.type === 'daily') return 'Daily';
@@ -1199,9 +1225,21 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
         <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
       </button>
       <div class="ef2-picker-wrap" id="ef2_timePicker">
-        <div class="ef2-time-picker-row">
-          <input type="time" id="ef2_startTime" value="${esc(startTime)}">
-          <input type="time" id="ef2_endTime" value="${esc(endTime)}">
+        <div class="ef2-time-grid">
+          <div class="ef2-time-line">
+            <span class="ef2-time-line-label">Starts</span>
+            <select id="ef2_startHour" class="ef2-time-select ef2-time-select--hour" aria-label="Start hour">${ef2HourOpts(ef2ParseTime(startTime).hour)}</select>
+            <span class="ef2-time-colon">:</span>
+            <select id="ef2_startMin" class="ef2-time-select ef2-time-select--min" aria-label="Start minute">${ef2MinOpts(ef2ParseTime(startTime).min)}</select>
+            <select id="ef2_startAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="Start AM or PM">${ef2AmPmOpts(ef2ParseTime(startTime).ampm)}</select>
+          </div>
+          <div class="ef2-time-line">
+            <span class="ef2-time-line-label">Ends</span>
+            <select id="ef2_endHour" class="ef2-time-select ef2-time-select--hour" aria-label="End hour">${ef2HourOpts(ef2ParseTime(endTime).hour)}</select>
+            <span class="ef2-time-colon">:</span>
+            <select id="ef2_endMin" class="ef2-time-select ef2-time-select--min" aria-label="End minute">${ef2MinOpts(ef2ParseTime(endTime).min)}</select>
+            <select id="ef2_endAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="End AM or PM">${ef2AmPmOpts(ef2ParseTime(endTime).ampm)}</select>
+          </div>
         </div>
       </div>
     </div>

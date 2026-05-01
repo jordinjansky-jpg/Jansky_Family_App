@@ -1525,8 +1525,17 @@ function openEventForm(existingEventId = null, savedState = null) {
   const timePicker = document.getElementById('ef2_timePicker');
   const timeBtn = document.getElementById('ef2_timeBtn');
   const timeDisplay = document.getElementById('ef2_timeDisplay');
-  const startInput = document.getElementById('ef2_startTime');
-  const endInput = document.getElementById('ef2_endTime');
+
+  function ef2GetTime(prefix) {
+    const h = parseInt(document.getElementById(`ef2_${prefix}Hour`)?.value, 10);
+    const m = parseInt(document.getElementById(`ef2_${prefix}Min`)?.value, 10) || 0;
+    const ampm = document.getElementById(`ef2_${prefix}AmPm`)?.value || 'AM';
+    if (!h || isNaN(h)) return '';
+    let h24 = h;
+    if (ampm === 'AM' && h === 12) h24 = 0;
+    else if (ampm === 'PM' && h !== 12) h24 = h + 12;
+    return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
 
   dateBtn?.addEventListener('click', () => {
     const open = datePicker.classList.toggle('is-open');
@@ -1546,8 +1555,8 @@ function openEventForm(existingEventId = null, savedState = null) {
 
   function updateTimeDisplay() {
     if (document.getElementById('ef2_allDay')?.classList.contains('chip--active')) return;
-    const s = startInput?.value;
-    const e = endInput?.value;
+    const s = ef2GetTime('start');
+    const e = ef2GetTime('end');
     if (timeDisplay) {
       const fmt = (t) => {
         if (!t) return '';
@@ -1560,8 +1569,9 @@ function openEventForm(existingEventId = null, savedState = null) {
     }
   }
 
-  startInput?.addEventListener('change', () => { updateTimeDisplay(); timePicker?.classList.remove('is-open'); });
-  endInput?.addEventListener('change', () => { updateTimeDisplay(); timePicker?.classList.remove('is-open'); });
+  ['ef2_startHour', 'ef2_startMin', 'ef2_startAmPm', 'ef2_endHour', 'ef2_endMin', 'ef2_endAmPm'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updateTimeDisplay);
+  });
 
   // ── All day toggle ───────────────────────────────────────────
   document.getElementById('ef2_allDay')?.addEventListener('click', () => {
@@ -1696,8 +1706,8 @@ function openEventForm(existingEventId = null, savedState = null) {
       name: document.getElementById('ef2_name')?.value || '',
       date: document.getElementById('ef2_date')?.value || viewDate,
       allDay: document.getElementById('ef2_allDay')?.classList.contains('chip--active') || false,
-      startTime: document.getElementById('ef2_startTime')?.value || '09:00',
-      endTime: document.getElementById('ef2_endTime')?.value || '10:00',
+      startTime: ef2GetTime('start') || '09:00',
+      endTime: ef2GetTime('end') || '10:00',
       isFamilyMode,
       people: peoplArr,
       notes: document.getElementById('ef2_notes')?.value || '',
@@ -1863,12 +1873,20 @@ function openEventForm(existingEventId = null, savedState = null) {
           if (dd) dd.textContent = formatDateShort(data.date);
         }
         if (data.time && !data.allDay) {
-          const si = document.getElementById('ef2_startTime');
-          if (si) si.value = data.time;
           const [h, m] = data.time.split(':').map(Number);
-          const endH = String((h + 1) % 24).padStart(2, '0');
-          const ei = document.getElementById('ef2_endTime');
-          if (ei) ei.value = `${endH}:${String(m).padStart(2, '0')}`;
+          const setTime = (prefix, h24, min) => {
+            const ampm = h24 >= 12 ? 'PM' : 'AM';
+            const hour12 = h24 % 12 || 12;
+            const minRounded = Math.round(min / 5) * 5 % 60;
+            const hSel = document.getElementById(`ef2_${prefix}Hour`);
+            const mSel = document.getElementById(`ef2_${prefix}Min`);
+            const apSel = document.getElementById(`ef2_${prefix}AmPm`);
+            if (hSel) hSel.value = String(hour12);
+            if (mSel) mSel.value = String(minRounded).padStart(2, '0');
+            if (apSel) apSel.value = ampm;
+          };
+          setTime('start', h, m);
+          setTime('end', (h + 1) % 24, m);
           updateTimeDisplay();
         }
         if (data.allDay) {
