@@ -1804,9 +1804,292 @@ function openEventForm(existingEventId = null, savedState = null) {
   });
   document.getElementById('ef2_ical')?.addEventListener('click', () => openEfIcalSheet());
 
-  async function doWandParse() { /* Task 4 */ }
-  function doPhotoImport(file) { /* Task 4 */ }
-  function openEfIcalSheet() { /* Task 4 */ }
+  async function doWandParse() {
+    const title = document.getElementById('ef2_name')?.value.trim();
+    if (!title) return;
+
+    const wandBtn = document.getElementById('ef2_wand');
+    const loadEl = document.getElementById('ef2_importLoading');
+    const errEl = document.getElementById('ef2_importError');
+    const msgEl = document.getElementById('ef2_importMsg');
+
+    wandBtn?.classList.add('ef2-icon-btn--loading');
+    if (loadEl) { loadEl.classList.add('is-visible'); }
+    if (msgEl) msgEl.textContent = 'Parsing…';
+    if (errEl) errEl.classList.remove('is-visible');
+
+    try {
+      const res = await fetch(KITCHEN_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'parseEvent', input: { text: title, contextDate: today } }),
+      });
+      const data = await res.json();
+
+      if (data.error || !data.name) {
+        if (errEl) { errEl.textContent = 'Couldn\'t parse — fill manually.'; errEl.classList.add('is-visible'); }
+        setTimeout(() => errEl?.classList.remove('is-visible'), 3000);
+      } else {
+        if (data.name) {
+          const inp = document.getElementById('ef2_name');
+          if (inp) inp.value = data.name;
+        }
+        if (data.date) {
+          const di = document.getElementById('ef2_date');
+          const dd = document.getElementById('ef2_dateDisplay');
+          if (di) di.value = data.date;
+          if (dd) dd.textContent = formatDateShort(data.date);
+        }
+        if (data.time && !data.allDay) {
+          const si = document.getElementById('ef2_startTime');
+          if (si) si.value = data.time;
+          const [h, m] = data.time.split(':').map(Number);
+          const endH = String((h + 1) % 24).padStart(2, '0');
+          const ei = document.getElementById('ef2_endTime');
+          if (ei) ei.value = `${endH}:${String(m).padStart(2, '0')}`;
+          updateTimeDisplay();
+        }
+        if (data.allDay) {
+          const allDayBtn = document.getElementById('ef2_allDay');
+          const timeSection = document.getElementById('ef2_timeSection');
+          allDayBtn?.classList.add('chip--active');
+          timeSection?.classList.add('ef2-hidden');
+        }
+        if (data.name) {
+          const lowerName = data.name.toLowerCase();
+          for (const p of people) {
+            if (lowerName.includes(p.name.toLowerCase())) {
+              const primaryChip = peopleWrap?.querySelector('.ef2-person-chip[data-state="primary"]');
+              const thisChip = peopleWrap?.querySelector(`.ef2-person-chip[data-person-id="${p.id}"]`);
+              if (thisChip && !primaryChip) {
+                thisChip.setAttribute('data-state', 'primary');
+              }
+              break;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (errEl) { errEl.textContent = 'Couldn\'t parse — fill manually.'; errEl.classList.add('is-visible'); }
+      setTimeout(() => errEl?.classList.remove('is-visible'), 3000);
+    } finally {
+      wandBtn?.classList.remove('ef2-icon-btn--loading');
+      loadEl?.classList.remove('is-visible');
+    }
+  }
+
+  async function doPhotoImport(file) {
+    const loadEl = document.getElementById('ef2_importLoading');
+    const errEl = document.getElementById('ef2_importError');
+    const msgEl = document.getElementById('ef2_importMsg');
+
+    if (loadEl) { loadEl.classList.add('is-visible'); }
+    if (msgEl) msgEl.textContent = 'Reading photo…';
+    if (errEl) errEl.classList.remove('is-visible');
+
+    const contextNote = document.getElementById('ef2_name')?.value.trim() || '';
+
+    try {
+      const { base64, mediaType } = await resizeImageForUpload(file);
+      const payload = { base64, mediaType, contextDate: today };
+      if (contextNote) payload.context = contextNote;
+
+      const res = await fetch(KITCHEN_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'calendarPhoto', input: payload }),
+      });
+      const data = await res.json();
+      loadEl?.classList.remove('is-visible');
+
+      if (data.error || !data.events?.length) {
+        if (errEl) { errEl.textContent = 'No events found — try a clearer photo.'; errEl.classList.add('is-visible'); }
+        return;
+      }
+
+      const savedState = captureFormState();
+
+      const proceed = (eventsArr) => {
+        openEfImportConfirm(eventsArr, data.hadRecurring || false, () => {
+          openEventForm(existingEventId, savedState);
+        });
+      };
+
+      if (data.monthUncertain) {
+        openMonthClarificationSheet(data.assumedMonth, (yearMonth) => {
+          const remapped = data.events.map(ev => {
+            if (!ev.date || !/^\d{4}-\d{2}-\d{2}$/.test(ev.date)) return ev;
+            return { ...ev, date: `${yearMonth}-${ev.date.slice(8, 10)}` };
+          });
+          proceed(remapped);
+        });
+      } else {
+        proceed(data.events);
+      }
+    } catch (err) {
+      loadEl?.classList.remove('is-visible');
+      if (errEl) { errEl.textContent = 'Something went wrong — try again.'; errEl.classList.add('is-visible'); }
+    }
+  }
+
+  function openEfIcalSheet() {
+    const overlay = document.createElement('div');
+    overlay.className = 'ef2-subsheet-overlay';
+    overlay.innerHTML = `<div class="ef2-subsheet">
+      <div class="sheet__header">
+        <h2 class="sheet__title">Calendar URL</h2>
+      </div>
+      <div class="sheet__content">
+        <p class="sheet__hint">Paste a .ics calendar feed URL (e.g. from TeamSnap or your school).</p>
+        <div class="field">
+          <label class="field__label" for="ef2IcalUrl">Calendar URL (.ics)</label>
+          <input class="field__input" id="ef2IcalUrl" type="url" placeholder="https://…/calendar.ics" autocomplete="off">
+        </div>
+        <div id="ef2IcalStatus" class="sheet__hint"></div>
+      </div>
+      <div class="sheet__footer">
+        <button class="btn btn--ghost" id="ef2IcalCancel">Cancel</button>
+        <button class="btn btn--primary" id="ef2IcalImport">Import</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => {
+      overlay.classList.add('active');
+      overlay.querySelector('#ef2IcalUrl')?.focus();
+    });
+
+    function closeIcal() {
+      overlay.classList.remove('active');
+      setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
+    }
+
+    overlay.querySelector('#ef2IcalCancel')?.addEventListener('click', closeIcal);
+
+    overlay.querySelector('#ef2IcalImport')?.addEventListener('click', async () => {
+      const url = overlay.querySelector('#ef2IcalUrl')?.value.trim();
+      if (!url) return;
+      const status = overlay.querySelector('#ef2IcalStatus');
+      const btn = overlay.querySelector('#ef2IcalImport');
+      btn.disabled = true; btn.textContent = 'Fetching…';
+      if (status) status.textContent = 'Fetching calendar…';
+
+      try {
+        const res = await fetch(KITCHEN_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'ical', input: url }),
+        });
+        const data = await res.json();
+        if (data.error || !data.events?.length) {
+          if (status) status.textContent = 'Couldn\'t fetch that calendar. Check the URL.';
+          btn.disabled = false; btn.textContent = 'Import';
+          return;
+        }
+        closeIcal();
+        const savedState = captureFormState();
+        setTimeout(() => openEfImportConfirm(data.events, data.hadRecurring || false, () => {
+          openEventForm(existingEventId, savedState);
+        }), 320);
+      } catch (err) {
+        if (status) status.textContent = 'Couldn\'t fetch that calendar. Check the URL.';
+        btn.disabled = false; btn.textContent = 'Import';
+      }
+    });
+  }
+}
+
+function openEfImportConfirm(eventsArr, hadRecurring, onCancel) {
+  const recurringBanner = hadRecurring
+    ? `<div class="banner banner--info" role="status">Recurring events were skipped — only one-time events are supported.</div>`
+    : '';
+
+  const rows = eventsArr.map((ev, i) => {
+    const timeSub = ev.time ? ev.time : (ev.allDay ? 'All day' : null);
+    const row = renderConfirmRow(
+      { ...ev, _sub: timeSub },
+      { labelKey: 'name', subKey: '_sub', confidenceKey: 'confidence', key: i }
+    );
+    const dateLabel = ev.dateConfidence === 'low'
+      ? `<label class="ef2-date-label ef2-date-label--warn">Date (uncertain — please verify)</label>`
+      : `<label class="ef2-date-label">Date</label>`;
+    const dateWrap = `<div class="ev-date-wrap" data-idx="${i}" style="padding:0 var(--spacing-md) var(--spacing-xs)">
+      ${dateLabel}
+      <input type="date" class="field__input ev-date" data-idx="${i}" value="${ev.date || ''}">
+    </div>`;
+    return row + dateWrap;
+  }).join('');
+
+  const n = eventsArr.length;
+  taskSheetMount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header"><h2 class="sheet__title">Import events</h2></div>
+    <div class="sheet__content">
+      ${recurringBanner}
+      <div class="confirm-list" id="efIevList">${rows}</div>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--ghost" id="efIevCancel">Cancel</button>
+      <button class="btn btn--primary" id="efIevImport">Import ${n} event${n !== 1 ? 's' : ''}</button>
+    </div>`);
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  const list = taskSheetMount.querySelector('#efIevList');
+  const importBtn = taskSheetMount.querySelector('#efIevImport');
+
+  const updateBtn = () => {
+    const count = list.querySelectorAll('.confirm-row:not(.is-deselected)').length;
+    importBtn.textContent = `Import ${count} event${count !== 1 ? 's' : ''}`;
+    importBtn.disabled = count === 0;
+  };
+
+  list.addEventListener('click', (e) => {
+    if (e.target.closest('.ev-date-wrap')) return;
+    const row = e.target.closest('.confirm-row');
+    if (!row) return;
+    const idx = row.dataset.key;
+    row.classList.toggle('is-deselected');
+    const dateWrap = list.querySelector(`.ev-date-wrap[data-idx="${idx}"]`);
+    if (dateWrap) dateWrap.style.display = row.classList.contains('is-deselected') ? 'none' : '';
+    updateBtn();
+  });
+
+  taskSheetMount.querySelector('#efIevCancel')?.addEventListener('click', () => {
+    closeTaskSheet();
+    if (onCancel) setTimeout(onCancel, 320);
+  });
+
+  importBtn.addEventListener('click', async () => {
+    const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
+      .map(row => {
+        const ev = eventsArr[+row.dataset.key];
+        const dateEl = list.querySelector(`.ev-date[data-idx="${row.dataset.key}"]`);
+        const date = dateEl?.value || ev.date || null;
+        return date ? { ...ev, date } : null;
+      })
+      .filter(Boolean);
+    if (!selected.length) { closeTaskSheet(); return; }
+    importBtn.disabled = true; importBtn.textContent = 'Adding…';
+    try {
+      let counter = 0;
+      for (const ev of selected) {
+        const eventData = {
+          name: ev.name, date: ev.date,
+          allDay: ev.allDay ?? true,
+          startTime: ev.time || null, endTime: null,
+          color: people[0]?.color || '#4285f4',
+          people: [], notes: ev.notes || null, repeat: null,
+        };
+        const newId = await pushEvent(eventData);
+        events[newId] = eventData;
+        const schedKey = `sched_${Date.now()}_evt_${counter++}`;
+        await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+      }
+      closeTaskSheet();
+      render();
+    } catch (err) {
+      importBtn.disabled = false;
+      importBtn.textContent = `Import ${selected.length} event${selected.length !== 1 ? 's' : ''}`;
+    }
+  });
 }
 
 function openTaskSheet(entryKey, dateKey) {
