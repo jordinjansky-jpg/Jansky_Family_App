@@ -825,7 +825,7 @@
           }
           closeTaskSheet();
           setTimeout(() => openEventForm(null, data), 320);
-        } catch {
+        } catch (err) {
           if (status) status.textContent = 'Could not parse. Try again.';
           btn.disabled = false; btn.textContent = 'Add';
         }
