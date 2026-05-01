@@ -3054,7 +3054,7 @@ export function renderRepeatSheet(rule) {
     <div class="ef2-repeat-sub${customSubOpen}" id="rptCustomSub">
       <div class="field" style="display:flex;align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
         <span style="font-size:var(--font-sm);white-space:nowrap">Every</span>
-        <input class="field__input" id="rptEvery" type="number" min="1" max="99" value="${every}" style="width:64px">
+        <input class="field__input" id="rptEvery" type="number" min="1" max="99" value="${esc(every)}" style="width:64px">
         <select class="field__input" id="rptUnit" style="flex:1">
           <option value="days"${unit === 'days' ? ' selected' : ''}>Days</option>
           <option value="weeks"${unit === 'weeks' ? ' selected' : ''}>Weeks</option>
@@ -3071,10 +3071,10 @@ export function renderRepeatSheet(rule) {
         <option value="after"${endType === 'after' ? ' selected' : ''}>After</option>
       </select>
       <div id="rptEndDateWrap" style="margin-top:var(--spacing-xs);display:${endType === 'on' ? 'block' : 'none'}">
-        <input class="field__input" id="rptEndDate" type="date" value="${endDate}">
+        <input class="field__input" id="rptEndDate" type="date" value="${esc(endDate)}">
       </div>
       <div id="rptEndCountWrap" style="display:${endType === 'after' ? 'flex' : 'none'};align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
-        <input class="field__input" id="rptEndCount" type="number" min="1" max="999" value="${endCount}" style="width:80px">
+        <input class="field__input" id="rptEndCount" type="number" min="1" max="999" value="${esc(endCount)}" style="width:80px">
         <span style="font-size:var(--font-sm)">occurrences</span>
       </div>
     </div>
