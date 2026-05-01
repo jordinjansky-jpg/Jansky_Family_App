@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v102 (2026-05-01) — Event form redesign: ef2-* CSS, renderEventForm v2, import flows, repeat sub-sheet.
 // v94 (2026-04-29) — Kitchen shell: add kitchen.html + styles/kitchen.css to
 //                    precache. No kitchen.js in APP_SHELL (entry + CSS only).
 // v93 (2026-04-28) — Calendar, scoreboard, tracker now read linkedPerson.theme
@@ -202,7 +203,7 @@
 //                    initNavMore wires headerOverflow, click-outside sheets, slot edit sheet,
 //                    recipe picker replaces datalist.
 // v101 (2026-04-29) — AI features polish: add shared/ai-helpers.js to cache.
-const CACHE_NAME = 'family-hub-v101';
+const CACHE_NAME = 'family-hub-v102';
 
 const APP_SHELL = [
   '/',
