@@ -1660,7 +1660,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
   const exempt = !!task.exempt;
   const notesOpen = task.notesOpen ? ' is-open' : '';
   const optionsOpen = task.optionsOpen ? ' is-open' : '';
-  const optChipLabel = showCooldown ? '+ Cooldown' : '+ Options';
+  const optChipLabel = '+ Options';
   const optChipActive = (task.optionsOpen || task.cooldownDays || task.exempt) ? ' is-active' : '';
   const notesChipActive = (task.notesOpen || task.notes) ? ' is-active' : '';
 
@@ -1708,7 +1708,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
       <button class="tf-rot-pill${rotation === 'monthly' ? ' tf-rot-pill--active' : ''}" data-rot="monthly" type="button">Monthly</button>
       <button class="tf-rot-pill${rotation === 'once'    ? ' tf-rot-pill--active' : ''}" data-rot="once"    type="button">One-Time</button>
     </div>
-    <div class="tf-rot-reveal${rotation === 'weekly' ? ' is-open' : ''}" id="tf_weeklyReveal">
+    <div class="tf-rot-reveal${rotation !== 'once' ? ' is-open' : ''}" id="tf_weeklyReveal">
       <select id="tf_daySelect">${dayOptions}</select>
     </div>
     <div class="tf-rot-reveal${rotation === 'once' ? ' is-open' : ''}" id="tf_onceReveal">
@@ -2564,7 +2564,7 @@ export function initBanner({ getIsOffline = () => false } = {}) {
  * Initialize the notification bell on any page.
  * Sets up real-time listener and dropdown toggle.
  */
-export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, removeMessageFn, writeBankTokenFn, markBankTokenUsedFn, readBankFn, writeMultiplierFn, getTodayFn, approverName } = {}) {
+export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageFn, markMessageSeenFn, removeMessageFn, writeBankTokenFn, markBankTokenUsedFn, removeBankTokenFn, readBankFn, writeMultiplierFn, getTodayFn, approverName } = {}) {
   const approver = approverName || 'Parent';
   let bellMessages = {};
 

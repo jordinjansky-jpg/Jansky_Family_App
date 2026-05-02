@@ -1608,11 +1608,11 @@
       function calUpdateRot(rot) {
         calRot = rot;
         document.getElementById('tf_rotation')?.querySelectorAll('.tf-rot-pill').forEach(p => p.classList.toggle('tf-rot-pill--active', p.dataset.rot === rot));
-        document.getElementById('tf_weeklyReveal')?.classList.toggle('is-open', rot === 'weekly');
+        document.getElementById('tf_weeklyReveal')?.classList.toggle('is-open', rot !== 'once');
         document.getElementById('tf_onceReveal')?.classList.toggle('is-open', rot === 'once');
         const showCd = rot === 'weekly' || rot === 'monthly';
         const chip = document.getElementById('tf_optionsChip');
-        if (chip) chip.textContent = showCd ? '+ Cooldown' : '+ Options';
+        if (chip) chip.dataset.showCd = showCd ? '1' : '';
         document.getElementById('tf_cooldownRow')?.classList.toggle('is-hidden', !showCd);
         const cdInput = document.getElementById('tf_cooldown');
         if (cdInput && !cdInput.value) cdInput.placeholder = rot === 'weekly' ? '3' : rot === 'monthly' ? '7' : '';
