@@ -1648,7 +1648,6 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
 
   const DIFF_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const TOD_LABELS  = { am: 'Morning', pm: 'Afternoon', anytime: 'Anytime', both: 'Both' };
-  const DUR_PRESETS = [5, 10, 15, 20, 30, 45, 60];
   const diffLabel = DIFF_LABELS[difficulty] || 'Medium';
   const todLabel  = TOD_LABELS[timeOfDay] || 'Anytime';
   const durLabel  = `${estMin} min`;
@@ -1721,7 +1720,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
 
   <div class="tf-details-row">
     <button class="tf-detail-chip" id="tf_diffChip"  data-field="diff" data-val="${esc(difficulty)}"  type="button">${esc(diffLabel)}</button>
-    <button class="tf-detail-chip" id="tf_durChip"   data-field="dur"  data-val="${estMin}"            type="button">${esc(durLabel)}</button>
+    <button class="tf-detail-chip" id="tf_durChip"   data-field="dur"  data-val="${esc(estMin)}"      type="button">${esc(durLabel)}</button>
     <button class="tf-detail-chip" id="tf_todChip"   data-field="tod"  data-val="${esc(timeOfDay)}"   type="button">${esc(todLabel)}</button>
     <button class="tf-detail-chip" id="tf_catChip"   data-field="cat"  data-val="${esc(catKey)}"      type="button">${esc(catLabel)}</button>
   </div>
@@ -1744,7 +1743,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
     <div class="tf-options-inner">
       <div class="tf-options-row${showCooldown ? '' : ' is-hidden'}" id="tf_cooldownRow">
         <span class="tf-options-label">Cooldown</span>
-        <input class="tf-cooldown-input" type="number" id="tf_cooldown" min="0" max="60" value="${cooldownVal}" placeholder="${cdDefault || ''}">
+        <input class="tf-cooldown-input" type="number" id="tf_cooldown" min="0" max="60" value="${esc(cooldownVal)}" placeholder="${cdDefault || ''}">
         <span class="tf-options-unit">days</span>
       </div>
       <div class="tf-options-row">
