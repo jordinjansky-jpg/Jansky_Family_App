@@ -3564,7 +3564,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 .tf-rot-pill--active {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* Rotation inline reveals (day select / date picker) */
@@ -3634,11 +3634,11 @@ label.ef2-icon-btn  { cursor: pointer; }
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   pointer-events: all;
   animation: tf-picker-in 0.15s ease;
   max-height: 280px;
-  overflow-y: auto;
 }
 
 /* Picker cells — difficulty, time-of-day */
@@ -3648,7 +3648,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   display: flex;
   align-items: center;
   padding: 0 var(--spacing-md);
-  font-size: var(--font-base);
+  font-size: var(--font-md);
   color: var(--text);
   background: transparent;
   border: none;
