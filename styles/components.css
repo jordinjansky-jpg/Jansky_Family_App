@@ -3531,10 +3531,13 @@ label.ef2-icon-btn  { cursor: pointer; }
 /* Person chip row — reuse ef2 classes; family chip variant */
 .tf-for-section { padding: var(--spacing-sm) 0; }
 .tf-person-chip--family { background: transparent; }
-/* Tasks are shared equal load — all selected chips solid fill */
+/* Tasks are shared equal load — all selected chips solid fill, white dot */
 .tf-for-section .ef2-person-chip[data-state="attending"] {
   background: var(--chip-color, var(--accent));
   color: var(--on-accent);
+}
+.tf-for-section .ef2-person-chip[data-state="attending"]::before {
+  background: var(--on-accent);
 }
 
 /* Assign mode row — shown when 2+ owners selected */

@@ -1562,9 +1562,7 @@
       const pw = document.getElementById('tf_people');
       function calGetOwnerIds() {
         const chips = [...(pw?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
-        const primary = chips.find(c => c.dataset.state === 'primary')?.dataset.personId;
-        const attending = chips.filter(c => c.dataset.state === 'attending').map(c => c.dataset.personId);
-        return primary ? [primary, ...attending] : attending;
+        return chips.filter(c => c.dataset.state === 'primary').map(c => c.dataset.personId);
       }
       function calUpdateAssignRow() {
         document.getElementById('tf_assignRow')?.classList.toggle('is-hidden', calGetOwnerIds().length < 2);
@@ -1573,7 +1571,7 @@
         const chips = [...(pw?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
         const fam = pw?.querySelector('[data-person-id="__family__"]');
         if (on) {
-          chips.forEach((c, i) => c.setAttribute('data-state', i === 0 ? 'primary' : 'attending'));
+          chips.forEach(c => c.setAttribute('data-state', 'primary'));
           fam?.setAttribute('data-state', 'primary');
           const row = document.getElementById('tf_assignRow');
           row?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
@@ -1587,11 +1585,8 @@
       pw?.querySelectorAll('.ef2-person-chip').forEach(chip => {
         chip.addEventListener('click', () => {
           if (chip.dataset.personId === '__family__') { calSetFamilyMode(chip.dataset.state !== 'primary'); return; }
-          const all = [...(pw?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
-          const cur = chip.dataset.state || '';
-          if (!cur) chip.setAttribute('data-state', all.some(c => c !== chip && c.dataset.state === 'primary') ? 'attending' : 'primary');
-          else if (cur === 'attending') { all.forEach(c => { if (c.dataset.state === 'primary') c.setAttribute('data-state', 'attending'); }); chip.setAttribute('data-state', 'primary'); }
-          else { chip.removeAttribute('data-state'); all.find(c => c.dataset.state === 'attending')?.setAttribute('data-state', 'primary'); }
+          if (chip.dataset.state === 'primary') chip.removeAttribute('data-state');
+          else chip.setAttribute('data-state', 'primary');
           pw?.querySelector('[data-person-id="__family__"]')?.removeAttribute('data-state');
           calUpdateAssignRow();
         });

@@ -2866,9 +2866,7 @@ function openTaskForm(taskId = null, savedState = null) {
 
   function tfGetOwnerIds() {
     const chips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
-    const primary = chips.find(c => c.dataset.state === 'primary')?.dataset.personId;
-    const attending = chips.filter(c => c.dataset.state === 'attending').map(c => c.dataset.personId);
-    return primary ? [primary, ...attending] : attending;
+    return chips.filter(c => c.dataset.state === 'primary').map(c => c.dataset.personId);
   }
 
   function tfUpdateAssignRow() {
@@ -2880,7 +2878,7 @@ function openTaskForm(taskId = null, savedState = null) {
     const chips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
     const familyChip = peopleWrap?.querySelector('[data-person-id="__family__"]');
     if (on) {
-      chips.forEach((c, i) => c.setAttribute('data-state', i === 0 ? 'primary' : 'attending'));
+      chips.forEach(c => c.setAttribute('data-state', 'primary'));
       familyChip?.setAttribute('data-state', 'primary');
       const row = document.getElementById('tf_assignRow');
       row?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
@@ -2898,17 +2896,8 @@ function openTaskForm(taskId = null, savedState = null) {
         tfSetFamilyMode(chip.dataset.state !== 'primary');
         return;
       }
-      const allChips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
-      const cur = chip.dataset.state || '';
-      if (!cur) {
-        chip.setAttribute('data-state', allChips.some(c => c !== chip && c.dataset.state === 'primary') ? 'attending' : 'primary');
-      } else if (cur === 'attending') {
-        allChips.forEach(c => { if (c.dataset.state === 'primary') c.setAttribute('data-state', 'attending'); });
-        chip.setAttribute('data-state', 'primary');
-      } else {
-        chip.removeAttribute('data-state');
-        allChips.find(c => c.dataset.state === 'attending')?.setAttribute('data-state', 'primary');
-      }
+      if (chip.dataset.state === 'primary') chip.removeAttribute('data-state');
+      else chip.setAttribute('data-state', 'primary');
       peopleWrap?.querySelector('[data-person-id="__family__"]')?.removeAttribute('data-state');
       tfUpdateAssignRow();
     });

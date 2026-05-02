@@ -1642,8 +1642,6 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
   const catKey = task.category || defaultCat?.key || '';
   const catObj = categories.find(c => c.key === catKey);
   const selectedOwners = task.owners || [];
-  const primaryId = selectedOwners[0] || null;
-  const attendingIds = new Set(selectedOwners.slice(1));
   const assignMode = task.ownerAssignmentMode || 'rotate';
 
   const DIFF_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
@@ -1665,7 +1663,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
   const notesChipActive = (task.notesOpen || task.notes) ? ' is-active' : '';
 
   const personChipsHtml = people.map(p => {
-    const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
+    const state = selectedOwners.includes(p.id) ? 'primary' : '';
     return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
   }).join('');
 
