@@ -56,7 +56,7 @@
 .app-header__actions {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: 2px;
   flex-shrink: 0;
 }
 

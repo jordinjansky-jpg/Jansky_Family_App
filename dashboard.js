@@ -96,6 +96,7 @@ if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appN
 // ── Header & Nav ──
 function openMoreSheet() {
   const items = [
+    { id: 'admin',    label: 'Admin' },
     { id: 'calendar', label: 'Calendar' },
     { id: 'tracker',  label: 'Tracker' },
     { id: 'theme',    label: 'Theme' },
@@ -118,7 +119,9 @@ function openMoreSheet() {
     const itemId = btn.dataset.itemId;
     closeTaskSheet();
     setTimeout(() => {
-      if (itemId === 'calendar') {
+      if (itemId === 'admin') {
+        location.href = 'admin.html';
+      } else if (itemId === 'calendar') {
         location.href = 'calendar.html';
       } else if (itemId === 'tracker') {
         location.href = 'tracker.html';
@@ -1146,32 +1149,50 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
   let selectedSlot = preSlot;
   let selectedMealId = viewMeals?.[selectedSlot]?.recipeId || null;
 
-  const sortedEntries = Object.entries(recipes).sort(([, a], [, b]) => {
-    if (a.isFavorite && !b.isFavorite) return -1;
-    if (!a.isFavorite && b.isFavorite) return 1;
-    return (b.lastUsed || 0) - (a.lastUsed || 0);
-  });
+  const starFilled = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+  const starEmpty = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+
+  function getRecipeEntries() {
+    return Object.entries(recipes).sort(([, a], [, b]) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return (b.lastUsed || 0) - (a.lastUsed || 0);
+    });
+  }
+
+  function buildPickRow(id, r) {
+    const isSelected = selectedMealId === id;
+    return `<div class="recipe-pick__item">
+      <button class="recipe-pick__row recipe-pick__pick${isSelected ? ' is-selected' : ''}"
+        data-recipe-pick="${esc(id)}" type="button">
+        <span>${esc(r.name)}</span>
+        ${isSelected ? '<span class="recipe-pick__check">&#10003;</span>' : ''}
+      </button>
+      <button class="recipe-pick__fav-btn${r.isFavorite ? ' is-fav' : ''}"
+        data-fav-id="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}">
+        ${r.isFavorite ? starFilled : starEmpty}
+      </button>
+    </div>`;
+  }
+
+  function buildRecipeRows(filter) {
+    const entries = getRecipeEntries();
+    const lc = filter?.toLowerCase() || '';
+    if (lc) {
+      const filtered = entries.filter(([, r]) => r.name.toLowerCase().includes(lc));
+      return filtered.length === 0
+        ? `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`
+        : filtered.map(([id, r]) => buildPickRow(id, r)).join('');
+    }
+    if (entries.length === 0) return `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
+    const favorites = entries.filter(([, r]) => r.isFavorite);
+    const recent = entries.filter(([, r]) => !r.isFavorite).slice(0, 3);
+    return [...favorites, ...recent].map(([id, r]) => buildPickRow(id, r)).join('');
+  }
 
   function buildSlotTabs() {
     return SLOTS.map(s =>
       `<button class="tab${s === selectedSlot ? ' is-active' : ''}" data-slot="${s}" type="button">${SLOT_LABELS[s]}</button>`
-    ).join('');
-  }
-
-  function buildRecipeRows(filter) {
-    const lc = filter?.toLowerCase() || '';
-    const filtered = lc ? sortedEntries.filter(([, r]) => r.name.toLowerCase().includes(lc)) : sortedEntries;
-    if (filtered.length === 0) {
-      return lc
-        ? `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`
-        : `<div class="recipe-pick__none">No recipes yet.</div>`;
-    }
-    return filtered.map(([id, r]) =>
-      `<button class="recipe-pick__row${selectedMealId === id ? ' is-selected' : ''}"
-        data-recipe-pick="${esc(id)}" type="button">
-        <span>${esc(r.name)}</span>
-        ${selectedMealId === id ? '<span class="recipe-pick__check">✓</span>' : ''}
-      </button>`
     ).join('');
   }
 
@@ -1208,11 +1229,33 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
+  function updateSaveBtn() {
+    const val = document.getElementById('mpSearch')?.value.trim();
+    const btn = document.getElementById('mpSave');
+    if (btn) btn.disabled = !(val || selectedMealId);
+  }
+
   function bindPickRows() {
     document.getElementById('mpRecipePick')?.querySelectorAll('[data-recipe-pick]').forEach(btn => {
       btn.addEventListener('click', () => {
-        selectedMealId = btn.dataset.recipePick;
-        document.getElementById('mpSearch').value = recipes[selectedMealId]?.name || '';
+        if (selectedMealId === btn.dataset.recipePick) {
+          selectedMealId = null;
+          document.getElementById('mpSearch').value = '';
+        } else {
+          selectedMealId = btn.dataset.recipePick;
+          document.getElementById('mpSearch').value = recipes[selectedMealId]?.name || '';
+        }
+        document.getElementById('mpRecipePick').innerHTML = buildRecipeRows(document.getElementById('mpSearch').value);
+        bindPickRows();
+        updateSaveBtn();
+      });
+    });
+    document.getElementById('mpRecipePick')?.querySelectorAll('[data-fav-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.favId;
+        const newFav = !recipes[id]?.isFavorite;
+        recipes[id] = { ...recipes[id], isFavorite: newFav };
+        await writeKitchenRecipe(id, { ...recipes[id] });
         document.getElementById('mpRecipePick').innerHTML = buildRecipeRows(document.getElementById('mpSearch').value);
         bindPickRows();
       });
@@ -1239,6 +1282,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null) {
     selectedMealId = null;
     document.getElementById('mpRecipePick').innerHTML = buildRecipeRows(e.target.value);
     bindPickRows();
+    updateSaveBtn();
   });
 
   document.getElementById('mpCreateRecipe')?.addEventListener('click', () => {

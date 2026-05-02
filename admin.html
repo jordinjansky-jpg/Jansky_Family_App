@@ -3939,6 +3939,7 @@
           </div>
           <p class="form-hint mb-md">Upload the school's monthly lunch PDF or photo. Menus will be imported as school lunch entries visible in the Kitchen meal plan.</p>
           <div id="schoolLunchStatus"></div>
+          <button class="btn btn--ghost btn--sm" id="clearSchoolLunchBtn" type="button" style="margin-top:var(--spacing-sm)">Clear all school lunches</button>
         </div>
 
         <div class="admin-form__section mt-lg">
@@ -4056,6 +4057,30 @@
       main.querySelector('#slCamera')?.addEventListener('change', onSchoolLunch);
       main.querySelector('#slGallery')?.addEventListener('change', onSchoolLunch);
       main.querySelector('#slFiles')?.addEventListener('change', onSchoolLunch);
+
+      main.querySelector('#clearSchoolLunchBtn')?.addEventListener('click', async () => {
+        const btn = main.querySelector('#clearSchoolLunchBtn');
+        btn.disabled = true;
+        btn.textContent = 'Clearing…';
+        try {
+          const db = firebase.database();
+          const snap = await db.ref('rundown/kitchen/plan').once('value');
+          const plan = snap.val() || {};
+          const dels = [];
+          for (const [date, slots] of Object.entries(plan)) {
+            if (slots?.['school-lunch'])   dels.push(db.ref(`rundown/kitchen/plan/${date}/school-lunch`).remove());
+            if (slots?.['school-lunch-2']) dels.push(db.ref(`rundown/kitchen/plan/${date}/school-lunch-2`).remove());
+          }
+          await Promise.all(dels);
+          const statusEl = main.querySelector('#schoolLunchStatus');
+          if (statusEl) statusEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-sm)">Cleared ${dels.length} school lunch entries.</p>`;
+        } catch {
+          const statusEl = main.querySelector('#schoolLunchStatus');
+          if (statusEl) statusEl.innerHTML = `<p style="color:var(--danger)">Error clearing lunches.</p>`;
+        }
+        btn.disabled = false;
+        btn.textContent = 'Clear all school lunches';
+      });
 
       // ── Task Scanner ──
       const onTaskScan = async (e) => {

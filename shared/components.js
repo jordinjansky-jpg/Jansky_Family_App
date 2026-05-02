@@ -220,6 +220,7 @@ export function renderNavBar(activePage, options = {}) {
  */
 export function initNavMore(sheetMount, getTheme, personOpts) {
   const items = [
+    { id: 'admin',    label: 'Admin' },
     { id: 'calendar', label: 'Calendar' },
     { id: 'tracker',  label: 'Tracker' },
     { id: 'theme',    label: 'Theme' },
@@ -243,6 +244,7 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
       if (!row) return;
       sheetMount.innerHTML = '';
       const id = row.dataset.itemId;
+      if (id === 'admin')    location.href = 'admin.html';
       if (id === 'calendar') location.href = 'calendar.html';
       if (id === 'tracker')  location.href = 'tracker.html';
       if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, undefined, personOpts);
