@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet, renderRepeatSheet } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderQuickAddSheet, renderEditTaskSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
@@ -2824,6 +2824,411 @@ function bindTaskSheetEvents(entryKey, dateKey) {
     closeNotesEditor();
   });
 }
+
+// ══════════════════════════════════════════
+// Task form — create + edit (tf-* pattern)
+// ══════════════════════════════════════════
+
+function tfHidePicker() {
+  document.getElementById('tf_pickerOverlay')?.remove();
+}
+
+function openTaskForm(taskId = null, savedState = null) {
+  const baseTask = savedState || (taskId ? tasks[taskId] : {});
+  // activePerson pre-fill: when creating, seed owners from the current filter
+  const task = (!taskId && !savedState && activePerson)
+    ? { ...baseTask, owners: [activePerson] }
+    : baseTask;
+  const mode = taskId ? 'edit' : 'create';
+  const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
+
+  const html = renderTaskForm({ task, taskId, mode, categories: catsArr, people });
+  taskSheetMount.innerHTML = renderBottomSheet(html);
+
+  taskSheetMount.querySelectorAll('.ef2-person-chip[data-person-color]').forEach(chip => {
+    chip.style.setProperty('--chip-color', chip.dataset.personColor);
+  });
+
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    if (mode === 'create') document.getElementById('tf_name')?.focus();
+  });
+
+  // ── Close ────────────────────────────────────────────────
+  const doClose = () => { tfHidePicker(); closeTaskSheet(); };
+  document.getElementById('tf_close')?.addEventListener('click', doClose);
+  document.getElementById('tf_cancel')?.addEventListener('click', doClose);
+  document.getElementById('bottomSheet')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('bottomSheet')) doClose();
+  });
+
+  // ── Person chip state machine ─────────────────────────────
+  const peopleWrap = document.getElementById('tf_people');
+
+  function tfGetOwnerIds() {
+    const chips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
+    const primary = chips.find(c => c.dataset.state === 'primary')?.dataset.personId;
+    const attending = chips.filter(c => c.dataset.state === 'attending').map(c => c.dataset.personId);
+    return primary ? [primary, ...attending] : attending;
+  }
+
+  function tfUpdateAssignRow() {
+    const ids = tfGetOwnerIds();
+    document.getElementById('tf_assignRow')?.classList.toggle('is-hidden', ids.length < 2);
+  }
+
+  function tfSetFamilyMode(on) {
+    const chips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
+    const familyChip = peopleWrap?.querySelector('[data-person-id="__family__"]');
+    if (on) {
+      chips.forEach((c, i) => c.setAttribute('data-state', i === 0 ? 'primary' : 'attending'));
+      familyChip?.setAttribute('data-state', 'primary');
+      const row = document.getElementById('tf_assignRow');
+      row?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
+      row?.querySelector('[data-mode="everyone"]')?.classList.add('tf-assign-pill--active');
+    } else {
+      chips.forEach(c => c.removeAttribute('data-state'));
+      familyChip?.removeAttribute('data-state');
+    }
+    tfUpdateAssignRow();
+  }
+
+  peopleWrap?.querySelectorAll('.ef2-person-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (chip.dataset.personId === '__family__') {
+        tfSetFamilyMode(chip.dataset.state !== 'primary');
+        return;
+      }
+      const allChips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
+      const cur = chip.dataset.state || '';
+      if (!cur) {
+        chip.setAttribute('data-state', allChips.some(c => c !== chip && c.dataset.state === 'primary') ? 'attending' : 'primary');
+      } else if (cur === 'attending') {
+        allChips.forEach(c => { if (c.dataset.state === 'primary') c.setAttribute('data-state', 'attending'); });
+        chip.setAttribute('data-state', 'primary');
+      } else {
+        chip.removeAttribute('data-state');
+        allChips.find(c => c.dataset.state === 'attending')?.setAttribute('data-state', 'primary');
+      }
+      peopleWrap?.querySelector('[data-person-id="__family__"]')?.removeAttribute('data-state');
+      tfUpdateAssignRow();
+    });
+  });
+
+  // ── Assign mode pills ─────────────────────────────────────
+  document.getElementById('tf_assignRow')?.querySelectorAll('.tf-assign-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('tf_assignRow')?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
+      btn.classList.add('tf-assign-pill--active');
+    });
+  });
+
+  // ── Rotation pills ────────────────────────────────────────
+  let tfRotation = task.rotation || 'daily';
+
+  function tfUpdateRotation(rot) {
+    tfRotation = rot;
+    document.getElementById('tf_rotation')?.querySelectorAll('.tf-rot-pill').forEach(p => {
+      p.classList.toggle('tf-rot-pill--active', p.dataset.rot === rot);
+    });
+    document.getElementById('tf_weeklyReveal')?.classList.toggle('is-open', rot === 'weekly');
+    document.getElementById('tf_onceReveal')?.classList.toggle('is-open', rot === 'once');
+    const showCd = rot === 'weekly' || rot === 'monthly';
+    const chip = document.getElementById('tf_optionsChip');
+    if (chip) {
+      chip.textContent = showCd ? '+ Cooldown' : '+ Options';
+      chip.dataset.showCd = showCd ? '1' : '';
+    }
+    document.getElementById('tf_cooldownRow')?.classList.toggle('is-hidden', !showCd);
+    const cdInput = document.getElementById('tf_cooldown');
+    if (cdInput && !cdInput.value) {
+      cdInput.placeholder = rot === 'weekly' ? '3' : rot === 'monthly' ? '7' : '';
+    }
+  }
+
+  document.getElementById('tf_rotation')?.querySelectorAll('.tf-rot-pill').forEach(pill => {
+    pill.addEventListener('click', () => tfUpdateRotation(pill.dataset.rot));
+  });
+
+  // ── Detail chip pickers ───────────────────────────────────
+  let tfDiff = task.difficulty || 'medium';
+  let tfDur  = task.estMin ?? 10;
+  let tfTod  = task.timeOfDay || 'anytime';
+  let tfCat  = task.category || catsArr.find(c => c.isDefault)?.key || '';
+
+  function tfShowPicker(field, chipEl) {
+    tfHidePicker();
+    const DUR_PRESETS = [5, 10, 15, 20, 30, 45, 60];
+    let inner = '';
+
+    if (field === 'diff') {
+      inner = `<div class="tf-picker-cells">
+        ${[['easy','Easy'],['medium','Medium'],['hard','Hard']].map(([v, l]) =>
+          `<button class="tf-picker-cell${tfDiff === v ? ' tf-picker-cell--active' : ''}" data-pick-val="${v}" data-pick-label="${l}" type="button">${l}</button>`
+        ).join('')}
+      </div>`;
+    } else if (field === 'dur') {
+      inner = `<div class="tf-dur-grid">
+        ${DUR_PRESETS.map(v =>
+          `<button class="tf-dur-cell${tfDur === v ? ' tf-dur-cell--active' : ''}" data-pick-val="${v}" data-pick-label="${v} min" type="button">${v}</button>`
+        ).join('')}
+        <button class="tf-dur-cell" data-pick-val="custom" type="button">...</button>
+      </div>
+      <div class="tf-dur-custom-wrap is-hidden" id="tf_durCustomWrap">
+        <input type="number" id="tf_durCustom" min="1" max="300" placeholder="Minutes" value="${!DUR_PRESETS.includes(tfDur) ? tfDur : ''}">
+      </div>`;
+    } else if (field === 'tod') {
+      inner = `<div class="tf-picker-cells">
+        ${[['am','Morning'],['anytime','Anytime'],['pm','Afternoon'],['both','Both']].map(([v, l]) =>
+          `<button class="tf-picker-cell${tfTod === v ? ' tf-picker-cell--active' : ''}" data-pick-val="${v}" data-pick-label="${l}" type="button">${l}</button>`
+        ).join('')}
+      </div>`;
+    } else if (field === 'cat') {
+      inner = `<div class="tf-cat-list">
+        ${catsArr.map(c =>
+          `<button class="tf-cat-item${tfCat === c.key ? ' tf-cat-item--active' : ''}" data-pick-val="${esc(c.key)}" data-pick-label="${esc((c.icon || '') + ' ' + c.label)}" type="button">
+            <span class="tf-cat-icon">${c.icon || ''}</span>
+            <span class="tf-cat-label">${esc(c.label)}</span>
+          </button>`
+        ).join('')}
+      </div>`;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'tf-picker-overlay';
+    overlay.id = 'tf_pickerOverlay';
+    overlay.innerHTML = `<div class="tf-picker-backdrop"></div><div class="tf-picker" id="tf_pickerInner">${inner}</div>`;
+    document.body.appendChild(overlay);
+
+    // Position near chip
+    const rect = chipEl.getBoundingClientRect();
+    const picker = overlay.querySelector('.tf-picker');
+    const W = Math.min(280, window.innerWidth - 32);
+    picker.style.width = `${W}px`;
+    let left = rect.left;
+    if (left + W > window.innerWidth - 16) left = window.innerWidth - W - 16;
+    if (left < 16) left = 16;
+    picker.style.left = `${left}px`;
+    if (window.innerHeight - rect.bottom > 200) {
+      picker.style.top = `${rect.bottom + 8}px`;
+    } else {
+      picker.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+    }
+
+    // Backdrop dismiss
+    overlay.querySelector('.tf-picker-backdrop').addEventListener('click', tfHidePicker);
+
+    // Custom duration toggle
+    overlay.querySelector('[data-pick-val="custom"]')?.addEventListener('click', () => {
+      const wrap = overlay.querySelector('#tf_durCustomWrap');
+      wrap?.classList.remove('is-hidden');
+      overlay.querySelector('#tf_durCustom')?.focus();
+    });
+
+    // Custom duration confirm
+    const customInput = overlay.querySelector('#tf_durCustom');
+    if (customInput) {
+      const confirmCustom = () => {
+        const v = parseInt(customInput.value, 10);
+        if (v > 0) tfOnPickerSelect('dur', v, `${v} min`);
+      };
+      customInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmCustom(); });
+      customInput.addEventListener('blur', confirmCustom);
+    }
+
+    // Normal selections
+    overlay.querySelectorAll('[data-pick-val]:not([data-pick-val="custom"])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tfOnPickerSelect(field, btn.dataset.pickVal, btn.dataset.pickLabel || btn.textContent.trim());
+      });
+    });
+  }
+
+  function tfOnPickerSelect(field, val, label) {
+    if (field === 'diff') {
+      tfDiff = val;
+      document.getElementById('tf_diffChip').textContent = label;
+    } else if (field === 'dur') {
+      tfDur = typeof val === 'number' ? val : parseInt(val, 10);
+      document.getElementById('tf_durChip').textContent = label || `${tfDur} min`;
+    } else if (field === 'tod') {
+      tfTod = val;
+      document.getElementById('tf_todChip').textContent = label;
+    } else if (field === 'cat') {
+      tfCat = val;
+      document.getElementById('tf_catChip').textContent = label;
+    }
+    tfHidePicker();
+  }
+
+  document.getElementById('tf_diffChip')?.addEventListener('click', e => tfShowPicker('diff', e.currentTarget));
+  document.getElementById('tf_durChip')?.addEventListener('click',  e => tfShowPicker('dur',  e.currentTarget));
+  document.getElementById('tf_todChip')?.addEventListener('click',  e => tfShowPicker('tod',  e.currentTarget));
+  document.getElementById('tf_catChip')?.addEventListener('click',  e => tfShowPicker('cat',  e.currentTarget));
+
+  // ── Notes reveal ──────────────────────────────────────────
+  document.getElementById('tf_notesChip')?.addEventListener('click', () => {
+    const reveal = document.getElementById('tf_notesReveal');
+    const chip   = document.getElementById('tf_notesChip');
+    const open   = reveal?.classList.toggle('is-open');
+    chip?.classList.toggle('is-active', open);
+    if (open) document.getElementById('tf_notes')?.focus();
+  });
+  document.getElementById('tf_notesClose')?.addEventListener('click', () => {
+    document.getElementById('tf_notesReveal')?.classList.remove('is-open');
+    document.getElementById('tf_notesChip')?.classList.remove('is-active');
+  });
+
+  // ── Options reveal ────────────────────────────────────────
+  document.getElementById('tf_optionsChip')?.addEventListener('click', () => {
+    const reveal = document.getElementById('tf_optionsReveal');
+    const chip   = document.getElementById('tf_optionsChip');
+    reveal?.classList.toggle('is-open');
+    chip?.classList.toggle('is-active');
+  });
+
+  // ── Exempt toggle ─────────────────────────────────────────
+  document.getElementById('tf_exempt')?.addEventListener('click', e => {
+    const btn = e.currentTarget;
+    const on  = btn.classList.toggle('is-active');
+    btn.textContent = on ? 'On' : 'Off';
+  });
+
+  // ── Save ──────────────────────────────────────────────────
+  document.getElementById('tf_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('tf_name')?.value.trim();
+    if (!name) {
+      const inp = document.getElementById('tf_name');
+      inp?.classList.add('is-invalid');
+      inp?.focus();
+      setTimeout(() => inp?.classList.remove('is-invalid'), 600);
+      return;
+    }
+
+    const ownerIds = tfGetOwnerIds();
+    const assignPill = document.getElementById('tf_assignRow')?.querySelector('.tf-assign-pill--active')?.dataset.mode;
+    const ownerAssignmentMode = ownerIds.length <= 1 ? 'fixed' : (assignPill === 'everyone' ? 'duplicate' : 'rotate');
+    const rotation = tfRotation;
+    const dedicatedDay = rotation === 'weekly'
+      ? (parseInt(document.getElementById('tf_daySelect')?.value, 10) || null)
+      : null;
+    const dedicatedDate = rotation === 'once'
+      ? (document.getElementById('tf_onceDate')?.value || null)
+      : null;
+    const showCd = rotation === 'weekly' || rotation === 'monthly';
+    const cdVal  = document.getElementById('tf_cooldown')?.value;
+    const cdDefault = rotation === 'weekly' ? 3 : rotation === 'monthly' ? 7 : 0;
+    const cooldownDays = showCd
+      ? (cdVal !== '' ? (parseInt(cdVal, 10) || cdDefault) : cdDefault)
+      : null;
+    const exempt = document.getElementById('tf_exempt')?.classList.contains('is-active') || false;
+    const notes  = document.getElementById('tf_notes')?.value.trim() || null;
+
+    const updated = {
+      ...(taskId ? tasks[taskId] : {}),
+      name,
+      rotation,
+      difficulty: tfDiff,
+      estMin: tfDur,
+      timeOfDay: tfTod,
+      category: tfCat,
+      owners: ownerIds,
+      ownerAssignmentMode,
+      dedicatedDay,
+      dedicatedDate,
+      cooldownDays: cooldownDays || null,
+      exempt,
+      notes: notes || null,
+      bounty: null,
+      eventTime: null,
+      status: 'active',
+    };
+    if (!taskId) updated.createdDate = today;
+
+    const saveBtn = document.getElementById('tf_save');
+    if (saveBtn) saveBtn.disabled = true;
+
+    if (taskId) {
+      // Edit path
+      await writeTask(taskId, updated);
+      tasks[taskId] = updated;
+      const allSched = await readAllSchedule() || {};
+      const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, { includeToday: true }, catsObj);
+      await multiUpdate(futureUpdates);
+    } else {
+      // Create path
+      const newId = await pushTask(updated);
+      tasks[newId] = updated;
+
+      // Today entry — same logic as openQuickAddSheet
+      const skipToday = (rotation === 'once' && dedicatedDate && dedicatedDate !== today)
+        || ((rotation === 'weekly' || rotation === 'monthly') && dedicatedDay != null && dayOfWeek(today) !== dedicatedDay);
+      if (ownerIds.length > 0 && !skipToday) {
+        const schedDate = dedicatedDate || today;
+        const schedUpdates = {};
+        const baseEntry = { taskId: newId, rotationType: rotation, ownerAssignmentMode, timeOfDay: tfTod };
+        let qaCounter = 0;
+        const qaKey = () => `sched_${Date.now()}_qa_${String(qaCounter++).padStart(3, '0')}`;
+        if (ownerAssignmentMode === 'duplicate') {
+          for (const oid of ownerIds) {
+            if (tfTod === 'both') {
+              schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+              schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+            } else {
+              schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId: oid };
+            }
+          }
+        } else {
+          const ownerId = ownerAssignmentMode === 'fixed' ? ownerIds[0] : getRotationOwner(updated, today, newId);
+          if (tfTod === 'both') {
+            schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+            schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+          } else {
+            schedUpdates[`schedule/${schedDate}/${qaKey()}`] = { ...baseEntry, ownerId };
+          }
+        }
+        await multiUpdate(schedUpdates);
+      }
+      const allSched = await readAllSchedule() || {};
+      const futureUpdates = buildScheduleUpdates(tasks, people, settings, completions, allSched, undefined, catsObj);
+      await multiUpdate(futureUpdates);
+    }
+
+    tfHidePicker();
+    await loadData();
+    closeTaskSheet();
+    render();
+  });
+
+  // ── Delete (edit mode only) ───────────────────────────────
+  document.getElementById('tf_deleteBtn')?.addEventListener('click', () => {
+    document.getElementById('tf_deleteConfirm')?.classList.add('is-open');
+    if (document.getElementById('tf_deleteBtn')) document.getElementById('tf_deleteBtn').style.display = 'none';
+  });
+  document.getElementById('tf_deleteNo')?.addEventListener('click', () => {
+    document.getElementById('tf_deleteConfirm')?.classList.remove('is-open');
+    if (document.getElementById('tf_deleteBtn')) document.getElementById('tf_deleteBtn').style.display = '';
+  });
+  document.getElementById('tf_deleteYes')?.addEventListener('click', async () => {
+    if (!taskId) return;
+    const updates = { [`tasks/${taskId}`]: null };
+    const allSched = await readAllSchedule() || {};
+    for (const [dateKey, dayEntries] of Object.entries(allSched)) {
+      for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
+        if (entry.taskId === taskId) {
+          updates[`schedule/${dateKey}/${entryKey}`] = null;
+          updates[`completions/${entryKey}`] = null;
+        }
+      }
+    }
+    await multiUpdate(updates);
+    delete tasks[taskId];
+    tfHidePicker();
+    closeTaskSheet();
+    await loadData();
+    render();
+  });
+} // end openTaskForm
 
 // ══════════════════════════════════════════
 // Edit task sheet (no PIN)
