@@ -174,7 +174,7 @@ function bindFab() {
   const label = activeTab === 'meals' ? 'Add' : activeTab === 'recipes' ? 'New recipe' : 'Add items';
   mount.innerHTML = renderFab({ id: 'kitchenFab', label });
   document.getElementById('kitchenFab')?.addEventListener('click', () => {
-    if (activeTab === 'meals') openMealFabSheet();
+    if (activeTab === 'meals') { const tz = settings?.timezone || 'America/Chicago'; openPlanMealSheet(todayKey(tz), 'dinner'); }
     else if (activeTab === 'recipes') openRecipeForm(null);
     else openListFabSheet();
   });
@@ -344,34 +344,43 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     .map(s => `<option value="${esc(s)}"${s === preSlot ? ' selected' : ''}>${esc(SLOT_LABELS[s])}</option>`)
     .join('');
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(currentWeekStart);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
-  const dateOptions = weekDays.map(d => {
-    const dk = dateKey(d);
-    const label = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
-    return `<option value="${esc(dk)}"${dk === preDate ? ' selected' : ''}>${esc(label)}</option>`;
-  }).join('');
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function formatDateLabel(dk) {
+    const d = new Date(dk + 'T12:00:00');
+    return `${DAY_ABBR[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  }
+
+  const starFilled = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+  const starEmpty = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
   function buildRecipeRows(filter) {
     const lc = filter?.toLowerCase() || '';
-    const filtered = lc
-      ? recipeEntries.filter(([, r]) => r.name.toLowerCase().includes(lc))
-      : recipeEntries;
-    if (filtered.length === 0) {
-      return lc
-        ? `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`
-        : `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
+    if (lc) {
+      const filtered = recipeEntries.filter(([, r]) => r.name.toLowerCase().includes(lc));
+      if (filtered.length === 0) return `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`;
+      return filtered.map(([id, r]) => buildPickRow(id, r)).join('');
     }
-    return filtered.map(([id, r]) =>
-      `<button class="recipe-pick__row${selectedRecipeId === id ? ' is-selected' : ''}"
+    if (recipeEntries.length === 0) {
+      return `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
+    }
+    const favorites = recipeEntries.filter(([, r]) => r.isFavorite);
+    const recent = recipeEntries.filter(([, r]) => !r.isFavorite).slice(0, 3);
+    return [...favorites, ...recent].map(([id, r]) => buildPickRow(id, r)).join('');
+  }
+
+  function buildPickRow(id, r) {
+    const isSelected = selectedRecipeId === id;
+    return `<div class="recipe-pick__item">
+      <button class="recipe-pick__row recipe-pick__pick${isSelected ? ' is-selected' : ''}"
         data-recipe-pick="${esc(id)}" type="button">
         <span>${esc(r.name)}</span>
-        ${selectedRecipeId === id ? '<span class="recipe-pick__check">✓</span>' : ''}
-      </button>`
-    ).join('');
+        ${isSelected ? '<span class="recipe-pick__check">&#10003;</span>' : ''}
+      </button>
+      <button class="recipe-pick__fav-btn${r.isFavorite ? ' is-fav' : ''}"
+        data-fav-id="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}">
+        ${r.isFavorite ? starFilled : starEmpty}
+      </button>
+    </div>`;
   }
 
   const preRecipeName = preRecipeId ? (recipes[preRecipeId]?.name || '') : '';
@@ -386,7 +395,10 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     <div class="kp-day-slot-row">
       <label class="field">
         <span class="field__label">Day</span>
-        <select id="kp_day">${dateOptions}</select>
+        <div class="kp-date-wrap">
+          <button class="kp-date-btn" id="kp_datebtn" type="button">${formatDateLabel(preDate)}</button>
+          <input type="date" id="kp_day" class="kp-date-input" value="${esc(preDate)}">
+        </div>
       </label>
       <label class="field">
         <span class="field__label">Meal slot</span>
@@ -415,6 +427,14 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   document.getElementById('kp_close')?.addEventListener('click', close);
   document.getElementById('kp_cancel')?.addEventListener('click', close);
 
+  document.getElementById('kp_datebtn')?.addEventListener('click', () => {
+    const inp = document.getElementById('kp_day');
+    try { inp.showPicker(); } catch { inp.focus(); }
+  });
+  document.getElementById('kp_day')?.addEventListener('change', (e) => {
+    if (e.target.value) document.getElementById('kp_datebtn').textContent = formatDateLabel(e.target.value);
+  });
+
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
     const day = document.getElementById('kp_day')?.value || preDate;
     const slot = document.getElementById('kp_slot')?.value || preSlot;
@@ -435,6 +455,16 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
         bindPickRows();
         updateSaveBtn();
+      });
+    });
+    document.getElementById('recipePick')?.querySelectorAll('[data-fav-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.favId;
+        const newFav = !recipes[id]?.isFavorite;
+        recipes[id] = { ...recipes[id], isFavorite: newFav };
+        await writeKitchenRecipe(id, { ...recipes[id] });
+        document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
+        bindPickRows();
       });
     });
   }
@@ -513,38 +543,31 @@ function openRecipeDetailSheet(recipeId) {
   if (!recipe) return;
   const mount = document.getElementById('sheetMount');
   const hasIngredients = (recipe.ingredients?.length || 0) > 0;
-  const listEntries = Object.entries(lists).sort((a, b) => (a[1].sortOrder || 0) - (b[1].sortOrder || 0));
+
+  const titleHtml = recipe.url
+    ? `<a href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" class="sheet__title-link">${esc(recipe.name)}</a>`
+    : esc(recipe.name);
 
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
-      <h2 class="sheet__title">${esc(recipe.name)}</h2>
-      <button class="btn-icon" id="closeRecipeDetail" aria-label="Close" type="button">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <h2 class="sheet__title">${titleHtml}</h2>
+      <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <div class="sheet__content">
-      ${recipe.url
-        ? `<a href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer"
-             class="btn btn--secondary btn--full" style="margin-bottom:var(--spacing-md)">
-             View recipe ↗
-           </a>`
-        : ''}
+      <button class="btn btn--primary btn--full" id="planThisMealBtn"
+        style="margin-bottom:var(--spacing-md)" type="button">Plan this meal</button>
 
-      <div class="field__label" style="margin-bottom:var(--spacing-xs)">Ingredients</div>
-      ${hasIngredients
-        ? `<ul style="margin:0 0 var(--spacing-md);padding-left:var(--spacing-md);font-size:var(--font-sm)">
-            ${recipe.ingredients.map(i => `<li>${i.qty ? `<span style="color:var(--text-muted);margin-right:6px">${esc(i.qty)}</span>` : ''}${esc(i.name)}</li>`).join('')}
-           </ul>`
-        : `<p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-md)">No ingredients saved yet.</p>`}
+      ${hasIngredients ? `
+        <div class="field__label" style="margin-bottom:var(--spacing-xs)">Ingredients</div>
+        <ul style="margin:0 0 var(--spacing-md);padding-left:var(--spacing-md);font-size:var(--font-sm)">
+          ${recipe.ingredients.map(i => `<li>${i.qty ? `<span style="color:var(--text-muted);margin-right:6px">${esc(i.qty)}</span>` : ''}${esc(i.name)}</li>`).join('')}
+        </ul>` : ''}
 
-      <button class="btn btn--secondary btn--full" id="addToListBtn"
-        ${hasIngredients ? '' : 'disabled'} type="button"
-        style="${hasIngredients ? '' : 'opacity:0.5;cursor:not-allowed'}">
-        ${hasIngredients ? 'Add ingredients to list' : 'No ingredients — add some first'}
-      </button>
-
-      <button class="btn btn--ghost btn--full" id="planThisMealBtn"
-        style="margin-top:var(--spacing-xs)" type="button">Plan this meal</button>
+      ${recipe.notes ? `
+        <div class="field__label" style="margin-bottom:var(--spacing-xs)">Notes</div>
+        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-md);white-space:pre-line">${esc(recipe.notes)}</p>` : ''}
     </div>
     <div class="sheet__footer">
       <button class="btn btn--secondary" id="editRecipeBtn" type="button">Edit</button>
@@ -574,71 +597,6 @@ function openRecipeDetailSheet(recipeId) {
     close();
     renderActiveTab();
     showToast('Recipe deleted');
-  });
-
-  document.getElementById('addToListBtn')?.addEventListener('click', async () => {
-    if (!hasIngredients) return;
-    let targetListId = activeListId;
-
-    if (listEntries.length === 0) {
-      const confirmed = await showConfirm({
-        title: 'Create a shopping list?',
-        message: `You don't have any lists yet. Create "Shopping" and add ${recipe.ingredients.length} ingredient${recipe.ingredients.length !== 1 ? 's' : ''} to it?`,
-        confirmLabel: 'Create & add',
-      });
-      if (!confirmed) return;
-      const newId = await pushKitchenList({ name: 'Shopping', sortOrder: 0, createdAt: firebase.database.ServerValue.TIMESTAMP });
-      lists[newId] = { name: 'Shopping', sortOrder: 0 };
-      activeListId = newId;
-      localStorage.setItem('dr-kitchen-active-list', newId);
-      targetListId = newId;
-    } else if (listEntries.length > 1) {
-      targetListId = await pickList(listEntries);
-      if (!targetListId) return;
-    } else if (!targetListId) {
-      targetListId = listEntries[0][0];
-    }
-
-    const existingItems = await readOnce(`kitchen/lists/${targetListId}/items`);
-    const existingByName = new Map();
-    Object.entries(existingItems || {}).forEach(([id, it]) => {
-      if (it && !it.checked && it.name) {
-        existingByName.set(it.name.toLowerCase().trim(), { id, item: it });
-      }
-    });
-
-    // Heuristic-only dedup at add time (fast, free). Wand button on the list
-    // does the AI deep clean afterwards if needed.
-    let mergedCount = 0;
-    let addedCount = 0;
-    for (const raw of recipe.ingredients) {
-      const cleanName = cleanIngredientName(raw.name);
-      if (!cleanName) continue;
-      const key = cleanName.toLowerCase();
-      const match = existingByName.get(key);
-      if (match) {
-        const qtys = [match.item.qty, raw.qty].filter(Boolean);
-        const combined = qtys.length > 1 ? `${qtys[0]} + ${qtys[1]}` : (qtys[0] || null);
-        await writeKitchenItem(targetListId, match.id, { ...match.item, qty: combined });
-        mergedCount++;
-      } else {
-        const id = await pushKitchenItem(targetListId, {
-          name: cleanName,
-          qty: raw.qty || null,
-          checked: false,
-          addedAt: firebase.database.ServerValue.TIMESTAMP,
-          category: null,
-        });
-        addedCount++;
-      }
-    }
-
-    const listName = lists[targetListId]?.name || 'list';
-    const parts = [];
-    if (addedCount) parts.push(`Added ${addedCount} to ${listName}`);
-    if (mergedCount) parts.push(`merged ${mergedCount} duplicate${mergedCount !== 1 ? 's' : ''}`);
-    showToast(parts.join(', ') || `Added to ${listName}`);
-    close();
   });
 }
 
@@ -853,12 +811,18 @@ function openRecipeForm(recipeId, onSave = null) {
     <div class="kr-title-row">
       <input class="kr-title-input" id="recipeName" type="text"
         value="${esc(existing?.name || '')}" placeholder="Recipe name…" autocomplete="off">
+      <input type="file" accept="image/*" id="recipePhotoInput" hidden>
+      <button class="ef2-icon-btn" id="kr_photo" type="button" aria-label="Import from photo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
     </div>
 
     <div class="kr-section">
       <span class="field__label">Ingredients</span>
       <div id="ingredientList">${buildIngredientList()}</div>
       <div class="kr-add-ingredient-row">
+        <input class="kr-add-qty" id="newIngredientQty" type="text"
+          placeholder="qty" autocomplete="off">
         <input class="field__input" id="newIngredientInput" type="text"
           placeholder="Add ingredient…" autocomplete="off">
         <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
@@ -878,15 +842,7 @@ function openRecipeForm(recipeId, onSave = null) {
         <input id="recipeUrl" type="url" placeholder="https://…"
           value="${esc(existing?.url || '')}" autocomplete="off">
       </label>
-      <div class="kr-import-row">
-        <button class="btn btn--secondary btn--sm" id="importFromUrlBtn" type="button">Import from URL</button>
-        <span class="kr-import-status" id="urlImportStatus"></span>
-      </div>
-      <div class="kr-import-row">
-        <input id="screenshotInput" type="file" accept="image/*" hidden>
-        <button class="btn btn--secondary btn--sm" id="importScreenshotBtn" type="button">Import from photo</button>
-        <span class="kr-import-status" id="screenshotStatus"></span>
-      </div>
+      <span class="kr-import-status" id="urlImportStatus"></span>
     </div>
 
     <div class="kr-footer">
@@ -903,10 +859,13 @@ function openRecipeForm(recipeId, onSave = null) {
   function addIngredient() {
     const val = document.getElementById('newIngredientInput')?.value.trim();
     if (!val) return;
-    ingredients.push({ name: cleanIngredientName(val) });
+    const qty = document.getElementById('newIngredientQty')?.value.trim() || null;
+    ingredients.push({ name: cleanIngredientName(val), qty });
     document.getElementById('newIngredientInput').value = '';
+    document.getElementById('newIngredientQty').value = '';
     document.getElementById('ingredientList').innerHTML = buildIngredientList();
     bindIngredientRowEvents();
+    document.getElementById('newIngredientInput').focus();
   }
   document.getElementById('addIngredientBtn')?.addEventListener('click', addIngredient);
   document.getElementById('newIngredientInput')?.addEventListener('keydown', (e) => {
@@ -941,13 +900,11 @@ function openRecipeForm(recipeId, onSave = null) {
   }
   bindIngredientRowEvents();
 
-  async function runImport(type, input, btnId, statusId) {
-    const btn = document.getElementById(btnId);
-    const status = document.getElementById(statusId);
-    btn.disabled = true;
-    const orig = btn.textContent;
-    btn.textContent = 'Importing…';
-    status.style.display = 'none';
+  async function runImport(type, input) {
+    const photoBtn = document.getElementById('kr_photo');
+    const status = document.getElementById('urlImportStatus');
+    if (photoBtn) photoBtn.disabled = true;
+    if (status) status.style.display = 'none';
     try {
       const res = await fetch(KITCHEN_WORKER_URL, {
         method: 'POST',
@@ -975,44 +932,46 @@ function openRecipeForm(recipeId, onSave = null) {
         bindIngredientRowEvents();
       }
 
-      // Status messaging based on what we got
-      const ingCount = data.ingredients?.length || 0;
-      if (ingCount > 0) {
-        status.textContent = `Imported ${ingCount} ingredient${ingCount !== 1 ? 's' : ''}`;
-        status.style.color = 'var(--text-muted)';
-      } else if (data.name) {
-        status.textContent = 'Got the title, but no ingredients found. Saved as a link.';
-        status.style.color = 'var(--text-muted)';
-      } else {
-        status.textContent = 'Couldn\'t read that link — URL kept. Add a name and save anyway.';
-        status.style.color = 'var(--text-muted)';
+      if (status) {
+        const ingCount = data.ingredients?.length || 0;
+        if (ingCount > 0) {
+          status.textContent = `Imported ${ingCount} ingredient${ingCount !== 1 ? 's' : ''}`;
+          status.style.color = 'var(--text-muted)';
+        } else if (data.name) {
+          status.textContent = 'Got the title — no ingredients found.';
+          status.style.color = 'var(--text-muted)';
+        } else {
+          status.textContent = 'Couldn\'t read that link — URL kept.';
+          status.style.color = 'var(--text-muted)';
+        }
+        status.style.display = 'inline';
       }
-      status.style.display = 'inline';
-    } catch (err) {
-      status.textContent = 'Import failed.';
-      status.style.color = 'var(--danger)';
-      status.style.display = 'inline';
+    } catch {
+      if (status) { status.textContent = 'Import failed.'; status.style.color = 'var(--danger)'; status.style.display = 'inline'; }
     } finally {
-      btn.disabled = false;
-      btn.textContent = orig;
+      if (photoBtn) photoBtn.disabled = false;
     }
   }
 
-  document.getElementById('importFromUrlBtn')?.addEventListener('click', () => {
+  // Auto-import when URL is pasted or typed then blurred
+  let lastImportedUrl = '';
+  function maybeAutoImportUrl() {
     const url = document.getElementById('recipeUrl')?.value.trim();
-    if (!url) { document.getElementById('recipeUrl')?.focus(); return; }
-    runImport('url', url, 'importFromUrlBtn', 'urlImportStatus');
-  });
+    if (!url || !url.startsWith('http') || url === lastImportedUrl) return;
+    lastImportedUrl = url;
+    runImport('url', url);
+  }
+  document.getElementById('recipeUrl')?.addEventListener('paste', () => setTimeout(maybeAutoImportUrl, 50));
+  document.getElementById('recipeUrl')?.addEventListener('blur', maybeAutoImportUrl);
 
-  document.getElementById('importScreenshotBtn')?.addEventListener('click', () => {
-    document.getElementById('screenshotInput')?.click();
+  document.getElementById('kr_photo')?.addEventListener('click', () => {
+    document.getElementById('recipePhotoInput')?.click();
   });
-
-  document.getElementById('screenshotInput')?.addEventListener('change', async (e) => {
+  document.getElementById('recipePhotoInput')?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const { base64, mediaType } = await resizeImageForUpload(file);
-    await runImport('screenshot', { base64, mediaType }, 'importScreenshotBtn', 'screenshotStatus');
+    runImport('screenshot', { base64, mediaType });
   });
 
   document.getElementById('kr_save')?.addEventListener('click', async () => {

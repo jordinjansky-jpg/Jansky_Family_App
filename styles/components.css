@@ -2860,6 +2860,14 @@
   font-weight: 700;
   color: var(--text);
 }
+.sheet__title-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+}
+.sheet__title-link:hover,
+.sheet__title-link:focus-visible { text-decoration-color: var(--accent); }
 .sheet__content { margin-bottom: var(--spacing-md); }
 .sheet__hint { font-size: var(--font-size-sm); color: var(--text-muted); margin-bottom: var(--spacing-md); }
 .sheet__footer {
@@ -3500,6 +3508,27 @@ label.ef2-icon-btn  { cursor: pointer; }
   color: var(--text-muted);
   font-style: italic;
 }
+.recipe-pick__item {
+  display: flex;
+  align-items: stretch;
+}
+.recipe-pick__item:last-child .recipe-pick__row { border-bottom: none; }
+.recipe-pick__item:last-child .recipe-pick__fav-btn { border-bottom: none; }
+.recipe-pick__pick { flex: 1; min-width: 0; }
+.recipe-pick__fav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-faint);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.recipe-pick__fav-btn:active { background: var(--surface-2); }
+.recipe-pick__fav-btn.is-fav { color: var(--accent); }
 
 /* ── Card stack (flex column wrapper — suppresses card self-margin) ── */
 .card-stack {
@@ -3961,6 +3990,28 @@ label.ef2-icon-btn  { cursor: pointer; }
   padding: var(--spacing-sm) 0;
 }
 .kp-day-slot-row .field { margin-bottom: 0; }
+.kp-date-wrap { position: relative; }
+.kp-date-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  text-align: left;
+}
+.kp-date-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
+.kp-date-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+}
 .kp-meal-section {
   padding: var(--spacing-sm) 0;
 }
@@ -3973,10 +4024,14 @@ label.ef2-icon-btn  { cursor: pointer; }
 
 /* ── Recipe form (kr-) ── */
 .kr-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
   padding: var(--spacing-sm) 0 var(--spacing-xs);
 }
 .kr-title-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   font-size: var(--font-lg);
   font-weight: 500;
   border: none;
@@ -3996,17 +4051,23 @@ label.ef2-icon-btn  { cursor: pointer; }
   margin-top: var(--spacing-xs);
 }
 .kr-add-ingredient-row .field__input { flex: 1; }
-.kr-notes { resize: vertical; }
-.kr-import-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  flex-wrap: wrap;
-  padding: var(--spacing-xs) 0 0;
+.kr-add-qty {
+  width: 64px;
+  flex-shrink: 0;
+  padding: 8px var(--spacing-xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  background: var(--surface);
+  color: var(--text);
 }
+.kr-add-qty::placeholder { color: var(--text-faint); }
+.kr-add-qty:focus { outline: none; border-color: var(--accent); }
+.kr-notes { resize: vertical; }
 .kr-import-status {
   display: none;
   font-size: var(--font-sm);
+  padding: var(--spacing-xs) 0 0;
 }
 
 /* ── End Kitchen forms ────────────────────────────────────────────────────── */
