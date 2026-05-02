@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v129 (2026-05-01) — Dashboard meal picker rewritten to match kitchen: date picker, slot select, kp-* layout, "+ New recipe" sessionStorage round-trip.
 // v102 (2026-05-01) — Event form redesign: ef2-* CSS, renderEventForm v2, import flows, repeat sub-sheet.
 // v94 (2026-04-29) — Kitchen shell: add kitchen.html + styles/kitchen.css to
 //                    precache. No kitchen.js in APP_SHELL (entry + CSS only).
@@ -219,7 +220,7 @@
 // v115 (2026-05-01) — Kitchen: revert list display, fix edit sheet to inline qty+name row instead.
 // v116 (2026-05-01) — Kitchen: TikTok URL import (rehydration JSON + oEmbed + meta tags), partial-failure preserves URL.
 // v117 (2026-05-01) — Kitchen: port all 7 forms to Event Form pattern (sticky footer, per-prefix CSS, focus tint, delete zones).
-const CACHE_NAME = 'family-hub-v128';
+const CACHE_NAME = 'family-hub-v129';
 
 const APP_SHELL = [
   '/',
