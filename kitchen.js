@@ -275,8 +275,13 @@ async function renderMealsTab() {
 
 function renderRecipesTab() {
   const content = document.getElementById('kitchenContent');
-  const recipeEntries = Object.entries(recipes).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
+  const recipeEntries = Object.entries(recipes).sort((a, b) => {
+    if (b[1].isFavorite !== a[1].isFavorite) return b[1].isFavorite ? 1 : -1;
+    return (b[1].lastUsed || 0) - (a[1].lastUsed || 0);
+  });
   const linkIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+  const starFilled = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+  const starEmpty = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
   const recipeLibHtml = recipeEntries.length > 0
     ? recipeEntries.map(([id, r]) => `
@@ -287,6 +292,11 @@ function renderRecipesTab() {
               ${r.ingredients?.length ? `${r.ingredients.length} ingredient${r.ingredients.length !== 1 ? 's' : ''}` : 'No ingredients'}
             </div>
           </div>
+          <button class="btn-icon rl-fav-btn${r.isFavorite ? ' is-fav' : ''}"
+            data-fav-recipe="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}"
+            style="flex-shrink:0;color:${r.isFavorite ? 'var(--accent)' : 'var(--text-faint)'}">
+            ${r.isFavorite ? starFilled : starEmpty}
+          </button>
           ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"
               class="btn-icon" style="flex-shrink:0;color:var(--accent)"
               aria-label="Open recipe link" data-recipe-link="${esc(id)}">${linkIcon}</a>` : ''}
@@ -305,8 +315,18 @@ function renderRecipesTab() {
 
   content.querySelectorAll('[data-recipe-id]').forEach(card => {
     card.addEventListener('click', (e) => {
-      if (e.target.closest('[data-recipe-link]')) return;
+      if (e.target.closest('[data-recipe-link]') || e.target.closest('[data-fav-recipe]')) return;
       openRecipeDetailSheet(card.dataset.recipeId);
+    });
+  });
+
+  content.querySelectorAll('[data-fav-recipe]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.favRecipe;
+      const newFav = !recipes[id]?.isFavorite;
+      recipes[id] = { ...recipes[id], isFavorite: newFav };
+      await writeKitchenRecipe(id, { ...recipes[id] });
+      renderRecipesTab();
     });
   });
 }
@@ -811,7 +831,9 @@ function openRecipeForm(recipeId, onSave = null) {
     <div class="kr-title-row">
       <input class="kr-title-input" id="recipeName" type="text"
         value="${esc(existing?.name || '')}" placeholder="Recipe name…" autocomplete="off">
-      <input type="file" accept="image/*" id="recipePhotoInput" hidden>
+      <input type="file" accept="image/*" capture="environment" id="kr_photoCamera" hidden>
+      <input type="file" accept="image/*" id="kr_photoGallery" hidden>
+      <input type="file" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" id="kr_photoFiles" hidden>
       <button class="ef2-icon-btn" id="kr_photo" type="button" aria-label="Import from photo">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
@@ -964,14 +986,50 @@ function openRecipeForm(recipeId, onSave = null) {
   document.getElementById('recipeUrl')?.addEventListener('paste', () => setTimeout(maybeAutoImportUrl, 50));
   document.getElementById('recipeUrl')?.addEventListener('blur', maybeAutoImportUrl);
 
+  const CAM_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+  const GAL_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+  const FILE_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+
   document.getElementById('kr_photo')?.addEventListener('click', () => {
-    document.getElementById('recipePhotoInput')?.click();
+    const overlay = document.createElement('div');
+    overlay.className = 'ef2-subsheet-overlay';
+    overlay.innerHTML = `<div class="ef2-subsheet">
+      <div class="sheet__header"><h2 class="sheet__title">Import from</h2></div>
+      <div class="sheet__content">
+        <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
+        <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
+        <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
+      </div>
+      <div class="sheet__footer">
+        <button class="btn btn--ghost" id="kr_photoSourceCancel" type="button">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('active'));
+    const closeOverlay = () => {
+      overlay.classList.remove('active');
+      setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
+    };
+    overlay.querySelector('#kr_photoSourceCancel')?.addEventListener('click', closeOverlay);
+    overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const src = btn.dataset.source;
+        if (src === 'camera') document.getElementById('kr_photoCamera')?.click();
+        else if (src === 'gallery') document.getElementById('kr_photoGallery')?.click();
+        else document.getElementById('kr_photoFiles')?.click();
+        closeOverlay();
+      });
+    });
   });
-  document.getElementById('recipePhotoInput')?.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const { base64, mediaType } = await resizeImageForUpload(file);
-    runImport('screenshot', { base64, mediaType });
+
+  ['kr_photoCamera', 'kr_photoGallery', 'kr_photoFiles'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = '';
+      const { base64, mediaType } = await resizeImageForUpload(file);
+      runImport('screenshot', { base64, mediaType });
+    });
   });
 
   document.getElementById('kr_save')?.addEventListener('click', async () => {
