@@ -1299,6 +1299,28 @@ async function toggleItem(id) {
     checked: isNowChecked,
     checkedAt: isNowChecked ? firebase.database.ServerValue.TIMESTAMP : null,
   });
+
+  if (isNowChecked) {
+    const allCards = document.querySelectorAll('#listItemsArea .card--shopping');
+    const unchecked = document.querySelectorAll('#listItemsArea .card--shopping:not(.is-checked)');
+    if (allCards.length > 0 && unchecked.length === 0) {
+      const listName = lists[activeListId]?.name || 'List';
+      const confirmed = await showConfirm({
+        title: `All done! Delete "${listName}"?`,
+        confirmLabel: 'Delete list',
+        danger: true,
+      });
+      if (confirmed) {
+        const listId = activeListId;
+        await removeKitchenList(listId);
+        delete lists[listId];
+        activeListId = Object.keys(lists)[0] || null;
+        if (activeListId) localStorage.setItem('dr-kitchen-active-list', activeListId);
+        else localStorage.removeItem('dr-kitchen-active-list');
+        renderListsTab();
+      }
+    }
+  }
 }
 
 function openCreateListSheet() {
