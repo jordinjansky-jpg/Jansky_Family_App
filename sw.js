@@ -219,7 +219,7 @@
 // v115 (2026-05-01) — Kitchen: revert list display, fix edit sheet to inline qty+name row instead.
 // v116 (2026-05-01) — Kitchen: TikTok URL import (rehydration JSON + oEmbed + meta tags), partial-failure preserves URL.
 // v117 (2026-05-01) — Kitchen: port all 7 forms to Event Form pattern (sticky footer, per-prefix CSS, focus tint, delete zones).
-const CACHE_NAME = 'family-hub-v124';
+const CACHE_NAME = 'family-hub-v125';
 
 const APP_SHELL = [
   '/',

@@ -183,8 +183,8 @@ function bindFab() {
 }
 
 // ── Meals tab helpers ──────────────────────────────────────────────────────────
-const SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'dinner', 'snack'];
-const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School', dinner: 'Dinner', snack: 'Snack' };
+const SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'school-lunch-2', 'dinner', 'snack'];
+const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
 const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function getMondayOf(date) {
@@ -235,11 +235,10 @@ async function renderMealsTab() {
     const slotsHtml = plannedSlots.length > 0
       ? plannedSlots.map(s => {
           const entry = plan[s];
-          const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.customName || '');
-          const isSchool = s === 'school-lunch';
+          const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.mealName || entry.customName || '');
           return `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
             <span class="day-block__slot-label">${esc(SLOT_LABELS[s])}</span>
-            <span class="day-block__slot-name">${esc(name)}${isSchool ? ' <span class="day-block__slot-school">school</span>' : ''}</span>
+            <span class="day-block__slot-name">${esc(name)}</span>
           </div>`;
         }).join('')
       : `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
@@ -551,7 +550,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
 
 function openSlotEditSheet(dk, slot, entry) {
   const mount = document.getElementById('sheetMount');
-  const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown recipe') : (entry.customName || '');
+  const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown recipe') : (entry.mealName || entry.customName || '');
   const d = new Date(dk + 'T12:00:00');
   const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
 
