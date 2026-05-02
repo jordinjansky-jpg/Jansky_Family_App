@@ -237,8 +237,6 @@
 
     let activeTab = 'library';
     let activeLibrarySection = 'tasks';
-    let editingRewardId = null; // null = not editing, 'new' = creating, pushId = editing
-
     // ── Helpers ──
 
     async function autoPrune(months) {
@@ -1707,99 +1705,107 @@
       const isArchived = isEdit && reward.status === 'archived';
       const isApprovalRequired = reward.approvalRequired !== false;
       const sheetTitle = isArchived ? 'Archived Reward' : (isEdit ? 'Edit Reward' : 'New Reward');
+      const defaultEmoji = reward.icon || '\u{1F381}';
+
+      const peopleHtml = peopleArray().map(p => {
+        const vis = !reward.perPerson || reward.perPerson.includes(p.id);
+        return `<button type="button" class="ef2-person-chip" data-person-id="${esc(p.id)}"${vis ? ' data-state="primary"' : ''} style="--chip-color:${esc(p.color)}">${esc(p.name)}</button>`;
+      }).join('');
 
       mount.innerHTML = renderBottomSheet(`
-        <div class="sheet__header">
-          <h2 class="sheet__title">${sheetTitle}</h2>
-          <button class="ef2-icon-btn" id="rf_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
-        </div>
-        <div class="sheet__content">
-          <div class="form-group">
-            <label class="form-label">Name</label>
-            <input type="text" id="rf_name" class="form-input" value="${esc(reward.name || '')}" placeholder="Movie Night" autocomplete="off">
+        <div class="tf-form">
+          <div class="sheet__header">
+            <h2 class="sheet__title">${sheetTitle}</h2>
+            <button class="ef2-icon-btn" id="rf_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Emoji</label>
-            <div class="emoji-picker" id="rf_emojiPicker">
-              ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn${reward.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
-              <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width:44px;text-align:center;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
+          <div class="rf-title-row">
+            <button class="rf-emoji-btn" id="rf_emojiBtnPreview" type="button" title="Pick emoji">${defaultEmoji}</button>
+            <input class="tf-title-input" id="rf_name" type="text" placeholder="Reward name" value="${esc(reward.name || '')}" autocomplete="off">
+          </div>
+
+          <div class="rf-emoji-reveal" id="rf_emojiReveal">
+            <div class="rf-emoji-grid" id="rf_emojiPicker">
+              ${REWARD_EMOJIS.map(e => `<button type="button" class="rf-emoji-cell${defaultEmoji === e ? ' is-selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+              <input type="search" id="rf_customEmoji" class="rf-emoji-custom" placeholder="+">
             </div>
           </div>
 
-          <div class="admin-toggle-row">
-            <span class="admin-toggle-row__label">
-              Require approval to buy
-              <span class="admin-toggle-row__hint" id="rf_approvalHint">${isApprovalRequired ? '' : "Kids can buy this instantly — you'll get a notification."}</span>
-            </span>
-            <label class="form-toggle">
-              <input type="checkbox" id="rf_approvalRequired" ${isApprovalRequired ? 'checked' : ''}>
-              <span class="form-toggle__track"></span>
-            </label>
+          <div class="ef2-divider"></div>
+
+          <div class="tf-rotation-section">
+            <div class="tf-rotation-pills" id="rf_type">
+              <button class="tf-rot-pill${(reward.rewardType || 'custom') === 'custom' ? ' tf-rot-pill--active' : ''}" data-rtype="custom" type="button">Custom</button>
+              <button class="tf-rot-pill${reward.rewardType === 'task-skip' ? ' tf-rot-pill--active' : ''}" data-rtype="task-skip" type="button">Task Skip</button>
+              <button class="tf-rot-pill${reward.rewardType === 'penalty-removal' ? ' tf-rot-pill--active' : ''}" data-rtype="penalty-removal" type="button">No Penalty</button>
+            </div>
+            <div id="rf_typeHint" class="form-hint" style="min-height:16px;margin-top:4px;"></div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Type</label>
-            <div class="segmented-control" id="rf_type">
-              <button type="button" class="segmented-btn${(reward.rewardType || 'custom') === 'custom' ? ' segmented-btn--active' : ''}" data-value="custom">Custom</button>
-              <button type="button" class="segmented-btn${reward.rewardType === 'task-skip' ? ' segmented-btn--active' : ''}" data-value="task-skip">Task Skip</button>
-              <button type="button" class="segmented-btn${reward.rewardType === 'penalty-removal' ? ' segmented-btn--active' : ''}" data-value="penalty-removal">No Penalty</button>
-            </div>
-            <div id="rf_typeHint" class="form-hint" style="margin-top:2px;"></div>
+          <div class="ef2-divider"></div>
+
+          <div class="rf-cost-row">
+            <input type="number" id="rf_pointCost" class="rf-cost-input" value="${reward.pointCost || ''}" min="1" placeholder="0">
+            <span class="rf-cost-unit">pts</span>
+            <button class="ef2-add-chip" id="rf_pricingChip" type="button" style="margin-left:auto;">+ Pricing help</button>
           </div>
 
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Point Cost</label>
-              <input type="number" id="rf_pointCost" class="form-input" value="${reward.pointCost || ''}" min="1" placeholder="e.g. 500">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Earn in ~ days</label>
-              <div style="display:flex;gap:4px;align-items:center;">
-                <input type="number" id="rf_daysInput" class="form-input" value="7" min="1" style="width:56px;">
-                <select id="rf_avgSelect" class="form-input" style="flex:1;font-size:var(--font-xs);">
+          <div class="ef2-field-reveal" id="rf_pricingReveal">
+            <div class="rf-pricing-inner">
+              <div class="rf-pricing-row">
+                <input type="number" id="rf_daysInput" class="rf-days-input" value="7" min="1">
+                <span class="rf-cost-unit">days at</span>
+                <select id="rf_avgSelect" class="rf-avg-select">
                   ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
                 </select>
               </div>
-            </div>
-          </div>
-          <input type="range" id="rf_daysSlider" min="1" max="30" value="7" style="width:100%;margin-top:-4px;">
-          <div id="rf_suggestion" class="form-hint" style="cursor:pointer;color:var(--accent);"></div>
-
-          <div class="form-group">
-            <label class="form-label">Visible to</label>
-            <div class="owner-chips" id="rf_people">
-              ${peopleArray().map(p => {
-                const vis = !reward.perPerson || reward.perPerson.includes(p.id);
-                return `<button type="button" class="chip${vis ? ' chip--active' : ''}" data-person-id="${esc(p.id)}" style="--person-color:${esc(p.color)}">${esc(p.name)}</button>`;
-              }).join('')}
-            </div>
-            <span class="form-hint">Deselect anyone who should not see this reward.</span>
-          </div>
-
-          <div class="form-row-3">
-            <div class="form-group">
-              <label class="form-label">Max uses</label>
-              <input type="number" id="rf_maxRedemptions" class="form-input" value="${reward.maxRedemptions || ''}" min="1" placeholder="∞">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Streak req.</label>
-              <input type="number" id="rf_streakReq" class="form-input" value="${reward.streakRequirement || ''}" min="1" placeholder="None">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Expires</label>
-              <input type="date" id="rf_expiresAt" class="form-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz }) : ''}">
+              <input type="range" id="rf_daysSlider" min="1" max="30" value="7" class="rf-days-slider">
+              <div id="rf_suggestion" class="rf-suggestion"></div>
             </div>
           </div>
 
-          ${isEdit ? `<div class="rf-edit-actions">
-            ${isArchived ? `<button class="btn btn--secondary btn--sm" id="rf_unarchive" type="button">Unarchive</button>` : `<button class="btn btn--secondary btn--sm" id="rf_archive" type="button">Archive</button>`}
-            <button class="btn btn--danger btn--sm" id="rf_delete" type="button">Delete</button>
+          <div class="ef2-divider"></div>
+
+          <div class="tf-for-section">
+            <div class="ef2-for-header">
+              <span class="ef2-section-label">Visible to</span>
+            </div>
+            <div class="ef2-person-chips" id="rf_people">${peopleHtml}</div>
+          </div>
+
+          <div class="ef2-divider"></div>
+
+          <div class="ef2-secondary-row">
+            <button class="ef2-add-chip${isApprovalRequired ? ' is-active' : ''}" id="rf_approvalChip" type="button">Approval required</button>
+            <button class="ef2-add-chip" id="rf_advancedChip" type="button">+ Advanced</button>
+          </div>
+
+          <div class="ef2-field-reveal" id="rf_advancedReveal">
+            <div class="rf-adv-grid">
+              <div class="rf-adv-row">
+                <span class="rf-adv-label">Max uses</span>
+                <input type="number" id="rf_maxRedemptions" class="rf-adv-input" value="${reward.maxRedemptions || ''}" min="1" placeholder="Unlimited">
+              </div>
+              <div class="rf-adv-row">
+                <span class="rf-adv-label">Streak required</span>
+                <input type="number" id="rf_streakReq" class="rf-adv-input" value="${reward.streakRequirement || ''}" min="1" placeholder="None">
+              </div>
+              <div class="rf-adv-row">
+                <span class="rf-adv-label">Expires</span>
+                <input type="date" id="rf_expiresAt" class="rf-adv-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz }) : ''}">
+              </div>
+            </div>
+          </div>
+
+          <div class="tf-footer">
+            <button class="btn btn--ghost" id="rf_cancel" type="button">Cancel</button>
+            <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create Reward'}</button>
+          </div>
+
+          ${isEdit ? `<div class="ef2-delete-zone">
+            ${isArchived ? `<button class="ef2-delete-btn" id="rf_unarchive" type="button" style="color:var(--accent)">Unarchive Reward</button>` : `<button class="ef2-delete-btn" id="rf_archive" type="button">Archive Reward</button>`}
+            <button class="ef2-delete-btn" id="rf_delete" type="button">Delete Reward</button>
           </div>` : ''}
-        </div>
-        <div class="sheet__footer">
-          <button class="btn btn--ghost" id="rf_cancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create'}</button>
         </div>
       `);
 
@@ -1807,31 +1813,47 @@
 
       const close = () => closeAdminSheet();
 
-      for (const btn of mount.querySelectorAll('.emoji-btn')) {
-        btn.addEventListener('click', () => {
-          mount.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
-          btn.classList.add('emoji-btn--selected');
+      // Emoji preview + grid toggle
+      let currentEmoji = defaultEmoji;
+      const emojiReveal = mount.querySelector('#rf_emojiReveal');
+      mount.querySelector('#rf_emojiBtnPreview')?.addEventListener('click', () => {
+        emojiReveal?.classList.toggle('is-open');
+      });
+      for (const cell of mount.querySelectorAll('.rf-emoji-cell')) {
+        cell.addEventListener('click', () => {
+          mount.querySelectorAll('.rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+          cell.classList.add('is-selected');
+          currentEmoji = cell.dataset.emoji;
+          mount.querySelector('#rf_emojiBtnPreview').textContent = currentEmoji;
           mount.querySelector('#rf_customEmoji').value = '';
+          emojiReveal?.classList.remove('is-open');
         });
       }
+      mount.querySelector('#rf_customEmoji')?.addEventListener('input', e => {
+        const v = e.target.value.trim();
+        if (v) {
+          currentEmoji = v;
+          mount.querySelector('#rf_emojiBtnPreview').textContent = v;
+          mount.querySelectorAll('.rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+        }
+      });
 
-      for (const btn of mount.querySelectorAll('#rf_type .segmented-btn')) {
-        btn.addEventListener('click', () => {
-          mount.querySelectorAll('#rf_type .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
-          btn.classList.add('segmented-btn--active');
-          const hint = mount.querySelector('#rf_typeHint');
-          const val = btn.dataset.value;
-          hint.textContent = val === 'task-skip' ? 'Person picks a task to skip for the day'
+      // Type pills
+      const typeHint = mount.querySelector('#rf_typeHint');
+      const initType = mount.querySelector('#rf_type .tf-rot-pill--active')?.dataset?.rtype || 'custom';
+      if (initType === 'task-skip') typeHint.textContent = 'Person picks a task to skip for the day';
+      else if (initType === 'penalty-removal') typeHint.textContent = 'Removes the late penalty from a past task';
+      for (const pill of mount.querySelectorAll('#rf_type .tf-rot-pill')) {
+        pill.addEventListener('click', () => {
+          mount.querySelectorAll('#rf_type .tf-rot-pill').forEach(p => p.classList.remove('tf-rot-pill--active'));
+          pill.classList.add('tf-rot-pill--active');
+          const val = pill.dataset.rtype;
+          typeHint.textContent = val === 'task-skip' ? 'Person picks a task to skip for the day'
             : val === 'penalty-removal' ? 'Removes the late penalty from a past task' : '';
         });
       }
 
-      const approvalToggle = mount.querySelector('#rf_approvalRequired');
-      const approvalHint = mount.querySelector('#rf_approvalHint');
-      approvalToggle?.addEventListener('change', () => {
-        approvalHint.textContent = approvalToggle.checked ? '' : "Kids can buy this instantly — you'll get a notification.";
-      });
-
+      // Pricing helper
       const slider = mount.querySelector('#rf_daysSlider');
       const daysInput = mount.querySelector('#rf_daysInput');
       const avgSelect = mount.querySelector('#rf_avgSelect');
@@ -1843,27 +1865,52 @@
         const avg = parseInt(avgSelect.value) || 88;
         const cost = Math.round((days * avg) / 5) * 5;
         const avgLabel = PRICING_AVERAGES.find(a => a.value === avg)?.label || avg + '%';
-        suggestion.innerHTML = `${days} day${days > 1 ? 's' : ''} at ${avgLabel} average &rarr; <strong>${cost} pts</strong> (click to apply)`;
+        suggestion.innerHTML = `${days} day${days > 1 ? 's' : ''} at ${avgLabel} &rarr; <strong>${cost} pts</strong> (tap to apply)`;
         suggestion.dataset.cost = cost;
       }
 
-      slider.addEventListener('input', () => { daysInput.value = slider.value; updateSuggestion(); });
-      daysInput.addEventListener('input', () => {
+      mount.querySelector('#rf_pricingChip')?.addEventListener('click', () => {
+        const reveal = mount.querySelector('#rf_pricingReveal');
+        reveal?.classList.toggle('is-open');
+        mount.querySelector('#rf_pricingChip')?.classList.toggle('is-active', reveal?.classList.contains('is-open'));
+        if (reveal?.classList.contains('is-open')) updateSuggestion();
+      });
+      slider?.addEventListener('input', () => { daysInput.value = slider.value; updateSuggestion(); });
+      daysInput?.addEventListener('input', () => {
         const v = parseInt(daysInput.value);
         if (v && v <= 30) slider.value = v;
         updateSuggestion();
       });
-      avgSelect.addEventListener('change', updateSuggestion);
-      suggestion.addEventListener('click', () => { pointCostInput.value = suggestion.dataset.cost; });
-      updateSuggestion();
+      avgSelect?.addEventListener('change', updateSuggestion);
+      suggestion?.addEventListener('click', () => { pointCostInput.value = suggestion.dataset.cost; });
 
-      for (const chip of mount.querySelectorAll('#rf_people .chip')) {
-        chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
+      // Person chips
+      for (const chip of mount.querySelectorAll('#rf_people .ef2-person-chip')) {
+        chip.addEventListener('click', () => {
+          if (chip.dataset.state === 'primary') chip.removeAttribute('data-state');
+          else chip.setAttribute('data-state', 'primary');
+        });
       }
 
+      // Approval chip toggle
+      let approvalRequired = isApprovalRequired;
+      mount.querySelector('#rf_approvalChip')?.addEventListener('click', () => {
+        approvalRequired = !approvalRequired;
+        mount.querySelector('#rf_approvalChip')?.classList.toggle('is-active', approvalRequired);
+      });
+
+      // Advanced chip toggle
+      mount.querySelector('#rf_advancedChip')?.addEventListener('click', () => {
+        const reveal = mount.querySelector('#rf_advancedReveal');
+        reveal?.classList.toggle('is-open');
+        mount.querySelector('#rf_advancedChip')?.classList.toggle('is-active', reveal?.classList.contains('is-open'));
+      });
+
+      // Close
       mount.querySelector('#rf_close')?.addEventListener('click', close);
       mount.querySelector('#rf_cancel')?.addEventListener('click', close);
 
+      // Archive / Unarchive / Delete
       mount.querySelector('#rf_delete')?.addEventListener('click', async () => {
         const name = rewardsObj[rewardId]?.name || 'this reward';
         if (!await showConfirm({ title: `Delete "${name}"?`, message: 'This cannot be undone.', danger: true })) return;
@@ -1886,22 +1933,25 @@
         close(); render();
       });
 
+      // Save
       mount.querySelector('#rf_save')?.addEventListener('click', async () => {
         const name = mount.querySelector('#rf_name').value.trim();
-        if (!name) { mount.querySelector('#rf_name').focus(); return; }
-        const selectedEmoji = mount.querySelector('.emoji-btn--selected')?.dataset?.emoji
-          || mount.querySelector('#rf_customEmoji').value.trim() || '\U0001f381';
-        const rewardType = mount.querySelector('#rf_type .segmented-btn--active')?.dataset?.value || 'custom';
+        if (!name) {
+          mount.querySelector('#rf_name').classList.add('is-invalid');
+          mount.querySelector('#rf_name').focus();
+          return;
+        }
+        const rewardType = mount.querySelector('#rf_type .tf-rot-pill--active')?.dataset?.rtype || 'custom';
         const cost = parseInt(mount.querySelector('#rf_pointCost').value) || 0;
         if (cost <= 0) { mount.querySelector('#rf_pointCost').focus(); return; }
-        const selectedPeople = [...mount.querySelectorAll('#rf_people .chip--active')].map(c => c.dataset.personId);
+        const selectedPeople = [...mount.querySelectorAll('#rf_people .ef2-person-chip[data-state="primary"]')].map(c => c.dataset.personId);
         const maxRedemptions = parseInt(mount.querySelector('#rf_maxRedemptions').value) || null;
         const streakReq = parseInt(mount.querySelector('#rf_streakReq').value) || null;
         const expiresDate = mount.querySelector('#rf_expiresAt').value;
         const expiresAt = expiresDate ? new Date(expiresDate + 'T23:59:59').getTime() : null;
         const data = {
-          name, icon: selectedEmoji, pointCost: cost, rewardType,
-          approvalRequired: mount.querySelector('#rf_approvalRequired')?.checked !== false,
+          name, icon: currentEmoji, pointCost: cost, rewardType,
+          approvalRequired,
           perPerson: selectedPeople, maxRedemptions, streakRequirement: streakReq, expiresAt,
           status: rewardId ? (rewardsObj[rewardId]?.status || 'active') : 'active'
         };
