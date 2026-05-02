@@ -24,6 +24,7 @@
   transition: background var(--t-fast);
 }
 .rf-emoji-btn:hover { background: var(--surface-3, var(--surface-2)); }
+.rf-delete-btn { color: var(--danger); }
 .rf-emoji-reveal { display: none; }
 .rf-emoji-reveal.is-open { display: block; }
 .rf-emoji-grid {
