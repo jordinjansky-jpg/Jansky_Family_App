@@ -15,9 +15,10 @@
 }
 .is-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--spacing-sm);
 }
+.is-actions .btn { flex: 1; }
 
 /* ── View-as inline selector (header actions area) ── */
 .rewards-view-as {

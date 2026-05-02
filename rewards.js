@@ -777,35 +777,41 @@ async function handleGetReward(rewardId) {
   const ts = firebase.database.ServerValue.TIMESTAMP;
   const isAdult = activePerson.role !== 'child';
 
+  const isFunctional = reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal';
+
   if (isAdult) {
-    // Adult path — confirm then bank immediately (no approval needed)
-    const confirmed = await showConfirm({ title: 'Add to your Bank?', message: reward.name });
-    if (!confirmed) return;
-    // Write a seen redemption-request so calculateBalance deducts the cost
-    await writeMessage(activePerson.id, {
-      type: 'redemption-request',
-      title: reward.name,
-      body: null,
-      amount: -(reward.pointCost || 0),
-      rewardId,
-      rewardName: reward.name,
-      rewardIcon: reward.icon || '',
-      intent: 'save',
-      seen: true,
-      createdAt: ts,
-      createdBy: activePerson.id
-    });
-    await writeBankToken(activePerson.id, {
-      rewardType: reward.rewardType || 'custom',
-      rewardId,
-      rewardName: reward.name || '',
-      rewardIcon: reward.icon || '',
-      acquiredAt: ts,
-      used: false
-    });
-    showToast('Added to Bank!');
-    await refreshData();
-    render();
+    if (isFunctional) {
+      // Functional rewards always go to the bank first — no "use now" option
+      const confirmed = await showConfirm({ title: 'Add to your Bank?', message: reward.name });
+      if (!confirmed) return;
+      await writeMessage(activePerson.id, {
+        type: 'redemption-request',
+        title: reward.name,
+        body: null,
+        amount: -(reward.pointCost || 0),
+        rewardId,
+        rewardName: reward.name,
+        rewardIcon: reward.icon || '',
+        intent: 'save',
+        seen: true,
+        createdAt: ts,
+        createdBy: activePerson.id
+      });
+      await writeBankToken(activePerson.id, {
+        rewardType: reward.rewardType || 'custom',
+        rewardId,
+        rewardName: reward.name || '',
+        rewardIcon: reward.icon || '',
+        acquiredAt: ts,
+        used: false
+      });
+      showToast('Added to Bank!');
+      await refreshData();
+      render();
+      return;
+    }
+    // Custom reward: show intent sheet (Use Now = bank + use immediately, no approval needed)
+    openIntentSheet(reward, rewardId);
     return;
   }
 
@@ -844,7 +850,6 @@ async function handleGetReward(rewardId) {
     return;
   }
 
-  const isFunctional = reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal';
   if (isFunctional) {
     // Path 3 — functional: immediate bank + FYI (no approval to save; parent gets FYI with revoke)
     await writeMessage(activePerson.id, {
@@ -894,10 +899,10 @@ function openIntentSheet(reward, rewardId) {
         <span class="is-preview__icon">${esc(reward.icon || '🎁')}</span>
         <span class="chip chip--muted">${reward.pointCost || 0} pts</span>
       </div>
-      <p class="is-hint">Use Now sends an approval request to your parent — one tap from them and you're done. Save for Later banks it immediately, no approval needed.</p>
+      <p class="is-hint">${activePerson.role !== 'child' ? 'Use Now redeems it immediately. Save for Later keeps it in your Bank.' : 'Use Now sends an approval request to your parent. Save for Later banks it immediately, no approval needed.'}</p>
       <div class="is-actions">
-        <button class="btn btn--primary btn--full" id="is_useNow" type="button">Use Now</button>
-        <button class="btn btn--secondary btn--full" id="is_save" type="button">Save for Later</button>
+        <button class="btn btn--secondary" id="is_save" type="button">Save for Later</button>
+        <button class="btn btn--primary" id="is_useNow" type="button">Use Now</button>
       </div>
     </div>
   `);
@@ -910,6 +915,8 @@ function openIntentSheet(reward, rewardId) {
     submitting = true;
     mount.innerHTML = '';
     const ts = firebase.database.ServerValue.TIMESTAMP;
+
+    const isAdult = activePerson.role !== 'child';
 
     if (intent === 'save') {
       await writeMessage(activePerson.id, {
@@ -933,12 +940,52 @@ function openIntentSheet(reward, rewardId) {
         acquiredAt: ts,
         used: false
       });
-      const parents = people.filter(p => p.role !== 'child');
-      for (const parent of parents) {
-        await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
+      if (!isAdult) {
+        const parents = people.filter(p => p.role !== 'child');
+        for (const parent of parents) {
+          await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
+        }
       }
       showToast('Saved to your Bank!');
+    } else if (isAdult) {
+      // Adult Use Now — bank then immediately mark used, no approval needed
+      await writeMessage(activePerson.id, {
+        type: 'redemption-request',
+        title: reward.name,
+        body: null,
+        amount: -(reward.pointCost || 0),
+        rewardId,
+        rewardName: reward.name,
+        rewardIcon: reward.icon || '',
+        intent: 'use-now',
+        seen: true,
+        createdAt: ts,
+        createdBy: activePerson.id
+      });
+      const bankTokenId = await writeBankToken(activePerson.id, {
+        rewardType: reward.rewardType || 'custom',
+        rewardId,
+        rewardName: reward.name || '',
+        rewardIcon: reward.icon || '',
+        acquiredAt: ts,
+        used: false
+      });
+      await markBankTokenUsed(activePerson.id, bankTokenId, null);
+      await writeMessage(activePerson.id, {
+        type: 'reward-used',
+        title: `Used: ${reward.name}`,
+        body: null,
+        amount: 0,
+        rewardId,
+        rewardName: reward.name,
+        rewardIcon: reward.icon || '',
+        seen: true,
+        createdAt: ts,
+        createdBy: 'self'
+      });
+      showToast(`Used ${reward.name}!`);
     } else {
+      // Child Use Now — send approval request to parent
       await writeMessage(activePerson.id, {
         type: 'redemption-request',
         title: reward.name,
