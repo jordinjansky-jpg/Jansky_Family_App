@@ -113,14 +113,8 @@
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
-      appName: settings?.appName || 'Daily Rundown',
-      subtitle: 'Calendar',
-      dateLine: formatDateLong(today),
-      showAdmin: true,
-      showDebug: debugActive,
-      showAddTask: true,
-      showThemePicker: true,
-      showBell: true
+      title: 'Calendar',
+      showBell: true,
     });
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
     initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme,
@@ -947,8 +941,6 @@
         }
       });
     }
-
-    document.getElementById('headerAddTask')?.addEventListener('click', openAddMenu);
 
     // ══════════════════════════════════════════
     // Event Form (Create / Edit)
@@ -1872,19 +1864,6 @@
         render();
       });
     }
-
-    // ── Theme button — opens device theme sheet directly ──
-    document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
-      const mount = document.getElementById('taskSheetMount');
-      openDeviceThemeSheet(mount, settings?.theme, undefined,
-        linkedPerson ? { person: linkedPerson, writePerson } : undefined);
-      document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
-        if (e.target.id === 'bottomSheet') {
-          e.target.classList.remove('active');
-          setTimeout(() => mount.innerHTML = '', 300);
-        }
-      });
-    });
 
     // ══════════════════════════════════════════
     // Swipe navigation (week/month)

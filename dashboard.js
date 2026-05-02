@@ -94,30 +94,23 @@ let renderInFlight = false; // prevents concurrent renders when fetchWeather is 
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
 
 // ── Header & Nav ──
-function buildHeaderOverflow() {
-  const items = [];
-  items.push({ id: 'calendar', label: 'Calendar' });
-  items.push({ id: 'admin', label: 'Admin' });
-  items.push({ id: 'kitchen', label: 'Kitchen' });
-  items.push({ id: 'theme', label: 'Theme' });
+function openMoreSheet() {
+  const items = [
+    { id: 'calendar', label: 'Calendar' },
+    { id: 'tracker',  label: 'Tracker' },
+    { id: 'theme',    label: 'Theme' },
+  ];
   if (localStorage.getItem('dr-debug') === 'true') {
     items.push({ id: 'debug', label: 'Debug (turn off)' });
   }
-  return items.sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function openOverflowOrMoreSheet() {
-  const items = buildHeaderOverflow();
-  if (items.length === 0) return;
   taskSheetMount.innerHTML = renderBottomSheet(
     `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(items)}`
   );
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
   });
-  const overlay = document.getElementById('bottomSheet');
-  overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) closeTaskSheet();
+  document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+    if (e.target.id === 'bottomSheet') closeTaskSheet();
   });
   taskSheetMount.querySelector('.overflow-menu')?.addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-item-id]');
@@ -127,10 +120,8 @@ function openOverflowOrMoreSheet() {
     setTimeout(() => {
       if (itemId === 'calendar') {
         location.href = 'calendar.html';
-      } else if (itemId === 'admin') {
-        location.href = 'admin.html';
-      } else if (itemId === 'kitchen') {
-        location.href = 'kitchen.html';
+      } else if (itemId === 'tracker') {
+        location.href = 'tracker.html';
       } else if (itemId === 'theme') {
         openDeviceThemeSheet(
           document.getElementById('taskSheetMount'),
@@ -147,10 +138,9 @@ function openOverflowOrMoreSheet() {
 }
 
 function wireHeaderActions() {
-  document.getElementById('headerOverflow')?.addEventListener('click', openOverflowOrMoreSheet);
+  document.getElementById('headerAdmin')?.addEventListener('click', () => { location.href = 'admin.html'; });
 }
 
-function openMoreSheet() { openOverflowOrMoreSheet(); }
 function openAddMenuFromFab() { openAddMenu?.(); }
 
 function renderHeaderMount() {
@@ -160,7 +150,6 @@ function renderHeaderMount() {
     title,
     subtitle,
     showBell: true,
-    overflowItems: buildHeaderOverflow()
   });
   applyDataColors(document.getElementById('headerMount'));
   wireHeaderActions();

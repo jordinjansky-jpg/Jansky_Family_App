@@ -59,7 +59,6 @@ async function init() {
     document.getElementById('headerMount').innerHTML = renderHeader({
       title: 'Rewards',
       showBell: true,
-      overflowItems: [{ id: 'admin', label: 'Admin' }, { id: 'calendar', label: 'Calendar' }, { id: 'theme', label: 'Theme' }]
     });
     // Add person switcher chip slot into the header actions area
     document.querySelector('.app-header__actions')?.insertAdjacentHTML(
@@ -903,39 +902,6 @@ function bindPage() {
   document.addEventListener('click', e => {
     if (e.target.id === 'bannerReviewBtn') { activeTab = 'approvals'; render(); }
     if (e.target.id === 'personSwitcherSelect') {/* handled by change listener added in render */}
-    if (e.target.closest('#headerOverflow')) openHeaderOverflowSheet();
-  });
-}
-
-function openHeaderOverflowSheet() {
-  const mount = document.getElementById('sheetMount');
-  mount.innerHTML = renderBottomSheet(
-    `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu([
-      { id: 'admin', label: 'Admin' },
-      { id: 'calendar', label: 'Calendar' },
-      { id: 'theme', label: 'Theme' }
-    ])}`
-  );
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-  document.getElementById('bottomSheet')?.addEventListener('click', e => {
-    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
-  });
-  mount.querySelector('.overflow-menu')?.addEventListener('click', ev => {
-    const btn = ev.target.closest('[data-item-id]');
-    if (!btn) return;
-    mount.innerHTML = '';
-    if (btn.dataset.itemId === 'admin') {
-      location.href = 'admin.html';
-    } else if (btn.dataset.itemId === 'calendar') {
-      location.href = 'calendar.html';
-    } else if (btn.dataset.itemId === 'theme') {
-      openDeviceThemeSheet(
-        document.getElementById('sheetMount'),
-        settings?.theme,
-        () => render(),
-        viewerPerson ? { person: viewerPerson, writePerson } : undefined
-      );
-    }
   });
 }
 

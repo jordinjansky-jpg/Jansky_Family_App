@@ -92,22 +92,12 @@
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
-      appName: settings?.appName || 'Daily Rundown',
-      subtitle: 'Scoreboard',
-      dateLine: formatDateLong(today),
-      showAdmin: true,
-      showDebug: debugActive,
-      showThemePicker: true,
-      showBell: true
+      title: 'Scoreboard',
+      showBell: true,
     });
     document.getElementById('navMount').innerHTML = renderNavBar('scoreboard');
     initNavMore(document.getElementById('drilldownMount'), () => settings?.theme,
       linkedPerson ? { person: linkedPerson, writePerson } : undefined);
-
-    document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
-      openDeviceThemeSheet(document.getElementById('themeSheetMount'), settings?.theme, undefined,
-        linkedPerson ? { person: linkedPerson, writePerson } : undefined);
-    });
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);

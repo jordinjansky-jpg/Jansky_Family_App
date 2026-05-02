@@ -85,11 +85,6 @@ async function init() {
   document.getElementById('headerMount').innerHTML = renderHeader({
     title: 'Kitchen',
     showBell: true,
-    overflowItems: [
-      { id: 'admin',    label: 'Admin' },
-      { id: 'calendar', label: 'Calendar' },
-      { id: 'theme',    label: 'Theme' },
-    ],
   });
 
   // Nav
@@ -184,7 +179,7 @@ function bindFab() {
 
 // ── Meals tab helpers ──────────────────────────────────────────────────────────
 const SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'school-lunch-2', 'dinner', 'snack'];
-const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
+const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School 1', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
 const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function getMondayOf(date) {

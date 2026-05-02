@@ -179,11 +179,13 @@ const NAV_ITEMS = [
  */
 export function renderNavBar(activePage, options = {}) {
   const items = [
-    { page: 'home', href: 'index.html', label: 'Home', svg: `<path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path>` },
-    { page: 'rewards', href: 'rewards.html', label: 'Rewards', svg: `<path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>` },
-    { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores', svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
-    { page: 'tracker', href: 'tracker.html', label: 'Tracker', svg: `<polyline points="3 12 8 7 13 12 17 8 21 12"></polyline><polyline points="3 18 8 13 13 18 17 14 21 18"></polyline>` }
+    { page: 'home',       href: 'index.html',      label: 'Home',    svg: `<path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path>` },
+    { page: 'kitchen',    href: 'kitchen.html',    label: 'Kitchen', svg: `<path d="M3 2v7a3 3 0 0 0 6 0V2"/><path d="M6 9v13"/><path d="M14 2v20"/><path d="M18 2c-2 2-3 4-3 7s1 4 3 4v9"/>` },
+    { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores',  svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
+    { page: 'rewards',    href: 'rewards.html',    label: 'Rewards', svg: `<path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>` },
   ];
+  const mainPages = new Set(items.map(i => i.page));
+  const moreActive = activePage && !mainPages.has(activePage);
   const personHome = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('dr-person-home') : null;
   const linkItems = items.map(it => {
     const isActive = it.page === activePage;
@@ -198,7 +200,7 @@ export function renderNavBar(activePage, options = {}) {
       <span class="nav-item__label">${esc(it.label)}</span>
     </a>`;
   }).join('');
-  const moreItem = `<button class="bottom-nav__item nav-item" id="navMore" type="button"${options.onMoreClick ? '' : ' data-more-unbound="1"'}>
+  const moreItem = `<button class="bottom-nav__item nav-item${moreActive ? ' is-active nav-item--active' : ''}" id="navMore" type="button"${options.onMoreClick ? '' : ' data-more-unbound="1"'}>
     <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="5" cy="12" r="1.5"></circle>
       <circle cx="12" cy="12" r="1.5"></circle>
@@ -218,9 +220,8 @@ export function renderNavBar(activePage, options = {}) {
  */
 export function initNavMore(sheetMount, getTheme, personOpts) {
   const items = [
-    { id: 'admin',    label: 'Admin' },
     { id: 'calendar', label: 'Calendar' },
-    { id: 'kitchen',  label: 'Kitchen' },
+    { id: 'tracker',  label: 'Tracker' },
     { id: 'theme',    label: 'Theme' },
   ];
 
@@ -242,15 +243,14 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
       if (!row) return;
       sheetMount.innerHTML = '';
       const id = row.dataset.itemId;
-      if (id === 'admin')    location.href = 'admin.html';
       if (id === 'calendar') location.href = 'calendar.html';
-      if (id === 'kitchen')  location.href = 'kitchen.html';
+      if (id === 'tracker')  location.href = 'tracker.html';
       if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, undefined, personOpts);
     });
   }
 
   document.getElementById('navMore')?.addEventListener('click', openMoreSheet);
-  document.getElementById('headerOverflow')?.addEventListener('click', openMoreSheet);
+  document.getElementById('headerAdmin')?.addEventListener('click', () => { location.href = 'admin.html'; });
 }
 
 /**
@@ -288,7 +288,7 @@ export function renderHeader(options = {}) {
   return _renderHeaderLegacy(options);
 }
 
-function _renderHeaderV2({ title, subtitle, showBell, overflowItems }) {
+function _renderHeaderV2({ title, subtitle, showBell }) {
   const bellHtml = showBell
     ? `<button class="btn-icon" id="headerBell" aria-label="Notifications" type="button">
          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -298,15 +298,12 @@ function _renderHeaderV2({ title, subtitle, showBell, overflowItems }) {
          <span class="btn-icon__dot is-hidden" id="headerBellDot" aria-hidden="true"></span>
        </button>`
     : '';
-  const overflowHtml = (Array.isArray(overflowItems) && overflowItems.length)
-    ? `<button class="btn-icon" id="headerOverflow" aria-label="More" type="button">
-         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-           <circle cx="12" cy="5" r="1.4"></circle>
-           <circle cx="12" cy="12" r="1.4"></circle>
-           <circle cx="12" cy="19" r="1.4"></circle>
-         </svg>
-       </button>`
-    : '';
+  const adminHtml = `<button class="btn-icon" id="headerAdmin" aria-label="Settings" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 10 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>`;
   return `<header class="app-header">
     <div class="app-header__text">
       <div class="app-header__title">${esc(title)}</div>
@@ -314,7 +311,7 @@ function _renderHeaderV2({ title, subtitle, showBell, overflowItems }) {
     </div>
     <div class="app-header__actions">
       ${bellHtml}
-      ${overflowHtml}
+      ${adminHtml}
     </div>
   </header>`;
 }
