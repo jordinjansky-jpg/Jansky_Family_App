@@ -3128,7 +3128,12 @@ label.ef2-icon-btn  { cursor: pointer; }
 /* Person chips */
 .ef2-for-section {
   padding: var(--spacing-sm) 0 var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
+
+.ef2-for-section > .ef2-section-label { margin-bottom: 0; flex-shrink: 0; }
 
 .ef2-for-header {
   display: flex;
