@@ -1771,7 +1771,6 @@ function openEventForm(existingEventId = null, savedState = null) {
 
   // ── Close / Cancel ───────────────────────────────────────────
   document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
-  document.getElementById('ef2_cancel')?.addEventListener('click', closeTaskSheet);
   document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
   });
@@ -2052,29 +2051,16 @@ function openEventForm(existingEventId = null, savedState = null) {
   });
 
   // ── Delete (edit mode) ──────────────────────────────────────
-  document.getElementById('ef2_deleteBtn')?.addEventListener('click', () => {
-    const btn = document.getElementById('ef2_deleteBtn');
-    if (btn) btn.style.display = 'none';
-    document.getElementById('ef2_deleteConfirm')?.classList.add('is-open');
-  });
-
-  document.getElementById('ef2_deleteNo')?.addEventListener('click', () => {
-    document.getElementById('ef2_deleteConfirm')?.classList.remove('is-open');
-    const btn = document.getElementById('ef2_deleteBtn');
-    if (btn) btn.style.display = '';
-  });
-
-  document.getElementById('ef2_deleteYes')?.addEventListener('click', async () => {
+  document.getElementById('ef2_delete')?.addEventListener('click', async () => {
     if (!existingEventId) return;
+    const name = events[existingEventId]?.name || 'this event';
+    if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
     try {
       await removeEvent(existingEventId);
       delete events[existingEventId];
       closeTaskSheet();
       render();
     } catch (err) {
-      document.getElementById('ef2_deleteConfirm')?.classList.remove('is-open');
-      const btn = document.getElementById('ef2_deleteBtn');
-      if (btn) btn.style.display = '';
       const errEl = document.getElementById('ef2_importError');
       if (errEl) { errEl.textContent = "Couldn't delete — try again."; errEl.classList.add('is-visible'); }
     }

@@ -1171,7 +1171,9 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   const WAND_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
   const PHOTO_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
   const ICAL_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-  const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const CLOSE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const SAVE_SVG   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const DELETE_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
 
   const importIcons = isEdit ? '' : `
     <button class="ef2-icon-btn" id="ef2_wand" type="button" aria-label="Parse title with AI">${WAND_SVG}</button>
@@ -1189,7 +1191,11 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   return `<div class="ef2-form">
   <div class="sheet__header">
     <h2 class="sheet__title">${isEdit ? 'Edit Event' : 'New Event'}</h2>
-    <button class="ef2-icon-btn" id="ef2_close" type="button" aria-label="Close">${CLOSE_SVG}</button>
+    <div class="rf-header-actions">
+      ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="ef2_delete" type="button" aria-label="Delete event" title="Delete event">${DELETE_SVG}</button>` : ''}
+      <button class="ef2-icon-btn rf-save-btn" id="ef2_save" type="button" aria-label="${saveLabel}" title="${saveLabel}">${SAVE_SVG}</button>
+      <button class="ef2-icon-btn" id="ef2_close" type="button" aria-label="Close">${CLOSE_SVG}</button>
+    </div>
   </div>
 
   <div class="ef2-title-row">
@@ -1269,19 +1275,6 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     </div>
   </div>
 
-  <div class="ef2-footer">
-    <button class="btn btn--ghost" id="ef2_cancel" type="button">Cancel</button>
-    <button class="btn btn--primary" id="ef2_save" type="button">${esc(saveLabel)}</button>
-  </div>
-
-  ${isEdit ? `<div class="ef2-delete-zone">
-    <button class="ef2-delete-btn" id="ef2_deleteBtn" type="button">Delete Event</button>
-    <div class="ef2-delete-confirm" id="ef2_deleteConfirm">
-      <span class="ef2-delete-confirm-msg">Delete this event?</span>
-      <button class="btn btn--sm btn--danger" id="ef2_deleteYes" type="button">Delete</button>
-      <button class="btn btn--sm btn--secondary" id="ef2_deleteNo" type="button">Keep</button>
-    </div>
-  </div>` : ''}
 </div>`;
 }
 
