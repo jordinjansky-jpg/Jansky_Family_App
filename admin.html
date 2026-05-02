@@ -1718,11 +1718,13 @@
         <div class="tf-form">
           <div class="sheet__header">
             <h2 class="sheet__title">${sheetTitle}</h2>
-            ${isEdit ? (isArchived
-              ? `<button class="ef2-icon-btn" id="rf_unarchive" type="button" aria-label="Unarchive" title="Unarchive">${RF_ARCHIVE_SVG}</button>`
-              : `<button class="ef2-icon-btn" id="rf_archive" type="button" aria-label="Archive" title="Archive">${RF_ARCHIVE_SVG}</button>`) : ''}
-            ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="rf_delete" type="button" aria-label="Delete" title="Delete reward">${RF_DELETE_SVG}</button>` : ''}
-            <button class="ef2-icon-btn" id="rf_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
+            <div class="rf-header-actions">
+              ${isEdit ? (isArchived
+                ? `<button class="ef2-icon-btn" id="rf_unarchive" type="button" aria-label="Unarchive" title="Unarchive">${RF_ARCHIVE_SVG}</button>`
+                : `<button class="ef2-icon-btn" id="rf_archive" type="button" aria-label="Archive" title="Archive">${RF_ARCHIVE_SVG}</button>`) : ''}
+              ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="rf_delete" type="button" aria-label="Delete" title="Delete reward">${RF_DELETE_SVG}</button>` : ''}
+              <button class="ef2-icon-btn" id="rf_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
+            </div>
           </div>
 
           <div class="rf-title-row">
@@ -1804,7 +1806,6 @@
           </div>
 
           <div class="tf-footer">
-            <button class="btn btn--ghost" id="rf_cancel" type="button">Cancel</button>
             <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create Reward'}</button>
           </div>
 
@@ -1910,7 +1911,6 @@
 
       // Close
       mount.querySelector('#rf_close')?.addEventListener('click', close);
-      mount.querySelector('#rf_cancel')?.addEventListener('click', close);
 
       // Archive / Unarchive / Delete
       mount.querySelector('#rf_delete')?.addEventListener('click', async () => {
