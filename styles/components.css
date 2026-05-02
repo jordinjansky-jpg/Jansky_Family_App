@@ -4375,6 +4375,29 @@ label.ef2-icon-btn  { cursor: pointer; }
 .kr-section {
   padding: var(--spacing-sm) 0;
 }
+.ingredient-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+.ingredient-row .ingredient-qty,
+.ingredient-row .ingredient-name {
+  padding: 6px 8px;
+  font-size: var(--font-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  box-sizing: border-box;
+  min-height: 36px;
+}
+.ingredient-row .ingredient-qty { width: 80px; flex-shrink: 0; }
+.ingredient-row .ingredient-name { flex: 1; min-width: 0; }
+.ingredient-row .ingredient-qty:focus,
+.ingredient-row .ingredient-name:focus { outline: none; border-color: var(--accent); }
+
 .kr-add-ingredient-row {
   display: flex;
   gap: var(--spacing-xs);
