@@ -1214,31 +1214,28 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   <div class="ef2-divider"></div>
 
   <div class="ef2-datetime-section">
-    <div class="ef2-date-row">
-      <button class="ef2-date-btn" id="ef2_dateBtn" type="button">
+    <div class="tf-details-row">
+      <button class="tf-detail-chip" id="ef2_dateBtn" type="button">
         <span id="ef2_dateDisplay">${esc(dateDisplay)}</span>
       </button>
-      <button class="chip chip--selectable ef2-allday${event.allDay ? ' chip--active' : ''}" id="ef2_allDay" type="button">All day</button>
+      <button class="tf-detail-chip${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timeBtn" type="button">
+        <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
+      </button>
     </div>
     <div class="ef2-picker-wrap" id="ef2_datePicker">
       <input type="date" id="ef2_date" value="${esc(dateVal)}">
     </div>
-    <div class="ef2-time-section${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timeSection">
-      <button class="ef2-time-btn" id="ef2_timeBtn" type="button">
-        <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
-      </button>
-      <div class="ef2-picker-wrap" id="ef2_timePicker">
-        <div class="ef2-time-row-flat">
-          <select id="ef2_startHour" class="ef2-time-select ef2-time-select--hour" aria-label="Start hour">${ef2HourOpts(ef2ParseTime(startTime).hour)}</select>
-          <span class="ef2-time-colon">:</span>
-          <select id="ef2_startMin" class="ef2-time-select ef2-time-select--min" aria-label="Start minute">${ef2MinOpts(ef2ParseTime(startTime).min)}</select>
-          <select id="ef2_startAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="Start AM or PM">${ef2AmPmOpts(ef2ParseTime(startTime).ampm)}</select>
-          <span class="ef2-time-arrow" aria-hidden="true">→</span>
-          <select id="ef2_endHour" class="ef2-time-select ef2-time-select--hour" aria-label="End hour">${ef2HourOpts(ef2ParseTime(endTime).hour)}</select>
-          <span class="ef2-time-colon">:</span>
-          <select id="ef2_endMin" class="ef2-time-select ef2-time-select--min" aria-label="End minute">${ef2MinOpts(ef2ParseTime(endTime).min)}</select>
-          <select id="ef2_endAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="End AM or PM">${ef2AmPmOpts(ef2ParseTime(endTime).ampm)}</select>
-        </div>
+    <div class="ef2-picker-wrap${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timePicker">
+      <div class="ef2-time-row-flat">
+        <select id="ef2_startHour" class="ef2-time-select ef2-time-select--hour" aria-label="Start hour">${ef2HourOpts(ef2ParseTime(startTime).hour)}</select>
+        <span class="ef2-time-colon">:</span>
+        <select id="ef2_startMin" class="ef2-time-select ef2-time-select--min" aria-label="Start minute">${ef2MinOpts(ef2ParseTime(startTime).min)}</select>
+        <select id="ef2_startAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="Start AM or PM">${ef2AmPmOpts(ef2ParseTime(startTime).ampm)}</select>
+        <span class="ef2-time-arrow" aria-hidden="true">→</span>
+        <select id="ef2_endHour" class="ef2-time-select ef2-time-select--hour" aria-label="End hour">${ef2HourOpts(ef2ParseTime(endTime).hour)}</select>
+        <span class="ef2-time-colon">:</span>
+        <select id="ef2_endMin" class="ef2-time-select ef2-time-select--min" aria-label="End minute">${ef2MinOpts(ef2ParseTime(endTime).min)}</select>
+        <select id="ef2_endAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="End AM or PM">${ef2AmPmOpts(ef2ParseTime(endTime).ampm)}</select>
       </div>
     </div>
   </div>
@@ -1256,6 +1253,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   <div class="ef2-divider"></div>
 
   <div class="ef2-secondary-row">
+    <button class="ef2-add-chip${event.allDay ? ' is-active' : ''}" id="ef2_allDay" type="button">All day</button>
     <button class="ef2-add-chip${notesOpen ? ' is-active' : ''}" id="ef2_notesChip" type="button">+ Notes</button>
     <button class="ef2-add-chip${locOpen ? ' is-active' : ''}" id="ef2_locChip" type="button">+ Location</button>
     <button class="ef2-add-chip${repeatActive}" id="ef2_repeatChip" type="button">${esc(repeatLabel)}</button>

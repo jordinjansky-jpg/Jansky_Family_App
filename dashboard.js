@@ -1812,7 +1812,7 @@ function openEventForm(existingEventId = null, savedState = null) {
   });
 
   function updateTimeDisplay() {
-    if (document.getElementById('ef2_allDay')?.classList.contains('chip--active')) return;
+    if (document.getElementById('ef2_allDay')?.classList.contains('is-active')) return;
     const s = ef2GetTime('start');
     const e = ef2GetTime('end');
     if (timeDisplay) {
@@ -1834,10 +1834,11 @@ function openEventForm(existingEventId = null, savedState = null) {
   // ── All day toggle ───────────────────────────────────────────
   document.getElementById('ef2_allDay')?.addEventListener('click', () => {
     const allDayBtn = document.getElementById('ef2_allDay');
-    const timeSection = document.getElementById('ef2_timeSection');
-    allDayBtn.classList.toggle('chip--active');
-    const isAllDay = allDayBtn.classList.contains('chip--active');
-    timeSection?.classList.toggle('ef2-hidden', isAllDay);
+    allDayBtn.classList.toggle('is-active');
+    const isAllDay = allDayBtn.classList.contains('is-active');
+    document.getElementById('ef2_timeBtn')?.classList.toggle('ef2-hidden', isAllDay);
+    document.getElementById('ef2_timePicker')?.classList.toggle('ef2-hidden', isAllDay);
+    if (isAllDay) document.getElementById('ef2_timePicker')?.classList.remove('is-open');
     if (!isAllDay) updateTimeDisplay();
   });
 
@@ -1963,7 +1964,7 @@ function openEventForm(existingEventId = null, savedState = null) {
     return {
       name: document.getElementById('ef2_name')?.value || '',
       date: document.getElementById('ef2_date')?.value || viewDate,
-      allDay: document.getElementById('ef2_allDay')?.classList.contains('chip--active') || false,
+      allDay: document.getElementById('ef2_allDay')?.classList.contains('is-active') || false,
       startTime: ef2GetTime('start') || '09:00',
       endTime: ef2GetTime('end') || '10:00',
       isFamilyMode,
@@ -2136,10 +2137,9 @@ function openEventForm(existingEventId = null, savedState = null) {
           updateTimeDisplay();
         }
         if (data.allDay) {
-          const allDayBtn = document.getElementById('ef2_allDay');
-          const timeSection = document.getElementById('ef2_timeSection');
-          allDayBtn?.classList.add('chip--active');
-          timeSection?.classList.add('ef2-hidden');
+          document.getElementById('ef2_allDay')?.classList.add('is-active');
+          document.getElementById('ef2_timeBtn')?.classList.add('ef2-hidden');
+          document.getElementById('ef2_timePicker')?.classList.add('ef2-hidden');
         }
         if (data.name) {
           const lowerName = data.name.toLowerCase();
