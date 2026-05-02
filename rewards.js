@@ -1044,181 +1044,232 @@ const PRICING_AVERAGES = [
   { label: 'C (75%)', value: 75 }
 ];
 
+const RCF_CLOSE_SVG   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const RCF_SAVE_SVG    = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
 function openRewardCreateForm() {
   const mount = document.getElementById('sheetMount');
-  const html = `<div id="rewardCreateForm" class="form-compact">
-    <div class="sheet-title">Create Reward</div>
+  const tz = settings?.timezone || 'UTC';
+  const defaultEmoji = '\u{1F381}';
 
-    <div class="form-group">
-      <label class="form-label" for="rcf_name">Name</label>
-      <input class="form-input" type="text" id="rcf_name" placeholder="Reward name" autocomplete="off">
-    </div>
+  const peopleHtml = people.map(p =>
+    `<button type="button" class="ef2-person-chip" data-person-id="${esc(p.id)}" data-state="primary" style="--chip-color:${esc(p.color)}">${esc(p.name)}</button>`
+  ).join('');
 
-    <div class="form-group">
-      <label class="form-label">Emoji</label>
-      <div class="emoji-picker" id="rcf_emojiPicker">
-        ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn" data-emoji="${e}">${e}</button>`).join('')}
-        <input type="text" id="rcf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width:44px;text-align:center;">
+  mount.innerHTML = renderBottomSheet(`
+    <div class="tf-form">
+      <div class="sheet__header">
+        <h2 class="sheet__title">New Reward</h2>
+        <div class="rf-header-actions">
+          <button class="ef2-icon-btn rf-save-btn" id="rcf_save" type="button" aria-label="Create reward" title="Create">${RCF_SAVE_SVG}</button>
+          <button class="ef2-icon-btn" id="rcf_close" type="button" aria-label="Close">${RCF_CLOSE_SVG}</button>
+        </div>
       </div>
-    </div>
 
-    <div class="form-group">
-      <label class="form-label">Type</label>
-      <div class="segmented-control" id="rcf_typeChips">
-        <button class="segmented-btn segmented-btn--active" data-value="custom" type="button">Custom</button>
-        <button class="segmented-btn" data-value="task-skip" type="button">Task Skip</button>
-        <button class="segmented-btn" data-value="penalty-removal" type="button">No Penalty</button>
+      <div class="rf-title-row">
+        <button class="rf-emoji-btn" id="rcf_emojiBtnPreview" type="button" title="Pick emoji">${defaultEmoji}</button>
+        <input class="tf-title-input" id="rcf_name" type="text" placeholder="Reward name" autocomplete="off">
       </div>
-    </div>
 
-    <div class="form-row-2">
-      <div class="form-group">
-        <label class="form-label" for="rcf_pointCost">Point Cost</label>
-        <input class="form-input" type="number" id="rcf_pointCost" placeholder="e.g. 500" min="0">
+      <div class="rf-emoji-reveal" id="rcf_emojiReveal">
+        <div class="rf-emoji-grid">
+          ${REWARD_EMOJIS.map(e => `<button type="button" class="rf-emoji-cell${defaultEmoji === e ? ' is-selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+          <input type="search" id="rcf_customEmoji" class="rf-emoji-custom" placeholder="+">
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Earn in ~ days</label>
-        <div style="display:flex;gap:4px;align-items:center;">
-          <input type="number" id="rcf_daysInput" class="form-input" value="7" min="1" style="width:56px;">
-          <select id="rcf_avgSelect" class="form-input" style="flex:1;font-size:var(--font-xs);">
-            ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
-          </select>
+
+      <div class="ef2-divider"></div>
+
+      <div class="tf-rotation-section">
+        <div class="tf-rotation-pills" id="rcf_type">
+          <button class="tf-rot-pill tf-rot-pill--active" data-rtype="custom" type="button">Custom</button>
+          <button class="tf-rot-pill" data-rtype="task-skip" type="button">Task Skip</button>
+          <button class="tf-rot-pill" data-rtype="penalty-removal" type="button">No Penalty</button>
+        </div>
+        <div id="rcf_typeHint" class="form-hint" style="min-height:16px;margin-top:4px;"></div>
+      </div>
+
+      <div class="ef2-divider"></div>
+
+      <div class="rf-cost-row">
+        <input type="number" id="rcf_pointCost" class="rf-cost-input" min="1" placeholder="0">
+        <span class="rf-cost-unit">pts</span>
+        <button class="ef2-add-chip" id="rcf_pricingChip" type="button" style="margin-left:auto;">+ Pricing help</button>
+      </div>
+
+      <div class="ef2-field-reveal" id="rcf_pricingReveal">
+        <div class="rf-pricing-inner">
+          <div class="rf-pricing-row">
+            <input type="number" id="rcf_daysInput" class="rf-days-input" value="7" min="1">
+            <span class="rf-cost-unit">days at</span>
+            <select id="rcf_avgSelect" class="rf-avg-select">
+              ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
+            </select>
+          </div>
+          <input type="range" id="rcf_daysSlider" min="1" max="30" value="7" class="rf-days-slider">
+          <div id="rcf_suggestion" class="rf-suggestion"></div>
+        </div>
+      </div>
+
+      <div class="ef2-divider"></div>
+
+      <div class="tf-for-section">
+        <div class="ef2-for-header">
+          <span class="ef2-section-label">Visible to</span>
+        </div>
+        <div class="ef2-person-chips" id="rcf_people">${peopleHtml}</div>
+      </div>
+
+      <div class="ef2-divider"></div>
+
+      <div class="ef2-secondary-row">
+        <button class="ef2-add-chip is-active" id="rcf_approvalChip" type="button">Approval required</button>
+        <button class="ef2-add-chip" id="rcf_advancedChip" type="button">+ Advanced</button>
+      </div>
+
+      <div class="ef2-field-reveal" id="rcf_advancedReveal">
+        <div class="rf-adv-grid">
+          <div class="rf-adv-row">
+            <span class="rf-adv-label">Max uses</span>
+            <input type="number" id="rcf_maxRedemptions" class="rf-adv-input" min="1" placeholder="Unlimited">
+          </div>
+          <div class="rf-adv-row">
+            <span class="rf-adv-label">Streak required</span>
+            <input type="number" id="rcf_streakReq" class="rf-adv-input" min="1" placeholder="None">
+          </div>
+          <div class="rf-adv-row">
+            <span class="rf-adv-label">Expires</span>
+            <input type="date" id="rcf_expiresAt" class="rf-adv-input">
+          </div>
         </div>
       </div>
     </div>
-    <input type="range" id="rcf_daysSlider" min="1" max="30" value="7" style="width:100%;margin-top:-4px;">
-    <div id="rcf_suggestion" class="form-hint" style="cursor:pointer;color:var(--accent);margin-bottom:var(--spacing-xs);">
-      → <strong>615 pts</strong> (tap to apply)
-    </div>
+  `);
 
-    <div class="form-group">
-      <div class="form-label">Approval required</div>
-      <label class="form-toggle">
-        <input type="checkbox" id="rcf_approvalRequired" checked>
-        <span class="form-toggle__track"></span>
-      </label>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Visible to</label>
-      <div class="filter-chips" id="rcf_personChips">
-        ${people.map(p => `<button class="chip chip--active" data-person-id="${esc(p.id)}" type="button">${esc(p.name)}</button>`).join('')}
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label" for="rcf_maxRedemptions">Max redemptions (optional)</label>
-      <input class="form-input" type="number" id="rcf_maxRedemptions" placeholder="Unlimited" min="1">
-    </div>
-
-    <div class="form-group">
-      <label class="form-label" for="rcf_streakRequirement">Streak required (optional)</label>
-      <input class="form-input" type="number" id="rcf_streakRequirement" placeholder="None" min="1">
-    </div>
-
-    <div class="form-group">
-      <label class="form-label" for="rcf_expiresAt">Expires on (optional)</label>
-      <input class="form-input" type="date" id="rcf_expiresAt">
-    </div>
-
-    <button class="btn btn--primary btn--full" id="rcf_save" type="button">Create Reward</button>
-    <button class="btn btn--ghost btn--full" id="rcf_cancel" type="button">Cancel</button>
-  </div>`;
-
-  mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  const close = () => { mount.innerHTML = ''; };
+
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
-    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+    if (e.target.id === 'bottomSheet') close();
   });
 
-  // Pricing helper
-  const rcfDaysInput = mount.querySelector('#rcf_daysInput');
-  const rcfAvgSelect = mount.querySelector('#rcf_avgSelect');
-  const rcfSlider = mount.querySelector('#rcf_daysSlider');
-  const rcfSuggestion = mount.querySelector('#rcf_suggestion');
-  const rcfPointCost = mount.querySelector('#rcf_pointCost');
+  // Emoji
+  let currentEmoji = defaultEmoji;
+  const emojiReveal = mount.querySelector('#rcf_emojiReveal');
+  mount.querySelector('#rcf_emojiBtnPreview')?.addEventListener('click', () => {
+    emojiReveal?.classList.toggle('is-open');
+  });
+  for (const cell of mount.querySelectorAll('.rf-emoji-cell')) {
+    cell.addEventListener('click', () => {
+      mount.querySelectorAll('.rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+      cell.classList.add('is-selected');
+      currentEmoji = cell.dataset.emoji;
+      mount.querySelector('#rcf_emojiBtnPreview').textContent = currentEmoji;
+      mount.querySelector('#rcf_customEmoji').value = '';
+      emojiReveal?.classList.remove('is-open');
+    });
+  }
+  mount.querySelector('#rcf_customEmoji')?.addEventListener('input', e => {
+    const v = e.target.value.trim();
+    if (v) {
+      currentEmoji = v;
+      mount.querySelector('#rcf_emojiBtnPreview').textContent = v;
+      mount.querySelectorAll('.rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+    }
+  });
 
-  function updateRcfSuggestion() {
-    const days = parseInt(rcfDaysInput.value) || 7;
-    const avg = parseInt(rcfAvgSelect.value) || 88;
-    const cost = Math.round((days * avg) / 5) * 5;
-    const avgLabel = PRICING_AVERAGES.find(a => a.value === avg)?.label || avg + '%';
-    rcfSuggestion.innerHTML = `${days} day${days > 1 ? 's' : ''} at ${avgLabel} average &rarr; <strong>${cost} pts</strong> (tap to apply)`;
-    rcfSuggestion.dataset.cost = cost;
+  // Type pills
+  const typeHint = mount.querySelector('#rcf_typeHint');
+  for (const pill of mount.querySelectorAll('#rcf_type .tf-rot-pill')) {
+    pill.addEventListener('click', () => {
+      mount.querySelectorAll('#rcf_type .tf-rot-pill').forEach(p => p.classList.remove('tf-rot-pill--active'));
+      pill.classList.add('tf-rot-pill--active');
+      const val = pill.dataset.rtype;
+      typeHint.textContent = val === 'task-skip' ? 'Person picks a task to skip for the day'
+        : val === 'penalty-removal' ? 'Removes the late penalty from a past task' : '';
+    });
   }
 
-  rcfSlider.addEventListener('input', () => { rcfDaysInput.value = rcfSlider.value; updateRcfSuggestion(); });
-  rcfDaysInput.addEventListener('input', () => {
-    const v = parseInt(rcfDaysInput.value);
-    if (v && v <= 30) rcfSlider.value = v;
-    updateRcfSuggestion();
-  });
-  rcfAvgSelect.addEventListener('change', updateRcfSuggestion);
-  rcfSuggestion.addEventListener('click', () => { rcfPointCost.value = rcfSuggestion.dataset.cost; });
-  updateRcfSuggestion();
+  // Pricing helper
+  const slider = mount.querySelector('#rcf_daysSlider');
+  const daysInput = mount.querySelector('#rcf_daysInput');
+  const avgSelect = mount.querySelector('#rcf_avgSelect');
+  const suggestion = mount.querySelector('#rcf_suggestion');
+  const pointCostInput = mount.querySelector('#rcf_pointCost');
 
-  // Emoji picker
-  mount.querySelectorAll('#rcf_emojiPicker .emoji-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      mount.querySelectorAll('#rcf_emojiPicker .emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
-      btn.classList.add('emoji-btn--selected');
-      const customInput = mount.querySelector('#rcf_customEmoji');
-      if (customInput) customInput.value = '';
+  function updateSuggestion() {
+    const days = parseInt(daysInput.value) || 7;
+    const avg = parseInt(avgSelect.value) || 88;
+    const cost = Math.round((days * avg) / 5) * 5;
+    const avgLabel = PRICING_AVERAGES.find(a => a.value === avg)?.label || avg + '%';
+    suggestion.innerHTML = `${days} day${days > 1 ? 's' : ''} at ${avgLabel} &rarr; <strong>${cost} pts</strong> (tap to apply)`;
+    suggestion.dataset.cost = cost;
+  }
+
+  mount.querySelector('#rcf_pricingChip')?.addEventListener('click', () => {
+    const reveal = mount.querySelector('#rcf_pricingReveal');
+    reveal?.classList.toggle('is-open');
+    mount.querySelector('#rcf_pricingChip')?.classList.toggle('is-active', reveal?.classList.contains('is-open'));
+    if (reveal?.classList.contains('is-open')) updateSuggestion();
+  });
+  slider?.addEventListener('input', () => { daysInput.value = slider.value; updateSuggestion(); });
+  daysInput?.addEventListener('input', () => {
+    const v = parseInt(daysInput.value);
+    if (v && v <= 30) slider.value = v;
+    updateSuggestion();
+  });
+  avgSelect?.addEventListener('change', updateSuggestion);
+  suggestion?.addEventListener('click', () => { pointCostInput.value = suggestion.dataset.cost; });
+
+  // Person chips
+  for (const chip of mount.querySelectorAll('#rcf_people .ef2-person-chip')) {
+    chip.addEventListener('click', () => {
+      if (chip.dataset.state === 'primary') chip.removeAttribute('data-state');
+      else chip.setAttribute('data-state', 'primary');
     });
+  }
+
+  // Approval chip toggle
+  let approvalRequired = true;
+  mount.querySelector('#rcf_approvalChip')?.addEventListener('click', () => {
+    approvalRequired = !approvalRequired;
+    mount.querySelector('#rcf_approvalChip')?.classList.toggle('is-active', approvalRequired);
   });
 
-  // Type segmented control — mutually exclusive
-  mount.querySelectorAll('#rcf_typeChips .segmented-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      mount.querySelectorAll('#rcf_typeChips .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
-      btn.classList.add('segmented-btn--active');
-    });
+  // Advanced chip toggle
+  mount.querySelector('#rcf_advancedChip')?.addEventListener('click', () => {
+    const reveal = mount.querySelector('#rcf_advancedReveal');
+    reveal?.classList.toggle('is-open');
+    mount.querySelector('#rcf_advancedChip')?.classList.toggle('is-active', reveal?.classList.contains('is-open'));
   });
 
-  // Person chips — multi-select toggle
-  mount.querySelectorAll('#rcf_personChips .chip').forEach(btn => {
-    btn.addEventListener('click', () => btn.classList.toggle('chip--active'));
-  });
-
-  // Cancel
-  mount.querySelector('#rcf_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  // Close
+  mount.querySelector('#rcf_close')?.addEventListener('click', close);
 
   // Save
   mount.querySelector('#rcf_save')?.addEventListener('click', async () => {
-    const nameInput = mount.querySelector('#rcf_name');
-    const costInput = mount.querySelector('#rcf_pointCost');
-    const approvalToggle = mount.querySelector('#rcf_approvalRequired');
-    const maxInput = mount.querySelector('#rcf_maxRedemptions');
-    const streakInput = mount.querySelector('#rcf_streakRequirement');
-    const expiresInput = mount.querySelector('#rcf_expiresAt');
-
-    const name = nameInput?.value.trim() || '';
+    const name = mount.querySelector('#rcf_name').value.trim();
     if (!name) {
-      showToast('Please enter a reward name.');
+      mount.querySelector('#rcf_name').classList.add('is-invalid');
+      mount.querySelector('#rcf_name').focus();
       return;
     }
-
-    const selectedType = mount.querySelector('#rcf_typeChips .segmented-btn--active')?.dataset.value || 'custom';
-    const selectedPeopleIds = [...mount.querySelectorAll('#rcf_personChips .chip--active')]
-      .map(b => b.dataset.personId);
-    const selectedEmoji = mount.querySelector('#rcf_emojiPicker .emoji-btn--selected')?.dataset.emoji
-      || mount.querySelector('#rcf_customEmoji')?.value.trim() || '🎁';
-
-    const rewardData = {
-      name,
-      icon: selectedEmoji,
-      rewardType: selectedType,
-      pointCost: parseInt(costInput?.value) || 0,
-      approvalRequired: approvalToggle?.checked !== false,
-      perPerson: selectedPeopleIds,
-      maxRedemptions: maxInput?.value ? parseInt(maxInput.value) : null,
-      streakRequirement: streakInput?.value ? parseInt(streakInput.value) : null,
-      expiresAt: expiresInput?.value ? new Date(expiresInput.value).getTime() : null,
+    const rewardType = mount.querySelector('#rcf_type .tf-rot-pill--active')?.dataset?.rtype || 'custom';
+    const cost = parseInt(mount.querySelector('#rcf_pointCost').value) || 0;
+    if (cost <= 0) { mount.querySelector('#rcf_pointCost').focus(); return; }
+    const selectedPeople = [...mount.querySelectorAll('#rcf_people .ef2-person-chip[data-state="primary"]')].map(c => c.dataset.personId);
+    const maxRedemptions = parseInt(mount.querySelector('#rcf_maxRedemptions').value) || null;
+    const streakReq = parseInt(mount.querySelector('#rcf_streakReq').value) || null;
+    const expiresDate = mount.querySelector('#rcf_expiresAt').value;
+    const expiresAt = expiresDate ? new Date(expiresDate + 'T23:59:59').getTime() : null;
+    await pushReward({
+      name, icon: currentEmoji, pointCost: cost, rewardType,
+      approvalRequired, perPerson: selectedPeople,
+      maxRedemptions, streakRequirement: streakReq, expiresAt,
       status: 'active'
-    };
-
-    await pushReward(rewardData);
-    mount.innerHTML = '';
+    });
+    close();
     showToast('Reward created!');
     await refreshData();
     render();

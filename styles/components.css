@@ -4424,3 +4424,134 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 
 /* ── End Kitchen forms ────────────────────────────────────────────────────── */
+
+/* ── Reward form (rf-*) — shared between admin and rewards pages ── */
+.rf-header-actions { display: flex; align-items: center; gap: 2px; }
+.rf-save-btn   { color: var(--accent); }
+.rf-delete-btn { color: var(--danger); }
+.rf-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+}
+.rf-emoji-btn {
+  font-size: 1.75rem;
+  line-height: 1;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.rf-emoji-btn:hover { background: var(--surface-3, var(--surface-2)); }
+.rf-emoji-reveal { display: none; }
+.rf-emoji-reveal.is-open { display: block; }
+.rf-emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: var(--spacing-xs) 0 var(--spacing-sm);
+}
+.rf-emoji-cell {
+  font-size: 1.4rem;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rf-emoji-cell:hover { background: var(--surface-2); }
+.rf-emoji-cell.is-selected { background: var(--surface-2); border-color: var(--accent); }
+.rf-emoji-custom {
+  width: 40px;
+  height: 40px;
+  font-size: 1.1rem;
+  text-align: center;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0;
+}
+.rf-cost-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+}
+.rf-cost-input {
+  width: 96px;
+  height: 40px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0 var(--spacing-sm);
+  text-align: center;
+}
+.rf-cost-input:focus { outline: none; border-color: var(--accent); }
+.rf-cost-unit { font-size: var(--font-sm); color: var(--text-muted); }
+.rf-pricing-inner { padding: var(--spacing-xs) 0 var(--spacing-sm); }
+.rf-pricing-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+.rf-days-input {
+  width: 52px;
+  height: 36px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--font-sm);
+  padding: 0 var(--spacing-xs);
+  text-align: center;
+}
+.rf-days-input:focus { outline: none; border-color: var(--accent); }
+.rf-avg-select {
+  flex: 1;
+  height: 36px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--font-xs);
+  padding: 0 var(--spacing-xs);
+}
+.rf-days-slider { width: 100%; margin-bottom: var(--spacing-xs); }
+.rf-suggestion { font-size: var(--font-sm); color: var(--accent); cursor: pointer; min-height: 16px; }
+.rf-adv-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) 0 var(--spacing-sm);
+}
+.rf-adv-row { display: flex; align-items: center; gap: var(--spacing-sm); }
+.rf-adv-label { flex: 1; font-size: var(--font-sm); color: var(--text-muted); }
+.rf-adv-input {
+  width: 120px;
+  height: 36px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--font-sm);
+  padding: 0 var(--spacing-sm);
+  text-align: right;
+}
+.rf-adv-input:focus { outline: none; border-color: var(--accent); }
