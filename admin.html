@@ -1566,14 +1566,6 @@
         html += `</div>`;
       }
 
-      // Reward form modal
-      if (editingRewardId) {
-        const modalRewardId = editingRewardId === 'new' ? null : editingRewardId;
-        html += `<div class="task-form-backdrop" id="rewardFormBackdrop">
-          <div class="task-form-modal">${renderRewardForm(modalRewardId)}</div>
-        </div>`;
-      }
-
       // Archived rewards toggle — only show when status filter is 'active' (archived not already in main list)
       if (rewardsStatus === 'active') {
         const archived = Object.entries(rewardsObj).filter(([, r]) => r.status === 'archived');
@@ -1706,25 +1698,32 @@
       }, { once: true });
     }
 
-    function renderRewardForm(rewardId) {
-      const reward = rewardId ? rewardsObj[rewardId] : {};
+    const RF_CLOSE_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+    function openRewardForm(rewardId) {
+      const mount = document.getElementById('taskSheetMount');
+      const reward = rewardId ? (rewardsObj[rewardId] || {}) : {};
       const isEdit = !!rewardId;
       const isArchived = isEdit && reward.status === 'archived';
-      const isApprovalRequired = reward.approvalRequired !== false; // default true
-      const title = isArchived ? 'Archived Reward' : (isEdit ? 'Edit Reward' : 'New Reward');
+      const isApprovalRequired = reward.approvalRequired !== false;
+      const sheetTitle = isArchived ? 'Archived Reward' : (isEdit ? 'Edit Reward' : 'New Reward');
 
-      return `<div class="form-compact" id="rewardForm">
-          <h3 class="admin-form__title">${title}</h3>
-
+      mount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header">
+          <h2 class="sheet__title">${sheetTitle}</h2>
+          <button class="ef2-icon-btn" id="rf_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
+        </div>
+        <div class="sheet__content">
           <div class="form-group">
             <label class="form-label">Name</label>
-            <input type="text" id="rf_name" class="form-input" value="${esc(reward.name || '')}" placeholder="Movie Night">
+            <input type="text" id="rf_name" class="form-input" value="${esc(reward.name || '')}" placeholder="Movie Night" autocomplete="off">
           </div>
+
           <div class="form-group">
             <label class="form-label">Emoji</label>
             <div class="emoji-picker" id="rf_emojiPicker">
               ${REWARD_EMOJIS.map(e => `<button type="button" class="emoji-btn${reward.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
-              <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
+              <input type="text" id="rf_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width:44px;text-align:center;" value="${reward.icon && !REWARD_EMOJIS.includes(reward.icon) ? esc(reward.icon) : ''}">
             </div>
           </div>
 
@@ -1746,7 +1745,7 @@
               <button type="button" class="segmented-btn${reward.rewardType === 'task-skip' ? ' segmented-btn--active' : ''}" data-value="task-skip">Task Skip</button>
               <button type="button" class="segmented-btn${reward.rewardType === 'penalty-removal' ? ' segmented-btn--active' : ''}" data-value="penalty-removal">No Penalty</button>
             </div>
-            <div id="rf_typeHint" class="form-hint" style="margin-top: 2px;"></div>
+            <div id="rf_typeHint" class="form-hint" style="margin-top:2px;"></div>
           </div>
 
           <div class="form-row-2">
@@ -1756,28 +1755,26 @@
             </div>
             <div class="form-group">
               <label class="form-label">Earn in ~ days</label>
-              <div style="display: flex; gap: 4px; align-items: center;">
-                <input type="number" id="rf_daysInput" class="form-input" value="7" min="1" style="width: 56px;">
-                <select id="rf_avgSelect" class="form-input" style="flex: 1; font-size: var(--font-xs);">
+              <div style="display:flex;gap:4px;align-items:center;">
+                <input type="number" id="rf_daysInput" class="form-input" value="7" min="1" style="width:56px;">
+                <select id="rf_avgSelect" class="form-input" style="flex:1;font-size:var(--font-xs);">
                   ${PRICING_AVERAGES.map(a => `<option value="${a.value}"${a.value === 88 ? ' selected' : ''}>${a.label}</option>`).join('')}
                 </select>
               </div>
             </div>
           </div>
-          <input type="range" id="rf_daysSlider" min="1" max="30" value="7" style="width: 100%; margin-top: -4px;">
-          <div id="rf_suggestion" class="form-hint" style="cursor: pointer; color: var(--accent);">
-            → <strong>615 pts</strong> (tap to apply)
-          </div>
+          <input type="range" id="rf_daysSlider" min="1" max="30" value="7" style="width:100%;margin-top:-4px;">
+          <div id="rf_suggestion" class="form-hint" style="cursor:pointer;color:var(--accent);"></div>
 
           <div class="form-group">
             <label class="form-label">Visible to</label>
             <div class="owner-chips" id="rf_people">
               ${peopleArray().map(p => {
-                const isVisible = !reward.perPerson || reward.perPerson.includes(p.id);
-                return `<button type="button" class="chip${isVisible ? ' chip--active' : ''}" data-person-id="${esc(p.id)}" style="--person-color:${esc(p.color)}">${esc(p.name)}</button>`;
+                const vis = !reward.perPerson || reward.perPerson.includes(p.id);
+                return `<button type="button" class="chip${vis ? ' chip--active' : ''}" data-person-id="${esc(p.id)}" style="--person-color:${esc(p.color)}">${esc(p.name)}</button>`;
               }).join('')}
             </div>
-            <span class="form-hint">Deselect anyone who shouldn't see this reward.</span>
+            <span class="form-hint">Deselect anyone who should not see this reward.</span>
           </div>
 
           <div class="form-row-3">
@@ -1795,96 +1792,51 @@
             </div>
           </div>
 
-          <div class="${isEdit ? 'admin-form__actions admin-form__actions--2col' : 'admin-form__actions'}">
-            ${isEdit ? `<button class="btn btn--danger" id="rf_delete" type="button">Delete</button>` : ''}
-            ${isEdit && isArchived ? `<button class="btn btn--secondary" id="rf_unarchive" type="button">Unarchive</button>` : ''}
-            ${isEdit && !isArchived ? `<button class="btn btn--secondary" id="rf_archive" type="button">Archive</button>` : ''}
-            <button class="btn btn--secondary" id="rf_cancel" type="button">Cancel</button>
-            <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create'}</button>
-          </div>
-        </div>`;
-    }
+          ${isEdit ? `<div class="rf-edit-actions">
+            ${isArchived ? `<button class="btn btn--secondary btn--sm" id="rf_unarchive" type="button">Unarchive</button>` : `<button class="btn btn--secondary btn--sm" id="rf_archive" type="button">Archive</button>`}
+            <button class="btn btn--danger btn--sm" id="rf_delete" type="button">Delete</button>
+          </div>` : ''}
+        </div>
+        <div class="sheet__footer">
+          <button class="btn btn--ghost" id="rf_cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="rf_save" type="button">${isEdit ? 'Save' : 'Create'}</button>
+        </div>
+      `);
 
-    function bindRewardsTab() {
-      // Row click — delegated (active + archived)
-      main.querySelector('#rewardList')?.addEventListener('click', e => {
-        const row = e.target.closest('[data-reward-id]');
-        if (!row) return;
-        editingRewardId = row.dataset.rewardId;
-        render();
-      });
-      main.querySelector('.admin-archived-rewards')?.addEventListener('click', e => {
-        const row = e.target.closest('[data-reward-id]');
-        if (!row) return;
-        editingRewardId = row.dataset.rewardId;
-        render();
-      });
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
 
-      main.querySelector('#addRewardBtn')?.addEventListener('click', () => {
-        editingRewardId = 'new';
-        render();
-      });
+      const close = () => closeAdminSheet();
 
-      main.querySelector('#rewardsSearch')?.addEventListener('input', e => {
-        rewardsSearch = e.target.value;
-        render();
-        const el = main.querySelector('#rewardsSearch');
-        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-      });
-      main.querySelector('#rewardsFilterSortBtn')?.addEventListener('click', openRewardsFilterSheet);
-
-      // Bind modal form if visible
-      const form = main.querySelector('#rewardForm');
-      if (form) bindRewardForm();
-
-      // Backdrop close
-      document.querySelector('#rewardFormBackdrop')?.addEventListener('click', (e) => {
-        if (e.target.id === 'rewardFormBackdrop') {
-          editingRewardId = null;
-          render();
-        }
-      });
-
-    }
-
-    function bindRewardForm() {
-      const form = main.querySelector('#rewardForm') || document.getElementById('rewardForm');
-      if (!form) return;
-
-      // Emoji picker
-      for (const btn of form.querySelectorAll('.emoji-btn')) {
+      for (const btn of mount.querySelectorAll('.emoji-btn')) {
         btn.addEventListener('click', () => {
-          form.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
+          mount.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
           btn.classList.add('emoji-btn--selected');
-          form.querySelector('#rf_customEmoji').value = '';
+          mount.querySelector('#rf_customEmoji').value = '';
         });
       }
 
-      // Type segmented control
-      for (const btn of form.querySelectorAll('#rf_type .segmented-btn')) {
+      for (const btn of mount.querySelectorAll('#rf_type .segmented-btn')) {
         btn.addEventListener('click', () => {
-          form.querySelectorAll('#rf_type .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+          mount.querySelectorAll('#rf_type .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
           btn.classList.add('segmented-btn--active');
-          const hint = form.querySelector('#rf_typeHint');
+          const hint = mount.querySelector('#rf_typeHint');
           const val = btn.dataset.value;
           hint.textContent = val === 'task-skip' ? 'Person picks a task to skip for the day'
             : val === 'penalty-removal' ? 'Removes the late penalty from a past task' : '';
         });
       }
 
-      // Approval toggle hint
-      const approvalToggle = form.querySelector('#rf_approvalRequired');
-      const approvalHint = form.querySelector('#rf_approvalHint');
+      const approvalToggle = mount.querySelector('#rf_approvalRequired');
+      const approvalHint = mount.querySelector('#rf_approvalHint');
       approvalToggle?.addEventListener('change', () => {
         approvalHint.textContent = approvalToggle.checked ? '' : "Kids can buy this instantly — you'll get a notification.";
       });
 
-      // Pricing helper
-      const slider = form.querySelector('#rf_daysSlider');
-      const daysInput = form.querySelector('#rf_daysInput');
-      const avgSelect = form.querySelector('#rf_avgSelect');
-      const suggestion = form.querySelector('#rf_suggestion');
-      const pointCost = form.querySelector('#rf_pointCost');
+      const slider = mount.querySelector('#rf_daysSlider');
+      const daysInput = mount.querySelector('#rf_daysInput');
+      const avgSelect = mount.querySelector('#rf_avgSelect');
+      const suggestion = mount.querySelector('#rf_suggestion');
+      const pointCostInput = mount.querySelector('#rf_pointCost');
 
       function updateSuggestion() {
         const days = parseInt(daysInput.value) || 7;
@@ -1902,90 +1854,85 @@
         updateSuggestion();
       });
       avgSelect.addEventListener('change', updateSuggestion);
-      suggestion.addEventListener('click', () => { pointCost.value = suggestion.dataset.cost; });
+      suggestion.addEventListener('click', () => { pointCostInput.value = suggestion.dataset.cost; });
       updateSuggestion();
 
-      // Person chips
-      for (const chip of form.querySelectorAll('#rf_people .chip')) {
+      for (const chip of mount.querySelectorAll('#rf_people .chip')) {
         chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
       }
 
-      // Cancel
-      form.querySelector('#rf_cancel').addEventListener('click', () => {
-        editingRewardId = null;
-        render();
+      mount.querySelector('#rf_close')?.addEventListener('click', close);
+      mount.querySelector('#rf_cancel')?.addEventListener('click', close);
+
+      mount.querySelector('#rf_delete')?.addEventListener('click', async () => {
+        const name = rewardsObj[rewardId]?.name || 'this reward';
+        if (!await showConfirm({ title: `Delete "${name}"?`, message: 'This cannot be undone.', danger: true })) return;
+        await removeReward(rewardId);
+        delete rewardsObj[rewardId];
+        close(); render();
       });
 
-      // Delete
-      form.querySelector('#rf_delete')?.addEventListener('click', async () => {
-        const reward = rewardsObj[editingRewardId];
-        if (!await showConfirm({ title: `Delete "${reward?.name || 'this reward'}"?`, message: 'This cannot be undone.', danger: true })) return;
-        await removeReward(editingRewardId);
-        delete rewardsObj[editingRewardId];
-        editingRewardId = null;
-        render();
+      mount.querySelector('#rf_archive')?.addEventListener('click', async () => {
+        const name = rewardsObj[rewardId]?.name || 'this reward';
+        if (!await showConfirm({ title: `Archive "${name}"?`, message: 'It will be hidden from the store but not deleted.' })) return;
+        await archiveReward(rewardId);
+        rewardsObj[rewardId] = { ...rewardsObj[rewardId], status: 'archived' };
+        close(); render();
       });
 
-      // Archive
-      form.querySelector('#rf_archive')?.addEventListener('click', async () => {
-        const reward = rewardsObj[editingRewardId];
-        if (!await showConfirm({ title: `Archive "${reward?.name || 'this reward'}"?`, message: 'It will be hidden from the store but not deleted.' })) return;
-        await archiveReward(editingRewardId);
-        rewardsObj[editingRewardId] = { ...rewardsObj[editingRewardId], status: 'archived' };
-        editingRewardId = null;
-        render();
+      mount.querySelector('#rf_unarchive')?.addEventListener('click', async () => {
+        await writeReward(rewardId, { ...rewardsObj[rewardId], status: 'active' });
+        rewardsObj[rewardId] = { ...rewardsObj[rewardId], status: 'active' };
+        close(); render();
       });
 
-      // Unarchive
-      form.querySelector('#rf_unarchive')?.addEventListener('click', async () => {
-        await writeReward(editingRewardId, { ...rewardsObj[editingRewardId], status: 'active' });
-        rewardsObj[editingRewardId] = { ...rewardsObj[editingRewardId], status: 'active' };
-        editingRewardId = null;
-        render();
-      });
-
-      // Save
-      form.querySelector('#rf_save').addEventListener('click', async () => {
-        const name = form.querySelector('#rf_name').value.trim();
-        if (!name) return;
-
-        const selectedEmoji = form.querySelector('.emoji-btn--selected')?.dataset?.emoji
-          || form.querySelector('#rf_customEmoji').value.trim() || '🎁';
-        const rewardType = form.querySelector('#rf_type .segmented-btn--active')?.dataset?.value || 'custom';
-        const cost = parseInt(form.querySelector('#rf_pointCost').value) || 0;
-        if (cost <= 0) return;
-
-        const selectedPeople = [...form.querySelectorAll('#rf_people .chip--active')]
-          .map(c => c.dataset.personId);
-        const maxRedemptions = parseInt(form.querySelector('#rf_maxRedemptions').value) || null;
-        const streakReq = parseInt(form.querySelector('#rf_streakReq').value) || null;
-        const expiresDate = form.querySelector('#rf_expiresAt').value;
+      mount.querySelector('#rf_save')?.addEventListener('click', async () => {
+        const name = mount.querySelector('#rf_name').value.trim();
+        if (!name) { mount.querySelector('#rf_name').focus(); return; }
+        const selectedEmoji = mount.querySelector('.emoji-btn--selected')?.dataset?.emoji
+          || mount.querySelector('#rf_customEmoji').value.trim() || '\U0001f381';
+        const rewardType = mount.querySelector('#rf_type .segmented-btn--active')?.dataset?.value || 'custom';
+        const cost = parseInt(mount.querySelector('#rf_pointCost').value) || 0;
+        if (cost <= 0) { mount.querySelector('#rf_pointCost').focus(); return; }
+        const selectedPeople = [...mount.querySelectorAll('#rf_people .chip--active')].map(c => c.dataset.personId);
+        const maxRedemptions = parseInt(mount.querySelector('#rf_maxRedemptions').value) || null;
+        const streakReq = parseInt(mount.querySelector('#rf_streakReq').value) || null;
+        const expiresDate = mount.querySelector('#rf_expiresAt').value;
         const expiresAt = expiresDate ? new Date(expiresDate + 'T23:59:59').getTime() : null;
-
         const data = {
-          name,
-          icon: selectedEmoji,
-          pointCost: cost,
-          rewardType,
-          approvalRequired: form.querySelector('#rf_approvalRequired')?.checked !== false,
-          perPerson: selectedPeople,
-          maxRedemptions,
-          streakRequirement: streakReq,
-          expiresAt,
-          status: (editingRewardId && editingRewardId !== 'new') ? (rewardsObj[editingRewardId]?.status || 'active') : 'active'
+          name, icon: selectedEmoji, pointCost: cost, rewardType,
+          approvalRequired: mount.querySelector('#rf_approvalRequired')?.checked !== false,
+          perPerson: selectedPeople, maxRedemptions, streakRequirement: streakReq, expiresAt,
+          status: rewardId ? (rewardsObj[rewardId]?.status || 'active') : 'active'
         };
-
-        if (editingRewardId && editingRewardId !== 'new') {
-          await writeReward(editingRewardId, data);
-          rewardsObj[editingRewardId] = data;
+        if (rewardId) {
+          await writeReward(rewardId, data);
+          rewardsObj[rewardId] = data;
         } else {
           const newKey = await pushReward(data);
           rewardsObj[newKey] = data;
         }
-
-        editingRewardId = null;
-        render();
+        close(); render();
       });
+    }
+
+    function bindRewardsTab() {
+      main.querySelector('#rewardList')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-reward-id]');
+        if (row) openRewardForm(row.dataset.rewardId);
+      });
+      main.querySelector('.admin-archived-rewards')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-reward-id]');
+        if (row) openRewardForm(row.dataset.rewardId);
+      });
+      main.querySelector('#addRewardBtn')?.addEventListener('click', () => openRewardForm(null));
+      main.querySelector('#rewardsSearch')?.addEventListener('input', e => {
+        rewardsSearch = e.target.value;
+        render();
+        const el = main.querySelector('#rewardsSearch');
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      main.querySelector('#rewardsFilterSortBtn')?.addEventListener('click', openRewardsFilterSheet);
     }
 
     // ══════════════════════════════════════════
