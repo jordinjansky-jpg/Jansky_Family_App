@@ -68,6 +68,7 @@ let activeTab = localStorage.getItem('dr-kitchen-tab') || 'meals';
 let activeListId = null;
 let currentItems = {}; // last items snapshot, used by wand cleanup
 let itemsUnsub = null; // Firebase onValue unsubscribe for active list
+let keepAddFieldOpen = false; // true while user is in a multi-item add session
 let currentWeekStart = null; // Monday of the displayed week (Date object)
 let recipeFilter = { sort: 'alpha', filter: 'all' }; // alpha | recent; all | favorites
 
@@ -1212,6 +1213,9 @@ function renderItemsArea(items) {
   const area = document.getElementById('listItemsArea');
   if (!area) return;
 
+  // Preserve any in-progress text before innerHTML wipe
+  const savedInput = keepAddFieldOpen ? (document.getElementById('itemAddField')?.value || '') : '';
+
   currentItems = items;
   const allItems = Object.entries(items);
   const unchecked = allItems.filter(([, v]) => !v.checked).sort((a, b) => (a[1].addedAt || 0) - (b[1].addedAt || 0));
@@ -1222,6 +1226,7 @@ function renderItemsArea(items) {
 
   if (allItems.length === 0) {
     area.innerHTML = renderEmptyState('', 'List is empty', 'Tap + to add your first item.');
+    if (keepAddFieldOpen) requestAnimationFrame(() => openItemAddField(savedInput));
     return;
   }
 
@@ -1259,6 +1264,9 @@ function renderItemsArea(items) {
   }
 
   area.innerHTML = html;
+
+  // Restore add field if the user is in a multi-item add session
+  if (keepAddFieldOpen) requestAnimationFrame(() => openItemAddField(savedInput));
 
   area.querySelectorAll('.card--shopping').forEach(card => {
     const id = card.dataset.itemId;
@@ -1428,7 +1436,7 @@ function copyListAsText() {
   }
 }
 
-function openItemAddField() {
+function openItemAddField(restoreValue = '') {
   const area = document.getElementById('listItemsArea');
   if (!area) return;
 
@@ -1437,20 +1445,24 @@ function openItemAddField() {
     return;
   }
 
+  keepAddFieldOpen = true;
+
   const wrap = document.createElement('div');
   wrap.className = 'item-add-wrap';
   wrap.innerHTML = `<input class="item-add-field" id="itemAddField" type="text"
-    placeholder="What do you need?" autocomplete="off" autocorrect="off">`;
+    placeholder="What do you need? (Enter to add, Esc when done)" autocomplete="off" autocorrect="off">`;
   area.prepend(wrap);
   const field = document.getElementById('itemAddField');
+  if (restoreValue) { field.value = restoreValue; field.setSelectionRange(restoreValue.length, restoreValue.length); }
   field.focus();
 
   async function addItem() {
     const name = field.value.trim();
-    if (!name) { wrap.remove(); return; }
+    if (!name) { keepAddFieldOpen = false; wrap.remove(); return; }
     if (!activeListId) return;
     field.value = '';
-    const id = await pushKitchenItem(activeListId, {
+    field.focus();
+    await pushKitchenItem(activeListId, {
       name,
       checked: false,
       addedAt: firebase.database.ServerValue.TIMESTAMP,
@@ -1460,10 +1472,11 @@ function openItemAddField() {
 
   field.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); addItem(); }
-    if (e.key === 'Escape') { wrap.remove(); }
+    if (e.key === 'Escape') { keepAddFieldOpen = false; wrap.remove(); }
   });
   field.addEventListener('blur', () => {
-    if (!field.value.trim()) wrap.remove();
+    if (!field.isConnected) return; // blur from DOM removal during re-render — ignore
+    if (!field.value.trim()) { keepAddFieldOpen = false; wrap.remove(); }
   });
 }
 
