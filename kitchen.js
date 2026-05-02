@@ -117,20 +117,6 @@ async function init() {
   renderActiveTab();
   bindFab();
 
-  // Dashboard "+ New recipe" round-trip: open recipe form and navigate back on save
-  if (new URLSearchParams(location.search).get('newRecipe') === '1') {
-    openRecipeForm(null, (newId) => {
-      try {
-        const raw = sessionStorage.getItem('dr-new-recipe-return');
-        if (raw) {
-          sessionStorage.removeItem('dr-new-recipe-return');
-          const { date, slot } = JSON.parse(raw);
-          sessionStorage.setItem('dr-open-meal-plan', JSON.stringify({ date, slot, recipeId: newId }));
-        }
-      } catch {}
-      location.href = 'index.html';
-    });
-  }
 }
 
 // ── Data loading ───────────────────────────────────────────────────────────────

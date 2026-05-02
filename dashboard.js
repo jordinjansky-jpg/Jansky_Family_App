@@ -1142,6 +1142,224 @@ function openEventDetailSheet(eventId) {
   });
 }
 
+const _PREP_PREFIXES = /^(freshly|finely|coarsely|roughly|thinly|thickly|chopped|diced|sliced|minced|grated|shredded|crushed|cracked|ground)\s+/i;
+function _cleanIngredientName(name) {
+  if (!name || typeof name !== 'string') return name;
+  let s = name.replace(/\s*\([^)]*\)\s*/g, ' ').split(',')[0];
+  while (_PREP_PREFIXES.test(s)) s = s.replace(_PREP_PREFIXES, '');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+function openRecipeForm(onSave = null) {
+  const ingredients = [];
+
+  function buildIngredientList() {
+    return ingredients.map((ing, i) =>
+      `<div class="ingredient-row" data-index="${i}">
+        <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off">
+        <input class="ingredient-name" data-edit-index="${i}" data-edit-field="name" type="text" value="${esc(ing.name || '')}" placeholder="ingredient" autocomplete="off">
+        <button class="btn-icon" data-remove-index="${i}" type="button" aria-label="Remove">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`
+    ).join('');
+  }
+
+  taskSheetMount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">New recipe</h2>
+      <button class="ef2-icon-btn" id="kr_close" aria-label="Close" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="kr-section">
+      <label class="field">
+        <span class="field__label">Recipe link</span>
+        <input id="recipeUrl" type="url" placeholder="https://…" autocomplete="off">
+      </label>
+      <span class="kr-import-status" id="urlImportStatus"></span>
+    </div>
+    <div class="kr-title-row">
+      <input class="kr-title-input" id="recipeName" type="text" placeholder="Recipe name…" autocomplete="off">
+      <input type="file" accept="image/*" capture="environment" id="kr_photoCamera" hidden>
+      <input type="file" accept="image/*" id="kr_photoGallery" hidden>
+      <input type="file" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" id="kr_photoFiles" hidden>
+      <button class="ef2-icon-btn" id="kr_photo" type="button" aria-label="Import from photo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+    </div>
+    <div class="kr-section">
+      <span class="field__label">Ingredients</span>
+      <div id="ingredientList"></div>
+      <div class="kr-add-ingredient-row">
+        <input class="kr-add-qty" id="newIngredientQty" type="text" placeholder="qty" autocomplete="off">
+        <input class="field__input" id="newIngredientInput" type="text" placeholder="Add ingredient…" autocomplete="off">
+        <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
+      </div>
+    </div>
+    <div class="kr-section">
+      <label class="field">
+        <span class="field__label">Notes</span>
+        <textarea id="recipeNotes" class="field__input kr-notes" rows="2" placeholder="Description, tips, source…" autocomplete="off"></textarea>
+      </label>
+    </div>
+    <div class="kr-footer">
+      <button class="btn btn--ghost" id="kr_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="kr_save" type="button">Save</button>
+    </div>`);
+
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    document.getElementById('recipeUrl')?.focus();
+  });
+  const overlay = document.getElementById('bottomSheet');
+  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
+
+  document.getElementById('kr_close')?.addEventListener('click', closeTaskSheet);
+  document.getElementById('kr_cancel')?.addEventListener('click', closeTaskSheet);
+
+  function bindIngredientEvents() {
+    document.getElementById('ingredientList')?.querySelectorAll('[data-remove-index]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        ingredients.splice(parseInt(btn.dataset.removeIndex, 10), 1);
+        document.getElementById('ingredientList').innerHTML = buildIngredientList();
+        bindIngredientEvents();
+      });
+    });
+    document.getElementById('ingredientList')?.querySelectorAll('[data-edit-index]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const idx = parseInt(inp.dataset.editIndex, 10);
+        if (ingredients[idx]) ingredients[idx] = { ...ingredients[idx], [inp.dataset.editField]: inp.value.trim() || null };
+      });
+    });
+  }
+
+  function addIngredient() {
+    const val = document.getElementById('newIngredientInput')?.value.trim();
+    if (!val) return;
+    const qty = document.getElementById('newIngredientQty')?.value.trim() || null;
+    ingredients.push({ name: _cleanIngredientName(val), qty });
+    document.getElementById('newIngredientInput').value = '';
+    document.getElementById('newIngredientQty').value = '';
+    document.getElementById('ingredientList').innerHTML = buildIngredientList();
+    bindIngredientEvents();
+    document.getElementById('newIngredientInput').focus();
+  }
+  document.getElementById('addIngredientBtn')?.addEventListener('click', addIngredient);
+  document.getElementById('newIngredientInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addIngredient(); }
+  });
+
+  async function runImport(type, input) {
+    const photoBtn = document.getElementById('kr_photo');
+    const status = document.getElementById('urlImportStatus');
+    if (photoBtn) photoBtn.disabled = true;
+    if (status) status.style.display = 'none';
+    try {
+      const res = await fetch(KITCHEN_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, input }),
+      });
+      const data = await res.json();
+      if (data.url && !document.getElementById('recipeUrl')?.value) document.getElementById('recipeUrl').value = data.url;
+      if (data.name && !document.getElementById('recipeName')?.value) {
+        document.getElementById('recipeName').value = data.name;
+        document.getElementById('recipeName')?.focus();
+      }
+      if (data.notes && !document.getElementById('recipeNotes')?.value) document.getElementById('recipeNotes').value = data.notes;
+      if (data.ingredients?.length) {
+        data.ingredients.forEach(ing => {
+          const cleaned = _cleanIngredientName(ing.name);
+          if (cleaned) ingredients.push({ name: cleaned, qty: ing.qty || null });
+        });
+        document.getElementById('ingredientList').innerHTML = buildIngredientList();
+        bindIngredientEvents();
+      }
+      if (status) {
+        const n = data.ingredients?.length || 0;
+        status.textContent = n > 0 ? `Imported ${n} ingredient${n !== 1 ? 's' : ''}` : data.name ? 'Got the title — no ingredients found.' : 'Couldn\'t read that link — URL kept.';
+        status.style.color = 'var(--text-muted)';
+        status.style.display = 'inline';
+      }
+    } catch {
+      if (status) { status.textContent = 'Import failed.'; status.style.color = 'var(--danger)'; status.style.display = 'inline'; }
+    } finally {
+      if (photoBtn) photoBtn.disabled = false;
+    }
+  }
+
+  let _urlImportTimer = null;
+  document.getElementById('recipeUrl')?.addEventListener('blur', () => {
+    const url = document.getElementById('recipeUrl')?.value.trim();
+    if (url) runImport('url', url);
+  });
+
+  let krPhotoContext = '';
+  document.getElementById('kr_photo')?.addEventListener('click', () => {
+    const overlay2 = document.createElement('div');
+    overlay2.className = 'ef2-subsheet-overlay';
+    overlay2.innerHTML = `<div class="ef2-source-sheet">
+      <div class="ef2-source-header"><span>Import from</span></div>
+      <input class="ef2-source-ctx" id="kr_photoCtx" type="text" placeholder="Optional context…" autocomplete="off">
+      <div class="ef2-source-btns">
+        <button class="ef2-source-btn" data-source="camera" type="button">Camera</button>
+        <button class="ef2-source-btn" data-source="gallery" type="button">Gallery</button>
+        <button class="ef2-source-btn" data-source="files" type="button">Files</button>
+      </div>
+      <button class="btn btn--ghost btn--full" id="kr_photoSourceCancel" type="button">Cancel</button>
+    </div>`;
+    taskSheetMount.appendChild(overlay2);
+    requestAnimationFrame(() => overlay2.classList.add('active'));
+    const closeOverlay = () => { overlay2.classList.remove('active'); setTimeout(() => overlay2.remove(), 200); };
+    overlay2.addEventListener('click', e => { if (e.target === overlay2) closeOverlay(); });
+    document.getElementById('kr_photoSourceCancel')?.addEventListener('click', closeOverlay);
+    overlay2.querySelectorAll('.ef2-source-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        krPhotoContext = document.getElementById('kr_photoCtx')?.value.trim() || '';
+        const src = btn.dataset.source;
+        if (src === 'camera') document.getElementById('kr_photoCamera')?.click();
+        else if (src === 'gallery') document.getElementById('kr_photoGallery')?.click();
+        else document.getElementById('kr_photoFiles')?.click();
+        closeOverlay();
+      });
+    });
+  });
+  ['kr_photoCamera', 'kr_photoGallery', 'kr_photoFiles'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', async e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = '';
+      const { base64, mediaType } = await resizeImageForUpload(file);
+      runImport('screenshot', { base64, mediaType, context: krPhotoContext });
+    });
+  });
+
+  document.getElementById('kr_save')?.addEventListener('click', async () => {
+    const name = document.getElementById('recipeName')?.value.trim();
+    if (!name) {
+      const inp = document.getElementById('recipeName');
+      inp?.classList.add('kr-shake');
+      inp?.addEventListener('animationend', () => inp.classList.remove('kr-shake'), { once: true });
+      return;
+    }
+    const data = {
+      name,
+      url: document.getElementById('recipeUrl')?.value.trim() || null,
+      notes: document.getElementById('recipeNotes')?.value.trim() || null,
+      source: 'manual',
+      ingredients,
+      isFavorite: false,
+      lastUsed: null,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+    };
+    const newId = await pushKitchenRecipe(data);
+    recipes[newId] = data;
+    closeTaskSheet();
+    if (onSave) onSave(newId);
+  });
+}
+
 function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = null) {
   const KP_SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'school-lunch-2', 'dinner', 'snack'];
   const KP_SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School 1', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
@@ -1254,8 +1472,10 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
     const day = document.getElementById('kp_day')?.value || date;
     const slot = document.getElementById('kp_slot')?.value || preSlot;
-    sessionStorage.setItem('dr-new-recipe-return', JSON.stringify({ date: day, slot }));
-    location.href = 'kitchen.html?newRecipe=1';
+    closeTaskSheet();
+    setTimeout(() => openRecipeForm((newId) => {
+      setTimeout(() => openMealPlanSheet(slot, day, newId), 320);
+    }), 320);
   });
 
   function updateSaveBtn() {
@@ -3101,16 +3321,5 @@ await loadData();
 render();
 runRollover(); // fire-and-forget, don't block UI
 
-// Re-open meal plan sheet after "+ New recipe" round-trip from kitchen
-{
-  const returnState = sessionStorage.getItem('dr-open-meal-plan');
-  if (returnState) {
-    sessionStorage.removeItem('dr-open-meal-plan');
-    try {
-      const { date: retDate, slot: retSlot, recipeId: retRecipeId } = JSON.parse(returnState);
-      setTimeout(() => openMealPlanSheet(retSlot || 'dinner', retDate || today, retRecipeId || null), 400);
-    } catch {}
-  }
-}
 
 } // end person-not-found else
