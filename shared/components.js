@@ -1630,6 +1630,146 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
   </div>`;
 }
 
+const CLOSE_SVG_TF = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+export function renderTaskForm({ task = {}, taskId = null, mode = 'create', categories = [], people = [] }) {
+  const isEdit = mode === 'edit';
+  const rotation = task.rotation || 'daily';
+  const difficulty = task.difficulty || 'medium';
+  const estMin = task.estMin ?? 10;
+  const timeOfDay = task.timeOfDay || 'anytime';
+  const defaultCat = categories.find(c => c.isDefault);
+  const catKey = task.category || defaultCat?.key || '';
+  const catObj = categories.find(c => c.key === catKey);
+  const selectedOwners = task.owners || [];
+  const primaryId = selectedOwners[0] || null;
+  const attendingIds = new Set(selectedOwners.slice(1));
+  const assignMode = task.ownerAssignmentMode || 'rotate';
+
+  const DIFF_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  const TOD_LABELS  = { am: 'Morning', pm: 'Afternoon', anytime: 'Anytime', both: 'Both' };
+  const DUR_PRESETS = [5, 10, 15, 20, 30, 45, 60];
+  const diffLabel = DIFF_LABELS[difficulty] || 'Medium';
+  const todLabel  = TOD_LABELS[timeOfDay] || 'Anytime';
+  const durLabel  = `${estMin} min`;
+  const catLabel  = catObj ? `${catObj.icon || ''} ${catObj.label}`.trim() : 'Category';
+
+  const showAssign = selectedOwners.length >= 2;
+  const showCooldown = rotation === 'weekly' || rotation === 'monthly';
+  const cdDefault = rotation === 'weekly' ? 3 : rotation === 'monthly' ? 7 : 0;
+  const cooldownVal = task.cooldownDays ?? '';
+  const exempt = !!task.exempt;
+  const notesOpen = task.notesOpen ? ' is-open' : '';
+  const optionsOpen = task.optionsOpen ? ' is-open' : '';
+  const optChipLabel = showCooldown ? '+ Cooldown' : '+ Options';
+  const optChipActive = (task.optionsOpen || task.cooldownDays || task.exempt) ? ' is-active' : '';
+  const notesChipActive = (task.notesOpen || task.notes) ? ' is-active' : '';
+
+  const personChipsHtml = people.map(p => {
+    const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
+    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
+  }).join('');
+
+  const dayOptions = [['', 'Any day'], ['1','Mon'], ['2','Tue'], ['3','Wed'], ['4','Thu'], ['5','Fri'], ['6','Sat'], ['0','Sun']]
+    .map(([val, label]) => {
+      const sel = val === '' ? task.dedicatedDay == null : task.dedicatedDay === parseInt(val, 10);
+      return `<option value="${val}"${sel ? ' selected' : ''}>${label}</option>`;
+    }).join('');
+
+  return `<div class="tf-form">
+  <div class="sheet__header">
+    <h2 class="sheet__title">${isEdit ? 'Edit Task' : 'New Task'}</h2>
+    <button class="ef2-icon-btn" id="tf_close" type="button" aria-label="Close">${CLOSE_SVG_TF}</button>
+  </div>
+
+  <div class="tf-title-row">
+    <input class="tf-title-input" id="tf_name" type="text" placeholder="What's the task?" value="${esc(task.name || '')}" autocomplete="off">
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="tf-for-section" id="tf_people">
+    <div class="ef2-for-header">
+      <span class="ef2-section-label">For</span>
+      <button class="ef2-person-chip ef2-person-chip--family tf-person-chip--family" data-person-id="__family__" type="button">Family</button>
+    </div>
+    <div class="ef2-person-chips">${personChipsHtml}</div>
+    <div class="tf-assign-row${showAssign ? '' : ' is-hidden'}" id="tf_assignRow">
+      <button class="tf-assign-pill${assignMode === 'rotate' ? ' tf-assign-pill--active' : ''}" data-mode="rotate" type="button">Rotate</button>
+      <button class="tf-assign-pill${(assignMode === 'everyone' || assignMode === 'duplicate') ? ' tf-assign-pill--active' : ''}" data-mode="everyone" type="button">Everyone</button>
+    </div>
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="tf-rotation-section">
+    <div class="tf-rotation-pills" id="tf_rotation">
+      <button class="tf-rot-pill${rotation === 'daily'   ? ' tf-rot-pill--active' : ''}" data-rot="daily"   type="button">Daily</button>
+      <button class="tf-rot-pill${rotation === 'weekly'  ? ' tf-rot-pill--active' : ''}" data-rot="weekly"  type="button">Weekly</button>
+      <button class="tf-rot-pill${rotation === 'monthly' ? ' tf-rot-pill--active' : ''}" data-rot="monthly" type="button">Monthly</button>
+      <button class="tf-rot-pill${rotation === 'once'    ? ' tf-rot-pill--active' : ''}" data-rot="once"    type="button">One-Time</button>
+    </div>
+    <div class="tf-rot-reveal${rotation === 'weekly' ? ' is-open' : ''}" id="tf_weeklyReveal">
+      <select id="tf_daySelect">${dayOptions}</select>
+    </div>
+    <div class="tf-rot-reveal${rotation === 'once' ? ' is-open' : ''}" id="tf_onceReveal">
+      <input type="date" id="tf_onceDate" value="${esc(task.dedicatedDate || '')}">
+    </div>
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="tf-details-row">
+    <button class="tf-detail-chip" id="tf_diffChip"  data-field="diff" data-val="${esc(difficulty)}"  type="button">${esc(diffLabel)}</button>
+    <button class="tf-detail-chip" id="tf_durChip"   data-field="dur"  data-val="${estMin}"            type="button">${esc(durLabel)}</button>
+    <button class="tf-detail-chip" id="tf_todChip"   data-field="tod"  data-val="${esc(timeOfDay)}"   type="button">${esc(todLabel)}</button>
+    <button class="tf-detail-chip" id="tf_catChip"   data-field="cat"  data-val="${esc(catKey)}"      type="button">${esc(catLabel)}</button>
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="ef2-secondary-row">
+    <button class="ef2-add-chip${notesChipActive}"   id="tf_notesChip"   type="button">+ Notes</button>
+    <button class="ef2-add-chip${optChipActive}"     id="tf_optionsChip" data-show-cd="${showCooldown ? '1' : ''}" type="button">${optChipLabel}</button>
+  </div>
+
+  <div class="ef2-field-reveal${notesOpen}" id="tf_notesReveal">
+    <div class="ef2-field-reveal-inner">
+      <textarea id="tf_notes" rows="3" placeholder="Notes…">${esc(task.notes || '')}</textarea>
+      <button class="ef2-field-close" id="tf_notesClose" type="button" aria-label="Close notes">${CLOSE_SVG_TF}</button>
+    </div>
+  </div>
+
+  <div class="ef2-field-reveal${optionsOpen}" id="tf_optionsReveal">
+    <div class="tf-options-inner">
+      <div class="tf-options-row${showCooldown ? '' : ' is-hidden'}" id="tf_cooldownRow">
+        <span class="tf-options-label">Cooldown</span>
+        <input class="tf-cooldown-input" type="number" id="tf_cooldown" min="0" max="60" value="${cooldownVal}" placeholder="${cdDefault || ''}">
+        <span class="tf-options-unit">days</span>
+      </div>
+      <div class="tf-options-row">
+        <span class="tf-options-label">Exempt from scoring</span>
+        <button class="tf-exempt-chip${exempt ? ' is-active' : ''}" id="tf_exempt" type="button">${exempt ? 'On' : 'Off'}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tf-footer">
+    <button class="btn btn--ghost"   id="tf_cancel" type="button">Cancel</button>
+    <button class="btn btn--primary" id="tf_save"   type="button"${taskId ? ` data-task-id="${taskId}"` : ''}>${isEdit ? 'Save Changes' : 'Create Task'}</button>
+  </div>
+
+  ${isEdit ? `<div class="ef2-delete-zone">
+    <button class="ef2-delete-btn" id="tf_deleteBtn" type="button">Delete Task</button>
+    <div class="ef2-delete-confirm" id="tf_deleteConfirm">
+      <span class="ef2-delete-confirm-msg">Delete this task?</span>
+      <button class="btn btn--sm btn--danger"    id="tf_deleteYes" type="button">Delete</button>
+      <button class="btn btn--sm btn--secondary" id="tf_deleteNo"  type="button">Keep</button>
+    </div>
+  </div>` : ''}
+</div>`;
+}
+
 /**
  * Render the quick-add task bottom sheet.
  * people: array of { id, name, color }
