@@ -893,6 +893,16 @@ function openRecipeForm(recipeId, onSave = null) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
+
+    <div class="kr-section">
+      <label class="field">
+        <span class="field__label">Recipe link</span>
+        <input id="recipeUrl" type="url" placeholder="https://…"
+          value="${esc(existing?.url || '')}" autocomplete="off">
+      </label>
+      <span class="kr-import-status" id="urlImportStatus"></span>
+    </div>
+
     <div class="kr-title-row">
       <input class="kr-title-input" id="recipeName" type="text"
         value="${esc(existing?.name || '')}" placeholder="Recipe name…" autocomplete="off">
@@ -923,21 +933,12 @@ function openRecipeForm(recipeId, onSave = null) {
       </label>
     </div>
 
-    <div class="kr-section">
-      <label class="field">
-        <span class="field__label">Recipe link</span>
-        <input id="recipeUrl" type="url" placeholder="https://…"
-          value="${esc(existing?.url || '')}" autocomplete="off">
-      </label>
-      <span class="kr-import-status" id="urlImportStatus"></span>
-    </div>
-
     <div class="kr-footer">
       <button class="btn btn--ghost" id="kr_cancel" type="button">Cancel</button>
       <button class="btn btn--primary" id="kr_save" type="button">Save</button>
     </div>`);
   activateSheet(mount);
-  requestAnimationFrame(() => document.getElementById('recipeName')?.focus());
+  requestAnimationFrame(() => (existing ? document.getElementById('recipeName') : document.getElementById('recipeUrl'))?.focus());
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kr_close')?.addEventListener('click', close);
@@ -1005,6 +1006,7 @@ function openRecipeForm(recipeId, onSave = null) {
       }
       if (data.name && !document.getElementById('recipeName').value) {
         document.getElementById('recipeName').value = data.name;
+        document.getElementById('recipeName')?.focus();
       }
       if (data.notes && !document.getElementById('recipeNotes').value) {
         document.getElementById('recipeNotes').value = data.notes;

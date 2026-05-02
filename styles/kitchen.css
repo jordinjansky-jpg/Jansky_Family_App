@@ -143,9 +143,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  padding-left: var(--spacing-xs);
-  border-left: 1px solid var(--border);
-  margin-left: var(--spacing-xs);
+  padding-left: var(--spacing-sm);
 }
 
 .list-content {
@@ -213,7 +211,8 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-xs);
+  padding-top: var(--spacing-sm);
+  padding-bottom: var(--spacing-xs);
 }
 
 .list-wand-btn,
