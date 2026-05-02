@@ -3109,8 +3109,9 @@ function openTaskForm(taskId = null, savedState = null) {
     const assignPill = document.getElementById('tf_assignRow')?.querySelector('.tf-assign-pill--active')?.dataset.mode;
     const ownerAssignmentMode = ownerIds.length <= 1 ? 'fixed' : (assignPill === 'everyone' ? 'duplicate' : 'rotate');
     const rotation = tfRotation;
+    const dayVal = document.getElementById('tf_daySelect')?.value;
     const dedicatedDay = rotation === 'weekly'
-      ? (parseInt(document.getElementById('tf_daySelect')?.value, 10) || null)
+      ? (dayVal !== '' && dayVal != null ? parseInt(dayVal, 10) : null)
       : null;
     const dedicatedDate = rotation === 'once'
       ? (document.getElementById('tf_onceDate')?.value || null)
@@ -3139,7 +3140,7 @@ function openTaskForm(taskId = null, savedState = null) {
       cooldownDays: cooldownDays || null,
       exempt,
       notes: notes || null,
-      bounty: null,
+      bounty: taskId ? (tasks[taskId]?.bounty ?? null) : null,
       eventTime: null,
       status: 'active',
     };
