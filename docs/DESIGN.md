@@ -617,6 +617,23 @@ Native `<input type="time">` on Android = the awful number wheel. Use the 6-sele
 **Edit-mode delete zone:**
 Below the sticky footer, separated by a visible gap. Destructive red text style. Tap reveals inline confirm (`Delete this event? [Delete] [Keep]`) — never a separate sheet, never `window.confirm`. On error, route message through the same `ef2_importError` slot the save errors use.
 
+**Inline child-form (when a form has a "+ Create new" shortcut):**
+When a picker or form contains a `+ New X` action that needs to create a new item from scratch, open the child form in the same `taskSheetMount` — do NOT navigate away to another page. Pattern:
+```js
+document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
+  const day = document.getElementById('kp_day')?.value;
+  const slot = document.getElementById('kp_slot')?.value;
+  closeTaskSheet();
+  setTimeout(() => openChildForm((newId) => {
+    setTimeout(() => openParentForm(slot, day, newId), 320);
+  }), 320);
+});
+```
+- The 320ms gap is the sheet animation budget — don't skip it.
+- The child `onSave` callback receives the new ID; pass it back to the parent as a pre-selection argument.
+- If the child form already exists in another page's JS (e.g. `openRecipeForm` in `kitchen.js`), copy it as a page-local function rather than navigating. The copy uses `taskSheetMount` and `closeTaskSheet()` instead of the source page's mount/close pattern.
+- The child form does NOT need a `savedState` round-trip because the parent form re-opens fresh — no state to preserve.
+
 **Don'ts:**
 - ❌ Don't use `<input type="time">` (the wheel).
 - ❌ Don't add horizontal padding to form sections — `.bottom-sheet__content` provides it.
@@ -625,6 +642,50 @@ Below the sticky footer, separated by a visible gap. Destructive red text style.
 - ❌ Don't lose form state when navigating to a sub-sheet — `captureFormState` + `savedState` pass-through is required.
 - ❌ Don't put inline `style=""` in HTML — set CSS vars via JS (`element.style.setProperty('--var', value)`) instead.
 - ❌ Don't reuse another form's CSS prefix. Pick a new one (`tf-*`, `rf-*`, etc.).
+- ❌ Don't navigate to another page to open a child form — use the inline close-delay-open callback pattern.
+
+---
+
+### 5.24 Picker-list form pattern
+
+Use this pattern when the form's primary interaction is **picking from an existing library** (recipes, contacts, locations) rather than filling structured data fields. Simpler than the Event Form — no sub-sheets, no captureFormState, no time picker.
+
+**Reference implementation:** `openPlanMealSheet()` in `kitchen.js` + `openMealPlanSheet()` in `dashboard.js`. CSS classes (`kp-*`) live in `styles/components.css` — available on all pages.
+
+**Vertical structure:**
+```
+sheet__header             ← title + ✕ close (ef2-icon-btn)
+kp-day-slot-row           ← optional context selectors (date, slot, category)
+  kp-date-wrap            ← kp-date-btn (visible label) + hidden <input type="date">
+kp-meal-section           ← search area
+  kp-meal-header          ← field label + secondary ghost action ("+ New recipe")
+  <input id="kp_search">  ← search/type-any-name input
+recipe-pick-list          ← scrolling item list  (id="recipePick")
+  recipe-pick__item       ← row wrapper
+    recipe-pick__row      ← tappable name row, .is-selected when chosen
+    recipe-pick__fav-btn  ← star icon, .is-fav when active
+kp-footer                 ← Cancel (ghost) + Save (primary, disabled until selection)
+```
+
+**Date button:** `kp-date-btn` shows a formatted label. Tap triggers the hidden `<input type="date">` via `.showPicker()` (fallback `.focus()`). `change` event updates the button label.
+
+**Selection state:** Clicking an item sets `is-selected` + shows a ✓ checkmark. Re-tapping a selected item deselects it and clears the search field. Only one item selected at a time.
+
+**Default list (no search filter):** Favorites pinned at top, then the 3 most-recent non-favorites. `getRecipeEntries()` sorts by `lastUsed` only — do NOT sort favorites-first inside `getRecipeEntries` or you lose recency ordering for search results.
+
+**Search behavior:** When a filter string is active, show all matches sorted by `lastUsed`. If nothing matches, show `recipe-pick__none` with "No match — will save as '{typed}'" and enable Save — this lets the user create an ad-hoc entry without a library ID.
+
+**Save logic:**
+1. If `selectedRecipeId` is set → write `{ recipeId, source: 'manual' }` and update `lastUsed` on the recipe.
+2. If typed text matches an existing recipe name (case-insensitive) → treat as pick (set `recipeId`).
+3. Otherwise → write `{ customName: typed, source: 'manual' }`.
+
+**`+ New X` action:** Ghost button in `kp-meal-header`. Opens a child form inline using the close-delay-open pattern from §5.23. On save the child callback re-opens this picker with the new item pre-selected via `preRecipeId` arg.
+
+**Don'ts for this pattern:**
+- ❌ No `sheet__content` wrapper — `kp-*` sections sit directly in the rendered bottom-sheet.
+- ❌ No slot tabs — use a `<select>` for slot/category selection.
+- ❌ Don't sort favorites-first in `getRecipeEntries` — sort by `lastUsed` only; favorites pinning belongs in `buildRecipeRows`.
 
 ---
 
@@ -1126,6 +1187,8 @@ Themes redefine color tokens at `:root[data-theme="sage"]` etc. Never redefine s
 - ❌ Do not gate core controls (bell, overflow Rewards/Admin, person filter chip, FAB) behind `!linkedPerson` — person mode is the adult PWA shortcut and has parity with Home. Kid mode is the restricted variant.
 - ❌ Do not add `var(--header-height)` to a page wrapper's `padding-top`. `.app-header` is `position: sticky` and reserves its own height in flow; wrappers that also add header-height produce a large blank gap below the header. Safe-area-inset-top belongs on the header's `padding-top`, not the wrapper's.
 - ❌ Do not add horizontal margin or padding to inner groups (`.section`, section heads, list groups) when a page wrapper (`.page-content` / `.app-shell`) already supplies it. One element owns the horizontal gutter — stacking produces a doubled side gap that detaches content from the card edge.
+- ❌ Do not navigate to a separate page to open a child form from within a bottom sheet. Use the inline close-delay-open callback pattern (§5.23 "Inline child-form"). SessionStorage round-trips for form handoffs are banned — they are fragile, untestable, and feel broken.
+- ❌ Do not use `sheet__content` wrapper or slot-tab `<nav>` inside a picker-list form — use the `kp-*` structure from §5.24. `sheet__content` is a legacy pattern used by early forms before the picker structure was codified.
 
 ---
 
@@ -1349,6 +1412,7 @@ When porting an existing form (task, recipe, person, reward, list, etc.) to the 
 | 2026-04-19 | v1.0 initial spec | Design audit + rework planning |
 | 2026-04-24 | §6.9 person-mode parity rule + mount-point shell parity; §12 added three non-negotiables (no `!linkedPerson` core-control gates, no `header-height` on wrapper padding, single-gutter rule) | Phase 1 + 1.5 shipped with `!linkedPerson` hiding bell/overflow/filter chip and a missing `#fabMount` in `person.html`; also surfaced double-counted header-height and double horizontal gutter after the card density pass. Codifying so future work doesn't regress. |
 | 2026-04-25 | §6.1 dashboard rewritten as 8-section final form (adds Coming up rail, codifies ambient strip default, defines tablet two-pane split, declares kiosk reflection); §6.9 retired the `Viewing as {Name}` pill; §7.3 expanded banner-mount list to scoreboard + tracker and documented overdue body-tappable + `--info` sub-uses; §5.9 documented `--info` sub-uses. | Final-form dashboard design spec ([2026-04-25-dashboard-final-design.md](../superpowers/specs/2026-04-25-dashboard-final-design.md)) approved after Phase 2 calendar shelving made the dashboard the only phone-side surface for forward-look. Doc edits ride in the same PR that ships the spec so docs stay coherent ahead of implementation. |
+| 2026-05-02 | §5.24 Picker-list form pattern (`kp-*`); §5.23 inline child-form section; §12 two new non-negotiables (no page navigation for child forms, no `sheet__content` in picker forms). | Dashboard meal picker rewritten to match kitchen's `openPlanMealSheet`. Codifying the `kp-*` structure so every "pick from library" form uses the same layout. Inline child-form pattern (`+ New recipe` opens form in same sheet via close-delay-open callback, no navigation) extracted as a named rule so future forms don't reach for sessionStorage. |
 | 2026-05-01 | §5.23 Form sheet pattern (Event Form as canonical reference) + §13.13 form authoring recipe + §12 non-negotiable for new forms. | Event Form Redesign ([2026-05-01-event-form-redesign.md](../superpowers/specs/2026-05-01-event-form-redesign.md)) shipped. Pattern cascades to all other forms (task, recipe, person, reward, list, settings). Codifying so the next form session matches without reinventing — sticky-footer breakout, no horizontal padding on sections, custom time picker (no native wheel), inline pickers, person chip state machine, sub-sheet stacking via second overlay, captureFormState round-trip. |
 
 Updates to this doc require the PR description to cite the section changed and the reason.
