@@ -3974,6 +3974,10 @@
       overlay.innerHTML = `<div class="ef2-subsheet">
         <div class="sheet__header"><h2 class="sheet__title">${title}</h2></div>
         <div class="sheet__content">
+          <div class="field" style="margin-bottom:var(--spacing-sm)">
+            <label class="field__label" for="adminSrcCtx">Optional note for AI</label>
+            <input class="field__input" id="adminSrcCtx" type="text" placeholder="e.g. September 2026, Sophie's homework" autocomplete="off">
+          </div>
           <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
           <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
           <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
@@ -3991,6 +3995,7 @@
       overlay.querySelector('#adminSrcCancel')?.addEventListener('click', close);
       overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+          adminPhotoContext = overlay.querySelector('#adminSrcCtx')?.value.trim() || '';
           const src = btn.dataset.source;
           close();
           setTimeout(() => {
@@ -4001,6 +4006,8 @@
         });
       });
     }
+
+    let adminPhotoContext = '';
 
     function bindAiImportsTab() {
       if (!KITCHEN_WORKER_URL) return;
@@ -4015,7 +4022,7 @@
           const { base64, mediaType } = await resizeImageForUpload(file);
           const resp = await fetch(KITCHEN_WORKER_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType } }),
+            body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType, context: adminPhotoContext } }),
           });
           const data = await resp.json();
           if (data.error || !data.days?.length) {
@@ -4060,7 +4067,7 @@
           const { base64, mediaType } = await resizeImageForUpload(file);
           const resp = await fetch(KITCHEN_WORKER_URL, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'taskScan', input: { base64, mediaType, contextDate: todayKey(settings?.timezone || 'America/Chicago') } }),
+            body: JSON.stringify({ type: 'taskScan', input: { base64, mediaType, contextDate: todayKey(settings?.timezone || 'America/Chicago'), context: adminPhotoContext } }),
           });
           const data = await resp.json();
           if (data.error || !data.tasks?.length) {

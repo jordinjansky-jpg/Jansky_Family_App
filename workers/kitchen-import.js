@@ -17,7 +17,7 @@ const CATEGORY_SET = new Set(CATEGORY_LIST);
 
 // ── Prompts ───────────────────────────────────────────────────────────────────
 
-const RECIPE_PROMPT = `Extract recipe information. The source may be a recipe website, blog post, social media post, or photo of a recipe card — formats vary widely.
+const RECIPE_PROMPT = (userContext = '') => `${userContext ? `USER-PROVIDED CONTEXT: "${userContext}"\n\n` : ''}Extract recipe information. The source may be a recipe website, blog post, social media post, or photo of a recipe card — formats vary widely.
 
 INGREDIENT NAME RULES:
 - Use the bare grocery-store name only — no prep instructions, no parenthetical descriptions.
@@ -81,9 +81,9 @@ Return JSON:
 }
 If no events found, return {"events": [], "monthUncertain": false, "assumedMonth": null}. Return only valid JSON, nothing else.`;
 
-const SCHOOL_LUNCH_PROMPT = (contextDate) =>
+const SCHOOL_LUNCH_PROMPT = (contextDate, userContext = '') =>
   `Extract the school lunch menu. Today is ${contextDate}.
-
+${userContext ? `\nUSER-PROVIDED CONTEXT (use this to identify the school, month, or year): "${userContext}"\n` : ''}
 MENU READING RULES:
 - The source may be a PDF, a photo of a printout, or a column-style table (Mon–Fri layout).
 - Date formats vary widely: "Monday April 28", "4/28", "Week of April 28", or just weekday column headers with no explicit dates.
@@ -127,8 +127,8 @@ Return JSON:
 }
 Return only valid JSON, nothing else.`;
 
-const TASK_SCAN_PROMPT = (contextDate) =>
-  `Extract all actionable tasks from this document or image. Today is ${contextDate}.
+const TASK_SCAN_PROMPT = (contextDate, userContext = '') =>
+  `${userContext ? `USER-PROVIDED CONTEXT: "${userContext}"\n\n` : ''}Extract all actionable tasks from this document or image. Today is ${contextDate}.
 
 DOCUMENT TYPES — handle all of these:
 - Homework / assignment sheets: readings, projects, worksheets with due dates
@@ -153,7 +153,7 @@ Return JSON:
 }
 If no actionable tasks are found, return {"tasks": []}. Return only valid JSON, nothing else.`;
 
-const PHOTO_TO_LIST_PROMPT = `Extract items for a shopping list from this photo. For each item, also assign a shopping category.
+const PHOTO_TO_LIST_PROMPT = (userContext = '') => `${userContext ? `USER-PROVIDED CONTEXT: "${userContext}"\n\n` : ''}Extract items for a shopping list from this photo. For each item, also assign a shopping category.
 
 PHOTO TYPES:
 - Fridge / pantry / kitchen storage: identify items that appear low, nearly empty, or absent — these are what needs to be bought.
@@ -695,7 +695,7 @@ async function handleUrl(url, env, corsHeaders) {
   try {
     const raw = await callClaude([{
       role: 'user',
-      content: `${RECIPE_PROMPT}\n\nSource URL: ${url}\n\nPage content:\n${extractedText}`,
+      content: `${RECIPE_PROMPT()}\n\nSource URL: ${url}\n\nPage content:\n${extractedText}`,
     }], env, 1024);
     const parsed = parseJson(raw);
     const ingredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
@@ -714,10 +714,11 @@ async function handleUrl(url, env, corsHeaders) {
 async function handleScreenshot(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No image provided', 400, corsHeaders);
 
+  const userContext = (input.context && typeof input.context === 'string') ? input.context.slice(0, 500).trim() : '';
   try {
     const raw = await callClaude([{
       role: 'user',
-      content: [imageContent(input.base64, input.mediaType), { type: 'text', text: RECIPE_PROMPT }],
+      content: [imageContent(input.base64, input.mediaType), { type: 'text', text: RECIPE_PROMPT(userContext) }],
     }], env, 1024);
     const parsed = parseJson(raw);
     if (parsed.error) return jsonOk({ error: parsed.error }, corsHeaders);
@@ -736,6 +737,7 @@ async function handleSchoolLunch(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No file provided', 400, corsHeaders);
 
   const today = input.contextDate || todayIso();
+  const userContext = (input.context && typeof input.context === 'string') ? input.context.slice(0, 500).trim() : '';
   const isPdf = input.mediaType === 'application/pdf' || input.mediaType?.includes('pdf');
   const contentBlock = isPdf
     ? documentContent(input.base64, input.mediaType)
@@ -744,7 +746,7 @@ async function handleSchoolLunch(input, env, corsHeaders) {
   try {
     const raw = await callClaude([{
       role: 'user',
-      content: [contentBlock, { type: 'text', text: SCHOOL_LUNCH_PROMPT(today) }],
+      content: [contentBlock, { type: 'text', text: SCHOOL_LUNCH_PROMPT(today, userContext) }],
     }], env, 2048);
     const parsed = parseJson(raw);
     const days = Array.isArray(parsed.days)
@@ -826,12 +828,13 @@ async function handleTaskScan(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No image provided', 400, corsHeaders);
 
   const contextDate = input.contextDate || todayIso();
+  const userContext = (input.context && typeof input.context === 'string') ? input.context.slice(0, 500).trim() : '';
   try {
     const raw = await callClaude([{
       role: 'user',
       content: [
         imageContent(input.base64, input.mediaType),
-        { type: 'text', text: TASK_SCAN_PROMPT(contextDate) },
+        { type: 'text', text: TASK_SCAN_PROMPT(contextDate, userContext) },
       ],
     }], env, 1024);
     const parsed = parseJson(raw);
@@ -847,12 +850,13 @@ async function handleTaskScan(input, env, corsHeaders) {
 async function handlePhotoToList(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No image provided', 400, corsHeaders);
 
+  const userContext = (input.context && typeof input.context === 'string') ? input.context.slice(0, 500).trim() : '';
   try {
     const raw = await callClaude([{
       role: 'user',
       content: [
         imageContent(input.base64, input.mediaType),
-        { type: 'text', text: PHOTO_TO_LIST_PROMPT },
+        { type: 'text', text: PHOTO_TO_LIST_PROMPT(userContext) },
       ],
     }], env, 768);
     const parsed = parseJson(raw);

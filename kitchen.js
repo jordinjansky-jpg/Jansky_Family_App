@@ -1057,12 +1057,18 @@ function openRecipeForm(recipeId, onSave = null) {
   const GAL_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
   const FILE_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
 
+  let krPhotoContext = '';
   document.getElementById('kr_photo')?.addEventListener('click', () => {
+    const existingName = document.getElementById('recipeName')?.value.trim() || '';
     const overlay = document.createElement('div');
     overlay.className = 'ef2-subsheet-overlay';
     overlay.innerHTML = `<div class="ef2-subsheet">
       <div class="sheet__header"><h2 class="sheet__title">Import from</h2></div>
       <div class="sheet__content">
+        <div class="field" style="margin-bottom:var(--spacing-sm)">
+          <label class="field__label" for="kr_photoCtx">Optional note for AI</label>
+          <input class="field__input" id="kr_photoCtx" type="text" placeholder="e.g. NYT Cooking pasta recipe" value="${existingName.replace(/"/g, '&quot;')}" autocomplete="off">
+        </div>
         <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
         <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
         <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
@@ -1080,6 +1086,7 @@ function openRecipeForm(recipeId, onSave = null) {
     overlay.querySelector('#kr_photoSourceCancel')?.addEventListener('click', closeOverlay);
     overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        krPhotoContext = overlay.querySelector('#kr_photoCtx')?.value.trim() || '';
         const src = btn.dataset.source;
         if (src === 'camera') document.getElementById('kr_photoCamera')?.click();
         else if (src === 'gallery') document.getElementById('kr_photoGallery')?.click();
@@ -1095,7 +1102,7 @@ function openRecipeForm(recipeId, onSave = null) {
       if (!file) return;
       e.target.value = '';
       const { base64, mediaType } = await resizeImageForUpload(file);
-      runImport('screenshot', { base64, mediaType });
+      runImport('screenshot', { base64, mediaType, context: krPhotoContext });
     });
   });
 
@@ -1713,6 +1720,7 @@ function openListPhotoSourceSheet() {
   const lplFiles = document.createElement('input');
   lplFiles.type = 'file'; lplFiles.accept = '.jpg,.jpeg,.png,.heic,.heif,.webp,.gif'; lplFiles.hidden = true;
 
+  let lplContext = '';
   const cleanup = () => [lplCamera, lplGallery, lplFiles].forEach(i => { if (document.body.contains(i)) document.body.removeChild(i); });
 
   [lplCamera, lplGallery, lplFiles].forEach(inp => {
@@ -1734,7 +1742,7 @@ function openListPhotoSourceSheet() {
         const { base64, mediaType } = await resizeImageForUpload(file);
         const resp = await fetch(KITCHEN_WORKER_URL, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType } }),
+          body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType, context: lplContext } }),
         });
         const data = await resp.json();
         if (data.error || !data.items?.length) {
@@ -1772,6 +1780,10 @@ function openListPhotoSourceSheet() {
   overlay.innerHTML = `<div class="ef2-subsheet">
     <div class="sheet__header"><h2 class="sheet__title">Add from photo</h2></div>
     <div class="sheet__content">
+      <div class="field" style="margin-bottom:var(--spacing-sm)">
+        <label class="field__label" for="lpl_ctx">Optional note for AI</label>
+        <input class="field__input" id="lpl_ctx" type="text" placeholder="e.g. pantry restock, whiteboard list" autocomplete="off">
+      </div>
       <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
       <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
       <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
@@ -1791,6 +1803,7 @@ function openListPhotoSourceSheet() {
   overlay.querySelector('#lplCancelBtn')?.addEventListener('click', () => { cleanup(); closeOverlay(); });
   overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      lplContext = overlay.querySelector('#lpl_ctx')?.value.trim() || '';
       const src = btn.dataset.source;
       closeOverlay();
       setTimeout(() => {
