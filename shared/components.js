@@ -1983,7 +1983,7 @@ export function initOfflineBanner(onConnectionChange, options = {}) {
 /**
  * Render the notification bell dropdown content for parents.
  */
-export function renderBellDropdown({ pendingRequests = [], recentActivity = [], rewards = {}, people = [] }) {
+export function renderBellDropdown({ pendingRequests = [], recentActivity = [], rewards = {}, people = [], kidBankSummary = [] }) {
   const personName = (id) => {
     const p = people.find(p => p.id === id);
     return p ? esc(p.name) : 'Unknown';
@@ -2030,20 +2030,41 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
   }
 
   for (const item of recentActivity.slice(0, 20)) {
-    const icon = item.type === 'bonus' ? '➕' :
+    const icon = item.type === 'fyi' ? '🛍️' :
+                 item.type === 'bonus' ? '➕' :
                  item.type === 'deduction' ? '➖' :
                  item.type === 'redemption-approved' ? '✅' :
                  item.type === 'redemption-denied' ? '❌' :
                  item.type === 'use-approved' ? '✅' :
                  item.type === 'use-denied' ? '❌' :
                  item.type === 'reward-used' ? '🎉' : '📋';
+    const canRevoke = item.type === 'fyi' && item.bankTokenId;
     html += `<div class="bell-dropdown__item">
       <span class="bell-dropdown__icon">${icon}</span>
       <div class="bell-dropdown__body">
         <div class="bell-dropdown__item-title">${esc(item.title)}</div>
         <div class="bell-dropdown__item-subtitle">${personName(item.personId)} &middot; ${item.amount > 0 ? '+' : ''}${item.amount} pts</div>
+        ${canRevoke ? `<div class="bell-dropdown__item-actions">
+          <button class="btn btn--sm btn--ghost bell-revoke" data-msg-id="${esc(item.id)}" data-person-id="${esc(item.personId)}" type="button">Revoke</button>
+        </div>` : ''}
       </div>
     </div>`;
+  }
+
+  // Kids' bank summary — shows active saved tokens per child
+  if (kidBankSummary.length > 0) {
+    html += `<div class="bell-dropdown__section-head">Kids' Banks</div>`;
+    for (const kid of kidBankSummary) {
+      if (kid.activeCount === 0) continue;
+      const names = kid.tokens.map(t => esc(t.rewardName || 'Reward')).join(', ');
+      html += `<div class="bell-dropdown__item bell-dropdown__item--bank">
+        <span class="bell-dropdown__icon">🏦</span>
+        <div class="bell-dropdown__body">
+          <div class="bell-dropdown__item-title">${esc(kid.name)} &middot; ${kid.activeCount} saved</div>
+          <div class="bell-dropdown__item-subtitle">${names}</div>
+        </div>
+      </div>`;
+    }
   }
 
   html += `</div>`;
@@ -2269,7 +2290,7 @@ export function renderBonusDaySheet(people, todayDate) {
  * Show a polished in-app confirmation/alert modal. Replaces browser confirm()/alert().
  * Returns a Promise<boolean> — true if confirmed, false if cancelled.
  */
-export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false, alert: isAlert = false } = {}) {
+export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false, alert: isAlert = false, inputPlaceholder = '' } = {}) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'confirm-modal';
@@ -2278,6 +2299,7 @@ export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLa
     overlay.innerHTML = `<div class="confirm-modal__card">
       <div class="confirm-modal__title" id="confirmModalTitle">${escapeHtml(title)}</div>
       ${message ? `<div class="confirm-modal__message">${escapeHtml(message)}</div>` : ''}
+      ${inputPlaceholder ? `<textarea class="confirm-modal__input" placeholder="${escapeHtml(inputPlaceholder)}" rows="2" style="width:100%;margin-top:10px;resize:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;font:inherit;background:var(--surface-2);color:var(--text);"></textarea>` : ''}
       <div class="confirm-modal__actions">
         ${!isAlert ? `<button class="btn btn--secondary confirm-modal__cancel" type="button">${escapeHtml(cancelLabel)}</button>` : ''}
         <button class="btn ${danger ? 'btn--danger' : 'btn--primary'} confirm-modal__ok" type="button">${escapeHtml(confirmLabel)}</button>
@@ -2287,10 +2309,12 @@ export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLa
 
     const okBtn = overlay.querySelector('.confirm-modal__ok');
     const cancelBtn = overlay.querySelector('.confirm-modal__cancel');
+    const inputEl = overlay.querySelector('.confirm-modal__input');
 
-    function close(result) {
+    function close(confirmed) {
       document.removeEventListener('keydown', keyHandler);
       overlay.classList.remove('confirm-modal--active');
+      const result = !confirmed ? false : inputPlaceholder ? { confirmed: true, value: inputEl?.value.trim() || '' } : true;
       setTimeout(() => { overlay.remove(); resolve(result); }, 200);
     }
 
@@ -2301,9 +2325,9 @@ export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLa
     // Focus trap: Tab cycles between cancel and ok (or stays on ok for alerts)
     function keyHandler(e) {
       if (e.key === 'Escape') { e.preventDefault(); close(isAlert ? true : false); }
-      else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+      else if (e.key === 'Enter' && document.activeElement !== inputEl) { e.preventDefault(); close(true); }
       else if (e.key === 'Tab') {
-        const focusable = [cancelBtn, okBtn].filter(Boolean);
+        const focusable = [cancelBtn, inputEl, okBtn].filter(Boolean);
         if (focusable.length <= 1) { e.preventDefault(); return; }
         const idx = focusable.indexOf(document.activeElement);
         e.preventDefault();
@@ -2315,7 +2339,7 @@ export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLa
     document.body.appendChild(overlay);
     requestAnimationFrame(() => {
       overlay.classList.add('confirm-modal--active');
-      okBtn.focus();
+      (inputEl || okBtn).focus();
     });
   });
 }
@@ -2579,7 +2603,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
     for (const [pid, msgs] of Object.entries(bellMessages)) {
       if (!msgs) continue;
       for (const msg of Object.values(msgs)) {
-        if ((msg.type === 'redemption-request' || msg.type === 'use-request') && !msg.seen) count++;
+        if ((msg.type === 'redemption-request' || msg.type === 'use-request' || msg.type === 'fyi') && !msg.seen) count++;
       }
     }
     // v2 header uses a single dot (no count); legacy header keeps the numeric badge.
@@ -2599,7 +2623,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
     }
   });
 
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     const bellBtn = e.target.closest('#headerBell');
     if (bellBtn) {
       e.stopPropagation();
@@ -2625,6 +2649,18 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       }
       recentActivity.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
+      // Read all kids' banks in parallel for the summary section
+      const kids = people.filter(p => p.role === 'child');
+      let kidBankSummary = [];
+      if (readBankFn && kids.length > 0) {
+        const banks = await Promise.all(kids.map(k => readBankFn(k.id).then(b => ({ id: k.id, name: k.name, bank: b || {} }))));
+        kidBankSummary = banks.map(({ id, name, bank }) => ({
+          id, name,
+          activeCount: Object.values(bank).filter(t => !t.used).length,
+          tokens: Object.entries(bank).filter(([, t]) => !t.used).map(([, t]) => t)
+        }));
+      }
+
       const bellEl = document.getElementById('headerBell');
       if (!bellEl) return;
 
@@ -2639,7 +2675,8 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         pendingRequests,
         recentActivity,
         rewards: getRewards(),
-        people
+        people,
+        kidBankSummary
       });
       const dropdown = dropdownContainer.firstElementChild;
       // Position below the header, centered on mobile
@@ -2662,14 +2699,16 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         bindSendMessageSheet(mount, writeMessageFn, approver, writeBankTokenFn, getRewards);
       });
 
-      // Wire "Clear All" button — deletes all messages
+      // Wire "Clear All" button — deletes all messages except unseen FYIs with revoke options
       document.getElementById('bellClearAll')?.addEventListener('click', async () => {
         if (!await showConfirm({ title: 'Clear all notification history?', danger: true })) return;
         const people = getPeople();
         for (const p of people) {
           const msgs = bellMessages[p.id];
           if (!msgs) continue;
-          for (const msgId of Object.keys(msgs)) {
+          for (const [msgId, msg] of Object.entries(msgs)) {
+            // Keep unseen FYIs that have a bank token — parent may still want to revoke
+            if (msg.type === 'fyi' && !msg.seen && msg.bankTokenId) continue;
             if (removeMessageFn) await removeMessageFn(p.id, msgId);
             else await markMessageSeenFn(p.id, msgId);
           }
@@ -2742,28 +2781,55 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
           await markMessageSeenFn(personId, msgId);
 
           const reward = getRewards()[msg.rewardId] || {};
-          await writeMessageFn(personId, {
-            type: 'redemption-approved',
-            title: `${reward.name || 'Reward'} approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
-            body: null,
-            amount: 0,
-            rewardId: msg.rewardId,
-            entryKey: null,
-            seen: false,
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
-            createdBy: approver
-          });
-
-          await writeBankTokenFn(personId, {
-            rewardType: reward.rewardType || 'custom',
-            rewardId: msg.rewardId,
-            rewardName: reward.name || 'Reward',
-            rewardIcon: reward.icon || '🎁',
-            acquiredAt: Date.now(),
-            used: false,
-            usedAt: null,
-            targetEntryKey: null
-          });
+          if (msg.intent === 'use-now') {
+            // One approval covers purchase + use — no bank token
+            await writeMessageFn(personId, {
+              type: 'redemption-approved',
+              title: `${reward.name || 'Reward'} approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
+              body: null,
+              amount: 0,
+              intent: 'use-now',
+              rewardId: msg.rewardId,
+              entryKey: null,
+              seen: false,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: approver
+            });
+            await writeMessageFn(personId, {
+              type: 'reward-used',
+              title: `Used: ${reward.name || 'Reward'}`,
+              body: null,
+              amount: 0,
+              rewardId: msg.rewardId || null,
+              entryKey: null,
+              seen: true,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: approver
+            });
+          } else {
+            // Legacy save intent — bank the token
+            await writeMessageFn(personId, {
+              type: 'redemption-approved',
+              title: `${reward.name || 'Reward'} approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
+              body: null,
+              amount: 0,
+              rewardId: msg.rewardId,
+              entryKey: null,
+              seen: false,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: approver
+            });
+            await writeBankTokenFn(personId, {
+              rewardType: reward.rewardType || 'custom',
+              rewardId: msg.rewardId,
+              rewardName: reward.name || 'Reward',
+              rewardIcon: reward.icon || '🎁',
+              acquiredAt: Date.now(),
+              used: false,
+              usedAt: null,
+              targetEntryKey: null
+            });
+          }
 
           closeBellDropdown();
         });
@@ -2772,18 +2838,28 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const btn of document.querySelectorAll('.bell-deny')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
+          closeBellDropdown();
           const personId = btn.dataset.personId;
           const msgId = btn.dataset.msgId;
           const msg = bellMessages[personId]?.[msgId];
           if (!msg) return;
 
-          await markMessageSeenFn(personId, msgId);
-
           const reward = getRewards()[msg.rewardId] || {};
+          const result = await showConfirm({
+            title: `Deny ${reward.name || 'this request'}?`,
+            message: msg.intent === 'use-now' ? 'Points will be refunded.' : '',
+            confirmLabel: 'Deny',
+            cancelLabel: 'Cancel',
+            danger: true,
+            inputPlaceholder: 'Reason (optional — kid will see this)'
+          });
+          if (!result) return;
+          const reason = typeof result === 'object' ? result.value : '';
+
           await writeMessageFn(personId, {
             type: 'redemption-denied',
             title: `${reward.name || 'Reward'} denied${approver !== 'Parent' ? ` by ${approver}` : ''}`,
-            body: null,
+            body: reason || null,
             amount: 0,
             rewardId: msg.rewardId,
             entryKey: null,
@@ -2805,7 +2881,8 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             createdBy: 'system'
           });
 
-          closeBellDropdown();
+          // Mark seen last so a network failure on the refund write doesn't lose the request
+          await markMessageSeenFn(personId, msgId);
         });
       }
 
@@ -2844,17 +2921,26 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const btn of document.querySelectorAll('.bell-deny-use')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
+          closeBellDropdown();
           const personId = btn.dataset.personId;
           const msgId = btn.dataset.msgId;
           const msg = bellMessages[personId]?.[msgId];
           if (!msg) return;
 
-          await markMessageSeenFn(personId, msgId);
+          const result = await showConfirm({
+            title: `Deny use of ${msg.rewardName || 'this reward'}?`,
+            confirmLabel: 'Deny',
+            cancelLabel: 'Cancel',
+            danger: true,
+            inputPlaceholder: 'Reason (optional — kid will see this)'
+          });
+          if (!result) return;
+          const reason = typeof result === 'object' ? result.value : '';
 
           await writeMessageFn(personId, {
             type: 'use-denied',
             title: `${msg.rewardName || 'Reward'} — not right now (${approver})`,
-            body: null,
+            body: reason || null,
             amount: 0,
             rewardId: msg.rewardId || null,
             entryKey: null,
@@ -2862,6 +2948,57 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             createdBy: approver
           });
+
+          await markMessageSeenFn(personId, msgId);
+        });
+      }
+
+      // Wire FYI revoke buttons
+      for (const btn of document.querySelectorAll('.bell-revoke')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const personId = btn.dataset.personId;
+          const msgId = btn.dataset.msgId;
+          const msg = bellMessages[personId]?.[msgId];
+          if (!msg) return;
+
+          await markMessageSeenFn(personId, msgId);
+
+          // Remove the bank token from the kid's bank
+          const kidPersonId = msg.createdBy;
+          if (msg.bankTokenId && removeBankTokenFn && kidPersonId) {
+            await removeBankTokenFn(kidPersonId, msg.bankTokenId);
+          }
+
+          // Refund the points
+          if (msg.amount && writeMessageFn && kidPersonId) {
+            await writeMessageFn(kidPersonId, {
+              type: 'bonus',
+              title: `Refund: ${getRewards()[msg.rewardId]?.name || 'Reward'}`,
+              body: null,
+              amount: Math.abs(msg.amount),
+              rewardId: msg.rewardId || null,
+              entryKey: null,
+              seen: true,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: 'system'
+            });
+          }
+
+          // Notify the kid their reward was revoked
+          if (writeMessageFn && kidPersonId) {
+            await writeMessageFn(kidPersonId, {
+              type: 'redemption-denied',
+              title: `${getRewards()[msg.rewardId]?.name || 'Reward'} was revoked`,
+              body: null,
+              amount: 0,
+              rewardId: msg.rewardId || null,
+              entryKey: null,
+              seen: false,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: approver
+            });
+          }
 
           closeBellDropdown();
         });

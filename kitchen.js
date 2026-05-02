@@ -1,7 +1,7 @@
 // kitchen.js — Kitchen page: meal planning + shopping lists
 import { initFirebase, readSettings, readPeople, onConnectionChange,
   onAllMessages, writeMessage, markMessageSeen, removeMessage,
-  writeBankToken, markBankTokenUsed, readBank, writeMultiplier,
+  writeBankToken, markBankTokenUsed, removeBankToken, readBank, writeMultiplier,
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
   readKitchenPlan, onKitchenItems, readOnce,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
@@ -103,6 +103,7 @@ async function init() {
       removeMessageFn: removeMessage,
       writeBankTokenFn: writeBankToken,
       markBankTokenUsedFn: markBankTokenUsed,
+      removeBankTokenFn: removeBankToken,
       readBankFn: readBank,
       writeMultiplierFn: writeMultiplier,
       getTodayFn: () => todayKey(settings?.timezone),

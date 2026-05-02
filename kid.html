@@ -520,13 +520,18 @@
           const amountDisplay = msg.amount > 0 ? `+${msg.amount}` : msg.amount;
           const mount = document.getElementById('celebrationMount');
 
-          // For approved rewards, show Use Now / Save choice
+          // For approved rewards, show appropriate UI based on intent
           const isApproval = msg.type === 'redemption-approved';
+          const isUseNowApproval = isApproval && msg.intent === 'use-now';
           const reward = isApproval && msg.rewardId ? rewards[msg.rewardId] : null;
           const isFunctional = reward && (reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal');
 
           let buttonsHtml;
-          if (isApproval) {
+          if (isUseNowApproval) {
+            // Already approved and being used — just dismiss
+            buttonsHtml = `<button class="btn btn--primary kid-msg-overlay__dismiss" type="button">Got it!</button>`;
+          } else if (isApproval) {
+            // Legacy save-to-bank approval — show use/save options
             buttonsHtml = `<div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
               <button class="btn btn--primary kid-msg-overlay__use-now" type="button">Use Now</button>
               <button class="btn btn--secondary kid-msg-overlay__save" type="button">Save for Later</button>
@@ -541,7 +546,8 @@
               <h3 class="kid-msg-overlay__title">${esc(msg.title || msg.type)}</h3>
               ${msg.body ? `<p class="kid-msg-overlay__body">${esc(msg.body)}</p>` : ''}
               ${msg.amount ? `<div class="kid-msg-overlay__amount ${isPositive ? 'kid-msg-overlay__amount--positive' : 'kid-msg-overlay__amount--negative'}">${amountDisplay} pts</div>` : ''}
-              ${isApproval ? `<p style="color: var(--text-muted); font-size: var(--font-sm); margin-top: 8px;">Saved to your rewards bank</p>` : ''}
+              ${isUseNowApproval ? `<p style="color: var(--text-muted); font-size: var(--font-sm); margin-top: 8px;">Your parent will take care of this!</p>` : ''}
+              ${isApproval && !isUseNowApproval ? `<p style="color: var(--text-muted); font-size: var(--font-sm); margin-top: 8px;">Saved to your rewards bank</p>` : ''}
               ${buttonsHtml}
             </div>
           </div>`;

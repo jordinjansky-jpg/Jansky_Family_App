@@ -73,6 +73,7 @@ async function init() {
       removeMessageFn: removeMessage,
       writeBankTokenFn: writeBankToken,
       markBankTokenUsedFn: markBankTokenUsed,
+      removeBankTokenFn: removeBankToken,
       readBankFn: readBank,
       writeMultiplierFn: writeMultiplier,
       getTodayFn: () => todayKey(settings?.timezone),
@@ -536,12 +537,13 @@ async function handleApprove(msgId, personId, rewardId, intent) {
     await markMessageSeen(personId, msgId);
     showToast('Approved!');
   } else if (msg?.type === 'redemption-request' && intent === 'use-now') {
-    // Immediately consumed — no bank token
+    // Immediately consumed — no bank token; one approval covers purchase + use
     await writeMessage(personId, {
       type: 'redemption-approved',
       title: msg.title || reward.name || '',
       body: null,
       amount: 0,
+      intent: 'use-now',
       seen: false,
       createdAt: ts,
       createdBy: 'parent',
@@ -592,17 +594,21 @@ async function handleApprove(msgId, personId, rewardId, intent) {
 
 async function handleDeny(msgId, personId) {
   const msg = allMessages?.[personId]?.[msgId];
-  const confirmed = await showConfirm({
+  const result = await showConfirm({
     title: 'Deny this request?',
-    message: msg?.title || 'Reward request'
+    message: msg?.title || 'Reward request',
+    confirmLabel: 'Deny',
+    danger: true,
+    inputPlaceholder: 'Reason (optional — kid will see this)'
   });
-  if (!confirmed) return;
+  if (!result) return;
+  const reason = typeof result === 'object' ? result.value : '';
 
   const deniedType = msg?.type === 'use-request' ? 'use-denied' : 'redemption-denied';
   await writeMessage(personId, {
     type: deniedType,
     title: msg?.title || 'Request denied',
-    body: null,
+    body: reason || null,
     amount: 0,
     seen: false,
     createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -665,6 +671,22 @@ async function loadAndRenderBankTab() {
     }
   }
 
+  // When a parent is viewing, append all kids' saved rewards below their own bank
+  if (viewerPerson?.role !== 'child') {
+    const kids = people.filter(p => p.role === 'child');
+    if (kids.length > 0) {
+      const kidBanks = await Promise.all(kids.map(k => readBank(k.id).then(b => ({ kid: k, bank: b || {} }))));
+      for (const { kid, bank } of kidBanks) {
+        const kidActive = Object.entries(bank).filter(([, t]) => !t.used);
+        if (kidActive.length === 0) continue;
+        html += `<div class="rewards-section-heading" style="margin-top: 20px;">${esc(kid.name)}'s Bank</div>`;
+        kidActive.forEach(([tokenId, token]) => {
+          html += renderBankTokenEl(tokenId, token, { showUse: false });
+        });
+      }
+    }
+  }
+
   if (content) content.innerHTML = html;
   bindBankTabContent(personBank, isAdult);
 }
@@ -717,6 +739,11 @@ async function handleUseToken(tokenId, rewardType, tokenName, rewardId, rewardIc
     await refreshData();
     render();
   } else {
+    // Guard against duplicate use-request for the same token
+    const alreadyPending = Object.values(allMessages?.[activePerson.id] || {}).some(m =>
+      m.type === 'use-request' && !m.seen && m.bankTokenId === tokenId);
+    if (alreadyPending) { showToast('Already requested — waiting for approval.'); return; }
+
     if (!await showConfirm({ title: `Request to use ${tokenName}?`, message: 'Your parent will get a notification to approve.' })) return;
     await writeMessage(activePerson.id, {
       type: 'use-request',
@@ -724,12 +751,16 @@ async function handleUseToken(tokenId, rewardType, tokenName, rewardId, rewardIc
       body: null,
       amount: 0,
       rewardId: rewardId || null,
+      rewardName: tokenName,
+      rewardIcon: rewardIcon || '',
       bankTokenId: tokenId,
       seen: false,
       createdAt: firebase.database.ServerValue.TIMESTAMP,
       createdBy: activePerson.id
     });
     showToast('Requested! Waiting for approval…');
+    await refreshData();
+    loadAndRenderBankTab();
   }
 }
 
@@ -794,7 +825,7 @@ async function handleGetReward(rewardId) {
       createdAt: ts,
       createdBy: activePerson.id
     });
-    await writeBankToken(activePerson.id, {
+    const bankTokenId = await writeBankToken(activePerson.id, {
       rewardType: reward.rewardType || 'custom',
       rewardId,
       rewardName: reward.name || '',
@@ -802,10 +833,10 @@ async function handleGetReward(rewardId) {
       acquiredAt: ts,
       used: false
     });
-    // Notify all parents
+    // Notify all parents with FYI + revoke option
     const parents = people.filter(p => p.role !== 'child');
     for (const parent of parents) {
-      await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id);
+      await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
     }
     showToast('Saved to your Bank!');
     await refreshData();
@@ -815,7 +846,7 @@ async function handleGetReward(rewardId) {
 
   const isFunctional = reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal';
   if (isFunctional) {
-    // Path 3 — functional with approval: auto-send as save, no intent sheet
+    // Path 3 — functional: immediate bank + FYI (no approval to save; parent gets FYI with revoke)
     await writeMessage(activePerson.id, {
       type: 'redemption-request',
       title: reward.name,
@@ -825,11 +856,23 @@ async function handleGetReward(rewardId) {
       rewardName: reward.name,
       rewardIcon: reward.icon || '',
       intent: 'save',
-      seen: false,
+      seen: true,
       createdAt: ts,
       createdBy: activePerson.id
     });
-    showToast('Request sent! Waiting for approval…');
+    const bankTokenId = await writeBankToken(activePerson.id, {
+      rewardType: reward.rewardType || 'custom',
+      rewardId,
+      rewardName: reward.name || '',
+      rewardIcon: reward.icon || '',
+      acquiredAt: ts,
+      used: false
+    });
+    const parents = people.filter(p => p.role !== 'child');
+    for (const parent of parents) {
+      await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
+    }
+    showToast('Saved to your Bank!');
     await refreshData();
     renderActiveTab();
     return;
@@ -840,45 +883,78 @@ async function handleGetReward(rewardId) {
 }
 
 function openIntentSheet(reward, rewardId) {
-  const mount = document.getElementById('sheetMount');
+  const mount = document.getElementById(‘sheetMount’);
   const html = `<div id="intentSheet">
-    <div class="sheet-icon">${esc(reward.icon || '🎁')}</div>
+    <div class="sheet-icon">${esc(reward.icon || ‘🎁’)}</div>
     <div class="sheet-title">${esc(reward.name)}</div>
-    <p class="text-muted">Your parent will approve before it’s used.</p>
+    <p class="text-muted">Use Now: parent approves, then done. Save: goes straight to your bank.</p>
     <button class="btn btn--primary btn--full" id="intentUseNow" type="button">Use Now</button>
     <button class="btn btn--secondary btn--full" id="intentSave" type="button">Save for Later</button>
     <button class="btn btn--ghost btn--full" id="intentCancel" type="button">Cancel</button>
   </div>`;
   mount.innerHTML = renderBottomSheet(html);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  requestAnimationFrame(() => document.getElementById(‘bottomSheet’)?.classList.add(‘active’));
 
   let submitting = false;
 
   async function sendRequest(intent) {
     if (submitting) return;
     submitting = true;
-    mount.innerHTML = '';
-    await writeMessage(activePerson.id, {
-      type: 'redemption-request',
-      title: reward.name,
-      body: null,
-      amount: -(reward.pointCost || 0),
-      rewardId,
-      rewardName: reward.name,
-      rewardIcon: reward.icon || '',
-      intent,
-      seen: false,
-      createdAt: firebase.database.ServerValue.TIMESTAMP,
-      createdBy: activePerson.id
-    });
-    showToast('Request sent! Waiting for approval…');
+    mount.innerHTML = ‘’;
+    const ts = firebase.database.ServerValue.TIMESTAMP;
+
+    if (intent === ‘save’) {
+      // Immediate bank — no approval needed to save; parent gets FYI with revoke option
+      await writeMessage(activePerson.id, {
+        type: ‘redemption-request’,
+        title: reward.name,
+        body: null,
+        amount: -(reward.pointCost || 0),
+        rewardId,
+        rewardName: reward.name,
+        rewardIcon: reward.icon || ‘’,
+        intent: ‘save’,
+        seen: true,
+        createdAt: ts,
+        createdBy: activePerson.id
+      });
+      const bankTokenId = await writeBankToken(activePerson.id, {
+        rewardType: reward.rewardType || ‘custom’,
+        rewardId,
+        rewardName: reward.name || ‘’,
+        rewardIcon: reward.icon || ‘’,
+        acquiredAt: ts,
+        used: false
+      });
+      const parents = people.filter(p => p.role !== ‘child’);
+      for (const parent of parents) {
+        await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
+      }
+      showToast(‘Saved to your Bank!’);
+    } else {
+      // ‘use-now’ — send approval request to parent (one approval covers buy + use)
+      await writeMessage(activePerson.id, {
+        type: ‘redemption-request’,
+        title: reward.name,
+        body: null,
+        amount: -(reward.pointCost || 0),
+        rewardId,
+        rewardName: reward.name,
+        rewardIcon: reward.icon || ‘’,
+        intent: ‘use-now’,
+        seen: false,
+        createdAt: ts,
+        createdBy: activePerson.id
+      });
+      showToast(‘Request sent! Waiting for approval…’);
+    }
     await refreshData();
     renderActiveTab();
   }
 
-  document.getElementById('intentUseNow')?.addEventListener('click', () => sendRequest('use-now'));
-  document.getElementById('intentSave')?.addEventListener('click', () => sendRequest('save'));
-  document.getElementById('intentCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  document.getElementById(‘intentUseNow’)?.addEventListener(‘click’, () => sendRequest(‘use-now’));
+  document.getElementById(‘intentSave’)?.addEventListener(‘click’, () => sendRequest(‘save’));
+  document.getElementById(‘intentCancel’)?.addEventListener(‘click’, () => { mount.innerHTML = ‘’; });
 }
 
 function bindTabs() {

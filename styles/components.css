@@ -1400,6 +1400,19 @@
 
 .bell-dropdown__item-actions { display: flex; gap: 8px; margin-top: 8px; }
 
+.bell-dropdown__section-head {
+  padding: 8px 16px 4px;
+  font-size: var(--font-xs, 0.75rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.bell-dropdown__item--bank { opacity: 0.85; }
+
 .bell-dropdown__empty {
   padding: 32px 16px;
   text-align: center;
