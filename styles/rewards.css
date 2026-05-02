@@ -1,3 +1,24 @@
+/* ── Intent sheet (Use Now / Save for Later) ── */
+.is-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) 0;
+}
+.is-preview__icon { font-size: 3rem; line-height: 1; }
+.is-hint {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+}
+.is-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
 /* ── View-as inline selector (header actions area) ── */
 .rewards-view-as {
   display: flex;

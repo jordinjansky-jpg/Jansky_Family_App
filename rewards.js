@@ -884,15 +884,23 @@ async function handleGetReward(rewardId) {
 
 function openIntentSheet(reward, rewardId) {
   const mount = document.getElementById(‘sheetMount’);
-  const html = `<div id="intentSheet">
-    <div class="sheet-icon">${esc(reward.icon || ‘🎁’)}</div>
-    <div class="sheet-title">${esc(reward.name)}</div>
-    <p class="text-muted">Use Now: parent approves, then done. Save: goes straight to your bank.</p>
-    <button class="btn btn--primary btn--full" id="intentUseNow" type="button">Use Now</button>
-    <button class="btn btn--secondary btn--full" id="intentSave" type="button">Save for Later</button>
-    <button class="btn btn--ghost btn--full" id="intentCancel" type="button">Cancel</button>
-  </div>`;
-  mount.innerHTML = renderBottomSheet(html);
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header">
+      <h2 class="sheet__title">${esc(reward.name)}</h2>
+      <button class="btn btn--ghost btn--sm" id="is_cancel" type="button">Cancel</button>
+    </div>
+    <div class="sheet__content">
+      <div class="is-preview">
+        <span class="is-preview__icon">${esc(reward.icon || ‘🎁’)}</span>
+        <span class="chip chip--muted">${reward.pointCost || 0} pts</span>
+      </div>
+      <p class="is-hint">Use Now sends an approval request to your parent — one tap from them and you’re done. Save for Later banks it immediately, no approval needed.</p>
+      <div class="is-actions">
+        <button class="btn btn--primary btn--full" id="is_useNow" type="button">Use Now</button>
+        <button class="btn btn--secondary btn--full" id="is_save" type="button">Save for Later</button>
+      </div>
+    </div>
+  `);
   requestAnimationFrame(() => document.getElementById(‘bottomSheet’)?.classList.add(‘active’));
 
   let submitting = false;
@@ -904,7 +912,6 @@ function openIntentSheet(reward, rewardId) {
     const ts = firebase.database.ServerValue.TIMESTAMP;
 
     if (intent === ‘save’) {
-      // Immediate bank — no approval needed to save; parent gets FYI with revoke option
       await writeMessage(activePerson.id, {
         type: ‘redemption-request’,
         title: reward.name,
@@ -932,7 +939,6 @@ function openIntentSheet(reward, rewardId) {
       }
       showToast(‘Saved to your Bank!’);
     } else {
-      // ‘use-now’ — send approval request to parent (one approval covers buy + use)
       await writeMessage(activePerson.id, {
         type: ‘redemption-request’,
         title: reward.name,
@@ -952,9 +958,9 @@ function openIntentSheet(reward, rewardId) {
     renderActiveTab();
   }
 
-  document.getElementById(‘intentUseNow’)?.addEventListener(‘click’, () => sendRequest(‘use-now’));
-  document.getElementById(‘intentSave’)?.addEventListener(‘click’, () => sendRequest(‘save’));
-  document.getElementById(‘intentCancel’)?.addEventListener(‘click’, () => { mount.innerHTML = ‘’; });
+  document.getElementById(‘is_useNow’)?.addEventListener(‘click’, () => sendRequest(‘use-now’));
+  document.getElementById(‘is_save’)?.addEventListener(‘click’, () => sendRequest(‘save’));
+  document.getElementById(‘is_cancel’)?.addEventListener(‘click’, () => { mount.innerHTML = ‘’; });
 }
 
 function bindTabs() {
