@@ -883,7 +883,7 @@ async function handleGetReward(rewardId) {
 }
 
 function openIntentSheet(reward, rewardId) {
-  const mount = document.getElementById(‘sheetMount’);
+  const mount = document.getElementById('sheetMount');
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(reward.name)}</h2>
@@ -891,76 +891,76 @@ function openIntentSheet(reward, rewardId) {
     </div>
     <div class="sheet__content">
       <div class="is-preview">
-        <span class="is-preview__icon">${esc(reward.icon || ‘🎁’)}</span>
+        <span class="is-preview__icon">${esc(reward.icon || '🎁')}</span>
         <span class="chip chip--muted">${reward.pointCost || 0} pts</span>
       </div>
-      <p class="is-hint">Use Now sends an approval request to your parent — one tap from them and you’re done. Save for Later banks it immediately, no approval needed.</p>
+      <p class="is-hint">Use Now sends an approval request to your parent — one tap from them and you're done. Save for Later banks it immediately, no approval needed.</p>
       <div class="is-actions">
         <button class="btn btn--primary btn--full" id="is_useNow" type="button">Use Now</button>
         <button class="btn btn--secondary btn--full" id="is_save" type="button">Save for Later</button>
       </div>
     </div>
   `);
-  requestAnimationFrame(() => document.getElementById(‘bottomSheet’)?.classList.add(‘active’));
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
 
   let submitting = false;
 
   async function sendRequest(intent) {
     if (submitting) return;
     submitting = true;
-    mount.innerHTML = ‘’;
+    mount.innerHTML = '';
     const ts = firebase.database.ServerValue.TIMESTAMP;
 
-    if (intent === ‘save’) {
+    if (intent === 'save') {
       await writeMessage(activePerson.id, {
-        type: ‘redemption-request’,
+        type: 'redemption-request',
         title: reward.name,
         body: null,
         amount: -(reward.pointCost || 0),
         rewardId,
         rewardName: reward.name,
-        rewardIcon: reward.icon || ‘’,
-        intent: ‘save’,
+        rewardIcon: reward.icon || '',
+        intent: 'save',
         seen: true,
         createdAt: ts,
         createdBy: activePerson.id
       });
       const bankTokenId = await writeBankToken(activePerson.id, {
-        rewardType: reward.rewardType || ‘custom’,
+        rewardType: reward.rewardType || 'custom',
         rewardId,
-        rewardName: reward.name || ‘’,
-        rewardIcon: reward.icon || ‘’,
+        rewardName: reward.name || '',
+        rewardIcon: reward.icon || '',
         acquiredAt: ts,
         used: false
       });
-      const parents = people.filter(p => p.role !== ‘child’);
+      const parents = people.filter(p => p.role !== 'child');
       for (const parent of parents) {
         await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
       }
-      showToast(‘Saved to your Bank!’);
+      showToast('Saved to your Bank!');
     } else {
       await writeMessage(activePerson.id, {
-        type: ‘redemption-request’,
+        type: 'redemption-request',
         title: reward.name,
         body: null,
         amount: -(reward.pointCost || 0),
         rewardId,
         rewardName: reward.name,
-        rewardIcon: reward.icon || ‘’,
-        intent: ‘use-now’,
+        rewardIcon: reward.icon || '',
+        intent: 'use-now',
         seen: false,
         createdAt: ts,
         createdBy: activePerson.id
       });
-      showToast(‘Request sent! Waiting for approval…’);
+      showToast('Request sent! Waiting for approval…');
     }
     await refreshData();
     renderActiveTab();
   }
 
-  document.getElementById(‘is_useNow’)?.addEventListener(‘click’, () => sendRequest(‘use-now’));
-  document.getElementById(‘is_save’)?.addEventListener(‘click’, () => sendRequest(‘save’));
-  document.getElementById(‘is_cancel’)?.addEventListener(‘click’, () => { mount.innerHTML = ‘’; });
+  document.getElementById('is_useNow')?.addEventListener('click', () => sendRequest('use-now'));
+  document.getElementById('is_save')?.addEventListener('click', () => sendRequest('save'));
+  document.getElementById('is_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
 
 function bindTabs() {
