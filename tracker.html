@@ -1015,7 +1015,7 @@
           name, rotation: rot, difficulty: trkDiff, estMin: trkDur, timeOfDay: trkTod, category: trkCat,
           owners: ownerIds, ownerAssignmentMode, dedicatedDay, dedicatedDate,
           cooldownDays: cooldownDays || null, exempt, notes: notes || null,
-          bounty: task.bounty ?? null, eventTime: task.eventTime ?? null,
+          bounty: task.bounty ?? null, eventTime: null,
         };
         await writeTask(taskId, updated);
         tasks[taskId] = updated;
