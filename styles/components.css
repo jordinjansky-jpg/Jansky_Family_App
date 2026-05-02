@@ -3516,6 +3516,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   padding: 0;
 }
 .tf-title-input::placeholder { color: var(--text-faint); }
+.tf-title-input:focus { outline: none; box-shadow: none; border-color: transparent; }
 @keyframes tf-shake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-4px); }
