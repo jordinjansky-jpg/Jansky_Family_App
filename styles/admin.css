@@ -25,6 +25,7 @@
 }
 .rf-emoji-btn:hover { background: var(--surface-3, var(--surface-2)); }
 .rf-delete-btn { color: var(--danger); }
+.rf-save-btn { color: var(--accent); }
 .rf-header-actions { display: flex; align-items: center; gap: 2px; }
 .rf-emoji-reveal { display: none; }
 .rf-emoji-reveal.is-open { display: block; }

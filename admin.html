@@ -1699,6 +1699,7 @@
     const RF_CLOSE_SVG   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
     const RF_DELETE_SVG  = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
     const RF_ARCHIVE_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
+    const RF_SAVE_SVG    = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 
     function openRewardForm(rewardId) {
       const mount = document.getElementById('taskSheetMount');
@@ -1723,7 +1724,7 @@
                 ? `<button class="ef2-icon-btn" id="rf_unarchive" type="button" aria-label="Unarchive" title="Unarchive">${RF_ARCHIVE_SVG}</button>`
                 : `<button class="ef2-icon-btn" id="rf_archive" type="button" aria-label="Archive" title="Archive">${RF_ARCHIVE_SVG}</button>`) : ''}
               ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="rf_delete" type="button" aria-label="Delete" title="Delete reward">${RF_DELETE_SVG}</button>` : ''}
-              <button class="btn btn--primary btn--sm" id="rf_save" type="button">${isEdit ? 'Save' : 'Create'}</button>
+              <button class="ef2-icon-btn rf-save-btn" id="rf_save" type="button" aria-label="${isEdit ? 'Save' : 'Create reward'}" title="${isEdit ? 'Save' : 'Create'}">${RF_SAVE_SVG}</button>
               <button class="ef2-icon-btn" id="rf_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
             </div>
           </div>
