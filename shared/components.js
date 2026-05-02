@@ -1114,22 +1114,10 @@ function ef2ParseTime(hhmm) {
   return { hour, min: m, ampm };
 }
 
-function ef2HourOpts(selectedHour) {
-  return Array.from({ length: 12 }, (_, i) => {
-    const h = i + 1;
-    return `<option value="${h}"${h === selectedHour ? ' selected' : ''}>${h}</option>`;
-  }).join('');
-}
-
-function ef2MinOpts(selectedMin) {
-  const rounded = Math.round(selectedMin / 5) * 5 % 60;
-  return ['00','05','10','15','20','25','30','35','40','45','50','55'].map(m =>
-    `<option value="${m}"${parseInt(m, 10) === rounded ? ' selected' : ''}>${m}</option>`
-  ).join('');
-}
-
-function ef2AmPmOpts(selected) {
-  return `<option value="AM"${selected === 'AM' ? ' selected' : ''}>AM</option><option value="PM"${selected === 'PM' ? ' selected' : ''}>PM</option>`;
+function ef2TimeToText(hhmm) {
+  if (!hhmm) return '';
+  const { hour, min } = ef2ParseTime(hhmm);
+  return `${hour}:${String(min).padStart(2, '0')}`;
 }
 
 function ef2RepeatLabel(rule) {
@@ -1162,7 +1150,6 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   const primaryId = (event.people || [])[0] || null;
   const attendingIds = new Set((event.people || []).slice(1));
 
-  const familyChipHtml = `<button class="ef2-person-chip ef2-person-chip--family" data-person-id="__family__" type="button">Family</button>`;
   const personChipsHtml = people.map(p => {
     const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
     return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
@@ -1226,16 +1213,16 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       <input type="date" id="ef2_date" value="${esc(dateVal)}">
     </div>
     <div class="ef2-picker-wrap${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timePicker">
-      <div class="ef2-time-row-flat">
-        <select id="ef2_startHour" class="ef2-time-select ef2-time-select--hour" aria-label="Start hour">${ef2HourOpts(ef2ParseTime(startTime).hour)}</select>
-        <span class="ef2-time-colon">:</span>
-        <select id="ef2_startMin" class="ef2-time-select ef2-time-select--min" aria-label="Start minute">${ef2MinOpts(ef2ParseTime(startTime).min)}</select>
-        <select id="ef2_startAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="Start AM or PM">${ef2AmPmOpts(ef2ParseTime(startTime).ampm)}</select>
+      <div class="ef2-time-inputs">
+        <div class="ef2-time-entry">
+          <input type="text" class="ef2-time-text" id="ef2_startText" inputmode="numeric" maxlength="5" placeholder="9:00" value="${ef2TimeToText(startTime)}">
+          <button class="ef2-ampm-btn" id="ef2_startAmPm" data-ampm="${ef2ParseTime(startTime).ampm}" type="button">${ef2ParseTime(startTime).ampm}</button>
+        </div>
         <span class="ef2-time-arrow" aria-hidden="true">→</span>
-        <select id="ef2_endHour" class="ef2-time-select ef2-time-select--hour" aria-label="End hour">${ef2HourOpts(ef2ParseTime(endTime).hour)}</select>
-        <span class="ef2-time-colon">:</span>
-        <select id="ef2_endMin" class="ef2-time-select ef2-time-select--min" aria-label="End minute">${ef2MinOpts(ef2ParseTime(endTime).min)}</select>
-        <select id="ef2_endAmPm" class="ef2-time-select ef2-time-select--ampm" aria-label="End AM or PM">${ef2AmPmOpts(ef2ParseTime(endTime).ampm)}</select>
+        <div class="ef2-time-entry">
+          <input type="text" class="ef2-time-text" id="ef2_endText" inputmode="numeric" maxlength="5" placeholder="10:00" value="${ef2TimeToText(endTime)}">
+          <button class="ef2-ampm-btn" id="ef2_endAmPm" data-ampm="${ef2ParseTime(endTime).ampm}" type="button">${ef2ParseTime(endTime).ampm}</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1243,10 +1230,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   <div class="ef2-divider"></div>
 
   <div class="ef2-for-section" id="ef2_people">
-    <div class="ef2-for-header">
-      <span class="ef2-section-label">For</span>
-      ${familyChipHtml}
-    </div>
+    <span class="ef2-section-label">For</span>
     <div class="ef2-person-chips">${personChipsHtml}</div>
   </div>
 

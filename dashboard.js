@@ -1755,20 +1755,6 @@ function openEventForm(existingEventId = null, savedState = null) {
     if (mode === 'create') document.getElementById('ef2_name')?.focus();
   });
 
-  // Restore family mode visual state if returning from a sub-sheet
-  if (savedState?.isFamilyMode) {
-    requestAnimationFrame(() => {
-      const pw = document.getElementById('ef2_people');
-      pw?.querySelectorAll('.ef2-person-chip').forEach(chip => {
-        if (chip.dataset.personId === '__family__') {
-          chip.setAttribute('data-state', 'primary');
-        } else {
-          chip.setAttribute('data-state', 'attending');
-        }
-      });
-    });
-  }
-
   // ── Close / Cancel ───────────────────────────────────────────
   document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
   document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
@@ -1785,10 +1771,19 @@ function openEventForm(existingEventId = null, savedState = null) {
   const timeDisplay = document.getElementById('ef2_timeDisplay');
 
   function ef2GetTime(prefix) {
-    const h = parseInt(document.getElementById(`ef2_${prefix}Hour`)?.value, 10);
-    const m = parseInt(document.getElementById(`ef2_${prefix}Min`)?.value, 10) || 0;
-    const ampm = document.getElementById(`ef2_${prefix}AmPm`)?.value || 'AM';
-    if (!h || isNaN(h)) return '';
+    const raw = (document.getElementById(`ef2_${prefix}Text`)?.value || '').replace(/\D/g, '');
+    const ampm = document.getElementById(`ef2_${prefix}AmPm`)?.dataset.ampm || 'AM';
+    if (!raw) return '';
+    let h, m;
+    if (raw.length <= 2) {
+      h = parseInt(raw, 10); m = 0;
+    } else if (raw.length === 3) {
+      h = parseInt(raw[0], 10); m = parseInt(raw.slice(1), 10);
+    } else {
+      h = parseInt(raw.slice(0, 2), 10); m = parseInt(raw.slice(2, 4), 10);
+    }
+    if (isNaN(h) || h < 1 || h > 12) return '';
+    if (isNaN(m) || m > 59) m = 0;
     let h24 = h;
     if (ampm === 'AM' && h === 12) h24 = 0;
     else if (ampm === 'PM' && h !== 12) h24 = h + 12;
@@ -1827,8 +1822,18 @@ function openEventForm(existingEventId = null, savedState = null) {
     }
   }
 
-  ['ef2_startHour', 'ef2_startMin', 'ef2_startAmPm', 'ef2_endHour', 'ef2_endMin', 'ef2_endAmPm'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', updateTimeDisplay);
+  ['ef2_startText', 'ef2_endText'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', updateTimeDisplay);
+  });
+  ['ef2_startAmPm', 'ef2_endAmPm'].forEach(id => {
+    const btn = document.getElementById(id);
+    btn?.addEventListener('click', () => {
+      const curr = btn.dataset.ampm || 'AM';
+      const next = curr === 'AM' ? 'PM' : 'AM';
+      btn.dataset.ampm = next;
+      btn.textContent = next;
+      updateTimeDisplay();
+    });
   });
 
   // ── All day toggle ───────────────────────────────────────────
@@ -1849,36 +1854,9 @@ function openEventForm(existingEventId = null, savedState = null) {
     return peopleWrap?.querySelector('.ef2-person-chip[data-state="primary"]');
   }
 
-  function getPersonChips() {
-    return [...(peopleWrap?.querySelectorAll('.ef2-person-chip') || [])];
-  }
-
-  function setFamilyMode(on) {
-    getPersonChips().forEach(chip => {
-      if (chip.dataset.personId === '__family__') {
-        if (on) chip.setAttribute('data-state', 'primary');
-        else chip.removeAttribute('data-state');
-      } else {
-        if (on) chip.setAttribute('data-state', 'attending');
-        else chip.removeAttribute('data-state');
-      }
-    });
-  }
-
   peopleWrap?.addEventListener('click', (e) => {
     const chip = e.target.closest('.ef2-person-chip');
     if (!chip) return;
-    const pid = chip.dataset.personId;
-
-    if (pid === '__family__') {
-      const isFamilyActive = chip.dataset.state === 'primary';
-      setFamilyMode(!isFamilyActive);
-      return;
-    }
-
-    // Clear family mode if a person chip is tapped
-    const familyChip = peopleWrap.querySelector('.ef2-person-chip--family');
-    if (familyChip?.dataset.state) setFamilyMode(false);
 
     const currentState = chip.dataset.state;
     if (!currentState) {
@@ -1949,25 +1927,15 @@ function openEventForm(existingEventId = null, savedState = null) {
   function captureFormState() {
     const primaryChip = getPrimaryChip();
     const attendingChips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip[data-state="attending"]') || [])];
-    const isFamilyMode = !!peopleWrap?.querySelector('.ef2-person-chip--family[data-state="primary"]');
-    let peoplArr = [];
-    if (isFamilyMode) {
-      peoplArr = people.map(p => p.id);
-    } else {
-      if (primaryChip && primaryChip.dataset.personId !== '__family__') {
-        peoplArr.push(primaryChip.dataset.personId);
-      }
-      attendingChips.forEach(c => {
-        if (c.dataset.personId !== '__family__') peoplArr.push(c.dataset.personId);
-      });
-    }
+    const peoplArr = [];
+    if (primaryChip) peoplArr.push(primaryChip.dataset.personId);
+    attendingChips.forEach(c => peoplArr.push(c.dataset.personId));
     return {
       name: document.getElementById('ef2_name')?.value || '',
       date: document.getElementById('ef2_date')?.value || viewDate,
       allDay: document.getElementById('ef2_allDay')?.classList.contains('is-active') || false,
       startTime: ef2GetTime('start') || '09:00',
       endTime: ef2GetTime('end') || '10:00',
-      isFamilyMode,
       people: peoplArr,
       notes: document.getElementById('ef2_notes')?.value || '',
       location: document.getElementById('ef2_location')?.value || '',
@@ -1993,10 +1961,7 @@ function openEventForm(existingEventId = null, savedState = null) {
 
     const primaryId = formState.people[0] || null;
     const primaryPerson = people.find(p => p.id === primaryId);
-    const isFamilyMode = !!peopleWrap?.querySelector('.ef2-person-chip--family[data-state="primary"]');
-    const color = isFamilyMode
-      ? (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4285f4')
-      : (primaryPerson?.color || people[0]?.color || '#4285f4');
+    const color = primaryPerson?.color || people[0]?.color || '#4285f4';
 
     const eventData = {
       name: formState.name,
@@ -2124,13 +2089,11 @@ function openEventForm(existingEventId = null, savedState = null) {
           const setTime = (prefix, h24, min) => {
             const ampm = h24 >= 12 ? 'PM' : 'AM';
             const hour12 = h24 % 12 || 12;
-            const minRounded = Math.round(min / 5) * 5 % 60;
-            const hSel = document.getElementById(`ef2_${prefix}Hour`);
-            const mSel = document.getElementById(`ef2_${prefix}Min`);
-            const apSel = document.getElementById(`ef2_${prefix}AmPm`);
-            if (hSel) hSel.value = String(hour12);
-            if (mSel) mSel.value = String(minRounded).padStart(2, '0');
-            if (apSel) apSel.value = ampm;
+            const minPad = String(Math.round(min / 5) * 5 % 60).padStart(2, '0');
+            const textEl = document.getElementById(`ef2_${prefix}Text`);
+            const ampmBtn = document.getElementById(`ef2_${prefix}AmPm`);
+            if (textEl) textEl.value = `${hour12}:${minPad}`;
+            if (ampmBtn) { ampmBtn.dataset.ampm = ampm; ampmBtn.textContent = ampm; }
           };
           setTime('start', h, m);
           setTime('end', (h + 1) % 24, m);

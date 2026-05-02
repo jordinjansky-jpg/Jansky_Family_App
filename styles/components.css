@@ -3057,47 +3057,54 @@ label.ef2-icon-btn  { cursor: pointer; }
 .ef2-date-btn:focus-visible,
 .ef2-time-btn:focus-visible { outline: none; background: var(--surface-2); }
 
-.ef2-time-row-flat {
+.ef2-time-inputs {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--spacing-sm);
   padding: var(--spacing-xs) 0;
   flex-wrap: nowrap;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
 }
-.ef2-time-row-flat::-webkit-scrollbar { display: none; }
 
-.ef2-time-select {
-  padding: 4px 2px;
-  font-size: var(--font-sm);
+.ef2-time-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ef2-time-text {
+  width: 64px;
+  padding: 7px 8px;
+  font-size: var(--font-base);
+  font-family: inherit;
+  text-align: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text);
-  font-family: inherit;
   box-sizing: border-box;
-  min-height: 32px;
-  text-align: center;
-  flex: 0 0 auto;
 }
+.ef2-time-text:focus { outline: none; border-color: var(--accent); }
 
-.ef2-time-select.ef2-time-select--hour { width: 42px; }
-.ef2-time-select.ef2-time-select--min { width: 46px; }
-.ef2-time-select.ef2-time-select--ampm { width: 50px; }
+.ef2-ampm-btn {
+  padding: 7px 10px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 44px;
+  text-align: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ef2-ampm-btn:active { opacity: 0.7; }
 
 .ef2-time-arrow {
   color: var(--text-muted);
   font-size: var(--font-base);
   padding: 0 2px;
-  flex-shrink: 0;
-}
-
-.ef2-time-colon {
-  color: var(--text-muted);
-  font-weight: 600;
-  margin: 0 -1px;
   flex-shrink: 0;
 }
 
@@ -3123,13 +3130,6 @@ label.ef2-icon-btn  { cursor: pointer; }
   padding: var(--spacing-sm) 0 var(--spacing-md);
 }
 
-.ef2-section-label {
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-  font-weight: 500;
-  margin-bottom: var(--spacing-sm);
-}
-
 .ef2-for-header {
   display: flex;
   align-items: center;
@@ -3138,6 +3138,14 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 
 .ef2-for-header .ef2-section-label { margin-bottom: 0; }
+
+.ef2-section-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+}
+
 
 .ef2-person-chips {
   display: flex;
@@ -3171,7 +3179,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   user-select: none;
 }
 
-.ef2-person-chip:not(.ef2-person-chip--family)::before {
+.ef2-person-chip::before {
   content: '';
   display: inline-block;
   width: 8px;
@@ -3197,10 +3205,6 @@ label.ef2-icon-btn  { cursor: pointer; }
   color: var(--chip-color, var(--accent));
 }
 
-.ef2-person-chip--family[data-state="primary"],
-.ef2-person-chip--family[data-state="attending"] {
-  --chip-color: var(--accent);
-}
 
 /* Secondary fields */
 .ef2-secondary-row {
