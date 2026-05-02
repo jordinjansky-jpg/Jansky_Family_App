@@ -66,6 +66,7 @@ let settings, people = [];
 let recipes = {}, lists = {}, staples = {}, planCache = {};
 let activeTab = localStorage.getItem('dr-kitchen-tab') || 'meals';
 let activeListId = null;
+let currentItems = {}; // last items snapshot, used by wand cleanup
 let itemsUnsub = null; // Firebase onValue unsubscribe for active list
 let currentWeekStart = null; // Monday of the displayed week (Date object)
 let recipeFilter = { sort: 'alpha', filter: 'all' }; // alpha | recent; all | favorites
@@ -1144,6 +1145,9 @@ function renderListsTab() {
     return;
   }
 
+  const WAND_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
+  const CAM_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+
   content.innerHTML = `
     <div class="list-switcher">
       <div class="list-switcher__tabs">
@@ -1164,6 +1168,13 @@ function renderListsTab() {
         </button>
       </div>
     </div>
+    <div class="list-toolbar">
+      <button class="staples-btn" id="staplesTopBtn">Add from staples</button>
+      <div style="display:flex;align-items:center;gap:var(--spacing-xs)">
+        <button class="list-camera-btn" id="listCameraBtn" type="button" aria-label="Add from photo">${CAM_SVG}</button>
+        <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list" disabled>${WAND_SVG}</button>
+      </div>
+    </div>
     <div id="listItemsArea" class="list-content"></div>`;
 
   document.querySelector('.list-switcher')?.addEventListener('click', (e) => {
@@ -1179,6 +1190,10 @@ function renderListsTab() {
     if (e.target.closest('#manageListBtn')) { openManageListSheet(); return; }
   });
 
+  document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
+  document.getElementById('listCameraBtn')?.addEventListener('click', openListPhotoSourceSheet);
+  document.getElementById('listCleanupBtn')?.addEventListener('click', () => runListCleanup(currentItems));
+
   subscribeListItems();
 }
 
@@ -1192,15 +1207,16 @@ function renderItemsArea(items) {
   const area = document.getElementById('listItemsArea');
   if (!area) return;
 
+  currentItems = items;
   const allItems = Object.entries(items);
   const unchecked = allItems.filter(([, v]) => !v.checked).sort((a, b) => (a[1].addedAt || 0) - (b[1].addedAt || 0));
   const checked   = allItems.filter(([, v]) => v.checked).sort((a, b) => (b[1].checkedAt || 0) - (a[1].checkedAt || 0));
 
+  const wand = document.getElementById('listCleanupBtn');
+  if (wand) wand.disabled = allItems.length === 0;
+
   if (allItems.length === 0) {
-    area.innerHTML =
-      renderEmptyState('', 'List is empty', 'Tap + to add your first item.') +
-      `<button class="staples-btn" id="staplesQuickBtn">Add from staples</button>`;
-    document.getElementById('staplesQuickBtn')?.addEventListener('click', openStaplesSheet);
+    area.innerHTML = renderEmptyState('', 'List is empty', 'Tap + to add your first item.');
     return;
   }
 
@@ -1221,15 +1237,7 @@ function renderItemsArea(items) {
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
-  const WAND_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
-  const CAM_TOOLBAR_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
-  let html = `<div class="list-toolbar">
-    <button class="staples-btn" id="staplesTopBtn">Add from staples</button>
-    <div style="display:flex;align-items:center;gap:var(--spacing-xs)">
-      <button class="list-camera-btn btn-icon" id="listCameraBtn" type="button" aria-label="Add from photo">${CAM_TOOLBAR_SVG}</button>
-      <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list">${WAND_SVG}</button>
-    </div>
-  </div>`;
+  let html = '';
 
   for (const cat of sortedCats) {
     html += `<div class="shopping-category-label">${esc(cat)}</div>`;
@@ -1246,10 +1254,6 @@ function renderItemsArea(items) {
   }
 
   area.innerHTML = html;
-
-  document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
-  document.getElementById('listCleanupBtn')?.addEventListener('click', () => runListCleanup(items));
-  document.getElementById('listCameraBtn')?.addEventListener('click', openListPhotoSourceSheet);
 
   area.querySelectorAll('.card--shopping').forEach(card => {
     const id = card.dataset.itemId;
