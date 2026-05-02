@@ -3928,39 +3928,31 @@
     function renderAiImportsTab() {
       return `
         <div class="admin-form__section">
-          <h4 class="admin-form__subtitle">School Lunch Menu</h4>
-          <p class="form-hint mb-md">Upload the school's monthly lunch PDF. Menus will be imported as school lunch entries visible in the Kitchen meal plan.</p>
-          <div class="admin-form__actions admin-form__actions--2col">
-            <label class="btn btn--secondary" style="cursor:pointer;flex-direction:column;height:80px">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              Camera
-              <input type="file" id="schoolLunchCameraInput" accept="image/*" capture="environment" style="display:none">
-            </label>
-            <label class="btn btn--secondary" style="cursor:pointer;flex-direction:column;height:80px">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Upload File
-              <input type="file" id="schoolLunchFileInput" accept="application/pdf,.pdf,image/*" style="display:none">
-            </label>
+          <div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-xs)">
+            <h4 class="admin-form__subtitle" style="margin:0">School Lunch Menu</h4>
+            <button class="btn-icon" id="slPhotoBtn" type="button" aria-label="Import school lunch menu from photo">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <input type="file" id="slCamera" accept="image/*" capture="environment" hidden>
+            <input type="file" id="slGallery" accept="image/*" hidden>
+            <input type="file" id="slFiles" accept="application/pdf,.pdf,image/*" hidden>
           </div>
-          <div id="schoolLunchStatus" class="mt-sm"></div>
+          <p class="form-hint mb-md">Upload the school's monthly lunch PDF or photo. Menus will be imported as school lunch entries visible in the Kitchen meal plan.</p>
+          <div id="schoolLunchStatus"></div>
         </div>
 
         <div class="admin-form__section mt-lg">
-          <h4 class="admin-form__subtitle">Task Scanner</h4>
-          <p class="form-hint mb-md">Scan any document with tasks — homework sheets, permission slips, school forms, chore charts. Detected tasks are added to the schedule.</p>
-          <div class="admin-form__actions admin-form__actions--2col">
-            <label class="btn btn--secondary" style="cursor:pointer;flex-direction:column;height:80px">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              Camera
-              <input type="file" id="taskScanCameraInput" accept="image/*" capture="environment" style="display:none">
-            </label>
-            <label class="btn btn--secondary" style="cursor:pointer;flex-direction:column;height:80px">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              Gallery
-              <input type="file" id="taskScanGalleryInput" accept="image/*" style="display:none">
-            </label>
+          <div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-xs)">
+            <h4 class="admin-form__subtitle" style="margin:0">Task Scanner</h4>
+            <button class="btn-icon" id="tsPhotoBtn" type="button" aria-label="Scan document for tasks">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <input type="file" id="tsCamera" accept="image/*" capture="environment" hidden>
+            <input type="file" id="tsGallery" accept="image/*" hidden>
+            <input type="file" id="tsFiles" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" hidden>
           </div>
-          <div id="taskScanStatus" class="mt-sm"></div>
+          <p class="form-hint mb-md">Scan any document with tasks — homework sheets, permission slips, school forms, chore charts. Detected tasks are added to the schedule.</p>
+          <div id="taskScanStatus"></div>
         </div>
 
         <div class="admin-form__section mt-lg" id="emailImportsSection">
@@ -3971,6 +3963,43 @@
           <p class="form-hint mb-md">Events extracted from forwarded emails appear here for review.</p>
           <div id="emailImportsList"></div>
         </div>`;
+    }
+
+    function openAdminPhotoSource(btnIds, title) {
+      const CAM_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+      const GAL_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+      const FILE_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+      const overlay = document.createElement('div');
+      overlay.className = 'ef2-subsheet-overlay';
+      overlay.innerHTML = `<div class="ef2-subsheet">
+        <div class="sheet__header"><h2 class="sheet__title">${title}</h2></div>
+        <div class="sheet__content">
+          <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
+          <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
+          <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
+        </div>
+        <div class="sheet__footer">
+          <button class="btn btn--ghost" id="adminSrcCancel" type="button">Cancel</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('active'));
+      const close = () => {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.parentNode?.removeChild(overlay), 320);
+      };
+      overlay.querySelector('#adminSrcCancel')?.addEventListener('click', close);
+      overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const src = btn.dataset.source;
+          close();
+          setTimeout(() => {
+            if (src === 'camera') main.querySelector(btnIds.camera)?.click();
+            else if (src === 'gallery') main.querySelector(btnIds.gallery)?.click();
+            else main.querySelector(btnIds.files)?.click();
+          }, 320);
+        });
+      });
     }
 
     function bindAiImportsTab() {
@@ -4015,8 +4044,11 @@
         }
         e.target.value = '';
       };
-      main.querySelector('#schoolLunchCameraInput')?.addEventListener('change', onSchoolLunch);
-      main.querySelector('#schoolLunchFileInput')?.addEventListener('change', onSchoolLunch);
+      main.querySelector('#slPhotoBtn')?.addEventListener('click', () =>
+        openAdminPhotoSource({ camera: '#slCamera', gallery: '#slGallery', files: '#slFiles' }, 'Import from'));
+      main.querySelector('#slCamera')?.addEventListener('change', onSchoolLunch);
+      main.querySelector('#slGallery')?.addEventListener('change', onSchoolLunch);
+      main.querySelector('#slFiles')?.addEventListener('change', onSchoolLunch);
 
       // ── Task Scanner ──
       const onTaskScan = async (e) => {
@@ -4048,8 +4080,11 @@
         }
         e.target.value = '';
       };
-      main.querySelector('#taskScanCameraInput')?.addEventListener('change', onTaskScan);
-      main.querySelector('#taskScanGalleryInput')?.addEventListener('change', onTaskScan);
+      main.querySelector('#tsPhotoBtn')?.addEventListener('click', () =>
+        openAdminPhotoSource({ camera: '#tsCamera', gallery: '#tsGallery', files: '#tsFiles' }, 'Import from'));
+      main.querySelector('#tsCamera')?.addEventListener('change', onTaskScan);
+      main.querySelector('#tsGallery')?.addEventListener('change', onTaskScan);
+      main.querySelector('#tsFiles')?.addEventListener('change', onTaskScan);
 
       // ── Email Imports ──
       loadEmailImports();
