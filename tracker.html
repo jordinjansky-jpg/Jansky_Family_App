@@ -38,9 +38,8 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderTaskForm, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderSectionHead } from './shared/components.js';
-    import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, removeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderTaskForm, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderSectionHead } from './shared/components.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong, escapeHtml } from './shared/utils.js';
@@ -1016,7 +1015,7 @@
           name, rotation: rot, difficulty: trkDiff, estMin: trkDur, timeOfDay: trkTod, category: trkCat,
           owners: ownerIds, ownerAssignmentMode, dedicatedDay, dedicatedDate,
           cooldownDays: cooldownDays || null, exempt, notes: notes || null,
-          bounty: task.bounty ?? null, eventTime: null,
+          bounty: task.bounty ?? null, eventTime: task.eventTime ?? null,
         };
         await writeTask(taskId, updated);
         tasks[taskId] = updated;
@@ -1038,7 +1037,7 @@
         if (!taskId) return;
         // Tracker doesn't have readAllSchedule re-import — null the task node only.
         // Orphaned schedule entries will be filtered out by renderers (taskId won't be found).
-        await writeTask(taskId, null);
+        await removeTask(taskId);
         delete tasks[taskId];
         trkHidePicker();
         closeTaskSheet();
