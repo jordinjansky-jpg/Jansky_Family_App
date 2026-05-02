@@ -124,18 +124,28 @@
 .list-switcher {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  padding: var(--spacing-xs) 0;
+  border-bottom: 1px solid var(--border);
 }
-
-.list-switcher::-webkit-scrollbar { display: none; }
-
-.list-switcher__manage {
+.list-switcher__tabs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.list-switcher__tabs::-webkit-scrollbar { display: none; }
+.list-switcher__actions {
   flex-shrink: 0;
-  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: var(--spacing-xs);
+  border-left: 1px solid var(--border);
+  margin-left: var(--spacing-xs);
 }
 
 .list-content {
@@ -206,7 +216,8 @@
   margin-bottom: var(--spacing-xs);
 }
 
-.list-wand-btn {
+.list-wand-btn,
+.list-camera-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -221,9 +232,12 @@
   transition: all var(--t-fast);
 }
 
-.list-wand-btn:hover { color: var(--accent); border-color: var(--accent); }
-.list-wand-btn:focus-visible { outline: none; background: var(--surface-2); color: var(--text); }
-.list-wand-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.list-wand-btn:hover,
+.list-camera-btn:hover { color: var(--accent); border-color: var(--accent); }
+.list-wand-btn:focus-visible,
+.list-camera-btn:focus-visible { outline: none; background: var(--surface-2); color: var(--text); }
+.list-wand-btn:disabled,
+.list-camera-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .list-wand-btn.is-loading { animation: list-wand-pulse 1s ease-in-out infinite; }
 
 @keyframes list-wand-pulse {

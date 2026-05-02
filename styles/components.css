@@ -2860,14 +2860,24 @@
   font-weight: 700;
   color: var(--text);
 }
-.sheet__title-link {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: var(--border);
-  text-underline-offset: 2px;
+.rd-link-btn {
+  flex-shrink: 0;
+  width: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.sheet__title-link:hover,
-.sheet__title-link:focus-visible { text-decoration-color: var(--accent); }
+.rl-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--spacing-xs);
+}
+.rl-fav-btn { color: var(--text-faint); }
+.rl-fav-btn.is-fav { color: var(--accent); }
 .sheet__content { margin-bottom: var(--spacing-md); }
 .sheet__hint { font-size: var(--font-size-sm); color: var(--text-muted); margin-bottom: var(--spacing-md); }
 .sheet__footer {
@@ -3882,6 +3892,9 @@ label.ef2-icon-btn  { cursor: pointer; }
 
 /* Shared delete zone — below sticky footer in edit sheets */
 .ks-delete-zone, .ki-delete-zone, .km-delete-zone {
+  /* margin-top compensates for the sticky footer's negative margin-bottom so the zone
+     is visually below the footer, not under it */
+  margin-top: var(--spacing-lg);
   padding: var(--spacing-xs) 0;
   text-align: center;
   padding-bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom, 0px));

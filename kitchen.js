@@ -68,6 +68,7 @@ let activeTab = localStorage.getItem('dr-kitchen-tab') || 'meals';
 let activeListId = null;
 let itemsUnsub = null; // Firebase onValue unsubscribe for active list
 let currentWeekStart = null; // Monday of the displayed week (Date object)
+let recipeFilter = { sort: 'alpha', filter: 'all' }; // alpha | recent; all | favorites
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -176,7 +177,7 @@ function bindFab() {
   document.getElementById('kitchenFab')?.addEventListener('click', () => {
     if (activeTab === 'meals') { const tz = settings?.timezone || 'America/Chicago'; openPlanMealSheet(todayKey(tz), 'dinner'); }
     else if (activeTab === 'recipes') openRecipeForm(null);
-    else openListFabSheet();
+    else { if (!activeListId) openCreateListSheet(); else openItemAddField(); }
   });
 }
 
@@ -275,13 +276,23 @@ async function renderMealsTab() {
 
 function renderRecipesTab() {
   const content = document.getElementById('kitchenContent');
-  const recipeEntries = Object.entries(recipes).sort((a, b) => {
-    if (b[1].isFavorite !== a[1].isFavorite) return b[1].isFavorite ? 1 : -1;
-    return (b[1].lastUsed || 0) - (a[1].lastUsed || 0);
-  });
+  let recipeEntries = Object.entries(recipes);
+  if (recipeFilter.filter === 'favorites') recipeEntries = recipeEntries.filter(([, r]) => r.isFavorite);
+  if (recipeFilter.sort === 'alpha') {
+    recipeEntries.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
+  } else {
+    recipeEntries.sort((a, b) => {
+      if (b[1].isFavorite !== a[1].isFavorite) return b[1].isFavorite ? 1 : -1;
+      return (b[1].lastUsed || 0) - (a[1].lastUsed || 0);
+    });
+  }
+
   const linkIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
   const starFilled = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
   const starEmpty = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+
+  const filterCount = (recipeFilter.filter !== 'all' ? 1 : 0) + (recipeFilter.sort !== 'alpha' ? 1 : 0);
+  const filterLabel = filterCount > 0 ? `Filter & Sort · ${filterCount}` : 'Filter & Sort';
 
   const recipeLibHtml = recipeEntries.length > 0
     ? recipeEntries.map(([id, r]) => `
@@ -292,26 +303,29 @@ function renderRecipesTab() {
               ${r.ingredients?.length ? `${r.ingredients.length} ingredient${r.ingredients.length !== 1 ? 's' : ''}` : 'No ingredients'}
             </div>
           </div>
-          <button class="btn-icon rl-fav-btn${r.isFavorite ? ' is-fav' : ''}"
-            data-fav-recipe="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}"
-            style="flex-shrink:0;color:${r.isFavorite ? 'var(--accent)' : 'var(--text-faint)'}">
-            ${r.isFavorite ? starFilled : starEmpty}
-          </button>
-          ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"
-              class="btn-icon" style="flex-shrink:0;color:var(--accent)"
-              aria-label="Open recipe link" data-recipe-link="${esc(id)}">${linkIcon}</a>` : ''}
+          <div class="rl-card-actions">
+            <button class="btn-icon rl-fav-btn${r.isFavorite ? ' is-fav' : ''}"
+              data-fav-recipe="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}">
+              ${r.isFavorite ? starFilled : starEmpty}
+            </button>
+            ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"
+                class="btn-icon" aria-label="Open recipe link" data-recipe-link="${esc(id)}">${linkIcon}</a>` : ''}
+          </div>
         </article>`).join('')
     : renderEmptyState('', 'No recipes yet', 'Tap "New recipe" to add your first.');
 
   content.innerHTML = `
     <div style="padding:var(--spacing-sm) 0 var(--spacing-xl)">
-      <button class="btn btn--ghost" id="findRecipesBtn" style="margin-bottom:var(--spacing-sm)" type="button">
-        Find recipe ideas &#x2197;
-      </button>
+      <div style="display:flex;align-items:center;gap:var(--spacing-xs);margin-bottom:var(--spacing-sm)">
+        <button class="btn btn--ghost" id="findRecipesBtn" type="button">Find ideas &#x2197;</button>
+        <button class="chip${filterCount > 0 ? ' chip--active' : ''}" id="recipeFilterBtn" type="button"
+          style="margin-left:auto">${filterLabel} &#9662;</button>
+      </div>
       <div id="recipeLibrary">${recipeLibHtml}</div>
     </div>`;
 
   document.getElementById('findRecipesBtn')?.addEventListener('click', openFindRecipesSheet);
+  document.getElementById('recipeFilterBtn')?.addEventListener('click', openRecipeFilterSheet);
 
   content.querySelectorAll('[data-recipe-id]').forEach(card => {
     card.addEventListener('click', (e) => {
@@ -470,8 +484,13 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   function bindPickRows() {
     document.getElementById('recipePick')?.querySelectorAll('[data-recipe-pick]').forEach(btn => {
       btn.addEventListener('click', () => {
-        selectedRecipeId = btn.dataset.recipePick;
-        document.getElementById('kp_search').value = recipes[selectedRecipeId]?.name || '';
+        if (selectedRecipeId === btn.dataset.recipePick) {
+          selectedRecipeId = null;
+          document.getElementById('kp_search').value = '';
+        } else {
+          selectedRecipeId = btn.dataset.recipePick;
+          document.getElementById('kp_search').value = recipes[selectedRecipeId]?.name || '';
+        }
         document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
         bindPickRows();
         updateSaveBtn();
@@ -564,20 +583,21 @@ function openRecipeDetailSheet(recipeId) {
   const mount = document.getElementById('sheetMount');
   const hasIngredients = (recipe.ingredients?.length || 0) > 0;
 
-  const titleHtml = recipe.url
-    ? `<a href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" class="sheet__title-link">${esc(recipe.name)}</a>`
-    : esc(recipe.name);
+  const LINK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
 
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
-      <h2 class="sheet__title">${titleHtml}</h2>
+      <h2 class="sheet__title">${esc(recipe.name)}</h2>
       <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <div class="sheet__content">
-      <button class="btn btn--primary btn--full" id="planThisMealBtn"
-        style="margin-bottom:var(--spacing-md)" type="button">Plan this meal</button>
+      <div class="rd-plan-row" style="display:flex;align-items:center;gap:var(--spacing-xs);margin-bottom:var(--spacing-md)">
+        <button class="btn btn--primary" id="planThisMealBtn" style="flex:1" type="button">Plan this meal</button>
+        ${recipe.url ? `<a href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer"
+          class="btn btn--secondary rd-link-btn" aria-label="Open recipe" type="button">${LINK_SVG}</a>` : ''}
+      </div>
 
       ${hasIngredients ? `
         <div class="field__label" style="margin-bottom:var(--spacing-xs)">Ingredients</div>
@@ -665,6 +685,48 @@ function openFindRecipesSheet() {
   activateSheet(mount);
   document.getElementById('closeFindRecipes')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
+function openRecipeFilterSheet() {
+  const mount = document.getElementById('sheetMount');
+  const filterOpts = [{ v: 'all', l: 'All' }, { v: 'favorites', l: 'Favorites' }];
+  const sortOpts = [{ v: 'alpha', l: 'A – Z' }, { v: 'recent', l: 'Most recent' }];
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header"><h2 class="sheet__title">Filter & Sort</h2></div>
+    <div class="sheet__content">
+      <div class="filter-section">
+        <div class="filter-section__label">Show</div>
+        <div class="filter-chips">
+          ${filterOpts.map(o => `<button class="chip${recipeFilter.filter === o.v ? ' chip--active' : ''}" data-rf="${o.v}" type="button">${o.l}</button>`).join('')}
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-section__label">Sort by</div>
+        <div class="filter-chips">
+          ${sortOpts.map(o => `<button class="chip${recipeFilter.sort === o.v ? ' chip--active' : ''}" data-rs="${o.v}" type="button">${o.l}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--ghost" id="rfCancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="rfApply" type="button">Apply</button>
+    </div>`);
+  activateSheet(mount);
+  mount.querySelectorAll('[data-rf]').forEach(b => b.addEventListener('click', () => {
+    mount.querySelectorAll('[data-rf]').forEach(x => x.classList.remove('chip--active'));
+    b.classList.add('chip--active');
+  }));
+  mount.querySelectorAll('[data-rs]').forEach(b => b.addEventListener('click', () => {
+    mount.querySelectorAll('[data-rs]').forEach(x => x.classList.remove('chip--active'));
+    b.classList.add('chip--active');
+  }));
+  document.getElementById('rfCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  document.getElementById('rfApply')?.addEventListener('click', () => {
+    recipeFilter.filter = mount.querySelector('[data-rf].chip--active')?.dataset.rf || 'all';
+    recipeFilter.sort = mount.querySelector('[data-rs].chip--active')?.dataset.rs || 'alpha';
+    mount.innerHTML = '';
+    renderRecipesTab();
+  });
+}
+
 function openMealFabSheet() {
   const mount = document.getElementById('sheetMount');
   const options = [
@@ -1082,17 +1144,23 @@ function renderListsTab() {
 
   content.innerHTML = `
     <div class="list-switcher">
-      ${listIds.map(id => `
-        <button class="tab${id === activeListId ? ' is-active' : ''} tab--list"
-                data-list-id="${esc(id)}" type="button">
-          ${esc(lists[id].name)}
-        </button>`).join('')}
-      <button class="tab tab--add" id="addListBtn" type="button">+</button>
-      <button class="btn-icon list-switcher__manage" id="manageListBtn" aria-label="Manage list" type="button">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>
-        </svg>
-      </button>
+      <div class="list-switcher__tabs">
+        ${listIds.map(id => `
+          <button class="tab${id === activeListId ? ' is-active' : ''} tab--list"
+                  data-list-id="${esc(id)}" type="button">
+            ${esc(lists[id].name)}
+          </button>`).join('')}
+      </div>
+      <div class="list-switcher__actions">
+        <button class="btn-icon" id="addListBtn" aria-label="New list" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="btn-icon" id="manageListBtn" aria-label="Manage list" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>
+          </svg>
+        </button>
+      </div>
     </div>
     <div id="listItemsArea" class="list-content"></div>`;
 
@@ -1152,9 +1220,13 @@ function renderItemsArea(items) {
   });
 
   const WAND_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
+  const CAM_TOOLBAR_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
   let html = `<div class="list-toolbar">
     <button class="staples-btn" id="staplesTopBtn">Add from staples</button>
-    <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list">${WAND_SVG}</button>
+    <div style="display:flex;align-items:center;gap:var(--spacing-xs)">
+      <button class="list-camera-btn btn-icon" id="listCameraBtn" type="button" aria-label="Add from photo">${CAM_TOOLBAR_SVG}</button>
+      <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list">${WAND_SVG}</button>
+    </div>
   </div>`;
 
   for (const cat of sortedCats) {
@@ -1175,6 +1247,7 @@ function renderItemsArea(items) {
 
   document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
   document.getElementById('listCleanupBtn')?.addEventListener('click', () => runListCleanup(items));
+  document.getElementById('listCameraBtn')?.addEventListener('click', openListPhotoSourceSheet);
 
   area.querySelectorAll('.card--shopping').forEach(card => {
     const id = card.dataset.itemId;
@@ -1203,9 +1276,7 @@ async function toggleItem(id) {
   const isNowChecked = !card.classList.contains('is-checked');
   card.classList.toggle('is-checked', isNowChecked);
 
-  const existing = await readOnce(`kitchen/lists/${activeListId}/items/${id}`);
-  await writeKitchenItem(activeListId, id, {
-    ...(existing || {}),
+  await getDb().ref(`rundown/kitchen/items/${activeListId}/${id}`).update({
     checked: isNowChecked,
     checkedAt: isNowChecked ? firebase.database.ServerValue.TIMESTAMP : null,
   });
@@ -1615,89 +1686,110 @@ function openListFabSheet() {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     mount.innerHTML = '';
-    if (btn.dataset.action === 'photo') setTimeout(() => openPhotoToListSheet(), 320);
+    if (btn.dataset.action === 'photo') setTimeout(() => openListPhotoSourceSheet(), 320);
     else setTimeout(() => openBulkAddSheet(), 320);
   });
 }
 
-function openPhotoToListSheet() {
+function openListPhotoSourceSheet() {
   if (!activeListId || !KITCHEN_WORKER_URL) return;
   const mount = document.getElementById('sheetMount');
-  mount.innerHTML = renderBottomSheet(`
-    <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
-    <div class="sheet__content">
-      <div style="display:flex;gap:var(--spacing-md)">
-        <button class="btn btn--secondary" data-pick="camera" style="flex:1;flex-direction:column;height:80px">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          Camera
-        </button>
-        <button class="btn btn--secondary" data-pick="gallery" style="flex:1;flex-direction:column;height:80px">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Gallery
-        </button>
-      </div>
-    </div>
-    <div class="sheet__footer"><button class="btn btn--ghost" id="ptlCancel">Cancel</button></div>`);
-  activateSheet(mount);
-  mount.querySelector('#ptlCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
-  mount.querySelectorAll('[data-pick]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      mount.innerHTML = '';
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*';
-      if (btn.dataset.pick === 'camera') input.capture = 'environment';
-      input.style.display = 'none';
-      document.body.appendChild(input);
-      input.addEventListener('change', async () => {
-        const file = input.files?.[0];
-        document.body.removeChild(input);
-        if (!file) return;
-        mount.innerHTML = renderBottomSheet(`
-          <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
-          <div class="sheet__content">
-            <div class="ai-loading">
-              <div class="ai-loading__spinner"></div>
-              Scanning photo…
-            </div>
-          </div>`);
-        activateSheet(mount);
-        try {
-          const { base64, mediaType } = await resizeImageForUpload(file);
-          const resp = await fetch(KITCHEN_WORKER_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType } }),
-          });
-          const data = await resp.json();
-          if (data.error || !data.items?.length) {
-            mount.innerHTML = renderBottomSheet(`
-              <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
-              <div class="sheet__content">
-                <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No items detected — try a clearer photo.</p>
-              </div>
-              <div class="sheet__footer">
-                <button class="btn btn--secondary" id="ptlRetry">Try again</button>
-              </div>`);
-            activateSheet(mount);
-            mount.querySelector('#ptlRetry')?.addEventListener('click', () => openPhotoToListSheet());
-            return;
-          }
-          renderPhotoToListConfirm(mount, data.items);
-        } catch (err) {
+  const CAM_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+  const GAL_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+  const FILE_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+
+  const lplCamera = document.createElement('input');
+  lplCamera.type = 'file'; lplCamera.accept = 'image/*'; lplCamera.capture = 'environment'; lplCamera.hidden = true;
+  const lplGallery = document.createElement('input');
+  lplGallery.type = 'file'; lplGallery.accept = 'image/*'; lplGallery.hidden = true;
+  const lplFiles = document.createElement('input');
+  lplFiles.type = 'file'; lplFiles.accept = '.jpg,.jpeg,.png,.heic,.heif,.webp,.gif'; lplFiles.hidden = true;
+
+  const cleanup = () => [lplCamera, lplGallery, lplFiles].forEach(i => { if (document.body.contains(i)) document.body.removeChild(i); });
+
+  [lplCamera, lplGallery, lplFiles].forEach(inp => {
+    document.body.appendChild(inp);
+    inp.addEventListener('change', async () => {
+      const file = inp.files?.[0];
+      cleanup();
+      if (!file) return;
+      mount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
+        <div class="sheet__content">
+          <div class="ai-loading">
+            <div class="ai-loading__spinner"></div>
+            Scanning photo…
+          </div>
+        </div>`);
+      activateSheet(mount);
+      try {
+        const { base64, mediaType } = await resizeImageForUpload(file);
+        const resp = await fetch(KITCHEN_WORKER_URL, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'photoToList', input: { base64, mediaType } }),
+        });
+        const data = await resp.json();
+        if (data.error || !data.items?.length) {
           mount.innerHTML = renderBottomSheet(`
             <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
             <div class="sheet__content">
-              <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
-              <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || 'Check your connection.'}</p>
+              <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No items detected — try a clearer photo.</p>
             </div>
             <div class="sheet__footer">
               <button class="btn btn--secondary" id="ptlRetry">Try again</button>
             </div>`);
           activateSheet(mount);
-          mount.querySelector('#ptlRetry')?.addEventListener('click', () => openPhotoToListSheet());
+          mount.querySelector('#ptlRetry')?.addEventListener('click', () => openListPhotoSourceSheet());
+          return;
         }
-      });
-      input.click();
-      setTimeout(() => { if (document.body.contains(input)) document.body.removeChild(input); }, 60000);
+        renderPhotoToListConfirm(mount, data.items);
+      } catch (err) {
+        mount.innerHTML = renderBottomSheet(`
+          <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
+          <div class="sheet__content">
+            <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
+            <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || 'Check your connection.'}</p>
+          </div>
+          <div class="sheet__footer">
+            <button class="btn btn--secondary" id="ptlRetry">Try again</button>
+          </div>`);
+        activateSheet(mount);
+        mount.querySelector('#ptlRetry')?.addEventListener('click', () => openListPhotoSourceSheet());
+      }
+    });
+  });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'ef2-subsheet-overlay';
+  overlay.innerHTML = `<div class="ef2-subsheet">
+    <div class="sheet__header"><h2 class="sheet__title">Add from photo</h2></div>
+    <div class="sheet__content">
+      <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
+      <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
+      <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--ghost" id="lplCancelBtn" type="button">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('active'));
+
+  const closeOverlay = () => {
+    overlay.classList.remove('active');
+    setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
+  };
+
+  overlay.querySelector('#lplCancelBtn')?.addEventListener('click', () => { cleanup(); closeOverlay(); });
+  overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const src = btn.dataset.source;
+      closeOverlay();
+      setTimeout(() => {
+        if (src === 'camera') lplCamera.click();
+        else if (src === 'gallery') lplGallery.click();
+        else lplFiles.click();
+      }, 320);
     });
   });
 }
