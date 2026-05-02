@@ -39,7 +39,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderSectionHead } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderEditTaskSheet, renderTaskForm, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderSectionHead } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -828,154 +828,219 @@
         const taskId = document.getElementById('sheetEdit').dataset.taskId;
         const overlay = document.getElementById('bottomSheet');
         if (overlay) overlay.classList.remove('active');
-        setTimeout(() => { openEditTaskSheet(taskId); }, 320);
+        setTimeout(() => { openTaskForm(taskId); }, 320);
       });
     }
 
     // ── Edit task sheet ──
 
-    function openEditTaskSheet(taskId) {
+    function openTaskForm(taskId) {
       const task = tasks[taskId];
       if (!task) return;
       const catsArr = Object.entries(cats).map(([key, c]) => ({ key, ...c }));
-      const sheetContent = renderEditTaskSheet(taskId, task, catsArr, people, trkRewards);
-      taskSheetMount.innerHTML = renderBottomSheet(sheetContent);
+
+      const html = renderTaskForm({ task, taskId, mode: 'edit', categories: catsArr, people });
+      taskSheetMount.innerHTML = renderBottomSheet(html);
       applyDataColors(taskSheetMount);
-      initOwnerChips('et_owners');
 
-      requestAnimationFrame(() => {
-        const overlay = document.getElementById('bottomSheet');
-        if (overlay) overlay.classList.add('active');
+      taskSheetMount.querySelectorAll('.ef2-person-chip[data-person-color]').forEach(chip => {
+        chip.style.setProperty('--chip-color', chip.dataset.personColor);
       });
 
-      const overlay = document.getElementById('bottomSheet');
-      overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeTaskSheet(); });
-      document.getElementById('et_cancel')?.addEventListener('click', closeTaskSheet);
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
-      // Assignment mode toggle
-      const modeGroup = document.getElementById('et_assignMode');
-      if (modeGroup) {
-        for (const btn of modeGroup.querySelectorAll('.admin-mode-btn')) {
-          btn.addEventListener('click', () => {
-            modeGroup.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
-            btn.classList.add('admin-mode-btn--active');
-          });
-        }
+      function trkHidePicker() { document.getElementById('tf_pickerOverlay')?.remove(); }
+      const doClose = () => { trkHidePicker(); closeTaskSheet(); };
+      document.getElementById('tf_close')?.addEventListener('click', doClose);
+      document.getElementById('tf_cancel')?.addEventListener('click', doClose);
+      document.getElementById('bottomSheet')?.addEventListener('click', e => { if (e.target === document.getElementById('bottomSheet')) doClose(); });
+
+      // Person chips
+      const pw = document.getElementById('tf_people');
+      function trkGetOwnerIds() {
+        const chips = [...(pw?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
+        const primary = chips.find(c => c.dataset.state === 'primary')?.dataset.personId;
+        const attending = chips.filter(c => c.dataset.state === 'attending').map(c => c.dataset.personId);
+        return primary ? [primary, ...attending] : [];
       }
-
-      // Rotation change — show/hide dedicated day vs date
-      document.getElementById('et_rotation')?.addEventListener('change', (e) => {
-        const rot = e.target.value;
-        const group = document.getElementById('et_dedicatedDayGroup');
-        const daySelect = document.getElementById('et_daySelect');
-        const dateRow = document.getElementById('et_dedicatedDateRow');
-        const label = document.getElementById('et_dedicatedDayLabel');
-        const catOpt = document.getElementById('et_category')?.selectedOptions[0];
-        const isEvent = catOpt?.dataset.event === '1';
-        if (rot === 'daily') {
-          group.classList.add('is-hidden');
+      function trkUpdateAssignRow() { document.getElementById('tf_assignRow')?.classList.toggle('is-hidden', trkGetOwnerIds().length < 2); }
+      function trkSetFamilyMode(on) {
+        const chips2 = [...(pw?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
+        const fam = pw?.querySelector('[data-person-id="__family__"]');
+        if (on) {
+          chips2.forEach((c, i) => c.setAttribute('data-state', i === 0 ? 'primary' : 'attending'));
+          fam?.setAttribute('data-state', 'primary');
+          const row = document.getElementById('tf_assignRow');
+          row?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
+          row?.querySelector('[data-mode="everyone"]')?.classList.add('tf-assign-pill--active');
         } else {
-          group.classList.remove('is-hidden');
-          const eventBtn = label?.querySelector('#et_eventDateBtn');
-          const btnHtml = eventBtn ? eventBtn.outerHTML : '';
-          if (rot === 'once') {
-            daySelect.classList.add('is-hidden');
-            dateRow.classList.toggle('is-hidden', isEvent);
-            label.innerHTML = (isEvent ? 'Event Date ' : 'Scheduled Date ') + btnHtml;
-          } else {
-            daySelect.classList.remove('is-hidden');
-            dateRow.classList.add('is-hidden');
-            label.innerHTML = 'Dedicated Day ' + btnHtml;
-          }
-          label?.querySelector('#et_eventDateBtn')?.addEventListener('click', () => {
-            const picker = document.getElementById('et_eventDate');
-            if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
-          });
+          chips2.forEach(c => c.removeAttribute('data-state'));
+          fam?.removeAttribute('data-state');
         }
-      });
-
-      // Category change — show/hide event date button
-      document.getElementById('et_category')?.addEventListener('change', (e) => {
-        const isEvent = e.target.selectedOptions[0]?.dataset.event === '1';
-        const eventBtn = document.getElementById('et_eventDateBtn');
-        if (eventBtn) eventBtn.classList.toggle('is-hidden', !isEvent);
-        const eventTimeGroup = document.getElementById('et_eventTimeGroup');
-        if (eventTimeGroup) eventTimeGroup.classList.toggle('is-hidden', !isEvent);
-        const notesGroup = document.getElementById('et_notesGroup');
-        if (notesGroup) notesGroup.classList.toggle('is-hidden', !isEvent);
-        if (isEvent) {
-          const rotSelect = document.getElementById('et_rotation');
-          if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
-        }
-      });
-
-      // Event date icon
-      document.getElementById('et_eventDateBtn')?.addEventListener('click', () => {
-        const picker = document.getElementById('et_eventDate');
-        if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
-      });
-
-      // Exempt / Bounty chip toggles
-      document.getElementById('et_exempt')?.addEventListener('click', (e) => e.currentTarget.classList.toggle('chip--active'));
-      document.getElementById('et_bountyToggle')?.addEventListener('click', (e) => {
-        e.currentTarget.classList.toggle('chip--active');
-        const bf = document.getElementById('et_bountyFields');
-        if (bf) bf.classList.toggle('is-hidden', !e.currentTarget.classList.contains('chip--active'));
-        if (e.currentTarget.classList.contains('chip--active')) document.getElementById('et_exempt')?.classList.add('chip--active');
-      });
-      for (const btn of document.querySelectorAll('#et_bountyType .segmented-btn')) {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('#et_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
-          btn.classList.add('segmented-btn--active');
-          document.getElementById('et_bountyPointsField').classList.toggle('is-hidden', btn.dataset.value !== 'points');
-          document.getElementById('et_bountyRewardField').classList.toggle('is-hidden', btn.dataset.value !== 'reward');
+        trkUpdateAssignRow();
+      }
+      pw?.querySelectorAll('.ef2-person-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          if (chip.dataset.personId === '__family__') { trkSetFamilyMode(chip.dataset.state !== 'primary'); return; }
+          const all = [...(pw?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
+          const cur = chip.dataset.state || '';
+          if (!cur) chip.setAttribute('data-state', all.some(c => c !== chip && c.dataset.state === 'primary') ? 'attending' : 'primary');
+          else if (cur === 'attending') { all.forEach(c => { if (c.dataset.state === 'primary') c.setAttribute('data-state', 'attending'); }); chip.setAttribute('data-state', 'primary'); }
+          else { chip.removeAttribute('data-state'); all.find(c => c.dataset.state === 'attending')?.setAttribute('data-state', 'primary'); }
+          pw?.querySelector('[data-person-id="__family__"]')?.removeAttribute('data-state');
+          trkUpdateAssignRow();
         });
+      });
+      document.getElementById('tf_assignRow')?.querySelectorAll('.tf-assign-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('tf_assignRow')?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
+          btn.classList.add('tf-assign-pill--active');
+        });
+      });
+
+      // Rotation pills
+      let trkRot = task.rotation || 'daily';
+      function trkUpdateRot(rot) {
+        trkRot = rot;
+        document.getElementById('tf_rotation')?.querySelectorAll('.tf-rot-pill').forEach(p => p.classList.toggle('tf-rot-pill--active', p.dataset.rot === rot));
+        document.getElementById('tf_weeklyReveal')?.classList.toggle('is-open', rot === 'weekly');
+        document.getElementById('tf_onceReveal')?.classList.toggle('is-open', rot === 'once');
+        const showCd = rot === 'weekly' || rot === 'monthly';
+        const chip = document.getElementById('tf_optionsChip');
+        if (chip) chip.textContent = showCd ? '+ Cooldown' : '+ Options';
+        document.getElementById('tf_cooldownRow')?.classList.toggle('is-hidden', !showCd);
+        const cdInput = document.getElementById('tf_cooldown');
+        if (cdInput && !cdInput.value) cdInput.placeholder = rot === 'weekly' ? '3' : rot === 'monthly' ? '7' : '';
       }
+      document.getElementById('tf_rotation')?.querySelectorAll('.tf-rot-pill').forEach(p => p.addEventListener('click', () => trkUpdateRot(p.dataset.rot)));
 
-      document.getElementById('et_save')?.addEventListener('click', async () => {
-        const name = document.getElementById('et_name')?.value.trim();
-        if (!name) { document.getElementById('et_name')?.focus(); return; }
-        const owners = getSelectedOwners('et_owners');
-        const rotation = document.getElementById('et_rotation')?.value || task.rotation;
-        const activeMode = modeGroup?.querySelector('.admin-mode-btn--active')?.dataset.mode || 'rotate';
-        const dayVal = document.getElementById('et_daySelect')?.value;
-        const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
-        const dedicatedDate = rotation === 'once' ? (document.getElementById('et_dedicatedDate')?.value || null) : null;
-        const cooldown = document.getElementById('et_cooldown')?.value;
-        const catOpt = document.getElementById('et_category')?.selectedOptions[0];
-        const catIsEvent = catOpt?.dataset.event === '1';
-        const eventDate = document.getElementById('et_eventDate')?.value;
-        const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
+      // Detail chip pickers
+      let trkDiff = task.difficulty || 'medium';
+      let trkDur  = task.estMin ?? 10;
+      let trkTod  = task.timeOfDay || 'anytime';
+      let trkCat  = task.category || catsArr.find(c => c.isDefault)?.key || '';
 
-        const eventTime = catIsEvent ? (document.getElementById('et_eventTime')?.value || null) : null;
-        const notes = catIsEvent ? (document.getElementById('et_notes')?.value.trim() || null) : null;
-        const updated = {
-          ...task, name, rotation,
-          difficulty: document.getElementById('et_difficulty')?.value || task.difficulty,
-          timeOfDay: document.getElementById('et_timeOfDay')?.value || task.timeOfDay,
-          estMin: (v => isNaN(v) ? 10 : v)(parseInt(document.getElementById('et_estMin')?.value, 10)),
-          category: document.getElementById('et_category')?.value || task.category,
-          owners, ownerAssignmentMode: activeMode, dedicatedDay,
-          dedicatedDate: effectiveDedicatedDate,
-          eventTime,
-          notes,
-          cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
-          exempt: document.getElementById('et_exempt')?.classList.contains('chip--active') || false
-        };
-        const isBounty = document.getElementById('et_bountyToggle')?.classList.contains('chip--active');
-        if (isBounty) {
-          const bountyType = document.querySelector('#et_bountyType .segmented-btn--active')?.dataset?.value || 'points';
-          updated.bounty = {
-            type: bountyType,
-            amount: bountyType === 'points' ? (parseInt(document.getElementById('et_bountyAmount')?.value) || 50) : null,
-            rewardId: bountyType === 'reward' ? (document.getElementById('et_bountyReward')?.value || null) : null
-          };
-          updated.exempt = true;
-        } else {
-          updated.bounty = null;
+      function trkShowPicker(field, chipEl) {
+        trkHidePicker();
+        const PRESETS = [5, 10, 15, 20, 30, 45, 60];
+        let inner = '';
+        if (field === 'diff') {
+          inner = `<div class="tf-picker-cells">${[['easy','Easy'],['medium','Medium'],['hard','Hard']].map(([v,l]) => `<button class="tf-picker-cell${trkDiff===v?' tf-picker-cell--active':''}" data-pick-val="${v}" data-pick-label="${l}" type="button">${l}</button>`).join('')}</div>`;
+        } else if (field === 'dur') {
+          inner = `<div class="tf-dur-grid">${PRESETS.map(v => `<button class="tf-dur-cell${trkDur===v?' tf-dur-cell--active':''}" data-pick-val="${v}" data-pick-label="${v} min" type="button">${v}</button>`).join('')}<button class="tf-dur-cell" data-pick-val="custom" type="button">...</button></div><div class="tf-dur-custom-wrap is-hidden" id="tf_durCustomWrap"><input type="number" id="tf_durCustom" min="1" max="300" placeholder="Minutes" value="${!PRESETS.includes(trkDur)?trkDur:''}"></div>`;
+        } else if (field === 'tod') {
+          inner = `<div class="tf-picker-cells">${[['am','Morning'],['anytime','Anytime'],['pm','Afternoon'],['both','Both']].map(([v,l]) => `<button class="tf-picker-cell${trkTod===v?' tf-picker-cell--active':''}" data-pick-val="${v}" data-pick-label="${l}" type="button">${l}</button>`).join('')}</div>`;
+        } else if (field === 'cat') {
+          inner = `<div class="tf-cat-list">${catsArr.map(c => `<button class="tf-cat-item${trkCat===c.key?' tf-cat-item--active':''}" data-pick-val="${esc(c.key)}" data-pick-label="${esc((c.icon||'')+' '+c.label)}" type="button"><span class="tf-cat-icon">${c.icon||''}</span><span class="tf-cat-label">${esc(c.label)}</span></button>`).join('')}</div>`;
         }
+        const ov = document.createElement('div');
+        ov.className = 'tf-picker-overlay'; ov.id = 'tf_pickerOverlay';
+        ov.innerHTML = `<div class="tf-picker-backdrop"></div><div class="tf-picker">${inner}</div>`;
+        document.body.appendChild(ov);
+        const rect = chipEl.getBoundingClientRect();
+        const pic = ov.querySelector('.tf-picker');
+        const W = Math.min(280, window.innerWidth - 32);
+        pic.style.width = `${W}px`;
+        pic.style.left = `${Math.max(16, Math.min(rect.left, window.innerWidth - W - 16))}px`;
+        window.innerHeight - rect.bottom > 200 ? (pic.style.top = `${rect.bottom+8}px`) : (pic.style.bottom = `${window.innerHeight-rect.top+8}px`);
+        ov.querySelector('.tf-picker-backdrop').addEventListener('click', trkHidePicker);
+        ov.querySelector('[data-pick-val="custom"]')?.addEventListener('click', () => {
+          ov.querySelector('#tf_durCustomWrap')?.classList.remove('is-hidden');
+          ov.querySelector('#tf_durCustom')?.focus();
+        });
+        const ci = ov.querySelector('#tf_durCustom');
+        if (ci) {
+          const cc = () => { const v = parseInt(ci.value, 10); if (v > 0) trkOnPick('dur', v, `${v} min`); };
+          ci.addEventListener('keydown', e => { if (e.key === 'Enter') cc(); });
+          ci.addEventListener('blur', cc);
+        }
+        ov.querySelectorAll('[data-pick-val]:not([data-pick-val="custom"])').forEach(b => b.addEventListener('click', () => trkOnPick(field, b.dataset.pickVal, b.dataset.pickLabel || b.textContent.trim())));
+      }
+      function trkOnPick(field, val, label) {
+        if (field==='diff') { trkDiff=val; document.getElementById('tf_diffChip').textContent=label; }
+        else if (field==='dur') { trkDur=typeof val==='number'?val:parseInt(val,10); document.getElementById('tf_durChip').textContent=label||`${trkDur} min`; }
+        else if (field==='tod') { trkTod=val; document.getElementById('tf_todChip').textContent=label; }
+        else if (field==='cat') { trkCat=val; document.getElementById('tf_catChip').textContent=label; }
+        trkHidePicker();
+      }
+      document.getElementById('tf_diffChip')?.addEventListener('click', e => trkShowPicker('diff', e.currentTarget));
+      document.getElementById('tf_durChip')?.addEventListener('click',  e => trkShowPicker('dur',  e.currentTarget));
+      document.getElementById('tf_todChip')?.addEventListener('click',  e => trkShowPicker('tod',  e.currentTarget));
+      document.getElementById('tf_catChip')?.addEventListener('click',  e => trkShowPicker('cat',  e.currentTarget));
+
+      // Notes / options / exempt
+      document.getElementById('tf_notesChip')?.addEventListener('click', () => {
+        const r = document.getElementById('tf_notesReveal'), c = document.getElementById('tf_notesChip');
+        const open = r?.classList.toggle('is-open');
+        c?.classList.toggle('is-active', open);
+        if (open) document.getElementById('tf_notes')?.focus();
+      });
+      document.getElementById('tf_notesClose')?.addEventListener('click', () => {
+        document.getElementById('tf_notesReveal')?.classList.remove('is-open');
+        document.getElementById('tf_notesChip')?.classList.remove('is-active');
+      });
+      document.getElementById('tf_optionsChip')?.addEventListener('click', () => {
+        document.getElementById('tf_optionsReveal')?.classList.toggle('is-open');
+        document.getElementById('tf_optionsChip')?.classList.toggle('is-active');
+      });
+      document.getElementById('tf_exempt')?.addEventListener('click', e => {
+        const on = e.currentTarget.classList.toggle('is-active');
+        e.currentTarget.textContent = on ? 'On' : 'Off';
+      });
+
+      // Save (edit-only — no schedule rebuild; tracker doesn't import buildScheduleUpdates)
+      document.getElementById('tf_save')?.addEventListener('click', async () => {
+        const name = document.getElementById('tf_name')?.value.trim();
+        if (!name) {
+          const inp = document.getElementById('tf_name');
+          inp?.classList.add('is-invalid');
+          inp?.focus();
+          setTimeout(() => inp?.classList.remove('is-invalid'), 600);
+          return;
+        }
+        const ownerIds = trkGetOwnerIds();
+        const ap = document.getElementById('tf_assignRow')?.querySelector('.tf-assign-pill--active')?.dataset.mode;
+        const ownerAssignmentMode = ownerIds.length <= 1 ? 'fixed' : (ap === 'everyone' ? 'duplicate' : 'rotate');
+        const rot = trkRot;
+        const dayVal = document.getElementById('tf_daySelect')?.value;
+        const dedicatedDay = rot === 'weekly' ? (dayVal !== '' && dayVal != null ? parseInt(dayVal, 10) : null) : null;
+        const dedicatedDate = rot === 'once' ? (document.getElementById('tf_onceDate')?.value || null) : null;
+        const showCd = rot === 'weekly' || rot === 'monthly';
+        const cdVal = document.getElementById('tf_cooldown')?.value;
+        const cdDef = rot === 'weekly' ? 3 : rot === 'monthly' ? 7 : 0;
+        const cooldownDays = showCd ? (cdVal !== '' ? (parseInt(cdVal, 10) || cdDef) : cdDef) : null;
+        const exempt = document.getElementById('tf_exempt')?.classList.contains('is-active') || false;
+        const notes = document.getElementById('tf_notes')?.value.trim() || null;
+        const updated = {
+          ...task,
+          name, rotation: rot, difficulty: trkDiff, estMin: trkDur, timeOfDay: trkTod, category: trkCat,
+          owners: ownerIds, ownerAssignmentMode, dedicatedDay, dedicatedDate,
+          cooldownDays: cooldownDays || null, exempt, notes: notes || null,
+          bounty: task.bounty ?? null, eventTime: null,
+        };
         await writeTask(taskId, updated);
         tasks[taskId] = updated;
+        trkHidePicker();
+        closeTaskSheet();
+        render();
+      });
+
+      // Delete
+      document.getElementById('tf_deleteBtn')?.addEventListener('click', () => {
+        document.getElementById('tf_deleteConfirm')?.classList.add('is-open');
+        if (document.getElementById('tf_deleteBtn')) document.getElementById('tf_deleteBtn').style.display = 'none';
+      });
+      document.getElementById('tf_deleteNo')?.addEventListener('click', () => {
+        document.getElementById('tf_deleteConfirm')?.classList.remove('is-open');
+        if (document.getElementById('tf_deleteBtn')) document.getElementById('tf_deleteBtn').style.display = '';
+      });
+      document.getElementById('tf_deleteYes')?.addEventListener('click', async () => {
+        if (!taskId) return;
+        // Tracker doesn't have readAllSchedule re-import — null the task node only.
+        // Orphaned schedule entries will be filtered out by renderers (taskId won't be found).
+        await writeTask(taskId, null);
+        delete tasks[taskId];
+        trkHidePicker();
         closeTaskSheet();
         render();
       });
