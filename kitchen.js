@@ -371,8 +371,9 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const mount = document.getElementById('sheetMount');
   let selectedRecipeId = preRecipeId;
 
-  const recipeEntries = Object.entries(recipes)
-    .sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
+  function getRecipeEntries() {
+    return Object.entries(recipes).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
+  }
 
   const slotOptions = SLOT_ORDER
     .map(s => `<option value="${esc(s)}"${s === preSlot ? ' selected' : ''}>${esc(SLOT_LABELS[s])}</option>`)
@@ -388,17 +389,18 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const starEmpty = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
   function buildRecipeRows(filter) {
+    const entries = getRecipeEntries();
     const lc = filter?.toLowerCase() || '';
     if (lc) {
-      const filtered = recipeEntries.filter(([, r]) => r.name.toLowerCase().includes(lc));
+      const filtered = entries.filter(([, r]) => r.name.toLowerCase().includes(lc));
       if (filtered.length === 0) return `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`;
       return filtered.map(([id, r]) => buildPickRow(id, r)).join('');
     }
-    if (recipeEntries.length === 0) {
+    if (entries.length === 0) {
       return `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
     }
-    const favorites = recipeEntries.filter(([, r]) => r.isFavorite);
-    const recent = recipeEntries.filter(([, r]) => !r.isFavorite).slice(0, 3);
+    const favorites = entries.filter(([, r]) => r.isFavorite);
+    const recent = entries.filter(([, r]) => !r.isFavorite).slice(0, 3);
     return [...favorites, ...recent].map(([id, r]) => buildPickRow(id, r)).join('');
   }
 
