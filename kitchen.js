@@ -320,12 +320,15 @@ function renderRecipesTab() {
         </article>`).join('')
     : renderEmptyState('', 'No recipes yet', 'Tap "New recipe" to add your first.');
 
+  const countLabel = recipeEntries.length === 1 ? '1 recipe' : `${recipeEntries.length} recipes`;
+
   content.innerHTML = `
     <div class="rl-wrap">
       <div class="rl-controls">
-        <button class="btn btn--ghost" id="findRecipesBtn" type="button">Find ideas &#x2197;</button>
+        <span class="rl-count">${esc(countLabel)}</span>
         <button class="chip rl-filter-btn${filterCount > 0 ? ' chip--active' : ''}" id="recipeFilterBtn" type="button">${filterLabel} &#9662;</button>
       </div>
+      <button class="btn btn--ghost btn--sm rl-find-btn" id="findRecipesBtn" type="button">Find ideas online &#x2197;</button>
       <div id="recipeLibrary">${recipeLibHtml}</div>
     </div>`;
 
@@ -1212,7 +1215,7 @@ function renderListsTab() {
       </div>
     </div>
     <div class="list-toolbar">
-      <button class="btn btn--ghost btn--sm" id="staplesTopBtn" type="button">Add from staples</button>
+      <button class="chip" id="staplesTopBtn" type="button">Add from staples</button>
       <div class="list-icon-group">
         <button class="list-camera-btn" id="listCameraBtn" type="button" aria-label="Add from photo">${CAM_SVG}</button>
         <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list" disabled>${WAND_SVG}</button>

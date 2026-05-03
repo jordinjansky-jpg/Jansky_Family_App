@@ -153,6 +153,20 @@
   margin-left: auto;
 }
 
+.rl-count {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.rl-find-btn {
+  display: block;
+  padding-left: 0;
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-sm);
+}
+
 /* ============ Lists tab ============ */
 .list-switcher {
   display: flex;
@@ -214,6 +228,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
+  margin-left: auto;
 }
 
 .list-wand-btn,

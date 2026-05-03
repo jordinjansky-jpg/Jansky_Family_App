@@ -222,7 +222,8 @@
 // v116 (2026-05-01) — Kitchen: TikTok URL import (rehydration JSON + oEmbed + meta tags), partial-failure preserves URL.
 // v117 (2026-05-01) — Kitchen: port all 7 forms to Event Form pattern (sticky footer, per-prefix CSS, focus tint, delete zones).
 // v135 (2026-05-03) — Kitchen: meal dates show month, FAB week context, recipe CSS classes, list undo/clear.
-const CACHE_NAME = 'family-hub-v135';
+// v136 (2026-05-03) — Kitchen: staples chip style, icons right-aligned, recipe count + find ideas layout.
+const CACHE_NAME = 'family-hub-v136';
 
 const APP_SHELL = [
   '/',
