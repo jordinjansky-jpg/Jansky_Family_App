@@ -885,16 +885,19 @@ function openRecipeForm(recipeId, onSave = null) {
 
   const mount = document.getElementById('sheetMount');
 
-  function buildIngredientList() {
-    return ingredients.map((ing, i) =>
-      `<div class="ingredient-row" data-index="${i}">
-        <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off">
+  function buildIngredientRow(i) {
+    const ing = ingredients[i];
+    return `<div class="ingredient-row" data-index="${i}">
+        <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off" enterkeyhint="next">
         <input class="ingredient-name" data-edit-index="${i}" data-edit-field="name" type="text" value="${esc(ing.name || '')}" placeholder="ingredient" autocomplete="off">
         <button class="btn-icon" data-remove-index="${i}" type="button" aria-label="Remove">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-      </div>`
-    ).join('');
+      </div>`;
+  }
+
+  function buildIngredientList() {
+    return ingredients.map((_, i) => buildIngredientRow(i)).join('');
   }
 
   mount.innerHTML = renderBottomSheet(`
@@ -932,9 +935,9 @@ function openRecipeForm(recipeId, onSave = null) {
       <div id="ingredientList">${buildIngredientList()}</div>
       <div class="kr-add-ingredient-row">
         <input class="kr-add-qty" id="newIngredientQty" type="text"
-          placeholder="qty" autocomplete="off">
+          placeholder="qty" autocomplete="off" enterkeyhint="next">
         <input class="field__input" id="newIngredientInput" type="text"
-          placeholder="Add ingredient…" autocomplete="off">
+          placeholder="Add ingredient…" autocomplete="off" enterkeyhint="done">
         <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
       </div>
     </div>
@@ -968,14 +971,19 @@ function openRecipeForm(recipeId, onSave = null) {
     const val = document.getElementById('newIngredientInput')?.value.trim();
     if (!val) return;
     const qty = document.getElementById('newIngredientQty')?.value.trim() || null;
+    const idx = ingredients.length;
     ingredients.push({ name: cleanIngredientName(val), qty });
     document.getElementById('newIngredientInput').value = '';
     document.getElementById('newIngredientQty').value = '';
-    document.getElementById('ingredientList').innerHTML = buildIngredientList();
+    // Append only the new row — avoids full DOM rebuild that collapses the keyboard on iOS
+    document.getElementById('ingredientList').insertAdjacentHTML('beforeend', buildIngredientRow(idx));
     bindIngredientRowEvents();
     document.getElementById('newIngredientInput').focus();
   }
   document.getElementById('addIngredientBtn')?.addEventListener('click', addIngredient);
+  document.getElementById('newIngredientQty')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('newIngredientInput')?.focus(); }
+  });
   document.getElementById('newIngredientInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); addIngredient(); }
   });
@@ -1494,7 +1502,7 @@ function openItemAddField(restoreValue = '') {
   const wrap = document.createElement('div');
   wrap.className = 'item-add-wrap';
   wrap.innerHTML = `<input class="item-add-field" id="itemAddField" type="text"
-    placeholder="What do you need? (Enter to add, Esc when done)" autocomplete="off" autocorrect="off">`;
+    placeholder="Add items…" autocomplete="off" autocorrect="off" enterkeyhint="done">`;
   area.prepend(wrap);
   const field = document.getElementById('itemAddField');
   if (restoreValue) { field.value = restoreValue; field.setSelectionRange(restoreValue.length, restoreValue.length); }

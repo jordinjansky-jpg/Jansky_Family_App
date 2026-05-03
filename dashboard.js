@@ -1153,16 +1153,19 @@ function openRecipeForm(recipeId = null, onSave = null) {
   const existing = recipeId ? recipes[recipeId] : null;
   const ingredients = existing?.ingredients ? [...existing.ingredients] : [];
 
-  function buildIngredientList() {
-    return ingredients.map((ing, i) =>
-      `<div class="ingredient-row" data-index="${i}">
-        <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off">
+  function buildIngredientRow(i) {
+    const ing = ingredients[i];
+    return `<div class="ingredient-row" data-index="${i}">
+        <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off" enterkeyhint="next">
         <input class="ingredient-name" data-edit-index="${i}" data-edit-field="name" type="text" value="${esc(ing.name || '')}" placeholder="ingredient" autocomplete="off">
         <button class="btn-icon" data-remove-index="${i}" type="button" aria-label="Remove">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-      </div>`
-    ).join('');
+      </div>`;
+  }
+
+  function buildIngredientList() {
+    return ingredients.map((_, i) => buildIngredientRow(i)).join('');
   }
 
   const TRASH_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
@@ -1195,8 +1198,8 @@ function openRecipeForm(recipeId = null, onSave = null) {
       <span class="ef2-section-label">Ingredients</span>
       <div id="ingredientList">${buildIngredientList()}</div>
       <div class="kr-add-ingredient-row">
-        <input class="kr-add-qty" id="newIngredientQty" type="text" placeholder="qty" autocomplete="off">
-        <input class="field__input" id="newIngredientInput" type="text" placeholder="Add ingredient…" autocomplete="off">
+        <input class="kr-add-qty" id="newIngredientQty" type="text" placeholder="qty" autocomplete="off" enterkeyhint="next">
+        <input class="field__input" id="newIngredientInput" type="text" placeholder="Add ingredient…" autocomplete="off" enterkeyhint="done">
         <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
       </div>
     </div>
@@ -1249,14 +1252,19 @@ function openRecipeForm(recipeId = null, onSave = null) {
     const val = document.getElementById('newIngredientInput')?.value.trim();
     if (!val) return;
     const qty = document.getElementById('newIngredientQty')?.value.trim() || null;
+    const idx = ingredients.length;
     ingredients.push({ name: _cleanIngredientName(val), qty });
     document.getElementById('newIngredientInput').value = '';
     document.getElementById('newIngredientQty').value = '';
-    document.getElementById('ingredientList').innerHTML = buildIngredientList();
+    // Append only the new row — avoids full DOM rebuild that collapses the keyboard on iOS
+    document.getElementById('ingredientList').insertAdjacentHTML('beforeend', buildIngredientRow(idx));
     bindIngredientEvents();
     document.getElementById('newIngredientInput').focus();
   }
   document.getElementById('addIngredientBtn')?.addEventListener('click', addIngredient);
+  document.getElementById('newIngredientQty')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('newIngredientInput')?.focus(); }
+  });
   document.getElementById('newIngredientInput')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); addIngredient(); }
   });
