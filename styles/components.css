@@ -2882,7 +2882,7 @@
   margin-bottom: var(--spacing-md);
 }
 .admin-lib-tabs::-webkit-scrollbar { display: none; }
-.admin-lib-tabs .tab { flex: 0 0 auto; }
+.admin-lib-tabs .tab { flex: 0 0 auto; padding: 8px var(--spacing-sm); }
 
 /* ── Field (label + input pair, used in sheets) ── */
 .field {
