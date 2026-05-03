@@ -2417,21 +2417,19 @@ export function renderWeatherSheet(days, today, tomorrow) {
         <span>${esc(shortDate(day.dateKey))}</span>
       </div>
       <div class="weather-row__glyph" aria-hidden="true">${glyph}</div>
-      <div class="weather-row__right">
-        <div class="weather-row__data">
-          <strong>${esc(day.high)} / ${esc(day.low)}</strong>
-          <span>${esc(day.conditionLabel)}</span>
-          ${popHtml}
+      <div class="weather-row__data">
+        <strong>${esc(day.high)} / ${esc(day.low)}</strong>
+        <span>${esc(day.conditionLabel)}</span>
+        ${popHtml}
+      </div>
+      <div class="weather-row__periods" aria-label="Morning and afternoon forecast">
+        <div class="weather-period">
+          <span class="weather-period__glyph" aria-hidden="true">${morningGlyph}</span>
+          <span class="weather-period__label">AM</span>
         </div>
-        <div class="weather-row__periods" aria-label="Morning and afternoon forecast">
-          <div class="weather-period">
-            <span class="weather-period__glyph" aria-hidden="true">${morningGlyph}</span>
-            <span class="weather-period__label">AM</span>
-          </div>
-          <div class="weather-period">
-            <span class="weather-period__glyph" aria-hidden="true">${afternoonGlyph}</span>
-            <span class="weather-period__label">PM</span>
-          </div>
+        <div class="weather-period">
+          <span class="weather-period__glyph" aria-hidden="true">${afternoonGlyph}</span>
+          <span class="weather-period__label">PM</span>
         </div>
       </div>
     </div>`;

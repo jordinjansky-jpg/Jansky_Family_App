@@ -2736,7 +2736,7 @@
 .weather-row:last-child { border-bottom: none; }
 
 .weather-row__day {
-  width: 88px;
+  width: 96px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -2766,18 +2766,10 @@
   height: 28px;
 }
 
-.weather-row__right {
-  width: 88px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--spacing-xs);
-}
-
 .weather-row__data {
+  width: 72px;
+  flex-shrink: 0;
   text-align: right;
-  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 2px;
