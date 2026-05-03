@@ -1299,47 +1299,64 @@ export function renderTaskDetailSheet(options) {
     people, showDelegate, showMove, showEdit, dateKey,
     isEvent = false, readOnly = false, isPastDate = false
   } = options;
-  const catIcon = category?.icon || '';
+
+  const DS_CLOSE    = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const DS_CHEVRON  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+  const DS_EDIT     = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const DS_MOVE     = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+  const DS_SKIP     = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>`;
+  const DS_DELEGATE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+  const DS_CAL_SM   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+
+  const catIcon    = category?.icon || '';
   const ownerColor = person?.color || 'var(--text-faint)';
-  const diffLabel = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[task.difficulty] || 'Medium';
-  const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-Time' }[entry.rotationType] || '';
-  const todLabel = { am: 'Morning', pm: 'Afternoon', anytime: 'Anytime' }[entry.timeOfDay] || '';
-  const sliderVal = currentOverride ?? 100;
+  const diffLabel  = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[task.difficulty] || 'Medium';
+  const rotLabel   = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-Time' }[entry.rotationType] || '';
+  const todLabel   = { am: 'Morning', pm: 'Afternoon', anytime: 'Anytime' }[entry.timeOfDay] || '';
+  const sliderVal  = currentOverride ?? 100;
+  const hasActions = showDelegate || showMove || showEdit;
 
   let html = `<div class="task-detail-sheet">`;
 
-  // Task info
-  html += `<div class="task-detail__info">
-    <div class="task-detail__name" data-owner-color="${esc(ownerColor)}">
-      <span class="task-card__avatar">${(person?.name || '?')[0].toUpperCase()}</span>
-      <span>${esc(task.name)}${catIcon ? ' ' + catIcon : ''}</span>
-    </div>
-    <div class="task-detail__meta">
-      ${person ? `<span class="chip" data-person-color="${esc(person.color)}">${esc(person.name)}</span>` : ''}
-      <span class="chip">${rotLabel}</span>
-      <span class="chip">${diffLabel}</span>
-      ${todLabel ? `<span class="chip">${todLabel}</span>` : ''}
-      ${task.eventTime ? `<span class="chip">🕐 ${formatEventTime(task.eventTime)}</span>` : ''}
-      ${task.estMin ? `<span class="chip">${task.estMin}m</span>` : ''}
-    </div>
-    ${entry.delegatedFromName ? `<div class="task-detail__source-info">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></div>` : ''}
-    ${entry.movedFromDate ? `<div class="task-detail__source-info"><svg class="task-detail__source-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></div>` : ''}
+  // ── Header ───────────────────────────────────────────────
+  html += `<div class="sheet__header">
+    <h2 class="sheet__title" data-owner-color="${esc(ownerColor)}">${esc(task.name)}${catIcon ? ' ' + catIcon : ''}</h2>
+    <button class="ef2-icon-btn" id="dsClose" type="button" aria-label="Close">${DS_CLOSE}</button>
   </div>`;
 
-  // Event notes
+  // ── Meta chips ───────────────────────────────────────────
+  html += `<div class="task-detail__chips">`;
+  if (person) html += `<span class="chip" data-person-color="${esc(person.color)}">${esc(person.name)}</span>`;
+  if (rotLabel) html += `<span class="chip">${rotLabel}</span>`;
+  html += `<span class="chip">${diffLabel}</span>`;
+  if (todLabel) html += `<span class="chip">${todLabel}</span>`;
+  if (task.eventTime) html += `<span class="chip">${formatEventTime(task.eventTime)}</span>`;
+  if (task.estMin) html += `<span class="chip">${task.estMin}m</span>`;
+  html += `</div>`;
+
+  // ── Source info ──────────────────────────────────────────
+  if (entry.delegatedFromName || entry.movedFromDate) {
+    html += `<div class="task-detail__source-row">`;
+    if (entry.delegatedFromName) html += `<span class="task-detail__source-item">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></span>`;
+    if (entry.movedFromDate) html += `<span class="task-detail__source-item">${DS_CAL_SM} Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></span>`;
+    html += `</div>`;
+  }
+
+  html += `<div class="ef2-divider"></div>`;
+
+  // ── Event notes ──────────────────────────────────────────
   if (isEvent) {
     const noteText = entry.notes || '';
     if (readOnly) {
-      // Read-only mode (kid mode)
       if (noteText) {
-        html += `<div class="task-detail__notes mt-md">
-          <span class="form-label">Notes</span>
+        html += `<div class="task-detail__notes">
+          <span class="ef2-section-label">Notes</span>
           <div class="task-detail__notes-text">${esc(noteText)}</div>
         </div>`;
       }
     } else {
-      html += `<div class="task-detail__notes mt-md">
-        <span class="form-label">Notes</span>
+      html += `<div class="task-detail__notes">
+        <span class="ef2-section-label">Notes</span>
         <div class="task-detail__notes-display${noteText ? '' : ' is-hidden'}" id="notesDisplay">
           <div class="task-detail__notes-text" id="notesText">${esc(noteText)}</div>
           <button class="btn btn--ghost btn--sm" id="notesEditBtn" type="button">Edit</button>
@@ -1356,67 +1373,58 @@ export function renderTaskDetailSheet(options) {
     }
   }
 
-  // Complete/uncomplete button(s)
+  // ── Complete CTA ─────────────────────────────────────────
   const isLateEligible = isPastDate && !completed && !isEvent && !task.exempt;
   if (isLateEligible) {
-    html += `<div class="task-detail__late-buttons mt-md">
+    html += `<div class="task-detail__late-buttons">
       <button class="btn btn--primary btn--full" id="sheetCompleteNoPenalty" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Complete (Full Credit)</button>
       <button class="btn btn--secondary btn--full" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Complete (Late)</button>
     </div>`;
   } else {
     const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
     const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
-    html += `<button class="btn ${toggleClass} btn--full mt-md" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+    html += `<button class="btn ${toggleClass} btn--full" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
   }
 
-  // Action buttons row: Delegate, Move, Edit
-  const hasActions = showDelegate || showMove || showEdit;
+  // ── Action list ──────────────────────────────────────────
   if (hasActions) {
-    html += `<div class="task-detail__actions mt-md">`;
-
-    if (showDelegate) {
-      html += `<button class="btn btn--secondary btn--sm" id="sheetDelegate" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Delegate</button>`;
-    }
-    if (showMove) {
-      html += `<button class="btn btn--secondary btn--sm" id="sheetMove" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Move</button>`;
-      html += `<button class="btn btn--ghost btn--sm" id="moveSkip" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg> Skip</button>`;
-    }
-    if (showEdit) {
-      html += `<button class="btn btn--secondary btn--sm" id="sheetEdit" data-task-id="${entry.taskId}" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>`;
-    }
-
+    html += `<div class="ef2-divider"></div><div class="task-detail__action-list">`;
+    if (showEdit)     html += `<button class="task-detail__action-row" id="sheetEdit" data-task-id="${entry.taskId}" type="button">${DS_EDIT}<span>Edit task</span>${DS_CHEVRON}</button>`;
+    if (showMove)     html += `<button class="task-detail__action-row" id="sheetMove" type="button">${DS_MOVE}<span>Move to date</span>${DS_CHEVRON}</button>`;
+    if (showMove)     html += `<button class="task-detail__action-row task-detail__action-row--muted" id="moveSkip" type="button">${DS_SKIP}<span>Skip</span>${DS_CHEVRON}</button>`;
+    if (showDelegate) html += `<button class="task-detail__action-row" id="sheetDelegate" type="button">${DS_DELEGATE}<span>Delegate</span>${DS_CHEVRON}</button>`;
     html += `</div>`;
   }
 
-  // Delegate panel (hidden by default, shown when Delegate clicked)
+  // ── Delegate panel ───────────────────────────────────────
   if (showDelegate && people) {
     const otherPeople = people.filter(p => p.id !== entry.ownerId);
     html += `<div class="task-detail__delegate-panel is-hidden" id="delegatePanel">
+      <div class="ef2-divider"></div>
       <div class="task-detail__delegate-header">
-        <span class="form-label">Reassign to:</span>
-        ${showMove ? `<label class="task-detail__move-toggle"><input type="checkbox" id="delegateMoveToggle"> 📅 Move too</label>` : ''}
+        <span class="ef2-section-label">Reassign to</span>
+        ${showMove ? `<label class="task-detail__move-toggle"><input type="checkbox" id="delegateMoveToggle"> Move too</label>` : ''}
       </div>
-      <div class="task-detail__person-chips">
-        ${otherPeople.map(p => `<button class="chip chip--selectable" data-person-id="${p.id}" data-person-color="${esc(p.color)}" type="button">${esc(p.name)}</button>`).join('')}
+      <div class="ef2-person-chips">
+        ${otherPeople.map(p => `<button class="ef2-person-chip" data-person-id="${p.id}" data-person-color="${esc(p.color)}" type="button">${esc(p.name)}</button>`).join('')}
       </div>
       <input type="date" id="delegateMoveDatePicker" class="task-detail__date-input task-detail__date-input--hidden">
     </div>`;
   }
 
-  // Move date picker (hidden input, triggered by Move button)
   if (showMove) {
     html += `<input type="date" id="moveDatePicker" class="task-detail__date-input task-detail__date-input--hidden">`;
   }
 
-  // Points slider (override slider for late-credit / boost).
+  // ── Points slider ────────────────────────────────────────
   if (points) {
     const min = sliderMin ?? 0;
     const max = sliderMax ?? 150;
     const earnedPts = Math.round(points.possible * (sliderVal / 100));
-    const sliderLabel = 'Points Override';
-    html += `<div class="task-detail__slider mt-md">
+    html += `<div class="task-detail__slider">
+      <div class="ef2-divider"></div>
       <div class="task-detail__slider-header">
-        <span class="form-label">${sliderLabel}</span>
+        <span class="ef2-section-label">Points Override</span>
         <span class="task-detail__slider-value task-detail__slider-value--numeric" id="sliderValueLabel">${sliderVal}% (${earnedPts}pt)</span>
       </div>
       <div class="task-detail__slider-row">

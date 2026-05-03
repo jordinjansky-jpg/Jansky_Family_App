@@ -648,6 +648,7 @@
       overlay?.addEventListener('click', (e) => {
         if (e.target === overlay) closeTaskSheet();
       });
+      document.getElementById('dsClose')?.addEventListener('click', closeTaskSheet);
 
       // Toggle complete from sheet
       document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
@@ -688,7 +689,7 @@
       });
 
       let pendingDelegateOwnerId = null;
-      document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
+      document.querySelectorAll('#delegatePanel .ef2-person-chip').forEach(chip => {
         chip.addEventListener('click', async () => {
           const newOwnerId = chip.dataset.personId;
           if (!newOwnerId) return;
@@ -696,8 +697,8 @@
           const moveToggle = document.getElementById('delegateMoveToggle');
           if (moveToggle?.checked) {
             pendingDelegateOwnerId = newOwnerId;
-            document.querySelectorAll('#delegatePanel .chip--selectable').forEach(c => c.classList.remove('chip--active'));
-            chip.classList.add('chip--active');
+            document.querySelectorAll('#delegatePanel .ef2-person-chip').forEach(c => c.removeAttribute('data-state'));
+            chip.setAttribute('data-state', 'primary');
             const picker = document.getElementById('delegateMoveDatePicker');
             if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
             return;

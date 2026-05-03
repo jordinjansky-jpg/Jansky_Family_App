@@ -2543,6 +2543,7 @@ function bindTaskSheetEvents(entryKey, dateKey) {
   overlay?.addEventListener('click', (e) => {
     if (e.target === overlay) closeTaskSheet();
   });
+  document.getElementById('dsClose')?.addEventListener('click', closeTaskSheet);
 
   // Toggle complete
   document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
@@ -2603,7 +2604,7 @@ function bindTaskSheetEvents(entryKey, dateKey) {
 
   // Delegate person chips
   let pendingDelegateOwnerId = null;
-  document.querySelectorAll('#delegatePanel .chip--selectable').forEach(chip => {
+  document.querySelectorAll('#delegatePanel .ef2-person-chip').forEach(chip => {
     chip.addEventListener('click', async () => {
       const newOwnerId = chip.dataset.personId;
       if (!newOwnerId) return;
@@ -2612,8 +2613,8 @@ function bindTaskSheetEvents(entryKey, dateKey) {
       if (moveToggle?.checked) {
         // Store selection, open date picker for delegate+move
         pendingDelegateOwnerId = newOwnerId;
-        document.querySelectorAll('#delegatePanel .chip--selectable').forEach(c => c.classList.remove('chip--active'));
-        chip.classList.add('chip--active');
+        document.querySelectorAll('#delegatePanel .ef2-person-chip').forEach(c => c.removeAttribute('data-state'));
+        chip.setAttribute('data-state', 'primary');
         const picker = document.getElementById('delegateMoveDatePicker');
         if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
         return;
