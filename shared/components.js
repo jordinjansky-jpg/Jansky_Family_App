@@ -2418,8 +2418,7 @@ export function renderWeatherSheet(days, today, tomorrow) {
       </div>
       <div class="weather-row__glyph" aria-hidden="true">${glyph}</div>
       <div class="weather-row__data">
-        <strong>${esc(day.tempLabel)}</strong>
-        <span>H:${esc(day.high)}&nbsp; L:${esc(day.low)}</span>
+        <strong>${esc(day.high)} / ${esc(day.low)}</strong>
         <span>${esc(day.conditionLabel)}</span>
         ${popHtml}
       </div>
