@@ -1506,7 +1506,13 @@ function openItemAddField() {
     if (!name) { keepAddFieldOpen = false; wrap.remove(); return; }
     if (!activeListId) return;
     field.value = '';
+    field.placeholder = '✓ Added';
+    field.classList.add('is-confirmed');
     field.focus();
+    setTimeout(() => {
+      field.placeholder = 'Add items…';
+      field.classList.remove('is-confirmed');
+    }, 800);
     await pushKitchenItem(activeListId, {
       name,
       checked: false,

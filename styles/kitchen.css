@@ -165,6 +165,8 @@
   font-size: var(--font-md);
   outline: none;
 }
+.item-add-field::placeholder { color: var(--text-faint); }
+.item-add-field.is-confirmed::placeholder { color: var(--accent); }
 
 /* Staples quick-add */
 .staples-btn {
