@@ -219,7 +219,7 @@ function renderTabsHtml() {
   const tabs = isKidMode
     ? [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }]
     : [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }, { id: 'approvals', label: 'Approvals' }];
-  return `<div class="tabs tabs--segmented rewards-tabs" role="tablist">
+  return `<div class="tabs tabs--pill rewards-tabs" role="tablist">
     ${tabs.map(t => `<button class="tab${activeTab === t.id ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === t.id}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
   </div>`;
 }

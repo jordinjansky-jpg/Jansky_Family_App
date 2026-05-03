@@ -2870,6 +2870,19 @@
   color: var(--text);
 }
 
+/* Admin section nav — full-width equal tabs */
+.admin-section-tabs { margin-bottom: var(--spacing-sm); }
+
+/* Admin library sub-nav — scrollable natural-width tabs */
+.admin-lib-tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+  margin-bottom: var(--spacing-md);
+}
+.admin-lib-tabs::-webkit-scrollbar { display: none; }
+.admin-lib-tabs .tab { flex: 0 0 auto; }
+
 /* ── Field (label + input pair, used in sheets) ── */
 .field {
   display: flex;
@@ -3532,15 +3545,18 @@ label.ef2-icon-btn  { cursor: pointer; }
 /* Assign mode row — shown when 2+ owners selected */
 .tf-assign-row {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: 2px;
   margin-top: var(--spacing-xs);
   width: 100%;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  padding: 3px;
 }
 .tf-assign-pill {
   flex: 1;
-  height: 32px;
-  border-radius: 16px;
-  border: 1.5px solid var(--border);
+  height: 30px;
+  border-radius: var(--radius-full);
+  border: none;
   background: transparent;
   color: var(--text-muted);
   font-size: var(--font-sm);
@@ -3549,22 +3565,26 @@ label.ef2-icon-btn  { cursor: pointer; }
   transition: all 0.15s ease;
 }
 .tf-assign-pill--active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-weight: 600;
 }
 
 /* Rotation pills */
 .tf-rotation-section { padding: var(--spacing-sm) 0; }
 .tf-rotation-pills {
   display: flex;
-  gap: var(--spacing-xs);
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
 }
 .tf-rot-pill {
   flex: 1;
-  height: 36px;
-  border-radius: 8px;
-  border: 1.5px solid var(--border);
+  height: 34px;
+  border-radius: var(--radius-full);
+  border: none;
   background: transparent;
   color: var(--text-muted);
   font-size: var(--font-sm);
@@ -3573,9 +3593,10 @@ label.ef2-icon-btn  { cursor: pointer; }
   transition: all 0.15s ease;
 }
 .tf-rot-pill--active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-weight: 600;
 }
 
 /* Rotation inline reveals (day select / date picker) */

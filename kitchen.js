@@ -422,7 +422,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     <div class="ef2-divider"></div>
     <div class="kp-slot-section">
       <span class="ef2-section-label">Slot</span>
-      <nav class="tabs tabs--segmented kp-slot-tabs" id="kp_slotPills">
+      <nav class="tabs tabs--pill kp-slot-tabs" id="kp_slotPills">
         ${PLAN_SLOT_ORDER.map(s => `<button class="tab${s === selectedSlot ? ' is-active' : ''}${planCache[preDate]?.[s] ? ' is-occupied' : ''}" data-slot="${esc(s)}" type="button">${esc(SLOT_LABELS[s])}</button>`).join('')}
       </nav>
     </div>

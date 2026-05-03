@@ -307,7 +307,7 @@
         { key: 'month', label: 'Month' },
         { key: 'year',  label: '12 Mo' },
       ];
-      html += `<nav class="tabs tabs--segmented">`;
+      html += `<nav class="tabs tabs--pill">`;
       for (const p of periods) {
         html += `<button class="tab${selectedPeriod === p.key ? ' is-active' : ''}" data-period="${p.key}" type="button">${p.label}</button>`;
       }

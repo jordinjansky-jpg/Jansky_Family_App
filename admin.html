@@ -315,21 +315,19 @@
 
     function render() {
       // Top-level tab bar
-      let html = `<div class="admin-tabs" role="tablist" aria-label="Admin sections">`;
+      let html = `<nav class="tabs tabs--pill admin-section-tabs" role="tablist" aria-label="Admin sections">`;
       for (const tab of TABS) {
-        const active = tab.id === activeTab ? ' admin-tab--active' : '';
-        html += `<button class="admin-tab${active}" data-tab="${tab.id}" type="button" role="tab" aria-selected="${tab.id === activeTab}">${esc(tab.label)}</button>`;
+        html += `<button class="tab${tab.id === activeTab ? ' is-active' : ''}" data-tab="${tab.id}" type="button" role="tab" aria-selected="${tab.id === activeTab}">${esc(tab.label)}</button>`;
       }
-      html += `</div>`;
+      html += `</nav>`;
 
       // Library sub-nav
       if (activeTab === 'library') {
-        html += `<div class="admin-subnav" role="tablist" aria-label="Library sections">`;
+        html += `<nav class="tabs tabs--pill admin-lib-tabs" role="tablist" aria-label="Library sections">`;
         for (const sec of LIBRARY_SECTIONS) {
-          const active = sec.id === activeLibrarySection ? ' admin-subnav__pill--active' : '';
-          html += `<button class="admin-subnav__pill${active}" data-section="${sec.id}" type="button">${esc(sec.label)}</button>`;
+          html += `<button class="tab${sec.id === activeLibrarySection ? ' is-active' : ''}" data-section="${sec.id}" type="button">${esc(sec.label)}</button>`;
         }
-        html += `</div>`;
+        html += `</nav>`;
       }
 
       html += `<div class="admin-content" role="tabpanel">`;
@@ -357,7 +355,7 @@
     }
 
     function bindTabEvents() {
-      for (const tab of main.querySelectorAll('.admin-tab')) {
+      for (const tab of main.querySelectorAll('.admin-section-tabs .tab')) {
         tab.addEventListener('click', async () => {
           activeTab = tab.dataset.tab;
           selectMode = false;
@@ -369,7 +367,7 @@
           render();
         });
       }
-      for (const pill of main.querySelectorAll('.admin-subnav__pill')) {
+      for (const pill of main.querySelectorAll('.admin-lib-tabs .tab')) {
         pill.addEventListener('click', async () => {
           activeLibrarySection = pill.dataset.section;
           selectMode = false;
