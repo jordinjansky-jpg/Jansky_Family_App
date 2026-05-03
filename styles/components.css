@@ -2435,7 +2435,7 @@
 .me-detail__meta {
   font-size: var(--font-sm);
   color: var(--text-muted);
-  margin: 0;
+  margin: 0 0 var(--spacing-sm);
 }
 .me-detail__tags {
   display: flex;
@@ -2477,6 +2477,12 @@
   gap: var(--spacing-sm);
 }
 .me-detail__ingredients li:last-child { border-bottom: none; }
+.me-detail__ing-qty {
+  color: var(--text-muted);
+  min-width: 2.5rem;
+  flex-shrink: 0;
+}
+.me-detail__plan-btn { margin-bottom: var(--spacing-md); }
 .me-detail__ingredients li::before {
   content: '';
   width: 4px;
@@ -2499,6 +2505,7 @@
   color: var(--text);
   margin: 0;
   line-height: 1.5;
+  white-space: pre-line;
 }
 .me-detail__actions {
   display: flex;

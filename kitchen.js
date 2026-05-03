@@ -591,32 +591,30 @@ function openRecipeDetailSheet(recipeId) {
   const mount = document.getElementById('sheetMount');
   const hasIngredients = (recipe.ingredients?.length || 0) > 0;
 
-  const LINK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+  const LINK_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+  const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(recipe.name)}</h2>
-      <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="sheet__content">
-      <div class="rd-plan-row" style="display:flex;align-items:center;gap:var(--spacing-xs);margin-bottom:var(--spacing-md)">
-        <button class="btn btn--primary" id="planThisMealBtn" style="flex:1" type="button">Plan this meal</button>
-        ${recipe.url ? `<a href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer"
-          class="btn btn--secondary rd-link-btn" aria-label="Open recipe" type="button">${LINK_SVG}</a>` : ''}
+      <div class="rf-header-actions">
+        ${recipe.url ? `<a class="ef2-icon-btn" href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open link">${LINK_SVG}</a>` : ''}
+        <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">${CLOSE_SVG}</button>
       </div>
-
-      ${hasIngredients ? `
-        <div class="field__label" style="margin-bottom:var(--spacing-xs)">Ingredients</div>
-        <ul style="margin:0 0 var(--spacing-md);padding-left:var(--spacing-md);font-size:var(--font-sm)">
-          ${recipe.ingredients.map(i => `<li>${i.qty ? `<span style="color:var(--text-muted);margin-right:6px">${esc(i.qty)}</span>` : ''}${esc(i.name)}</li>`).join('')}
-        </ul>` : ''}
-
-      ${recipe.notes ? `
-        <div class="field__label" style="margin-bottom:var(--spacing-xs)">Notes</div>
-        <p style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-md);white-space:pre-line">${esc(recipe.notes)}</p>` : ''}
     </div>
+    <button class="btn btn--primary btn--full me-detail__plan-btn" id="planThisMealBtn" type="button">Plan this meal</button>
+    ${hasIngredients ? `
+      <div class="me-detail__section">
+        <span class="me-detail__section-label">Ingredients</span>
+        <ul class="me-detail__ingredients">
+          ${recipe.ingredients.map(i => `<li>${i.qty ? `<span class="me-detail__ing-qty">${esc(i.qty)}</span>` : ''}<span>${esc(i.name || '')}</span></li>`).join('')}
+        </ul>
+      </div>` : ''}
+    ${recipe.notes ? `
+      <div class="me-detail__section">
+        <span class="me-detail__section-label">Notes</span>
+        <p class="me-detail__notes">${esc(recipe.notes)}</p>
+      </div>` : ''}
     <div class="sheet__footer">
       <button class="btn btn--secondary" id="editRecipeBtn" type="button">Edit</button>
       <button class="btn btn--danger btn--full" id="deleteRecipeBtn" type="button">Delete</button>

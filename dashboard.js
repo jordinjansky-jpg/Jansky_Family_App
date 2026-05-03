@@ -1569,6 +1569,8 @@ function openMealDetailSheet(planEntry, slot) {
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
+  document.getElementById('mdClose')?.addEventListener('click', closeTaskSheet);
+
   // Pencil button in header — open full editor, return to recipe view on save
   document.getElementById('mdEdit')?.addEventListener('click', () => {
     closeTaskSheet();
