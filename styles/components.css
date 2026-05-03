@@ -2878,6 +2878,7 @@
   overflow-x: auto;
   scrollbar-width: none;
   flex-wrap: nowrap;
+  justify-content: space-evenly;
   margin-bottom: var(--spacing-md);
 }
 .admin-lib-tabs::-webkit-scrollbar { display: none; }
