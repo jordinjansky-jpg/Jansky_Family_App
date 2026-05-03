@@ -1605,7 +1605,9 @@ export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create
   </div>`;
 }
 
-const CLOSE_SVG_TF = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const CLOSE_SVG_TF  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const SAVE_SVG_TF   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+const DELETE_SVG_TF = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
 
 export function renderTaskForm({ task = {}, taskId = null, mode = 'create', categories = [], people = [] }) {
   const isEdit = mode === 'edit';
@@ -1651,7 +1653,11 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
   return `<div class="tf-form">
   <div class="sheet__header">
     <h2 class="sheet__title">${isEdit ? 'Edit Task' : 'New Task'}</h2>
-    <button class="ef2-icon-btn" id="tf_close" type="button" aria-label="Close">${CLOSE_SVG_TF}</button>
+    <div class="rf-header-actions">
+      ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="tf_delete" type="button" aria-label="Delete task" title="Delete task">${DELETE_SVG_TF}</button>` : ''}
+      <button class="ef2-icon-btn rf-save-btn" id="tf_save" type="button"${taskId ? ` data-task-id="${taskId}"` : ''} aria-label="${isEdit ? 'Save changes' : 'Create task'}" title="${isEdit ? 'Save changes' : 'Create task'}">${SAVE_SVG_TF}</button>
+      <button class="ef2-icon-btn" id="tf_close" type="button" aria-label="Close">${CLOSE_SVG_TF}</button>
+    </div>
   </div>
 
   <div class="tf-title-row">
@@ -1726,19 +1732,6 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
     </div>
   </div>
 
-  <div class="tf-footer">
-    <button class="btn btn--ghost"   id="tf_cancel" type="button">Cancel</button>
-    <button class="btn btn--primary" id="tf_save"   type="button"${taskId ? ` data-task-id="${taskId}"` : ''}>${isEdit ? 'Save Changes' : 'Create Task'}</button>
-  </div>
-
-  ${isEdit ? `<div class="ef2-delete-zone">
-    <button class="ef2-delete-btn" id="tf_deleteBtn" type="button">Delete Task</button>
-    <div class="ef2-delete-confirm" id="tf_deleteConfirm">
-      <span class="ef2-delete-confirm-msg">Delete this task?</span>
-      <button class="btn btn--sm btn--danger"    id="tf_deleteYes" type="button">Delete</button>
-      <button class="btn btn--sm btn--secondary" id="tf_deleteNo"  type="button">Keep</button>
-    </div>
-  </div>` : ''}
 </div>`;
 }
 

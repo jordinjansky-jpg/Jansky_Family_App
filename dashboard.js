@@ -2805,7 +2805,6 @@ function openTaskForm(taskId = null, savedState = null) {
   // ── Close ────────────────────────────────────────────────
   const doClose = () => { tfHidePicker(); closeTaskSheet(); };
   document.getElementById('tf_close')?.addEventListener('click', doClose);
-  document.getElementById('tf_cancel')?.addEventListener('click', doClose);
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
     if (e.target === document.getElementById('bottomSheet')) doClose();
   });
@@ -3136,16 +3135,10 @@ function openTaskForm(taskId = null, savedState = null) {
   });
 
   // ── Delete (edit mode only) ───────────────────────────────
-  document.getElementById('tf_deleteBtn')?.addEventListener('click', () => {
-    document.getElementById('tf_deleteConfirm')?.classList.add('is-open');
-    if (document.getElementById('tf_deleteBtn')) document.getElementById('tf_deleteBtn').style.display = 'none';
-  });
-  document.getElementById('tf_deleteNo')?.addEventListener('click', () => {
-    document.getElementById('tf_deleteConfirm')?.classList.remove('is-open');
-    if (document.getElementById('tf_deleteBtn')) document.getElementById('tf_deleteBtn').style.display = '';
-  });
-  document.getElementById('tf_deleteYes')?.addEventListener('click', async () => {
+  document.getElementById('tf_delete')?.addEventListener('click', async () => {
     if (!taskId) return;
+    const name = tasks[taskId]?.name || 'this task';
+    if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
     const updates = { [`tasks/${taskId}`]: null };
     const allSched = await readAllSchedule() || {};
     for (const [dateKey, dayEntries] of Object.entries(allSched)) {
