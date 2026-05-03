@@ -1212,6 +1212,7 @@ function renderListsTab() {
         <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list" disabled>${WAND_SVG}</button>
       </div>
     </div>
+    <div id="itemAddMount"></div>
     <div id="listItemsArea" class="list-content"></div>`;
 
   document.querySelector('.list-switcher')?.addEventListener('click', (e) => {
@@ -1244,9 +1245,6 @@ function renderItemsArea(items) {
   const area = document.getElementById('listItemsArea');
   if (!area) return;
 
-  // Preserve any in-progress text before innerHTML wipe
-  const savedInput = keepAddFieldOpen ? (document.getElementById('itemAddField')?.value || '') : '';
-
   currentItems = items;
   const allItems = Object.entries(items);
   const unchecked = allItems.filter(([, v]) => !v.checked).sort((a, b) => (a[1].addedAt || 0) - (b[1].addedAt || 0));
@@ -1257,7 +1255,6 @@ function renderItemsArea(items) {
 
   if (allItems.length === 0) {
     area.innerHTML = renderEmptyState('', 'List is empty', 'Tap + to add your first item.');
-    if (keepAddFieldOpen) requestAnimationFrame(() => openItemAddField(savedInput));
     return;
   }
 
@@ -1295,9 +1292,6 @@ function renderItemsArea(items) {
   }
 
   area.innerHTML = html;
-
-  // Restore add field if the user is in a multi-item add session
-  if (keepAddFieldOpen) requestAnimationFrame(() => openItemAddField(savedInput));
 
   area.querySelectorAll('.card--shopping').forEach(card => {
     const id = card.dataset.itemId;
@@ -1488,9 +1482,9 @@ function copyListAsText() {
   }
 }
 
-function openItemAddField(restoreValue = '') {
-  const area = document.getElementById('listItemsArea');
-  if (!area) return;
+function openItemAddField() {
+  const mount = document.getElementById('itemAddMount');
+  if (!mount) return;
 
   if (document.getElementById('itemAddField')) {
     document.getElementById('itemAddField').focus();
@@ -1503,9 +1497,8 @@ function openItemAddField(restoreValue = '') {
   wrap.className = 'item-add-wrap';
   wrap.innerHTML = `<input class="item-add-field" id="itemAddField" type="text"
     placeholder="Add items…" autocomplete="off" autocorrect="off" enterkeyhint="done">`;
-  area.prepend(wrap);
+  mount.appendChild(wrap);
   const field = document.getElementById('itemAddField');
-  if (restoreValue) { field.value = restoreValue; field.setSelectionRange(restoreValue.length, restoreValue.length); }
   field.focus();
 
   async function addItem() {
@@ -1527,7 +1520,7 @@ function openItemAddField(restoreValue = '') {
     if (e.key === 'Escape') { keepAddFieldOpen = false; wrap.remove(); }
   });
   field.addEventListener('blur', () => {
-    if (!field.isConnected) return; // blur from DOM removal during re-render — ignore
+    if (!field.isConnected) return;
     if (!field.value.trim()) { keepAddFieldOpen = false; wrap.remove(); }
   });
 }
