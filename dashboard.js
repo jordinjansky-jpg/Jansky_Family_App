@@ -1366,14 +1366,11 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
   const KP_DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const date = preDate || viewDate;
   let selectedRecipeId = preRecipeId;
+  let selectedSlot = preSlot;
 
   function getRecipeEntries() {
     return Object.entries(recipes).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
   }
-
-  const slotOptions = KP_SLOT_ORDER
-    .map(s => `<option value="${esc(s)}"${s === preSlot ? ' selected' : ''}>${esc(KP_SLOT_LABELS[s])}</option>`)
-    .join('');
 
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
@@ -1421,25 +1418,27 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="kp-day-slot-row">
-      <label class="field">
-        <span class="field__label">Day</span>
-        <div class="kp-date-wrap">
-          <button class="kp-date-btn" id="kp_datebtn" type="button">${formatDateLabel(date)}</button>
-          <input type="date" id="kp_day" class="kp-date-input" value="${esc(date)}">
-        </div>
-      </label>
-      <label class="field">
-        <span class="field__label">Meal slot</span>
-        <select id="kp_slot">${slotOptions}</select>
-      </label>
+    <div class="kp-day-section">
+      <span class="ef2-section-label">Day</span>
+      <div class="kp-date-wrap">
+        <button class="kp-date-btn" id="kp_datebtn" type="button">${formatDateLabel(date)}</button>
+        <input type="date" id="kp_day" class="kp-date-input" value="${esc(date)}">
+      </div>
     </div>
+    <div class="ef2-divider"></div>
+    <div class="kp-slot-section">
+      <span class="ef2-section-label">Slot</span>
+      <div class="kp-slot-pills" id="kp_slotPills">
+        ${KP_SLOT_ORDER.map(s => `<button class="kp-slot-pill${s === selectedSlot ? ' is-active' : ''}" data-slot="${esc(s)}" type="button">${esc(KP_SLOT_LABELS[s])}</button>`).join('')}
+      </div>
+    </div>
+    <div class="ef2-divider"></div>
     <div class="kp-meal-section">
       <div class="kp-meal-header">
-        <span class="field__label">Meal</span>
+        <span class="ef2-section-label">Meal</span>
         <button class="btn btn--ghost btn--sm" id="kp_createRecipe" type="button">+ New recipe</button>
       </div>
-      <input id="kp_search" type="text" autocomplete="off"
+      <input class="kp-search-input" id="kp_search" type="text" autocomplete="off"
         placeholder="Search recipes or type any name…"
         value="${esc(preRecipeName)}">
     </div>
@@ -1468,9 +1467,17 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
     if (e.target.value) document.getElementById('kp_datebtn').textContent = formatDateLabel(e.target.value);
   });
 
+  document.getElementById('kp_slotPills')?.querySelectorAll('.kp-slot-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.getElementById('kp_slotPills')?.querySelectorAll('.kp-slot-pill').forEach(p => p.classList.remove('is-active'));
+      pill.classList.add('is-active');
+      selectedSlot = pill.dataset.slot;
+    });
+  });
+
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
     const day = document.getElementById('kp_day')?.value || date;
-    const slot = document.getElementById('kp_slot')?.value || preSlot;
+    const slot = selectedSlot;
     closeTaskSheet();
     setTimeout(() => openRecipeForm((newId) => {
       setTimeout(() => openMealPlanSheet(slot, day, newId), 320);
@@ -1519,7 +1526,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
 
   document.getElementById('kp_save')?.addEventListener('click', async () => {
     const day = document.getElementById('kp_day')?.value || date;
-    const slot = document.getElementById('kp_slot')?.value || preSlot;
+    const slot = selectedSlot;
     const typed = document.getElementById('kp_search')?.value.trim();
     if (!day || !slot || (!selectedRecipeId && !typed)) return;
 
