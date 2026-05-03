@@ -64,11 +64,11 @@
 }
 
 .day-block__slot {
-  padding: var(--spacing-xs) var(--spacing-md);
+  padding: 4px var(--spacing-md);
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  min-height: 40px;
+  min-height: 32px;
   cursor: pointer;
   transition: background var(--t-fast);
 }
