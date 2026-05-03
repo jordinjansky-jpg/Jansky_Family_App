@@ -1167,9 +1167,10 @@ function openRecipeForm(onSave = null) {
   taskSheetMount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">New recipe</h2>
-      <button class="ef2-icon-btn" id="kr_close" aria-label="Close" type="button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <div class="rf-header-actions">
+        <button class="ef2-icon-btn rf-save-btn" id="kr_save" type="button" aria-label="Create recipe"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+        <button class="ef2-icon-btn" id="kr_close" aria-label="Close" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
     </div>
     <div class="kr-section">
       <label class="field">
@@ -1188,7 +1189,7 @@ function openRecipeForm(onSave = null) {
       </button>
     </div>
     <div class="kr-section">
-      <span class="field__label">Ingredients</span>
+      <span class="ef2-section-label">Ingredients</span>
       <div id="ingredientList"></div>
       <div class="kr-add-ingredient-row">
         <input class="kr-add-qty" id="newIngredientQty" type="text" placeholder="qty" autocomplete="off">
@@ -1197,14 +1198,8 @@ function openRecipeForm(onSave = null) {
       </div>
     </div>
     <div class="kr-section">
-      <label class="field">
-        <span class="field__label">Notes</span>
-        <textarea id="recipeNotes" class="field__input kr-notes" rows="2" placeholder="Description, tips, source…" autocomplete="off"></textarea>
-      </label>
-    </div>
-    <div class="kr-footer">
-      <button class="btn btn--ghost" id="kr_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="kr_save" type="button">Save</button>
+      <span class="ef2-section-label">Notes</span>
+      <textarea id="recipeNotes" class="kr-notes" rows="2" placeholder="Description, tips, source…" autocomplete="off"></textarea>
     </div>`);
 
   requestAnimationFrame(() => {
@@ -1215,7 +1210,6 @@ function openRecipeForm(onSave = null) {
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
   document.getElementById('kr_close')?.addEventListener('click', closeTaskSheet);
-  document.getElementById('kr_cancel')?.addEventListener('click', closeTaskSheet);
 
   function bindIngredientEvents() {
     document.getElementById('ingredientList')?.querySelectorAll('[data-remove-index]').forEach(btn => {

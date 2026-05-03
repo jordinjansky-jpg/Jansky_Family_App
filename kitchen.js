@@ -894,9 +894,11 @@ function openRecipeForm(recipeId, onSave = null) {
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">${existing ? 'Edit recipe' : 'New recipe'}</h2>
-      <button class="ef2-icon-btn" id="kr_close" aria-label="Close" type="button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <div class="rf-header-actions">
+        ${recipeId ? `<button class="ef2-icon-btn rf-delete-btn" id="kr_delete" type="button" aria-label="Delete recipe"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}
+        <button class="ef2-icon-btn rf-save-btn" id="kr_save" type="button" aria-label="${existing ? 'Save changes' : 'Create recipe'}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+        <button class="ef2-icon-btn" id="kr_close" aria-label="Close" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
     </div>
 
     <div class="kr-section">
@@ -920,7 +922,7 @@ function openRecipeForm(recipeId, onSave = null) {
     </div>
 
     <div class="kr-section">
-      <span class="field__label">Ingredients</span>
+      <span class="ef2-section-label">Ingredients</span>
       <div id="ingredientList">${buildIngredientList()}</div>
       <div class="kr-add-ingredient-row">
         <input class="kr-add-qty" id="newIngredientQty" type="text"
@@ -932,22 +934,23 @@ function openRecipeForm(recipeId, onSave = null) {
     </div>
 
     <div class="kr-section">
-      <label class="field">
-        <span class="field__label">Notes</span>
-        <textarea id="recipeNotes" class="field__input kr-notes" rows="2" placeholder="Description, tips, source…" autocomplete="off">${esc(existing?.notes || '')}</textarea>
-      </label>
-    </div>
-
-    <div class="kr-footer">
-      <button class="btn btn--ghost" id="kr_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="kr_save" type="button">Save</button>
+      <span class="ef2-section-label">Notes</span>
+      <textarea id="recipeNotes" class="kr-notes" rows="2" placeholder="Description, tips, source…" autocomplete="off">${esc(existing?.notes || '')}</textarea>
     </div>`);
   activateSheet(mount);
   requestAnimationFrame(() => (existing ? document.getElementById('recipeName') : document.getElementById('recipeUrl'))?.focus());
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kr_close')?.addEventListener('click', close);
-  document.getElementById('kr_cancel')?.addEventListener('click', close);
+  document.getElementById('kr_delete')?.addEventListener('click', async () => {
+    const confirmed = await showConfirm({ title: 'Delete recipe?', danger: true });
+    if (!confirmed) return;
+    await removeKitchenRecipe(recipeId);
+    delete recipes[recipeId];
+    close();
+    renderActiveTab();
+    showToast('Recipe deleted');
+  });
 
   function addIngredient() {
     const val = document.getElementById('newIngredientInput')?.value.trim();
