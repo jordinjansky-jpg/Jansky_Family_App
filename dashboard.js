@@ -1360,8 +1360,8 @@ function openRecipeForm(onSave = null) {
 }
 
 function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = null) {
-  const KP_SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'school-lunch-2', 'dinner', 'snack'];
-  const KP_SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School 1', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
+  const KP_SLOT_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+  const KP_SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
   const KP_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const KP_DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const date = preDate || viewDate;
@@ -1411,12 +1411,16 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
 
   const preRecipeName = preRecipeId ? (recipes[preRecipeId]?.name || '') : '';
 
+  const hasExisting = !!(viewMeals[preSlot]);
   taskSheetMount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">Plan a meal</h2>
-      <button class="ef2-icon-btn" id="kp_close" aria-label="Close" type="button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <div class="rf-header-actions">
+        ${hasExisting ? `<button class="ef2-icon-btn rf-delete-btn" id="kp_delete" type="button" aria-label="Remove meal"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}
+        <button class="ef2-icon-btn" id="kp_close" aria-label="Close" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </div>
     <div class="kp-day-section">
       <span class="ef2-section-label">Day</span>
@@ -1428,9 +1432,9 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
     <div class="ef2-divider"></div>
     <div class="kp-slot-section">
       <span class="ef2-section-label">Slot</span>
-      <div class="kp-slot-pills" id="kp_slotPills">
-        ${KP_SLOT_ORDER.map(s => `<button class="kp-slot-pill${s === selectedSlot ? ' is-active' : ''}" data-slot="${esc(s)}" type="button">${esc(KP_SLOT_LABELS[s])}</button>`).join('')}
-      </div>
+      <nav class="tabs tabs--segmented kp-slot-tabs" id="kp_slotPills">
+        ${KP_SLOT_ORDER.map(s => `<button class="tab${s === selectedSlot ? ' is-active' : ''}${viewMeals[s] ? ' is-occupied' : ''}" data-slot="${esc(s)}" type="button">${esc(KP_SLOT_LABELS[s])}</button>`).join('')}
+      </nav>
     </div>
     <div class="ef2-divider"></div>
     <div class="kp-meal-section">
@@ -1458,6 +1462,12 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
 
   document.getElementById('kp_close')?.addEventListener('click', closeTaskSheet);
   document.getElementById('kp_cancel')?.addEventListener('click', closeTaskSheet);
+  document.getElementById('kp_delete')?.addEventListener('click', async () => {
+    await removeKitchenPlanSlot(day, preSlot);
+    viewMeals = (await readKitchenPlan(viewDate)) || {};
+    closeTaskSheet();
+    render();
+  });
 
   document.getElementById('kp_datebtn')?.addEventListener('click', () => {
     const inp = document.getElementById('kp_day');
@@ -1467,12 +1477,11 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
     if (e.target.value) document.getElementById('kp_datebtn').textContent = formatDateLabel(e.target.value);
   });
 
-  document.getElementById('kp_slotPills')?.querySelectorAll('.kp-slot-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      document.getElementById('kp_slotPills')?.querySelectorAll('.kp-slot-pill').forEach(p => p.classList.remove('is-active'));
-      pill.classList.add('is-active');
-      selectedSlot = pill.dataset.slot;
-    });
+  document.getElementById('kp_slotPills')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-slot]');
+    if (!tab) return;
+    selectedSlot = tab.dataset.slot;
+    document.getElementById('kp_slotPills').querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
   });
 
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {

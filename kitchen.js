@@ -368,12 +368,13 @@ function bindWeekStripSwipe() {
 function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const mount = document.getElementById('sheetMount');
   let selectedRecipeId = preRecipeId;
+  const PLAN_SLOT_ORDER = SLOT_ORDER.filter(s => !s.startsWith('school'));
 
   function getRecipeEntries() {
     return Object.entries(recipes).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
   }
 
-  let selectedSlot = preSlot;
+  let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : 'dinner';
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function formatDateLabel(dk) {
@@ -434,9 +435,9 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     <div class="ef2-divider"></div>
     <div class="kp-slot-section">
       <span class="ef2-section-label">Slot</span>
-      <div class="kp-slot-pills" id="kp_slotPills">
-        ${SLOT_ORDER.map(s => `<button class="kp-slot-pill${s === selectedSlot ? ' is-active' : ''}" data-slot="${esc(s)}" type="button">${esc(SLOT_LABELS[s])}</button>`).join('')}
-      </div>
+      <nav class="tabs tabs--segmented kp-slot-tabs" id="kp_slotPills">
+        ${PLAN_SLOT_ORDER.map(s => `<button class="tab${s === selectedSlot ? ' is-active' : ''}${planCache[preDate]?.[s] ? ' is-occupied' : ''}" data-slot="${esc(s)}" type="button">${esc(SLOT_LABELS[s])}</button>`).join('')}
+      </nav>
     </div>
     <div class="ef2-divider"></div>
     <div class="kp-meal-section">
@@ -470,10 +471,10 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   });
 
   document.getElementById('kp_slotPills')?.addEventListener('click', (e) => {
-    const pill = e.target.closest('[data-slot]');
-    if (!pill) return;
-    selectedSlot = pill.dataset.slot;
-    document.getElementById('kp_slotPills').querySelectorAll('.kp-slot-pill').forEach(p => p.classList.toggle('is-active', p === pill));
+    const tab = e.target.closest('[data-slot]');
+    if (!tab) return;
+    selectedSlot = tab.dataset.slot;
+    document.getElementById('kp_slotPills').querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
   });
 
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
