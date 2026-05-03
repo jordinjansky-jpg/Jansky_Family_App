@@ -1149,8 +1149,9 @@ function _cleanIngredientName(name) {
   return s.replace(/\s+/g, ' ').trim();
 }
 
-function openRecipeForm(onSave = null) {
-  const ingredients = [];
+function openRecipeForm(recipeId = null, onSave = null) {
+  const existing = recipeId ? recipes[recipeId] : null;
+  const ingredients = existing?.ingredients ? [...existing.ingredients] : [];
 
   function buildIngredientList() {
     return ingredients.map((ing, i) =>
@@ -1164,23 +1165,25 @@ function openRecipeForm(onSave = null) {
     ).join('');
   }
 
+  const TRASH_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
   taskSheetMount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
-      <h2 class="sheet__title">New recipe</h2>
+      <h2 class="sheet__title">${existing ? 'Edit recipe' : 'New recipe'}</h2>
       <div class="rf-header-actions">
-        <button class="ef2-icon-btn rf-save-btn" id="kr_save" type="button" aria-label="Create recipe"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+        ${recipeId ? `<button class="ef2-icon-btn rf-delete-btn" id="kr_delete" type="button" aria-label="Delete recipe">${TRASH_SVG}</button>` : ''}
+        <button class="ef2-icon-btn rf-save-btn" id="kr_save" type="button" aria-label="${existing ? 'Save changes' : 'Create recipe'}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
         <button class="ef2-icon-btn" id="kr_close" aria-label="Close" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
     </div>
     <div class="kr-section">
       <label class="field">
         <span class="field__label">Recipe link</span>
-        <input id="recipeUrl" type="url" placeholder="https://…" autocomplete="off">
+        <input id="recipeUrl" type="url" placeholder="https://…" value="${esc(existing?.url || '')}" autocomplete="off">
       </label>
       <span class="kr-import-status" id="urlImportStatus"></span>
     </div>
     <div class="kr-title-row">
-      <input class="kr-title-input" id="recipeName" type="text" placeholder="Recipe name…" autocomplete="off">
+      <input class="kr-title-input" id="recipeName" type="text" value="${esc(existing?.name || '')}" placeholder="Recipe name…" autocomplete="off">
       <input type="file" accept="image/*" capture="environment" id="kr_photoCamera" hidden>
       <input type="file" accept="image/*" id="kr_photoGallery" hidden>
       <input type="file" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" id="kr_photoFiles" hidden>
@@ -1190,7 +1193,7 @@ function openRecipeForm(onSave = null) {
     </div>
     <div class="kr-section">
       <span class="ef2-section-label">Ingredients</span>
-      <div id="ingredientList"></div>
+      <div id="ingredientList">${buildIngredientList()}</div>
       <div class="kr-add-ingredient-row">
         <input class="kr-add-qty" id="newIngredientQty" type="text" placeholder="qty" autocomplete="off">
         <input class="field__input" id="newIngredientInput" type="text" placeholder="Add ingredient…" autocomplete="off">
@@ -1199,17 +1202,32 @@ function openRecipeForm(onSave = null) {
     </div>
     <div class="kr-section">
       <span class="ef2-section-label">Notes</span>
-      <textarea id="recipeNotes" class="kr-notes" rows="2" placeholder="Description, tips, source…" autocomplete="off"></textarea>
+      <textarea id="recipeNotes" class="kr-notes" placeholder="Description, tips, source…" autocomplete="off">${esc(existing?.notes || '')}</textarea>
+
     </div>`);
 
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
-    document.getElementById('recipeUrl')?.focus();
+    const ta = document.getElementById('recipeNotes');
+    if (ta) { ta.style.height = '0'; ta.style.height = ta.scrollHeight + 'px'; }
   });
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
   document.getElementById('kr_close')?.addEventListener('click', closeTaskSheet);
+  document.getElementById('recipeNotes')?.addEventListener('input', (e) => {
+    e.target.style.height = '0'; e.target.style.height = e.target.scrollHeight + 'px';
+  });
+
+  document.getElementById('kr_delete')?.addEventListener('click', async () => {
+    const confirmed = await showConfirm({ title: 'Delete recipe?', danger: true });
+    if (!confirmed) return;
+    await removeKitchenRecipe(recipeId);
+    delete recipes[recipeId];
+    closeTaskSheet();
+    render();
+    showToast('Recipe deleted');
+  });
 
   function bindIngredientEvents() {
     document.getElementById('ingredientList')?.querySelectorAll('[data-remove-index]').forEach(btn => {
@@ -1340,16 +1358,22 @@ function openRecipeForm(onSave = null) {
       name,
       url: document.getElementById('recipeUrl')?.value.trim() || null,
       notes: document.getElementById('recipeNotes')?.value.trim() || null,
-      source: 'manual',
+      source: existing?.source || 'manual',
       ingredients,
-      isFavorite: false,
-      lastUsed: null,
-      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      isFavorite: existing?.isFavorite || false,
+      lastUsed: existing?.lastUsed || null,
     };
-    const newId = await pushKitchenRecipe(data);
-    recipes[newId] = data;
-    closeTaskSheet();
-    if (onSave) onSave(newId);
+    if (recipeId) {
+      await writeKitchenRecipe(recipeId, { ...data, createdAt: existing?.createdAt });
+      recipes[recipeId] = { ...data, createdAt: existing?.createdAt };
+      closeTaskSheet();
+      if (onSave) { onSave(recipeId); } else { render(); }
+    } else {
+      const newId = await pushKitchenRecipe({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
+      recipes[newId] = data;
+      closeTaskSheet();
+      if (onSave) { onSave(newId); } else { render(); }
+    }
   });
 }
 
@@ -1435,10 +1459,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
         ${preRecipeName || selectedRecipeId ? '' : 'disabled'}>Save</button>
     </div>`);
 
-  requestAnimationFrame(() => {
-    document.getElementById('bottomSheet')?.classList.add('active');
-    if (!preRecipeName) document.getElementById('kp_search')?.focus();
-  });
+  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
   document.getElementById('kp_mealSelect')?.addEventListener('click', () => {
     const dropdown = document.getElementById('kp_mealDropdown');
@@ -1580,7 +1601,7 @@ function openMealDetailSheet(planEntry, slot) {
 
   document.getElementById('mdEdit')?.addEventListener('click', () => {
     closeTaskSheet();
-    setTimeout(() => openMealEditorSheet(planEntry.recipeId, slot), 320);
+    setTimeout(() => openRecipeForm(planEntry.recipeId, () => render()), 320);
   });
 }
 
@@ -1772,10 +1793,7 @@ function openEventForm(existingEventId = null, savedState = null) {
     chip.style.setProperty('--chip-color', chip.dataset.personColor);
   });
 
-  requestAnimationFrame(() => {
-    document.getElementById('bottomSheet')?.classList.add('active');
-    if (mode === 'create') document.getElementById('ef2_name')?.focus();
-  });
+  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
   // ── Close / Cancel ───────────────────────────────────────────
   document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
@@ -2273,10 +2291,7 @@ function openEventForm(existingEventId = null, savedState = null) {
       </div>
     </div>`;
     document.body.appendChild(overlay);
-    requestAnimationFrame(() => {
-      overlay.classList.add('active');
-      overlay.querySelector('#ef2IcalUrl')?.focus();
-    });
+    requestAnimationFrame(() => { overlay.classList.add('active'); });
 
     function closeIcal() {
       overlay.classList.remove('active');
@@ -2823,10 +2838,7 @@ function openTaskForm(taskId = null, savedState = null) {
     chip.style.setProperty('--chip-color', chip.dataset.personColor);
   });
 
-  requestAnimationFrame(() => {
-    document.getElementById('bottomSheet')?.classList.add('active');
-    if (mode === 'create') document.getElementById('tf_name')?.focus();
-  });
+  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
   // ── Close ────────────────────────────────────────────────
   const doClose = () => { tfHidePicker(); closeTaskSheet(); };

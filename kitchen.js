@@ -447,7 +447,6 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         ${preRecipeName || selectedRecipeId ? '' : 'disabled'}>Save</button>
     </div>`);
   activateSheet(mount);
-  if (!preRecipeName) document.getElementById('kp_search')?.focus();
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kp_close')?.addEventListener('click', close);
@@ -938,10 +937,16 @@ function openRecipeForm(recipeId, onSave = null) {
 
     <div class="kr-section">
       <span class="ef2-section-label">Notes</span>
-      <textarea id="recipeNotes" class="kr-notes" rows="2" placeholder="Description, tips, source…" autocomplete="off">${esc(existing?.notes || '')}</textarea>
+      <textarea id="recipeNotes" class="kr-notes" placeholder="Description, tips, source…" autocomplete="off">${esc(existing?.notes || '')}</textarea>
     </div>`);
   activateSheet(mount);
-  requestAnimationFrame(() => (existing ? document.getElementById('recipeName') : document.getElementById('recipeUrl'))?.focus());
+  requestAnimationFrame(() => {
+    const ta = document.getElementById('recipeNotes');
+    if (ta) { ta.style.height = '0'; ta.style.height = ta.scrollHeight + 'px'; }
+  });
+  document.getElementById('recipeNotes')?.addEventListener('input', (e) => {
+    e.target.style.height = '0'; e.target.style.height = e.target.scrollHeight + 'px';
+  });
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kr_close')?.addEventListener('click', close);
@@ -1354,7 +1359,6 @@ function openCreateListSheet() {
       <button class="btn btn--primary" id="kl_save" type="button">Create</button>
     </div>`);
   activateSheet(mount);
-  requestAnimationFrame(() => document.getElementById('kl_name')?.focus());
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kl_close')?.addEventListener('click', close);

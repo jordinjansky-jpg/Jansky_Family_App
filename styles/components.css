@@ -4399,7 +4399,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 .kr-add-qty::placeholder { color: var(--text-faint); }
 .kr-add-qty:focus { outline: none; border-color: var(--accent); }
-.kr-notes { resize: vertical; }
+.kr-notes { resize: none; overflow: hidden; min-height: 2.5rem; }
 .kr-import-status {
   display: none;
   font-size: var(--font-sm);

@@ -2123,9 +2123,6 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
 
   let msgType = 'bonus';
 
-  // Focus title input on open
-  requestAnimationFrame(() => sheet.querySelector('#msg_customTitle')?.focus());
-
   // Person chips
   for (const chip of sheet.querySelectorAll('#msg_people .chip--selectable')) {
     chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
@@ -3249,14 +3246,14 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
 
   const LINK_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
   const PENCIL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const TRASH_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const REMOVE_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`;
   const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
   const linkBtn = meal.url
     ? `<a class="ef2-icon-btn" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open link">${LINK_SVG}</a>`
     : '';
   const removeBtn = !isSchool && !readonly
-    ? `<button class="ef2-icon-btn rf-delete-btn" id="mdRemove" type="button" aria-label="Remove from plan">${TRASH_SVG}</button>`
+    ? `<button class="ef2-icon-btn" id="mdRemove" type="button" aria-label="Remove from plan">${REMOVE_SVG}</button>`
     : '';
   const editBtn = !isSchool && !readonly
     ? `<button class="ef2-icon-btn" id="mdEdit" type="button" aria-label="Edit meal">${PENCIL_SVG}</button>`
