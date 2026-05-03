@@ -1571,7 +1571,13 @@ function openMealDetailSheet(planEntry, slot) {
 
   document.getElementById('mdClose')?.addEventListener('click', closeTaskSheet);
 
-  // Pencil button in header — open full editor, return to recipe view on save
+  document.getElementById('mdRemove')?.addEventListener('click', async () => {
+    await removeKitchenPlanSlot(viewDate, slot);
+    viewMeals = (await readKitchenPlan(viewDate)) || {};
+    closeTaskSheet();
+    render();
+  });
+
   document.getElementById('mdEdit')?.addEventListener('click', () => {
     closeTaskSheet();
     setTimeout(() => openMealEditorSheet(planEntry.recipeId, slot), 320);
@@ -1613,6 +1619,8 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
 
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
+
+  document.getElementById('me_closeBtn')?.addEventListener('click', closeTaskSheet);
 
   document.getElementById('me_fav')?.addEventListener('click', e => {
     const btn = e.currentTarget;

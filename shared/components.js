@@ -3023,15 +3023,23 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     </div>`
   ).join('');
 
-  const starSvg = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+  const starSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+  const trashSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const checkSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const closeSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
   return `<form class="task-detail-sheet" id="meForm" novalidate>
-    <div class="me-editor-header">
-      <h3 class="me-editor-title">${isEdit ? 'Edit meal' : 'New meal'}</h3>
-      <button class="me-fav-btn${isFav ? ' is-active' : ''}" id="me_fav" type="button"
-              aria-pressed="${isFav}" aria-label="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
-        ${starSvg}
-      </button>
+    <div class="sheet__header">
+      <h2 class="sheet__title">${isEdit ? 'Edit meal' : 'New meal'}</h2>
+      <div class="rf-header-actions">
+        <button class="ef2-icon-btn me-fav-btn${isFav ? ' is-active' : ''}" id="me_fav" type="button"
+                aria-pressed="${isFav}" aria-label="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+          ${starSvg}
+        </button>
+        ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="meDelete" type="button" aria-label="Delete meal">${trashSvg}</button>` : ''}
+        <button class="ef2-icon-btn rf-save-btn" type="submit" aria-label="${isEdit ? 'Save changes' : 'Create meal'}">${checkSvg}</button>
+        <button class="ef2-icon-btn" id="me_closeBtn" type="button" aria-label="Close">${closeSvg}</button>
+      </div>
     </div>
 
     <label class="field">
@@ -3071,8 +3079,6 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     </label>
 
     <input type="hidden" id="me_mealId" value="${esc(mealId || '')}">
-    <button class="btn btn--primary btn--full" type="submit">${isEdit ? 'Save changes' : 'Create meal'}</button>
-    ${isEdit ? `<button class="btn btn--ghost btn--full me-delete-btn" id="meDelete" type="button">Delete meal</button>` : ''}
   </form>`;
 }
 
@@ -3243,10 +3249,14 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
 
   const LINK_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
   const PENCIL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const TRASH_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
   const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
   const linkBtn = meal.url
     ? `<a class="ef2-icon-btn" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open link">${LINK_SVG}</a>`
+    : '';
+  const removeBtn = !isSchool && !readonly
+    ? `<button class="ef2-icon-btn rf-delete-btn" id="mdRemove" type="button" aria-label="Remove from plan">${TRASH_SVG}</button>`
     : '';
   const editBtn = !isSchool && !readonly
     ? `<button class="ef2-icon-btn" id="mdEdit" type="button" aria-label="Edit meal">${PENCIL_SVG}</button>`
@@ -3257,6 +3267,7 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
       <h2 class="sheet__title">${esc(meal.name)}</h2>
       <div class="rf-header-actions">
         ${linkBtn}
+        ${removeBtn}
         ${editBtn}
         <button class="ef2-icon-btn" id="mdClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
       </div>

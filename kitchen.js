@@ -326,10 +326,15 @@ function renderRecipesTab() {
   document.getElementById('recipeFilterBtn')?.addEventListener('click', openRecipeFilterSheet);
 
   content.querySelectorAll('[data-recipe-id]').forEach(card => {
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('[data-recipe-link]') || e.target.closest('[data-fav-recipe]')) return;
-      openRecipeDetailSheet(card.dataset.recipeId);
-    });
+    const id = card.dataset.recipeId;
+    bindLongPress(
+      card,
+      () => openRecipeForm(id),
+      (e) => {
+        if (e.target.closest('[data-recipe-link]') || e.target.closest('[data-fav-recipe]')) return;
+        openRecipeDetailSheet(id);
+      }
+    );
   });
 
   content.querySelectorAll('[data-fav-recipe]').forEach(btn => {
@@ -592,6 +597,8 @@ function openRecipeDetailSheet(recipeId) {
   const hasIngredients = (recipe.ingredients?.length || 0) > 0;
 
   const LINK_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+  const PENCIL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const TRASH_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
   const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
   mount.innerHTML = renderBottomSheet(`
@@ -599,6 +606,8 @@ function openRecipeDetailSheet(recipeId) {
       <h2 class="sheet__title">${esc(recipe.name)}</h2>
       <div class="rf-header-actions">
         ${recipe.url ? `<a class="ef2-icon-btn" href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open link">${LINK_SVG}</a>` : ''}
+        <button class="ef2-icon-btn rf-delete-btn" id="deleteRecipeBtn" aria-label="Delete recipe" type="button">${TRASH_SVG}</button>
+        <button class="ef2-icon-btn" id="editRecipeBtn" aria-label="Edit recipe" type="button">${PENCIL_SVG}</button>
         <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">${CLOSE_SVG}</button>
       </div>
     </div>
@@ -614,11 +623,7 @@ function openRecipeDetailSheet(recipeId) {
       <div class="me-detail__section">
         <span class="me-detail__section-label">Notes</span>
         <p class="me-detail__notes">${esc(recipe.notes)}</p>
-      </div>` : ''}
-    <div class="sheet__footer">
-      <button class="btn btn--secondary" id="editRecipeBtn" type="button">Edit</button>
-      <button class="btn btn--danger btn--full" id="deleteRecipeBtn" type="button">Delete</button>
-    </div>`);
+      </div>` : ''}`);
   activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
