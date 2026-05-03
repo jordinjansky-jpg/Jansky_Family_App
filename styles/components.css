@@ -4491,6 +4491,8 @@ label.ef2-icon-btn  { cursor: pointer; }
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) 0;
 }
+.rf-cost-row .ef2-add-chip { margin-left: auto; }
+.rf-type-hint { min-height: 16px; margin-top: 4px; }
 .rf-cost-input {
   width: 96px;
   height: 40px;

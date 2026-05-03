@@ -1948,7 +1948,7 @@
               <button class="tf-rot-pill${reward.rewardType === 'task-skip' ? ' tf-rot-pill--active' : ''}" data-rtype="task-skip" type="button">Task Skip</button>
               <button class="tf-rot-pill${reward.rewardType === 'penalty-removal' ? ' tf-rot-pill--active' : ''}" data-rtype="penalty-removal" type="button">No Penalty</button>
             </div>
-            <div id="rf_typeHint" class="form-hint" style="min-height:16px;margin-top:4px;"></div>
+            <div id="rf_typeHint" class="form-hint rf-type-hint"></div>
           </div>
 
           <div class="ef2-divider"></div>
@@ -1956,7 +1956,7 @@
           <div class="rf-cost-row">
             <input type="number" id="rf_pointCost" class="rf-cost-input" value="${reward.pointCost || ''}" min="1" placeholder="0">
             <span class="rf-cost-unit">pts</span>
-            <button class="ef2-add-chip" id="rf_pricingChip" type="button" style="margin-left:auto;">+ Pricing help</button>
+            <button class="ef2-add-chip" id="rf_pricingChip" type="button">+ Pricing help</button>
           </div>
 
           <div class="ef2-field-reveal" id="rf_pricingReveal">

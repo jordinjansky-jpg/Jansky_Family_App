@@ -2,6 +2,7 @@ import { initFirebase, readSettings, readPeople, readRewards, readAllMessages,
   readAllBalanceAnchors, readAllSnapshots, readBank, readMultipliers,
   writeFyiMessage, writeMessage, markMessageSeen, writeBankToken,
   markBankTokenUsed, removeBankToken, onConnectionChange, pushReward,
+  writeReward, archiveReward, removeReward,
   onAllMessages, removeMessage, writeMultiplier, writePerson
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
@@ -299,6 +300,14 @@ function bindShopTab() {
   document.querySelectorAll('.reward-get-btn').forEach(btn => {
     btn.addEventListener('click', () => handleGetReward(btn.dataset.rewardId));
   });
+  if (!isKidMode) {
+    document.querySelectorAll('.card--reward[data-reward-id]').forEach(card => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.reward-get-btn')) return;
+        openRewardForm(card.dataset.rewardId);
+      });
+    });
+  }
 }
 
 function openShopFilterSheet() {
@@ -1027,7 +1036,7 @@ function bindPage() {
   document.getElementById('kidBackBtn')?.addEventListener('click', () => {
     location.href = `kid.html?kid=${encodeURIComponent(kidName)}`;
   });
-  document.getElementById('rewardsFab')?.addEventListener('click', () => openRewardCreateForm());
+  document.getElementById('rewardsFab')?.addEventListener('click', () => openRewardForm(null));
   document.addEventListener('click', e => {
     if (e.target.id === 'bannerReviewBtn') { activeTab = 'approvals'; render(); }
     if (e.target.id === 'personSwitcherSelect') {/* handled by change listener added in render */}
@@ -1044,31 +1053,43 @@ const PRICING_AVERAGES = [
   { label: 'C (75%)', value: 75 }
 ];
 
-const RCF_CLOSE_SVG   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-const RCF_SAVE_SVG    = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const RF_CLOSE_SVG   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const RF_SAVE_SVG    = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const RF_DELETE_SVG  = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+const RF_ARCHIVE_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
 
-function openRewardCreateForm() {
+function openRewardForm(rewardId = null) {
   const mount = document.getElementById('sheetMount');
   const tz = settings?.timezone || 'UTC';
-  const defaultEmoji = '\u{1F381}';
+  const reward = rewardId ? (rewardsObj?.[rewardId] || {}) : {};
+  const isEdit = !!rewardId;
+  const isArchived = isEdit && reward.status === 'archived';
+  const defaultEmoji = reward.icon || '\u{1F381}';
+  const isApprovalRequired = reward.approvalRequired !== false;
+  const sheetTitle = isArchived ? 'Archived Reward' : (isEdit ? 'Edit Reward' : 'New Reward');
 
-  const peopleHtml = people.map(p =>
-    `<button type="button" class="ef2-person-chip" data-person-id="${esc(p.id)}" data-state="primary" style="--chip-color:${esc(p.color)}">${esc(p.name)}</button>`
-  ).join('');
+  const peopleHtml = people.map(p => {
+    const vis = !reward.perPerson || reward.perPerson.includes(p.id);
+    return `<button type="button" class="ef2-person-chip" data-person-id="${esc(p.id)}"${vis ? ' data-state="primary"' : ''} style="--chip-color:${esc(p.color)}">${esc(p.name)}</button>`;
+  }).join('');
 
   mount.innerHTML = renderBottomSheet(`
     <div class="tf-form">
       <div class="sheet__header">
-        <h2 class="sheet__title">New Reward</h2>
+        <h2 class="sheet__title">${sheetTitle}</h2>
         <div class="rf-header-actions">
-          <button class="ef2-icon-btn rf-save-btn" id="rcf_save" type="button" aria-label="Create reward" title="Create">${RCF_SAVE_SVG}</button>
-          <button class="ef2-icon-btn" id="rcf_close" type="button" aria-label="Close">${RCF_CLOSE_SVG}</button>
+          ${isEdit ? (isArchived
+            ? `<button class="ef2-icon-btn" id="rcf_unarchive" type="button" aria-label="Unarchive" title="Unarchive">${RF_ARCHIVE_SVG}</button>`
+            : `<button class="ef2-icon-btn" id="rcf_archive" type="button" aria-label="Archive" title="Archive">${RF_ARCHIVE_SVG}</button>`) : ''}
+          ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="rcf_delete" type="button" aria-label="Delete" title="Delete reward">${RF_DELETE_SVG}</button>` : ''}
+          <button class="ef2-icon-btn rf-save-btn" id="rcf_save" type="button" aria-label="${isEdit ? 'Save' : 'Create reward'}" title="${isEdit ? 'Save' : 'Create'}">${RF_SAVE_SVG}</button>
+          <button class="ef2-icon-btn" id="rcf_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
         </div>
       </div>
 
       <div class="rf-title-row">
         <button class="rf-emoji-btn" id="rcf_emojiBtnPreview" type="button" title="Pick emoji">${defaultEmoji}</button>
-        <input class="tf-title-input" id="rcf_name" type="text" placeholder="Reward name" autocomplete="off">
+        <input class="tf-title-input" id="rcf_name" type="text" placeholder="Reward name" value="${esc(reward.name || '')}" autocomplete="off">
       </div>
 
       <div class="rf-emoji-reveal" id="rcf_emojiReveal">
@@ -1082,19 +1103,19 @@ function openRewardCreateForm() {
 
       <div class="tf-rotation-section">
         <div class="tf-rotation-pills" id="rcf_type">
-          <button class="tf-rot-pill tf-rot-pill--active" data-rtype="custom" type="button">Custom</button>
-          <button class="tf-rot-pill" data-rtype="task-skip" type="button">Task Skip</button>
-          <button class="tf-rot-pill" data-rtype="penalty-removal" type="button">No Penalty</button>
+          <button class="tf-rot-pill${(reward.rewardType || 'custom') === 'custom' ? ' tf-rot-pill--active' : ''}" data-rtype="custom" type="button">Custom</button>
+          <button class="tf-rot-pill${reward.rewardType === 'task-skip' ? ' tf-rot-pill--active' : ''}" data-rtype="task-skip" type="button">Task Skip</button>
+          <button class="tf-rot-pill${reward.rewardType === 'penalty-removal' ? ' tf-rot-pill--active' : ''}" data-rtype="penalty-removal" type="button">No Penalty</button>
         </div>
-        <div id="rcf_typeHint" class="form-hint" style="min-height:16px;margin-top:4px;"></div>
+        <div id="rcf_typeHint" class="form-hint rf-type-hint"></div>
       </div>
 
       <div class="ef2-divider"></div>
 
       <div class="rf-cost-row">
-        <input type="number" id="rcf_pointCost" class="rf-cost-input" min="1" placeholder="0">
+        <input type="number" id="rcf_pointCost" class="rf-cost-input" value="${reward.pointCost || ''}" min="1" placeholder="0">
         <span class="rf-cost-unit">pts</span>
-        <button class="ef2-add-chip" id="rcf_pricingChip" type="button" style="margin-left:auto;">+ Pricing help</button>
+        <button class="ef2-add-chip" id="rcf_pricingChip" type="button">+ Pricing help</button>
       </div>
 
       <div class="ef2-field-reveal" id="rcf_pricingReveal">
@@ -1123,7 +1144,7 @@ function openRewardCreateForm() {
       <div class="ef2-divider"></div>
 
       <div class="ef2-secondary-row">
-        <button class="ef2-add-chip is-active" id="rcf_approvalChip" type="button">Approval required</button>
+        <button class="ef2-add-chip${isApprovalRequired ? ' is-active' : ''}" id="rcf_approvalChip" type="button">Approval required</button>
         <button class="ef2-add-chip" id="rcf_advancedChip" type="button">+ Advanced</button>
       </div>
 
@@ -1131,15 +1152,15 @@ function openRewardCreateForm() {
         <div class="rf-adv-grid">
           <div class="rf-adv-row">
             <span class="rf-adv-label">Max uses</span>
-            <input type="number" id="rcf_maxRedemptions" class="rf-adv-input" min="1" placeholder="Unlimited">
+            <input type="number" id="rcf_maxRedemptions" class="rf-adv-input" value="${reward.maxRedemptions || ''}" min="1" placeholder="Unlimited">
           </div>
           <div class="rf-adv-row">
             <span class="rf-adv-label">Streak required</span>
-            <input type="number" id="rcf_streakReq" class="rf-adv-input" min="1" placeholder="None">
+            <input type="number" id="rcf_streakReq" class="rf-adv-input" value="${reward.streakRequirement || ''}" min="1" placeholder="None">
           </div>
           <div class="rf-adv-row">
             <span class="rf-adv-label">Expires</span>
-            <input type="date" id="rcf_expiresAt" class="rf-adv-input">
+            <input type="date" id="rcf_expiresAt" class="rf-adv-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz }) : ''}">
           </div>
         </div>
       </div>
@@ -1179,8 +1200,11 @@ function openRewardCreateForm() {
     }
   });
 
-  // Type pills
+  // Type pills — initialize hint for existing type
   const typeHint = mount.querySelector('#rcf_typeHint');
+  const initType = mount.querySelector('#rcf_type .tf-rot-pill--active')?.dataset?.rtype || 'custom';
+  if (initType === 'task-skip') typeHint.textContent = 'Person picks a task to skip for the day';
+  else if (initType === 'penalty-removal') typeHint.textContent = 'Removes the late penalty from a past task';
   for (const pill of mount.querySelectorAll('#rcf_type .tf-rot-pill')) {
     pill.addEventListener('click', () => {
       mount.querySelectorAll('#rcf_type .tf-rot-pill').forEach(p => p.classList.remove('tf-rot-pill--active'));
@@ -1231,21 +1255,55 @@ function openRewardCreateForm() {
   }
 
   // Approval chip toggle
-  let approvalRequired = true;
+  let approvalRequired = isApprovalRequired;
   mount.querySelector('#rcf_approvalChip')?.addEventListener('click', () => {
     approvalRequired = !approvalRequired;
     mount.querySelector('#rcf_approvalChip')?.classList.toggle('is-active', approvalRequired);
   });
 
-  // Advanced chip toggle
+  // Advanced chip toggle — auto-open if any advanced fields are set
+  if (reward.maxRedemptions || reward.streakRequirement || reward.expiresAt) {
+    mount.querySelector('#rcf_advancedReveal')?.classList.add('is-open');
+    mount.querySelector('#rcf_advancedChip')?.classList.add('is-active');
+    mount.querySelector('#rcf_advancedChip').textContent = 'Advanced';
+  }
   mount.querySelector('#rcf_advancedChip')?.addEventListener('click', () => {
     const reveal = mount.querySelector('#rcf_advancedReveal');
     reveal?.classList.toggle('is-open');
-    mount.querySelector('#rcf_advancedChip')?.classList.toggle('is-active', reveal?.classList.contains('is-open'));
+    const open = reveal?.classList.contains('is-open');
+    mount.querySelector('#rcf_advancedChip')?.classList.toggle('is-active', open);
+    mount.querySelector('#rcf_advancedChip').textContent = open ? 'Advanced' : '+ Advanced';
   });
 
   // Close
   mount.querySelector('#rcf_close')?.addEventListener('click', close);
+
+  // Archive / Unarchive / Delete
+  mount.querySelector('#rcf_delete')?.addEventListener('click', async () => {
+    if (!await showConfirm({ title: `Delete "${reward.name}"?`, message: 'This cannot be undone.', danger: true })) return;
+    await removeReward(rewardId);
+    close();
+    showToast('Reward deleted');
+    await refreshData();
+    render();
+  });
+
+  mount.querySelector('#rcf_archive')?.addEventListener('click', async () => {
+    if (!await showConfirm({ title: `Archive "${reward.name}"?`, message: 'It will be hidden from the store but not deleted.' })) return;
+    await archiveReward(rewardId);
+    close();
+    showToast('Reward archived');
+    await refreshData();
+    render();
+  });
+
+  mount.querySelector('#rcf_unarchive')?.addEventListener('click', async () => {
+    await writeReward(rewardId, { ...reward, status: 'active' });
+    close();
+    showToast('Reward restored');
+    await refreshData();
+    render();
+  });
 
   // Save
   mount.querySelector('#rcf_save')?.addEventListener('click', async () => {
@@ -1263,14 +1321,20 @@ function openRewardCreateForm() {
     const streakReq = parseInt(mount.querySelector('#rcf_streakReq').value) || null;
     const expiresDate = mount.querySelector('#rcf_expiresAt').value;
     const expiresAt = expiresDate ? new Date(expiresDate + 'T23:59:59').getTime() : null;
-    await pushReward({
+    const data = {
       name, icon: currentEmoji, pointCost: cost, rewardType,
       approvalRequired, perPerson: selectedPeople,
       maxRedemptions, streakRequirement: streakReq, expiresAt,
-      status: 'active'
-    });
+      status: reward.status || 'active'
+    };
+    if (isEdit) {
+      await writeReward(rewardId, data);
+      showToast('Reward saved');
+    } else {
+      await pushReward(data);
+      showToast('Reward created!');
+    }
     close();
-    showToast('Reward created!');
     await refreshData();
     render();
   });
