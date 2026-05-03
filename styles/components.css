@@ -3757,16 +3757,14 @@ label.ef2-icon-btn  { cursor: pointer; }
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  max-height: 220px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  margin-top: var(--spacing-xs);
 }
 .recipe-pick__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 11px var(--spacing-md);
+  padding: 13px var(--spacing-md);
   border-bottom: 1px solid var(--border);
   text-align: left;
   font-size: var(--font-sm);
@@ -3777,34 +3775,14 @@ label.ef2-icon-btn  { cursor: pointer; }
 .recipe-pick__row:last-child { border-bottom: none; }
 .recipe-pick__row:active,
 .recipe-pick__row.is-selected { background: var(--accent-soft); }
-.recipe-pick__check { color: var(--accent); font-weight: 700; }
+.recipe-pick__row.is-selected span { color: var(--accent); font-weight: 600; }
+.recipe-pick__check { color: var(--accent); font-weight: 700; flex-shrink: 0; }
 .recipe-pick__none {
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: var(--font-sm);
   color: var(--text-muted);
   font-style: italic;
 }
-.recipe-pick__item {
-  display: flex;
-  align-items: stretch;
-}
-.recipe-pick__item:last-child .recipe-pick__row { border-bottom: none; }
-.recipe-pick__item:last-child .recipe-pick__fav-btn { border-bottom: none; }
-.recipe-pick__pick { flex: 1; min-width: 0; }
-.recipe-pick__fav-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  border-left: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-faint);
-  transition: background var(--t-fast), color var(--t-fast);
-}
-.recipe-pick__fav-btn:active { background: var(--surface-2); }
-.recipe-pick__fav-btn.is-fav { color: var(--accent); }
 
 /* ── Card stack (flex column wrapper — suppresses card self-margin) ── */
 .card-stack {

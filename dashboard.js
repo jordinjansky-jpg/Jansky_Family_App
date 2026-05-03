@@ -1368,45 +1368,29 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
   let selectedRecipeId = preRecipeId;
   let selectedSlot = preSlot;
 
-  function getRecipeEntries() {
-    return Object.entries(recipes).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0));
-  }
-
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
     return `${KP_DAY_ABBR[d.getDay()]} ${KP_MONTHS[d.getMonth()]} ${d.getDate()}`;
   }
 
-  const starFilled = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-  const starEmpty = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-
   function buildPickRow(id, r) {
     const isSelected = selectedRecipeId === id;
-    return `<div class="recipe-pick__item">
-      <button class="recipe-pick__row recipe-pick__pick${isSelected ? ' is-selected' : ''}"
-        data-recipe-pick="${esc(id)}" type="button">
-        <span>${esc(r.name)}</span>
-        ${isSelected ? '<span class="recipe-pick__check">&#10003;</span>' : ''}
-      </button>
-      <button class="recipe-pick__fav-btn${r.isFavorite ? ' is-fav' : ''}"
-        data-fav-id="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}">
-        ${r.isFavorite ? starFilled : starEmpty}
-      </button>
-    </div>`;
+    return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-recipe-pick="${esc(id)}" type="button">
+      <span>${esc(r.name)}</span>
+      ${isSelected ? '<span class="recipe-pick__check">&#10003;</span>' : ''}
+    </button>`;
   }
 
   function buildRecipeRows(filter) {
-    const entries = getRecipeEntries();
     const lc = filter?.toLowerCase() || '';
-    if (lc) {
-      const filtered = entries.filter(([, r]) => r.name.toLowerCase().includes(lc));
-      if (filtered.length === 0) return `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`;
-      return filtered.map(([id, r]) => buildPickRow(id, r)).join('');
-    }
+    const all = Object.entries(recipes).sort((a, b) => {
+      if (a[1].isFavorite !== b[1].isFavorite) return a[1].isFavorite ? -1 : 1;
+      return a[1].name.localeCompare(b[1].name);
+    });
+    const entries = lc ? all.filter(([, r]) => r.name.toLowerCase().includes(lc)) : all;
+    if (entries.length === 0 && lc) return `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`;
     if (entries.length === 0) return `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
-    const favorites = entries.filter(([, r]) => r.isFavorite);
-    const recent = entries.filter(([, r]) => !r.isFavorite).slice(0, 3);
-    return [...favorites, ...recent].map(([id, r]) => buildPickRow(id, r)).join('');
+    return entries.map(([id, r]) => buildPickRow(id, r)).join('');
   }
 
   const preRecipeName = preRecipeId ? (recipes[preRecipeId]?.name || '') : '';
@@ -1511,16 +1495,6 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
         document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
         bindPickRows();
         updateSaveBtn();
-      });
-    });
-    document.getElementById('recipePick')?.querySelectorAll('[data-fav-id]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.favId;
-        const newFav = !recipes[id]?.isFavorite;
-        recipes[id] = { ...recipes[id], isFavorite: newFav };
-        await writeKitchenRecipe(id, { ...recipes[id] });
-        document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
-        bindPickRows();
       });
     });
   }
