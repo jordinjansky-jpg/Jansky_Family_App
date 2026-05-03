@@ -2757,9 +2757,8 @@
 .weather-row__glyph {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 4px;
 }
 
 .weather-row__glyph svg {
@@ -2767,10 +2766,18 @@
   height: 28px;
 }
 
-.weather-row__data {
-  width: 80px;
+.weather-row__right {
+  width: 88px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-xs);
+}
+
+.weather-row__data {
   text-align: right;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2797,22 +2804,34 @@
 
 .weather-row__periods {
   display: flex;
-  flex-direction: row;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
   background: var(--surface-2);
   border-radius: var(--radius-sm);
-  padding: 2px 6px;
+  padding: 4px 6px;
+}
+
+.weather-period {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .weather-period__glyph {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
-  color: var(--text-muted);
 }
 
-.weather-period__glyph svg { width: 14px; height: 14px; }
+.weather-period__glyph svg { width: 18px; height: 18px; }
+
+.weather-period__label {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-weight: 600;
+  min-width: 20px;
+}
 
 .admin-form__row {
   display: flex;

@@ -2416,17 +2416,23 @@ export function renderWeatherSheet(days, today, tomorrow) {
         <strong>${esc(dayLabel(day.dateKey))}</strong>
         <span>${esc(shortDate(day.dateKey))}</span>
       </div>
-      <div class="weather-row__glyph" aria-hidden="true">
-        ${glyph}
-        <div class="weather-row__periods" aria-label="Morning and afternoon forecast">
-          <span class="weather-period__glyph" title="AM">${morningGlyph}</span>
-          <span class="weather-period__glyph" title="PM">${afternoonGlyph}</span>
+      <div class="weather-row__glyph" aria-hidden="true">${glyph}</div>
+      <div class="weather-row__right">
+        <div class="weather-row__data">
+          <strong>${esc(day.high)} / ${esc(day.low)}</strong>
+          <span>${esc(day.conditionLabel)}</span>
+          ${popHtml}
         </div>
-      </div>
-      <div class="weather-row__data">
-        <strong>${esc(day.high)} / ${esc(day.low)}</strong>
-        <span>${esc(day.conditionLabel)}</span>
-        ${popHtml}
+        <div class="weather-row__periods" aria-label="Morning and afternoon forecast">
+          <div class="weather-period">
+            <span class="weather-period__glyph" aria-hidden="true">${morningGlyph}</span>
+            <span class="weather-period__label">AM</span>
+          </div>
+          <div class="weather-period">
+            <span class="weather-period__glyph" aria-hidden="true">${afternoonGlyph}</span>
+            <span class="weather-period__label">PM</span>
+          </div>
+        </div>
       </div>
     </div>`;
   }).join('');
