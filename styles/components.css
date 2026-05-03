@@ -2727,8 +2727,7 @@
 }
 
 .weather-row {
-  display: grid;
-  grid-template-columns: 88px 44px 1fr auto;
+  display: flex;
   align-items: center;
   padding: var(--spacing-md) 0;
   border-bottom: 1px solid var(--border);
@@ -2737,6 +2736,8 @@
 .weather-row:last-child { border-bottom: none; }
 
 .weather-row__day {
+  width: 88px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2754,6 +2755,7 @@
 }
 
 .weather-row__glyph {
+  flex: 1;
   display: flex;
   justify-content: center;
 }
@@ -2764,8 +2766,9 @@
 }
 
 .weather-row__data {
+  width: 80px;
+  flex-shrink: 0;
   text-align: right;
-  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
