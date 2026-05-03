@@ -328,7 +328,7 @@ function renderRecipesTab() {
         <span class="rl-count">${esc(countLabel)}</span>
         <button class="chip rl-filter-btn${filterCount > 0 ? ' chip--active' : ''}" id="recipeFilterBtn" type="button">${filterLabel} &#9662;</button>
       </div>
-      <button class="btn btn--ghost btn--sm rl-find-btn" id="findRecipesBtn" type="button">Find ideas online &#x2197;</button>
+      <button class="chip rl-find-btn" id="findRecipesBtn" type="button">Find ideas online &#x2197;</button>
       <div id="recipeLibrary">${recipeLibHtml}</div>
     </div>`;
 
