@@ -364,6 +364,7 @@ Every feature has a named home — see §2 in DESIGN.md. Enforced:
 - ❌ No kid-only components when a modifier will do (`.card.kid`, not `.kid-card`).
 - ❌ No tablet as stretched phone.
 - ❌ No inline styles in HTML.
+- ❌ No auto-focus any input on form open — no `.focus()` in the `requestAnimationFrame` that activates a sheet, and no `autofocus` attribute on any field. Auto-focus pops the phone keyboard before the user is ready. Allowed exceptions: focus after the user explicitly taps an action (e.g. "Add ingredient" button, Notes chip, validation failure shake). Inline item-add fields (shopping list `+`, bulk add textarea) are also exempt because their sole purpose is typing.
 - ❌ No primary actions in the top bar on phone — use a FAB.
 - ❌ No shipping a feature that doesn't declare its Kiosk appearance.
 - ❌ No second timer/stopwatch — use `shared/timer.js` (built in 1.6).

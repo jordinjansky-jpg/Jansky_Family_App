@@ -1165,6 +1165,7 @@ Themes redefine color tokens at `:root[data-theme="sage"]` etc. Never redefine s
 - ❌ Do not add a fifth tab style; use `.tabs` with variants.
 - ❌ Do not add a seventh card pattern; add a `.card--variant`.
 - ❌ Do not build a new form sheet without following §5.23 (Form sheet pattern). The Event Form is the canonical reference. Don't use `<input type="time">`, don't add horizontal padding to form sections (the bottom-sheet provides it), don't use outline focus rings inside a form, don't push a separate bottom-sheet for sub-flows (use `.&lt;prefix&gt;-subsheet-overlay`), don't lose form state across sub-sheets (`captureFormState` + `savedState` pattern).
+- ❌ Do not auto-focus any input when a form or sheet opens. No `.focus()` in the `requestAnimationFrame` that activates the sheet, and no `autofocus` attribute. Auto-focus pops the phone keyboard before the user is ready. Permitted: focus triggered by a user tap inside an already-open form (chip toggle, "Add ingredient" button, validation failure). Inline item-add fields (shopping list, bulk add) are exempt — their sole purpose is typing.
 - ❌ Do not use emoji in nav, tabs, buttons, banners, status chips, headers, form labels.
 - ❌ Do not lock the page with `overflow:hidden; height:100dvh` outside kiosk.
 - ❌ Do not put Theme/Debug/Add icons in the header — they live in overflow, admin, or a FAB.
@@ -1366,7 +1367,7 @@ When porting an existing form (task, recipe, person, reward, list, etc.) to the 
 2. Set `mode` from `existingId`.
 3. `taskSheetMount.innerHTML = renderBottomSheet(renderXForm({ event, eventId: existingId, ...context, mode }))`.
 4. Apply per-element CSS vars via JS (e.g. `chip.style.setProperty('--chip-color', chip.dataset.personColor)`).
-5. `requestAnimationFrame` to add `.active` and focus the first input in create mode.
+5. `requestAnimationFrame` to add `.active` only — **do not focus any input on open**. Auto-focus pops the phone keyboard before the user is ready. Focus is only permitted in response to an explicit user action inside the already-open form (e.g. tapping a chip/button, validation failure shake).
 6. Wire all listeners.
 7. Define `captureFormState()` inner function — must serialize EVERY field including transient UI state.
 8. Save handler: validate, build object, call Firebase write, `closeTaskSheet()`, `render()`. On error: re-enable button, show error in the import-feedback slot.
