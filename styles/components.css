@@ -2482,7 +2482,25 @@
   min-width: 2.5rem;
   flex-shrink: 0;
 }
-.me-detail__plan-btn { margin-bottom: var(--spacing-md); }
+.me-detail__action-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-size: var(--font-base);
+  font-family: inherit;
+}
+.me-detail__action-row svg:first-child { color: var(--text-muted); flex-shrink: 0; }
+.me-detail__action-row span { flex: 1; }
+.me-detail__action-row svg:last-child { color: var(--text-faint); flex-shrink: 0; }
 .me-detail__ingredients li::before {
   content: '';
   width: 4px;
