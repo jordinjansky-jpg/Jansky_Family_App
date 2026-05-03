@@ -3757,7 +3757,6 @@ label.ef2-icon-btn  { cursor: pointer; }
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  margin-top: var(--spacing-xs);
 }
 .recipe-pick__row {
   display: flex;
@@ -4294,6 +4293,28 @@ label.ef2-icon-btn  { cursor: pointer; }
   margin-bottom: var(--spacing-xs);
 }
 .kp-meal-header .ef2-section-label { margin-bottom: 0; }
+.kp-meal-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--font-sm);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-faint);
+  transition: border-color var(--t-fast);
+}
+.kp-meal-select.has-value { color: var(--text); }
+.kp-meal-select svg { flex-shrink: 0; color: var(--text-faint); transition: transform var(--t-fast); }
+.kp-meal-select.is-open svg { transform: rotate(180deg); }
+.kp-meal-dropdown { display: none; padding-top: var(--spacing-xs); }
+.kp-meal-dropdown.is-open { display: block; }
+.kp-meal-dropdown .kp-search-input { margin-bottom: var(--spacing-xs); }
 .kp-search-input {
   width: 100%;
   padding: 10px var(--spacing-sm);

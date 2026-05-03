@@ -427,11 +427,15 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         <span class="ef2-section-label">Meal</span>
         <button class="btn btn--ghost btn--sm" id="kp_createRecipe" type="button">+ New recipe</button>
       </div>
-      <input class="kp-search-input" id="kp_search" type="text" autocomplete="off"
-        placeholder="Search recipes or type any name…"
-        value="${esc(preRecipeName)}">
+      <button class="kp-meal-select${preRecipeName ? ' has-value' : ''}${preRecipeName ? '' : ' is-open'}" id="kp_mealSelect" type="button">
+        <span id="kp_mealLabel">${esc(preRecipeName || 'Choose a meal…')}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="kp-meal-dropdown${preRecipeName ? '' : ' is-open'}" id="kp_mealDropdown">
+        <input class="kp-search-input" id="kp_search" type="text" autocomplete="off" placeholder="Search…" value="${esc(preRecipeName)}">
+        <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
+      </div>
     </div>
-    <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
     <div class="kp-footer">
       <button class="btn btn--ghost" id="kp_cancel" type="button">Cancel</button>
       <button class="btn btn--primary" id="kp_save" type="button"
@@ -443,6 +447,14 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kp_close')?.addEventListener('click', close);
   document.getElementById('kp_cancel')?.addEventListener('click', close);
+
+  document.getElementById('kp_mealSelect')?.addEventListener('click', () => {
+    const dropdown = document.getElementById('kp_mealDropdown');
+    const willOpen = !dropdown.classList.contains('is-open');
+    dropdown.classList.toggle('is-open');
+    document.getElementById('kp_mealSelect').classList.toggle('is-open', willOpen);
+    if (willOpen) setTimeout(() => document.getElementById('kp_search')?.focus(), 50);
+  });
 
   document.getElementById('kp_datebtn')?.addEventListener('click', () => {
     const inp = document.getElementById('kp_day');
@@ -471,15 +483,30 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     document.getElementById('kp_save').disabled = !(val || selectedRecipeId);
   }
 
+  function syncMealLabel(name) {
+    const label = document.getElementById('kp_mealLabel');
+    if (label) label.textContent = name || 'Choose a meal…';
+    document.getElementById('kp_mealSelect')?.classList.toggle('has-value', !!name);
+  }
+
+  function closeMealDropdown() {
+    document.getElementById('kp_mealDropdown')?.classList.remove('is-open');
+    document.getElementById('kp_mealSelect')?.classList.remove('is-open');
+  }
+
   function bindPickRows() {
     document.getElementById('recipePick')?.querySelectorAll('[data-recipe-pick]').forEach(btn => {
       btn.addEventListener('click', () => {
         if (selectedRecipeId === btn.dataset.recipePick) {
           selectedRecipeId = null;
           document.getElementById('kp_search').value = '';
+          syncMealLabel('');
         } else {
           selectedRecipeId = btn.dataset.recipePick;
-          document.getElementById('kp_search').value = recipes[selectedRecipeId]?.name || '';
+          const name = recipes[selectedRecipeId]?.name || '';
+          document.getElementById('kp_search').value = name;
+          syncMealLabel(name);
+          closeMealDropdown();
         }
         document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
         bindPickRows();
@@ -493,6 +520,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     selectedRecipeId = null;
     document.getElementById('recipePick').innerHTML = buildRecipeRows(e.target.value);
     bindPickRows();
+    syncMealLabel(e.target.value.trim());
     updateSaveBtn();
   });
 
