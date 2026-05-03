@@ -770,6 +770,11 @@
   overflow: hidden;
 }
 
+.progress-bar--slim {
+  height: 3px;
+  margin-bottom: var(--spacing-sm);
+}
+
 .progress-bar__fill {
   height: 100%;
   /* color-mix anchor: lighten 25% toward white */
@@ -891,6 +896,8 @@
   font-size: var(--font-xs);
   color: var(--text-faint);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .task-card__date {
@@ -1291,8 +1298,8 @@
   text-align: left;
   -webkit-tap-highlight-color: transparent;
 }
-[data-colored-cells="true"] .event-bubble {
-  background: color-mix(in srgb, var(--event-color) 12%, var(--surface));
+.event-bubble {
+  background: color-mix(in srgb, var(--event-color) 10%, var(--surface));
 }
 .event-bubble:active { transform: scale(0.98); }
 .event-bubble__time {
@@ -1599,6 +1606,7 @@
    already supplies the side padding. Adding margin here stacks with
    that padding and produces a 32px gutter per side on cards. */
 .section { margin: 0 0 var(--spacing-lg); }
+.section--filtered .section__head-trailing .filter-chip { border-color: var(--accent); color: var(--accent); }
 .section__head {
   display: flex;
   align-items: center;
@@ -1623,9 +1631,11 @@
   font-variant-numeric: tabular-nums;
 }
 .section__meta__grade {
-  color: var(--success);
   font-weight: 600;
+  color: var(--success);
 }
+.section__meta__grade.grade--warn { color: var(--warning); }
+.section__meta__grade.grade--bad  { color: var(--danger); }
 .section__meta__dot {
   display: inline-block;
   width: 3px; height: 3px;
@@ -1792,6 +1802,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 18px;
 }
+.banner__icon svg { width: 18px; height: 18px; }
 .banner__body { flex: 1; min-width: 0; }
 .banner__body--clickable {
   background: transparent;

@@ -413,7 +413,8 @@ async function render() {
                         ?? 1);
       const earnedPt = Math.round(score.percentage * todayMul);
       metaPieces.push(`${earnedPt} pt`);
-      metaPieces.push(`<span class="section__meta__grade">${esc(gd.grade)}</span>`);
+      const gradeColorClass = score.percentage >= 90 ? '' : score.percentage >= 70 ? ' grade--warn' : ' grade--bad';
+      metaPieces.push(`<span class="section__meta__grade${gradeColorClass}">${esc(gd.grade)}</span>`);
     }
 
     const metaHtmlPieces = metaPieces.map((p, i) => {
@@ -430,6 +431,10 @@ async function render() {
       metaHtml: metaHtmlStr,
     });
     firstSectionRendered = true;
+    {
+      const progPct = prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0;
+      html += `<div class="progress-bar progress-bar--slim" role="progressbar" aria-valuenow="${progPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${prog.done} of ${prog.total} tasks done"><div class="progress-bar__fill" data-progress="${progPct}"></div></div>`;
+    }
 
     // Sort all entries together with the new sort rule (incomplete before complete,
     // owner -> late-today-first -> TOD -> name).
