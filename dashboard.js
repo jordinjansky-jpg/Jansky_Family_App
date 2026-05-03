@@ -2601,6 +2601,9 @@ function bindTaskSheetEvents(entryKey, dateKey) {
   document.getElementById('sheetDelegate')?.addEventListener('click', () => {
     document.getElementById('delegatePanel')?.classList.toggle('is-hidden');
   });
+  document.getElementById('delegateMoveToggle')?.addEventListener('click', e => {
+    e.currentTarget.classList.toggle('is-active');
+  });
 
   // Delegate person chips
   let pendingDelegateOwnerId = null;
@@ -2610,7 +2613,7 @@ function bindTaskSheetEvents(entryKey, dateKey) {
       if (!newOwnerId) return;
 
       const moveToggle = document.getElementById('delegateMoveToggle');
-      if (moveToggle?.checked) {
+      if (moveToggle?.classList.contains('is-active')) {
         // Store selection, open date picker for delegate+move
         pendingDelegateOwnerId = newOwnerId;
         document.querySelectorAll('#delegatePanel .ef2-person-chip').forEach(c => c.removeAttribute('data-state'));

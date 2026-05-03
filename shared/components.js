@@ -1403,7 +1403,7 @@ export function renderTaskDetailSheet(options) {
       <div class="ef2-divider"></div>
       <div class="task-detail__delegate-header">
         <span class="ef2-section-label">Reassign to</span>
-        ${showMove ? `<label class="task-detail__move-toggle"><input type="checkbox" id="delegateMoveToggle"> Move too</label>` : ''}
+        ${showMove ? `<button class="task-detail__move-pill" id="delegateMoveToggle" type="button">Move too</button>` : ''}
       </div>
       <div class="ef2-person-chips">
         ${otherPeople.map(p => `<button class="ef2-person-chip" data-person-id="${p.id}" data-person-color="${esc(p.color)}" type="button">${esc(p.name)}</button>`).join('')}

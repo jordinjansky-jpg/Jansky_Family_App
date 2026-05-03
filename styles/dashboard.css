@@ -65,13 +65,21 @@
 }
 .task-detail__delegate-header .ef2-section-label { margin-bottom: 0; }
 
-.task-detail__move-toggle {
+.task-detail__move-pill {
   font-size: var(--font-sm);
   color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  padding: 4px 10px;
   cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.task-detail__move-pill.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .task-detail__slider {

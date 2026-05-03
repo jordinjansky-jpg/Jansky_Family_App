@@ -1879,6 +1879,9 @@
       document.getElementById('sheetDelegate')?.addEventListener('click', () => {
         document.getElementById('delegatePanel')?.classList.toggle('is-hidden');
       });
+      document.getElementById('delegateMoveToggle')?.addEventListener('click', e => {
+        e.currentTarget.classList.toggle('is-active');
+      });
 
       let pendingDelegateOwnerId = null;
       document.querySelectorAll('#delegatePanel .ef2-person-chip').forEach(chip => {
@@ -1887,7 +1890,7 @@
           if (!newOwnerId) return;
 
           const moveToggle = document.getElementById('delegateMoveToggle');
-          if (moveToggle?.checked) {
+          if (moveToggle?.classList.contains('is-active')) {
             pendingDelegateOwnerId = newOwnerId;
             document.querySelectorAll('#delegatePanel .ef2-person-chip').forEach(c => c.removeAttribute('data-state'));
             chip.setAttribute('data-state', 'primary');
