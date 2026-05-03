@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml } from './shared/utils.js';
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
@@ -945,129 +945,580 @@
     // Event Form (Create / Edit)
     // ══════════════════════════════════════════
 
-    function openEventForm(existingEventId = null, prefill = null) {
-      const event = existingEventId ? events[existingEventId] : (prefill ? {
-        name: prefill.name || '',
-        date: prefill.date || viewDay || today,
-        allDay: prefill.allDay ?? true,
-        startTime: prefill.time || '',
-        notes: prefill.notes || '',
-      } : {});
+    function openEventForm(existingEventId = null, savedState = null) {
+      const event = savedState || (existingEventId ? events[existingEventId] : {});
       const mode = existingEventId ? 'edit' : 'create';
       const dateKey = event.date || viewDay || today;
       const html = renderEventForm({ event, eventId: existingEventId, people, dateKey, mode });
       taskSheetMount.innerHTML = renderBottomSheet(html);
+      taskSheetMount.querySelectorAll('.ef2-person-chip[data-person-color]').forEach(chip => {
+        chip.style.setProperty('--chip-color', chip.dataset.personColor);
+      });
       applyDataColors(taskSheetMount);
 
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
-        if (mode === 'create') document.getElementById('ef_name')?.focus();
+        if (mode === 'create') document.getElementById('ef2_name')?.focus();
       });
 
-      const overlay = document.getElementById('bottomSheet');
-      overlay?.addEventListener('click', (e) => {
-        if (e.target === overlay) closeTaskSheet();
+      document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
+      document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
       });
 
-      document.getElementById('ef_allDay')?.addEventListener('click', () => {
-        const btn = document.getElementById('ef_allDay');
-        btn.classList.toggle('chip--active');
-        const hide = btn.classList.contains('chip--active');
-        document.getElementById('ef_timeGroup')?.classList.toggle('ef-time-row--hidden', hide);
-        document.getElementById('ef_endTimeGroup')?.classList.toggle('ef-time-row--hidden', hide);
+      const dateBtn = document.getElementById('ef2_dateBtn');
+      const datePicker = document.getElementById('ef2_datePicker');
+      const dateDisplay = document.getElementById('ef2_dateDisplay');
+      const dateInput = document.getElementById('ef2_date');
+      const timePicker = document.getElementById('ef2_timePicker');
+      const timeBtn = document.getElementById('ef2_timeBtn');
+      const timeDisplay = document.getElementById('ef2_timeDisplay');
+
+      function ef2GetTime(prefix) {
+        const raw = (document.getElementById(`ef2_${prefix}Text`)?.value || '').replace(/\D/g, '');
+        const ampm = document.getElementById(`ef2_${prefix}AmPm`)?.dataset.ampm || 'AM';
+        if (!raw) return '';
+        let h, m;
+        if (raw.length <= 2) { h = parseInt(raw, 10); m = 0; }
+        else if (raw.length === 3) { h = parseInt(raw[0], 10); m = parseInt(raw.slice(1), 10); }
+        else { h = parseInt(raw.slice(0, 2), 10); m = parseInt(raw.slice(2, 4), 10); }
+        if (isNaN(h) || h < 1 || h > 12) return '';
+        if (isNaN(m) || m > 59) m = 0;
+        let h24 = h;
+        if (ampm === 'AM' && h === 12) h24 = 0;
+        else if (ampm === 'PM' && h !== 12) h24 = h + 12;
+        return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+
+      dateBtn?.addEventListener('click', () => {
+        const open = datePicker.classList.toggle('is-open');
+        if (open) timePicker?.classList.remove('is-open');
+      });
+      dateInput?.addEventListener('change', () => {
+        dateDisplay.textContent = dateInput.value ? formatDateShort(dateInput.value) : 'Set date';
+        datePicker?.classList.remove('is-open');
+      });
+      timeBtn?.addEventListener('click', () => {
+        const open = timePicker.classList.toggle('is-open');
+        if (open) datePicker?.classList.remove('is-open');
       });
 
-      initColorButton(document.querySelector('#ef_colorPicker')?.closest('.cpick-wrap'), null);
+      function updateTimeDisplay() {
+        if (document.getElementById('ef2_allDay')?.classList.contains('is-active')) return;
+        const s = ef2GetTime('start');
+        const e = ef2GetTime('end');
+        if (timeDisplay) {
+          const fmt = (t) => {
+            if (!t) return '';
+            const [h, min] = t.split(':').map(Number);
+            const ap = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return min === 0 ? `${h12} ${ap}` : `${h12}:${String(min).padStart(2, '0')} ${ap}`;
+          };
+          timeDisplay.textContent = s ? `${fmt(s)} → ${fmt(e)}` : 'Set time';
+        }
+      }
 
-      document.querySelectorAll('#ef_people .chip--selectable').forEach(chip => {
-        chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
+      ['ef2_startText', 'ef2_endText'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateTimeDisplay);
       });
-
-      document.getElementById('ef_cancel')?.addEventListener('click', closeTaskSheet);
-
-      document.getElementById('ef_save')?.addEventListener('click', async () => {
-        const name = document.getElementById('ef_name')?.value.trim();
-        if (!name) { document.getElementById('ef_name')?.focus(); return; }
-
-        const selectedPeople = [];
-        document.querySelectorAll('#ef_people .chip--active').forEach(c => {
-          if (c.dataset.personId) selectedPeople.push(c.dataset.personId);
+      ['ef2_startAmPm', 'ef2_endAmPm'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn?.addEventListener('click', () => {
+          const curr = btn.dataset.ampm || 'AM';
+          const next = curr === 'AM' ? 'PM' : 'AM';
+          btn.dataset.ampm = next; btn.textContent = next;
+          updateTimeDisplay();
         });
+      });
 
-        const selectedColor = document.querySelector('#ef_colorPicker')?.value
-          || (selectedPeople[0] ? people.find(p => p.id === selectedPeople[0])?.color : null)
-          || '#4285f4';
+      document.getElementById('ef2_allDay')?.addEventListener('click', () => {
+        const allDayBtn = document.getElementById('ef2_allDay');
+        allDayBtn.classList.toggle('is-active');
+        const isAllDay = allDayBtn.classList.contains('is-active');
+        document.getElementById('ef2_timeBtn')?.classList.toggle('ef2-hidden', isAllDay);
+        document.getElementById('ef2_timePicker')?.classList.toggle('ef2-hidden', isAllDay);
+        if (isAllDay) document.getElementById('ef2_timePicker')?.classList.remove('is-open');
+        if (!isAllDay) updateTimeDisplay();
+      });
 
-        const eventData = {
-          name,
-          date: document.getElementById('ef_date')?.value || today,
-          allDay: document.getElementById('ef_allDay')?.classList.contains('chip--active') || false,
-          startTime: document.getElementById('ef_allDay')?.classList.contains('chip--active') ? null : (document.getElementById('ef_startTime')?.value || null),
-          endTime: document.getElementById('ef_allDay')?.classList.contains('chip--active') ? null : (document.getElementById('ef_endTime')?.value || null),
-          color: selectedColor,
-          people: selectedPeople,
-          location: document.getElementById('ef_location')?.value.trim() || null,
-          notes: document.getElementById('ef_notes')?.value.trim() || null,
-          url: existingEventId ? (events[existingEventId]?.url || null) : null,
-          recurrence: null,
-          reminders: null,
-          createdDate: today
+      const peopleWrap = document.getElementById('ef2_people');
+      function getPrimaryChip() { return peopleWrap?.querySelector('.ef2-person-chip[data-state="primary"]'); }
+      peopleWrap?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.ef2-person-chip');
+        if (!chip) return;
+        const currentState = chip.dataset.state;
+        if (!currentState) {
+          chip.setAttribute('data-state', getPrimaryChip() ? 'attending' : 'primary');
+        } else if (currentState === 'attending') {
+          const oldPrimary = getPrimaryChip();
+          if (oldPrimary) oldPrimary.setAttribute('data-state', 'attending');
+          chip.setAttribute('data-state', 'primary');
+        } else if (currentState === 'primary') {
+          chip.removeAttribute('data-state');
+          const firstAttending = peopleWrap.querySelector('.ef2-person-chip[data-state="attending"]');
+          if (firstAttending) firstAttending.setAttribute('data-state', 'primary');
+        }
+      });
+
+      document.getElementById('ef2_notesChip')?.addEventListener('click', () => {
+        const reveal = document.getElementById('ef2_notesReveal');
+        const isOpen = reveal?.classList.contains('is-open');
+        if (isOpen) { reveal.classList.remove('is-open'); document.getElementById('ef2_notesChip')?.classList.remove('is-active'); }
+        else { reveal?.classList.add('is-open'); document.getElementById('ef2_notesChip')?.classList.add('is-active'); document.getElementById('ef2_notes')?.focus(); }
+      });
+      document.getElementById('ef2_notesClose')?.addEventListener('click', () => {
+        document.getElementById('ef2_notesReveal')?.classList.remove('is-open');
+        document.getElementById('ef2_notesChip')?.classList.remove('is-active');
+      });
+      document.getElementById('ef2_locChip')?.addEventListener('click', () => {
+        const reveal = document.getElementById('ef2_locReveal');
+        const isOpen = reveal?.classList.contains('is-open');
+        if (isOpen) { reveal.classList.remove('is-open'); document.getElementById('ef2_locChip')?.classList.remove('is-active'); }
+        else { reveal?.classList.add('is-open'); document.getElementById('ef2_locChip')?.classList.add('is-active'); document.getElementById('ef2_location')?.focus(); }
+      });
+      document.getElementById('ef2_locClose')?.addEventListener('click', () => {
+        document.getElementById('ef2_locReveal')?.classList.remove('is-open');
+        document.getElementById('ef2_locChip')?.classList.remove('is-active');
+      });
+
+      let currentRepeat = event.repeat || null;
+      document.getElementById('ef2_repeatChip')?.addEventListener('click', () => {
+        const formState = captureFormState();
+        openRepeatSheet(currentRepeat, (newRule) => {
+          currentRepeat = newRule;
+          openEventForm(existingEventId, { ...formState, repeat: currentRepeat });
+        }, () => openEventForm(existingEventId, formState));
+      });
+
+      function captureFormState() {
+        const primaryChip = getPrimaryChip();
+        const attendingChips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip[data-state="attending"]') || [])];
+        const peoplArr = [];
+        if (primaryChip) peoplArr.push(primaryChip.dataset.personId);
+        attendingChips.forEach(c => peoplArr.push(c.dataset.personId));
+        return {
+          name: document.getElementById('ef2_name')?.value || '',
+          date: document.getElementById('ef2_date')?.value || viewDay || today,
+          allDay: document.getElementById('ef2_allDay')?.classList.contains('is-active') || false,
+          startTime: ef2GetTime('start') || '09:00',
+          endTime: ef2GetTime('end') || '10:00',
+          people: peoplArr,
+          notes: document.getElementById('ef2_notes')?.value || '',
+          location: document.getElementById('ef2_location')?.value || '',
+          notesOpen: document.getElementById('ef2_notesReveal')?.classList.contains('is-open') || false,
+          locOpen: document.getElementById('ef2_locReveal')?.classList.contains('is-open') || false,
+          repeat: currentRepeat,
         };
+      }
 
-        const eventId = existingEventId;
-        if (eventId) {
-          const oldEvent = events[eventId];
-          await writeEvent(eventId, eventData);
-          events[eventId] = eventData;
+      document.getElementById('ef2_save')?.addEventListener('click', async () => {
+        const name = document.getElementById('ef2_name')?.value.trim();
+        if (!name) {
+          const inp = document.getElementById('ef2_name');
+          inp?.classList.add('ef2-shake'); inp?.focus();
+          inp?.addEventListener('animationend', () => inp.classList.remove('ef2-shake'), { once: true });
+          return;
+        }
+        const formState = captureFormState();
+        formState.name = name;
+        const primaryId = formState.people[0] || null;
+        const primaryPerson = people.find(p => p.id === primaryId);
+        const color = primaryPerson?.color || people[0]?.color || '#4285f4';
+        const eventData = {
+          name: formState.name,
+          date: formState.date || viewDay || today,
+          allDay: formState.allDay,
+          startTime: formState.allDay ? null : (formState.startTime || null),
+          endTime: formState.allDay ? null : (formState.endTime || null),
+          color,
+          people: formState.people,
+          location: formState.location || null,
+          notes: formState.notes || null,
+          repeat: formState.repeat || null,
+          createdDate: existingEventId
+            ? (events[existingEventId]?.createdDate || today)
+            : today,
+        };
+        const saveBtn = document.getElementById('ef2_save');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '…'; }
+        try {
+          if (existingEventId) {
+            const oldEvent = events[existingEventId];
+            await writeEvent(existingEventId, eventData);
+            events[existingEventId] = eventData;
+            if (oldEvent && oldEvent.date !== eventData.date) {
+              const moveUpdates = {};
+              for (const [dk, dayEntries] of Object.entries(allSchedule)) {
+                for (const [ek, entry] of Object.entries(dayEntries || {})) {
+                  if (entry.type === 'event' && entry.eventId === existingEventId) {
+                    moveUpdates[`schedule/${dk}/${ek}`] = null;
+                  }
+                }
+              }
+              const newSchedKey = `sched_${Date.now()}_event`;
+              moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId: existingEventId };
+              await multiUpdate(moveUpdates);
+            }
+          } else {
+            const newId = await pushEvent(eventData);
+            events[newId] = eventData;
+            const schedKey = `sched_${Date.now()}_event`;
+            await multiUpdate({ [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+          }
+          closeTaskSheet();
+          allSchedule = await readAllSchedule() || {};
+          render();
+        } catch (err) {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '✓'; }
+          const errEl = document.getElementById('ef2_importError');
+          if (errEl) { errEl.textContent = "Couldn't save — try again."; errEl.classList.add('is-visible'); }
+        }
+      });
 
-          // If date changed, move schedule entry to new date
-          if (oldEvent && oldEvent.date !== eventData.date) {
-            const moveUpdates = {};
-            for (const [dk, dayEntries] of Object.entries(allSchedule)) {
-              for (const [ek, entry] of Object.entries(dayEntries || {})) {
-                if (entry.type === 'event' && entry.eventId === eventId) {
-                  moveUpdates[`schedule/${dk}/${ek}`] = null;
+      document.getElementById('ef2_delete')?.addEventListener('click', async () => {
+        if (!existingEventId) return;
+        const name = events[existingEventId]?.name || 'this event';
+        if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
+        try {
+          await removeEvent(existingEventId);
+          delete events[existingEventId];
+          const updates = {};
+          for (const [dk, dayEntries] of Object.entries(allSchedule)) {
+            for (const [ek, entry] of Object.entries(dayEntries || {})) {
+              if (entry.type === 'event' && entry.eventId === existingEventId) {
+                updates[`schedule/${dk}/${ek}`] = null;
+              }
+            }
+          }
+          if (Object.keys(updates).length > 0) await multiUpdate(updates);
+          closeTaskSheet();
+          allSchedule = await readAllSchedule() || {};
+          render();
+        } catch (err) {
+          const errEl = document.getElementById('ef2_importError');
+          if (errEl) { errEl.textContent = "Couldn't delete — try again."; errEl.classList.add('is-visible'); }
+        }
+      });
+
+      // ── AI import (create mode) ──
+      document.getElementById('ef2_wand')?.addEventListener('click', () => doCalWandParse());
+      document.getElementById('ef2_photoBtn')?.addEventListener('click', () => openCalPhotoSourceSheet());
+      ['ef2_photoCamera', 'ef2_photoGallery', 'ef2_photoFiles'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', (e) => {
+          const file = e.target.files?.[0];
+          if (file) doCalPhotoImport(file);
+          e.target.value = '';
+        });
+      });
+      document.getElementById('ef2_ical')?.addEventListener('click', () => openCalEfIcalSheet());
+
+      let errDismissTimer = null;
+      let photoContextNote = '';
+
+      async function doCalWandParse() {
+        const title = document.getElementById('ef2_name')?.value.trim();
+        if (!title) return;
+        const wandBtn = document.getElementById('ef2_wand');
+        const loadEl = document.getElementById('ef2_importLoading');
+        const errEl = document.getElementById('ef2_importError');
+        const msgEl = document.getElementById('ef2_importMsg');
+        wandBtn?.classList.add('ef2-icon-btn--loading');
+        if (loadEl) loadEl.classList.add('is-visible');
+        if (msgEl) msgEl.textContent = 'Parsing…';
+        if (errEl) errEl.classList.remove('is-visible');
+        try {
+          const res = await fetch(KITCHEN_WORKER_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'parseEvent', input: { text: title, contextDate: today } }),
+          });
+          const data = await res.json();
+          if (data.error || !data.name) {
+            if (errEl) { errEl.textContent = "Couldn't parse — fill manually."; errEl.classList.add('is-visible'); }
+            clearTimeout(errDismissTimer);
+            errDismissTimer = setTimeout(() => errEl?.classList.remove('is-visible'), 3000);
+          } else {
+            if (data.name) { const inp = document.getElementById('ef2_name'); if (inp) inp.value = data.name; }
+            if (data.date) {
+              const di = document.getElementById('ef2_date');
+              const dd = document.getElementById('ef2_dateDisplay');
+              if (di) di.value = data.date;
+              if (dd) dd.textContent = formatDateShort(data.date);
+            }
+            if (data.time && !data.allDay) {
+              const [h, m] = data.time.split(':').map(Number);
+              const setTime = (prefix, h24, min) => {
+                const ap = h24 >= 12 ? 'PM' : 'AM';
+                const h12 = h24 % 12 || 12;
+                const minPad = String(Math.round(min / 5) * 5 % 60).padStart(2, '0');
+                const textEl = document.getElementById(`ef2_${prefix}Text`);
+                const ampmBtn = document.getElementById(`ef2_${prefix}AmPm`);
+                if (textEl) textEl.value = `${h12}:${minPad}`;
+                if (ampmBtn) { ampmBtn.dataset.ampm = ap; ampmBtn.textContent = ap; }
+              };
+              setTime('start', h, m);
+              setTime('end', (h + 1) % 24, m);
+              updateTimeDisplay();
+            }
+            if (data.allDay) {
+              document.getElementById('ef2_allDay')?.classList.add('is-active');
+              document.getElementById('ef2_timeBtn')?.classList.add('ef2-hidden');
+              document.getElementById('ef2_timePicker')?.classList.add('ef2-hidden');
+            }
+            if (data.name) {
+              const lowerName = data.name.toLowerCase();
+              for (const p of people) {
+                if (lowerName.includes(p.name.toLowerCase())) {
+                  const thisChip = peopleWrap?.querySelector(`.ef2-person-chip[data-person-id="${p.id}"]`);
+                  if (thisChip && !getPrimaryChip()) thisChip.setAttribute('data-state', 'primary');
+                  break;
                 }
               }
             }
-            const newSchedKey = `sched_${Date.now()}_event_${Math.random().toString(36).slice(2, 6)}`;
-            moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId };
-            await multiUpdate(moveUpdates);
           }
-        } else {
-          const newId = await pushEvent(eventData);
-          events[newId] = eventData;
+        } catch (err) {
+          if (errEl) { errEl.textContent = "Couldn't parse — fill manually."; errEl.classList.add('is-visible'); }
+          clearTimeout(errDismissTimer);
+          errDismissTimer = setTimeout(() => errEl?.classList.remove('is-visible'), 3000);
+        } finally {
+          wandBtn?.classList.remove('ef2-icon-btn--loading');
+          document.getElementById('ef2_importLoading')?.classList.remove('is-visible');
+        }
+      }
 
-          const schedKey = `sched_${Date.now()}_event_${Math.random().toString(36).slice(2, 6)}`;
-          await multiUpdate({
-            [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId }
+      async function doCalPhotoImport(file) {
+        const loadEl = document.getElementById('ef2_importLoading');
+        const errEl = document.getElementById('ef2_importError');
+        const msgEl = document.getElementById('ef2_importMsg');
+        if (loadEl) loadEl.classList.add('is-visible');
+        if (msgEl) msgEl.textContent = 'Reading photo…';
+        if (errEl) errEl.classList.remove('is-visible');
+        const contextNote = photoContextNote || document.getElementById('ef2_name')?.value.trim() || '';
+        photoContextNote = '';
+        try {
+          const { base64, mediaType } = await resizeImageForUpload(file);
+          const payload = { base64, mediaType, contextDate: today };
+          if (contextNote) payload.context = contextNote;
+          const res = await fetch(KITCHEN_WORKER_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'calendarPhoto', input: payload }),
           });
-        }
-
-        closeTaskSheet();
-        await loadData();
-        render();
-      });
-
-      document.getElementById('ef_delete')?.addEventListener('click', async () => {
-        if (!existingEventId) return;
-        if (!await showConfirm({ title: 'Delete this event?', danger: true })) return;
-        await removeEvent(existingEventId);
-        delete events[existingEventId];
-
-        const updates = {};
-        for (const [dk, dayEntries] of Object.entries(allSchedule)) {
-          for (const [ek, entry] of Object.entries(dayEntries || {})) {
-            if (entry.type === 'event' && entry.eventId === existingEventId) {
-              updates[`schedule/${dk}/${ek}`] = null;
-            }
+          const data = await res.json();
+          loadEl?.classList.remove('is-visible');
+          if (data.error || !data.events?.length) {
+            if (errEl) { errEl.textContent = 'No events found — try a clearer photo.'; errEl.classList.add('is-visible'); }
+            return;
           }
+          const savedState = captureFormState();
+          const proceed = (eventsArr) => {
+            openCalEfImportConfirm(eventsArr, data.hadRecurring || false, () => openEventForm(existingEventId, savedState));
+          };
+          if (data.monthUncertain) {
+            openMonthClarificationSheet(data.assumedMonth, (yearMonth) => {
+              const remapped = data.events.map(ev => {
+                if (!ev.date || !/^\d{4}-\d{2}-\d{2}$/.test(ev.date)) return ev;
+                return { ...ev, date: `${yearMonth}-${ev.date.slice(8, 10)}` };
+              });
+              proceed(remapped);
+            });
+          } else {
+            proceed(data.events);
+          }
+        } catch (err) {
+          loadEl?.classList.remove('is-visible');
+          if (errEl) { errEl.textContent = 'Something went wrong — try again.'; errEl.classList.add('is-visible'); }
         }
-        if (Object.keys(updates).length > 0) await multiUpdate(updates);
+      }
 
+      function openCalPhotoSourceSheet() {
+        const CAM_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+        const GAL_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+        const FILE_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+        const overlay = document.createElement('div');
+        overlay.className = 'ef2-subsheet-overlay';
+        const existingNote = document.getElementById('ef2_name')?.value.trim() || '';
+        overlay.innerHTML = `<div class="ef2-subsheet">
+          <div class="sheet__header"><h2 class="sheet__title">Import from</h2></div>
+          <div class="sheet__content">
+            <div class="field">
+              <label class="field__label" for="ef2_photoCtx">Optional note for AI</label>
+              <input class="field__input" id="ef2_photoCtx" type="text" placeholder="e.g. May 2026, Sophie's school" value="${existingNote.replace(/"/g, '&quot;')}" autocomplete="off">
+            </div>
+            <button class="ef2-source-btn" data-source="camera" type="button"><span class="ef2-source-icon">${CAM_SVG}</span><span>Camera</span></button>
+            <button class="ef2-source-btn" data-source="gallery" type="button"><span class="ef2-source-icon">${GAL_SVG}</span><span>Gallery</span></button>
+            <button class="ef2-source-btn" data-source="files" type="button"><span class="ef2-source-icon">${FILE_SVG}</span><span>Files</span></button>
+          </div>
+          <div class="sheet__footer">
+            <button class="btn btn--ghost" id="ef2_photoSourceCancel">Cancel</button>
+          </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('active'));
+        function close() {
+          overlay.classList.remove('active');
+          setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
+        }
+        overlay.querySelector('#ef2_photoSourceCancel')?.addEventListener('click', close);
+        overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const ctx = overlay.querySelector('#ef2_photoCtx')?.value.trim() || '';
+            photoContextNote = ctx;
+            const src = btn.dataset.source;
+            if (src === 'camera') document.getElementById('ef2_photoCamera')?.click();
+            else if (src === 'gallery') document.getElementById('ef2_photoGallery')?.click();
+            else document.getElementById('ef2_photoFiles')?.click();
+            close();
+          });
+        });
+      }
+
+      function openCalEfIcalSheet() {
+        const overlay = document.createElement('div');
+        overlay.className = 'ef2-subsheet-overlay';
+        overlay.innerHTML = `<div class="ef2-subsheet">
+          <div class="sheet__header"><h2 class="sheet__title">Calendar URL</h2></div>
+          <div class="sheet__content">
+            <p class="sheet__hint">Paste a .ics calendar feed URL (e.g. from TeamSnap or your school).</p>
+            <div class="field">
+              <label class="field__label" for="ef2IcalUrl">Calendar URL (.ics)</label>
+              <input class="field__input" id="ef2IcalUrl" type="url" placeholder="https://…/calendar.ics" autocomplete="off">
+            </div>
+            <div id="ef2IcalStatus" class="sheet__hint"></div>
+          </div>
+          <div class="sheet__footer">
+            <button class="btn btn--ghost" id="ef2IcalCancel">Cancel</button>
+            <button class="btn btn--primary" id="ef2IcalImport">Import</button>
+          </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => { overlay.classList.add('active'); overlay.querySelector('#ef2IcalUrl')?.focus(); });
+        function closeIcal() {
+          overlay.classList.remove('active');
+          setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
+        }
+        overlay.querySelector('#ef2IcalCancel')?.addEventListener('click', closeIcal);
+        overlay.querySelector('#ef2IcalImport')?.addEventListener('click', async () => {
+          const url = overlay.querySelector('#ef2IcalUrl')?.value.trim();
+          if (!url) return;
+          const status = overlay.querySelector('#ef2IcalStatus');
+          const btn = overlay.querySelector('#ef2IcalImport');
+          btn.disabled = true; btn.textContent = 'Fetching…';
+          if (status) status.textContent = 'Fetching calendar…';
+          try {
+            const res = await fetch(KITCHEN_WORKER_URL, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'ical', input: url }),
+            });
+            const data = await res.json();
+            if (data.error || !data.events?.length) {
+              if (status) status.textContent = "Couldn't fetch that calendar. Check the URL.";
+              btn.disabled = false; btn.textContent = 'Import';
+              return;
+            }
+            closeIcal();
+            const savedState = captureFormState();
+            setTimeout(() => {
+              if (!document.getElementById('bottomSheet')?.classList.contains('active')) return;
+              openCalEfImportConfirm(data.events, data.hadRecurring || false, () => openEventForm(existingEventId, savedState));
+            }, 320);
+          } catch (err) {
+            if (status) status.textContent = "Couldn't fetch that calendar. Check the URL.";
+            btn.disabled = false; btn.textContent = 'Import';
+          }
+        });
+      }
+    }
+
+    function openCalEfImportConfirm(eventsArr, hadRecurring, onCancel) {
+      const recurringBanner = hadRecurring
+        ? `<div class="banner banner--info" role="status">Recurring events were skipped — only one-time events are supported.</div>`
+        : '';
+      const rows = eventsArr.map((ev, i) => {
+        const timeSub = ev.time ? ev.time : (ev.allDay ? 'All day' : null);
+        const row = renderConfirmRow({ ...ev, _sub: timeSub }, { labelKey: 'name', subKey: '_sub', confidenceKey: 'confidence', key: i });
+        const dateLabel = ev.dateConfidence === 'low'
+          ? `<label class="ef2-date-label ef2-date-label--warn">Date (uncertain — please verify)</label>`
+          : `<label class="ef2-date-label">Date</label>`;
+        const dateWrap = `<div class="ev-date-wrap" data-idx="${i}" style="padding:0 var(--spacing-md) var(--spacing-xs)">${dateLabel}<input type="date" class="field__input ev-date" data-idx="${i}" value="${ev.date || ''}"></div>`;
+        return row + dateWrap;
+      }).join('');
+      const n = eventsArr.length;
+      taskSheetMount.innerHTML = renderBottomSheet(`
+        <div class="sheet__header"><h2 class="sheet__title">Import events</h2></div>
+        <div class="sheet__content">${recurringBanner}<div class="confirm-list" id="efIevList">${rows}</div></div>
+        <div class="sheet__footer">
+          <button class="btn btn--ghost" id="efIevCancel">Cancel</button>
+          <button class="btn btn--primary" id="efIevImport">Import ${n} event${n !== 1 ? 's' : ''}</button>
+        </div>`);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      const list = taskSheetMount.querySelector('#efIevList');
+      const importBtn = taskSheetMount.querySelector('#efIevImport');
+      const updateBtn = () => {
+        const count = list.querySelectorAll('.confirm-row:not(.is-deselected)').length;
+        importBtn.textContent = `Import ${count} event${count !== 1 ? 's' : ''}`;
+        importBtn.disabled = count === 0;
+      };
+      list.addEventListener('click', (e) => {
+        if (e.target.closest('.ev-date-wrap')) return;
+        const row = e.target.closest('.confirm-row');
+        if (!row) return;
+        const idx = row.dataset.key;
+        row.classList.toggle('is-deselected');
+        const dateWrap = list.querySelector(`.ev-date-wrap[data-idx="${idx}"]`);
+        if (dateWrap) dateWrap.style.display = row.classList.contains('is-deselected') ? 'none' : '';
+        updateBtn();
+      });
+      taskSheetMount.querySelector('#efIevCancel')?.addEventListener('click', () => {
         closeTaskSheet();
-        await loadData();
-        render();
+        if (onCancel) setTimeout(onCancel, 320);
+      });
+      importBtn.addEventListener('click', async () => {
+        const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')].map(row => {
+          const ev = eventsArr[+row.dataset.key];
+          const dateEl = list.querySelector(`.ev-date[data-idx="${row.dataset.key}"]`);
+          const date = dateEl?.value || ev.date || null;
+          return date ? { ...ev, date } : null;
+        }).filter(Boolean);
+        if (!selected.length) { closeTaskSheet(); return; }
+        importBtn.disabled = true; importBtn.textContent = 'Adding…';
+        try {
+          let counter = 0;
+          for (const ev of selected) {
+            const eventData = { name: ev.name, date: ev.date, allDay: ev.allDay ?? true, startTime: ev.time || null, endTime: null, color: people[0]?.color || '#4285f4', people: [], notes: ev.notes || null, repeat: null };
+            const newId = await pushEvent(eventData);
+            events[newId] = eventData;
+            const schedKey = `sched_${Date.now()}_evt_${counter++}`;
+            await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+          }
+          closeTaskSheet();
+          allSchedule = await readAllSchedule() || {};
+          render();
+        } catch (err) {
+          importBtn.disabled = false;
+          importBtn.textContent = `Import ${selected.length} event${selected.length !== 1 ? 's' : ''}`;
+        }
+      });
+    }
+
+    function openRepeatSheet(currentRule, onDone, onCancel) {
+      taskSheetMount.innerHTML = renderBottomSheet(renderRepeatSheet(currentRule));
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      const getSelectedType = () => taskSheetMount.querySelector('.ef2-repeat-option.is-selected')?.dataset.type || 'none';
+      taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(o => o.classList.remove('is-selected'));
+          opt.classList.add('is-selected');
+        });
+      });
+      taskSheetMount.querySelector('#rs_cancel')?.addEventListener('click', () => {
+        closeTaskSheet();
+        if (onCancel) setTimeout(onCancel, 320);
+      });
+      taskSheetMount.querySelector('#rs_save')?.addEventListener('click', () => {
+        const type = getSelectedType();
+        const rule = type === 'none' ? null : { type };
+        closeTaskSheet();
+        if (onDone) setTimeout(() => onDone(rule), 320);
       });
     }
 

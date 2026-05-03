@@ -70,7 +70,7 @@
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
       readBank, writeBankToken, removeBankToken
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton } from './shared/components.js';
+    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -676,8 +676,6 @@
     // Events Tab
     // ══════════════════════════════════════════
 
-    let editingEventId = null;
-
     function renderEventsTab() {
       let html = '';
 
@@ -719,13 +717,6 @@
           });
         }
         html += `</div>`;
-      }
-
-      // Event form modal
-      if (editingEventId !== null) {
-        html += `<div class="task-form-backdrop" id="eventFormBackdrop">
-          <div class="task-form-modal">${renderEventFormAdmin(editingEventId === 'new' ? null : editingEventId)}</div>
-        </div>`;
       }
 
       return html;
@@ -799,64 +790,272 @@
       }, { once: true });
     }
 
-    function renderEventFormAdmin(eventId) {
-      const event = eventId ? eventsObj[eventId] || {} : {};
-      const isEdit = !!eventId;
-      const title = isEdit ? 'Edit Event' : 'New Event';
-      const peoplePills = Object.entries(peopleObj).map(([pid, p]) => {
-        const selected = (event.people || []).includes(pid);
-        return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${pid}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
-      }).join('');
+    function openEventFormAdmin(existingEventId = null, savedState = null) {
+      const event = savedState || (existingEventId ? eventsObj[existingEventId] : {});
+      const mode = existingEventId ? 'edit' : 'create';
+      const taskSheetMount = document.getElementById('taskSheetMount');
+      const html = renderEventForm({ event, eventId: existingEventId, people: peopleArray(), dateKey: today, mode });
+      taskSheetMount.innerHTML = renderBottomSheet(html);
+      taskSheetMount.querySelectorAll('.ef2-person-chip[data-person-color]').forEach(chip => {
+        chip.style.setProperty('--chip-color', chip.dataset.personColor);
+      });
+      applyDataColors(taskSheetMount);
 
-      const currentColor = event.color || '#4285f4';
+      requestAnimationFrame(() => {
+        document.getElementById('bottomSheet')?.classList.add('active');
+        if (mode === 'create') document.getElementById('ef2_name')?.focus();
+      });
 
-      return `<div class="admin-form" id="eventFormAdmin">
-        <h3 class="admin-form__title">${title}</h3>
-        <div class="form-group">
-          <label class="form-label">Name</label>
-          <input type="text" id="aef_name" value="${esc(event.name || '')}" placeholder="Soccer practice, Dentist, etc.">
-        </div>
-        <div class="form-group">
-          <div style="display: flex; align-items: end; gap: var(--spacing-sm);">
-            <div style="flex: 1;">
-              <label class="form-label">Date</label>
-              <input type="date" id="aef_date" value="${event.date || today}">
-            </div>
-            <button type="button" class="chip chip--selectable${event.allDay ? ' chip--active' : ''}" id="aef_allDay" style="margin-bottom: 2px;">All Day</button>
-          </div>
-        </div>
-        <div style="display: ${event.allDay ? 'none' : 'flex'}; gap: var(--spacing-sm);" id="aef_timeGroup">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Start</label>
-            <input type="time" id="aef_startTime" value="${event.startTime || ''}">
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">End</label>
-            <input type="time" id="aef_endTime" value="${event.endTime || ''}">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">People</label>
-          <div class="owner-chips" id="aef_people">${peoplePills}</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Color</label>
-          ${renderColorButton(currentColor, 'aef_colorPicker')}
-        </div>
-        <div class="form-group">
-          <label class="form-label">Location</label>
-          <input type="text" id="aef_location" value="${esc(event.location || '')}" placeholder="Optional">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Notes</label>
-          <textarea id="aef_notes" rows="2" placeholder="Optional">${esc(event.notes || '')}</textarea>
-        </div>
-        <div class="admin-form__actions mt-md">
-          ${isEdit ? `<button class="btn btn--danger" id="eventFormDelete" type="button">Delete Event</button>` : ''}
-          <button class="btn btn--secondary" id="eventFormCancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="eventFormSave" type="button">${isEdit ? 'Save Changes' : 'Add Event'}</button>
-        </div>
-      </div>`;
+      document.getElementById('ef2_close')?.addEventListener('click', closeAdminSheet);
+      document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('bottomSheet')) closeAdminSheet();
+      });
+
+      const dateBtn = document.getElementById('ef2_dateBtn');
+      const datePicker = document.getElementById('ef2_datePicker');
+      const dateDisplay = document.getElementById('ef2_dateDisplay');
+      const dateInput = document.getElementById('ef2_date');
+      const timePicker = document.getElementById('ef2_timePicker');
+      const timeBtn = document.getElementById('ef2_timeBtn');
+      const timeDisplay = document.getElementById('ef2_timeDisplay');
+
+      function ef2GetTime(prefix) {
+        const raw = (document.getElementById(`ef2_${prefix}Text`)?.value || '').replace(/\D/g, '');
+        const ampm = document.getElementById(`ef2_${prefix}AmPm`)?.dataset.ampm || 'AM';
+        if (!raw) return '';
+        let h, m;
+        if (raw.length <= 2) { h = parseInt(raw, 10); m = 0; }
+        else if (raw.length === 3) { h = parseInt(raw[0], 10); m = parseInt(raw.slice(1), 10); }
+        else { h = parseInt(raw.slice(0, 2), 10); m = parseInt(raw.slice(2, 4), 10); }
+        if (isNaN(h) || h < 1 || h > 12) return '';
+        if (isNaN(m) || m > 59) m = 0;
+        let h24 = h;
+        if (ampm === 'AM' && h === 12) h24 = 0;
+        else if (ampm === 'PM' && h !== 12) h24 = h + 12;
+        return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+
+      dateBtn?.addEventListener('click', () => {
+        const open = datePicker.classList.toggle('is-open');
+        if (open) timePicker?.classList.remove('is-open');
+      });
+      dateInput?.addEventListener('change', () => {
+        dateDisplay.textContent = dateInput.value ? formatDateShort(dateInput.value) : 'Set date';
+        datePicker?.classList.remove('is-open');
+      });
+      timeBtn?.addEventListener('click', () => {
+        const open = timePicker.classList.toggle('is-open');
+        if (open) datePicker?.classList.remove('is-open');
+      });
+
+      function updateTimeDisplay() {
+        if (document.getElementById('ef2_allDay')?.classList.contains('is-active')) return;
+        const s = ef2GetTime('start');
+        const e = ef2GetTime('end');
+        if (timeDisplay) {
+          const fmt = (t) => {
+            if (!t) return '';
+            const [h, min] = t.split(':').map(Number);
+            const ap = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return min === 0 ? `${h12} ${ap}` : `${h12}:${String(min).padStart(2, '0')} ${ap}`;
+          };
+          timeDisplay.textContent = s ? `${fmt(s)} → ${fmt(e)}` : 'Set time';
+        }
+      }
+
+      ['ef2_startText', 'ef2_endText'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateTimeDisplay);
+      });
+      ['ef2_startAmPm', 'ef2_endAmPm'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn?.addEventListener('click', () => {
+          const curr = btn.dataset.ampm || 'AM';
+          const next = curr === 'AM' ? 'PM' : 'AM';
+          btn.dataset.ampm = next; btn.textContent = next;
+          updateTimeDisplay();
+        });
+      });
+
+      document.getElementById('ef2_allDay')?.addEventListener('click', () => {
+        const allDayBtn = document.getElementById('ef2_allDay');
+        allDayBtn.classList.toggle('is-active');
+        const isAllDay = allDayBtn.classList.contains('is-active');
+        document.getElementById('ef2_timeBtn')?.classList.toggle('ef2-hidden', isAllDay);
+        document.getElementById('ef2_timePicker')?.classList.toggle('ef2-hidden', isAllDay);
+        if (isAllDay) document.getElementById('ef2_timePicker')?.classList.remove('is-open');
+        if (!isAllDay) updateTimeDisplay();
+      });
+
+      const peopleWrap = document.getElementById('ef2_people');
+      function getPrimaryChip() { return peopleWrap?.querySelector('.ef2-person-chip[data-state="primary"]'); }
+      peopleWrap?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.ef2-person-chip');
+        if (!chip) return;
+        const currentState = chip.dataset.state;
+        if (!currentState) {
+          chip.setAttribute('data-state', getPrimaryChip() ? 'attending' : 'primary');
+        } else if (currentState === 'attending') {
+          const oldPrimary = getPrimaryChip();
+          if (oldPrimary) oldPrimary.setAttribute('data-state', 'attending');
+          chip.setAttribute('data-state', 'primary');
+        } else if (currentState === 'primary') {
+          chip.removeAttribute('data-state');
+          const firstAttending = peopleWrap.querySelector('.ef2-person-chip[data-state="attending"]');
+          if (firstAttending) firstAttending.setAttribute('data-state', 'primary');
+        }
+      });
+
+      document.getElementById('ef2_notesChip')?.addEventListener('click', () => {
+        const reveal = document.getElementById('ef2_notesReveal');
+        const isOpen = reveal?.classList.contains('is-open');
+        if (isOpen) { reveal.classList.remove('is-open'); document.getElementById('ef2_notesChip')?.classList.remove('is-active'); }
+        else { reveal?.classList.add('is-open'); document.getElementById('ef2_notesChip')?.classList.add('is-active'); document.getElementById('ef2_notes')?.focus(); }
+      });
+      document.getElementById('ef2_notesClose')?.addEventListener('click', () => {
+        document.getElementById('ef2_notesReveal')?.classList.remove('is-open');
+        document.getElementById('ef2_notesChip')?.classList.remove('is-active');
+      });
+      document.getElementById('ef2_locChip')?.addEventListener('click', () => {
+        const reveal = document.getElementById('ef2_locReveal');
+        const isOpen = reveal?.classList.contains('is-open');
+        if (isOpen) { reveal.classList.remove('is-open'); document.getElementById('ef2_locChip')?.classList.remove('is-active'); }
+        else { reveal?.classList.add('is-open'); document.getElementById('ef2_locChip')?.classList.add('is-active'); document.getElementById('ef2_location')?.focus(); }
+      });
+      document.getElementById('ef2_locClose')?.addEventListener('click', () => {
+        document.getElementById('ef2_locReveal')?.classList.remove('is-open');
+        document.getElementById('ef2_locChip')?.classList.remove('is-active');
+      });
+
+      let currentRepeat = event.repeat || null;
+      document.getElementById('ef2_repeatChip')?.addEventListener('click', () => {
+        const formState = captureFormState();
+        openAdminRepeatSheet(currentRepeat, (newRule) => {
+          currentRepeat = newRule;
+          openEventFormAdmin(existingEventId, { ...formState, repeat: currentRepeat });
+        }, () => openEventFormAdmin(existingEventId, formState));
+      });
+
+      function captureFormState() {
+        const primaryChip = getPrimaryChip();
+        const attendingChips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip[data-state="attending"]') || [])];
+        const peoplArr = [];
+        if (primaryChip) peoplArr.push(primaryChip.dataset.personId);
+        attendingChips.forEach(c => peoplArr.push(c.dataset.personId));
+        return {
+          name: document.getElementById('ef2_name')?.value || '',
+          date: document.getElementById('ef2_date')?.value || today,
+          allDay: document.getElementById('ef2_allDay')?.classList.contains('is-active') || false,
+          startTime: ef2GetTime('start') || '09:00',
+          endTime: ef2GetTime('end') || '10:00',
+          people: peoplArr,
+          notes: document.getElementById('ef2_notes')?.value || '',
+          location: document.getElementById('ef2_location')?.value || '',
+          notesOpen: document.getElementById('ef2_notesReveal')?.classList.contains('is-open') || false,
+          locOpen: document.getElementById('ef2_locReveal')?.classList.contains('is-open') || false,
+          repeat: currentRepeat,
+        };
+      }
+
+      document.getElementById('ef2_save')?.addEventListener('click', async () => {
+        const name = document.getElementById('ef2_name')?.value.trim();
+        if (!name) {
+          const inp = document.getElementById('ef2_name');
+          inp?.classList.add('ef2-shake'); inp?.focus();
+          inp?.addEventListener('animationend', () => inp.classList.remove('ef2-shake'), { once: true });
+          return;
+        }
+        const formState = captureFormState();
+        formState.name = name;
+        const primaryId = formState.people[0] || null;
+        const primaryPerson = peopleArray().find(p => p.id === primaryId);
+        const color = primaryPerson?.color || peopleArray()[0]?.color || '#4285f4';
+        const eventData = {
+          name: formState.name,
+          date: formState.date || today,
+          allDay: formState.allDay,
+          startTime: formState.allDay ? null : (formState.startTime || null),
+          endTime: formState.allDay ? null : (formState.endTime || null),
+          color,
+          people: formState.people,
+          location: formState.location || null,
+          notes: formState.notes || null,
+          repeat: formState.repeat || null,
+          createdDate: existingEventId ? (eventsObj[existingEventId]?.createdDate || today) : today,
+        };
+        const saveBtn = document.getElementById('ef2_save');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '…'; }
+        try {
+          if (existingEventId) {
+            const oldEvent = eventsObj[existingEventId];
+            await writeEvent(existingEventId, eventData);
+            eventsObj[existingEventId] = eventData;
+            if (oldEvent && oldEvent.date !== eventData.date) {
+              const allSched = await readAllSchedule() || {};
+              const moveUpdates = {};
+              for (const [dk, dayEntries] of Object.entries(allSched)) {
+                for (const [ek, entry] of Object.entries(dayEntries || {})) {
+                  if (entry.type === 'event' && entry.eventId === existingEventId) {
+                    moveUpdates[`schedule/${dk}/${ek}`] = null;
+                  }
+                }
+              }
+              const newSchedKey = `sched_${Date.now()}_event`;
+              moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId: existingEventId };
+              await multiUpdate(moveUpdates);
+            }
+          } else {
+            const newId = await pushEvent(eventData);
+            eventsObj[newId] = eventData;
+            const schedKey = `sched_${Date.now()}_event`;
+            await multiUpdate({ [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId } });
+          }
+          closeAdminSheet();
+          render();
+        } catch (err) {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '✓'; }
+          const errEl = document.getElementById('ef2_importError');
+          if (errEl) { errEl.textContent = "Couldn't save — try again."; errEl.classList.add('is-visible'); }
+        }
+      });
+
+      document.getElementById('ef2_delete')?.addEventListener('click', async () => {
+        if (!existingEventId) return;
+        const name = eventsObj[existingEventId]?.name || 'this event';
+        if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
+        try {
+          await removeEvent(existingEventId);
+          delete eventsObj[existingEventId];
+          closeAdminSheet();
+          render();
+        } catch (err) {
+          const errEl = document.getElementById('ef2_importError');
+          if (errEl) { errEl.textContent = "Couldn't delete — try again."; errEl.classList.add('is-visible'); }
+        }
+      });
+    }
+
+    function openAdminRepeatSheet(currentRule, onDone, onCancel) {
+      const taskSheetMount = document.getElementById('taskSheetMount');
+      taskSheetMount.innerHTML = renderBottomSheet(renderRepeatSheet(currentRule));
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      const getSelectedType = () => taskSheetMount.querySelector('.ef2-repeat-option.is-selected')?.dataset.type || 'none';
+      taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(o => o.classList.remove('is-selected'));
+          opt.classList.add('is-selected');
+        });
+      });
+      taskSheetMount.querySelector('#rs_cancel')?.addEventListener('click', () => {
+        closeAdminSheet();
+        if (onCancel) setTimeout(onCancel, 320);
+      });
+      taskSheetMount.querySelector('#rs_save')?.addEventListener('click', () => {
+        const type = getSelectedType();
+        const rule = type === 'none' ? null : { type };
+        closeAdminSheet();
+        if (onDone) setTimeout(() => onDone(rule), 320);
+      });
     }
 
     // ══════════════════════════════════════════
@@ -3149,91 +3348,13 @@
 
     function bindEventsTab() {
       main.querySelector('#addEventBtn')?.addEventListener('click', () => {
-        editingEventId = 'new';
-        render();
+        openEventFormAdmin(null);
       });
 
       main.querySelector('#eventList')?.addEventListener('click', e => {
         const row = e.target.closest('[data-event-id]');
         if (!row) return;
-        editingEventId = row.dataset.eventId;
-        render();
-      });
-
-      main.querySelector('#eventFormCancel')?.addEventListener('click', () => {
-        editingEventId = null;
-        render();
-      });
-
-      // All-day chip toggle
-      main.querySelector('#aef_allDay')?.addEventListener('click', () => {
-        const btn = main.querySelector('#aef_allDay');
-        btn.classList.toggle('chip--active');
-        const timeGroup = main.querySelector('#aef_timeGroup');
-        if (timeGroup) timeGroup.style.display = btn.classList.contains('chip--active') ? 'none' : 'flex';
-      });
-
-      // People chips
-      main.querySelectorAll('#aef_people .chip').forEach(chip => {
-        chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
-      });
-
-      initColorButton(main.querySelector('#aef_colorPicker')?.closest('.cpick-wrap'), null);
-
-      main.querySelector('#eventFormSave')?.addEventListener('click', async () => {
-        const name = main.querySelector('#aef_name')?.value.trim();
-        if (!name) { await showConfirm({ title: 'Event name is required', alert: true }); return; }
-
-        const date = main.querySelector('#aef_date')?.value;
-        if (!date) { await showConfirm({ title: 'Date is required', alert: true }); return; }
-
-        const allDay = main.querySelector('#aef_allDay')?.classList.contains('chip--active') || false;
-        const startTime = allDay ? null : (main.querySelector('#aef_startTime')?.value || null);
-        const endTime = allDay ? null : (main.querySelector('#aef_endTime')?.value || null);
-        const selectedPeople = [...main.querySelectorAll('#aef_people .chip--active')].map(c => c.dataset.personId);
-        const color = main.querySelector('#aef_colorPicker')?.value || '#4285f4';
-        const location = main.querySelector('#aef_location')?.value.trim() || null;
-        const notes = main.querySelector('#aef_notes')?.value.trim() || null;
-
-        const eventData = { name, date, allDay, startTime, endTime, people: selectedPeople, color, location, notes };
-
-        if (editingEventId && editingEventId !== 'new') {
-          await writeEvent(editingEventId, eventData);
-          eventsObj[editingEventId] = eventData;
-          // Update schedule entry date if changed
-          const allSched = await readAllSchedule() || {};
-          const updates = {};
-          for (const [dk, dayEntries] of Object.entries(allSched)) {
-            for (const [ek, entry] of Object.entries(dayEntries || {})) {
-              if (entry.type === 'event' && entry.eventId === editingEventId) {
-                if (dk !== date) {
-                  updates[`schedule/${dk}/${ek}`] = null;
-                  const newKey = `sched_${Date.now()}_0`;
-                  updates[`schedule/${date}/${newKey}`] = { type: 'event', eventId: editingEventId };
-                }
-              }
-            }
-          }
-          if (Object.keys(updates).length > 0) await multiUpdate(updates);
-        } else {
-          const newId = await pushEvent(eventData);
-          eventsObj[newId] = eventData;
-          // Create schedule entry
-          const schedKey = `sched_${Date.now()}_0`;
-          await multiUpdate({ [`schedule/${date}/${schedKey}`]: { type: 'event', eventId: newId } });
-        }
-
-        editingEventId = null;
-        render();
-      });
-
-      main.querySelector('#eventFormDelete')?.addEventListener('click', async () => {
-        const confirmed = await showConfirm({ title: 'Delete this event?', confirmLabel: 'Delete', danger: true });
-        if (!confirmed) return;
-        await removeEvent(editingEventId);
-        delete eventsObj[editingEventId];
-        editingEventId = null;
-        render();
+        openEventFormAdmin(row.dataset.eventId);
       });
 
       main.querySelector('#eventsSearch')?.addEventListener('input', e => {
