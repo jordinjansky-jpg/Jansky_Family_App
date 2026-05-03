@@ -120,6 +120,39 @@
   padding: var(--spacing-md) 0 var(--spacing-sm);
 }
 
+.rl-wrap {
+  padding: var(--spacing-sm) 0 var(--spacing-xl);
+}
+
+.rl-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.rl-recipe-card {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.rl-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.rl-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+}
+
+.rl-filter-btn {
+  margin-left: auto;
+}
+
 /* ============ Lists tab ============ */
 .list-switcher {
   display: flex;
@@ -168,20 +201,6 @@
 .item-add-field::placeholder { color: var(--text-faint); }
 .item-add-field.is-confirmed::placeholder { color: var(--accent); }
 
-/* Staples quick-add */
-.staples-btn {
-  font-size: var(--font-sm);
-  color: var(--accent);
-  font-weight: 600;
-  background: none;
-  border: none;
-  padding: var(--spacing-xs) 0;
-  cursor: pointer;
-  flex: 1;
-  text-align: left;
-}
-
-/* Editable ingredient rows in recipe form */
 /* List toolbar (staples + AI cleanup) */
 .list-toolbar {
   display: flex;
@@ -189,6 +208,12 @@
   gap: var(--spacing-sm);
   padding-top: var(--spacing-sm);
   padding-bottom: var(--spacing-xs);
+}
+
+.list-icon-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 
 .list-wand-btn,

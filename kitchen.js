@@ -174,7 +174,13 @@ function bindFab() {
   const label = activeTab === 'meals' ? 'Add' : activeTab === 'recipes' ? 'New recipe' : 'Add items';
   mount.innerHTML = renderFab({ id: 'kitchenFab', label });
   document.getElementById('kitchenFab')?.addEventListener('click', () => {
-    if (activeTab === 'meals') { const tz = settings?.timezone || 'America/Chicago'; openPlanMealSheet(todayKey(tz), 'dinner'); }
+    if (activeTab === 'meals') {
+      const tz = settings?.timezone || 'America/Chicago';
+      const todayStr = todayKey(tz);
+      const weekStr = currentWeekStart ? dateKey(currentWeekStart) : todayStr;
+      const defaultDate = weekStr > todayStr ? weekStr : todayStr;
+      openPlanMealSheet(defaultDate, 'dinner');
+    }
     else if (activeTab === 'recipes') openRecipeForm(null);
     else { if (!activeListId) openCreateListSheet(); else openItemAddField(); }
   });
@@ -184,6 +190,7 @@ function bindFab() {
 const SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'school-lunch-2', 'dinner', 'snack'];
 const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School 1', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
 const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function getMondayOf(date) {
   const d = new Date(date);
@@ -228,6 +235,7 @@ async function renderMealsTab() {
     const isToday = dk === todayStr;
     const dayName = DAY_ABBR[d.getDay()];
     const dayNum = d.getDate();
+    const dayMonth = MONTHS[d.getMonth()];
 
     const plannedSlots = SLOT_ORDER.filter(s => plan[s]);
     const slotsHtml = plannedSlots.length > 0
@@ -245,7 +253,7 @@ async function renderMealsTab() {
 
     return `<div class="day-block">
       <div class="day-block__head${isToday ? ' day-block__head--today' : ''}">
-        <span>${dayName} ${dayNum}</span>
+        <span>${dayName} ${dayMonth} ${dayNum}</span>
         ${isToday ? '<span class="day-block__today-pill">Today</span>' : ''}
       </div>
       <div class="day-block__slots">${slotsHtml}</div>
@@ -294,8 +302,8 @@ function renderRecipesTab() {
 
   const recipeLibHtml = recipeEntries.length > 0
     ? recipeEntries.map(([id, r]) => `
-        <article class="card" data-recipe-id="${esc(id)}" style="cursor:pointer;display:flex;align-items:center">
-          <div class="card__body" style="flex:1;min-width:0">
+        <article class="card rl-recipe-card" data-recipe-id="${esc(id)}">
+          <div class="card__body rl-card-body">
             <div class="card__title">${esc(r.name)}</div>
             <div class="card__meta">
               ${r.ingredients?.length ? `${r.ingredients.length} ingredient${r.ingredients.length !== 1 ? 's' : ''}` : 'No ingredients'}
@@ -313,11 +321,10 @@ function renderRecipesTab() {
     : renderEmptyState('', 'No recipes yet', 'Tap "New recipe" to add your first.');
 
   content.innerHTML = `
-    <div style="padding:var(--spacing-sm) 0 var(--spacing-xl)">
-      <div style="display:flex;align-items:center;gap:var(--spacing-xs);margin-bottom:var(--spacing-sm)">
+    <div class="rl-wrap">
+      <div class="rl-controls">
         <button class="btn btn--ghost" id="findRecipesBtn" type="button">Find ideas &#x2197;</button>
-        <button class="chip${filterCount > 0 ? ' chip--active' : ''}" id="recipeFilterBtn" type="button"
-          style="margin-left:auto">${filterLabel} &#9662;</button>
+        <button class="chip rl-filter-btn${filterCount > 0 ? ' chip--active' : ''}" id="recipeFilterBtn" type="button">${filterLabel} &#9662;</button>
       </div>
       <div id="recipeLibrary">${recipeLibHtml}</div>
     </div>`;
@@ -377,7 +384,6 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
 
   let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : 'dinner';
 
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
     return `${DAY_ABBR[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
@@ -1206,8 +1212,8 @@ function renderListsTab() {
       </div>
     </div>
     <div class="list-toolbar">
-      <button class="staples-btn" id="staplesTopBtn">Add from staples</button>
-      <div style="display:flex;align-items:center;gap:var(--spacing-xs)">
+      <button class="btn btn--ghost btn--sm" id="staplesTopBtn" type="button">Add from staples</button>
+      <div class="list-icon-group">
         <button class="list-camera-btn" id="listCameraBtn" type="button" aria-label="Add from photo">${CAM_SVG}</button>
         <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list" disabled>${WAND_SVG}</button>
       </div>
@@ -1330,19 +1336,21 @@ async function toggleItem(id) {
     const unchecked = document.querySelectorAll('#listItemsArea .card--shopping:not(.is-checked)');
     if (allCards.length > 0 && unchecked.length === 0) {
       const listName = lists[activeListId]?.name || 'List';
-      const confirmed = await showConfirm({
-        title: `All done! Delete "${listName}"?`,
-        confirmLabel: 'Delete list',
-        danger: true,
+      const doClear = await showConfirm({
+        title: `All done with ${listName}!`,
+        message: 'Clear checked items to reuse this list?',
+        confirmLabel: 'Clear',
+        cancelLabel: 'Undo',
       });
-      if (confirmed) {
-        const listId = activeListId;
-        await removeKitchenList(listId);
-        delete lists[listId];
-        activeListId = Object.keys(lists)[0] || null;
-        if (activeListId) localStorage.setItem('dr-kitchen-active-list', activeListId);
-        else localStorage.removeItem('dr-kitchen-active-list');
-        renderListsTab();
+      if (doClear) {
+        const checkedIds = Object.entries(currentItems)
+          .filter(([, v]) => v.checked)
+          .map(([itemId]) => itemId);
+        for (const itemId of checkedIds) {
+          await removeKitchenItem(activeListId, itemId);
+        }
+      } else {
+        await getDb().ref(`rundown/kitchen/items/${activeListId}/${id}`).update({ checked: false, checkedAt: null });
       }
     }
   }
