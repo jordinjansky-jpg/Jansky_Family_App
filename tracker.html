@@ -856,31 +856,14 @@
       // Person chips
       const pw = document.getElementById('tf_people');
       function trkGetOwnerIds() {
-        const chips = [...(pw?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
-        return chips.filter(c => c.dataset.state === 'primary').map(c => c.dataset.personId);
+        return [...(pw?.querySelectorAll('.ef2-person-chip') || [])]
+          .filter(c => c.dataset.state === 'primary').map(c => c.dataset.personId);
       }
       function trkUpdateAssignRow() { document.getElementById('tf_assignRow')?.classList.toggle('is-hidden', trkGetOwnerIds().length < 2); }
-      function trkSetFamilyMode(on) {
-        const chips2 = [...(pw?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
-        const fam = pw?.querySelector('[data-person-id="__family__"]');
-        if (on) {
-          chips2.forEach(c => c.setAttribute('data-state', 'primary'));
-          fam?.setAttribute('data-state', 'primary');
-          const row = document.getElementById('tf_assignRow');
-          row?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
-          row?.querySelector('[data-mode="everyone"]')?.classList.add('tf-assign-pill--active');
-        } else {
-          chips2.forEach(c => c.removeAttribute('data-state'));
-          fam?.removeAttribute('data-state');
-        }
-        trkUpdateAssignRow();
-      }
       pw?.querySelectorAll('.ef2-person-chip').forEach(chip => {
         chip.addEventListener('click', () => {
-          if (chip.dataset.personId === '__family__') { trkSetFamilyMode(chip.dataset.state !== 'primary'); return; }
           if (chip.dataset.state === 'primary') chip.removeAttribute('data-state');
           else chip.setAttribute('data-state', 'primary');
-          pw?.querySelector('[data-person-id="__family__"]')?.removeAttribute('data-state');
           trkUpdateAssignRow();
         });
       });

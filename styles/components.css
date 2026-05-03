@@ -3129,6 +3129,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 .ef2-for-section {
   padding: var(--spacing-sm) 0 var(--spacing-md);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--spacing-sm);
 }
@@ -3154,6 +3155,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 
 .ef2-person-chips {
   display: flex;
+  flex: 1;
   flex-wrap: nowrap;
   gap: var(--spacing-xs);
   overflow-x: auto;
@@ -3555,6 +3557,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   display: flex;
   gap: var(--spacing-xs);
   margin-top: var(--spacing-xs);
+  width: 100%;
 }
 .tf-assign-pill {
   flex: 1;

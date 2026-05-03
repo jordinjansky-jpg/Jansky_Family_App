@@ -1666,11 +1666,8 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
 
   <div class="ef2-divider"></div>
 
-  <div class="tf-for-section" id="tf_people">
-    <div class="ef2-for-header">
-      <span class="ef2-section-label">For</span>
-      <button class="ef2-person-chip ef2-person-chip--family tf-person-chip--family" data-person-id="__family__" type="button">Family</button>
-    </div>
+  <div class="ef2-for-section" id="tf_people">
+    <span class="ef2-section-label">For</span>
     <div class="ef2-person-chips">${personChipsHtml}</div>
     <div class="tf-assign-row${showAssign ? '' : ' is-hidden'}" id="tf_assignRow">
       <button class="tf-assign-pill${assignMode === 'rotate' ? ' tf-assign-pill--active' : ''}" data-mode="rotate" type="button">Rotate</button>

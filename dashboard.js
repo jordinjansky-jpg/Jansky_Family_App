@@ -2813,40 +2813,18 @@ function openTaskForm(taskId = null, savedState = null) {
   const peopleWrap = document.getElementById('tf_people');
 
   function tfGetOwnerIds() {
-    const chips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
-    return chips.filter(c => c.dataset.state === 'primary').map(c => c.dataset.personId);
+    return [...(peopleWrap?.querySelectorAll('.ef2-person-chip') || [])]
+      .filter(c => c.dataset.state === 'primary').map(c => c.dataset.personId);
   }
 
   function tfUpdateAssignRow() {
-    const ids = tfGetOwnerIds();
-    document.getElementById('tf_assignRow')?.classList.toggle('is-hidden', ids.length < 2);
-  }
-
-  function tfSetFamilyMode(on) {
-    const chips = [...(peopleWrap?.querySelectorAll('.ef2-person-chip:not(.ef2-person-chip--family)') || [])];
-    const familyChip = peopleWrap?.querySelector('[data-person-id="__family__"]');
-    if (on) {
-      chips.forEach(c => c.setAttribute('data-state', 'primary'));
-      familyChip?.setAttribute('data-state', 'primary');
-      const row = document.getElementById('tf_assignRow');
-      row?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
-      row?.querySelector('[data-mode="everyone"]')?.classList.add('tf-assign-pill--active');
-    } else {
-      chips.forEach(c => c.removeAttribute('data-state'));
-      familyChip?.removeAttribute('data-state');
-    }
-    tfUpdateAssignRow();
+    document.getElementById('tf_assignRow')?.classList.toggle('is-hidden', tfGetOwnerIds().length < 2);
   }
 
   peopleWrap?.querySelectorAll('.ef2-person-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      if (chip.dataset.personId === '__family__') {
-        tfSetFamilyMode(chip.dataset.state !== 'primary');
-        return;
-      }
       if (chip.dataset.state === 'primary') chip.removeAttribute('data-state');
       else chip.setAttribute('data-state', 'primary');
-      peopleWrap?.querySelector('[data-person-id="__family__"]')?.removeAttribute('data-state');
       tfUpdateAssignRow();
     });
   });
