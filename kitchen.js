@@ -1440,26 +1440,21 @@ function openManageListSheet() {
   const mount = document.getElementById('sheetMount');
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
-      <h2 class="sheet__title">${esc(listName)}</h2>
+      <h2 class="sheet__title">Edit list</h2>
       <button class="ef2-icon-btn" id="km_close" aria-label="Close" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="km-rename-section">
-      <label class="field">
-        <span class="field__label">Rename</span>
-        <input id="km_name" type="text" value="${esc(listName)}" autocomplete="off">
-      </label>
+    <div class="kl-name-row">
+      <input class="kl-name-input" id="km_name" type="text" value="${esc(listName)}" autocomplete="off">
     </div>
     <div class="km-actions-section">
-      <div class="overflow-menu">
-        <button class="overflow-menu__item" id="km_copyBtn" type="button">Copy list as text</button>
-        <button class="overflow-menu__item" id="km_clearBtn" type="button">Clear checked items</button>
-      </div>
+      <button class="btn btn--secondary btn--full" id="km_copyBtn" type="button">Copy list as text</button>
+      <button class="btn btn--secondary btn--full" id="km_clearBtn" type="button">Clear checked items</button>
     </div>
     <div class="km-footer">
       <button class="btn btn--ghost" id="km_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="km_save" type="button">Save name</button>
+      <button class="btn btn--primary" id="km_save" type="button">Save</button>
     </div>
     <div class="km-delete-zone">
       <button class="km-delete-btn" id="km_deleteBtn" type="button">Delete list</button>

@@ -4323,6 +4323,9 @@ label.ef2-icon-btn  { cursor: pointer; }
   padding: var(--spacing-sm) 0;
 }
 .km-actions-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
   padding: 0 0 var(--spacing-sm);
 }
 
