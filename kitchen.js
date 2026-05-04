@@ -1444,13 +1444,15 @@ function openManageListSheet() {
   const listName = lists[activeListId].name;
   const mount = document.getElementById('sheetMount');
   const TRASH_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const SAVE_SVG  = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
   const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-  const CHEVRON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+  const CHEVRON   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">Edit list</h2>
       <div class="rf-header-actions">
         <button class="ef2-icon-btn km-delete-icon" id="km_deleteBtn" aria-label="Delete list" type="button">${TRASH_SVG}</button>
+        <button class="ef2-icon-btn rf-save-btn" id="km_save" aria-label="Save" type="button">${SAVE_SVG}</button>
         <button class="ef2-icon-btn" id="km_close" aria-label="Close" type="button">${CLOSE_SVG}</button>
       </div>
     </div>
@@ -1460,16 +1462,11 @@ function openManageListSheet() {
     <div class="kl-pick-list">
       <button class="kl-pick-row" id="km_copyBtn" type="button"><span>Copy list as text</span>${CHEVRON}</button>
       <button class="kl-pick-row" id="km_clearBtn" type="button"><span>Clear checked items</span>${CHEVRON}</button>
-    </div>
-    <div class="km-footer">
-      <button class="btn btn--ghost" id="km_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="km_save" type="button">Save</button>
     </div>`);
   activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('km_close')?.addEventListener('click', close);
-  document.getElementById('km_cancel')?.addEventListener('click', close);
 
   document.getElementById('km_save')?.addEventListener('click', async () => {
     const name = document.getElementById('km_name')?.value.trim();

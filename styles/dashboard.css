@@ -23,12 +23,6 @@
   gap: 5px;
 }
 
-.task-detail__late-buttons {
-  display: flex;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) 0;
-}
-.task-detail__late-buttons .btn { flex: 1; }
 
 .task-detail__action-list {
   display: flex;

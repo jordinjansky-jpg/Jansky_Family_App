@@ -1380,28 +1380,25 @@ export function renderTaskDetailSheet(options) {
     }
   }
 
-  // ── Complete CTA ─────────────────────────────────────────
+  // ── Action list (complete + edit/move/skip/delegate) ─────
+  const DS_CHECK  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const DS_UNDO   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>`;
   const isLateEligible = isPastDate && !completed && !isEvent && !task.exempt;
+  html += `<div class="ef2-divider"></div><div class="task-detail__action-list">`;
   if (isLateEligible) {
-    html += `<div class="task-detail__late-buttons">
-      <button class="btn btn--primary btn--full" id="sheetCompleteNoPenalty" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Complete (Full Credit)</button>
-      <button class="btn btn--secondary btn--full" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">Complete (Late)</button>
-    </div>`;
-  } else {
-    const toggleLabel = completed ? 'Mark Incomplete' : 'Mark Complete';
-    const toggleClass = completed ? 'btn--secondary' : 'btn--primary';
-    html += `<button class="btn ${toggleClass} btn--full" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${toggleLabel}</button>`;
+    html += `<button class="task-detail__action-row" id="sheetCompleteNoPenalty" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${DS_CHECK}<span>Complete (full credit)</span>${DS_CHEVRON}</button>`;
+    html += `<button class="task-detail__action-row task-detail__action-row--muted" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${DS_CHECK}<span>Complete (late)</span>${DS_CHEVRON}</button>`;
+  } else if (!readOnly) {
+    const icon = completed ? DS_UNDO : DS_CHECK;
+    const label = completed ? 'Mark incomplete' : 'Mark complete';
+    const rowClass = completed ? 'task-detail__action-row task-detail__action-row--muted' : 'task-detail__action-row';
+    html += `<button class="${rowClass}" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${icon}<span>${label}</span>${DS_CHEVRON}</button>`;
   }
-
-  // ── Action list ──────────────────────────────────────────
-  if (hasActions) {
-    html += `<div class="ef2-divider"></div><div class="task-detail__action-list">`;
-    if (showEdit)     html += `<button class="task-detail__action-row" id="sheetEdit" data-task-id="${entry.taskId}" type="button">${DS_EDIT}<span>Edit task</span>${DS_CHEVRON}</button>`;
-    if (showMove)     html += `<button class="task-detail__action-row" id="sheetMove" type="button">${DS_MOVE}<span>Move to date</span>${DS_CHEVRON}</button>`;
-    if (showMove)     html += `<button class="task-detail__action-row task-detail__action-row--muted" id="moveSkip" type="button">${DS_SKIP}<span>Skip</span>${DS_CHEVRON}</button>`;
-    if (showDelegate) html += `<button class="task-detail__action-row" id="sheetDelegate" type="button">${DS_DELEGATE}<span>Delegate</span>${DS_CHEVRON}</button>`;
-    html += `</div>`;
-  }
+  if (showEdit)     html += `<button class="task-detail__action-row" id="sheetEdit" data-task-id="${entry.taskId}" type="button">${DS_EDIT}<span>Edit task</span>${DS_CHEVRON}</button>`;
+  if (showMove)     html += `<button class="task-detail__action-row" id="sheetMove" type="button">${DS_MOVE}<span>Move to date</span>${DS_CHEVRON}</button>`;
+  if (showMove)     html += `<button class="task-detail__action-row task-detail__action-row--muted" id="moveSkip" type="button">${DS_SKIP}<span>Skip</span>${DS_CHEVRON}</button>`;
+  if (showDelegate) html += `<button class="task-detail__action-row" id="sheetDelegate" type="button">${DS_DELEGATE}<span>Delegate</span>${DS_CHEVRON}</button>`;
+  html += `</div>`;
 
   // ── Delegate panel ───────────────────────────────────────
   if (showDelegate && people) {
