@@ -141,12 +141,14 @@
   transition: opacity 0.15s;
 }
 .task-detail__complete-btn--success {
-  background: var(--success);
-  color: #fff;
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+  border: 1.5px solid color-mix(in srgb, var(--success) 30%, transparent);
 }
 .task-detail__complete-btn--muted {
-  background: var(--surface-2);
+  background: transparent;
   color: var(--text-muted);
+  border: 1.5px solid var(--border);
 }
 .task-detail__complete-btn:active { opacity: 0.75; }
 
