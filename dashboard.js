@@ -1,5 +1,5 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderMealManageSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem } from './shared/firebase.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -737,7 +737,7 @@ function bindEvents() {
       pressTimer = setTimeout(() => {
         didLongPress = true;
         pressTimer = null;
-        openMealManageSheet(dinnerPlan, 'dinner');
+        openMealDetailSheet(dinnerPlan, 'dinner');
       }, settings?.longPressMs ?? 800);
     });
 
@@ -1594,9 +1594,43 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
   });
 }
 
+async function addRecipeIngredientsToList(meal) {
+  const listData = await readKitchenLists() || {};
+  const listEntries = Object.entries(listData);
+  let listId;
+  if (!listEntries.length) {
+    showToast('No shopping lists — add one in Kitchen');
+    return;
+  } else if (listEntries.length === 1) {
+    listId = listEntries[0][0];
+  } else {
+    listId = await new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'bottom-sheet active';
+      overlay.innerHTML = `<div class="bottom-sheet__content"><div class="sheet__header"><h2 class="sheet__title">Add to list</h2></div><div class="kl-pick-list">${listEntries.map(([id, l]) => `<button class="kl-pick-row" data-id="${esc(id)}" type="button">${esc(l.name)}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>`).join('')}</div><div class="kl-footer"><button class="btn btn--ghost" id="kl_pickCancel" type="button">Cancel</button></div></div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => {
+        const row = e.target.closest('.kl-pick-row');
+        if (row) { document.body.removeChild(overlay); resolve(row.dataset.id); return; }
+        if (e.target === overlay || e.target.id === 'kl_pickCancel') { document.body.removeChild(overlay); resolve(null); }
+      });
+    });
+  }
+  if (!listId) return;
+  const now = Date.now();
+  let count = 0;
+  for (const ing of (meal.ingredients || [])) {
+    const name = typeof ing === 'string' ? ing.trim() : (ing.name || '').trim();
+    if (!name) continue;
+    await pushKitchenItem(listId, { name, qty: ing.qty || null, checked: false, addedAt: now });
+    count++;
+  }
+  if (count) showToast(`Added ${count} item${count !== 1 ? 's' : ''} to ${listData[listId]?.name || 'list'}`);
+}
+
 function openMealDetailSheet(planEntry, slot) {
   const meal = planEntry?.recipeId ? recipes[planEntry.recipeId] : null;
-  const html = renderMealDetailSheet(meal, planEntry, false);
+  const html = renderMealDetailSheet(meal, planEntry, false, slot);
   taskSheetMount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
@@ -1605,36 +1639,20 @@ function openMealDetailSheet(planEntry, slot) {
 
   document.getElementById('mdClose')?.addEventListener('click', closeTaskSheet);
 
-  document.getElementById('mdRemove')?.addEventListener('click', async () => {
-    await removeKitchenPlanSlot(viewDate, slot);
-    viewMeals = (await readKitchenPlan(viewDate)) || {};
+  document.getElementById('mdAddToList')?.addEventListener('click', () => {
+    if (!meal) return;
     closeTaskSheet();
-    render();
-  });
-
-  document.getElementById('mdEdit')?.addEventListener('click', () => {
-    closeTaskSheet();
-    setTimeout(() => openRecipeForm(planEntry.recipeId, () => render()), 320);
-  });
-}
-
-function openMealManageSheet(planEntry, slot) {
-  const meal = planEntry?.recipeId ? recipes[planEntry.recipeId] : null;
-  if (!meal) return;
-  taskSheetMount.innerHTML = renderBottomSheet(renderMealManageSheet(meal, slot));
-  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-  const overlay = document.getElementById('bottomSheet');
-  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
-
-  document.getElementById('mdEdit')?.addEventListener('click', () => {
-    closeTaskSheet();
-    setTimeout(() => openMealEditorSheet(planEntry.recipeId, slot), 320);
+    setTimeout(() => addRecipeIngredientsToList(meal), 320);
   });
 
   document.getElementById('mdChange')?.addEventListener('click', () => {
     closeTaskSheet();
     setTimeout(() => openMealPlanSheet(slot), 320);
+  });
+
+  document.getElementById('mdEdit')?.addEventListener('click', () => {
+    closeTaskSheet();
+    setTimeout(() => openRecipeForm(planEntry.recipeId, () => render()), 320);
   });
 
   document.getElementById('mdRemove')?.addEventListener('click', async () => {

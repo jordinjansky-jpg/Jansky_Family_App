@@ -227,7 +227,8 @@
 // v138 (2026-05-04) — Scoreboard: close btn, streak visual, sparkline labels, balance summary, Missed/Late only, Year label, balance delta.
 // v139 (2026-05-04) — Scoreboard: rolling 7/30 grades, achievement icons on cards, Highlights section, Category Leaders section.
 // v140 (2026-05-04) — Task detail: Mark Complete in sticky footer at bottom of sheet.
-const CACHE_NAME = 'family-hub-v140';
+// v141 (2026-05-04) — Meal detail: unified sheet with action rows, Add to list, Change meal.
+const CACHE_NAME = 'family-hub-v141';
 
 const APP_SHELL = [
   '/',

@@ -3210,34 +3210,43 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
  *
  * meal: meal library object { name, ingredients, url, notes, prepTime, isFavorite, tags }
  * planEntry: { mealId, source } from meals/{date}/{slot}
- * readonly: boolean — when true, hides the pencil edit button (kid mode / calendar)
+ * slot: string — slot key for display label
+ * readonly: boolean — when true, hides edit/change/remove actions (kid mode / calendar)
  *
  * Events the page must bind after mounting:
- *   #mdEdit click   → open meal editor for this library entry (pencil button)
+ *   #mdClose click     → close sheet
+ *   #mdLink click      → open recipe URL (only if meal.url)
+ *   #mdAddToList click → add ingredients to shopping list (only if ingredients present)
+ *   #mdChange click    → open plan sheet to change meal (only if !readonly && !isSchool)
+ *   #mdEdit click      → open meal editor (only if !readonly && !isSchool)
+ *   #mdRemove click    → remove this slot from plan (only if !readonly && !isSchool)
  */
-export function renderMealDetailSheet(meal, planEntry, readonly = false) {
+export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = '') {
   if (!meal) return `<p class="text-muted" style="padding:var(--spacing-md)">Meal not found.</p>`;
 
+  const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
   const isSchool = planEntry?.source === 'school';
+  const hasIngredients = (meal.ingredients || []).filter(i => (i?.name || i)?.trim()).length > 0;
 
-  const metaItems = [];
-  if (meal.prepTime) metaItems.push(esc(meal.prepTime));
-  if (isSchool) metaItems.push('School lunch');
-  const metaHtml = metaItems.length > 0
-    ? `<p class="me-detail__meta">${metaItems.join(' · ')}</p>`
-    : '';
+  const CLOSE_SVG   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const LINK_SVG    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+  const LIST_SVG    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+  const SWAP_SVG    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+  const PENCIL_SVG  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const TRASH_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+  const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
 
-  const tagsHtml = (meal.tags || []).length > 0
-    ? `<div class="me-detail__tags">
-        ${meal.tags.map(t => `<span class="me-detail__tag">${esc(t)}</span>`).join('')}
-       </div>`
-    : '';
+  const chips = [];
+  if (slot && SLOT_LABELS[slot]) chips.push(`<span class="chip">${esc(SLOT_LABELS[slot])}</span>`);
+  if (meal.prepTime) chips.push(`<span class="chip">${esc(meal.prepTime)}</span>`);
+  if (isSchool) chips.push(`<span class="chip">School</span>`);
+  (meal.tags || []).forEach(t => chips.push(`<span class="chip">${esc(t)}</span>`));
 
-  const ingrHtml = (meal.ingredients || []).filter(Boolean).length > 0
+  const ingrHtml = hasIngredients
     ? `<div class="me-detail__section">
         <span class="me-detail__section-label">Ingredients</span>
         <ul class="me-detail__ingredients">
-          ${meal.ingredients.filter(Boolean).map(i =>
+          ${meal.ingredients.filter(i => (i?.name || i)?.trim()).map(i =>
             typeof i === 'string'
               ? `<li><span>${esc(i)}</span></li>`
               : `<li>${i.qty ? `<span class="me-detail__ing-qty">${esc(i.qty)}</span>` : ''}<span>${esc(i.name || '')}</span></li>`
@@ -3253,66 +3262,32 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false) {
        </div>`
     : '';
 
-  const hasDetails = meal.url || (meal.ingredients || []).filter(Boolean).length > 0 || meal.notes;
-  const emptyPrompt = !hasDetails && !isSchool && !readonly
-    ? `<p class="me-detail__empty-prompt">No recipe details yet.</p>`
-    : '';
+  let actions = '';
+  if (!isSchool) {
+    actions += `<div class="ef2-divider"></div><div class="task-detail__action-list">`;
+    if (meal.url) {
+      actions += `<a class="task-detail__action-row" id="mdLink" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer">${LINK_SVG}<span>Open recipe</span>${CHEVRON_SVG}</a>`;
+    }
+    if (hasIngredients && !readonly) {
+      actions += `<button class="task-detail__action-row" id="mdAddToList" type="button">${LIST_SVG}<span>Add ingredients to list</span>${CHEVRON_SVG}</button>`;
+    }
+    if (!readonly) {
+      actions += `<button class="task-detail__action-row" id="mdChange" type="button">${SWAP_SVG}<span>Change meal</span>${CHEVRON_SVG}</button>`;
+      actions += `<button class="task-detail__action-row" id="mdEdit" type="button">${PENCIL_SVG}<span>Edit meal</span>${CHEVRON_SVG}</button>`;
+      actions += `<button class="task-detail__action-row task-detail__action-row--muted" id="mdRemove" type="button">${TRASH_SVG}<span>Remove from plan</span></button>`;
+    }
+    actions += `</div>`;
+  }
 
-  const LINK_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
-  const PENCIL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const REMOVE_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`;
-  const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-
-  const linkBtn = meal.url
-    ? `<a class="ef2-icon-btn" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open link">${LINK_SVG}</a>`
-    : '';
-  const removeBtn = !isSchool && !readonly
-    ? `<button class="ef2-icon-btn" id="mdRemove" type="button" aria-label="Remove from plan">${REMOVE_SVG}</button>`
-    : '';
-  const editBtn = !isSchool && !readonly
-    ? `<button class="ef2-icon-btn" id="mdEdit" type="button" aria-label="Edit meal">${PENCIL_SVG}</button>`
-    : '';
-
-  return `
+  return `<div class="task-detail-sheet">
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(meal.name)}</h2>
-      <div class="rf-header-actions">
-        ${linkBtn}
-        ${removeBtn}
-        ${editBtn}
-        <button class="ef2-icon-btn" id="mdClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
-      </div>
+      <button class="ef2-icon-btn" id="mdClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
     </div>
-    ${metaHtml}
-    ${tagsHtml}
-    ${emptyPrompt}
+    ${chips.length ? `<div class="task-detail__chips">${chips.join('')}</div>` : ''}
     ${ingrHtml}
-    ${notesHtml}`;
-}
-
-/**
- * Render the meal management sheet (long-press on meal chip).
- * Shows Edit / Change / Remove actions without the recipe content.
- *
- * Events the page must bind after mounting:
- *   #mdEdit click   → open meal editor
- *   #mdChange click → open plan sheet (change assigned meal)
- *   #mdRemove click → remove this slot assignment
- */
-export function renderMealManageSheet(meal, slot) {
-  const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
-  return `<div class="task-detail-sheet">
-    <div class="me-detail__header me-detail__header--manage">
-      <div class="me-detail__header-main">
-        <h3 class="me-detail__name">${esc(meal.name)}</h3>
-        <p class="me-detail__meta">${esc(SLOT_LABELS[slot] ?? slot)}</p>
-      </div>
-    </div>
-    <div class="me-detail__actions">
-      <button class="btn btn--secondary btn--full" id="mdEdit" type="button">Edit meal</button>
-      <button class="btn btn--secondary btn--full" id="mdChange" type="button">Change meal</button>
-      <button class="btn btn--ghost btn--full me-delete-btn" id="mdRemove" type="button">Remove from plan</button>
-    </div>
+    ${notesHtml}
+    ${actions}
   </div>`;
 }
 
