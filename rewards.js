@@ -943,9 +943,9 @@ function openIntentSheet(reward, rewardId) {
       <div class="is-preview">
         <span class="is-preview__icon">${esc(reward.icon || '🎁')}</span>
       </div>
-      <div class="tabs tabs--pill is-tab-row">
-        <button class="tab" id="is_save" type="button">Save to bank</button>
-        <button class="tab is-active" id="is_useNow" type="button">Use now</button>
+      <div class="me-detail__chips">
+        <button class="chip" id="is_save" type="button">Save to bank</button>
+        <button class="chip" id="is_useNow" type="button">Use now</button>
       </div>
     </div>
   `);
