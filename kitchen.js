@@ -584,12 +584,7 @@ function openSlotEditSheet(dk, slot, entry) {
     </div>
     <div class="sheet__content">
       <div style="font-size:var(--font-md);font-weight:600;margin-bottom:var(--spacing-md)">${esc(name)}</div>
-      ${hasIngredients ? `
-      <button class="me-detail__action-row" id="slotAddToListBtn" type="button">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <span>Add ingredients to list</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>` : ''}
+      ${hasIngredients ? `<div class="me-detail__chips"><button class="chip" id="slotAddToListBtn" type="button">Add to list</button></div>` : ''}
       <button class="btn btn--secondary btn--full" id="changeSlotMeal" type="button">Change meal</button>
     </div>
     <div class="sheet__footer">
@@ -633,17 +628,10 @@ function openRecipeDetailSheet(recipeId) {
         <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">${CLOSE_SVG}</button>
       </div>
     </div>
-    <button class="me-detail__action-row" id="planThisMealBtn" type="button">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>
-      <span>Plan this meal</span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-    </button>
-    ${hasIngredients ? `
-    <button class="me-detail__action-row" id="addToListBtn" type="button">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      <span>Add ingredients to list</span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-    </button>` : ''}
+    <div class="me-detail__chips">
+      <button class="chip" id="planThisMealBtn" type="button">Plan this meal</button>
+      ${hasIngredients ? `<button class="chip" id="addToListBtn" type="button">Add to list</button>` : ''}
+    </div>
     ${hasIngredients ? `
       <div class="me-detail__section">
         <span class="me-detail__section-label">Ingredients</span>
@@ -690,7 +678,17 @@ function openRecipeDetailSheet(recipeId) {
 
 async function addRecipeIngredientsToList(recipe) {
   const listEntries = Object.entries(lists);
-  if (!listEntries.length) { showToast('No shopping lists yet'); return; }
+  if (!listEntries.length) {
+    openCreateListSheet(async (listId) => {
+      const now = Date.now();
+      for (const ing of (recipe.ingredients || [])) {
+        if (!ing.name?.trim()) continue;
+        await pushKitchenItem(listId, { name: ing.name.trim(), qty: ing.qty || null, checked: false, addedAt: now });
+      }
+      showToast(`Added ${(recipe.ingredients || []).length} items to ${lists[listId]?.name || 'list'}`);
+    });
+    return;
+  }
   const listId = listEntries.length === 1 ? listEntries[0][0] : await pickList(listEntries);
   if (!listId) return;
   const now = Date.now();
@@ -698,7 +696,7 @@ async function addRecipeIngredientsToList(recipe) {
     if (!ing.name?.trim()) continue;
     await pushKitchenItem(listId, { name: ing.name.trim(), qty: ing.qty || null, checked: false, addedAt: now });
   }
-  showToast(`Added ${recipe.ingredients.length} items to ${lists[listId]?.name || 'list'}`);
+  showToast(`Added ${(recipe.ingredients || []).length} items to ${lists[listId]?.name || 'list'}`);
 }
 
 async function pickList(listEntries) {
@@ -1397,7 +1395,7 @@ async function toggleItem(id) {
   }
 }
 
-function openCreateListSheet() {
+function openCreateListSheet(onCreated = null) {
   const mount = document.getElementById('sheetMount');
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
@@ -1434,6 +1432,7 @@ function openCreateListSheet() {
     close();
     renderListsTab();
     bindFab();
+    if (onCreated) onCreated(id);
   });
 }
 
