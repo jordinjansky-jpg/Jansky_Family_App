@@ -702,15 +702,20 @@ async function addRecipeIngredientsToList(recipe) {
 async function pickList(listEntries) {
   return new Promise((resolve) => {
     const mount = document.getElementById('sheetMount');
+    const CHEVRON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
     mount.innerHTML = renderBottomSheet(`
       <div class="sheet__header">
-        <h2 class="sheet__title">Add to which list?</h2>
+        <h2 class="sheet__title">Add to list</h2>
       </div>
-      <div class="sheet__content" style="display:flex;flex-direction:column;gap:var(--spacing-xs)">
+      <div class="kl-pick-list">
         ${listEntries.map(([id, l]) =>
-          `<button class="btn btn--secondary btn--full" data-pick-id="${esc(id)}" type="button">${esc(l.name)}</button>`
+          `<button class="kl-pick-row" data-pick-id="${esc(id)}" type="button">
+            <span>${esc(l.name)}</span>${CHEVRON}
+          </button>`
         ).join('')}
-        <button class="btn btn--ghost btn--full" id="cancelPickList" type="button">Cancel</button>
+      </div>
+      <div class="kl-footer">
+        <button class="btn btn--ghost" id="cancelPickList" type="button">Cancel</button>
       </div>`);
     activateSheet(mount);
 

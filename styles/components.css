@@ -4272,6 +4272,26 @@ label.ef2-icon-btn  { cursor: pointer; }
 .kl-name-input::placeholder { color: var(--text-faint); }
 .kl-name-input:focus { outline: none; box-shadow: none; border-color: var(--accent); }
 
+.kl-pick-list { padding: var(--spacing-xs) 0; }
+.kl-pick-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--spacing-sm) 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  font: inherit;
+  font-size: var(--font-base);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.kl-pick-row:last-child { border-bottom: none; }
+.kl-pick-row:hover { color: var(--accent); }
+.kl-pick-row svg { color: var(--text-faint); flex-shrink: 0; }
+
 /* ── Staple edit form (ks-) ── */
 .ks-name-row {
   padding: var(--spacing-md) 0 var(--spacing-sm);
