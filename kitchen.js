@@ -289,7 +289,9 @@ function renderRecipesTab() {
   } else {
     recipeEntries.sort((a, b) => {
       if (b[1].isFavorite !== a[1].isFavorite) return b[1].isFavorite ? 1 : -1;
-      return (b[1].lastUsed || 0) - (a[1].lastUsed || 0);
+      const at = b[1].lastUsed || b[1].createdAt || 0;
+      const bt = a[1].lastUsed || a[1].createdAt || 0;
+      return at - bt;
     });
   }
 
