@@ -725,6 +725,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
     if (daysLeft <= 7) badges += `<span class="chip chip--warning">Expires in ${daysLeft}d</span>`;
   }
 
+  const costChipClass = canAfford ? 'chip--success' : 'chip--muted';
   const dimClass = canGet || !showGet ? '' : ' card--dim';
   return `<div class="card card--reward${dimClass}" data-reward-id="${esc(reward.id)}">
     <div class="card__leading">
@@ -732,7 +733,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
     </div>
     <div class="card__body">
       <div class="card__title">${esc(reward.name)}</div>
-      <div class="card__meta">${(reward.pointCost || 0).toLocaleString()} pts</div>
+      <span class="chip ${costChipClass} card--reward__cost">${(reward.pointCost || 0).toLocaleString()} pts</span>
       ${badges ? `<div class="card__badges">${badges}</div>` : ''}
       <div class="reward-progress"><div class="reward-progress__bar" data-progress="${progress}"></div></div>
       ${!canAfford && showGet ? `<div class="card__hint">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}

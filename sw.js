@@ -229,7 +229,8 @@
 // v140 (2026-05-04) — Task detail: Mark Complete in sticky footer at bottom of sheet.
 // v141 (2026-05-04) — Meal detail: unified sheet with action rows, Add to list, Change meal.
 // v142 (2026-05-04) — Move task-detail action row styles to components.css (shared across all pages).
-const CACHE_NAME = 'family-hub-v142';
+// v143 (2026-05-04) — Rewards: intent sheet action rows, cost chip color, chip--success variant.
+const CACHE_NAME = 'family-hub-v143';
 
 const APP_SHELL = [
   '/',

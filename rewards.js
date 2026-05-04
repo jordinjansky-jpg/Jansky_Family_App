@@ -898,24 +898,36 @@ async function handleGetReward(rewardId) {
 
 function openIntentSheet(reward, rewardId) {
   const mount = document.getElementById('sheetMount');
+  const balance = getBalance(activePerson.id);
+  const canAfford = balance >= (reward.pointCost || 0);
+  const CLOSE_SVG   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const CHECK_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const BANK_SVG    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
+  const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+
   mount.innerHTML = renderBottomSheet(`
-    <div class="sheet__header">
-      <h2 class="sheet__title">${esc(reward.name)}</h2>
-      <button class="btn btn--ghost btn--sm" id="is_cancel" type="button">Cancel</button>
-    </div>
-    <div class="sheet__content">
+    <div class="task-detail-sheet">
+      <div class="sheet__header">
+        <h2 class="sheet__title">${esc(reward.name)}</h2>
+        <button class="ef2-icon-btn" id="is_cancel" type="button" aria-label="Close">${CLOSE_SVG}</button>
+      </div>
       <div class="is-preview">
         <span class="is-preview__icon">${esc(reward.icon || '🎁')}</span>
-        <span class="chip chip--muted">${reward.pointCost || 0} pts</span>
+        <span class="chip ${canAfford ? 'chip--success' : 'chip--muted'}">${(reward.pointCost || 0).toLocaleString()} pts</span>
       </div>
-      <p class="is-hint">${activePerson.role !== 'child' ? 'Use Now redeems it immediately. Save for Later keeps it in your Bank.' : 'Use Now sends an approval request to your parent. Save for Later banks it immediately, no approval needed.'}</p>
-      <div class="is-actions">
-        <button class="btn btn--secondary" id="is_save" type="button">Save for Later</button>
-        <button class="btn btn--primary" id="is_useNow" type="button">Use Now</button>
+      <div class="ef2-divider"></div>
+      <div class="task-detail__action-list">
+        <button class="task-detail__action-row task-detail__action-row--complete" id="is_useNow" type="button">${CHECK_SVG}<span>Use now</span>${CHEVRON_SVG}</button>
+        <button class="task-detail__action-row" id="is_save" type="button">${BANK_SVG}<span>Save to bank</span>${CHEVRON_SVG}</button>
       </div>
     </div>
   `);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    document.getElementById('bottomSheet')?.addEventListener('click', e => {
+      if (e.target === document.getElementById('bottomSheet')) mount.innerHTML = '';
+    });
+  });
 
   let submitting = false;
 

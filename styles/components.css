@@ -1467,6 +1467,11 @@
   background: var(--surface-2);
   color: var(--text-faint);
 }
+.chip--success {
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 25%, transparent);
+}
 .chip--warning {
   background: var(--warning-soft);
   color: var(--warning);
@@ -3981,6 +3986,10 @@ label.ef2-icon-btn  { cursor: pointer; }
 /* ============ Reward Card (.card--reward) ============ */
 .card--reward {
   align-items: flex-start;
+}
+.card--reward__cost {
+  margin-top: var(--spacing-xs);
+  display: inline-flex;
 }
 .card--reward.card--dim {
   opacity: 0.6;
