@@ -199,3 +199,16 @@ Pre-read complete (carried from P2a session): P2A_EXECUTION_LOG.md, base.css, la
 **File changed:** `styles/kid.css`
 **Root cause:** The base `.avatar` rule in `components.css` uses `background: color-mix(in srgb, var(--person-color, var(--accent)) 18%, var(--surface-2))` — intentionally soft/muted for the standard task card layout. P2b.6 added a `.kid-tasks .task-card .avatar` override that changed only `width`, `height`, and `font-size`, leaving the `color-mix` background untouched and the avatar still faded.
 **Fix:** Added `background: var(--person-color, var(--accent))` and `color: var(--on-accent)` to the `.kid-tasks .task-card .avatar` override in kid.css. Avatar now renders at full solid person color with white ink on top.
+
+---
+
+### Fix 3 — Segmented control tab overflow (Plus Jakarta Sans wider than system font)
+**Status:** Complete
+**Files changed:** `styles/admin.css`, `styles/rewards.css`
+**Root cause:** The base `.tab` font-size is `var(--font-sm)` (14px). Plus Jakarta Sans runs measurably wider than the system-UI fonts previously used, causing multi-tab rows to overflow on narrow phones. The 5-tab admin library sub-nav ("Tasks / Events / Categories / Rewards / Badges") clips "Badges" offscreen. The 4-tab rewards bar ("Shop / Bank / History / Approvals") is borderline with "Approvals" at 9 chars.
+**Audit:**
+- `admin-lib-tabs` (5 tabs, "Categories" = 10 chars) — **overflowing**. Fix applied.
+- `rewards-tabs` (4 tabs, "Approvals" = 9 chars) — **borderline with PJS**. Fix applied.
+- Scoreboard `tabs--pill` (4 tabs: Today/Week/Month/Year, max 5 chars) — short labels, no fix needed.
+- Admin `admin-section-tabs` (3 tabs: Library/People/Settings) — no fix needed.
+**Fix:** Added `.admin-lib-tabs .tab { font-size: var(--font-xs); }` to `admin.css` and `.rewards-tabs .tab { font-size: var(--font-xs); }` to `rewards.css`. Both rules are scoped to their specific nav class — the global `.tab` component is unchanged.

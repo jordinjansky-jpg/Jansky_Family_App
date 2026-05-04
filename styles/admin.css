@@ -921,6 +921,8 @@
 }
 
 /* ── Segmented Control (base styles now in components.css) ── */
+/* 5-tab library sub-nav: reduce font so "Categories" + "Badges" fit on narrow phones */
+.admin-lib-tabs .tab { font-size: var(--font-xs); }
 
 /* ── Pricing Helper ── */
 .pricing-helper input[type="range"] { accent-color: var(--accent); }

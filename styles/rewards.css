@@ -132,6 +132,8 @@
   margin-top: var(--spacing-sm);
   margin-bottom: var(--spacing-sm);
 }
+/* 4-tab row: reduce font so "Approvals" fits on narrow phones with Plus Jakarta Sans */
+.rewards-tabs .tab { font-size: var(--font-xs); }
 
 /* ============ Filter chip bar ============ */
 .rewards-filter-bar {
