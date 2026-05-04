@@ -308,24 +308,25 @@ function bindShopTab() {
   document.querySelectorAll('.card--reward[data-reward-id]').forEach(card => {
     let pressTimer = null, didLongPress = false, startX = 0, startY = 0;
 
-    card.addEventListener('pointerdown', e => {
+    card.addEventListener('touchstart', e => {
       if (e.target.closest('.reward-get-btn')) return;
       didLongPress = false;
-      startX = e.clientX; startY = e.clientY;
+      startX = e.touches[0].clientX; startY = e.touches[0].clientY;
       if (!isAdult) return;
       pressTimer = setTimeout(() => {
         didLongPress = true;
         pressTimer = null;
+        navigator.vibrate?.(30);
         openRewardForm(card.dataset.rewardId);
       }, 800);
-    });
-    card.addEventListener('pointermove', e => {
-      if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
+    }, { passive: true });
+    card.addEventListener('touchmove', e => {
+      if (pressTimer && (Math.abs(e.touches[0].clientX - startX) > 10 || Math.abs(e.touches[0].clientY - startY) > 10)) {
         clearTimeout(pressTimer); pressTimer = null;
       }
-    });
-    card.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
-    card.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+    }, { passive: true });
+    card.addEventListener('touchend', () => { clearTimeout(pressTimer); pressTimer = null; });
+    card.addEventListener('touchcancel', () => { clearTimeout(pressTimer); pressTimer = null; });
     card.addEventListener('contextmenu', e => e.preventDefault());
     card.addEventListener('click', e => {
       if (e.target.closest('.reward-get-btn')) return;
@@ -933,17 +934,18 @@ function openIntentSheet(reward, rewardId) {
   mount.innerHTML = renderBottomSheet(`
     <div class="task-detail-sheet">
       <div class="sheet__header">
-        <h2 class="sheet__title">${esc(reward.name)}</h2>
+        <div class="is-header">
+          <h2 class="sheet__title">${esc(reward.name)}</h2>
+          <span class="chip ${canAfford ? 'chip--success' : 'chip--muted'}">${(reward.pointCost || 0).toLocaleString()} pts</span>
+        </div>
         <button class="ef2-icon-btn" id="is_cancel" type="button" aria-label="Close">${CLOSE_SVG}</button>
       </div>
       <div class="is-preview">
         <span class="is-preview__icon">${esc(reward.icon || '🎁')}</span>
-        <span class="chip ${canAfford ? 'chip--success' : 'chip--muted'}">${(reward.pointCost || 0).toLocaleString()} pts</span>
       </div>
-      <div class="ef2-divider"></div>
-      <div class="task-detail__action-list">
-        <button class="task-detail__action-row task-detail__action-row--complete" id="is_useNow" type="button">${CHECK_SVG}<span>Use now</span>${CHEVRON_SVG}</button>
-        <button class="task-detail__action-row" id="is_save" type="button">${BANK_SVG}<span>Save to bank</span>${CHEVRON_SVG}</button>
+      <div class="is-actions">
+        <button class="btn btn--secondary" id="is_save" type="button">Save to bank</button>
+        <button class="btn btn--primary" id="is_useNow" type="button">Use now</button>
       </div>
     </div>
   `);

@@ -230,7 +230,8 @@
 // v141 (2026-05-04) — Meal detail: unified sheet with action rows, Add to list, Change meal.
 // v142 (2026-05-04) — Move task-detail action row styles to components.css (shared across all pages).
 // v143 (2026-05-04) — Rewards: intent sheet action rows, cost chip color, chip--success variant.
-const CACHE_NAME = 'family-hub-v143';
+// v144 (2026-05-04) — Rewards: intent sheet inline pts+name, side-by-side buttons, touch long press.
+const CACHE_NAME = 'family-hub-v144';
 
 const APP_SHELL = [
   '/',
