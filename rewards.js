@@ -298,16 +298,41 @@ function bindShopTab() {
   });
   document.getElementById('shopFilterBtn')?.addEventListener('click', openShopFilterSheet);
   document.querySelectorAll('.reward-get-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleGetReward(btn.dataset.rewardId));
-  });
-  if (!isKidMode) {
-    document.querySelectorAll('.card--reward[data-reward-id]').forEach(card => {
-      card.addEventListener('click', e => {
-        if (e.target.closest('.reward-get-btn')) return;
-        openRewardForm(card.dataset.rewardId);
-      });
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      handleGetReward(btn.dataset.rewardId);
     });
-  }
+  });
+
+  const isAdult = activePerson?.role !== 'child';
+  document.querySelectorAll('.card--reward[data-reward-id]').forEach(card => {
+    let pressTimer = null, didLongPress = false, startX = 0, startY = 0;
+
+    card.addEventListener('pointerdown', e => {
+      if (e.target.closest('.reward-get-btn')) return;
+      didLongPress = false;
+      startX = e.clientX; startY = e.clientY;
+      if (!isAdult) return;
+      pressTimer = setTimeout(() => {
+        didLongPress = true;
+        pressTimer = null;
+        openRewardForm(card.dataset.rewardId);
+      }, 800);
+    });
+    card.addEventListener('pointermove', e => {
+      if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
+        clearTimeout(pressTimer); pressTimer = null;
+      }
+    });
+    card.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
+    card.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+    card.addEventListener('contextmenu', e => e.preventDefault());
+    card.addEventListener('click', e => {
+      if (e.target.closest('.reward-get-btn')) return;
+      if (didLongPress) { didLongPress = false; return; }
+      handleGetReward(card.dataset.rewardId);
+    });
+  });
 }
 
 function openShopFilterSheet() {
