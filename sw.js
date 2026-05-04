@@ -224,7 +224,8 @@
 // v135 (2026-05-03) — Kitchen: meal dates show month, FAB week context, recipe CSS classes, list undo/clear.
 // v136 (2026-05-03) — Kitchen: staples chip style, icons right-aligned, recipe count + find ideas layout.
 // v137 (2026-05-03) — Kitchen: find ideas uses chip style to match staples button.
-const CACHE_NAME = 'family-hub-v137';
+// v138 (2026-05-04) — Scoreboard: close btn, streak visual, sparkline labels, balance summary, Missed/Late only, Year label, balance delta.
+const CACHE_NAME = 'family-hub-v138';
 
 const APP_SHELL = [
   '/',

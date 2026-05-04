@@ -305,7 +305,7 @@
         { key: 'today', label: 'Today' },
         { key: 'week',  label: 'Week' },
         { key: 'month', label: 'Month' },
-        { key: 'year',  label: '12 Mo' },
+        { key: 'year',  label: 'Year' },
       ];
       html += `<nav class="tabs tabs--pill">`;
       for (const p of periods) {
@@ -358,7 +358,10 @@
         html += `<button class="list-row sb-balance-row" type="button" data-href="rewards.html?person=${encodeURIComponent(b.person.name)}">
           <div class="avatar avatar--sm" style="--person-color: ${esc(b.person.color)}">${esc((b.person.name || '?')[0].toUpperCase())}</div>
           <span class="list-row__label">${esc(b.person.name)}</span>
-          <span class="sb-balance-row__pts">${b.liveBalance.toLocaleString()} pts</span>
+          <div class="sb-balance-row__right">
+            <span class="sb-balance-row__pts">${b.liveBalance.toLocaleString()} pts</span>
+            ${b.week.earned > 0 ? `<span class="sb-balance-row__delta">+${b.week.earned} this wk</span>` : ''}
+          </div>
           <span class="list-row__trailing">${chevron}</span>
         </button>`;
       }
@@ -410,7 +413,7 @@
         year:  [y12Start, today],
       };
       const [dStart, dEnd] = periodDates[selectedPeriod];
-      const periodLabels = { today: 'Today', week: 'This Week', month: 'This Month', year: '12 Months' };
+      const periodLabels = { today: 'Today', week: 'This Week', month: 'This Month', year: 'This Year' };
 
       const grade = selectedPeriod === 'today' ? todayScore(personId)
         : selectedPeriod === 'week'  ? weeklyGrade(personId)
@@ -459,26 +462,6 @@
       // ── Weekly sparkline (last 4 weeks) ──
       const history = weeklyHistory(personId);
 
-      // ── Balance sparkline (last 7 days) ──
-      const balanceDays = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = addDays(today, -i);
-        const filteredSnaps = {};
-        if (allSnapshots) {
-          for (const [dk, ppl] of Object.entries(allSnapshots)) {
-            if (dk <= d) filteredSnaps[dk] = ppl;
-          }
-        }
-        const dEnd2 = new Date(d + 'T23:59:59Z').getTime();
-        const filteredMsgs = {};
-        for (const [mk, m] of Object.entries(personMsgs)) {
-          if (m.createdAt && m.createdAt <= dEnd2) filteredMsgs[mk] = m;
-        }
-        const { balance: bal } = calculateBalance(personId, filteredSnaps, filteredMsgs, personAnchor, allMultipliers, tz);
-        balanceDays.push({ date: d, balance: bal });
-      }
-      const maxBal = Math.max(...balanceDays.map(d => Math.abs(d.balance)), 1);
-
       // ── Build sheet HTML ──
       let html = `<div class="sb-drilldown">`;
 
@@ -487,6 +470,9 @@
         <div class="avatar" style="--person-color: ${esc(person.color)}">${esc((person.name || '?')[0].toUpperCase())}</div>
         <span class="sb-drilldown__name">${esc(person.name)}</span>
         <span class="sb-drilldown__period">${periodLabels[selectedPeriod]}</span>
+        <button class="ef2-icon-btn" id="ddClose" aria-label="Close" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>`;
 
       // Summary row
@@ -516,51 +502,61 @@
 
       // Weekly trend sparkline
       html += renderSectionHead('Weekly Trend');
-      html += `<div class="sb-sparkline">`;
-      const sparkLabels = ['3 wks ago', '2 wks ago', 'Last wk', 'This wk'];
+      html += `<div class="sb-sparkline sb-sparkline--labeled">`;
+      const sparkFull = ['3 wks ago', '2 wks ago', 'Last wk', 'This wk'];
+      const sparkShort = ['-3w', '-2w', 'Last', 'Now'];
       for (let i = 0; i < history.length; i++) {
         const h = history[i];
         const pct = h.possible > 0 ? h.percentage : 0;
         const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
-        html += `<div class="sb-spark-bar" title="${sparkLabels[i]}: ${pct}%">
-          <div class="sb-spark-fill sb-spark-fill--${esc(tier)}" style="height:${Math.max(pct, 4)}%"></div>
+        html += `<div class="sb-spark-col">
+          <div class="sb-spark-bar" title="${sparkFull[i]}: ${pct}%">
+            <div class="sb-spark-fill sb-spark-fill--${esc(tier)}" style="height:${Math.max(pct, 4)}%"></div>
+          </div>
+          <span class="sb-spark-label">${sparkShort[i]}</span>
         </div>`;
       }
       html += `</div>`;
 
       // Streak
+      const flameSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
       html += renderSectionHead('Streak');
-      html += `<div class="sb-drilldown__streak">
-        ${streak.current}-day current · ${streak.best}-day best
+      html += `<div class="sb-drilldown__streak-row">
+        <div class="sb-drilldown__streak-item">
+          <div class="sb-streak-top">
+            <span class="sb-streak-icon">${flameSvg}</span>
+            <span class="sb-streak-num">${streak.current}</span>
+          </div>
+          <div class="sb-streak-sub">day streak</div>
+        </div>
+        <div class="sb-drilldown__streak-item">
+          <div class="sb-streak-top">
+            <span class="sb-streak-num sb-streak-num--muted">${streak.best}</span>
+          </div>
+          <div class="sb-streak-sub">best ever</div>
+        </div>
       </div>`;
 
-      // Balance sparkline
+      // Balance summary
       html += renderSectionHead('Balance');
-      html += `<div class="sb-drilldown__balance-row">
-        <div class="sb-sparkline">`;
-      for (let i = 0; i < balanceDays.length; i++) {
-        const bd = balanceDays[i];
-        const pct = Math.round(Math.abs(bd.balance) / maxBal * 100);
-        const label = i === 6 ? 'Today' : formatDateShort(bd.date);
-        html += `<div class="sb-spark-bar" title="${label}: ${bd.balance.toLocaleString()} pts">
-          <div class="sb-spark-fill sb-spark-fill--${bd.balance >= 0 ? 'a' : 'f'}" style="height:${Math.max(pct, 4)}%"></div>
-        </div>`;
-      }
-      html += `</div>
-        <span class="sb-drilldown__balance-val">${currentBalance.toLocaleString()} pts</span>
+      html += `<div class="sb-drilldown__balance-summary">
+        <span class="sb-drilldown__balance-big">${currentBalance.toLocaleString()}</span><span class="sb-drilldown__balance-unit">pts</span>
+        ${grade.earned > 0 ? `<span class="sb-drilldown__balance-delta">+${grade.earned} pts earned ${esc(periodLabels[selectedPeriod].toLowerCase())}</span>` : ''}
       </div>`;
 
-      // Task list by status
-      html += renderSectionHead(`Tasks — ${periodLabels[selectedPeriod]}`);
-      const statusOrder = ['Missed', 'Late', 'Pending', 'Done'];
+      // Needs attention — Missed and Late only
+      html += renderSectionHead(`Needs Attention`);
+      const attentionOrder = ['Missed', 'Late'];
       const statusGroups = {};
       for (const td of taskDetails) {
         if (!statusGroups[td.status]) statusGroups[td.status] = [];
         statusGroups[td.status].push(td);
       }
-      for (const status of statusOrder) {
+      let hasAnyAttention = false;
+      for (const status of attentionOrder) {
         const items = statusGroups[status];
         if (!items?.length) continue;
+        hasAnyAttention = true;
         const statusClass = `sb-status--${status.toLowerCase()}`;
         html += `<div class="sb-drilldown__group">
           <div class="sb-drilldown__group-label ${statusClass}">${status} (${items.length})</div>`;
@@ -573,9 +569,8 @@
         }
         html += `</div>`;
       }
-
-      if (taskDetails.length === 0) {
-        html += `<div class="sb-drilldown__empty">No tasks in this period</div>`;
+      if (!hasAnyAttention) {
+        html += `<div class="sb-drilldown__empty">Nothing missed or late${taskDetails.length > 0 ? ' — nice work!' : ''}</div>`;
       }
 
       html += `</div>`;
@@ -593,6 +588,7 @@
             if (e.target === overlay) closeDrilldown();
           });
         }
+        document.getElementById('ddClose')?.addEventListener('click', closeDrilldown);
       });
     }
 

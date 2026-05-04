@@ -1,4 +1,4 @@
-/* v3 */
+/* v4 */
 /* scoreboard.css — Scoreboard page styles (Phase 5) */
 /* Component classes (tabs, card--score, etc.) live in components.css */
 
@@ -86,11 +86,22 @@
 .sb-balance-row:last-child { border-bottom: none; }
 .sb-balance-row:hover { background: var(--surface-2); }
 
-.sb-balance-row__pts {
+.sb-balance-row__right {
   margin-left: auto;
+  text-align: right;
+}
+
+.sb-balance-row__pts {
   font-size: var(--font-sm);
   font-weight: 600;
   color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-balance-row__delta {
+  display: block;
+  font-size: var(--font-xs);
+  color: var(--success);
   font-variant-numeric: tabular-nums;
 }
 
@@ -132,24 +143,74 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sb-drilldown__streak {
+/* ── Streak ── */
+.sb-drilldown__streak-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-md);
+}
+
+.sb-drilldown__streak-item {
+  flex: 1;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.sb-streak-top {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  line-height: 1;
+}
+
+.sb-streak-icon {
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+}
+
+.sb-streak-num {
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.sb-streak-num--muted {
+  color: var(--text-muted);
+}
+
+.sb-streak-sub {
+  font-size: var(--font-xs);
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+/* ── Balance summary (drilldown) ── */
+.sb-drilldown__balance-summary {
+  padding: var(--spacing-sm) 0 var(--spacing-md);
+}
+
+.sb-drilldown__balance-big {
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  line-height: 1.1;
+}
+
+.sb-drilldown__balance-unit {
   font-size: var(--font-sm);
   color: var(--text-muted);
-  padding: var(--spacing-xs) 0 var(--spacing-sm);
+  margin-left: 4px;
 }
 
-.sb-drilldown__balance-row {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--spacing-md);
-  padding-bottom: var(--spacing-sm);
-}
-
-.sb-drilldown__balance-val {
+.sb-drilldown__balance-delta {
+  display: block;
   font-size: var(--font-sm);
-  font-weight: 600;
-  color: var(--accent);
-  white-space: nowrap;
+  color: var(--success);
+  margin-top: 4px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -184,13 +245,38 @@
 .sb-status--pending { color: var(--text-faint); }
 .sb-status--done   { color: var(--success); }
 
-/* ── Sparkline bars (retained — used in drilldown) ── */
+/* ── Sparkline bars ── */
 .sb-sparkline {
   display: flex;
   align-items: flex-end;
   gap: 4px;
   height: 48px;
   flex: 1;
+}
+
+/* Labeled variant wraps each bar + label in a column */
+.sb-sparkline--labeled {
+  height: auto;
+  align-items: flex-end;
+}
+
+.sb-spark-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.sb-spark-col .sb-spark-bar {
+  height: 48px;
+}
+
+.sb-spark-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: center;
+  white-space: nowrap;
 }
 
 .sb-spark-bar {
@@ -206,19 +292,23 @@
   transition: height 0.4s ease;
 }
 
-.sb-spark-fill--a-plus, .sb-spark-fill--a { background: var(--grade-a); }
+.sb-spark-fill--a-plus, .sb-spark-fill--a, .sb-spark-fill--a-minus { background: var(--grade-a); }
 .sb-spark-fill--b-plus, .sb-spark-fill--b, .sb-spark-fill--b-minus { background: var(--grade-b); }
 .sb-spark-fill--c-plus, .sb-spark-fill--c, .sb-spark-fill--c-minus { background: var(--grade-c); }
 .sb-spark-fill--d-plus, .sb-spark-fill--d, .sb-spark-fill--d-minus,
 .sb-spark-fill--f, .sb-spark-fill--none { background: var(--grade-f); }
 
-/* Positive balance sparklines use grade-a color */
-.sb-spark-fill--a-minus { background: var(--grade-a); }
-
-/* ── Category breakdown bars (retained — used in drilldown) ── */
+/* ── Category breakdown bars ── */
 .sb-cat-bars { display: flex; flex-direction: column; gap: var(--spacing-xs); padding-bottom: var(--spacing-sm); }
 .sb-cat-row { display: flex; align-items: center; gap: var(--spacing-sm); }
-.sb-cat-label { font-size: var(--font-sm); min-width: 80px; flex-shrink: 0; }
+.sb-cat-label {
+  font-size: var(--font-sm);
+  width: 110px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sb-cat-bar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
 .sb-cat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
 .sb-cat-bar-fill--a-plus, .sb-cat-bar-fill--a, .sb-cat-bar-fill--a-minus { background: var(--grade-a); }
@@ -227,4 +317,3 @@
 .sb-cat-bar-fill--d-plus, .sb-cat-bar-fill--d, .sb-cat-bar-fill--d-minus,
 .sb-cat-bar-fill--f, .sb-cat-bar-fill--none { background: var(--grade-f); }
 .sb-cat-pct { font-size: var(--font-xs); color: var(--text-faint); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
-
