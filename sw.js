@@ -226,7 +226,8 @@
 // v137 (2026-05-03) — Kitchen: find ideas uses chip style to match staples button.
 // v138 (2026-05-04) — Scoreboard: close btn, streak visual, sparkline labels, balance summary, Missed/Late only, Year label, balance delta.
 // v139 (2026-05-04) — Scoreboard: rolling 7/30 grades, achievement icons on cards, Highlights section, Category Leaders section.
-const CACHE_NAME = 'family-hub-v139';
+// v140 (2026-05-04) — Task detail: Mark Complete in sticky footer at bottom of sheet.
+const CACHE_NAME = 'family-hub-v140';
 
 const APP_SHELL = [
   '/',

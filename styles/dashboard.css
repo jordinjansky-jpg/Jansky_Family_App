@@ -111,6 +111,45 @@
   text-align: right;
 }
 
+.task-detail__complete-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) 0 var(--spacing-lg);
+  margin: var(--spacing-sm) calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg));
+  padding-left: var(--spacing-md);
+  padding-right: var(--spacing-md);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.task-detail__complete-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: 14px var(--spacing-md);
+  border-radius: var(--radius);
+  border: none;
+  font-size: var(--font-base);
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.task-detail__complete-btn--success {
+  background: var(--success);
+  color: #fff;
+}
+.task-detail__complete-btn--muted {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.task-detail__complete-btn:active { opacity: 0.75; }
+
 /* ============ Celebration ============ */
 .celebration {
   position: fixed;
