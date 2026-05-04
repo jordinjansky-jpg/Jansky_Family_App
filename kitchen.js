@@ -1416,9 +1416,9 @@ function openCreateListSheet(onCreated = null) {
     <div class="kl-name-row">
       <input class="kl-name-input" id="kl_name" type="text" placeholder="Grocery, Costco, Target…" autocomplete="off">
     </div>
-    <div class="kl-footer">
-      <button class="btn btn--ghost" id="kl_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="kl_save" type="button">Create</button>
+    <div class="me-detail__chips">
+      <button class="chip" id="kl_cancel" type="button">Cancel</button>
+      <button class="chip" id="kl_save" type="button">Create</button>
     </div>`);
   activateSheet(mount);
 
