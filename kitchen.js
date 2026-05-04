@@ -573,25 +573,36 @@ function openSlotEditSheet(dk, slot, entry) {
   const mount = document.getElementById('sheetMount');
   const recipe = entry.recipeId ? recipes[entry.recipeId] : null;
   const name = recipe?.name || entry.mealName || entry.customName || '';
-  const hasIngredients = (recipe?.ingredients?.length || 0) > 0;
+  const hasIngredients = (recipe?.ingredients || []).filter(i => (i?.name || i)?.trim()).length > 0;
   const d = new Date(dk + 'T12:00:00');
   const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
 
+  const CLOSE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const LIST_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+  const SWAP_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+  const TRASH_SVG  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+  const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+
   mount.innerHTML = renderBottomSheet(`
-    <div class="sheet__header">
-      <h2 class="sheet__title">${esc(SLOT_LABELS[slot] || slot)}</h2>
-      <span style="font-size:var(--font-sm);color:var(--text-muted)">${esc(dayLabel)}</span>
-    </div>
-    <div class="sheet__content">
-      <div style="font-size:var(--font-md);font-weight:600;margin-bottom:var(--spacing-md)">${esc(name)}</div>
-      ${hasIngredients ? `<div class="me-detail__chips"><button class="chip" id="slotAddToListBtn" type="button">Add to list</button></div>` : ''}
-      <button class="btn btn--secondary btn--full" id="changeSlotMeal" type="button">Change meal</button>
-    </div>
-    <div class="sheet__footer">
-      <button class="btn btn--danger" id="removeSlotMeal" type="button">Remove</button>
+    <div class="task-detail-sheet">
+      <div class="sheet__header">
+        <h2 class="sheet__title">${esc(name)}</h2>
+        <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
+      </div>
+      <div class="task-detail__chips">
+        <span class="chip">${esc(SLOT_LABELS[slot] || slot)}</span>
+        <span class="chip">${esc(dayLabel)}</span>
+      </div>
+      <div class="ef2-divider"></div>
+      <div class="task-detail__action-list">
+        ${hasIngredients ? `<button class="task-detail__action-row" id="slotAddToListBtn" type="button">${LIST_SVG}<span>Add ingredients to list</span>${CHEVRON_SVG}</button>` : ''}
+        <button class="task-detail__action-row" id="changeSlotMeal" type="button">${SWAP_SVG}<span>Change meal</span>${CHEVRON_SVG}</button>
+        <button class="task-detail__action-row task-detail__action-row--muted" id="removeSlotMeal" type="button">${TRASH_SVG}<span>Remove from plan</span></button>
+      </div>
     </div>`);
   activateSheet(mount);
 
+  document.getElementById('slotClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
   document.getElementById('slotAddToListBtn')?.addEventListener('click', async () => {
     mount.innerHTML = '';
     await addRecipeIngredientsToList(recipe);
