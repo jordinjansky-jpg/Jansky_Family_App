@@ -1220,9 +1220,7 @@ function renderListsTab() {
 
   if (listIds.length === 0) {
     content.innerHTML = renderEmptyState('', 'No lists yet', 'Create your first shopping list to get started.') +
-      `<div style="padding:0 var(--spacing-md)">
-        <button class="btn btn--primary btn--full" id="createFirstList">Create a list</button>
-      </div>`;
+      `<button class="btn btn--secondary btn--full" id="createFirstList">Create a list</button>`;
     document.getElementById('createFirstList')?.addEventListener('click', openCreateListSheet);
     return;
   }
