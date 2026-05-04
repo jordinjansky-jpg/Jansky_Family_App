@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
   <meta name="theme-color" content="#6c63ff">
@@ -704,7 +707,7 @@
               taskSheetMount.innerHTML = renderBottomSheet(`
                 <div class="sheet__header"><h2 class="sheet__title">Photo of flyer</h2></div>
                 <div class="sheet__content">
-                  <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No events found — try a clearer photo.</p>
+                  <p style="color:var(--text-muted);font-size:var(--font-sm)">No events found — try a clearer photo.</p>
                 </div>
                 <div class="sheet__footer">
                   <button class="btn btn--secondary" id="cpRetry">Try again</button>
@@ -737,8 +740,8 @@
             taskSheetMount.innerHTML = renderBottomSheet(`
               <div class="sheet__header"><h2 class="sheet__title">Photo of flyer</h2></div>
               <div class="sheet__content">
-                <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
-                <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${escapeHtml(err?.message || 'Check your connection.')}</p>
+                <p style="color:var(--text-muted);font-size:var(--font-sm)">Something went wrong.</p>
+                <p style="color:var(--text-muted);font-size:var(--font-xs)">${escapeHtml(err?.message || 'Check your connection.')}</p>
               </div>
               <div class="sheet__footer">
                 <button class="btn btn--secondary" id="cpRetry">Try again</button>
@@ -861,8 +864,8 @@
           { labelKey: 'name', subKey: '_sub', confidenceKey: 'confidence', key: i }
         );
         const dateLabel = ev.dateConfidence === 'low'
-          ? `<label style="font-size:var(--font-size-xs);color:var(--c-warning)">Date (uncertain — please verify)</label>`
-          : `<label style="font-size:var(--font-size-xs);color:var(--text-muted)">Date</label>`;
+          ? `<label style="font-size:var(--font-xs);color:var(--warning)">Date (uncertain — please verify)</label>`
+          : `<label style="font-size:var(--font-xs);color:var(--text-muted)">Date</label>`;
         const dateWrap = `<div class="ev-date-wrap" data-idx="${i}" style="padding:0 var(--spacing-md) var(--spacing-xs)">
           ${dateLabel}
           <input type="date" class="field__input ev-date" data-idx="${i}" value="${ev.date || ''}" style="margin-top:4px">

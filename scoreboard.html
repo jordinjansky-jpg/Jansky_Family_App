@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
   <meta name="theme-color" content="#6c63ff">
@@ -40,7 +43,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderErrorState, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -56,6 +59,7 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load all data ──
+    try {
     const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, allSnapshots, allStreaks, allAchievementsData, allAnchors, allMessages, allMultipliers, sbRewards, achDefsObj] = await Promise.all([
       readSettings(), readPeople(), readTasks(), readCategories(),
       readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks(), readAllAchievements(),
@@ -693,6 +697,16 @@
     const main = document.getElementById('mainContent');
     main.style.display = '';
     render();
+    } catch (err) {
+      document.getElementById('loadingState').style.display = 'none';
+      const errMain = document.getElementById('mainContent');
+      errMain.style.display = '';
+      renderErrorState(errMain, {
+        title: "Couldn't load scoreboard",
+        message: 'Check your connection and try again.',
+        retry: () => location.reload(),
+      });
+    }
   </script>
 </body>
 </html>

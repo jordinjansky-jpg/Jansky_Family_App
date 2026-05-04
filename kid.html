@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
   <meta name="theme-color" content="#6c63ff">
@@ -712,15 +715,14 @@
           const unlockedCount = Object.keys(achievements).filter(k => achievements[k] && !achievements[k].revoked).length;
           const totalAch = Object.keys(activeDefs).length;
           html += `<div class="kid-header">
+            <div class="kid-header__text">
+              <h1 class="kid-header__name" style="color:${kid.color}"><span class="kid-header__wave">👋</span> Hey, ${esc(kid.name)}!</h1>
+              <div class="kid-header__date">${dayPrefix} &mdash; ${dateLabel}</div>
+            </div>
             <div class="kid-header__icons">
               <button class="kid-header__icon-btn" id="kidTrophyBtn" type="button" aria-label="Achievements" title="${unlockedCount}/${totalAch}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></button>
               ${ks.showGearIcon ? `<button class="kid-header__icon-btn" id="kidGearBtn" type="button" aria-label="Settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg></button>` : ''}
             </div>
-            <div class="kid-header__greeting">
-              <span class="kid-header__wave">👋</span>
-              <h1 class="kid-header__name" style="color:${kid.color}">Hey, ${esc(kid.name)}!</h1>
-            </div>
-            <div class="kid-header__date">${dayPrefix} &mdash; ${dateLabel}</div>
           </div>`;
 
           // ── Multiplier banner ──
@@ -802,21 +804,8 @@
             </details>`;
           }
 
-          // ── Stats bar ──
-          html += `<div class="kid-stats">
-            <div class="kid-stats__item">
-              ${score.possible > 0 ? renderGradeBadge(gd.grade, gd.tier) : '<span class="kid-stats__value">--</span>'}
-              <span class="kid-stats__label">${score.possible > 0 ? score.percentage + '%' : 'Grade'}</span>
-            </div>
-            <div class="kid-stats__item">
-              <span class="kid-stats__value">${prog.done}/${prog.total}</span>
-              <span class="kid-stats__label">Tasks</span>
-            </div>
-            <div class="kid-stats__item">
-              <span class="kid-stats__value">🔥 ${streakData.current || 0}</span>
-              <span class="kid-stats__label">Streak</span>
-            </div>
-          </div>`;
+          // ── Progress bar (hero) ──
+          html += renderProgressBar(prog.done, prog.total);
 
           // ── Week tabs (conditional) ──
           if (ks.showWeekView) {
@@ -841,8 +830,17 @@
             html += `</div>`;
           }
 
-          // ── Progress bar ──
-          html += renderProgressBar(prog.done, prog.total);
+          // ── Stats bar ──
+          html += `<div class="kid-stats">
+            <div class="kid-stats__item">
+              <span class="kid-stats__value">${prog.done}/${prog.total}</span>
+              <span class="kid-stats__label">Tasks</span>
+            </div>
+            <div class="kid-stats__item kid-stats__item--streak">
+              <span class="kid-stats__value">🔥 ${streakData.current || 0}</span>
+              <span class="kid-stats__label">Streak</span>
+            </div>
+          </div>`;
 
           // ── Overdue banner (only on today view) ──
           const overdueActive = overdueItems.filter(e => !isComplete(e.entryKey, completions));

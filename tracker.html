@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
   <meta name="theme-color" content="#6c63ff">
@@ -39,7 +42,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, removeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderTaskForm, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderSectionHead, showConfirm } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderErrorState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderTaskForm, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderSectionHead, showConfirm } from './shared/components.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong, escapeHtml } from './shared/utils.js';
@@ -56,6 +59,7 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load all data ──
+    try {
     const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, trkRewards] = await Promise.all([
       readSettings(), readPeople(), readTasks(), readCategories(),
       readCompletions(), readAllSchedule(), readRewards()
@@ -1078,6 +1082,16 @@
     }, { passive: true });
 
     render();
+    } catch (err) {
+      document.getElementById('loadingState').style.display = 'none';
+      const errMain = document.getElementById('mainContent');
+      errMain.style.display = '';
+      renderErrorState(errMain, {
+        title: "Couldn't load tracker",
+        message: 'Check your connection and try again.',
+        retry: () => location.reload(),
+      });
+    }
   </script>
 </body>
 </html>

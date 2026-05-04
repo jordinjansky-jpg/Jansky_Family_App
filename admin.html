@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
   <meta name="theme-color" content="#6c63ff">
@@ -70,7 +73,7 @@
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
       readBank, writeBankToken, removeBankToken
     } from './shared/firebase.js';
-    import { renderNavBar, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
     import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -141,12 +144,12 @@
 
     // ── Header & Nav ──
     document.getElementById('headerMount').innerHTML = renderHeader({
-      appName: settings?.appName || 'Daily Rundown',
-      subtitle: 'Admin',
-      showAdmin: false,
-      showDebug: false
+      variant: 'admin',
+      title: 'Admin',
+      subtitle: settings?.appName || 'Daily Rundown',
     });
     document.getElementById('navMount').innerHTML = renderNavBar(null);
+    initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme);
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);
@@ -3784,10 +3787,9 @@
 
         // Update header
         document.getElementById('headerMount').innerHTML = renderHeader({
-          appName: settings.appName,
-          subtitle: 'Admin',
-          showAdmin: false,
-          showDebug: false
+          variant: 'admin',
+          title: 'Admin',
+          subtitle: settings.appName,
         });
 
         if (msgEl) {
@@ -4079,7 +4081,7 @@
         <div class="admin-form__section mt-lg" id="emailImportsSection">
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:var(--spacing-xs)">
             <h4 class="admin-form__subtitle" style="margin:0">Email Imports</h4>
-            <button class="btn btn--ghost btn--sm" id="emailImportsRefresh" style="font-size:var(--font-size-xs)">Refresh</button>
+            <button class="btn btn--ghost btn--sm" id="emailImportsRefresh" style="font-size:var(--font-xs)">Refresh</button>
           </div>
           <p class="form-hint mb-md">Events extracted from forwarded emails appear here for review.</p>
           <div id="emailImportsList"></div>
@@ -4148,7 +4150,7 @@
           const data = await resp.json();
           if (data.error || !data.days?.length) {
             if (statusEl) statusEl.innerHTML = `
-              <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No lunch items found — try a clearer photo or PDF.</p>
+              <p style="color:var(--text-muted);font-size:var(--font-sm)">No lunch items found — try a clearer photo or PDF.</p>
               <button class="btn btn--secondary btn--sm" id="slRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
             statusEl?.querySelector('#slRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
             return;
@@ -4165,8 +4167,8 @@
           }
         } catch (err) {
           if (statusEl) statusEl.innerHTML = `
-            <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
-            <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || 'Check your connection.'}</p>
+            <p style="color:var(--text-muted);font-size:var(--font-sm)">Something went wrong.</p>
+            <p style="color:var(--text-muted);font-size:var(--font-xs)">${esc(err?.message) || 'Check your connection.'}</p>
             <button class="btn btn--secondary btn--sm" id="slRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
           statusEl?.querySelector('#slRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
         }
@@ -4217,7 +4219,7 @@
           const data = await resp.json();
           if (data.error || !data.tasks?.length) {
             if (statusEl) statusEl.innerHTML = `
-              <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No tasks found — try a clearer photo.</p>
+              <p style="color:var(--text-muted);font-size:var(--font-sm)">No tasks found — try a clearer photo.</p>
               <button class="btn btn--secondary btn--sm" id="hwRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
             statusEl?.querySelector('#hwRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
             return;
@@ -4225,8 +4227,8 @@
           renderTaskScanConfirm(data.tasks, statusEl, data.hasUncertainDates);
         } catch (err) {
           if (statusEl) statusEl.innerHTML = `
-            <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
-            <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || 'Check your connection.'}</p>
+            <p style="color:var(--text-muted);font-size:var(--font-sm)">Something went wrong.</p>
+            <p style="color:var(--text-muted);font-size:var(--font-xs)">${esc(err?.message) || 'Check your connection.'}</p>
             <button class="btn btn--secondary btn--sm" id="hwRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
           statusEl?.querySelector('#hwRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
         }
@@ -4301,7 +4303,7 @@
             await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch`).set({ mealName: d.lunch1, source: 'school' });
             if (d.lunch2) await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch-2`).set({ mealName: d.lunch2, source: 'school' });
           }
-          statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-size-sm)">${selected.length} day${selected.length !== 1 ? 's' : ''} imported.</span>`;
+          statusEl.innerHTML = `<span style="color:var(--success);font-size:var(--font-sm)">${selected.length} day${selected.length !== 1 ? 's' : ''} imported.</span>`;
         } catch (err) {
           saveBtn.disabled = false;
           saveBtn.textContent = `Import ${selected.length} day${selected.length !== 1 ? 's' : ''}`;
@@ -4319,7 +4321,7 @@
       };
 
       const uncertainBanner = hasUncertainDates
-        ? `<p style="font-size:var(--font-size-sm);color:var(--c-warning);margin-bottom:var(--spacing-sm)">Some dates were unclear — review before importing.</p>`
+        ? `<p style="font-size:var(--font-sm);color:var(--warning);margin-bottom:var(--spacing-sm)">Some dates were unclear — review before importing.</p>`
         : '';
 
       const rowsHtml = tasks.map((t, i) => {
@@ -4330,7 +4332,7 @@
         );
         const dateInput = !t.dueDate
           ? `<div class="hw-date-wrap" data-idx="${i}" style="padding:0 var(--spacing-md) var(--spacing-xs)">
-               <label style="font-size:var(--font-size-xs);color:var(--text-muted)">Due date (optional)</label>
+               <label style="font-size:var(--font-xs);color:var(--text-muted)">Due date (optional)</label>
                <input type="date" class="field__input hw-date" data-idx="${i}" style="margin-top:4px">
              </div>`
           : '';
@@ -4405,7 +4407,7 @@
               }});
             }
           }
-          statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60);font-size:var(--font-size-sm)">${selected.length} task${selected.length !== 1 ? 's' : ''} added.</span>`;
+          statusEl.innerHTML = `<span style="color:var(--success);font-size:var(--font-sm)">${selected.length} task${selected.length !== 1 ? 's' : ''} added.</span>`;
         } catch (err) {
           saveBtn.disabled = false;
           saveBtn.textContent = `Add ${selected.length} task${selected.length !== 1 ? 's' : ''}`;
@@ -4444,7 +4446,7 @@
         const imports = snap.val();
 
         if (!imports) {
-          listEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-size-sm)">No pending imports.</p>`;
+          listEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-sm)">No pending imports.</p>`;
           return;
         }
 
@@ -4458,7 +4460,7 @@
 
           let eventsHtml;
           if (!events.length) {
-            eventsHtml = `<p style="color:var(--text-muted);font-size:var(--font-size-sm)">No events found.</p>`;
+            eventsHtml = `<p style="color:var(--text-muted);font-size:var(--font-sm)">No events found.</p>`;
           } else {
             eventsHtml = events.map((ev, i) => {
               const datePart = ev.date
@@ -4472,7 +4474,7 @@
               );
               const dateInput = !ev.date
                 ? `<div class="em-date-wrap" data-idx="${i}" style="padding:0 var(--spacing-md) var(--spacing-xs)">
-                     <label style="font-size:var(--font-size-xs);color:var(--c-warning)">Date unknown — tap to set</label>
+                     <label style="font-size:var(--font-xs);color:var(--warning)">Date unknown — tap to set</label>
                      <input type="date" class="field__input em-date" data-idx="${i}" style="margin-top:4px">
                    </div>`
                 : '';
@@ -4486,16 +4488,16 @@
           card.dataset.emailId = emailId;
           card.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
-              <span style="font-size:var(--font-size-sm);font-weight:600">${esc(senderName)}</span>
-              <span style="font-size:var(--font-size-xs);color:var(--text-muted)">${esc(timestamp)}</span>
+              <span style="font-size:var(--font-sm);font-weight:600">${esc(senderName)}</span>
+              <span style="font-size:var(--font-xs);color:var(--text-muted)">${esc(timestamp)}</span>
             </div>
-            <div style="font-size:var(--font-size-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${esc(entry.subject || '(no subject)')}</div>
+            <div style="font-size:var(--font-sm);color:var(--text-muted);margin-bottom:var(--spacing-sm)">${esc(entry.subject || '(no subject)')}</div>
             <div class="confirm-list em-events">${eventsHtml}</div>
             <div class="admin-form__actions mt-sm">
               <button class="btn btn--secondary btn--sm em-dismiss">Dismiss</button>
               ${events.length ? `<button class="btn btn--primary btn--sm em-import">Import ${events.length} event${events.length !== 1 ? 's' : ''}</button>` : ''}
             </div>
-            <div class="em-status" style="font-size:var(--font-size-sm);margin-top:var(--spacing-xs)"></div>`;
+            <div class="em-status" style="font-size:var(--font-sm);margin-top:var(--spacing-xs)"></div>`;
 
           listEl.appendChild(card);
 
@@ -4549,7 +4551,7 @@
 
                 await db.ref(`rundown/emailImports/${emailId}/processed`).set(true);
                 const statusEl = card.querySelector('.em-status');
-                if (statusEl) statusEl.innerHTML = `<span style="color:var(--c-success,#27ae60)">${selected.length} event${selected.length !== 1 ? 's' : ''} added.</span>`;
+                if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">${selected.length} event${selected.length !== 1 ? 's' : ''} added.</span>`;
                 showToast(`${selected.length} event${selected.length !== 1 ? 's' : ''} added to schedule`);
                 setTimeout(() => {
                   card.style.opacity = '0';
@@ -4572,15 +4574,15 @@
             setTimeout(() => {
               card.remove();
               if (!listEl.querySelector('[data-email-id]')) {
-                listEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-size-sm)">No pending imports.</p>`;
+                listEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-sm)">No pending imports.</p>`;
               }
             }, 300);
           });
         }
       } catch (err) {
         listEl.innerHTML = `
-          <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Couldn't load imports.</p>
-          <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || ''}</p>
+          <p style="color:var(--text-muted);font-size:var(--font-sm)">Couldn't load imports.</p>
+          <p style="color:var(--text-muted);font-size:var(--font-xs)">${esc(err?.message) || ''}</p>
           <button class="btn btn--secondary btn--sm" id="emRetry" style="margin-top:var(--spacing-sm)">Retry</button>`;
         listEl.querySelector('#emRetry')?.addEventListener('click', loadEmailImports);
       }

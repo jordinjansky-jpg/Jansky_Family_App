@@ -84,7 +84,7 @@
 /* ============ Tab Content ============ */
 #rewardsContent {
   padding-top: var(--spacing-sm);
-  padding-bottom: calc(var(--nav-height, 68px) + var(--spacing-lg));
+  padding-bottom: calc(var(--nav-height) + var(--spacing-lg));
 }
 .rewards-section-heading {
   font-size: var(--font-sm);

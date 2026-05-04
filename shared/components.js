@@ -256,38 +256,21 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
 }
 
 /**
- * Render the notification bell icon with optional badge count.
- */
-export function renderBellIcon(count = 0) {
-  const badge = count > 0
-    ? `<span class="bell__badge">${count > 99 ? '99+' : count}</span>`
-    : '';
-  return `<button class="header__bell" id="headerBell" title="Notifications" type="button">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-    </svg>
-    ${badge}
-  </button>`;
-}
-
-/**
- * Header renderer. Supports TWO call shapes during Phase 1:
+ * Header renderer. Two call shapes:
  *
- *  NEW (dashboard):
- *    renderHeader({ title, subtitle, showBell, overflowItems })
+ *  STANDARD (all pages except admin):
+ *    renderHeader({ title, subtitle, showBell })
+ *    — font-2xl title, optional subtitle, gear button, optional bell
  *
- *  LEGACY (all other pages, until their own phase):
- *    renderHeader({ appName, subtitle, dateLine, showAdmin, showDebug,
- *                   showAddTask, showThemePicker, showBell, bellCount, rightContent })
- *
- * Detection: new shape has `title`; legacy has `appName`.
+ *  ADMIN VARIANT:
+ *    renderHeader({ variant: 'admin', title, subtitle })
+ *    — same structure but no bell and no gear (avoids self-referential settings button)
  */
 export function renderHeader(options = {}) {
-  if (options.title !== undefined) {
-    return _renderHeaderV2(options);
+  if (options.variant === 'admin') {
+    return _renderHeaderAdmin(options);
   }
-  return _renderHeaderLegacy(options);
+  return _renderHeaderV2(options);
 }
 
 function _renderHeaderV2({ title, subtitle, showBell }) {
@@ -318,40 +301,13 @@ function _renderHeaderV2({ title, subtitle, showBell }) {
   </header>`;
 }
 
-function _renderHeaderLegacy(options) {
-  const {
-    appName = 'Daily Rundown',
-    subtitle = '',
-    dateLine = '',
-    showAdmin = true,
-    showDebug = false,
-    showAddTask = false,
-    showThemePicker = false,
-    showBell = false,
-    bellCount = 0,
-    rightContent = ''
-  } = options;
-
-  const debugIcon = showDebug ? '<span class="header__debug" title="Debug mode active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v1h4"/><path d="M18 8h-2V6a4 4 0 0 0-4-4"/><path d="M20 10v1a2 2 0 0 1-2 2"/><rect x="8" y="10" width="8" height="10" rx="4"/><path d="M4 16h4"/><path d="M16 16h4"/><path d="M12 10v10"/></svg></span>' : '';
-  const adminLink = showAdmin ? `<a href="admin.html" class="header__admin" title="Admin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg></a>` : '';
-  const addTaskBtn = showAddTask ? `<button class="header__add-task" id="headerAddTask" title="Add Task" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></button>` : '';
-  const themeBtn = showThemePicker ? `<button class="header__theme" id="headerThemeBtn" title="Device Theme" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></button>` : '';
-  const bellBtn = showBell ? renderBellIcon(bellCount) : '';
-
+function _renderHeaderAdmin({ title, subtitle }) {
   return `<header class="app-header">
-    <div class="header__left">
-      <h1 class="header__title">${esc(appName)}</h1>
-      ${subtitle ? `<span class="header__subtitle">${esc(subtitle)}</span>` : ''}
-      ${dateLine ? `<span class="header__date">${esc(dateLine)}</span>` : ''}
+    <div class="app-header__text">
+      <div class="app-header__title">${esc(title)}</div>
+      ${subtitle ? `<div class="app-header__subtitle">${esc(subtitle)}</div>` : ''}
     </div>
-    <div class="header__right">
-      ${rightContent}
-      ${addTaskBtn}
-      ${bellBtn}
-      ${themeBtn}
-      ${debugIcon}
-      ${adminLink}
-    </div>
+    <div class="app-header__actions"></div>
   </header>`;
 }
 
@@ -404,6 +360,23 @@ export function renderEmptyState(icon, title, subtitle = '', options = {}) {
     ${subtitle ? `<p class="empty-state__subtitle">${subtitle}</p>` : ''}
     ${gradeRow}
   </div>`;
+}
+
+/**
+ * Render an error state into a DOM element.
+ * Spec §5.19: title, optional message, optional retry callback.
+ * root: HTMLElement to write into
+ * options: { title, message, retry }
+ */
+export function renderErrorState(root, { title = 'Something went wrong', message = 'Check your connection and try again.', retry } = {}) {
+  const retryBtn = retry ? `<button class="error-state__retry" type="button" id="errorStateRetry">Try again</button>` : '';
+  root.innerHTML = `<div class="error-state">
+    <span class="error-state__icon" aria-hidden="true">⚠️</span>
+    <h3 class="error-state__title">${esc(title)}</h3>
+    ${message ? `<p class="error-state__message">${esc(message)}</p>` : ''}
+    ${retryBtn}
+  </div>`;
+  if (retry) root.querySelector('#errorStateRetry')?.addEventListener('click', retry);
 }
 
 /**
@@ -1910,6 +1883,35 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
 }
 
 /**
+ * Generic loading skeleton dispatcher.
+ * variant: 'dashboard' | 'list' | 'card-grid'
+ * Falls back to 'dashboard' for unknown variants.
+ */
+export function renderSkeleton(variant = 'dashboard') {
+  if (variant === 'list') {
+    const row = `<div class="skeleton-list-row">
+      <div class="skeleton skeleton-list-row__icon"></div>
+      <div class="skeleton-list-row__bars">
+        <div class="skeleton skeleton-list-row__bar skeleton-list-row__bar--title"></div>
+        <div class="skeleton skeleton-list-row__bar skeleton-list-row__bar--meta"></div>
+      </div>
+      <div class="skeleton skeleton-list-row__action"></div>
+    </div>`;
+    return `<div>${row}${row}${row}${row}${row}</div>`;
+  }
+  if (variant === 'card-grid') {
+    const card = `<div class="skeleton-card-block">
+      <div class="skeleton skeleton-card-block__icon"></div>
+      <div class="skeleton skeleton-card-block__bar skeleton-card-block__bar--title"></div>
+      <div class="skeleton skeleton-card-block__bar skeleton-card-block__bar--sub"></div>
+      <div class="skeleton skeleton-card-block__btn"></div>
+    </div>`;
+    return `<div>${card}${card}${card}</div>`;
+  }
+  return renderDashboardSkeleton();
+}
+
+/**
  * Dashboard loading skeleton — card-shaped placeholders matching the
  * populated layout. Used during first paint before Firebase resolves
  * (typically <500ms in cached + fresh cases). Replaces the inline
@@ -1954,7 +1956,7 @@ export function initOfflineBanner(onConnectionChange, options = {}) {
       const existing = document.querySelector('.connection-dot');
       const dotHtml = renderConnectionStatus(connected);
       if (existing) existing.outerHTML = dotHtml;
-      else document.querySelector('.header__right')?.insertAdjacentHTML('afterbegin', dotHtml);
+      else document.querySelector('.app-header__actions')?.insertAdjacentHTML('afterbegin', dotHtml);
     }
 
     if (timer) clearTimeout(timer);

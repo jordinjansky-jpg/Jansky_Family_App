@@ -232,7 +232,7 @@
 // v143 (2026-05-04) — Rewards: intent sheet action rows, cost chip color, chip--success variant.
 // v144 (2026-05-04) — Rewards: intent sheet inline pts+name, side-by-side buttons, touch long press.
 // v145 (2026-05-04) — Rewards: card trailing column (pts+flat get btn), intent sheet tabs--pill.
-const CACHE_NAME = 'family-hub-v145';
+const CACHE_NAME = 'family-hub-v146';
 
 const APP_SHELL = [
   '/',

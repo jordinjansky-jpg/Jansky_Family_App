@@ -12,7 +12,7 @@ import { initFirebase, readSettings, readPeople, onConnectionChange,
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
   initOfflineBanner, showConfirm, showToast, renderFab,
-  renderBottomSheet, renderEmptyState, renderAddMenu
+  renderBottomSheet, renderEmptyState, renderAddMenu, renderSkeleton, renderErrorState
 } from './shared/components.js';
 import { todayKey, escapeHtml } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow } from './shared/ai-helpers.js';
@@ -114,9 +114,20 @@ async function init() {
   // Tabs
   renderTabs();
 
+  // Show skeleton while data loads
+  document.getElementById('kitchenContent').innerHTML = renderSkeleton('list');
+
   // Load data + render active tab
-  await loadData();
-  renderActiveTab();
+  try {
+    await loadData();
+    renderActiveTab();
+  } catch (err) {
+    renderErrorState(document.getElementById('kitchenContent'), {
+      title: "Couldn't load kitchen",
+      message: 'Check your connection and try again.',
+      retry: () => location.reload(),
+    });
+  }
   bindFab();
 
 }
@@ -1858,7 +1869,7 @@ function openListPhotoSourceSheet() {
           mount.innerHTML = renderBottomSheet(`
             <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
             <div class="sheet__content">
-              <p style="color:var(--text-muted);font-size:var(--font-size-sm)">No items detected — try a clearer photo.</p>
+              <p style="color:var(--text-muted);font-size:var(--font-sm)">No items detected — try a clearer photo.</p>
             </div>
             <div class="sheet__footer">
               <button class="btn btn--secondary" id="ptlRetry">Try again</button>
@@ -1872,8 +1883,8 @@ function openListPhotoSourceSheet() {
         mount.innerHTML = renderBottomSheet(`
           <div class="sheet__header"><h2 class="sheet__title">Scan for items</h2></div>
           <div class="sheet__content">
-            <p style="color:var(--text-muted);font-size:var(--font-size-sm)">Something went wrong.</p>
-            <p style="color:var(--text-muted);font-size:var(--font-size-xs)">${esc(err?.message) || 'Check your connection.'}</p>
+            <p style="color:var(--text-muted);font-size:var(--font-sm)">Something went wrong.</p>
+            <p style="color:var(--text-muted);font-size:var(--font-xs)">${esc(err?.message) || 'Check your connection.'}</p>
           </div>
           <div class="sheet__footer">
             <button class="btn btn--secondary" id="ptlRetry">Try again</button>
@@ -2121,12 +2132,9 @@ async function categorizeStaple(stapleId, name) {
 init().catch(err => {
   console.error('[Kitchen] init failed', err);
   const el = document.getElementById('kitchenContent');
-  if (el) {
-    el.innerHTML = `<div class="empty-state">
-      <span class="empty-state__icon">⚠</span>
-      <h3 class="empty-state__title">Something went wrong</h3>
-      <p class="empty-state__subtitle">Could not load Kitchen. Check your connection.</p>
-      <button class="btn btn--secondary" onclick="location.reload()">Retry</button>
-    </div>`;
-  }
+  if (el) renderErrorState(el, {
+    title: 'Could not load Kitchen',
+    message: 'Check your connection and try again.',
+    retry: () => location.reload(),
+  });
 });

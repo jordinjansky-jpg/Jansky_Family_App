@@ -4,9 +4,16 @@
     body {
       padding-bottom: 0;
     }
-    /* Progress bar needs horizontal padding (kid mode doesn't load layout.css) */
+    /* Progress bar: horizontal padding + hero sizing for kid mode */
     .progress-section {
-      padding: 0 var(--spacing-md);
+      padding: var(--spacing-sm) var(--spacing-md) var(--spacing-xs);
+    }
+    .progress-section .progress-bar {
+      height: 16px;
+      border-radius: 8px;
+    }
+    .progress-section .progress-bar__fill {
+      border-radius: 8px;
     }
     /* Kid mode has no nav bar, lower the undo toast */
     .undo-toast {
@@ -29,20 +36,20 @@
 
     /* ── Kid header ── */
     .kid-header {
-      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-sm);
       padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
       padding-top: calc(var(--spacing-xs) + env(safe-area-inset-top, 0px));
-      position: relative;
     }
-    .kid-header__greeting {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--spacing-sm);
+    .kid-header__text {
+      flex: 1;
+      min-width: 0;
     }
     .kid-trophy__date {
       font-size: 0.6rem;
-      color: var(--text-faint, #999);
+      color: var(--text-faint);
       display: block;
     }
 
@@ -139,7 +146,7 @@
       animation: kidWave 1s ease-in-out;
     }
     .kid-header__name {
-      font-size: var(--font-xl);
+      font-size: var(--font-2xl);
       font-weight: 800;
       margin: 0;
     }
@@ -185,6 +192,9 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+    .kid-stats__item--streak .kid-stats__value {
+      font-size: var(--font-xl);
+    }
 
     /* ── Week tabs ── */
     .kid-week-tabs {
@@ -214,10 +224,10 @@
     .kid-week-tab:active { transform: scale(0.95); }
     .kid-week-tab--active {
       background: var(--accent);
-      color: #fff;
+      color: var(--on-accent);
       border-color: var(--accent);
     }
-    .kid-week-tab--active .kid-week-tab__day { color: rgba(255,255,255,0.85); }
+    .kid-week-tab--active .kid-week-tab__day { color: var(--on-accent); opacity: 0.85; }
     .kid-week-tab--today::after {
       content: '';
       position: absolute;
@@ -228,7 +238,8 @@
       background: var(--accent);
     }
     .kid-week-tab--active.kid-week-tab--today::after {
-      background: rgba(255,255,255,0.8);
+      background: var(--on-accent);
+      opacity: 0.8;
     }
     .kid-week-tab__day {
       font-size: var(--font-xs);
@@ -309,8 +320,8 @@
       z-index: var(--z-celebration); /* z-index audit: was 10000 -> mapped to celebration (all-done toast, stacks via DOM order) */
       text-align: center;
       padding: var(--spacing-md) var(--spacing-lg);
-      background: var(--success-soft, #d4edda);
-      color: var(--success, #155724);
+      background: var(--success-soft);
+      color: var(--success);
       font-weight: 700;
       font-size: var(--font-lg);
       animation: kidToastSlide 3s ease-in-out forwards;
@@ -330,7 +341,7 @@
 
     /* ── Kid mode: larger touch targets ── */
     .kid-tasks .task-card {
-      min-height: 56px;
+      min-height: 72px;
       padding: 12px var(--spacing-md);
       -webkit-user-select: none;
       user-select: none;
@@ -339,20 +350,20 @@
     .kid-tasks .task-card__name {
       font-size: var(--font-md);
     }
-    .kid-tasks .task-card__avatar {
+    .kid-tasks .task-card .avatar {
       width: 32px;
       height: 32px;
       font-size: var(--font-sm);
     }
     .kid-tasks .task-card__check {
-      width: 26px;
-      height: 26px;
+      width: 32px;
+      height: 32px;
     }
     .kid-tasks .task-card--done .task-card__check::after {
-      left: 7px;
-      top: 3px;
-      width: 7px;
-      height: 11px;
+      left: 9px;
+      top: 4px;
+      width: 8px;
+      height: 13px;
     }
 
     /* ── All-done victory screen ── */
@@ -371,10 +382,7 @@
       font-size: var(--font-xl);
       font-weight: 800;
       margin-bottom: var(--spacing-sm);
-      background: linear-gradient(135deg, var(--accent), #e85d75, #ff9800);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: var(--accent);
     }
     .kid-victory__subtitle {
       color: var(--text-faint);
@@ -513,7 +521,7 @@
     .wishlist-tracker__name { flex-shrink: 0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .wishlist-tracker__bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
     .wishlist-tracker__fill { height: 100%; background: var(--accent); border-radius: 2px; }
-    .wishlist-tracker__label { font-variant-numeric: tabular-nums; color: var(--text-faint); font-size: var(--font-xs, 0.75rem); }
+    .wishlist-tracker__label { font-variant-numeric: tabular-nums; color: var(--text-faint); font-size: var(--font-xs); }
 
     /* ── Bank (Saved Rewards) ── */
     .kid-bank { padding: 12px 16px; margin-bottom: 16px; }
@@ -521,22 +529,22 @@
     .kid-bank__title::-webkit-details-marker { display: none; }
     .kid-bank__title::after { content: '▸'; font-size: 0.75rem; color: var(--text-faint); transition: transform 0.2s; margin-left: auto; }
     .kid-bank[open] > .kid-bank__title::after { transform: rotate(90deg); }
-    .kid-bank__count-badge { font-size: var(--font-xs, 0.75rem); background: var(--accent); color: #fff; border-radius: 10px; padding: 1px 7px; font-weight: 700; min-width: 18px; text-align: center; }
-    .kid-bank__count { font-size: var(--font-xs, 0.75rem); color: var(--text-faint); font-weight: 400; }
+    .kid-bank__count-badge { font-size: var(--font-xs); background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 1px 7px; font-weight: 700; min-width: 18px; text-align: center; }
+    .kid-bank__count { font-size: var(--font-xs); color: var(--text-faint); font-weight: 400; }
     .kid-bank__tokens { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
     .kid-bank__token { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius); cursor: pointer; font-size: var(--font-sm); font-weight: 600; transition: all 0.15s; }
-    .kid-bank__token:hover { background: var(--accent); color: #fff; }
+    .kid-bank__token:hover { background: var(--accent); color: var(--on-accent); }
     .kid-bank__token-icon { font-size: 1.25rem; }
     .kid-bank__token--custom { cursor: default; gap: 8px; }
     .kid-bank__token--custom:hover { background: var(--surface); color: inherit; }
     .kid-bank__token-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .kid-bank__token-status { font-size: var(--font-xs, 0.75rem); color: var(--text-faint); font-weight: 400; }
+    .kid-bank__token-status { font-size: var(--font-xs); color: var(--text-faint); font-weight: 400; }
     .kid-bank__token--pending { opacity: 0.6; border-style: dashed; }
 
     /* ── Multiplier Banner ── */
     .kid-multiplier-banner {
-      background: linear-gradient(135deg, var(--accent-warning, #ecc94b), var(--accent, #6c63ff));
-      color: #fff;
+      background: linear-gradient(135deg, var(--warning), var(--accent));
+      color: var(--on-accent);
       text-align: center;
       padding: 8px 16px;
       font-weight: 700;
@@ -547,11 +555,9 @@
 
     /* ── Trophy Case ── */
     .kid-header__icons {
-      position: absolute;
-      top: 12px;
-      right: 12px;
       display: flex;
       gap: 4px;
+      flex-shrink: 0;
     }
 
     .kid-header__icon-btn {
@@ -594,7 +600,7 @@
     .kid-trophy__icon { font-size: 1.5rem; display: block; }
 
     .kid-trophy__label {
-      font-size: var(--font-xs, 0.75rem);
+      font-size: var(--font-xs);
       display: block;
       margin-top: 2px;
       color: var(--text-faint);

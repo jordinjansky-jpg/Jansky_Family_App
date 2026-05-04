@@ -740,28 +740,28 @@
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 2px;
-  font-size: var(--font-xs, 0.75rem);
+  font-size: var(--font-xs);
 }
 
 .reward-card__cost { font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; font-size: var(--font-xs); }
 .reward-card__type { color: var(--text-faint); font-size: var(--font-xs); }
 
 .reward-card__badge {
-  background: var(--surface-alt, var(--surface-2));
+  background: var(--surface-alt);
   padding: 1px 5px;
   border-radius: 4px;
-  font-size: var(--font-xs, 0.75rem);
+  font-size: var(--font-xs);
   color: var(--text-faint);
 }
 
 .reward-card__availability {
-  font-size: var(--font-xs, 0.75rem);
+  font-size: var(--font-xs);
   color: var(--text-faint);
   margin-top: 1px;
 }
 
 .reward-card__availability--inline {
-  font-size: var(--font-xs, 0.75rem);
+  font-size: var(--font-xs);
   color: var(--text-faint);
 }
 
@@ -780,7 +780,7 @@
   flex-wrap: wrap;
   gap: 4px 8px;
   padding: 8px 12px;
-  font-size: var(--font-xs, 0.75rem);
+  font-size: var(--font-xs);
   background: var(--surface);
   border-radius: var(--radius);
 }

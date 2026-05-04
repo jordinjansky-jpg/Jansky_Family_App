@@ -10,7 +10,7 @@ import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
-  openDeviceThemeSheet, renderOverflowMenu
+  openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState
 } from './shared/components.js';
 import { todayKey } from './shared/utils.js';
 
@@ -52,6 +52,7 @@ async function loadData() {
 }
 
 async function init() {
+  document.getElementById('rewardsContent').innerHTML = renderSkeleton('card-grid');
   await loadData();
   applyTheme(resolveTheme(settings?.theme));
   if (viewerPerson?.theme?.preset) applyTheme(viewerPerson.theme);
@@ -228,7 +229,7 @@ function renderActiveTab() {
   const content = document.getElementById('rewardsContent');
   if (!content) return;
   if (activeTab === 'shop')           content.innerHTML = renderShopTab();
-  else if (activeTab === 'bank')      { content.innerHTML = '<div class="empty-state"><p>Loading…</p></div>'; loadAndRenderBankTab(); }
+  else if (activeTab === 'bank')      { content.innerHTML = renderSkeleton('list'); loadAndRenderBankTab(); }
   else if (activeTab === 'history')   { content.innerHTML = renderHistoryTab(); }
   else if (activeTab === 'approvals') content.innerHTML = renderApprovalsTab();
   applyDataColors(content);
@@ -255,7 +256,7 @@ function getShopFilterCount() {
 }
 
 function renderShopTab() {
-  if (!activePerson) return '<div class="empty-state"><p>No person selected.</p></div>';
+  if (!activePerson) return renderEmptyState('', 'No person selected', 'Use the filter above to pick someone.');
   const balance = getBalance(activePerson.id);
 
   let visible = Object.entries(rewardsObj || {}).filter(([id, r]) => {
@@ -282,7 +283,7 @@ function renderShopTab() {
   </div>`;
 
   if (visible.length === 0) {
-    html += `<div class="empty-state"><p>No rewards available for you yet.</p></div>`;
+    html += renderEmptyState('', 'No rewards yet', 'Ask a parent to add some in Admin.');
   } else {
     html += visible.map(r => renderRewardCard(r, balance, { showGet: true })).join('');
   }
@@ -377,7 +378,7 @@ function openShopFilterSheet() {
 // ── History tab ──
 
 function renderHistoryTab() {
-  if (!activePerson) return '<div class="empty-state"><p>No person selected.</p></div>';
+  if (!activePerson) return renderEmptyState('', 'No person selected', 'Use the filter above to pick someone.');
   const tz = settings?.timezone || 'UTC';
   const allowedTypes = isKidMode ? KID_HISTORY_TYPES : ADULT_HISTORY_TYPES;
 

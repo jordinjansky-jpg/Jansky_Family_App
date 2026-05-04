@@ -389,10 +389,9 @@ async function render() {
     if (activePerson) {
       html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
     } else {
-      html += `<div class="empty empty--calm">
-        <div class="empty__title">${isToday ? 'Nothing on the list' : 'No tasks scheduled'}</div>
-        <div class="empty__message">${isToday ? 'Enjoy your day.' : ''}</div>
-      </div>`;
+      html += isToday
+        ? renderEmptyState('', '', '', { variant: 'free-day' })
+        : renderEmptyState('', '', '', { variant: 'future-empty' });
     }
     html += `</section>`;
   } else if (totalCount > 0) {
@@ -582,7 +581,7 @@ function openOverdueSheet(items) {
       isPastDaily: false
     });
   }).join('');
-  const body = `<h3 class="sheet-section-title">Overdue tasks</h3>${cards || '<div class="empty empty--calm"><div class="empty__message">Nothing overdue.</div></div>'}`;
+  const body = `<h3 class="sheet-section-title">Overdue tasks</h3>${cards || renderEmptyState('', 'Nothing overdue', '')}`;
   taskSheetMount.innerHTML = renderBottomSheet(body);
   applyDataColors(taskSheetMount);
   requestAnimationFrame(() => {

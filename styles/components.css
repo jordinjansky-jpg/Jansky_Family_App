@@ -74,7 +74,7 @@
 .btn--xs {
   padding: 4px 8px;
   min-height: 28px;
-  font-size: var(--font-xs, 0.75rem);
+  font-size: var(--font-xs);
 }
 
 /* Narrow input variant (e.g. short number inputs) */
@@ -275,6 +275,43 @@
 @media (prefers-reduced-motion: reduce) {
   .empty-state__icon { animation: none; }
 }
+
+/* ============ Error State ============ */
+.error-state {
+  text-align: center;
+  padding: var(--spacing-xl) var(--spacing-md);
+}
+.error-state__icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: var(--spacing-md);
+}
+.error-state__title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--spacing-xs);
+}
+.error-state__message {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-md);
+}
+.error-state__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: background var(--t-fast);
+}
+.error-state__retry:hover { background: var(--surface-3); }
 
 /* ============ Person Filter ============ */
 .person-filter {
@@ -1038,7 +1075,7 @@
   color: var(--warning);
 }
 .task-card__tag--skipped {
-  background: var(--surface-alt, var(--surface));
+  background: var(--surface-alt);
   color: var(--text-faint);
   font-style: italic;
 }
@@ -1197,7 +1234,7 @@
   white-space: pre-line;
   font-size: var(--font-sm);
   color: var(--text-faint);
-  background: var(--surface-alt, var(--surface-2));
+  background: var(--surface-alt);
   border-radius: var(--radius-sm, 6px);
   padding: 0.5rem 0.75rem;
   line-height: 1.4;
@@ -1343,10 +1380,6 @@
 }
 
 /* ── Notification Bell ── */
-.header__bell {
-  position: relative;
-}
-
 .bell__badge {
   position: absolute;
   top: -2px;
@@ -1417,7 +1450,7 @@
 
 .bell-dropdown__item-subtitle {
   color: var(--text-faint);
-  font-size: var(--font-xs, 0.75rem);
+  font-size: var(--font-xs);
   margin-top: 2px;
 }
 
@@ -1425,7 +1458,7 @@
 
 .bell-dropdown__section-head {
   padding: 8px 16px 4px;
-  font-size: var(--font-xs, 0.75rem);
+  font-size: var(--font-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1532,12 +1565,12 @@
 .store-card__name { font-weight: 600; }
 .store-card__cost { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 .store-card__badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.store-card__badge { font-size: var(--font-xs, 0.75rem); padding: 1px 6px; border-radius: 4px; background: var(--surface-alt, var(--surface)); color: var(--text-faint); }
+.store-card__badge { font-size: var(--font-xs); padding: 1px 6px; border-radius: 4px; background: var(--surface-alt); color: var(--text-faint); }
 .store-card__badge--warning { color: var(--warning); }
 .store-card__progress { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
 .store-card__progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
-.store-card__nudge { font-size: var(--font-xs, 0.75rem); color: var(--warning); font-weight: 600; margin-top: 4px; }
-.store-card__need { font-size: var(--font-xs, 0.75rem); color: var(--text-faint); margin-top: 4px; }
+.store-card__nudge { font-size: var(--font-xs); color: var(--warning); font-weight: 600; margin-top: 4px; }
+.store-card__need { font-size: var(--font-xs); color: var(--text-faint); margin-top: 4px; }
 .store-card__actions { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
 .wishlist-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-faint); }
 .wishlist-btn--active { color: var(--warning); }
@@ -2027,11 +2060,10 @@
 
 /* === Loading skeleton (spec 2026-04-25 §5.18) === */
 .skeleton {
-  /* Single accent-soft shimmer; no custom keyframes per theme. */
   background: linear-gradient(90deg,
-    var(--surface) 0%,
-    var(--surface-2) 50%,
-    var(--surface) 100%);
+    var(--skeleton-base) 0%,
+    var(--skeleton-highlight) 50%,
+    var(--skeleton-base) 100%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
   border-radius: var(--radius-md);
@@ -2070,6 +2102,39 @@
 }
 .skeleton-section-head__title { width: 80px; height: 18px; border-radius: var(--radius-sm); }
 .skeleton-section-head__chip  { width: 64px; height: 30px; border-radius: var(--radius-full); }
+
+/* list variant — kitchen/rewards list-row shimmer */
+.skeleton-list-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 40px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.skeleton-list-row__icon { width: 24px; height: 24px; border-radius: var(--radius-sm); }
+.skeleton-list-row__bars { display: flex; flex-direction: column; gap: 5px; }
+.skeleton-list-row__bar { height: 12px; border-radius: var(--radius-sm); }
+.skeleton-list-row__bar--title { width: 65%; }
+.skeleton-list-row__bar--meta  { width: 35%; height: 10px; }
+.skeleton-list-row__action { width: 40px; height: 32px; border-radius: var(--radius-md); }
+
+/* card-grid variant — reward store cards */
+.skeleton-card-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+.skeleton-card-block__icon  { width: 48px; height: 48px; border-radius: var(--radius-full); }
+.skeleton-card-block__bar   { height: 14px; border-radius: var(--radius-sm); }
+.skeleton-card-block__bar--title { width: 60%; }
+.skeleton-card-block__bar--sub   { width: 40%; height: 11px; }
+.skeleton-card-block__btn   { height: 36px; border-radius: var(--radius-full); margin-top: 4px; }
 
 /* === Ambient strip (spec 2026-04-25 §3.3) === */
 .ambient-row {
@@ -2586,15 +2651,15 @@
   background: var(--surface);
   border-radius: var(--radius-xl);
   padding: var(--spacing-md);
-  margin: var(--spacing-md) 0;
+  margin: var(--spacing-md);
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
   cursor: pointer;
   border: 1.5px solid var(--border);
-  width: 100%;
+  width: calc(100% - var(--spacing-md) * 2);
   text-align: left;
-  min-height: 56px;
+  min-height: 72px;
   transition: background var(--t-fast);
 }
 .kid-tonight:hover { background: var(--surface-2); }
@@ -3947,8 +4012,9 @@ label.ef2-icon-btn  { cursor: pointer; }
   gap: var(--spacing-xs);
 }
 
-/* Score card avatar uses solid person color (not soft-tinted like default .avatar) */
-.card--score .avatar {
+/* Score card and task card avatars use solid person color (not soft-tinted like default .avatar) */
+.card--score .avatar,
+.task-card .avatar {
   background: var(--person-color, var(--accent));
   color: var(--on-accent);
   font-weight: 700;
@@ -4218,7 +4284,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 
 .confirm-row__sub.confidence-date-low {
-  color: var(--c-warning);
+  color: var(--warning);
 }
 
 .confirm-row__check {
@@ -4238,7 +4304,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 .confirm-row.is-deselected .check-empty  { display: block; }
 
 .confidence-dot {
-  color: var(--c-warning);
+  color: var(--warning);
   margin-right: 4px;
   font-size: 1.1em;
   line-height: 1;
