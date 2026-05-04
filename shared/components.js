@@ -195,12 +195,12 @@ export function renderNavBar(activePage, options = {}) {
         ? `person.html?person=${encodeURIComponent(personHome)}`
         : `${it.href}?person=${encodeURIComponent(personHome)}`;
     }
-    return `<a class="bottom-nav__item nav-item${isActive ? ' is-active nav-item--active' : ''}" href="${href}" data-page="${it.page}">
+    return `<a class="bottom-nav__item${isActive ? ' is-active' : ''}" href="${href}" data-page="${it.page}">
       <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${it.svg}</svg>
       <span class="nav-item__label">${esc(it.label)}</span>
     </a>`;
   }).join('');
-  const moreItem = `<button class="bottom-nav__item nav-item${moreActive ? ' is-active nav-item--active' : ''}" id="navMore" type="button"${options.onMoreClick ? '' : ' data-more-unbound="1"'}>
+  const moreItem = `<button class="bottom-nav__item${moreActive ? ' is-active' : ''}" id="navMore" type="button"${options.onMoreClick ? '' : ' data-more-unbound="1"'}>
     <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="5" cy="12" r="1.5"></circle>
       <circle cx="12" cy="12" r="1.5"></circle>
@@ -739,7 +739,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
     </div>
     ${showGet ? `<div class="card__trailing card__trailing--reward">
       <span class="chip ${costChipClass}">${(reward.pointCost || 0).toLocaleString()} pts</span>
-      ${canGet ? `<button class="reward-get-btn" data-reward-id="${esc(reward.id)}" type="button">Get it</button>` : ''}
+      ${canGet ? `<button class="chip reward-get-btn" data-reward-id="${esc(reward.id)}" type="button">Get it</button>` : ''}
     </div>` : ''}
   </div>`;
 }

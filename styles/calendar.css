@@ -121,7 +121,7 @@
   padding: 2px 4px;
 }
 .cal-week__timed .event-pill__time {
-  font-size: 0.5625rem;
+  font-size: 11px;
   line-height: 1;
 }
 .cal-week__timed .event-pill__text {
@@ -180,7 +180,7 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   padding: 3px 5px 3px 4px;
 }
 .event-pill__time {
-  font-size: 0.625rem;
+  font-size: var(--font-xs);
   font-weight: 400;
   opacity: 0.7;
   line-height: 1.2;
@@ -346,7 +346,7 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   min-width: 0;
 }
 .cal-day__task-tod {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-faint);
   text-transform: uppercase;
@@ -397,7 +397,7 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
 }
 .cal-grid__dow {
   text-align: center;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -453,17 +453,17 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
 }
 /* Event pills inside month cells — condensed */
 .cal-grid__cell .event-pill {
-  font-size: 8px;
+  font-size: 11px;
   padding: 1px 3px;
   border-radius: 2px;
   margin-bottom: 1px;
   min-height: 0;
 }
 .cal-grid__cell .event-pill__time {
-  font-size: 7px;
+  font-size: 10px;
 }
 .cal-grid__cell .event-pill__text {
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.2;
 }
 .cal-grid__cell .event-pill__people { display: none; }
@@ -471,7 +471,7 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   border-left-width: 2px;
 }
 .cal-grid__event-name {
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
   overflow: hidden;
@@ -488,7 +488,7 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   border-radius: 50%;
 }
 .cal-grid__overflow {
-  font-size: 7px;
+  font-size: 10px;
   color: var(--text-faint);
 }
 .cal-grid__progress {
