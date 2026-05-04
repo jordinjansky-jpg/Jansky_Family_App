@@ -318,7 +318,7 @@ function bindShopTab() {
         pressTimer = null;
         navigator.vibrate?.(30);
         openRewardForm(card.dataset.rewardId);
-      }, 800);
+      }, 600);
     }, { passive: true });
     card.addEventListener('touchmove', e => {
       if (pressTimer && (Math.abs(e.touches[0].clientX - startX) > 10 || Math.abs(e.touches[0].clientY - startY) > 10)) {
@@ -943,7 +943,7 @@ function openIntentSheet(reward, rewardId) {
       <div class="is-preview">
         <span class="is-preview__icon">${esc(reward.icon || '🎁')}</span>
       </div>
-      <div class="is-actions">
+      <div class="sheet__footer">
         <button class="btn btn--secondary" id="is_save" type="button">Save to bank</button>
         <button class="btn btn--primary" id="is_useNow" type="button">Use now</button>
       </div>

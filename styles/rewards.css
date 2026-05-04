@@ -16,11 +16,6 @@
 }
 .is-preview__icon { font-size: 3.5rem; line-height: 1; }
 
-.is-actions {
-  display: flex;
-  gap: var(--spacing-sm);
-}
-.is-actions .btn { flex: 1; }
 
 /* ── View-as inline selector (header actions area) ── */
 .rewards-view-as {
