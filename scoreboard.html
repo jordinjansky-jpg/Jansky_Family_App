@@ -384,12 +384,17 @@
         const sharedCats = Object.entries(allCatData)
           .filter(([, d]) => d.entries.length >= 2)
           .sort((a, b) => a[1].label.localeCompare(b[1].label));
-        if (sharedCats.length > 0) {
-          html += renderSectionHead('Category Leaders');
-          html += `<div class="card sb-cat-leaders">`;
-          for (const [, data] of sharedCats) {
+        const catsWithLeaders = sharedCats
+          .map(([, data]) => {
             const sorted = [...data.entries].sort((a, b) => b.pct - a.pct);
             const leader = sorted[0];
+            return leader.pct > 0 ? { data, leader } : null;
+          })
+          .filter(Boolean);
+        if (catsWithLeaders.length > 0) {
+          html += renderSectionHead('Category Leaders');
+          html += `<div class="card sb-cat-leaders">`;
+          for (const { data, leader } of catsWithLeaders) {
             html += `<div class="sb-cat-leader-row">
               <span class="sb-cat-leader-label">${data.icon ? esc(data.icon) + ' ' : ''}${esc(data.label)}</span>
               <span class="sb-cat-leader-person">
