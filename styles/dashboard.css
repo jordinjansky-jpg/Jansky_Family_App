@@ -1,12 +1,7 @@
 /* v2 */
 /* dashboard.css — Dashboard task detail sheet + celebration */
 /* ============ Task Detail Sheet ============ */
-.task-detail__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) 0 var(--spacing-sm);
-}
+/* task-detail__chips, task-detail__action-list, task-detail__action-row → components.css */
 
 .task-detail__source-row {
   display: flex;
@@ -24,32 +19,7 @@
 }
 
 
-.task-detail__action-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.task-detail__action-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  width: 100%;
-  min-height: 48px;
-  padding: 12px 0;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  text-align: left;
-  color: var(--text);
-  font-size: var(--font-base);
-  font-family: inherit;
-}
-.task-detail__action-row:last-child { border-bottom: none; }
-.task-detail__action-row svg:first-child { color: var(--text-muted); flex-shrink: 0; }
-.task-detail__action-row span { flex: 1; }
-.task-detail__action-row svg:last-child { color: var(--text-faint); flex-shrink: 0; }
-.task-detail__action-row--muted { color: var(--text-muted); }
+/* dashboard-only action row modifiers */
 .task-detail__action-row--complete { color: var(--success); font-weight: 500; }
 .task-detail__action-row--complete svg:first-child { color: var(--success); }
 .task-detail__action-row--centered { justify-content: center; border-bottom: none; padding-top: var(--spacing-md); }

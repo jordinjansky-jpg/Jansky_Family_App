@@ -228,7 +228,8 @@
 // v139 (2026-05-04) — Scoreboard: rolling 7/30 grades, achievement icons on cards, Highlights section, Category Leaders section.
 // v140 (2026-05-04) — Task detail: Mark Complete in sticky footer at bottom of sheet.
 // v141 (2026-05-04) — Meal detail: unified sheet with action rows, Add to list, Change meal.
-const CACHE_NAME = 'family-hub-v141';
+// v142 (2026-05-04) — Move task-detail action row styles to components.css (shared across all pages).
+const CACHE_NAME = 'family-hub-v142';
 
 const APP_SHELL = [
   '/',
