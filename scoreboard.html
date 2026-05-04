@@ -124,18 +124,18 @@
       return dailyScore(personEntries, comps, tasks, cats, settings, today, today);
     }
 
-    /** Get weekly grade: snapshots for past days + live today. */
+    /** Get weekly grade: rolling 7 days ending today. */
     function weeklyGrade(personId) {
-      const pastSnaps = collectSnapshots(snapshots, personId, wStart, addDays(today, -1));
+      const pastSnaps = collectSnapshots(snapshots, personId, addDays(today, -6), addDays(today, -1));
       const todayLive = todayScore(personId);
       const all = [...pastSnaps];
       if (todayLive.possible > 0) all.push(todayLive);
       return aggregateSnapshots(all);
     }
 
-    /** Get monthly grade: snapshots for past days + live today. */
+    /** Get monthly grade: rolling 30 days ending today. */
     function monthlyGrade(personId) {
-      const pastSnaps = collectSnapshots(snapshots, personId, mStart, addDays(today, -1));
+      const pastSnaps = collectSnapshots(snapshots, personId, addDays(today, -29), addDays(today, -1));
       const todayLive = todayScore(personId);
       const all = [...pastSnaps];
       if (todayLive.possible > 0) all.push(todayLive);
@@ -151,11 +151,11 @@
       return aggregateSnapshots(all);
     }
 
-    /** Calculate total time contributed this week for a person. */
+    /** Calculate total time contributed over the rolling 7 days for a person. */
     function weeklyTime(personId) {
       let totalMin = 0;
-      let current = wStart;
-      while (current <= wEnd && current <= today) {
+      let current = addDays(today, -6);
+      while (current <= today) {
         const dayEntries = schedule[current] || {};
         for (const [k, e] of Object.entries(dayEntries)) {
           if (e.ownerId === personId && isComplete(k, comps)) {
@@ -198,11 +198,9 @@
       return catTotals;
     }
 
-    /** Get weekly trend: compare this week's grade to last week's. Returns 'up' | 'down' | 'same' | null. */
+    /** Get weekly trend vs rolling 7 days prior. Returns 'up' | 'down' | 'same' | null. */
     function weeklyTrend(personId) {
-      const lastWkStart = addDays(wStart, -7);
-      const lastWkEnd = addDays(wStart, -1);
-      const lastWeek = periodGrade(snapshots, personId, lastWkStart, lastWkEnd);
+      const lastWeek = periodGrade(snapshots, personId, addDays(today, -13), addDays(today, -7));
       const thisWeek = weeklyGrade(personId);
       if (lastWeek.possible === 0 || thisWeek.possible === 0) return null;
       const diff = thisWeek.percentage - lastWeek.percentage;
@@ -211,19 +209,16 @@
       return 'same';
     }
 
-    /** Get last 4 weeks of grades for sparkline. */
+    /** Get last 4 rolling-7-day windows for sparkline. */
     function weeklyHistory(personId) {
       const weeks = [];
       for (let i = 3; i >= 0; i--) {
-        const ws = addDays(wStart, -7 * i);
-        const we = addDays(ws, 6);
-        // For current week (i=0), include live today
         if (i === 0) {
-          const grade = weeklyGrade(personId);
-          weeks.push(grade);
+          weeks.push(weeklyGrade(personId));
         } else {
-          const grade = periodGrade(snapshots, personId, ws, we);
-          weeks.push(grade);
+          const ws = addDays(today, -(i * 7 + 6));
+          const we = addDays(today, -(i * 7));
+          weeks.push(periodGrade(snapshots, personId, ws, we));
         }
       }
       return weeks;
@@ -277,8 +272,15 @@
       const todayMult = allMultipliers?.[today]?.[p.id]?.multiplier || 1;
       const liveBalance = Math.round(balance + (td.percentage || 0) * todayMult);
       const personAchievements = allAchievementsData?.[p.id] || {};
-      const badgeCount = Object.values(personAchievements).filter(a => !a.revoked).length;
-      return { person: p, today: td, week: wk, month: mo, year: yr, streak, trend, liveBalance, badgeCount };
+      const badgeIcons = Object.entries(personAchievements)
+        .filter(([, a]) => !a.revoked)
+        .sort((a, b) => (b[1].unlockedAt || 0) - (a[1].unlockedAt || 0))
+        .slice(0, 5)
+        .map(([key]) => activeDefs[key]?.icon || '')
+        .filter(Boolean)
+        .join('');
+      const lastWeek = periodGrade(snapshots, p.id, addDays(today, -13), addDays(today, -7));
+      return { person: p, today: td, week: wk, month: mo, year: yr, streak, trend, liveBalance, badgeIcons, lastWeek };
     });
 
     // ── Render ──
@@ -318,9 +320,88 @@
       for (const b of board) {
         const active = b[gradeKey];
         const gd = gradeDisplay(active.percentage);
-        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeCount);
+        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons);
       }
       html += `</div>`;
+
+      // ── Highlights ──
+      {
+        const trendSvg = (dir) => dir === 'up'
+          ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>`
+          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+        const hlRows = [];
+
+        // Streak leader (≥3 days)
+        const streakLeader = board.reduce((best, b) => (!best || b.streak.current > best.streak.current) ? b : best, null);
+        if (streakLeader?.streak.current >= 3) {
+          const flameSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
+          hlRows.push(`<div class="sb-highlight-row">${flameSvg} ${esc(streakLeader.person.name)} is on a ${streakLeader.streak.current}-day streak</div>`);
+        }
+
+        // Most improved week-over-week (≥5%)
+        let mostImproved = null; let bestDiff = 5;
+        for (const b of board) {
+          if (b.lastWeek.possible === 0 || b.week.possible === 0) continue;
+          const diff = b.week.percentage - b.lastWeek.percentage;
+          if (diff > bestDiff) { bestDiff = diff; mostImproved = b; }
+        }
+        if (mostImproved) {
+          hlRows.push(`<div class="sb-highlight-row">${trendSvg('up')} ${esc(mostImproved.person.name)} is up ${Math.round(bestDiff)}% from last week</div>`);
+        }
+
+        // All done today / someone at 100%
+        const withTasks = board.filter(b => b.today.possible > 0);
+        const allDone = withTasks.length > 0 && withTasks.every(b => b.today.percentage === 100);
+        const perfect = board.find(b => b.today.possible > 0 && b.today.percentage === 100);
+        const checkSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+        if (allDone && board.length > 1) {
+          hlRows.push(`<div class="sb-highlight-row">${checkSvg} Everyone finished today</div>`);
+        } else if (perfect && board.length > 1) {
+          hlRows.push(`<div class="sb-highlight-row">${checkSvg} ${esc(perfect.person.name)} is at 100% today</div>`);
+        }
+
+        if (hlRows.length > 0) {
+          html += renderSectionHead('Highlights');
+          html += `<div class="card sb-highlights">${hlRows.join('')}</div>`;
+        }
+      }
+
+      // ── Category Leaders (2+ people only) ──
+      if (board.length >= 2) {
+        const clDates = { today: [today, today], week: [addDays(today, -6), today], month: [addDays(today, -29), today], year: [y12Start, today] };
+        const [clStart, clEnd] = clDates[selectedPeriod];
+        const allCatData = {};
+        for (const b of board) {
+          const breakdown = categoryBreakdown(b.person.id, clStart, clEnd);
+          for (const [catKey, data] of Object.entries(breakdown)) {
+            if (data.possible === 0) continue;
+            const pct = Math.round((data.earned / data.possible) * 100);
+            if (!allCatData[catKey]) allCatData[catKey] = { label: data.label, icon: data.icon, entries: [] };
+            allCatData[catKey].entries.push({ person: b.person, pct });
+          }
+        }
+        const sharedCats = Object.entries(allCatData)
+          .filter(([, d]) => d.entries.length >= 2)
+          .sort((a, b) => a[1].label.localeCompare(b[1].label));
+        if (sharedCats.length > 0) {
+          html += renderSectionHead('Category Leaders');
+          html += `<div class="card sb-cat-leaders">`;
+          for (const [, data] of sharedCats) {
+            const sorted = [...data.entries].sort((a, b) => b.pct - a.pct);
+            const leader = sorted[0];
+            html += `<div class="sb-cat-leader-row">
+              <span class="sb-cat-leader-label">${data.icon ? esc(data.icon) + ' ' : ''}${esc(data.label)}</span>
+              <span class="sb-cat-leader-person">
+                <span class="sb-mini-dot" style="background:${esc(leader.person.color)}"></span>
+                ${esc(leader.person.name)}
+              </span>
+              <span class="sb-cat-leader-pct">${leader.pct}%</span>
+            </div>`;
+          }
+          html += `</div>`;
+        }
+      }
 
       // ── All Grades table ──
       html += renderSectionHead('All Grades');
@@ -408,12 +489,12 @@
 
       const periodDates = {
         today: [today, today],
-        week:  [wStart, wEnd],
-        month: [mStart, mEnd],
+        week:  [addDays(today, -6), today],
+        month: [addDays(today, -29), today],
         year:  [y12Start, today],
       };
       const [dStart, dEnd] = periodDates[selectedPeriod];
-      const periodLabels = { today: 'Today', week: 'This Week', month: 'This Month', year: 'This Year' };
+      const periodLabels = { today: 'Today', week: 'Last 7 Days', month: 'Last 30 Days', year: 'This Year' };
 
       const grade = selectedPeriod === 'today' ? todayScore(personId)
         : selectedPeriod === 'week'  ? weeklyGrade(personId)

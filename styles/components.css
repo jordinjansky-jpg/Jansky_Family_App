@@ -3893,6 +3893,13 @@ label.ef2-icon-btn  { cursor: pointer; }
   color: var(--text-muted);
 }
 
+.card--score__badges {
+  font-size: var(--font-sm);
+  letter-spacing: 2px;
+  line-height: 1.4;
+  margin-top: 1px;
+}
+
 /* ── Person dot (28px compact colored circle with initial) ── */
 .person-dot {
   width: 28px;
