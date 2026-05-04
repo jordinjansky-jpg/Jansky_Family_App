@@ -3987,10 +3987,32 @@ label.ef2-icon-btn  { cursor: pointer; }
 .card--reward {
   align-items: flex-start;
 }
-.card--reward__cost {
-  margin-top: var(--spacing-xs);
-  display: inline-flex;
+.card__trailing--reward {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+  padding-top: 2px;
+  min-width: 72px;
 }
+.card__trailing--reward .chip {
+  text-align: center;
+  justify-content: center;
+}
+.reward-get-btn {
+  width: 100%;
+  padding: 6px var(--spacing-xs);
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.reward-get-btn:active { opacity: 0.75; }
 .card--reward.card--dim {
   opacity: 0.6;
 }
