@@ -228,6 +228,11 @@ export function applyTheme(themeConfig) {
     root.removeAttribute('data-colored-cells');
   }
 
+  // Sync meta theme-color with the active background so the browser
+  // status bar / address bar matches the app background on theme switch.
+  const bgColor = vars['--bg'] || '#f7f6f2';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bgColor);
+
   // Persist to localStorage for immediate load on next page
   localStorage.setItem('dr-theme', JSON.stringify(themeConfig));
 }

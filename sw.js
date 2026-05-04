@@ -232,7 +232,9 @@
 // v143 (2026-05-04) — Rewards: intent sheet action rows, cost chip color, chip--success variant.
 // v144 (2026-05-04) — Rewards: intent sheet inline pts+name, side-by-side buttons, touch long press.
 // v145 (2026-05-04) — Rewards: card trailing column (pts+flat get btn), intent sheet tabs--pill.
-const CACHE_NAME = 'family-hub-v146';
+// v147 (2026-05-04) — P2c: self-host Plus Jakarta Sans (fonts/ dir), remove Google Fonts CDN,
+//                     manifest fixes (maskable icon, bg/theme colors, scope/lang/orientation/categories/shortcuts).
+const CACHE_NAME = 'family-hub-v147';
 
 const APP_SHELL = [
   '/',
@@ -250,6 +252,9 @@ const APP_SHELL = [
   '/kitchen.html',
   '/manifest.json',
   '/App Icon.png',
+  // Self-hosted variable fonts
+  '/fonts/PlusJakartaSans[wght].woff2',
+  '/fonts/PlusJakartaSans-Italic[wght].woff2',
   // CSS (modular)
   '/styles/base.css',
   '/styles/layout.css',
@@ -324,8 +329,8 @@ self.addEventListener('fetch', (event) => {
       description: "Daily tasks for " + kid,
       start_url: "/kid.html?kid=" + encodeURIComponent(kid),
       display: "standalone",
-      background_color: "#1a1a2e",
-      theme_color: "#6c63ff",
+      background_color: "#141413",
+      theme_color: "#141413",
       icons: [{ src: "/App Icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
     };
     event.respondWith(new Response(JSON.stringify(manifest), {
@@ -344,8 +349,8 @@ self.addEventListener('fetch', (event) => {
       description: "Daily tasks for " + person,
       start_url: "/person.html?person=" + encodeURIComponent(person),
       display: "standalone",
-      background_color: "#1a1a2e",
-      theme_color: "#6c63ff",
+      background_color: "#141413",
+      theme_color: "#141413",
       icons: [{ src: "/App Icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
     };
     event.respondWith(new Response(JSON.stringify(manifest), {

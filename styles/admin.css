@@ -906,7 +906,7 @@
   line-height: 1;
 }
 .ach-badge-label {
-  font-size: 0.65rem;
+  font-size: var(--font-xs);
   line-height: 1.2;
   text-align: center;
   max-width: 70px;
@@ -915,7 +915,7 @@
   white-space: nowrap;
 }
 .ach-badge-date {
-  font-size: 0.6rem;
+  font-size: var(--font-xs);
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }

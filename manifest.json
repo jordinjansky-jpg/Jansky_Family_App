@@ -3,16 +3,42 @@
   "name": "Family Hub",
   "short_name": "Family Hub",
   "description": "Family task manager with scheduling, scoring, and gamification",
+  "lang": "en",
   "start_url": "/index.html",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#6c63ff",
+  "orientation": "portrait",
+  "background_color": "#141413",
+  "theme_color": "#141413",
+  "categories": ["productivity", "lifestyle"],
   "icons": [
     {
       "src": "/App Icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/App Icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Kitchen",
+      "short_name": "Kitchen",
+      "description": "Shopping lists, recipes, and meal planning",
+      "url": "/kitchen.html",
+      "icons": [{ "src": "/App Icon.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Scores",
+      "short_name": "Scores",
+      "description": "Family leaderboard and grades",
+      "url": "/scoreboard.html",
+      "icons": [{ "src": "/App Icon.png", "sizes": "512x512" }]
     }
   ]
 }
