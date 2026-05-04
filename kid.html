@@ -830,18 +830,6 @@
             html += `</div>`;
           }
 
-          // ── Stats bar ──
-          html += `<div class="kid-stats">
-            <div class="kid-stats__item">
-              <span class="kid-stats__value">${prog.done}/${prog.total}</span>
-              <span class="kid-stats__label">Tasks</span>
-            </div>
-            <div class="kid-stats__item kid-stats__item--streak">
-              <span class="kid-stats__value">🔥 ${streakData.current || 0}</span>
-              <span class="kid-stats__label">Streak</span>
-            </div>
-          </div>`;
-
           // ── Overdue banner (only on today view) ──
           const overdueActive = overdueItems.filter(e => !isComplete(e.entryKey, completions));
           if (isToday && overdueActive.length > 0) {

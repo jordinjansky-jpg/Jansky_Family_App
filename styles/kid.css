@@ -354,6 +354,8 @@
       width: 32px;
       height: 32px;
       font-size: var(--font-sm);
+      background: var(--person-color, var(--accent));
+      color: var(--on-accent);
     }
     .kid-tasks .task-card__check {
       width: 32px;
