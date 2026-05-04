@@ -52,6 +52,7 @@
 .task-detail__action-row--muted { color: var(--text-muted); }
 .task-detail__action-row--complete { color: var(--success); font-weight: 500; }
 .task-detail__action-row--complete svg:first-child { color: var(--success); }
+.task-detail__action-row--centered { justify-content: center; border-bottom: none; padding-top: var(--spacing-md); }
 
 .task-detail__delegate-header {
   display: flex;
