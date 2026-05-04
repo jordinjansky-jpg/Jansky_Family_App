@@ -3985,14 +3985,13 @@ label.ef2-icon-btn  { cursor: pointer; }
 
 /* ============ Reward Card (.card--reward) ============ */
 .card--reward {
-  align-items: flex-start;
+  align-items: center;
 }
 .card__trailing--reward {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--spacing-xs);
-  padding-top: 2px;
   min-width: 72px;
 }
 .card__trailing--reward .chip {
@@ -4015,9 +4014,6 @@ label.ef2-icon-btn  { cursor: pointer; }
 .reward-get-btn:active { opacity: 0.75; }
 .card--reward.card--dim {
   opacity: 0.6;
-}
-.card--reward .card__leading {
-  padding-top: 2px;
 }
 .card--reward .reward-progress {
   height: 3px;
