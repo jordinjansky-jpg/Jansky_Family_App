@@ -172,7 +172,7 @@
   -webkit-backdrop-filter: saturate(180%) blur(14px);
   border-top: 1px solid var(--border);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   z-index: var(--z-nav);
 }
 .bottom-nav__item {

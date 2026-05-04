@@ -37,7 +37,7 @@
   color: var(--text-muted);
   background: transparent;
   border: 1.5px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-full);
   padding: 4px 10px;
   cursor: pointer;
   font-family: inherit;
@@ -160,7 +160,7 @@
 
 .celebration__subtitle {
   font-size: var(--font-sm);
-  color: var(--surface-2);
+  color: var(--on-accent);
 }
 
 @keyframes celebrationPop {
@@ -193,4 +193,20 @@
 
 @media (prefers-reduced-motion: reduce) {
   .celebration__confetti { display: none; }
+}
+
+/* ── Day-navigation slide animation (matches tracker pattern) ── */
+@keyframes dashSlideNext {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes dashSlidePrev {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+#mainContent.dash-slide-next { animation: dashSlideNext 220ms ease-out both; }
+#mainContent.dash-slide-prev { animation: dashSlidePrev 220ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  #mainContent.dash-slide-next,
+  #mainContent.dash-slide-prev { animation: none; }
 }

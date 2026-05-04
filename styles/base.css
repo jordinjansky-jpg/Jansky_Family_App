@@ -51,6 +51,7 @@
   /* Surfaces */
   --bg: #f7f6f2;
   --surface-2: #f2f1ec;
+  --surface-3: #eae9e3;
   --text: #171717;
   --text-faint: #9a9a9a;
 
@@ -129,6 +130,7 @@
   --bg: #141413;
   --surface: #1d1d1b;
   --surface-2: #262523;
+  --surface-3: #2e2d2a;
   --text: #ececeb;
   --text-muted: #a6a6a3;
   --text-faint: #6e6d6a;
@@ -149,6 +151,8 @@
   --ambient-weather-fg: #7bbde0;
   --ambient-dinner-bg: #3a2510;
   --ambient-dinner-fg: #e8a96a;
+  --bg-hover: rgba(255,255,255,0.06);
+  --accent-hover: #64b7a8dd;
   /* Grade colors — lighter variants for readability on dark surfaces */
   --grade-a: #4caf76;
   --grade-b: #5b9bd5;
@@ -182,6 +186,9 @@
     --ambient-weather-fg: #7bbde0;
     --ambient-dinner-bg: #3a2510;
     --ambient-dinner-fg: #e8a96a;
+    --surface-3: #2e2d2a;
+    --bg-hover: rgba(255,255,255,0.06);
+    --accent-hover: #64b7a8dd;
     /* Grade colors — keep in sync with [data-theme="dark"] above */
     --grade-a: #4caf76;
     --grade-b: #5b9bd5;

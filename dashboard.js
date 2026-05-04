@@ -854,12 +854,16 @@ function bindEvents() {
 }
 
 async function changeDay(delta) {
+  const slideClass = delta > 0 ? 'dash-slide-next' : 'dash-slide-prev';
+  main.classList.remove('dash-slide-next', 'dash-slide-prev');
   viewDate = addDays(viewDate, delta);
   celebrationShown = false;
   updateHeaderSubtitle();
   subscribeSchedule(viewDate);
   viewMeals = (await readKitchenPlan(viewDate)) || {};
   await loadData();
+  main.classList.add(slideClass);
+  main.addEventListener('animationend', () => main.classList.remove(slideClass), { once: true });
 }
 
 // ── Swipe to change day ──

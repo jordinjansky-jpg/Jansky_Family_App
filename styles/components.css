@@ -44,6 +44,10 @@
   background: var(--border);
 }
 
+.btn--secondary:active {
+  opacity: 0.75;
+}
+
 .btn--ghost {
   color: var(--accent);
   background: transparent;
@@ -51,6 +55,10 @@
 
 .btn--ghost:hover {
   background: var(--accent-soft);
+}
+
+.btn--ghost:active {
+  opacity: 0.75;
 }
 
 .btn--full {
@@ -80,7 +88,7 @@
 }
 .owner-chip {
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1.5px solid var(--border);
   background: var(--surface);
   color: var(--text-faint);
@@ -286,6 +294,9 @@
 
 .person-pill {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 14px;
   border-radius: var(--radius-full);
   font-size: var(--font-sm);
@@ -295,6 +306,24 @@
   border: 2px solid transparent;
   min-height: 36px;
   transition: all var(--t-fast), transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Color dot — only shown when a person ID is present (not the "All" pill) */
+.person-pill[data-person-id]:not([data-person-id=""])::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--person-color, var(--text-faint));
+  flex-shrink: 0;
+  opacity: 0.65;
+  transition: opacity var(--t-fast), background var(--t-fast);
+}
+
+/* When active and filled with person color, dot turns white */
+.person-pill[data-person-id]:not([data-person-id=""]).person-pill--active::before {
+  background: var(--on-accent);
+  opacity: 1;
 }
 
 .person-pill:active {
@@ -486,7 +515,7 @@
   transform: translateX(-50%);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius, 8px);
+  border-radius: var(--radius);
   padding: 12px 20px;
   font-size: var(--font-sm);
   font-weight: 600;
@@ -993,7 +1022,7 @@
   font-size: 10px;
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   white-space: nowrap;
 }
 .task-card__tag--delegated {
@@ -1328,7 +1357,7 @@
   font-weight: 700;
   min-width: 16px;
   height: 16px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1419,7 +1448,7 @@
 .segmented-control {
   display: flex;
   border: 1px solid var(--border);
-  border-radius: var(--radius, 8px);
+  border-radius: var(--radius);
   overflow: hidden;
 }
 .segmented-btn {
@@ -1479,7 +1508,7 @@
 .template-chip {
   padding: 6px 12px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   background: var(--surface);
   cursor: pointer;
   font-size: var(--font-sm);
@@ -1492,7 +1521,7 @@
 /* ── Reward Store (shared across kid + scoreboard) ── */
 .store-header { display: flex; align-items: center; gap: 8px; padding: 8px 0 16px; font-size: 1.1rem; font-weight: 700; }
 .store-balance { margin-left: auto; color: var(--accent); font-variant-numeric: tabular-nums; }
-.store-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius, 8px); margin-bottom: 8px; transition: all 0.2s; }
+.store-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; transition: all 0.2s; }
 .store-bounties { margin-bottom: 16px; }
 .store-card--bounty { cursor: default; }
 .store-pending { margin-bottom: 16px; }
@@ -1668,7 +1697,7 @@
   pointer-events: none;
 }
 .card:hover { box-shadow: var(--shadow-sm); }
-.card:active { transform: scale(0.997); }
+.card:active { transform: scale(0.98); }
 .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .card__leading { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
@@ -2462,7 +2491,7 @@
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   margin-bottom: var(--spacing-xs);
 }
 .me-detail__ingredients {
@@ -2958,6 +2987,7 @@
 .task-detail__action-row svg:first-child { color: var(--text-muted); flex-shrink: 0; }
 .task-detail__action-row span { flex: 1; }
 .task-detail__action-row svg:last-child { color: var(--text-faint); flex-shrink: 0; }
+.task-detail__action-row:active { background: var(--surface-2); }
 .task-detail__action-row--muted { color: var(--text-muted); }
 
 /* ── Sheet sub-structure (header / content / footer inside bottom-sheet) ── */
@@ -2993,7 +3023,7 @@
 .rl-fav-btn { color: var(--text-faint); }
 .rl-fav-btn.is-fav { color: var(--accent); }
 .sheet__content { margin-bottom: var(--spacing-md); }
-.sheet__hint { font-size: var(--font-size-sm); color: var(--text-muted); margin-bottom: var(--spacing-md); }
+.sheet__hint { font-size: var(--font-sm); color: var(--text-muted); margin-bottom: var(--spacing-md); }
 .sheet__footer {
   display: flex;
   gap: var(--spacing-sm);
@@ -3017,7 +3047,7 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: var(--font-size-lg, 1.125rem);
+  font-size: var(--font-lg);
   font-weight: 500;
   color: var(--text);
   padding: var(--spacing-xs) 0;
@@ -3273,7 +3303,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   font-size: var(--font-sm);
   font-weight: 500;
   border: 1.5px solid var(--border);
@@ -3327,7 +3357,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   align-items: center;
   gap: 3px;
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   font-size: var(--font-sm);
   color: var(--text-muted);
   border: 1.5px dashed var(--border);
@@ -3566,7 +3596,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 .ef2-repeat-end.is-open { display: block; }
 
 .ef2-date-label {
-  font-size: var(--font-size-xs, 0.75rem);
+  font-size: var(--font-xs);
   color: var(--text-muted);
   display: block;
   margin-bottom: 4px;
@@ -3678,7 +3708,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   width: 100%;
   height: 40px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--text);
   padding: 0 var(--spacing-sm);
@@ -3695,7 +3725,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 .tf-detail-chip {
   height: 32px;
   padding: 0 var(--spacing-sm);
-  border-radius: 16px;
+  border-radius: var(--radius-full);
   border: 1.5px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
@@ -3787,7 +3817,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   width: 100%;
   height: 36px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0 var(--spacing-sm);
   font-size: var(--font-sm);
   background: var(--surface-2);
@@ -3833,7 +3863,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   width: 64px;
   height: 36px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0 var(--spacing-sm);
   text-align: center;
   font-size: var(--font-sm);
@@ -3844,7 +3874,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 .tf-exempt-chip {
   height: 28px;
   padding: 0 10px;
-  border-radius: 14px;
+  border-radius: var(--radius-full);
   border: 1.5px solid var(--border);
   background: transparent;
   color: var(--text-muted);
@@ -4111,7 +4141,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 /* Category section headers in shopping list */
 .shopping-category-label {
   font-size: var(--font-xs);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -4167,7 +4197,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 
 .confirm-row__label {
-  font-size: var(--font-size-base);
+  font-size: var(--font-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4180,7 +4210,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 
 .confirm-row__sub {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-sm);
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -4223,7 +4253,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   padding: var(--spacing-xl) 0;
   gap: var(--spacing-sm);
   color: var(--text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-sm);
 }
 
 .ai-loading__spinner {
@@ -4615,7 +4645,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   width: 96px;
   height: 40px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--text);
   font-size: 1.1rem;
@@ -4636,7 +4666,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   width: 52px;
   height: 36px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--text);
   font-size: var(--font-sm);
@@ -4648,7 +4678,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   flex: 1;
   height: 36px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--text);
   font-size: var(--font-xs);
@@ -4668,7 +4698,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   width: 120px;
   height: 36px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--text);
   font-size: var(--font-sm);
