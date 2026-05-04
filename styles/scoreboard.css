@@ -310,9 +310,10 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-md);
   font-size: var(--font-sm);
   border-bottom: 1px solid var(--border);
+  min-height: 36px;
 }
 
 .sb-highlight-row:last-child { border-bottom: none; }
