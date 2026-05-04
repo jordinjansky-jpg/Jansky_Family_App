@@ -571,7 +571,9 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
 
 function openSlotEditSheet(dk, slot, entry) {
   const mount = document.getElementById('sheetMount');
-  const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown recipe') : (entry.mealName || entry.customName || '');
+  const recipe = entry.recipeId ? recipes[entry.recipeId] : null;
+  const name = recipe?.name || entry.mealName || entry.customName || '';
+  const hasIngredients = (recipe?.ingredients?.length || 0) > 0;
   const d = new Date(dk + 'T12:00:00');
   const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
 
@@ -582,6 +584,12 @@ function openSlotEditSheet(dk, slot, entry) {
     </div>
     <div class="sheet__content">
       <div style="font-size:var(--font-md);font-weight:600;margin-bottom:var(--spacing-md)">${esc(name)}</div>
+      ${hasIngredients ? `
+      <button class="me-detail__action-row" id="slotAddToListBtn" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Add ingredients to list</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>` : ''}
       <button class="btn btn--secondary btn--full" id="changeSlotMeal" type="button">Change meal</button>
     </div>
     <div class="sheet__footer">
@@ -589,6 +597,10 @@ function openSlotEditSheet(dk, slot, entry) {
     </div>`);
   activateSheet(mount);
 
+  document.getElementById('slotAddToListBtn')?.addEventListener('click', async () => {
+    mount.innerHTML = '';
+    await addRecipeIngredientsToList(recipe);
+  });
   document.getElementById('changeSlotMeal')?.addEventListener('click', () => {
     mount.innerHTML = '';
     openPlanMealSheet(dk, slot, entry.recipeId || null);
@@ -627,6 +639,12 @@ function openRecipeDetailSheet(recipeId) {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
     ${hasIngredients ? `
+    <button class="me-detail__action-row" id="addToListBtn" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>Add ingredients to list</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>` : ''}
+    ${hasIngredients ? `
       <div class="me-detail__section">
         <span class="me-detail__section-label">Ingredients</span>
         <ul class="me-detail__ingredients">
@@ -649,6 +667,11 @@ function openRecipeDetailSheet(recipeId) {
     openPlanMealSheet(todayKey(tz), 'dinner', recipeId);
   });
 
+  document.getElementById('addToListBtn')?.addEventListener('click', async () => {
+    close();
+    await addRecipeIngredientsToList(recipe);
+  });
+
   document.getElementById('editRecipeBtn')?.addEventListener('click', () => {
     close();
     openRecipeForm(recipeId);
@@ -663,6 +686,19 @@ function openRecipeDetailSheet(recipeId) {
     renderActiveTab();
     showToast('Recipe deleted');
   });
+}
+
+async function addRecipeIngredientsToList(recipe) {
+  const listEntries = Object.entries(lists);
+  if (!listEntries.length) { showToast('No shopping lists yet'); return; }
+  const listId = listEntries.length === 1 ? listEntries[0][0] : await pickList(listEntries);
+  if (!listId) return;
+  const now = Date.now();
+  for (const ing of (recipe.ingredients || [])) {
+    if (!ing.name?.trim()) continue;
+    await pushKitchenItem(listId, { name: ing.name.trim(), qty: ing.qty || null, checked: false, addedAt: now });
+  }
+  showToast(`Added ${recipe.ingredients.length} items to ${lists[listId]?.name || 'list'}`);
 }
 
 async function pickList(listEntries) {
