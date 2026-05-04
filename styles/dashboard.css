@@ -50,6 +50,8 @@
 .task-detail__action-row span { flex: 1; }
 .task-detail__action-row svg:last-child { color: var(--text-faint); flex-shrink: 0; }
 .task-detail__action-row--muted { color: var(--text-muted); }
+.task-detail__action-row--complete { color: var(--success); font-weight: 500; }
+.task-detail__action-row--complete svg:first-child { color: var(--success); }
 
 .task-detail__delegate-header {
   display: flex;

@@ -1386,12 +1386,12 @@ export function renderTaskDetailSheet(options) {
   const isLateEligible = isPastDate && !completed && !isEvent && !task.exempt;
   html += `<div class="ef2-divider"></div><div class="task-detail__action-list">`;
   if (isLateEligible) {
-    html += `<button class="task-detail__action-row" id="sheetCompleteNoPenalty" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${DS_CHECK}<span>Complete (full credit)</span>${DS_CHEVRON}</button>`;
+    html += `<button class="task-detail__action-row task-detail__action-row--complete" id="sheetCompleteNoPenalty" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${DS_CHECK}<span>Complete (full credit)</span>${DS_CHEVRON}</button>`;
     html += `<button class="task-detail__action-row task-detail__action-row--muted" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${DS_CHECK}<span>Complete (late)</span>${DS_CHEVRON}</button>`;
   } else if (!readOnly) {
     const icon = completed ? DS_UNDO : DS_CHECK;
     const label = completed ? 'Mark incomplete' : 'Mark complete';
-    const rowClass = completed ? 'task-detail__action-row task-detail__action-row--muted' : 'task-detail__action-row';
+    const rowClass = completed ? 'task-detail__action-row task-detail__action-row--muted' : 'task-detail__action-row task-detail__action-row--complete';
     html += `<button class="${rowClass}" id="sheetToggleComplete" data-entry-key="${entryKey}" data-date-key="${entry.dateKey || ''}" type="button">${icon}<span>${label}</span>${DS_CHEVRON}</button>`;
   }
   if (showEdit)     html += `<button class="task-detail__action-row" id="sheetEdit" data-task-id="${entry.taskId}" type="button">${DS_EDIT}<span>Edit task</span>${DS_CHEVRON}</button>`;
