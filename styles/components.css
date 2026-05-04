@@ -2514,11 +2514,18 @@
 .me-detail__action-row svg:last-child { color: var(--text-faint); flex-shrink: 0; }
 .me-detail__chips {
   display: flex;
-  flex-wrap: wrap;
   gap: var(--spacing-xs);
   padding-bottom: var(--spacing-md);
   border-bottom: 1px solid var(--border);
   margin-bottom: var(--spacing-sm);
+}
+.me-detail__chips .chip {
+  flex: 1;
+  justify-content: center;
+  font-size: var(--font-sm);
+  padding: 8px 12px;
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 .me-detail__ingredients li::before {
   content: '';
