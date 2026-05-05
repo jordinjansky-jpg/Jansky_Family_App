@@ -1777,14 +1777,8 @@
   <div class="ef2-divider"></div>
 
   <div class="cf-icon-weight-row">
-    <div class="cf-icon-group">
-      <span class="ef2-section-label">Icon</span>
-      <input class="cf-icon-input" id="cf_icon" type="text" placeholder="🏷️" maxlength="4" value="${esc(cat.icon || '')}">
-    </div>
-    <div class="cf-weight-group">
-      <span class="ef2-section-label">Weight %</span>
-      <input class="cf-weight-input" id="cf_weight" type="number" placeholder="None" min="0" max="100" value="${cat.weightPercent != null ? cat.weightPercent : ''}">
-    </div>
+    <input class="cf-icon-input" id="cf_icon" type="text" placeholder="🧹" maxlength="4" value="${esc(cat.icon || '')}">
+    <input class="cf-weight-input" id="cf_weight" type="number" placeholder="%" min="0" max="100" value="${cat.weightPercent != null ? cat.weightPercent : ''}">
   </div>
 
   <div class="ef2-divider"></div>
