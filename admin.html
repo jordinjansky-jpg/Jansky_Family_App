@@ -236,8 +236,19 @@
       { id: 'badges',     label: 'Badges'     },
     ];
 
+    const SETTINGS_SECTIONS = [
+      { id: 'family',       label: 'Family'       },
+      { id: 'appearance',   label: 'Appearance'   },
+      { id: 'scoring',      label: 'Scoring'      },
+      { id: 'calendar',     label: 'Calendar'     },
+      { id: 'integrations', label: 'Integrations' },
+      { id: 'security',     label: 'Security'     },
+      { id: 'about',        label: 'About'        },
+    ];
+
     let activeTab = 'library';
     let activeLibrarySection = 'tasks';
+    let activeSettingsSection = 'family';
     // ── Helpers ──
 
     async function autoPrune(months) {
@@ -331,6 +342,15 @@
         html += `</nav>`;
       }
 
+      // Settings sub-nav
+      if (activeTab === 'settings') {
+        html += `<nav class="tabs tabs--pill admin-settings-tabs" role="tablist" aria-label="Settings sections">`;
+        for (const sec of SETTINGS_SECTIONS) {
+          html += `<button class="tab${sec.id === activeSettingsSection ? ' is-active' : ''}" data-settings-section="${sec.id}" type="button">${esc(sec.label)}</button>`;
+        }
+        html += `</nav>`;
+      }
+
       html += `<div class="admin-content" role="tabpanel">`;
 
       switch (activeTab) {
@@ -385,6 +405,12 @@
               allBankData[pid] = (await readBank(pid)) || {};
             }
           }
+          render();
+        });
+      }
+      for (const pill of main.querySelectorAll('.admin-settings-tabs .tab')) {
+        pill.addEventListener('click', () => {
+          activeSettingsSection = pill.dataset.settingsSection;
           render();
         });
       }
@@ -1710,198 +1736,206 @@
 
     function renderSettingsTab() {
       const tzOptions = getTimezoneOptions();
-      return `<div class="admin-settings" id="settingsForm">
+      let panel = '';
+      switch (activeSettingsSection) {
 
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Family</div>
-          <div class="form-group">
-            <label class="form-label">App name</label>
-            <input class="form-input" type="text" id="sf_appName" value="${esc(settings?.appName || 'Daily Rundown')}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Family name</label>
-            <input class="form-input" type="text" id="sf_familyName" value="${esc(settings?.familyName || '')}" placeholder="The Jansky Family">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Timezone</label>
-            <select class="form-input" id="sf_timezone">
-              ${tzOptions.map(tz => `<option value="${tz.value}"${settings?.timezone === tz.value ? ' selected' : ''}>${tz.label}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Appearance</div>
-          <div class="admin-toggle-row">
-            <span class="admin-toggle-row__label">
-              Ambient strip
-              <span class="admin-toggle-row__hint">Shows weather and dinner on the dashboard.</span>
-            </span>
-            <label class="form-toggle">
-              <input type="checkbox" id="set_ambientStrip"${(settings?.ambientStrip ?? true) ? ' checked' : ''}>
-              <span class="form-toggle__track"></span>
-            </label>
-          </div>
-          <div class="form-group mt-sm">
-            <label class="form-label">Theme preset</label>
-            <select class="form-input" id="sf_themePreset">
-              ${getPresets().map(p => `<option value="${p.key}"${settings?.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
-            </select>
-            <p class="form-hint">Family-wide default. Each person can override on their home screen.</p>
-          </div>
-          <div class="form-group mt-sm">
-            <label class="form-label">Accent color</label>
-            ${renderColorButton(settings?.theme?.accent || '#6c63ff', 'sf_accentPicker')}
-          </div>
-          <div class="form-group mt-sm">
-            <label class="form-label">Text size</label>
-            <div class="segmented-control" id="sf_textSize">
-              <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'small' ? ' segmented-btn--active' : ''}" data-size="small">Small</button>
-              <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'default' ? ' segmented-btn--active' : ''}" data-size="default">Default</button>
-              <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'large' ? ' segmented-btn--active' : ''}" data-size="large">Large</button>
+        case 'family':
+          panel = `
+          <div class="admin-settings-section">
+            <div class="form-group">
+              <label class="form-label">App name</label>
+              <input class="form-input" type="text" id="sf_appName" value="${esc(settings?.appName || 'Daily Rundown')}">
             </div>
-          </div>
-          <div class="admin-toggle-row mt-sm">
-            <span class="admin-toggle-row__label">Show AM/PM icons on "Both" tasks</span>
-            <label class="form-toggle"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-          </div>
-          <div class="admin-toggle-row">
-            <span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span>
-            <label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-          </div>
-        </div>
-
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Integrations</div>
-          <div class="form-group">
-            <label class="form-label">Weather location</label>
-            <p class="form-hint">Zip code or "City, State" — e.g. Lakeville, MN</p>
-            <div class="admin-form__row">
-              <input class="form-input" id="sf_weatherLocation" type="text" placeholder="Lakeville, MN" value="${esc(settings?.weatherLocation || '')}">
-              <button class="btn btn--secondary btn--sm" id="sf_weatherTest" type="button">Test</button>
+            <div class="form-group mt-sm">
+              <label class="form-label">Family name</label>
+              <input class="form-input" type="text" id="sf_familyName" value="${esc(settings?.familyName || '')}" placeholder="The Jansky Family">
             </div>
-            <div id="sf_weatherTestResult" class="form-hint" hidden></div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">OpenWeatherMap API key</label>
-            <p class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</p>
-            <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password" autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
-          </div>
-          <div class="form-group mt-sm">
-            <label class="form-label">Auto-prune old data</label>
-            <select class="form-input" id="set_autoPruneMonths">
-              <option value="0"${!(settings?.autoPruneMonths) ? ' selected' : ''}>Off</option>
-              <option value="3"${settings?.autoPruneMonths === 3 ? ' selected' : ''}>Older than 3 months</option>
-              <option value="6"${settings?.autoPruneMonths === 6 ? ' selected' : ''}>Older than 6 months</option>
-              <option value="12"${settings?.autoPruneMonths === 12 ? ' selected' : ''}>Older than 12 months</option>
-            </select>
-            <p class="form-hint">Silently removes old schedule entries, completions, and snapshots on load.</p>
-          </div>
-        </div>
+            <div class="form-group mt-sm">
+              <label class="form-label">Timezone</label>
+              <select class="form-input" id="sf_timezone">
+                ${tzOptions.map(tz => `<option value="${tz.value}"${settings?.timezone === tz.value ? ' selected' : ''}>${tz.label}</option>`).join('')}
+              </select>
+            </div>
+            <button class="btn btn--primary" id="settingsSave_family" type="button" style="width:100%;margin-top:var(--spacing-lg)">Save Family</button>
+            <div id="settingsMsg_family" class="admin-msg mt-sm"></div>
+          </div>`;
+          break;
 
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Scoring</div>
-          <div class="form-group">
-            <label class="form-label">Difficulty multipliers</label>
-            <div class="form-row" style="flex-wrap:nowrap;gap:var(--spacing-sm)">
-              <div class="form-group" style="flex:1;min-width:0">
-                <label class="form-label">Easy</label>
-                <input class="form-input" type="number" id="sf_diffEasy" value="${settings?.difficultyMultipliers?.easy ?? 1}" min="1" max="10" step="1">
-              </div>
-              <div class="form-group" style="flex:1;min-width:0">
-                <label class="form-label">Medium</label>
-                <input class="form-input" type="number" id="sf_diffMedium" value="${settings?.difficultyMultipliers?.medium ?? 2}" min="1" max="10" step="1">
-              </div>
-              <div class="form-group" style="flex:1;min-width:0">
-                <label class="form-label">Hard</label>
-                <input class="form-input" type="number" id="sf_diffHard" value="${settings?.difficultyMultipliers?.hard ?? 3}" min="1" max="10" step="1">
+        case 'appearance':
+          panel = `
+          <div class="admin-settings-section">
+            <div class="admin-toggle-row">
+              <span class="admin-toggle-row__label">
+                Ambient strip
+                <span class="admin-toggle-row__hint">Shows weather and dinner on the dashboard.</span>
+              </span>
+              <label class="form-toggle">
+                <input type="checkbox" id="set_ambientStrip"${(settings?.ambientStrip ?? true) ? ' checked' : ''}>
+                <span class="form-toggle__track"></span>
+              </label>
+            </div>
+            <div class="form-group mt-sm">
+              <label class="form-label">Theme preset</label>
+              <select class="form-input" id="sf_themePreset">
+                ${getPresets().map(p => `<option value="${p.key}"${settings?.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
+              </select>
+              <p class="form-hint">Family-wide default. Each person can override on their home screen.</p>
+            </div>
+            <div class="form-group mt-sm">
+              <label class="form-label">Accent color</label>
+              ${renderColorButton(settings?.theme?.accent || '#6c63ff', 'sf_accentPicker')}
+            </div>
+            <div class="form-group mt-sm">
+              <label class="form-label">Text size</label>
+              <div class="segmented-control" id="sf_textSize">
+                <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'small' ? ' segmented-btn--active' : ''}" data-size="small">Small</button>
+                <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'default' ? ' segmented-btn--active' : ''}" data-size="default">Default</button>
+                <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'large' ? ' segmented-btn--active' : ''}" data-size="large">Large</button>
               </div>
             </div>
-            <p class="form-hint">Point multiplier per difficulty. Default: 1 / 2 / 3.</p>
-            <button type="button" class="btn btn--ghost btn--sm" id="sf_diffReset">Reset to defaults</button>
-            <p id="sf_diffError" class="form-hint form-hint--error" hidden>Multipliers must increase: Easy &lt; Medium &lt; Hard</p>
-          </div>
-          <div class="form-row mt-sm">
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Weekend weight (weekly)</label>
-              <input class="form-input" type="number" id="sf_weekendWeightWeekly" value="${settings?.weekendWeightWeekly ?? settings?.weekendWeight ?? 1.5}" min="0.1" max="5" step="0.1">
+            <div class="admin-toggle-row mt-sm">
+              <span class="admin-toggle-row__label">Show AM/PM icons on "Both" tasks</span>
+              <label class="form-toggle"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}><span class="form-toggle__track"></span></label>
             </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Weekend weight (monthly)</label>
-              <input class="form-input" type="number" id="sf_weekendWeightMonthly" value="${settings?.weekendWeightMonthly ?? settings?.weekendWeight ?? 3}" min="0.1" max="5" step="0.1">
+            <div class="admin-toggle-row">
+              <span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span>
+              <label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label>
             </div>
-          </div>
-          <div class="form-group mt-sm">
-            <label class="form-label">Past-due credit %</label>
-            <input class="form-input" type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100" style="max-width:100px">
-            <p class="form-hint">Points awarded for completing a past-due task.</p>
-          </div>
-        </div>
+            <button class="btn btn--primary" id="settingsSave_appearance" type="button" style="width:100%;margin-top:var(--spacing-lg)">Save Appearance</button>
+            <div id="settingsMsg_appearance" class="admin-msg mt-sm"></div>
+          </div>`;
+          break;
 
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Calendar</div>
-          <div class="form-row">
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Default view</label>
-              <select class="form-input" id="set_calView">
-                <option value="week"${(settings?.calendarDefaults?.defaultView || 'week') === 'week' ? ' selected' : ''}>Week</option>
-                <option value="month"${(settings?.calendarDefaults?.defaultView || 'week') === 'month' ? ' selected' : ''}>Month</option>
-              </select>
+        case 'scoring':
+          panel = `
+          <div class="admin-settings-section">
+            <div class="form-group">
+              <label class="form-label">Difficulty multipliers</label>
+              <div class="form-row" style="flex-wrap:nowrap;gap:var(--spacing-sm)">
+                <div class="form-group" style="flex:1;min-width:0">
+                  <label class="form-label">Easy</label>
+                  <input class="form-input" type="number" id="sf_diffEasy" value="${settings?.difficultyMultipliers?.easy ?? 1}" min="1" max="10" step="1">
+                </div>
+                <div class="form-group" style="flex:1;min-width:0">
+                  <label class="form-label">Medium</label>
+                  <input class="form-input" type="number" id="sf_diffMedium" value="${settings?.difficultyMultipliers?.medium ?? 2}" min="1" max="10" step="1">
+                </div>
+                <div class="form-group" style="flex:1;min-width:0">
+                  <label class="form-label">Hard</label>
+                  <input class="form-input" type="number" id="sf_diffHard" value="${settings?.difficultyMultipliers?.hard ?? 3}" min="1" max="10" step="1">
+                </div>
+              </div>
+              <p class="form-hint">Point multiplier per difficulty. Default: 1 / 2 / 3.</p>
+              <button type="button" class="btn btn--ghost btn--sm" id="sf_diffReset">Reset to defaults</button>
+              <p id="sf_diffError" class="form-hint form-hint--error" hidden>Multipliers must increase: Easy &lt; Medium &lt; Hard</p>
             </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Week starts on</label>
-              <select class="form-input" id="set_weekStart">
-                <option value="0"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '0' ? ' selected' : ''}>Sunday</option>
-                <option value="1"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '1' ? ' selected' : ''}>Monday</option>
-              </select>
+            <div class="form-row mt-sm">
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Weekend weight (weekly)</label>
+                <input class="form-input" type="number" id="sf_weekendWeightWeekly" value="${settings?.weekendWeightWeekly ?? settings?.weekendWeight ?? 1.5}" min="0.1" max="5" step="0.1">
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Weekend weight (monthly)</label>
+                <input class="form-input" type="number" id="sf_weekendWeightMonthly" value="${settings?.weekendWeightMonthly ?? settings?.weekendWeight ?? 3}" min="0.1" max="5" step="0.1">
+              </div>
             </div>
-          </div>
-          <div class="form-row mt-sm">
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Display density</label>
-              <select class="form-input" id="set_calDensity">
-                <option value="snug"${(settings?.calendarDefaults?.density || 'snug') === 'snug' ? ' selected' : ''}>Snug</option>
-                <option value="cozy"${(settings?.calendarDefaults?.density || 'snug') === 'cozy' ? ' selected' : ''}>Cozy</option>
-              </select>
+            <div class="form-group mt-sm">
+              <label class="form-label">Past-due credit %</label>
+              <input class="form-input" type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100" style="max-width:100px">
+              <p class="form-hint">Points awarded for completing a past-due task.</p>
             </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Daily tasks in week view</label>
-              <select class="form-input" id="set_showDaily">
-                <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
-                <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
-              </select>
+            <button class="btn btn--primary" id="settingsSave_scoring" type="button" style="width:100%;margin-top:var(--spacing-lg)">Save Scoring</button>
+            <div id="settingsMsg_scoring" class="admin-msg mt-sm"></div>
+          </div>`;
+          break;
+
+        case 'calendar':
+          panel = `
+          <div class="admin-settings-section">
+            <div class="form-row">
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Default view</label>
+                <select class="form-input" id="set_calView">
+                  <option value="week"${(settings?.calendarDefaults?.defaultView || 'week') === 'week' ? ' selected' : ''}>Week</option>
+                  <option value="month"${(settings?.calendarDefaults?.defaultView || 'week') === 'month' ? ' selected' : ''}>Month</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Week starts on</label>
+                <select class="form-input" id="set_weekStart">
+                  <option value="0"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '0' ? ' selected' : ''}>Sunday</option>
+                  <option value="1"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '1' ? ' selected' : ''}>Monday</option>
+                </select>
+              </div>
             </div>
-          </div>
-        </div>
+            <div class="form-row mt-sm">
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Display density</label>
+                <select class="form-input" id="set_calDensity">
+                  <option value="snug"${(settings?.calendarDefaults?.density || 'snug') === 'snug' ? ' selected' : ''}>Snug</option>
+                  <option value="cozy"${(settings?.calendarDefaults?.density || 'snug') === 'cozy' ? ' selected' : ''}>Cozy</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Daily tasks in week view</label>
+                <select class="form-input" id="set_showDaily">
+                  <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
+                  <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn--primary" id="settingsSave_calendar" type="button" style="width:100%;margin-top:var(--spacing-lg)">Save Calendar</button>
+            <div id="settingsMsg_calendar" class="admin-msg mt-sm"></div>
+          </div>`;
+          break;
 
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Security</div>
-          <div class="form-group">
-            <label class="form-label">New 4-digit PIN</label>
-            <input class="form-input admin-pin-input" type="tel" id="sf_newPin" maxlength="4" inputmode="numeric" placeholder="Leave blank to keep">
-            <p class="form-hint">Recovery PIN is always 2522.</p>
-          </div>
-        </div>
+        case 'integrations':
+          panel = `
+          <div class="admin-settings-section">
+            <div class="form-group">
+              <label class="form-label">Weather location</label>
+              <p class="form-hint">Zip code or "City, State" — e.g. Lakeville, MN</p>
+              <div class="admin-form__row">
+                <input class="form-input" id="sf_weatherLocation" type="text" placeholder="Lakeville, MN" value="${esc(settings?.weatherLocation || '')}">
+                <button class="btn btn--secondary btn--sm" id="sf_weatherTest" type="button">Test</button>
+              </div>
+              <div id="sf_weatherTestResult" class="form-hint" hidden></div>
+            </div>
+            <div class="form-group mt-sm">
+              <label class="form-label">OpenWeatherMap API key</label>
+              <p class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</p>
+              <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password" autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
+            </div>
+            <button class="btn btn--primary" id="settingsSave_integrations" type="button" style="width:100%;margin-top:var(--spacing-lg)">Save Integrations</button>
+            <div id="settingsMsg_integrations" class="admin-msg mt-sm"></div>
+          </div>`;
+          break;
 
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Notifications</div>
-          <p class="form-hint">Push notifications for daily reminders and upcoming events — coming soon.</p>
-        </div>
+        case 'security':
+          panel = `
+          <div class="admin-settings-section">
+            <div class="form-group">
+              <label class="form-label">New 4-digit PIN</label>
+              <input class="form-input admin-pin-input" type="tel" id="sf_newPin" maxlength="4" inputmode="numeric" placeholder="Leave blank to keep">
+              <p class="form-hint">Recovery PIN is always 2522.</p>
+            </div>
+            <button class="btn btn--primary" id="settingsSave_security" type="button" style="width:100%;margin-top:var(--spacing-lg)">Save Security</button>
+            <div id="settingsMsg_security" class="admin-msg mt-sm"></div>
+          </div>`;
+          break;
 
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">About</div>
-          <p class="form-hint">${esc(settings?.appName || 'Daily Rundown')} &mdash; ${esc(settings?.familyName || 'Family Task Manager')}</p>
-          <p class="form-hint">Hosted on Cloudflare Pages &middot; Firebase Realtime Database</p>
-        </div>
-
-        <div class="settings-save-footer">
-          <div id="settingsMsg" class="admin-msg"></div>
-          <button class="btn btn--primary" id="settingsSave" type="button">Save Settings</button>
-        </div>
-
-      </div>`;
+        case 'about':
+        default:
+          panel = `
+          <div class="admin-settings-section">
+            <p class="form-hint">${esc(settings?.appName || 'Daily Rundown')} — ${esc(settings?.familyName || 'Family Task Manager')}</p>
+            <p class="form-hint">Hosted on Cloudflare Pages · Firebase Realtime Database</p>
+            <p class="form-hint mt-sm">Push notifications for daily reminders and upcoming events — coming soon.</p>
+          </div>`;
+          break;
+      }
+      return `<div class="admin-settings" id="settingsForm">${panel}</div>`;
     }
-
     // ══════════════════════════════════════════
     // Schedule Tab
     // ══════════════════════════════════════════
@@ -2023,6 +2057,19 @@
           </label>
         </div>
         <div id="importStatus" class="mt-sm"></div>
+
+        <h3 class="admin-form__title mt-lg">Auto-Prune Old Data</h3>
+        <p class="form-hint mb-md">Silently removes old schedule entries, completions, and snapshots on load.</p>
+        <div class="form-group" style="max-width:240px">
+          <select class="form-input" id="set_autoPruneMonths">
+            <option value="0"${!(settings?.autoPruneMonths) ? ' selected' : ''}>Off</option>
+            <option value="3"${settings?.autoPruneMonths === 3 ? ' selected' : ''}>Older than 3 months</option>
+            <option value="6"${settings?.autoPruneMonths === 6 ? ' selected' : ''}>Older than 6 months</option>
+            <option value="12"${settings?.autoPruneMonths === 12 ? ' selected' : ''}>Older than 12 months</option>
+          </select>
+        </div>
+        <button class="btn btn--primary btn--sm" id="autoPruneSave" type="button" style="margin-top:var(--spacing-sm)">Save</button>
+        <div id="autoPruneMsg" class="admin-msg mt-sm"></div>
 
         <h3 class="admin-form__title mt-lg">Reset Scoreboard</h3>
         <p class="form-hint mb-md">Delete all snapshots, streaks, completions, reward balances, and banked tokens. Tasks, schedule, and achievements are kept. Scores will rebuild from scratch.</p>
@@ -3702,6 +3749,8 @@
     // ── Settings tab events ──
 
     function bindSettingsTab() {
+
+      // ── Scoring validation (wired to Save Scoring button) ──
       function validateDiffMults() {
         const clamp = (raw, fb) => Math.min(10, Math.max(1, parseIntOr(raw, fb)));
         const easy   = clamp(main.querySelector('#sf_diffEasy')?.value, 1);
@@ -3709,7 +3758,7 @@
         const hard   = clamp(main.querySelector('#sf_diffHard')?.value, 3);
         const invalid = easy >= medium || medium >= hard;
         const errEl  = main.querySelector('#sf_diffError');
-        const saveBtn = main.querySelector('#settingsSave');
+        const saveBtn = main.querySelector('#settingsSave_scoring');
         if (errEl)   errEl.hidden = !invalid;
         if (saveBtn) saveBtn.disabled = invalid;
         return !invalid;
@@ -3719,7 +3768,7 @@
         main.querySelector(id)?.addEventListener('input', validateDiffMults);
       }
 
-      // Text size — live apply on tap
+      // ── Text size — live apply on tap ──
       for (const btn of main.querySelectorAll('#sf_textSize .segmented-btn')) {
         btn.addEventListener('click', () => {
           main.querySelectorAll('#sf_textSize .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
@@ -3728,82 +3777,7 @@
         });
       }
 
-      main.querySelector('#settingsSave')?.addEventListener('click', async () => {
-        if (!validateDiffMults()) return;
-        const msgEl = main.querySelector('#settingsMsg');
-        const newPin = main.querySelector('#sf_newPin')?.value.trim();
-
-        const clampMult = (raw, fallback) => {
-          const n = parseIntOr(raw, fallback);
-          return Math.min(10, Math.max(1, n));
-        };
-        const newDiffEasy = clampMult(main.querySelector('#sf_diffEasy')?.value, 1);
-        const newDiffMedium = clampMult(main.querySelector('#sf_diffMedium')?.value, 2);
-        const newDiffHard = clampMult(main.querySelector('#sf_diffHard')?.value, 3);
-
-        const updated = {
-          ...settings,
-          appName: main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
-          familyName: main.querySelector('#sf_familyName')?.value.trim() || '',
-          timezone: main.querySelector('#sf_timezone')?.value || settings?.timezone,
-          textSize: main.querySelector('#sf_textSize .segmented-btn--active')?.dataset.size || 'default',
-          weekendWeightWeekly: parseFloatOr(main.querySelector('#sf_weekendWeightWeekly')?.value, 1.5),
-          weekendWeightMonthly: parseFloatOr(main.querySelector('#sf_weekendWeightMonthly')?.value, 3),
-          pastDueCreditPct: parseIntOr(main.querySelector('#sf_pastDueCredit')?.value, 75),
-          showTodIconBoth: !!main.querySelector('#sf_showTodIconBoth')?.checked,
-          showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
-          difficultyMultipliers: { easy: newDiffEasy, medium: newDiffMedium, hard: newDiffHard },
-          calendarDefaults: {
-            defaultView: main.querySelector('#set_calView')?.value || 'week',
-            density: main.querySelector('#set_calDensity')?.value || 'snug',
-            weekStartDay: parseInt(main.querySelector('#set_weekStart')?.value, 10) || 0,
-            showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false'
-          },
-          ambientStrip: main.querySelector('#set_ambientStrip')?.checked ?? false,
-          autoPruneMonths: parseInt(main.querySelector('#set_autoPruneMonths')?.value || '0', 10),
-          weatherLocation: main.querySelector('#sf_weatherLocation')?.value.trim() || '',
-          weatherApiKey:   main.querySelector('#sf_weatherApiKey')?.value.trim() || '',
-        };
-        delete updated.sliderMin;
-        delete updated.sliderMax;
-        delete updated.longPressMs;
-        delete updated.kidLongPressMs;
-
-        if ((settings?.weatherLocation || '') !== (updated.weatherLocation || '')) {
-          clearWeatherCache();
-        }
-
-        if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {
-          updated.adminPin = newPin;
-        }
-
-        await writeSettings(updated);
-        settings = updated;
-
-        // Update header
-        document.getElementById('headerMount').innerHTML = renderHeader({
-          variant: 'admin',
-          title: 'Admin',
-          subtitle: settings.appName,
-        });
-
-        if (msgEl) {
-          msgEl.textContent = 'Settings saved!';
-          msgEl.className = 'admin-msg admin-msg--success mt-sm';
-          setTimeout(() => { msgEl.textContent = ''; }, 2000);
-        }
-      });
-
-      main.querySelector('#sf_diffReset')?.addEventListener('click', () => {
-        const easyInput = main.querySelector('#sf_diffEasy');
-        const mediumInput = main.querySelector('#sf_diffMedium');
-        const hardInput = main.querySelector('#sf_diffHard');
-        if (easyInput) easyInput.value = 1;
-        if (mediumInput) mediumInput.value = 2;
-        if (hardInput) hardInput.value = 3;
-        validateDiffMults();
-      });
-
+      // ── Theme preset — live apply ──
       main.querySelector('#sf_themePreset')?.addEventListener('change', async (e) => {
         const theme = { ...(settings?.theme || {}), preset: e.target.value };
         const updated = { ...settings, theme };
@@ -3812,6 +3786,7 @@
         applyTheme(resolveTheme(settings.theme));
       });
 
+      // ── Accent color — live apply ──
       initColorButton(main.querySelector('#sf_accentPicker')?.closest('.cpick-wrap'), async (color) => {
         const theme = { ...(settings?.theme || {}), accent: color };
         applyTheme(resolveTheme(theme));
@@ -3820,6 +3795,7 @@
         settings = updated;
       });
 
+      // ── Weather test ──
       main.querySelector('#sf_weatherTest')?.addEventListener('click', async () => {
         const loc = main.querySelector('#sf_weatherLocation')?.value.trim();
         const key = main.querySelector('#sf_weatherApiKey')?.value.trim();
@@ -3845,13 +3821,139 @@
           resultEl.className = 'form-hint form-hint--success';
           setTimeout(() => { resultEl.hidden = true; }, 10000);
         } catch (err) {
-          resultEl.textContent = '✗ Couldn\'t fetch — check location and API key.';
+          resultEl.textContent = '✗ Couldn't fetch — check location and API key.';
           resultEl.className = 'form-hint form-hint--error';
           setTimeout(() => { resultEl.hidden = true; }, 10000);
         }
       });
-    }
 
+      // ── Diff reset ──
+      main.querySelector('#sf_diffReset')?.addEventListener('click', () => {
+        const easyInput = main.querySelector('#sf_diffEasy');
+        const mediumInput = main.querySelector('#sf_diffMedium');
+        const hardInput = main.querySelector('#sf_diffHard');
+        if (easyInput) easyInput.value = 1;
+        if (mediumInput) mediumInput.value = 2;
+        if (hardInput) hardInput.value = 3;
+        validateDiffMults();
+      });
+
+      // ── Shared helper: flash save message ──
+      function showMsg(id, success, text) {
+        const el = main.querySelector(id);
+        if (!el) return;
+        el.textContent = text;
+        el.className = success ? 'admin-msg admin-msg--success mt-sm' : 'admin-msg admin-msg--danger mt-sm';
+        setTimeout(() => { el.textContent = ''; el.className = 'admin-msg mt-sm'; }, 2000);
+      }
+
+      // ── Save Family ──
+      main.querySelector('#settingsSave_family')?.addEventListener('click', async () => {
+        const updated = {
+          ...settings,
+          appName:    main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
+          familyName: main.querySelector('#sf_familyName')?.value.trim() || '',
+          timezone:   main.querySelector('#sf_timezone')?.value || settings?.timezone,
+        };
+        delete updated.sliderMin; delete updated.sliderMax;
+        delete updated.longPressMs; delete updated.kidLongPressMs;
+        await writeSettings(updated);
+        settings = updated;
+        document.getElementById('headerMount').innerHTML = renderHeader({
+          variant: 'admin', title: 'Admin', subtitle: settings.appName,
+        });
+        showMsg('#settingsMsg_family', true, 'Family saved!');
+      });
+
+      // ── Save Appearance ──
+      main.querySelector('#settingsSave_appearance')?.addEventListener('click', async () => {
+        const updated = {
+          ...settings,
+          ambientStrip:    main.querySelector('#set_ambientStrip')?.checked ?? false,
+          textSize:        main.querySelector('#sf_textSize .segmented-btn--active')?.dataset.size || 'default',
+          showTodIconBoth:   !!main.querySelector('#sf_showTodIconBoth')?.checked,
+          showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
+        };
+        delete updated.sliderMin; delete updated.sliderMax;
+        delete updated.longPressMs; delete updated.kidLongPressMs;
+        await writeSettings(updated);
+        settings = updated;
+        showMsg('#settingsMsg_appearance', true, 'Appearance saved!');
+      });
+
+      // ── Save Scoring ──
+      main.querySelector('#settingsSave_scoring')?.addEventListener('click', async () => {
+        if (!validateDiffMults()) return;
+        const clampMult = (raw, fallback) => Math.min(10, Math.max(1, parseIntOr(raw, fallback)));
+        const updated = {
+          ...settings,
+          difficultyMultipliers: {
+            easy:   clampMult(main.querySelector('#sf_diffEasy')?.value, 1),
+            medium: clampMult(main.querySelector('#sf_diffMedium')?.value, 2),
+            hard:   clampMult(main.querySelector('#sf_diffHard')?.value, 3),
+          },
+          weekendWeightWeekly:  parseFloatOr(main.querySelector('#sf_weekendWeightWeekly')?.value, 1.5),
+          weekendWeightMonthly: parseFloatOr(main.querySelector('#sf_weekendWeightMonthly')?.value, 3),
+          pastDueCreditPct:     parseIntOr(main.querySelector('#sf_pastDueCredit')?.value, 75),
+        };
+        delete updated.sliderMin; delete updated.sliderMax;
+        delete updated.longPressMs; delete updated.kidLongPressMs;
+        await writeSettings(updated);
+        settings = updated;
+        showMsg('#settingsMsg_scoring', true, 'Scoring saved!');
+      });
+
+      // ── Save Calendar ──
+      main.querySelector('#settingsSave_calendar')?.addEventListener('click', async () => {
+        const updated = {
+          ...settings,
+          calendarDefaults: {
+            defaultView:    main.querySelector('#set_calView')?.value || 'week',
+            density:        main.querySelector('#set_calDensity')?.value || 'snug',
+            weekStartDay:   parseInt(main.querySelector('#set_weekStart')?.value, 10) || 0,
+            showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false',
+          },
+        };
+        delete updated.sliderMin; delete updated.sliderMax;
+        delete updated.longPressMs; delete updated.kidLongPressMs;
+        await writeSettings(updated);
+        settings = updated;
+        showMsg('#settingsMsg_calendar', true, 'Calendar saved!');
+      });
+
+      // ── Save Integrations ──
+      main.querySelector('#settingsSave_integrations')?.addEventListener('click', async () => {
+        const newLoc = main.querySelector('#sf_weatherLocation')?.value.trim() || '';
+        if ((settings?.weatherLocation || '') !== newLoc) clearWeatherCache();
+        const updated = {
+          ...settings,
+          weatherLocation: newLoc,
+          weatherApiKey:   main.querySelector('#sf_weatherApiKey')?.value.trim() || '',
+        };
+        delete updated.sliderMin; delete updated.sliderMax;
+        delete updated.longPressMs; delete updated.kidLongPressMs;
+        await writeSettings(updated);
+        settings = updated;
+        showMsg('#settingsMsg_integrations', true, 'Integrations saved!');
+      });
+
+      // ── Save Security ──
+      main.querySelector('#settingsSave_security')?.addEventListener('click', async () => {
+        const newPin = main.querySelector('#sf_newPin')?.value.trim();
+        if (newPin && (newPin.length !== 4 || !/^\d{4}$/.test(newPin))) {
+          showMsg('#settingsMsg_security', false, 'PIN must be exactly 4 digits.');
+          return;
+        }
+        const updated = { ...settings };
+        delete updated.sliderMin; delete updated.sliderMax;
+        delete updated.longPressMs; delete updated.kidLongPressMs;
+        if (newPin) updated.adminPin = newPin;
+        await writeSettings(updated);
+        settings = updated;
+        if (newPin) { const pinEl = main.querySelector('#sf_newPin'); if (pinEl) pinEl.value = ''; }
+        showMsg('#settingsMsg_security', true, newPin ? 'PIN updated!' : 'No changes.');
+      });
+    }
     // ── Schedule tab events ──
 
     function bindScheduleTab() {
@@ -3906,6 +4008,20 @@
     // ── Data tab events ──
 
     function bindDataTab() {
+      // Auto-prune save
+      main.querySelector('#autoPruneSave')?.addEventListener('click', async () => {
+        const months = parseInt(main.querySelector('#set_autoPruneMonths')?.value || '0', 10);
+        const updated = { ...settings, autoPruneMonths: months };
+        await writeSettings(updated);
+        settings = updated;
+        const msgEl = main.querySelector('#autoPruneMsg');
+        if (msgEl) {
+          msgEl.textContent = 'Saved!';
+          msgEl.className = 'admin-msg admin-msg--success mt-sm';
+          setTimeout(() => { msgEl.textContent = ''; msgEl.className = 'admin-msg mt-sm'; }, 2000);
+        }
+      });
+
       main.querySelector('#exportDataBtn')?.addEventListener('click', async () => {
         const allData = await readOnce('');
         const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });

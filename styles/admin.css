@@ -900,8 +900,20 @@
 }
 
 /* ── Segmented Control (base styles now in components.css) ── */
-/* 5-tab library sub-nav: reduce font so "Categories" + "Badges" fit on narrow phones */
-.admin-lib-tabs .tab { font-size: var(--font-xs); }
+/* Sub-nav shared styles: reduce font so all tabs fit on narrow phones */
+.admin-lib-tabs .tab,
+.admin-settings-tabs .tab { font-size: var(--font-xs); }
+
+/* Settings sub-nav — scrollable, matches Library sub-nav layout */
+.admin-settings-tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+  justify-content: space-evenly;
+  margin-bottom: var(--spacing-md);
+}
+.admin-settings-tabs::-webkit-scrollbar { display: none; }
+.admin-settings-tabs .tab { flex: 0 0 auto; padding: 8px var(--spacing-sm); }
 
 /* ── Pricing Helper ── */
 .pricing-helper input[type="range"] { accent-color: var(--accent); }
@@ -1130,19 +1142,6 @@
   padding-bottom: var(--spacing-xl);
 }
 
-.settings-save-footer {
-  position: sticky;
-  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
-  margin: var(--spacing-md) calc(-1 * var(--spacing-md)) 0;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  z-index: 2;
-}
-.settings-save-footer .btn { flex: 1; }
 
 .admin-settings-section {
   padding: var(--spacing-md) 0;
