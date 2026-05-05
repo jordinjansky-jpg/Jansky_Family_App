@@ -246,9 +246,16 @@
       { id: 'about',        label: 'About'        },
     ];
 
+    const TOOLS_SECTIONS = [
+      { id: 'schedule', label: 'Schedule' },
+      { id: 'imports',  label: 'Imports'  },
+      { id: 'data',     label: 'Data'     },
+    ];
+
     let activeTab = 'library';
     let activeLibrarySection = 'tasks';
     let activeSettingsSection = 'family';
+    let activeToolsSection = 'schedule';
     // ── Helpers ──
 
     async function autoPrune(months) {
@@ -351,6 +358,15 @@
         html += `</nav>`;
       }
 
+      // Tools sub-nav
+      if (activeTab === 'tools') {
+        html += `<nav class="tabs tabs--pill admin-settings-tabs" role="tablist" aria-label="Tools sections">`;
+        for (const sec of TOOLS_SECTIONS) {
+          html += `<button class="tab${sec.id === activeToolsSection ? ' is-active' : ''}" data-tools-section="${sec.id}" type="button">${esc(sec.label)}</button>`;
+        }
+        html += `</nav>`;
+      }
+
       html += `<div class="admin-content" role="tabpanel">`;
 
       switch (activeTab) {
@@ -410,7 +426,11 @@
       }
       for (const pill of main.querySelectorAll('.admin-settings-tabs .tab')) {
         pill.addEventListener('click', () => {
-          activeSettingsSection = pill.dataset.settingsSection;
+          if (pill.dataset.settingsSection) {
+            activeSettingsSection = pill.dataset.settingsSection;
+          } else if (pill.dataset.toolsSection) {
+            activeToolsSection = pill.dataset.toolsSection;
+          }
           render();
         });
       }
@@ -4148,22 +4168,21 @@
     }
 
     function renderToolsTab() {
-      return `<div class="admin-form">
-        <h3 class="admin-form__title">Schedule</h3>
-        ${renderScheduleTab()}
-        <hr class="admin-section-divider">
-        <h3 class="admin-form__title">AI Imports</h3>
-        ${renderAiImportsTab()}
-        <hr class="admin-section-divider">
-        <h3 class="admin-form__title">Data</h3>
-        ${renderDataTab()}
-      </div>`;
+      switch (activeToolsSection) {
+        case 'schedule': return renderScheduleTab();
+        case 'imports':  return `<div class="admin-form">${renderAiImportsTab()}</div>`;
+        case 'data':
+        default:         return renderDataTab();
+      }
     }
 
     function bindToolsTab() {
-      bindScheduleTab();
-      bindAiImportsTab();
-      bindDataTab();
+      switch (activeToolsSection) {
+        case 'schedule': bindScheduleTab();    break;
+        case 'imports':  bindAiImportsTab();   break;
+        case 'data':
+        default:         bindDataTab();        break;
+      }
     }
 
     // ── AI Imports tab ──────────────────────────────────────────────────────────
