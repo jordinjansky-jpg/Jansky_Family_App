@@ -1510,11 +1510,15 @@
           opt.classList.add('is-selected');
         });
       });
-      taskSheetMount.querySelector('#rs_cancel')?.addEventListener('click', () => {
+      taskSheetMount.querySelector('#rptBack')?.addEventListener('click', () => {
         closeTaskSheet();
         if (onCancel) setTimeout(onCancel, 320);
       });
-      taskSheetMount.querySelector('#rs_save')?.addEventListener('click', () => {
+      taskSheetMount.querySelector('#rptCancel')?.addEventListener('click', () => {
+        closeTaskSheet();
+        if (onCancel) setTimeout(onCancel, 320);
+      });
+      taskSheetMount.querySelector('#rptDone')?.addEventListener('click', () => {
         const type = getSelectedType();
         const rule = type === 'none' ? null : { type };
         closeTaskSheet();
