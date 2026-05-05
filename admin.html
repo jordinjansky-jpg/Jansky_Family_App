@@ -1758,61 +1758,94 @@
     function renderCategoryForm(catKey) {
       const cat = catKey ? catsObj[catKey] : {};
       const isEdit = !!catKey;
+      const advancedOpen = !!(cat.dailyLimitPerPerson || cat.dailyLimitPerHousehold);
 
-      return `<div class="admin-form" id="catForm">
-        <div class="form-row">
-          <div class="form-group" style="width:80px">
-            <label class="form-label">Icon</label>
-            <input type="text" id="cf_icon" value="${cat.icon || ''}" placeholder="🧹" maxlength="4">
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Label</label>
-            <input type="text" id="cf_label" value="${cat.label || ''}" placeholder="e.g., Music Practice">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Weight %</label>
-            <input type="number" id="cf_weight" value="${cat.weightPercent || ''}" min="0" max="100" placeholder="None">
-            <p class="form-hint">Leave empty for no weighting</p>
-          </div>
-        </div>
-        <div class="form-row" id="catLimitsRow" style="display:${cat.isEvent ? 'none' : 'flex'}">
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Limit / Person (min)</label>
-            <input type="number" id="cf_limitPerson" value="${cat.dailyLimitPerPerson || ''}" min="1" placeholder="None">
-            <p class="form-hint">Leave empty for no limit</p>
-          </div>
-          <div class="form-group" style="flex:1">
-            <label class="form-label">Limit / Household (min)</label>
-            <input type="number" id="cf_limitHousehold" value="${cat.dailyLimitPerHousehold || ''}" min="1" placeholder="None">
-            <p class="form-hint">Leave empty for no limit</p>
-          </div>
-        </div>
-        <div class="admin-toggle-row"><span class="admin-toggle-row__label">Event category (no scoring, calendar highlight)</span><label class="form-toggle"><input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="admin-event-color-row" id="eventColorRow" style="display:${cat.isEvent ? '' : 'none'}">
-          <span class="form-label">Event Color</span>
-          ${renderColorButton(cat.eventColor || '#5b7fd6', 'cf_eventColor')}
-        </div>
-        <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show icon on task cards</span><label class="form-toggle"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="admin-toggle-row"><span class="admin-toggle-row__label">PIN protected (requires PIN to complete)</span><label class="form-toggle"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="admin-toggle-row"><span class="admin-toggle-row__label">Default category for new tasks</span><label class="form-toggle"><input type="checkbox" id="cf_isDefault"${cat.isDefault ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="ef2-footer">
-          ${isEdit ? '<button class="btn btn--danger btn--sm" id="catFormDelete" type="button">Delete Category</button>' : ''}
-          <button class="btn btn--secondary" id="catFormCancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="catFormSave" type="button">${isEdit ? 'Save' : 'Add Category'}</button>
-        </div>
-      </div>`;
+      return `<div class="tf-form">
+  <div class="sheet__header">
+    <h2 class="sheet__title">${isEdit ? esc(cat.label || 'Category') : 'New Category'}</h2>
+    <div class="rf-header-actions">
+      ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="catFormDelete" type="button" aria-label="Delete" title="Delete">${RF_DELETE_SVG}</button>` : ''}
+      <button class="ef2-icon-btn rf-save-btn" id="catFormSave" type="button" aria-label="${isEdit ? 'Save' : 'Add'}" title="${isEdit ? 'Save' : 'Add'}">${RF_SAVE_SVG}</button>
+      <button class="ef2-icon-btn" id="catFormCancel" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
+    </div>
+  </div>
+
+  <div class="tf-title-row">
+    <input class="tf-title-input" id="cf_label" type="text" placeholder="Category name" value="${esc(cat.label || '')}" autocomplete="off">
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="cf-icon-weight-row">
+    <div class="cf-icon-group">
+      <span class="ef2-section-label">Icon</span>
+      <input class="cf-icon-input" id="cf_icon" type="text" placeholder="🏷️" maxlength="4" value="${esc(cat.icon || '')}">
+    </div>
+    <div class="cf-weight-group">
+      <span class="ef2-section-label">Weight %</span>
+      <input class="cf-weight-input" id="cf_weight" type="number" placeholder="None" min="0" max="100" value="${cat.weightPercent != null ? cat.weightPercent : ''}">
+    </div>
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="tf-options-row">
+    <span class="tf-options-label">Event category</span>
+    <label class="form-toggle">
+      <input type="checkbox" id="cf_isEvent"${cat.isEvent ? ' checked' : ''}>
+      <span class="form-toggle__track"></span>
+    </label>
+  </div>
+  <div class="admin-event-color-row${cat.isEvent ? '' : ' is-hidden'}" id="eventColorRow">
+    <span class="ef2-section-label">Event color</span>
+    ${renderColorButton(cat.eventColor || '#5b7fd6', 'cf_eventColor')}
+  </div>
+  <div class="tf-options-row">
+    <span class="tf-options-label">Show icon on task cards</span>
+    <label class="form-toggle">
+      <input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}>
+      <span class="form-toggle__track"></span>
+    </label>
+  </div>
+  <div class="tf-options-row">
+    <span class="tf-options-label">PIN protected</span>
+    <label class="form-toggle">
+      <input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}>
+      <span class="form-toggle__track"></span>
+    </label>
+  </div>
+  <div class="tf-options-row">
+    <span class="tf-options-label">Default for new tasks</span>
+    <label class="form-toggle">
+      <input type="checkbox" id="cf_isDefault"${cat.isDefault ? ' checked' : ''}>
+      <span class="form-toggle__track"></span>
+    </label>
+  </div>
+
+  <div class="ef2-divider${cat.isEvent ? ' is-hidden' : ''}" id="cf_advancedDivider"></div>
+  <div class="ef2-secondary-row${cat.isEvent ? ' is-hidden' : ''}" id="cf_advancedChipRow">
+    <button class="ef2-add-chip${advancedOpen ? ' is-active' : ''}" id="cf_advancedChip" type="button">+ Advanced</button>
+  </div>
+  <div class="ef2-field-reveal${advancedOpen ? ' is-open' : ''}${cat.isEvent ? ' is-hidden' : ''}" id="cf_advancedReveal">
+    <div class="tf-options-inner">
+      <div class="tf-options-row">
+        <span class="tf-options-label">Limit per person (min/day)</span>
+        <input class="tf-cooldown-input" id="cf_limitPerson" type="number" placeholder="—" min="1" value="${cat.dailyLimitPerPerson || ''}">
+      </div>
+      <div class="tf-options-row">
+        <span class="tf-options-label">Limit per household (min/day)</span>
+        <input class="tf-cooldown-input" id="cf_limitHousehold" type="number" placeholder="—" min="1" value="${cat.dailyLimitPerHousehold || ''}">
+      </div>
+    </div>
+  </div>
+</div>`;
     }
 
     function openAdminCatSheet(catKey) {
       const isNew = catKey === 'new';
       const mount = document.getElementById('taskSheetMount');
       if (!mount) return;
-      mount.innerHTML = renderBottomSheet(`
-        <h3 class="sheet-section-title">${isNew ? 'New Category' : 'Edit Category'}</h3>
-        ${renderCategoryForm(isNew ? null : catKey)}
-      `);
+      mount.innerHTML = renderBottomSheet(renderCategoryForm(isNew ? null : catKey));
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
       document.getElementById('bottomSheet')?.addEventListener('click', e => {
         if (e.target.id === 'bottomSheet') closeAdminSheet();
@@ -1822,10 +1855,22 @@
 
       const eventCheckbox = mount.querySelector('#cf_isEvent');
       const eventColorRow = mount.querySelector('#eventColorRow');
-      const catLimitsRow = mount.querySelector('#catLimitsRow');
+      const advancedDivider = mount.querySelector('#cf_advancedDivider');
+      const advancedChipRow = mount.querySelector('#cf_advancedChipRow');
+      const advancedReveal  = mount.querySelector('#cf_advancedReveal');
+
       eventCheckbox?.addEventListener('change', () => {
-        if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? '' : 'none';
-        if (catLimitsRow) catLimitsRow.style.display = eventCheckbox.checked ? 'none' : 'flex';
+        const isEvent = eventCheckbox.checked;
+        eventColorRow?.classList.toggle('is-hidden', !isEvent);
+        advancedDivider?.classList.toggle('is-hidden', isEvent);
+        advancedChipRow?.classList.toggle('is-hidden', isEvent);
+        if (isEvent) advancedReveal?.classList.add('is-hidden');
+        else advancedReveal?.classList.remove('is-hidden');
+      });
+
+      mount.querySelector('#cf_advancedChip')?.addEventListener('click', () => {
+        const open = advancedReveal?.classList.toggle('is-open');
+        mount.querySelector('#cf_advancedChip')?.classList.toggle('is-active', open);
       });
 
       mount.querySelector('#catFormCancel')?.addEventListener('click', () => { closeAdminSheet(); });
