@@ -2951,118 +2951,116 @@
       const allDefs = mergeAchievementDefs(achievementDefsObj);
       const def = achKey ? allDefs[achKey] || {} : {};
       const isEdit = !!achKey;
-      const title = isEdit ? 'Edit Badge' : 'New Badge';
       const cType = def.conditionType || 'hybrid';
       const cStat = def.condition?.stat || '';
       const cThreshold = def.condition?.threshold ?? '';
       const isGradeStat = ['gradeDay', 'gradeWeek', 'gradeMonth'].includes(cStat);
       const rType = def.reward?.type || 'none';
 
-      return `<div class="form-compact" id="achForm">
+      return `<div class="tf-form" id="achForm">
+  <div class="sheet__header">
+    <h2 class="sheet__title">${isEdit ? esc(def.label || 'Badge') : 'New Badge'}</h2>
+    <div class="rf-header-actions">
+      ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="af_delete" type="button" aria-label="Delete" title="Delete">${RF_DELETE_SVG}</button>` : ''}
+      <button class="ef2-icon-btn rf-save-btn" id="af_save" type="button" aria-label="${isEdit ? 'Save' : 'Add'}" title="${isEdit ? 'Save' : 'Add'}"${achKey ? ` data-ach-key="${esc(achKey)}"` : ''}>${RF_SAVE_SVG}</button>
+      <button class="ef2-icon-btn" id="af_cancel" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
+    </div>
+  </div>
 
-        <div class="form-group">
-          <label class="form-label">Name</label>
-          <input type="text" id="af_name" value="${esc(def.label || '')}" placeholder="e.g. 7-Day Streak">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Icon</label>
-          <div class="emoji-picker" id="af_emojiPicker">
-            ${ACHIEVEMENT_EMOJIS.map(e => `<button type="button" class="emoji-btn${def.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
-            <input type="text" id="af_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width: 44px; text-align: center;" value="${def.icon && !ACHIEVEMENT_EMOJIS.includes(def.icon) ? esc(def.icon) : ''}">
-          </div>
-        </div>
+  <div class="tf-title-row">
+    <input class="tf-title-input" id="af_name" type="text" placeholder="Badge name" value="${esc(def.label || '')}" autocomplete="off">
+  </div>
 
-        <div class="form-group">
-          <label class="form-label">Description</label>
-          <input type="text" id="af_desc" value="${esc(def.description || '')}" placeholder="What does this badge celebrate?">
-        </div>
+  <div class="ef2-divider"></div>
 
-        <div class="form-group">
-          <label class="form-label">Trigger</label>
-          <div class="segmented-control" id="af_condType">
-            <button type="button" class="segmented-btn${cType === 'stat' ? ' segmented-btn--active' : ''}" data-value="stat">Auto</button>
-            <button type="button" class="segmented-btn${cType === 'hybrid' ? ' segmented-btn--active' : ''}" data-value="hybrid">Either</button>
-            <button type="button" class="segmented-btn${cType === 'manual' ? ' segmented-btn--active' : ''}" data-value="manual">Manual</button>
-          </div>
-        </div>
+  <div class="af-section">
+    <div class="emoji-picker" id="af_emojiPicker">
+      ${ACHIEVEMENT_EMOJIS.map(e => `<button type="button" class="emoji-btn${def.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+      <input type="text" id="af_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width:44px;text-align:center;" value="${def.icon && !ACHIEVEMENT_EMOJIS.includes(def.icon) ? esc(def.icon) : ''}">
+    </div>
+  </div>
 
-        <div id="af_condFields" style="${cType === 'manual' ? 'display:none;' : ''}">
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Condition</label>
-              <select id="af_stat">
-                <option value="">Select...</option>
-                ${ACHIEVEMENT_STATS.map(s => `<option value="${s.value}"${cStat === s.value ? ' selected' : ''}>${s.label}</option>`).join('')}
-              </select>
-            </div>
-            <div class="form-group" id="af_thresholdGroup">
-              <label class="form-label">Threshold</label>
-              ${isGradeStat
-                ? `<select id="af_threshold">
-                    <option value="A+"${cThreshold === 'A+' ? ' selected' : ''}>A+</option>
-                    <option value="A"${cThreshold === 'A' ? ' selected' : ''}>A</option>
-                    <option value="B+"${cThreshold === 'B+' ? ' selected' : ''}>B+</option>
-                    <option value="B"${cThreshold === 'B' ? ' selected' : ''}>B</option>
-                  </select>`
-                : `<input type="number" id="af_threshold" value="${cThreshold}" min="1" placeholder="e.g. 7">`}
-            </div>
-          </div>
-        </div>
+  <div class="ef2-divider"></div>
 
-        <div class="form-group">
-          <label class="form-label">Reward on unlock</label>
-          <div class="segmented-control" id="af_rewardType">
-            <button type="button" class="segmented-btn${rType === 'none' ? ' segmented-btn--active' : ''}" data-value="none">Badge Only</button>
-            <button type="button" class="segmented-btn${rType === 'points' ? ' segmented-btn--active' : ''}" data-value="points">+ Points</button>
-            <button type="button" class="segmented-btn${rType === 'reward' ? ' segmented-btn--active' : ''}" data-value="reward">Store Item</button>
-          </div>
-        </div>
+  <div class="af-section">
+    <input type="text" id="af_desc" style="width:100%" placeholder="What does this badge celebrate?" value="${esc(def.description || '')}">
+  </div>
 
-        <div id="af_rewardPointsField" style="${rType === 'points' ? '' : 'display:none;'}">
-          <div class="form-group">
-            <label class="form-label">Bonus points</label>
-            <input type="number" id="af_rewardAmount" class="form-input" value="${def.reward?.amount || 50}" min="1">
-          </div>
-        </div>
+  <div class="ef2-divider"></div>
 
-        <div id="af_rewardItemField" style="${rType === 'reward' ? '' : 'display:none;'}">
-          <div class="form-group">
-            <label class="form-label">Store reward</label>
-            <select id="af_rewardId" class="form-input">
-              <option value="">Select...</option>
-              ${Object.entries(rewardsObj).filter(([,r]) => r.status === 'active').map(([id, r]) =>
-                `<option value="${id}" ${def.reward?.rewardId === id ? 'selected' : ''}>${esc(r.icon || '')} ${esc(r.name)}</option>`
-              ).join('')}
-            </select>
-          </div>
-        </div>
+  <div class="af-section">
+    <div class="segmented-control" id="af_condType">
+      <button type="button" class="segmented-btn${cType === 'stat' ? ' segmented-btn--active' : ''}" data-value="stat">Auto</button>
+      <button type="button" class="segmented-btn${cType === 'hybrid' ? ' segmented-btn--active' : ''}" data-value="hybrid">Either</button>
+      <button type="button" class="segmented-btn${cType === 'manual' ? ' segmented-btn--active' : ''}" data-value="manual">Manual</button>
+    </div>
+  </div>
 
-        <div class="form-group">
-          <label class="form-label">Available to</label>
-          <div class="chip-group" id="af_people">
-            ${peopleArray().map(p => {
-              const selected = def.perPerson && def.perPerson.includes(p.id);
-              return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
-            }).join('')}
-            <span class="form-hint" style="margin-left: 4px;">None = all</span>
-          </div>
-        </div>
+  <div id="af_condFields"${cType === 'manual' ? ' style="display:none;"' : ''}>
+    <div class="af-cond-row">
+      <select id="af_stat" class="af-cond-select">
+        <option value="">Select condition...</option>
+        ${ACHIEVEMENT_STATS.map(s => `<option value="${s.value}"${cStat === s.value ? ' selected' : ''}>${s.label}</option>`).join('')}
+      </select>
+      <div id="af_thresholdGroup" class="af-threshold-group">
+        ${isGradeStat
+          ? `<select id="af_threshold">
+              <option value="A+"${cThreshold === 'A+' ? ' selected' : ''}>A+</option>
+              <option value="A"${cThreshold === 'A' ? ' selected' : ''}>A</option>
+              <option value="B+"${cThreshold === 'B+' ? ' selected' : ''}>B+</option>
+              <option value="B"${cThreshold === 'B' ? ' selected' : ''}>B</option>
+            </select>`
+          : `<input type="number" id="af_threshold" value="${cThreshold}" min="1" placeholder="e.g. 7">`}
+      </div>
+    </div>
+  </div>
 
-        <div class="ef2-footer">
-          <button class="btn btn--secondary" id="af_cancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="af_save" type="button"${achKey ? ` data-ach-key="${esc(achKey)}"` : ''}>${isEdit ? 'Save' : 'Create'}</button>
-        </div>
-      </div>`;
+  <div class="ef2-divider"></div>
+
+  <div class="af-section">
+    <div class="segmented-control" id="af_rewardType">
+      <button type="button" class="segmented-btn${rType === 'none' ? ' segmented-btn--active' : ''}" data-value="none">Badge Only</button>
+      <button type="button" class="segmented-btn${rType === 'points' ? ' segmented-btn--active' : ''}" data-value="points">+ Points</button>
+      <button type="button" class="segmented-btn${rType === 'reward' ? ' segmented-btn--active' : ''}" data-value="reward">Store Item</button>
+    </div>
+  </div>
+
+  <div id="af_rewardPointsField"${rType !== 'points' ? ' style="display:none;"' : ''}>
+    <div class="af-section">
+      <input type="number" id="af_rewardAmount" style="width:100%" value="${def.reward?.amount || 50}" min="1" placeholder="Bonus points">
+    </div>
+  </div>
+
+  <div id="af_rewardItemField"${rType !== 'reward' ? ' style="display:none;"' : ''}>
+    <div class="af-section">
+      <select id="af_rewardId" style="width:100%">
+        <option value="">Select reward...</option>
+        ${Object.entries(rewardsObj).filter(([,r]) => r.status === 'active').map(([id, r]) =>
+          `<option value="${id}" ${def.reward?.rewardId === id ? 'selected' : ''}>${esc(r.icon || '')} ${esc(r.name)}</option>`
+        ).join('')}
+      </select>
+    </div>
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="af-section">
+    <div class="chip-group" id="af_people">
+      ${peopleArray().map(p => {
+        const selected = def.perPerson && def.perPerson.includes(p.id);
+        return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+      }).join('')}
+      <span class="form-hint">None = all</span>
+    </div>
+  </div>
+</div>`;
     }
 
     function openAdminAchSheet(achKey) {
       const isNew = achKey === 'new';
       const mount = document.getElementById('taskSheetMount');
       if (!mount) return;
-      mount.innerHTML = renderBottomSheet(`
-        <h3 class="sheet-section-title">${isNew ? 'New Badge' : 'Edit Badge'}</h3>
-        ${renderAchievementForm(isNew ? null : achKey)}
-      `);
+      mount.innerHTML = renderBottomSheet(renderAchievementForm(isNew ? null : achKey));
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
       document.getElementById('bottomSheet')?.addEventListener('click', e => {
         if (e.target.id === 'bottomSheet') closeAdminSheet();
@@ -3242,6 +3240,20 @@
         form.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('emoji-btn--selected'));
       });
 
+      // Delete (edit mode only)
+      form.querySelector('#af_delete')?.addEventListener('click', async () => {
+        const achKey = form.querySelector('#af_save')?.dataset?.achKey;
+        if (!achKey) return;
+        const allDefs = mergeAchievementDefs(achievementDefsObj);
+        const def = allDefs[achKey] || {};
+        if (def.isDefault) { await showConfirm({ title: 'Cannot delete built-in badges', alert: true }); return; }
+        if (!await showConfirm({ title: `Delete badge "${esc(def.label || achKey)}"?`, danger: true })) return;
+        await deleteAchievementDef(achKey);
+        achievementDefsObj = (await readAchievementDefs()) || {};
+        closeAdminSheet();
+        render();
+      });
+
       // Condition type toggle
       for (const btn of form.querySelectorAll('#af_condType .segmented-btn')) {
         btn.addEventListener('click', () => {
@@ -3261,7 +3273,7 @@
           group.style.display = 'none';
         } else {
           group.style.display = '';
-          group.innerHTML = `<label class="form-label">Threshold</label>` + (isGrade
+          group.innerHTML = (isGrade
             ? `<select id="af_threshold"><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B">B</option></select>`
             : `<input type="number" id="af_threshold" value="" min="1" placeholder="e.g. 7">`);
         }

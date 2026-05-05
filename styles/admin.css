@@ -1229,6 +1229,20 @@
 .ps-color-role-row .tf-rotation-pills {
   min-width: 140px;
 }
+
+/* ── Badge form (af-*) ── */
+.af-section { padding: var(--spacing-xs) 0; }
+.af-cond-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+  align-items: center;
+}
+.af-cond-select { flex: 7; min-width: 0; }
+.af-threshold-group { flex: 4; min-width: 0; }
+.af-threshold-group input,
+.af-threshold-group select { width: 100%; }
+
 /* ── Settings tab layout ── */
 .admin-settings {
   padding: var(--spacing-md);
