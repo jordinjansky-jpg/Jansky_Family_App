@@ -1,4 +1,4 @@
-﻿// components.js â€” Reusable UI rendering functions (v2)
+// components.js — Reusable UI rendering functions (v2)
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 
@@ -171,9 +171,9 @@ const NAV_ITEMS = [
  * More is a button (opens a sheet in-page); the first four are anchors.
  *
  * Signatures:
- *   renderNavBar(activePage)                       // legacy â€” More is rendered
+ *   renderNavBar(activePage)                       // legacy — More is rendered
  *                                                  //   but unbound (no-op)
- *   renderNavBar(activePage, { onMoreClick })      // Phase 1+ â€” dashboard binds More
+ *   renderNavBar(activePage, { onMoreClick })      // Phase 1+ — dashboard binds More
  *
  * Person-link mode: the page rewrites href values after render (existing behavior).
  */
@@ -261,11 +261,11 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
  *
  *  STANDARD (all pages except admin):
  *    renderHeader({ title, subtitle, showBell })
- *    â€” font-2xl title, optional subtitle, gear button, optional bell
+ *    — font-2xl title, optional subtitle, gear button, optional bell
  *
  *  ADMIN VARIANT:
  *    renderHeader({ variant: 'admin', title, subtitle })
- *    â€” same structure but no bell and no gear (avoids self-referential settings button)
+ *    — same structure but no bell and no gear (avoids self-referential settings button)
  */
 export function renderHeader(options = {}) {
   if (options.variant === 'admin') {
@@ -338,12 +338,12 @@ export function renderUndoToast(message) {
  * Render an empty state message.
  */
 const EMPTY_VARIANTS = {
-  'all-done':     { icon: 'ðŸ†', title: 'Nothing left â€” you crushed it!' },
-  'free-day':     { icon: 'ðŸ–ï¸', title: 'Free day!', subtitle: 'Nothing scheduled â€” enjoy it.' },
-  'future-empty': { icon: 'ðŸ“…', title: 'Nothing planned yet' },
-  'no-match':     { icon: 'ðŸ”', title: 'No tasks for {name}', subtitle: 'Try a different filter.' },
-  'kid-done':     { icon: 'ðŸŽ‰', title: "You're all done!", subtitle: 'Go play!' },
-  'kid-free':     { icon: 'â˜€ï¸', title: 'No chores today!', subtitle: 'Lucky you!' }
+  'all-done':     { icon: '🏆', title: 'Nothing left — you crushed it!' },
+  'free-day':     { icon: '🏖️', title: 'Free day!', subtitle: 'Nothing scheduled — enjoy it.' },
+  'future-empty': { icon: '📅', title: 'Nothing planned yet' },
+  'no-match':     { icon: '🔍', title: 'No tasks for {name}', subtitle: 'Try a different filter.' },
+  'kid-done':     { icon: '🎉', title: "You're all done!", subtitle: 'Go play!' },
+  'kid-free':     { icon: '☀️', title: 'No chores today!', subtitle: 'Lucky you!' }
 };
 
 export function renderEmptyState(icon, title, subtitle = '', options = {}) {
@@ -365,14 +365,14 @@ export function renderEmptyState(icon, title, subtitle = '', options = {}) {
 
 /**
  * Render an error state into a DOM element.
- * Spec Â§5.19: title, optional message, optional retry callback.
+ * Spec §5.19: title, optional message, optional retry callback.
  * root: HTMLElement to write into
  * options: { title, message, retry }
  */
 export function renderErrorState(root, { title = 'Something went wrong', message = 'Check your connection and try again.', retry } = {}) {
   const retryBtn = retry ? `<button class="error-state__retry" type="button" id="errorStateRetry">Try again</button>` : '';
   root.innerHTML = `<div class="error-state">
-    <span class="error-state__icon" aria-hidden="true">âš ï¸</span>
+    <span class="error-state__icon" aria-hidden="true">⚠️</span>
     <h3 class="error-state__title">${esc(title)}</h3>
     ${message ? `<p class="error-state__message">${esc(message)}</p>` : ''}
     ${retryBtn}
@@ -440,7 +440,7 @@ export function renderProgressBar(done, total) {
 /**
  * Render a single task card.
  * options: { entryKey, entry, task, person, category, completed, overdue, dateLabel, points }
- * points: optional { possible, override } â€” override is the pointsOverride percentage (null = no override)
+ * points: optional { possible, override } — override is the pointsOverride percentage (null = no override)
  * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --owner-color / --event-color).
  */
 export function renderTaskCard(options) {
@@ -456,16 +456,16 @@ export function renderTaskCard(options) {
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
   const catName = category?.name || '';
 
-  // Override-direction cue: â–² if override raises points, â–¼ if it lowers them.
-  // No bare scoring-pt chip â€” store-economy points live in the section meta only (spec 2026-04-25 Â§3.7).
+  // Override-direction cue: ▲ if override raises points, ▼ if it lowers them.
+  // No bare scoring-pt chip — store-economy points live in the section meta only (spec 2026-04-25 §3.7).
   let ptsLabel = '';
   if (points && !isEvent && !task.exempt && points.override != null && points.override !== 100) {
     const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
-    const icon = points.override > 100 ? 'â–²' : 'â–¼';
+    const icon = points.override > 100 ? '▲' : '▼';
     ptsLabel = `<span class="${colorClass}">${icon}</span>`;
   }
 
-  // Rotation tag (spec Â§5.4) â€” only for non-daily rotations.
+  // Rotation tag (spec §5.4) — only for non-daily rotations.
   const rotationLabel = task?.rotation === 'weekly' ? 'Weekly'
     : task?.rotation === 'monthly' ? 'Monthly'
     : task?.rotation === 'once' ? 'One-Time'
@@ -478,7 +478,7 @@ export function renderTaskCard(options) {
   let actionTags = '';
   if (entryKey && entryKey.includes('_delegate')) {
     const fromName = entry.delegatedFromName || '?';
-    actionTags += `<span class="task-card__tag task-card__tag--delegated">â†ª ${esc(fromName)}</span>`;
+    actionTags += `<span class="task-card__tag task-card__tag--delegated">↪ ${esc(fromName)}</span>`;
   }
   if (entryKey && entryKey.includes('_moved')) {
     const fromDate = entry.movedFromDate || '';
@@ -503,10 +503,10 @@ export function renderTaskCard(options) {
   const taskTod = task.timeOfDay;
   const isAmOrPm = entryTod === 'am' || entryTod === 'pm';
   const showTod = isAmOrPm && ((taskTod === 'both' && options.showTodIconBoth) || (taskTod !== 'both' && options.showTodIconSingle));
-  const todLabel = showTod ? (entryTod === 'am' ? 'ðŸŒ… AM' : 'ðŸŒ™ PM') : '';
+  const todLabel = showTod ? (entryTod === 'am' ? '🌅 AM' : '🌙 PM') : '';
 
-  // Build meta row as mockup: category Â· meta-dot Â· (tod/event-time/est joined by Â· ) Â· rotationTag Â· actionTags Â· points.
-  const rightMeta = [todLabel, eventTimeLabel, estLabel].filter(Boolean).join(' Â· ');
+  // Build meta row as mockup: category · meta-dot · (tod/event-time/est joined by · ) · rotationTag · actionTags · points.
+  const rightMeta = [todLabel, eventTimeLabel, estLabel].filter(Boolean).join(' · ');
   const catSpan = catName ? `<span>${esc(catName)}</span>` : '';
   const dotSpan = (catSpan && rightMeta) ? `<span class="card__meta-dot" aria-hidden="true"></span>` : '';
   const rightSpan = rightMeta ? `<span>${esc(rightMeta)}</span>` : '';
@@ -514,7 +514,7 @@ export function renderTaskCard(options) {
   const metaInner = `${catSpan}${dotSpan}${rightSpan}${rotationTag}${actionTags}${ptsSpan}`;
 
   const dateLine = dateLabel ? `<span class="task-card__date">${esc(dateLabel)}</span>` : '';
-  const eventPrefix = isEvent ? 'ðŸ“… ' : '';
+  const eventPrefix = isEvent ? '📅 ' : '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
 
@@ -523,7 +523,7 @@ export function renderTaskCard(options) {
     ? `<div class="card__leading">${esc(eventTimeLabel) || ''}</div>`
     : `<div class="card__leading"><span class="avatar" data-person-color="${esc(ownerColor)}">${esc(ownerInitial)}</span></div>`;
 
-  // Trailing check button â€” decorative within the card click region (spec Â§3.6).
+  // Trailing check button — decorative within the card click region (spec §3.6).
   const checkSvg = completed
     ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>'
     : '';
@@ -557,9 +557,9 @@ export function renderOverdueBanner(count) {
   if (count === 0) return '';
   const s = count === 1 ? 'task' : 'tasks';
   return `<button class="overdue-banner" id="overdueToggle" type="button" aria-expanded="false" aria-controls="overdueList">
-    <span class="overdue-banner__icon" aria-hidden="true">âš ï¸</span>
+    <span class="overdue-banner__icon" aria-hidden="true">⚠️</span>
     <span class="overdue-banner__text">${count} overdue ${s}</span>
-    <span class="overdue-banner__arrow" id="overdueArrow" aria-hidden="true">â–¸</span>
+    <span class="overdue-banner__arrow" id="overdueArrow" aria-hidden="true">▸</span>
   </button>`;
 }
 
@@ -568,7 +568,7 @@ export function renderOverdueBanner(count) {
  * Called by dashboard.js resolveBanner(); caller is responsible for mounting the
  * returned HTML into #bannerMount and wiring any action button via click delegation.
  * `bodyClickable: true` wraps the body in a button; the page binds clicks
- * via `[data-banner-body]` selector. Used by --overdue per spec Â§3.2.
+ * via `[data-banner-body]` selector. Used by --overdue per spec §3.2.
  */
 export function renderBanner(variant, { title, message, action, bodyClickable = false } = {}) {
   const iconMap = {
@@ -642,7 +642,7 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
   const metaParts = [
     b.streak.current > 0 ? `${b.streak.current}d streak` : null,
     `${liveBalance.toLocaleString()} pts`,
-  ].filter(Boolean).join(' Â· ');
+  ].filter(Boolean).join(' · ');
 
   const badgeRow = badgeIcons
     ? `<div class="card--score__badges">${badgeIcons}</div>`
@@ -686,7 +686,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
   let badges = '';
   if (reward.streakRequirement) {
     const needed = reward.streakRequirement - streak;
-    badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak${!meetsStreak ? ` Â· need ${needed} more` : ''}</span>`;
+    badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak${!meetsStreak ? ` · need ${needed} more` : ''}</span>`;
   }
   if (reward.maxRedemptions && stockOk) {
     badges += `<span class="chip chip--muted">${reward.maxRedemptions - redemptionCount} left</span>`;
@@ -703,7 +703,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
   const dimClass = canGet || !showGet ? '' : ' card--dim';
   return `<div class="card card--reward${dimClass}" data-reward-id="${esc(reward.id)}">
     <div class="card__leading">
-      <span class="icon-tile">${esc(reward.icon || 'ðŸŽ')}</span>
+      <span class="icon-tile">${esc(reward.icon || '🎁')}</span>
     </div>
     <div class="card__body">
       <div class="card__title">${esc(reward.name)}</div>
@@ -735,7 +735,7 @@ export function renderBankToken(tokenId, token, opts = {}) {
 
   return `<div class="card card--reward" data-token-id="${esc(tokenId)}" data-reward-type="${esc(token.rewardType || 'custom')}">
     <div class="card__leading">
-      <span class="icon-tile">${esc(token.rewardIcon || 'ðŸŽ')}</span>
+      <span class="icon-tile">${esc(token.rewardIcon || '🎁')}</span>
     </div>
     <div class="card__body">
       <div class="card__title">${typeLabel}</div>
@@ -747,7 +747,7 @@ export function renderBankToken(tokenId, token, opts = {}) {
         data-reward-type="${esc(token.rewardType || 'custom')}"
         data-token-name="${esc(typeLabel)}"
         data-reward-id="${esc(token.rewardId || '')}"
-        data-reward-icon="${esc(token.rewardIcon || 'ðŸŽ')}"
+        data-reward-icon="${esc(token.rewardIcon || '🎁')}"
         data-can-instant="${canUseInstant}"
         type="button">Use</button>
     </div>` : ''}
@@ -771,18 +771,18 @@ export function renderHistoryRow(entry, tz) {
     : '';
 
   const typeIcons = {
-    'redemption-request': 'ðŸŽ',
-    'redemption-approved': 'âœ…',
-    'redemption-denied': 'âŒ',
-    'use-request': 'ðŸŽ',
-    'use-approved': 'âœ…',
-    'use-denied': 'âŒ',
-    'reward-used': 'ðŸŽ',
-    'bonus': 'â­',
-    'deduction': 'ðŸ“‰',
-    'fyi': 'â„¹ï¸',
+    'redemption-request': '🎁',
+    'redemption-approved': '✅',
+    'redemption-denied': '❌',
+    'use-request': '🎁',
+    'use-approved': '✅',
+    'use-denied': '❌',
+    'reward-used': '🎁',
+    'bonus': '⭐',
+    'deduction': '📉',
+    'fyi': 'ℹ️',
   };
-  const icon = typeIcons[entry.type] || 'â€¢';
+  const icon = typeIcons[entry.type] || '•';
 
   return `<div class="history-row">
     <span class="history-row__icon">${icon}</span>
@@ -811,7 +811,7 @@ export function renderApprovalRow(msgId, msg, person, reward) {
       <span class="approval-row__name">${esc(person?.name || '?')}</span>
     </div>
     <div class="approval-row__reward">
-      <span>${esc(reward?.icon || 'ðŸŽ')}</span>
+      <span>${esc(reward?.icon || '🎁')}</span>
       <span>${esc(reward?.name || msg.title || 'Reward')}</span>
       <span class="chip ${intentClass}">${intentLabel}</span>
     </div>
@@ -938,7 +938,7 @@ export function renderGradeBadge(grade, tier) {
   return `<span class="grade-badge grade-badge--${tier}" aria-label="Grade: ${grade}">${grade}</span>`;
 }
 
-// â”€â”€ Calendar event helpers (private) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Calendar event helpers (private) ──────────────────────────
 
 /** Format "HH:MM" 24h to "3:30pm" */
 function formatTime12(time24) {
@@ -949,14 +949,14 @@ function formatTime12(time24) {
   return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
-/** Format time range "3:30pm â€“ 4:30pm" or just "3:30pm" if no end */
+/** Format time range "3:30pm – 4:30pm" or just "3:30pm" if no end */
 function formatTimeRange(start, end) {
   const s = formatTime12(start);
   if (!end) return s;
-  return `${s} â€“ ${formatTime12(end)}`;
+  return `${s} – ${formatTime12(end)}`;
 }
 
-// â”€â”€ Calendar event components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Calendar event components ─────────────────────────────────
 
 /**
  * Render an event pill for week/month views.
@@ -1085,7 +1085,7 @@ function ef2fmt12(t) {
 function ef2TimeDisplay(start, end) {
   if (!start) return 'Set time';
   if (!end) return ef2fmt12(start);
-  return `${ef2fmt12(start)} â†’ ${ef2fmt12(end)}`;
+  return `${ef2fmt12(start)} → ${ef2fmt12(end)}`;
 }
 
 function ef2ParseTime(hhmm) {
@@ -1106,8 +1106,8 @@ function ef2RepeatLabel(rule) {
   if (!rule || !rule.type || rule.type === 'none') return '+ Repeat';
   if (rule.type === 'daily') return 'Daily';
   if (rule.type === 'weekly') {
-    const days = (rule.days || []).join(' Â· ');
-    return `Weekly${days ? ' Â· ' + days : ''}`;
+    const days = (rule.days || []).join(' · ');
+    return `Weekly${days ? ' · ' + days : ''}`;
   }
   if (rule.type === 'monthly') return 'Monthly';
   if (rule.type === 'yearly') return 'Yearly';
@@ -1175,7 +1175,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   <div class="ef2-import-feedback">
     <div class="ef2-import-loading" id="ef2_importLoading">
       <div class="spinner spinner--sm"></div>
-      <span id="ef2_importMsg">Readingâ€¦</span>
+      <span id="ef2_importMsg">Reading…</span>
     </div>
     <div class="ef2-import-error" id="ef2_importError"></div>
   </div>
@@ -1200,7 +1200,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
           <input type="text" class="ef2-time-text" id="ef2_startText" inputmode="numeric" maxlength="5" placeholder="9:00" value="${ef2TimeToText(startTime)}">
           <button class="ef2-ampm-btn" id="ef2_startAmPm" data-ampm="${ef2ParseTime(startTime).ampm}" type="button">${ef2ParseTime(startTime).ampm}</button>
         </div>
-        <span class="ef2-time-arrow" aria-hidden="true">â†’</span>
+        <span class="ef2-time-arrow" aria-hidden="true">→</span>
         <div class="ef2-time-entry">
           <input type="text" class="ef2-time-text" id="ef2_endText" inputmode="numeric" maxlength="5" placeholder="10:00" value="${ef2TimeToText(endTime)}">
           <button class="ef2-ampm-btn" id="ef2_endAmPm" data-ampm="${ef2ParseTime(endTime).ampm}" type="button">${ef2ParseTime(endTime).ampm}</button>
@@ -1227,7 +1227,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   <div class="ef2-field-reveal${notesOpen}" id="ef2_notesReveal">
     <div class="ef2-field-reveal-inner">
-      <textarea id="ef2_notes" rows="3" placeholder="Notesâ€¦">${esc(event.notes || '')}</textarea>
+      <textarea id="ef2_notes" rows="3" placeholder="Notes…">${esc(event.notes || '')}</textarea>
       <button class="ef2-field-close" id="ef2_notesClose" type="button" aria-label="Close notes">${CLOSE_SVG}</button>
     </div>
   </div>
@@ -1300,13 +1300,13 @@ export function renderTaskDetailSheet(options) {
 
   let html = `<div class="task-detail-sheet">`;
 
-  // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Header ───────────────────────────────────────────────
   html += `<div class="sheet__header">
     <h2 class="sheet__title" data-owner-color="${esc(ownerColor)}">${esc(task.name)}${catIcon ? ' ' + catIcon : ''}</h2>
     <button class="ef2-icon-btn" id="dsClose" type="button" aria-label="Close">${DS_CLOSE}</button>
   </div>`;
 
-  // â”€â”€ Meta chips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Meta chips ───────────────────────────────────────────
   html += `<div class="task-detail__chips">`;
   if (person) html += `<span class="chip" data-person-color="${esc(person.color)}">${esc(person.name)}</span>`;
   if (rotLabel) html += `<span class="chip">${rotLabel}</span>`;
@@ -1316,17 +1316,17 @@ export function renderTaskDetailSheet(options) {
   if (task.estMin) html += `<span class="chip">${task.estMin}m</span>`;
   html += `</div>`;
 
-  // â”€â”€ Source info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Source info ──────────────────────────────────────────
   if (entry.delegatedFromName || entry.movedFromDate) {
     html += `<div class="task-detail__source-row">`;
-    if (entry.delegatedFromName) html += `<span class="task-detail__source-item">â†ª Delegated from <strong>${esc(entry.delegatedFromName)}</strong></span>`;
+    if (entry.delegatedFromName) html += `<span class="task-detail__source-item">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></span>`;
     if (entry.movedFromDate) html += `<span class="task-detail__source-item">${DS_CAL_SM} Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></span>`;
     html += `</div>`;
   }
 
   html += `<div class="ef2-divider"></div>`;
 
-  // â”€â”€ Event notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Event notes ──────────────────────────────────────────
   if (isEvent) {
     const noteText = entry.notes || '';
     if (readOnly) {
@@ -1355,7 +1355,7 @@ export function renderTaskDetailSheet(options) {
     }
   }
 
-  // â”€â”€ Action list (complete + edit/move/skip/delegate) â”€â”€â”€â”€â”€
+  // ── Action list (complete + edit/move/skip/delegate) ─────
   const DS_CHECK  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
   const DS_UNDO   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>`;
   const isLateEligible = isPastDate && !completed && !isEvent && !task.exempt;
@@ -1368,7 +1368,7 @@ export function renderTaskDetailSheet(options) {
     html += `</div>`;
   }
 
-  // â”€â”€ Delegate panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Delegate panel ───────────────────────────────────────
   if (showDelegate && people) {
     const otherPeople = people.filter(p => p.id !== entry.ownerId);
     html += `<div class="task-detail__delegate-panel is-hidden" id="delegatePanel">
@@ -1388,7 +1388,7 @@ export function renderTaskDetailSheet(options) {
     html += `<input type="date" id="moveDatePicker" class="task-detail__date-input task-detail__date-input--hidden">`;
   }
 
-  // â”€â”€ Points slider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Points slider ────────────────────────────────────────
   if (points) {
     const min = sliderMin ?? 0;
     const max = sliderMax ?? 150;
@@ -1407,7 +1407,7 @@ export function renderTaskDetailSheet(options) {
     </div>`;
   }
 
-  // â”€â”€ Complete footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Complete footer ──────────────────────────────────────
   if (!readOnly && !isEvent && !task.exempt) {
     if (isLateEligible) {
       html += `<div class="task-detail__complete-footer">
@@ -1446,7 +1446,7 @@ export function renderCelebration() {
   return `<div class="celebration" id="celebration">
     ${confetti}
     <div class="celebration__content">
-      <span class="celebration__icon">ðŸŽ‰</span>
+      <span class="celebration__icon">🎉</span>
       <h3 class="celebration__title">All Done!</h3>
       <p class="celebration__subtitle">Great job finishing today's tasks!</p>
     </div>
@@ -1558,7 +1558,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
 
   <div class="ef2-field-reveal${notesOpen}" id="tf_notesReveal">
     <div class="ef2-field-reveal-inner">
-      <textarea id="tf_notes" rows="3" placeholder="Notesâ€¦">${esc(task.notes || '')}</textarea>
+      <textarea id="tf_notes" rows="3" placeholder="Notes…">${esc(task.notes || '')}</textarea>
       <button class="ef2-field-close" id="tf_notesClose" type="button" aria-label="Close notes">${CLOSE_SVG_TF}</button>
     </div>
   </div>
@@ -1588,7 +1588,7 @@ export function renderOfflineBanner(message) {
 }
 
 // initOwnerChips / getSelectedOwners moved to ./dom-helpers.js
-// (components.js stays pure â€” no DOM access)
+// (components.js stays pure — no DOM access)
 
 /**
  * Open the device theme picker bottom sheet.
@@ -1728,10 +1728,10 @@ export function renderSkeleton(variant = 'dashboard') {
 }
 
 /**
- * Dashboard loading skeleton â€” card-shaped placeholders matching the
+ * Dashboard loading skeleton — card-shaped placeholders matching the
  * populated layout. Used during first paint before Firebase resolves
  * (typically <500ms in cached + fresh cases). Replaces the inline
- * spinner per spec 2026-04-25 Â§3.7 + Â§5.18.
+ * spinner per spec 2026-04-25 §3.7 + §5.18.
  */
 export function renderDashboardSkeleton() {
   const row = `<div class="skeleton-card-row">
@@ -1756,7 +1756,7 @@ export function renderDashboardSkeleton() {
  * Creates a mount element, subscribes to connection changes, and auto-hides banners.
  *
  * @param {Function} onConnectionChange - Firebase connection listener function
- * @param {object} options - { showConnectionDot: boolean } â€” dot updates the header
+ * @param {object} options - { showConnectionDot: boolean } — dot updates the header
  * @returns {Function} unsubscribe function
  */
 export function initOfflineBanner(onConnectionChange, options = {}) {
@@ -1777,7 +1777,7 @@ export function initOfflineBanner(onConnectionChange, options = {}) {
 
     if (timer) clearTimeout(timer);
     if (!connected) {
-      mount.innerHTML = renderOfflineBanner('Working offline â€” changes will sync');
+      mount.innerHTML = renderOfflineBanner('Working offline — changes will sync');
       timer = setTimeout(() => { mount.innerHTML = ''; }, 3000);
     } else {
       mount.innerHTML = '';
@@ -1822,7 +1822,7 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
     const approveClass = isUseRequest ? 'bell-approve-use' : 'bell-approve';
     const denyClass = isUseRequest ? 'bell-deny-use' : 'bell-deny';
     html += `<div class="bell-dropdown__item bell-dropdown__item--pending" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}">
-      <span class="bell-dropdown__icon">${esc(isUseRequest ? (req.rewardIcon || reward.icon || 'ðŸŽ') : (reward.icon || 'ðŸŽ'))}</span>
+      <span class="bell-dropdown__icon">${esc(isUseRequest ? (req.rewardIcon || reward.icon || '🎁') : (reward.icon || '🎁'))}</span>
       <div class="bell-dropdown__body">
         <div class="bell-dropdown__item-title">${label}</div>
         <div class="bell-dropdown__item-subtitle">${subtitle}</div>
@@ -1835,14 +1835,14 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
   }
 
   for (const item of recentActivity.slice(0, 20)) {
-    const icon = item.type === 'fyi' ? 'ðŸ›ï¸' :
-                 item.type === 'bonus' ? 'âž•' :
-                 item.type === 'deduction' ? 'âž–' :
-                 item.type === 'redemption-approved' ? 'âœ…' :
-                 item.type === 'redemption-denied' ? 'âŒ' :
-                 item.type === 'use-approved' ? 'âœ…' :
-                 item.type === 'use-denied' ? 'âŒ' :
-                 item.type === 'reward-used' ? 'ðŸŽ‰' : 'ðŸ“‹';
+    const icon = item.type === 'fyi' ? '🛍️' :
+                 item.type === 'bonus' ? '➕' :
+                 item.type === 'deduction' ? '➖' :
+                 item.type === 'redemption-approved' ? '✅' :
+                 item.type === 'redemption-denied' ? '❌' :
+                 item.type === 'use-approved' ? '✅' :
+                 item.type === 'use-denied' ? '❌' :
+                 item.type === 'reward-used' ? '🎉' : '📋';
     const canRevoke = item.type === 'fyi' && item.bankTokenId;
     html += `<div class="bell-dropdown__item">
       <span class="bell-dropdown__icon">${icon}</span>
@@ -1856,14 +1856,14 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
     </div>`;
   }
 
-  // Kids' bank summary â€” shows active saved tokens per child
+  // Kids' bank summary — shows active saved tokens per child
   if (kidBankSummary.length > 0) {
     html += `<div class="bell-dropdown__section-head">Kids' Banks</div>`;
     for (const kid of kidBankSummary) {
       if (kid.activeCount === 0) continue;
       const names = kid.tokens.map(t => esc(t.rewardName || 'Reward')).join(', ');
       html += `<div class="bell-dropdown__item bell-dropdown__item--bank">
-        <span class="bell-dropdown__icon">ðŸ¦</span>
+        <span class="bell-dropdown__icon">🏦</span>
         <div class="bell-dropdown__body">
           <div class="bell-dropdown__item-title">${esc(kid.name)} &middot; ${kid.activeCount} saved</div>
           <div class="bell-dropdown__item-subtitle">${names}</div>
@@ -1900,7 +1900,7 @@ export function renderSendMessageSheet(people, preselectedPersonId = null, rewar
     .filter(([, r]) => r.status !== 'archived')
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
   const rewardOpts = activeRewards.map(([id, r]) =>
-    `<option value="${esc(id)}">${esc(r.icon || 'ðŸŽ')} ${esc(r.name)} (${r.pointCost ?? 0} pts)</option>`
+    `<option value="${esc(id)}">${esc(r.icon || '🎁')} ${esc(r.name)} (${r.pointCost ?? 0} pts)</option>`
   ).join('');
 
   return renderBottomSheet(`
@@ -1917,13 +1917,13 @@ export function renderSendMessageSheet(people, preselectedPersonId = null, rewar
     <label class="form-label sheet-label--spaced">Type</label>
     <div class="segmented-control msg-type-toggle">
       <button class="segmented-btn msg-type-btn msg-type-btn--active" data-type="bonus" type="button">+ Bonus</button>
-      <button class="segmented-btn msg-type-btn" data-type="deduction" type="button">âˆ’ Deduction</button>
+      <button class="segmented-btn msg-type-btn" data-type="deduction" type="button">− Deduction</button>
     </div>
 
     <label class="form-label sheet-label--spaced">Title</label>
     <input type="text" id="msg_customTitle" class="form-input" placeholder="Enter message title" autocomplete="off">
     <select class="form-input mt-xs" id="msg_templateSelect">
-      <option value="">â€” Or pick a template â€”</option>
+      <option value="">— Or pick a template —</option>
       ${positiveOpts}
     </select>
 
@@ -1962,7 +1962,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
     chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
   }
 
-  // Type toggle â€” swap template options and default points
+  // Type toggle — swap template options and default points
   for (const btn of sheet.querySelectorAll('.msg-type-btn')) {
     btn.addEventListener('click', () => {
       sheet.querySelectorAll('.msg-type-btn').forEach(b => b.classList.remove('msg-type-btn--active'));
@@ -1971,7 +1971,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
       const sel = sheet.querySelector('#msg_templateSelect');
       if (sel) {
         const templates = msgType === 'bonus' ? POSITIVE_TEMPLATES : NEGATIVE_TEMPLATES;
-        sel.innerHTML = `<option value="">â€” Or pick a template â€”</option>` +
+        sel.innerHTML = `<option value="">— Or pick a template —</option>` +
           templates.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
         sel.value = '';
       }
@@ -1979,7 +1979,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
     });
   }
 
-  // Template select â†’ populate title input
+  // Template select → populate title input
   sheet.querySelector('#msg_templateSelect')?.addEventListener('change', (e) => {
     if (e.target.value) {
       const titleInput = sheet.querySelector('#msg_customTitle');
@@ -2031,7 +2031,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
           rewardType: reward.rewardType || 'custom',
           rewardId,
           rewardName: reward.name || 'Reward',
-          rewardIcon: reward.icon || 'ðŸŽ',
+          rewardIcon: reward.icon || '🎁',
           acquiredAt: Date.now(),
           used: false,
           usedAt: null,
@@ -2039,7 +2039,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
         });
         await writeMessageFn(pid, {
           type: 'redemption-approved',
-          title: `${reward.icon || 'ðŸŽ'} ${reward.name || 'Reward'} sent!`,
+          title: `${reward.icon || '🎁'} ${reward.name || 'Reward'} sent!`,
           body: null,
           amount: 0,
           rewardId,
@@ -2059,7 +2059,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
 export function renderBonusDaySheet(people, todayDate) {
   const today = todayDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
   return renderBottomSheet(`
-    <h3 class="sheet-section-title">ðŸŽ‰ Bonus Day</h3>
+    <h3 class="sheet-section-title">🎉 Bonus Day</h3>
 
     <label class="form-label">Who</label>
     <div class="chip-group" id="bd_people">
@@ -2090,7 +2090,7 @@ export function renderBonusDaySheet(people, todayDate) {
 
 /**
  * Show a polished in-app confirmation/alert modal. Replaces browser confirm()/alert().
- * Returns a Promise<boolean> â€” true if confirmed, false if cancelled.
+ * Returns a Promise<boolean> — true if confirmed, false if cancelled.
  */
 export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false, alert: isAlert = false, inputPlaceholder = '' } = {}) {
   return new Promise((resolve) => {
@@ -2158,14 +2158,14 @@ export function showToast(message, duration = 3000) {
 }
 
 /**
- * Ambient strip â€” 2-up chip row: Weather + Dinner. Both chips are
+ * Ambient strip — 2-up chip row: Weather + Dinner. Both chips are
  * tappable. Empty-state nudges shown when data is absent (chip still
  * renders, with prompt copy). Caller passes data; component is pure.
  *
- * weather: { tempLabel: '72Â°', conditionLabel: 'Sunny', glyph: 'sun'|'cloud'|'rain'|'snow'|'fog', isPast?: bool, isFuture?: bool } | null
+ * weather: { tempLabel: '72°', conditionLabel: 'Sunny', glyph: 'sun'|'cloud'|'rain'|'snow'|'fog', isPast?: bool, isFuture?: bool } | null
  * dinner:  { name: 'Spaghetti', source?: 'manual'|'school' } | null
  *
- * Per spec 2026-04-25 Â§3.3: chip leading icons are SVG glyphs (no emoji
+ * Per spec 2026-04-25 §3.3: chip leading icons are SVG glyphs (no emoji
  * in chrome). Meal names may include emoji as user-authored text.
  */
 export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
@@ -2174,13 +2174,13 @@ export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
   const utensilsGlyph = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>';
 
   // Weather chip
-  let weatherValue = 'â€”Â° Â· Set location';
+  let weatherValue = '—° · Set location';
   let weatherGlyph = weatherGlyphs.cloud;
   if (weather) {
     if (weather.isPast) weatherValue = 'Past day';
-    else if (weather.isFuture) weatherValue = 'â€”Â° Â· No forecast yet';
+    else if (weather.isFuture) weatherValue = '—° · No forecast yet';
     else {
-      weatherValue = `${esc(weather.conditionLabel)} Â· ${esc(weather.tempLabel)}`;
+      weatherValue = `${esc(weather.conditionLabel)} · ${esc(weather.tempLabel)}`;
       weatherGlyph = weatherGlyphs[weather.glyph] || weatherGlyphs.cloud;
     }
   }
@@ -2273,17 +2273,17 @@ export function renderWeatherSheet(days, today, tomorrow) {
 }
 
 /**
- * Coming up rail â€” 7-day forward look. Collapsed by default; expanded
+ * Coming up rail — 7-day forward look. Collapsed by default; expanded
  * shows day-blocks for the next 7 days starting today+1 (today excluded).
- * Days with zero events render zero rows. Spec 2026-04-25 Â§3.4.
+ * Days with zero events render zero rows. Spec 2026-04-25 §3.4.
  *
  * Args:
  *   days: Array<{ dateKey, dayLabel: { dow, monthDay }, events: Array<[eventId, event]> }>
  *     Sorted ascending; only days with events.
- *   isExpanded: boolean â€” current expand state.
- *   summary: string â€” pre-built summary line ("3 events this week" /
+ *   isExpanded: boolean — current expand state.
+ *   summary: string — pre-built summary line ("3 events this week" /
  *     "clear week" / "2 events for Noah this week" / etc.).
- *   filterPersonName: string â€” used by empty-state copy ("for Noah").
+ *   filterPersonName: string — used by empty-state copy ("for Noah").
  */
 export function renderComingUp({ days = [], isExpanded = false, summary = '', filterPersonName = '' } = {}) {
   const chevSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>`;
@@ -2299,7 +2299,7 @@ export function renderComingUp({ days = [], isExpanded = false, summary = '', fi
     blocksHtml = days.map(d => {
       const eventsHtml = d.events.map(([eventId, ev]) => {
         const time = ev.allDay ? 'All day' : (ev.startTime ? _formatEventTime12h(ev.startTime) : '');
-        const meta = [ev.location].filter(Boolean).map(esc).join(' Â· ');
+        const meta = [ev.location].filter(Boolean).map(esc).join(' · ');
         const metaHtml = meta ? `<span class="event-row__meta">${meta}</span>` : '';
         return `<button class="event-row" data-event-id="${esc(eventId)}" type="button">
           <span class="event-row__time">${esc(time)}</span>
@@ -2330,7 +2330,7 @@ export function renderComingUp({ days = [], isExpanded = false, summary = '', fi
   </section>`;
 }
 
-// Internal helper â€” 24h "07:00" -> "7:00 AM".
+// Internal helper — 24h "07:00" -> "7:00 AM".
 function _formatEventTime12h(t24) {
   if (!t24) return '';
   const [hStr, mStr] = t24.split(':');
@@ -2365,7 +2365,7 @@ export function initBanner({ getIsOffline = () => false } = {}) {
       const s = window.__activeActivitySession;
       banner = {
         variant: 'info',
-        title: `${s.name} Â· ${s.elapsed}`,
+        title: `${s.name} · ${s.elapsed}`,
         action: { label: 'Stop', onClick: () => window.__stopActivitySession?.() }
       };
     } else if (getIsOffline()) {
@@ -2500,7 +2500,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         bindSendMessageSheet(mount, writeMessageFn, approver, writeBankTokenFn, getRewards);
       });
 
-      // Wire "Clear All" button â€” deletes all messages except unseen FYIs with revoke options
+      // Wire "Clear All" button — deletes all messages except unseen FYIs with revoke options
       document.getElementById('bellClearAll')?.addEventListener('click', async () => {
         if (!await showConfirm({ title: 'Clear all notification history?', danger: true })) return;
         const people = getPeople();
@@ -2508,7 +2508,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
           const msgs = bellMessages[p.id];
           if (!msgs) continue;
           for (const [msgId, msg] of Object.entries(msgs)) {
-            // Keep unseen FYIs that have a bank token â€” parent may still want to revoke
+            // Keep unseen FYIs that have a bank token — parent may still want to revoke
             if (msg.type === 'fyi' && !msg.seen && msg.bankTokenId) continue;
             if (removeMessageFn) await removeMessageFn(p.id, msgId);
             else await markMessageSeenFn(p.id, msgId);
@@ -2583,7 +2583,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
 
           const reward = getRewards()[msg.rewardId] || {};
           if (msg.intent === 'use-now') {
-            // One approval covers purchase + use â€” no bank token
+            // One approval covers purchase + use — no bank token
             await writeMessageFn(personId, {
               type: 'redemption-approved',
               title: `${reward.name || 'Reward'} approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
@@ -2608,7 +2608,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
               createdBy: approver
             });
           } else {
-            // Legacy save intent â€” bank the token
+            // Legacy save intent — bank the token
             await writeMessageFn(personId, {
               type: 'redemption-approved',
               title: `${reward.name || 'Reward'} approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
@@ -2624,7 +2624,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
               rewardType: reward.rewardType || 'custom',
               rewardId: msg.rewardId,
               rewardName: reward.name || 'Reward',
-              rewardIcon: reward.icon || 'ðŸŽ',
+              rewardIcon: reward.icon || '🎁',
               acquiredAt: Date.now(),
               used: false,
               usedAt: null,
@@ -2652,7 +2652,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             confirmLabel: 'Deny',
             cancelLabel: 'Cancel',
             danger: true,
-            inputPlaceholder: 'Reason (optional â€” kid will see this)'
+            inputPlaceholder: 'Reason (optional — kid will see this)'
           });
           if (!result) return;
           const reason = typeof result === 'object' ? result.value : '';
@@ -2705,7 +2705,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
 
           await writeMessageFn(personId, {
             type: 'use-approved',
-            title: `${msg.rewardName || 'Reward'} â€” approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
+            title: `${msg.rewardName || 'Reward'} — approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
             body: null,
             amount: 0,
             rewardId: msg.rewardId || null,
@@ -2733,14 +2733,14 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             confirmLabel: 'Deny',
             cancelLabel: 'Cancel',
             danger: true,
-            inputPlaceholder: 'Reason (optional â€” kid will see this)'
+            inputPlaceholder: 'Reason (optional — kid will see this)'
           });
           if (!result) return;
           const reason = typeof result === 'object' ? result.value : '';
 
           await writeMessageFn(personId, {
             type: 'use-denied',
-            title: `${msg.rewardName || 'Reward'} â€” not right now (${approver})`,
+            title: `${msg.rewardName || 'Reward'} — not right now (${approver})`,
             body: reason || null,
             amount: 0,
             rewardId: msg.rewardId || null,
@@ -2821,12 +2821,12 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
  * Returns HTML string; mount inside renderBottomSheet() then bind #meForm events in the page.
  *
  * Events the page must bind after mounting:
- *   #meForm submit           â†’ save
- *   #me_addIngredient click  â†’ add ingredient row
- *   .me-ingredient-remove    â†’ remove ingredient row (delegate on #me_ingredients)
- *   #me_tagInput keydown     â†’ Enter/comma adds a tag
- *   .me-tag__remove          â†’ remove tag (delegate on #me_tags)
- *   #meDelete click          â†’ delete (edit mode only)
+ *   #meForm submit           → save
+ *   #me_addIngredient click  → add ingredient row
+ *   .me-ingredient-remove    → remove ingredient row (delegate on #me_ingredients)
+ *   #me_tagInput keydown     → Enter/comma adds a tag
+ *   .me-tag__remove          → remove tag (delegate on #me_tags)
+ *   #meDelete click          → delete (edit mode only)
  */
 export function renderMealEditorSheet(meal = null, mealId = null) {
   const isEdit = meal !== null;
@@ -2895,7 +2895,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
       <label class="field__label" for="me_url">Recipe link</label>
       <div class="me-url-row">
         <input class="field__input" id="me_url" type="url" value="${url}"
-               placeholder="https://â€¦">
+               placeholder="https://…">
         <a class="me-url-open" id="me_urlOpen" href="${esc(url || '#')}"
            target="_blank" rel="noopener noreferrer" aria-label="Open recipe link"${url ? '' : ' hidden'}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -2905,7 +2905,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
 
     <label class="field">
       <span class="field__label">Notes</span>
-      <textarea class="field__input" id="me_notes" placeholder="Any notesâ€¦" rows="3">${notes}</textarea>
+      <textarea class="field__input" id="me_notes" placeholder="Any notes…" rows="3">${notes}</textarea>
     </label>
 
     <input type="hidden" id="me_mealId" value="${esc(mealId || '')}">
@@ -2916,19 +2916,19 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
  * Render the meal plan sheet body (assign a meal to a day/slot).
  *
  * opts:
- *   date: string 'YYYY-MM-DD' â€” pre-selected date
- *   slot: 'breakfast'|'lunch'|'dinner'|'snack' â€” pre-selected slot
- *   library: object { [mealId]: mealObj } â€” full meal library
- *   currentMealId: string|null â€” currently assigned meal for this slot (for remove link)
+ *   date: string 'YYYY-MM-DD' — pre-selected date
+ *   slot: 'breakfast'|'lunch'|'dinner'|'snack' — pre-selected slot
+ *   library: object { [mealId]: mealObj } — full meal library
+ *   currentMealId: string|null — currently assigned meal for this slot (for remove link)
  *
  * Events the page must bind after mounting:
- *   #mpForm submit                    â†’ save selected meal
- *   .mp-slot-tab click                â†’ switch active slot (delegate on #mp_slotTabs)
- *   #mp_search input                  â†’ filter library chips
- *   .meal-chip[data-meal-id] click    â†’ select a meal
- *   #mp_createNew click               â†’ open inline editor (hide results, show #mp_inlineEditor)
- *   #mp_removeLink click              â†’ remove existing assignment
- *   #mp_inlineBack click              â†’ back to picker from inline editor
+ *   #mpForm submit                    → save selected meal
+ *   .mp-slot-tab click                → switch active slot (delegate on #mp_slotTabs)
+ *   #mp_search input                  → filter library chips
+ *   .meal-chip[data-meal-id] click    → select a meal
+ *   #mp_createNew click               → open inline editor (hide results, show #mp_inlineEditor)
+ *   #mp_removeLink click              → remove existing assignment
+ *   #mp_inlineBack click              → back to picker from inline editor
  */
 export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, currentMealId = null } = {}) {
   const SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -2984,7 +2984,7 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
     <div class="mp-meal-section">
       <div class="mp-search-row">
         <input class="field__input mp-search-input" id="mp_search" type="search"
-               placeholder="Search mealsâ€¦" autocomplete="off">
+               placeholder="Search meals…" autocomplete="off">
         <button class="mp-create-btn" id="mp_createNew" type="button" aria-label="Create new meal">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
@@ -2996,7 +2996,7 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
 
     <div class="mp-inline-editor" id="mp_inlineEditor" hidden>
       <div class="mp-inline-header">
-        <button class="btn btn--ghost btn--sm" id="mp_inlineBack" type="button">â† Back</button>
+        <button class="btn btn--ghost btn--sm" id="mp_inlineBack" type="button">← Back</button>
         <span class="mp-inline-title">New meal</span>
       </div>
       <label class="field">
@@ -3011,11 +3011,11 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
       </label>
       <label class="field">
         <span class="field__label">Recipe link</span>
-        <input class="field__input" id="mp_inlineUrl" type="url" placeholder="https://â€¦">
+        <input class="field__input" id="mp_inlineUrl" type="url" placeholder="https://…">
       </label>
       <label class="field">
         <span class="field__label">Notes</span>
-        <textarea class="field__input" id="mp_inlineNotes" placeholder="Any notesâ€¦" rows="2"></textarea>
+        <textarea class="field__input" id="mp_inlineNotes" placeholder="Any notes…" rows="2"></textarea>
       </label>
     </div>
 
@@ -3029,16 +3029,16 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
  *
  * meal: meal library object { name, ingredients, url, notes, prepTime, isFavorite, tags }
  * planEntry: { mealId, source } from meals/{date}/{slot}
- * slot: string â€” slot key for display label
- * readonly: boolean â€” when true, hides edit/change/remove actions (kid mode / calendar)
+ * slot: string — slot key for display label
+ * readonly: boolean — when true, hides edit/change/remove actions (kid mode / calendar)
  *
  * Events the page must bind after mounting:
- *   #mdClose click     â†’ close sheet
- *   #mdLink click      â†’ open recipe URL (only if meal.url)
- *   #mdAddToList click â†’ add ingredients to shopping list (only if ingredients present)
- *   #mdChange click    â†’ open plan sheet to change meal (only if !readonly && !isSchool)
- *   #mdEdit click      â†’ open meal editor (only if !readonly && !isSchool)
- *   #mdRemove click    â†’ remove this slot from plan (only if !readonly && !isSchool)
+ *   #mdClose click     → close sheet
+ *   #mdLink click      → open recipe URL (only if meal.url)
+ *   #mdAddToList click → add ingredients to shopping list (only if ingredients present)
+ *   #mdChange click    → open plan sheet to change meal (only if !readonly && !isSchool)
+ *   #mdEdit click      → open meal editor (only if !readonly && !isSchool)
+ *   #mdRemove click    → remove this slot from plan (only if !readonly && !isSchool)
  */
 export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = '') {
   if (!meal) return `<p class="text-muted" style="padding:var(--spacing-md)">Meal not found.</p>`;
@@ -3144,7 +3144,7 @@ export function renderRepeatSheet(rule) {
   const endCount = rule?.end?.count || 5;
 
   return `<div class="sheet__header sheet__header--with-back">
-    <button class="btn btn--ghost btn--sm" id="rptBack" type="button">â† Back</button>
+    <button class="btn btn--ghost btn--sm" id="rptBack" type="button">← Back</button>
     <h2 class="sheet__title">Repeat</h2>
   </div>
   <div class="sheet__content">

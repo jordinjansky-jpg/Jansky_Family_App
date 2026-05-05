@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <!-- v2 -->
 <html lang="en">
 <head>
@@ -11,7 +11,7 @@
   <link rel="icon" href="/App Icon.png" type="image/png">
   <link rel="apple-touch-icon" href="/App Icon.png">
   <link rel="manifest" href="manifest.json">
-  <title>Family Hub â€” Setup</title>
+  <title>Family Hub — Setup</title>
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/layout.css">
   <link rel="stylesheet" href="styles/components.css">
@@ -22,7 +22,7 @@
 <body>
   <div class="setup-container" id="app">
     <div class="setup-header">
-      <div class="setup-header__emoji">ðŸ“‹</div>
+      <div class="setup-header__emoji">📋</div>
       <h1 class="setup-header__title">Daily Rundown</h1>
       <p class="setup-header__subtitle">Let's set up your family task manager</p>
     </div>
@@ -88,13 +88,13 @@
     <!-- Step 3: Categories -->
     <div class="setup-step" id="step-3" data-step="3">
       <h2 class="setup-step__title">Task categories</h2>
-      <p class="setup-step__desc">Organize tasks into groups. Defaults are provided â€” customize as needed.</p>
+      <p class="setup-step__desc">Organize tasks into groups. Defaults are provided — customize as needed.</p>
       <div class="setup-step__body">
         <div class="category-list" id="categoryList"></div>
         <div class="add-person-form mt-md is-hidden" id="addCategoryForm">
           <div class="form-group">
             <label class="form-label" for="catIcon">Emoji Icon</label>
-            <input type="text" id="catIcon" placeholder="ðŸ§¹" maxlength="4" class="setup-form__icon-input">
+            <input type="text" id="catIcon" placeholder="🧹" maxlength="4" class="setup-form__icon-input">
           </div>
           <div class="form-group">
             <label class="form-label" for="catLabel">Label</label>
@@ -152,7 +152,7 @@
     <!-- Step 6: Finish -->
     <div class="setup-step" id="step-6" data-step="6">
       <div class="finish-screen">
-        <div class="finish-screen__emoji">ðŸŽ‰</div>
+        <div class="finish-screen__emoji">🎉</div>
         <h2 class="setup-step__title">You're all set!</h2>
         <div class="finish-screen__summary" id="finishSummary"></div>
         <button class="btn btn--primary btn--full" onclick="finishSetup()" id="finishBtn">Launch Daily Rundown</button>
@@ -179,11 +179,11 @@
 
     let people = [];
     let categories = [
-      { key: 'chores', icon: 'ðŸ§¹', label: 'Chores', pinProtected: false, weightPercent: null },
-      { key: 'wellness', icon: 'ðŸ’†', label: 'Wellness', pinProtected: false, weightPercent: null },
-      { key: 'fitness', icon: 'ðŸ’ª', label: 'Fitness', pinProtected: false, weightPercent: null },
-      { key: 'education', icon: 'ðŸ“š', label: 'Education', pinProtected: false, weightPercent: null },
-      { key: 'behavior', icon: 'â­', label: 'Behavior', pinProtected: false, weightPercent: null }
+      { key: 'chores', icon: '🧹', label: 'Chores', pinProtected: false, weightPercent: null },
+      { key: 'wellness', icon: '💆', label: 'Wellness', pinProtected: false, weightPercent: null },
+      { key: 'fitness', icon: '💪', label: 'Fitness', pinProtected: false, weightPercent: null },
+      { key: 'education', icon: '📚', label: 'Education', pinProtected: false, weightPercent: null },
+      { key: 'behavior', icon: '⭐', label: 'Behavior', pinProtected: false, weightPercent: null }
     ];
     let selectedColor = null;
     let selectedRole = 'adult';
@@ -201,7 +201,7 @@
     if (cached) applyTheme(cached);
     else applyTheme(defaultThemeConfig());
 
-    // Check if setup already completed â€” redirect to dashboard
+    // Check if setup already completed — redirect to dashboard
     readSettings().then(settings => {
       if (settings) {
         window.location.href = 'index.html';
@@ -388,7 +388,7 @@
     };
 
     window.saveCategory = function() {
-      const icon = document.getElementById('catIcon').value.trim() || 'ðŸ“Œ';
+      const icon = document.getElementById('catIcon').value.trim() || '📌';
       const label = document.getElementById('catLabel').value.trim();
       if (!label) { document.getElementById('catLabel').focus(); return; }
 
@@ -426,7 +426,7 @@
           <div class="theme-option__label">${p.label}</div>
         </div>`;
       }).join('');
-      // Apply theme-preview custom props â€” local (not shared applyDataColors) since this is setup-only.
+      // Apply theme-preview custom props — local (not shared applyDataColors) since this is setup-only.
       grid.querySelectorAll('[data-theme-preview]').forEach(el => {
         const [bg, fg] = el.dataset.themePreview.split('|');
         el.style.setProperty('--theme-preview-bg', bg);
@@ -490,7 +490,7 @@
       const kids = people.filter(p => p.role === 'child').length;
 
       let summary = `<strong>${esc(appName)}</strong>`;
-      if (familyName) summary += ` â€” ${esc(familyName)}`;
+      if (familyName) summary += ` — ${esc(familyName)}`;
       summary += `<br>${people.length} family member${people.length !== 1 ? 's' : ''} (${adults} adult${adults !== 1 ? 's' : ''}, ${kids} kid${kids !== 1 ? 's' : ''})`;
       summary += `<br>${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}`;
 
