@@ -1391,13 +1391,7 @@
     // (Meals tab removed — recipe library is now in Kitchen)
     // ══════════════════════════════════════════
 
-    let editingPersonId = null;
-
     function renderPeopleTab() {
-      if (editingPersonId !== null) {
-        return renderPersonDetail(editingPersonId === 'new' ? null : editingPersonId);
-      }
-
       const pa = peopleArray();
       let html = `<div class="admin-list-add">
     <button class="btn btn--primary btn--sm" id="addPersonBtn" type="button">+ Add Person</button>
@@ -1423,115 +1417,248 @@
       return html;
     }
 
-    function renderPersonDetail(personId) {
-      const person = personId ? peopleObj[personId] : {};
+    function openPersonSheet(personId) {
       const isEdit = !!personId;
+      const person = personId ? (peopleObj[personId] || {}) : {};
       const colors = getColorPalette();
       const usedColors = peopleArray().filter(p => p.id !== personId).map(p => p.color);
       const selColor = person.color || colors.find(c => !usedColors.includes(c)) || colors[0];
       const role = person.role || 'adult';
       const ks = person.kidSettings || {};
       const prefs = person.prefs || {};
+      const isAdmin = !!person.isAdmin;
+      const personName = esc(person.name || '');
+      const profileBase = role === 'child' ? 'kid.html?kid=' : 'person.html?person=';
+      const profileHref = profileBase + encodeURIComponent(person.name || '');
 
-      return `<div class="admin-person-detail">
-    <div class="admin-detail-back">
-      <button class="btn btn--ghost btn--sm" id="personDetailBack" type="button">&#x2039; People</button>
-      <h2 class="admin-detail-title">${isEdit ? esc(person.name || 'Person') : 'New Person'}</h2>
+      const mount = document.getElementById('taskSheetMount');
+      if (!mount) return;
+
+      mount.innerHTML = renderBottomSheet(`<div class="tf-form">
+  <div class="sheet__header">
+    <h2 class="sheet__title">${isEdit ? personName || 'Person' : 'New Person'}</h2>
+    <div class="rf-header-actions">
+      ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="ps_delete" type="button" aria-label="Delete" title="Delete">${RF_DELETE_SVG}</button>` : ''}
+      <button class="ef2-icon-btn rf-save-btn" id="ps_save" type="button" aria-label="${isEdit ? 'Save' : 'Add person'}" title="${isEdit ? 'Save' : 'Add person'}">${RF_SAVE_SVG}</button>
+      <button class="ef2-icon-btn" id="ps_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
     </div>
+  </div>
 
-    <div class="admin-detail-section">
-      <div class="admin-detail-section__title">Profile</div>
-      <div class="admin-form__group">
-        <label class="form-label" for="pf_name">Name</label>
-        <input class="form-input" type="text" id="pf_name" value="${esc(person.name || '')}" placeholder="e.g., Jordin">
-      </div>
-      <div class="admin-form__group">
-        <label class="form-label">Color</label>
-        ${renderColorButton(selColor, 'pf_colorPicker')}
-      </div>
-      <div class="admin-form__group">
-        <label class="form-label">Role</label>
-        <div class="form-row">
-          <button class="btn btn--secondary btn--sm admin-role-btn${role === 'adult' ? ' admin-mode-btn--active' : ''}" data-role="adult" type="button">Adult</button>
-          <button class="btn btn--secondary btn--sm admin-role-btn${role === 'child' ? ' admin-mode-btn--active' : ''}" data-role="child" type="button">Kid</button>
-        </div>
-      </div>
+  <div class="tf-title-row">
+    <input class="tf-title-input" id="ps_name" type="text" placeholder="Name" value="${personName}" autocomplete="off">
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="ps-color-role-row">
+    <div class="ps-color-group">
+      <span class="ef2-section-label">Color</span>
+      ${renderColorButton(selColor, 'ps_colorPicker')}
     </div>
+    <div class="tf-rotation-pills" id="ps_role">
+      <button class="tf-rot-pill${role === 'adult' ? ' tf-rot-pill--active' : ''}" data-role="adult" type="button">Adult</button>
+      <button class="tf-rot-pill${role === 'child' ? ' tf-rot-pill--active' : ''}" data-role="child" type="button">Kid</button>
+    </div>
+  </div>
 
-    <div class="admin-detail-section" id="adminAccessSection" style="display:${role === 'adult' ? '' : 'none'}">
-      <div class="admin-detail-section__title">Admin Access</div>
-      <div class="admin-toggle-row">
-        <span class="admin-toggle-row__label">
-          Can access admin without PIN
-          <span class="admin-toggle-row__hint">This person can open admin directly from their home screen.</span>
-        </span>
+  <div class="ef2-divider"></div>
+
+  <div class="ef2-secondary-row">
+    <button class="ef2-add-chip" id="ps_optionsChip" type="button">+ Options</button>
+  </div>
+
+  <div class="ef2-field-reveal" id="ps_optionsReveal">
+    <div class="tf-options-inner">
+
+      <div class="tf-options-row${role === 'child' ? ' is-hidden' : ''}" id="ps_adminRow">
+        <span class="tf-options-label">Admin access</span>
         <label class="form-toggle">
-          <input type="checkbox" id="pf_isAdmin"${person.isAdmin ? ' checked' : ''}>
+          <input type="checkbox" id="ps_isAdmin"${isAdmin ? ' checked' : ''}>
           <span class="form-toggle__track"></span>
         </label>
       </div>
-    </div>
 
-    <div class="admin-detail-section" id="kidSettingsSection" style="display:${role === 'child' ? '' : 'none'}">
-      <div class="admin-detail-section__title">Kid Settings</div>
-      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show tonight's dinner</span><label class="form-toggle"><input type="checkbox" id="pf_showMeals"${prefs.showMeals !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show weather</span><label class="form-toggle"><input type="checkbox" id="pf_showWeather"${prefs.showWeather !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show store</span><label class="form-toggle"><input type="checkbox" id="pf_showStore"${ks.showStore !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show achievements</span><label class="form-toggle"><input type="checkbox" id="pf_showAchievements"${ks.showAchievements !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Celebrations enabled</span><label class="form-toggle"><input type="checkbox" id="pf_celebrationsEnabled"${ks.celebrationsEnabled !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-      <div class="admin-toggle-row"><span class="admin-toggle-row__label">Can swipe between days</span><label class="form-toggle"><input type="checkbox" id="pf_canSwipeDays"${ks.canSwipeDays ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-      <div class="admin-form__group mt-sm">
-        <label class="form-label">Celebration style</label>
-        <select class="form-input" id="pf_celebrationStyle">
-          <option value="full"${(ks.celebrationStyle || 'full') === 'full' ? ' selected' : ''}>Full</option>
-          <option value="subtle"${ks.celebrationStyle === 'subtle' ? ' selected' : ''}>Subtle</option>
-          <option value="off"${ks.celebrationStyle === 'off' ? ' selected' : ''}>Off</option>
-        </select>
+      <div id="ps_kidSection"${role !== 'child' ? ' class="is-hidden"' : ''}>
+        <div class="tf-options-row">
+          <span class="tf-options-label">Show tonight's dinner</span>
+          <label class="form-toggle"><input type="checkbox" id="ps_showMeals"${prefs.showMeals !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+        <div class="tf-options-row">
+          <span class="tf-options-label">Show weather</span>
+          <label class="form-toggle"><input type="checkbox" id="ps_showWeather"${prefs.showWeather !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+        <div class="tf-options-row">
+          <span class="tf-options-label">Show store</span>
+          <label class="form-toggle"><input type="checkbox" id="ps_showStore"${ks.showStore !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+        <div class="tf-options-row">
+          <span class="tf-options-label">Show achievements</span>
+          <label class="form-toggle"><input type="checkbox" id="ps_showAchievements"${ks.showAchievements !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+        <div class="tf-options-row">
+          <span class="tf-options-label">Celebrations enabled</span>
+          <label class="form-toggle"><input type="checkbox" id="ps_celebrationsEnabled"${ks.celebrationsEnabled !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+        <div class="tf-options-row">
+          <span class="tf-options-label">Can swipe between days</span>
+          <label class="form-toggle"><input type="checkbox" id="ps_canSwipeDays"${ks.canSwipeDays ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+        <div class="tf-options-row">
+          <span class="tf-options-label">Celebration style</span>
+          <select id="ps_celebrationStyle" class="ps-options-select">
+            <option value="full"${(ks.celebrationStyle || 'full') === 'full' ? ' selected' : ''}>Full</option>
+            <option value="subtle"${ks.celebrationStyle === 'subtle' ? ' selected' : ''}>Subtle</option>
+            <option value="off"${ks.celebrationStyle === 'off' ? ' selected' : ''}>Off</option>
+          </select>
+        </div>
       </div>
-      <div class="admin-form__group mt-sm">
-        <label class="form-label">Personal theme</label>
-        <select class="form-input" id="pf_theme">
-          <option value=""${!person.theme?.preset ? ' selected' : ''}>Use family theme</option>
+
+      <div class="tf-options-row">
+        <span class="tf-options-label">Personal theme</span>
+        <select id="ps_theme" class="ps-options-select">
+          <option value=""${!person.theme?.preset ? ' selected' : ''}>Family theme</option>
           ${getPresets().map(p => `<option value="${p.key}"${person.theme?.preset === p.key ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
         </select>
       </div>
-    </div>
 
-    ${isEdit ? `<div class="admin-detail-section">
-      <div class="admin-detail-section__title">Rewards</div>
-      <div class="admin-form__group">
-        <div class="admin-person-detail__balance-label">Store balance</div>
-        <div class="admin-person-detail__balance" id="personBalance_${personId}">Loading…</div>
-      </div>
-      <div class="admin-form__group">
-        <label class="form-label" for="pf_balanceAnchor">Balance anchor</label>
-        <div class="admin-form__row">
-          <input class="form-input" type="number" id="pf_balanceAnchor" value="0" step="1" style="flex:1">
-          <button class="btn btn--secondary btn--sm" id="pf_saveAnchor" type="button">Save</button>
+      ${isEdit ? `
+      <div class="ps-balance-section">
+        <div class="tf-options-row">
+          <span class="tf-options-label">Store balance</span>
+          <span class="ps-balance-value" id="ps_balanceDisplay">—</span>
+        </div>
+        <div class="tf-options-row">
+          <span class="tf-options-label">Balance anchor</span>
+          <div class="ps-anchor-input-group">
+            <input type="number" id="ps_balanceAnchor" class="tf-cooldown-input ps-anchor-input" value="0" step="1">
+            <button class="btn btn--secondary btn--sm" id="ps_saveAnchor" type="button">Save</button>
+          </div>
+        </div>
+        <div class="ps-balance-btn-row">
+          <button class="btn btn--secondary btn--sm" id="ps_addBonus" type="button">+ Bonus</button>
+          <button class="btn btn--secondary btn--sm" id="ps_addDeduction" type="button">− Deduction</button>
         </div>
       </div>
-      <div class="admin-form__row mt-xs">
-        <button class="btn btn--secondary btn--sm" id="pf_addBonus" data-person-id="${personId}" type="button" style="flex:1">+ Add Bonus</button>
-        <button class="btn btn--secondary btn--sm" id="pf_addDeduction" data-person-id="${personId}" type="button" style="flex:1">− Add Deduction</button>
+      ` : ''}
+
+      <div class="tf-options-row">
+        <a class="btn btn--ghost btn--sm" id="ps_profileLink" href="${profileHref}" target="_blank">Open profile</a>
       </div>
-    </div>` : ''}
 
-    <div class="admin-detail-section">
-      <div class="admin-detail-section__title">Profile link</div>
-      <a href="${role === 'child' ? 'kid.html?kid=' : 'person.html?person='}${encodeURIComponent(person.name || '')}" class="btn btn--secondary btn--sm" target="_blank">Open ${role === 'child' ? 'Kid' : 'Person'} page</a>
     </div>
+  </div>
+</div>`);
 
-    <div class="admin-form__actions mt-md">
-      <button class="btn btn--secondary" id="personDetailCancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="personDetailSave" type="button">${isEdit ? 'Save Changes' : 'Add Person'}</button>
-    </div>
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
 
-    ${isEdit ? `<div class="admin-detail-section admin-detail-section--danger">
-      <div class="admin-detail-section__title">Danger Zone</div>
-      <button class="btn btn--danger btn--sm" id="deletePersonBtn" data-person-id="${personId}" type="button">Delete ${esc(person.name || 'Person')}&#x2026;</button>
-      <p class="form-hint mt-xs">Removes this person and all associated messages, bank tokens, wishlist, and achievements.</p>
-    </div>` : ''}
-  </div>`;
+      initColorButton(mount.querySelector('#ps_colorPicker')?.closest('.cpick-wrap'), null);
+
+      let currentRole = role;
+
+      mount.querySelector('#ps_role')?.addEventListener('click', e => {
+        const pill = e.target.closest('[data-role]');
+        if (!pill) return;
+        currentRole = pill.dataset.role;
+        mount.querySelectorAll('#ps_role .tf-rot-pill').forEach(p => p.classList.toggle('tf-rot-pill--active', p.dataset.role === currentRole));
+        mount.querySelector('#ps_adminRow')?.classList.toggle('is-hidden', currentRole === 'child');
+        mount.querySelector('#ps_kidSection')?.classList.toggle('is-hidden', currentRole !== 'child');
+        const link = mount.querySelector('#ps_profileLink');
+        if (link) {
+          const name = mount.querySelector('#ps_name')?.value.trim() || '';
+          link.href = (currentRole === 'child' ? 'kid.html?kid=' : 'person.html?person=') + encodeURIComponent(name);
+        }
+      });
+
+      mount.querySelector('#ps_optionsChip')?.addEventListener('click', () => {
+        const chip = mount.querySelector('#ps_optionsChip');
+        const reveal = mount.querySelector('#ps_optionsReveal');
+        const open = reveal?.classList.toggle('is-open');
+        chip?.classList.toggle('is-active', !!open);
+      });
+
+      mount.querySelector('#ps_close')?.addEventListener('click', closeAdminSheet);
+
+      if (isEdit) {
+        mount.querySelector('#ps_delete')?.addEventListener('click', async () => {
+          const confirmed = await showConfirm({
+            title: `Delete ${person.name || 'this person'}?`,
+            message: 'This removes the person and all associated messages, bank tokens, wishlist, and achievements. This cannot be undone.',
+            confirmLabel: 'Delete',
+            danger: true,
+          });
+          if (!confirmed) return;
+          await firebase.database().ref(`rundown/people/${personId}`).remove();
+          await deletePersonRewardsData(personId);
+          peopleObj = await readPeople() || {};
+          closeAdminSheet();
+          render();
+        });
+      }
+
+      mount.querySelector('#ps_save')?.addEventListener('click', async () => {
+        const name = mount.querySelector('#ps_name')?.value.trim();
+        if (!name) { showToast('Name is required'); return; }
+        const color = mount.querySelector('#ps_colorPicker')?.value || selColor;
+        const roleVal = mount.querySelector('#ps_role .tf-rot-pill--active')?.dataset.role || 'adult';
+        const isAdminVal = roleVal === 'adult' ? (mount.querySelector('#ps_isAdmin')?.checked || false) : false;
+        const kidSettings = roleVal === 'child' ? {
+          celebrationsEnabled: mount.querySelector('#ps_celebrationsEnabled')?.checked ?? true,
+          celebrationStyle: mount.querySelector('#ps_celebrationStyle')?.value || 'full',
+          canSwipeDays: mount.querySelector('#ps_canSwipeDays')?.checked || false,
+          showStore: mount.querySelector('#ps_showStore')?.checked ?? true,
+          showAchievements: mount.querySelector('#ps_showAchievements')?.checked ?? true,
+        } : undefined;
+        const pfPrefs = roleVal === 'child' ? {
+          showMeals: mount.querySelector('#ps_showMeals')?.checked ?? true,
+          showWeather: mount.querySelector('#ps_showWeather')?.checked ?? true,
+        } : undefined;
+        const themePreset = mount.querySelector('#ps_theme')?.value || '';
+        const theme = themePreset ? { preset: themePreset } : undefined;
+
+        const data = {
+          name, color, role: roleVal, isAdmin: isAdminVal,
+          ...(kidSettings && { kidSettings }),
+          ...(pfPrefs && { prefs: pfPrefs }),
+          ...(theme && { theme }),
+        };
+
+        if (isEdit) {
+          await firebase.database().ref(`rundown/people/${personId}`).update(data);
+        } else {
+          await firebase.database().ref('rundown/people').push(data);
+        }
+        peopleObj = await readPeople() || {};
+        closeAdminSheet();
+        render();
+      });
+
+      if (isEdit) {
+        mount.querySelector('#ps_saveAnchor')?.addEventListener('click', async () => {
+          const amount = parseFloat(mount.querySelector('#ps_balanceAnchor')?.value || '0');
+          await firebase.database().ref(`rundown/balanceAnchors/${personId}`).set({ amount, anchoredAt: firebase.database.ServerValue.TIMESTAMP });
+          showToast('Balance anchor saved');
+        });
+
+        mount.querySelector('#ps_addBonus')?.addEventListener('click', () => openMsgModal(personId, 'bonus'));
+        mount.querySelector('#ps_addDeduction')?.addEventListener('click', () => openMsgModal(personId, 'deduction'));
+
+        Promise.all([
+          readBalanceAnchor(personId),
+          readAllSnapshots(),
+          readMultipliers()
+        ]).then(([anchor, allSnapshots, multipliers]) => {
+          const msgs = allMessagesObj[personId] || {};
+          const { balance } = calculateBalance(personId, allSnapshots || {}, msgs, anchor, multipliers || {}, tz);
+          const balEl = mount.querySelector('#ps_balanceDisplay');
+          if (balEl) balEl.textContent = `${balance} pts`;
+          const anchorEl = mount.querySelector('#ps_balanceAnchor');
+          if (anchorEl) anchorEl.value = anchor?.amount ?? 0;
+        });
+      }
+    }  </div>`;
     }
 
     // ══════════════════════════════════════════
@@ -3610,138 +3737,15 @@
     }
 
     function bindPeopleTab() {
-      // List view
       main.querySelector('#addPersonBtn')?.addEventListener('click', () => {
-        editingPersonId = 'new';
-        render();
+        openPersonSheet(null);
       });
 
       main.querySelector('#peopleList')?.addEventListener('click', e => {
         const row = e.target.closest('[data-person-id]');
         if (!row) return;
-        editingPersonId = row.dataset.personId;
-        render();
+        openPersonSheet(row.dataset.personId);
       });
-
-      // Detail view — back / cancel
-      main.querySelector('#personDetailBack')?.addEventListener('click', () => {
-        editingPersonId = null;
-        render();
-      });
-      main.querySelector('#personDetailCancel')?.addEventListener('click', () => {
-        editingPersonId = null;
-        render();
-      });
-
-      // Color button
-      initColorButton(main.querySelector('#pf_colorPicker')?.closest('.cpick-wrap'), null);
-
-      // Role toggle — show/hide sections
-      for (const btn of main.querySelectorAll('.admin-role-btn')) {
-        btn.addEventListener('click', () => {
-          const role = btn.dataset.role;
-          main.querySelectorAll('.admin-role-btn').forEach(b => b.classList.toggle('admin-mode-btn--active', b.dataset.role === role));
-          const kidSection = main.querySelector('#kidSettingsSection');
-          const adminSection = main.querySelector('#adminAccessSection');
-          if (kidSection) kidSection.style.display = role === 'child' ? '' : 'none';
-          if (adminSection) adminSection.style.display = role === 'adult' ? '' : 'none';
-        });
-      }
-
-      // Save person
-      main.querySelector('#personDetailSave')?.addEventListener('click', async () => {
-        const name = main.querySelector('#pf_name')?.value.trim();
-        if (!name) { showToast('Name is required'); return; }
-        const color = main.querySelector('#pf_colorPicker')?.value || '#ccc';
-        const role = main.querySelector('.admin-role-btn.admin-mode-btn--active')?.dataset.role || 'adult';
-        const isAdmin = role === 'adult' ? (main.querySelector('#pf_isAdmin')?.checked || false) : false;
-        const kidSettings = role === 'child' ? {
-          celebrationsEnabled: main.querySelector('#pf_celebrationsEnabled')?.checked ?? true,
-          celebrationStyle: main.querySelector('#pf_celebrationStyle')?.value || 'full',
-          canSwipeDays: main.querySelector('#pf_canSwipeDays')?.checked || false,
-          showStore: main.querySelector('#pf_showStore')?.checked ?? true,
-          showAchievements: main.querySelector('#pf_showAchievements')?.checked ?? true,
-        } : undefined;
-        const prefs = role === 'child' ? {
-          showMeals: main.querySelector('#pf_showMeals')?.checked ?? true,
-          showWeather: main.querySelector('#pf_showWeather')?.checked ?? true,
-        } : undefined;
-        const themePreset = main.querySelector('#pf_theme')?.value || '';
-        const theme = themePreset ? { preset: themePreset } : undefined;
-
-        const data = {
-          name, color, role, isAdmin,
-          ...(kidSettings && { kidSettings }),
-          ...(prefs && { prefs }),
-          ...(theme && { theme }),
-        };
-
-        if (editingPersonId && editingPersonId !== 'new') {
-          await firebase.database().ref(`rundown/people/${editingPersonId}`).update(data);
-        } else {
-          await firebase.database().ref('rundown/people').push(data);
-        }
-        peopleObj = await readPeople() || {};
-        editingPersonId = null;
-        render();
-      });
-
-      // Delete person
-      main.querySelector('#deletePersonBtn')?.addEventListener('click', async () => {
-        const pid = main.querySelector('#deletePersonBtn')?.dataset.personId;
-        if (!pid) return;
-        const personName = peopleObj[pid]?.name || 'this person';
-        const confirmed = await showConfirm({
-          title: `Delete ${personName}?`,
-          message: 'This removes the person and all associated messages, bank tokens, wishlist, and achievements. This cannot be undone.',
-          confirmLabel: 'Delete',
-          danger: true,
-        });
-        if (!confirmed) return;
-        await firebase.database().ref(`rundown/people/${pid}`).remove();
-        await deletePersonRewardsData(pid);
-        peopleObj = await readPeople() || {};
-        editingPersonId = null;
-        render();
-      });
-
-      // Balance anchor save
-      main.querySelector('#pf_saveAnchor')?.addEventListener('click', async () => {
-        const pid = editingPersonId;
-        if (!pid || pid === 'new') return;
-        const amount = parseFloat(main.querySelector('#pf_balanceAnchor')?.value || '0');
-        await firebase.database().ref(`rundown/balanceAnchors/${pid}`).set({ amount, anchoredAt: firebase.database.ServerValue.TIMESTAMP });
-        showToast('Balance anchor saved');
-      });
-
-      // Bonus / deduction — open modal with person pre-selected
-      main.querySelector('#pf_addBonus')?.addEventListener('click', () => {
-        const pid = editingPersonId;
-        if (!pid || pid === 'new') return;
-        openMsgModal(pid, 'bonus');
-      });
-      main.querySelector('#pf_addDeduction')?.addEventListener('click', () => {
-        const pid = editingPersonId;
-        if (!pid || pid === 'new') return;
-        openMsgModal(pid, 'deduction');
-      });
-
-      // Populate balance display and anchor input from Firebase
-      if (editingPersonId && editingPersonId !== 'new') {
-        const pid = editingPersonId;
-        Promise.all([
-          readBalanceAnchor(pid),
-          readAllSnapshots(),
-          readMultipliers()
-        ]).then(([anchor, allSnapshots, multipliers]) => {
-          const msgs = allMessagesObj[pid] || {};
-          const { balance } = calculateBalance(pid, allSnapshots || {}, msgs, anchor, multipliers || {}, tz);
-          const balEl = main.querySelector(`#personBalance_${pid}`);
-          if (balEl) balEl.textContent = `${balance} pts`;
-          const anchorEl = main.querySelector('#pf_balanceAnchor');
-          if (anchorEl) anchorEl.value = anchor?.amount ?? 0;
-        });
-      }
     }
 
     // ── Categories tab events ──

@@ -1136,6 +1136,47 @@
   margin: var(--spacing-lg) 0;
 }
 
+/* ── Person sheet (ps-*) ── */
+.ps-color-role-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) 0;
+  gap: var(--spacing-md);
+}
+.ps-color-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.ps-options-select {
+  max-width: 140px;
+  height: 32px;
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-sm);
+}
+.ps-balance-section {
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+.ps-balance-value {
+  font-weight: 600;
+  font-size: var(--font-sm);
+}
+.ps-anchor-input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.ps-anchor-input { width: 80px; }
+.ps-balance-btn-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+.ps-balance-btn-row .btn { flex: 1; }
+
 /* ── Settings tab layout ── */
 .admin-settings {
   padding: var(--spacing-md);
