@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <!-- v2 -->
 <html lang="en">
 <head>
@@ -11,314 +11,18 @@
   <link rel="icon" href="/App Icon.png" type="image/png">
   <link rel="apple-touch-icon" href="/App Icon.png">
   <link rel="manifest" href="manifest.json">
-  <title>Family Hub — Setup</title>
+  <title>Family Hub â€” Setup</title>
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/layout.css">
   <link rel="stylesheet" href="styles/components.css">
   <link rel="stylesheet" href="styles/admin.css">
+  <link rel="stylesheet" href="styles/setup.css">
   <link rel="stylesheet" href="styles/responsive.css">
-  <style>
-    body {
-      padding-bottom: 0;
-    }
-
-    .setup-container {
-      max-width: var(--max-content);
-      margin: 0 auto;
-      padding: var(--spacing-md);
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .setup-header {
-      text-align: center;
-      padding: var(--spacing-xl) 0 var(--spacing-md);
-    }
-
-    .setup-header__emoji {
-      font-size: 3rem;
-      margin-bottom: var(--spacing-sm);
-    }
-
-    .setup-header__title {
-      font-size: var(--font-xl);
-      font-weight: 700;
-    }
-
-    .setup-header__subtitle {
-      color: var(--text-muted);
-      font-size: var(--font-sm);
-      margin-top: var(--spacing-xs);
-    }
-
-    .setup-step {
-      display: none;
-      flex: 1;
-    }
-
-    .setup-step.active {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .setup-step__title {
-      font-size: var(--font-lg);
-      font-weight: 700;
-      margin-bottom: var(--spacing-xs);
-    }
-
-    .setup-step__desc {
-      color: var(--text-muted);
-      font-size: var(--font-sm);
-      margin-bottom: var(--spacing-lg);
-    }
-
-    .setup-step__body {
-      flex: 1;
-    }
-
-    .setup-actions {
-      display: flex;
-      gap: var(--spacing-sm);
-      padding: var(--spacing-md) 0;
-      margin-top: auto;
-    }
-
-    .setup-actions .btn {
-      flex: 1;
-    }
-
-    /* People list */
-    .people-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-sm);
-    }
-
-    .person-card {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-md);
-      padding: var(--spacing-md);
-      background: var(--surface);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-    }
-
-    .person-card__color {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .person-card__info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .person-card__name {
-      font-weight: 600;
-    }
-
-    .person-card__role {
-      font-size: var(--font-xs);
-      color: var(--text-muted);
-      text-transform: capitalize;
-    }
-
-    .person-card__remove {
-      color: var(--text-faint);
-      font-size: 1.2rem;
-      padding: var(--spacing-xs);
-    }
-
-    /* Role toggle buttons */
-    .role-btn {
-      border: 2px solid var(--border) !important;
-      transition: all var(--t-fast);
-    }
-
-    .role-btn.selected {
-      background: var(--accent-soft) !important;
-      border-color: var(--accent) !important;
-      color: var(--accent) !important;
-      font-weight: 700;
-    }
-
-    /* Color swatches — used state */
-    .color-swatch--used {
-      opacity: 0.25;
-      pointer-events: none;
-      position: relative;
-    }
-
-    .color-swatch--used::after {
-      content: '✓';
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      color: white;
-      font-weight: 700;
-    }
-
-    /* Category list */
-    .category-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-sm);
-    }
-
-    .category-card {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-md);
-      padding: var(--spacing-sm) var(--spacing-md);
-      background: var(--surface);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      min-height: 48px;
-    }
-
-    .category-card__icon {
-      font-size: 1.3rem;
-    }
-
-    .category-card__label {
-      flex: 1;
-      font-weight: 500;
-    }
-
-    .category-card__actions {
-      display: flex;
-      gap: var(--spacing-xs);
-    }
-
-    .category-card__btn {
-      padding: var(--spacing-xs);
-      color: var(--text-faint);
-      font-size: var(--font-sm);
-    }
-
-    /* Theme preview */
-    .theme-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--spacing-md);
-      margin-bottom: var(--spacing-lg);
-    }
-
-    .theme-option {
-      padding: var(--spacing-md);
-      border-radius: var(--radius-md);
-      border: 2px solid var(--border);
-      cursor: pointer;
-      transition: all var(--t-fast);
-      text-align: center;
-    }
-
-    .theme-option.selected {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px var(--accent-soft);
-    }
-
-    .theme-option__preview {
-      height: 48px;
-      border-radius: var(--radius-sm);
-      margin-bottom: var(--spacing-sm);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.8rem;
-      background: var(--theme-preview-bg, var(--surface));
-      color: var(--theme-preview-fg, var(--text));
-      border: 1px solid var(--theme-preview-border, var(--border));
-    }
-
-    .theme-option__label {
-      font-size: var(--font-sm);
-      font-weight: 500;
-    }
-
-    /* Add person form */
-    .add-person-form {
-      padding: var(--spacing-md);
-      background: var(--surface-2);
-      border-radius: var(--radius-md);
-      margin-top: var(--spacing-sm);
-    }
-
-    /* Accent color grid */
-    .accent-grid {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: var(--spacing-sm);
-      margin-top: var(--spacing-sm);
-    }
-
-    .accent-swatch {
-      width: 100%;
-      aspect-ratio: 1;
-      border-radius: 50%;
-      border: 3px solid transparent;
-      cursor: pointer;
-      transition: all var(--t-fast);
-    }
-
-    .accent-swatch.selected {
-      border-color: var(--text);
-      transform: scale(1.15);
-    }
-
-    /* Form helpers */
-    .setup-form__icon-input { width: 80px; }
-    .color-swatch--positioned { position: relative; }
-    .is-hidden { display: none !important; }
-
-    /* PIN input */
-    .pin-input-group {
-      display: flex;
-      gap: var(--spacing-sm);
-      justify-content: center;
-      margin: var(--spacing-lg) 0;
-    }
-
-    .pin-digit {
-      width: 48px;
-      height: 56px;
-      text-align: center;
-      font-size: var(--font-xl);
-      font-weight: 700;
-      border-radius: var(--radius-md);
-      letter-spacing: 0;
-    }
-
-    /* Finish screen */
-    .finish-screen {
-      text-align: center;
-      padding: var(--spacing-xl) 0;
-    }
-
-    .finish-screen__emoji {
-      font-size: 4rem;
-      margin-bottom: var(--spacing-md);
-    }
-
-    .finish-screen__summary {
-      color: var(--text-muted);
-      font-size: var(--font-sm);
-      margin: var(--spacing-md) 0;
-    }
-  </style>
 </head>
 <body>
   <div class="setup-container" id="app">
     <div class="setup-header">
-      <div class="setup-header__emoji">📋</div>
+      <div class="setup-header__emoji">ðŸ“‹</div>
       <h1 class="setup-header__title">Daily Rundown</h1>
       <p class="setup-header__subtitle">Let's set up your family task manager</p>
     </div>
@@ -384,13 +88,13 @@
     <!-- Step 3: Categories -->
     <div class="setup-step" id="step-3" data-step="3">
       <h2 class="setup-step__title">Task categories</h2>
-      <p class="setup-step__desc">Organize tasks into groups. Defaults are provided — customize as needed.</p>
+      <p class="setup-step__desc">Organize tasks into groups. Defaults are provided â€” customize as needed.</p>
       <div class="setup-step__body">
         <div class="category-list" id="categoryList"></div>
         <div class="add-person-form mt-md is-hidden" id="addCategoryForm">
           <div class="form-group">
             <label class="form-label" for="catIcon">Emoji Icon</label>
-            <input type="text" id="catIcon" placeholder="🧹" maxlength="4" class="setup-form__icon-input">
+            <input type="text" id="catIcon" placeholder="ðŸ§¹" maxlength="4" class="setup-form__icon-input">
           </div>
           <div class="form-group">
             <label class="form-label" for="catLabel">Label</label>
@@ -448,7 +152,7 @@
     <!-- Step 6: Finish -->
     <div class="setup-step" id="step-6" data-step="6">
       <div class="finish-screen">
-        <div class="finish-screen__emoji">🎉</div>
+        <div class="finish-screen__emoji">ðŸŽ‰</div>
         <h2 class="setup-step__title">You're all set!</h2>
         <div class="finish-screen__summary" id="finishSummary"></div>
         <button class="btn btn--primary btn--full" onclick="finishSetup()" id="finishBtn">Launch Daily Rundown</button>
@@ -475,11 +179,11 @@
 
     let people = [];
     let categories = [
-      { key: 'chores', icon: '🧹', label: 'Chores', pinProtected: false, weightPercent: null },
-      { key: 'wellness', icon: '💆', label: 'Wellness', pinProtected: false, weightPercent: null },
-      { key: 'fitness', icon: '💪', label: 'Fitness', pinProtected: false, weightPercent: null },
-      { key: 'education', icon: '📚', label: 'Education', pinProtected: false, weightPercent: null },
-      { key: 'behavior', icon: '⭐', label: 'Behavior', pinProtected: false, weightPercent: null }
+      { key: 'chores', icon: 'ðŸ§¹', label: 'Chores', pinProtected: false, weightPercent: null },
+      { key: 'wellness', icon: 'ðŸ’†', label: 'Wellness', pinProtected: false, weightPercent: null },
+      { key: 'fitness', icon: 'ðŸ’ª', label: 'Fitness', pinProtected: false, weightPercent: null },
+      { key: 'education', icon: 'ðŸ“š', label: 'Education', pinProtected: false, weightPercent: null },
+      { key: 'behavior', icon: 'â­', label: 'Behavior', pinProtected: false, weightPercent: null }
     ];
     let selectedColor = null;
     let selectedRole = 'adult';
@@ -497,7 +201,7 @@
     if (cached) applyTheme(cached);
     else applyTheme(defaultThemeConfig());
 
-    // Check if setup already completed — redirect to dashboard
+    // Check if setup already completed â€” redirect to dashboard
     readSettings().then(settings => {
       if (settings) {
         window.location.href = 'index.html';
@@ -684,7 +388,7 @@
     };
 
     window.saveCategory = function() {
-      const icon = document.getElementById('catIcon').value.trim() || '📌';
+      const icon = document.getElementById('catIcon').value.trim() || 'ðŸ“Œ';
       const label = document.getElementById('catLabel').value.trim();
       if (!label) { document.getElementById('catLabel').focus(); return; }
 
@@ -722,7 +426,7 @@
           <div class="theme-option__label">${p.label}</div>
         </div>`;
       }).join('');
-      // Apply theme-preview custom props — local (not shared applyDataColors) since this is setup-only.
+      // Apply theme-preview custom props â€” local (not shared applyDataColors) since this is setup-only.
       grid.querySelectorAll('[data-theme-preview]').forEach(el => {
         const [bg, fg] = el.dataset.themePreview.split('|');
         el.style.setProperty('--theme-preview-bg', bg);
@@ -786,7 +490,7 @@
       const kids = people.filter(p => p.role === 'child').length;
 
       let summary = `<strong>${esc(appName)}</strong>`;
-      if (familyName) summary += ` — ${esc(familyName)}`;
+      if (familyName) summary += ` â€” ${esc(familyName)}`;
       summary += `<br>${people.length} family member${people.length !== 1 ? 's' : ''} (${adults} adult${adults !== 1 ? 's' : ''}, ${kids} kid${kids !== 1 ? 's' : ''})`;
       summary += `<br>${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}`;
 

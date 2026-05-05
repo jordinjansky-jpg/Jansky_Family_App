@@ -495,7 +495,7 @@
 .confirm-modal__card {
   background: var(--surface);
   border-radius: var(--radius-lg, 16px);
-  padding: 24px;
+  padding: var(--spacing-lg);
   max-width: 340px;
   width: calc(100vw - 48px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -1621,7 +1621,14 @@
 
 /* ============ Send message / Bonus day sheet ============ */
 .sheet-section-title { margin-bottom: 12px; }
-.sheet-label--spaced { margin-top: 12px; }
+/* Canonical sheet section label — visually identical to .ef2-section-label and .fs-section__label */
+.sheet-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: var(--spacing-xs);
+}
+.sheet-label--spaced { margin-top: var(--spacing-sm); }
 .msg-type-btn--positive { color: var(--success); }
 .msg-custom-input { margin-top: 8px; }
 .bell-clear-btn { color: var(--text-faint); }

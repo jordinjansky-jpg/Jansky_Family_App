@@ -142,6 +142,10 @@
   --ambient-dinner-fg: #b85c1a;
 }
 
+[data-text-size="small"]   { --font-base: 0.875rem; }
+[data-text-size="default"] { --font-base: 1rem; }
+[data-text-size="large"]   { --font-base: 1.125rem; }
+
 /* ============ Dark mode tokens ============
  * Explicit theme via [data-theme="dark"] (set by shared/theme.js) ALWAYS wins.
  * The OS-preference block is a first-paint fallback only — it applies before

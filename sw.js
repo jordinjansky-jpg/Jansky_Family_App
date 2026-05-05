@@ -234,7 +234,8 @@
 // v145 (2026-05-04) — Rewards: card trailing column (pts+flat get btn), intent sheet tabs--pill.
 // v147 (2026-05-04) — P2c: self-host Plus Jakarta Sans (fonts/ dir), remove Google Fonts CDN,
 //                     manifest fixes (maskable icon, bg/theme colors, scope/lang/orientation/categories/shortcuts).
-const CACHE_NAME = 'family-hub-v147';
+// v148 (2026-05-04) — P3: setup.css extracted from setup.html inline <style> block.
+const CACHE_NAME = 'family-hub-v148';
 
 const APP_SHELL = [
   '/',
@@ -264,6 +265,7 @@ const APP_SHELL = [
   '/styles/scoreboard.css',
   '/styles/tracker.css',
   '/styles/admin.css',
+  '/styles/setup.css',
   '/styles/rewards.css',
   '/styles/kitchen.css',
   '/styles/kid.css',

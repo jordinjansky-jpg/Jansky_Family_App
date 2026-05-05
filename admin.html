@@ -70,8 +70,8 @@
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
       readBank, writeBankToken, removeBankToken
     } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskFormCompact, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
-    import { initOwnerChips, getSelectedOwners } from './shared/dom-helpers.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
+
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -123,6 +123,7 @@
     // ── Load data ──
     let settings = await readSettings();
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
+    document.documentElement.setAttribute('data-text-size', settings?.textSize || 'default');
 
     let peopleObj = await readPeople() || {};
     let tasksObj = await readTasks() || {};
@@ -396,7 +397,6 @@
     let taskSearch = '';
     let taskFilter = { rotation: '', owner: '', category: '', status: '', difficulty: '' };
     let taskSort = 'name';
-    let editingTaskId = null;
     let selectMode = false;
     let selectedTaskIds = new Set();
 
@@ -511,10 +511,6 @@
         </div>`;
       }
 
-      if (!selectMode && editingTaskId === 'new') {
-        html += renderTaskForm(null);
-      }
-
       if (filtered.length === 0) {
         html += `<div class="admin-empty">No tasks yet. Tap + Add Task to get started.</div>`;
       } else {
@@ -534,13 +530,6 @@
           });
         }
         html += `</div>`;
-      }
-
-      // Modal overlay for editing (not for 'new' — new stays at top)
-      if (!selectMode && editingTaskId && editingTaskId !== 'new') {
-        html += `<div class="task-form-backdrop" id="taskFormBackdrop">
-          <div class="task-form-modal">${renderTaskForm(editingTaskId)}</div>
-        </div>`;
       }
 
       // Floating action bar (select mode with selections)
@@ -655,19 +644,314 @@
       }, { once: true });
     }
 
-    function renderTaskForm(taskId) {
-      const task = taskId ? tasksObj[taskId] : {};
+    function openAdminTaskSheet(taskId = null) {
+      const baseTask = taskId ? (tasksObj[taskId] || {}) : {};
+      const mode = taskId ? 'edit' : 'create';
+      const catsArr = catsArray();
       const pa = peopleArray();
-      const ca = catsArray();
-      return `<div class="admin-form">${renderTaskFormCompact({
-        task,
-        taskId,
-        mode: taskId ? 'edit' : 'create',
-        categories: ca,
-        people: pa,
-        prefix: 'tf',
-        rewards: rewardsObj
-      })}</div>`;
+
+      const mount = document.getElementById('taskSheetMount');
+      const html = renderTaskForm({ task: baseTask, taskId, mode, categories: catsArr, people: pa });
+      mount.innerHTML = renderBottomSheet(html);
+
+      mount.querySelectorAll('.ef2-person-chip[data-person-color]').forEach(chip => {
+        chip.style.setProperty('--chip-color', chip.dataset.personColor);
+      });
+
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+
+      function tfHidePicker() { document.getElementById('tf_pickerOverlay')?.remove(); }
+      const doClose = () => { tfHidePicker(); closeAdminSheet(); };
+
+      document.getElementById('tf_close')?.addEventListener('click', doClose);
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target === document.getElementById('bottomSheet')) doClose();
+      });
+
+      // ── Person chip state machine ─────────────────────────────
+      const peopleWrap = document.getElementById('tf_people');
+      function tfGetOwnerIds() {
+        return [...(peopleWrap?.querySelectorAll('.ef2-person-chip') || [])]
+          .filter(c => c.dataset.state === 'primary').map(c => c.dataset.personId);
+      }
+      function tfUpdateAssignRow() {
+        document.getElementById('tf_assignRow')?.classList.toggle('is-hidden', tfGetOwnerIds().length < 2);
+      }
+      peopleWrap?.querySelectorAll('.ef2-person-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          if (chip.dataset.state === 'primary') chip.removeAttribute('data-state');
+          else chip.setAttribute('data-state', 'primary');
+          tfUpdateAssignRow();
+        });
+      });
+
+      // ── Assign mode pills ─────────────────────────────────────
+      document.getElementById('tf_assignRow')?.querySelectorAll('.tf-assign-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('tf_assignRow')?.querySelectorAll('.tf-assign-pill').forEach(b => b.classList.remove('tf-assign-pill--active'));
+          btn.classList.add('tf-assign-pill--active');
+        });
+      });
+
+      // ── Rotation pills ────────────────────────────────────────
+      let tfRotation = baseTask.rotation || 'daily';
+      function tfUpdateRotation(rot) {
+        tfRotation = rot;
+        document.getElementById('tf_rotation')?.querySelectorAll('.tf-rot-pill').forEach(p => {
+          p.classList.toggle('tf-rot-pill--active', p.dataset.rot === rot);
+        });
+        document.getElementById('tf_weeklyReveal')?.classList.toggle('is-open', rot !== 'once');
+        document.getElementById('tf_onceReveal')?.classList.toggle('is-open', rot === 'once');
+        const showCd = rot === 'weekly' || rot === 'monthly';
+        const chip = document.getElementById('tf_optionsChip');
+        if (chip) chip.dataset.showCd = showCd ? '1' : '';
+        document.getElementById('tf_cooldownRow')?.classList.toggle('is-hidden', !showCd);
+        const cdInput = document.getElementById('tf_cooldown');
+        if (cdInput && !cdInput.value) {
+          cdInput.placeholder = rot === 'weekly' ? '3' : rot === 'monthly' ? '7' : '';
+        }
+      }
+      document.getElementById('tf_rotation')?.querySelectorAll('.tf-rot-pill').forEach(pill => {
+        pill.addEventListener('click', () => tfUpdateRotation(pill.dataset.rot));
+      });
+
+      // ── Detail chip pickers ───────────────────────────────────
+      let tfDiff = baseTask.difficulty || 'medium';
+      let tfDur  = baseTask.estMin ?? 10;
+      let tfTod  = baseTask.timeOfDay || 'anytime';
+      let tfCat  = baseTask.category || catsArr.find(c => c.isDefault)?.key || '';
+
+      function tfShowPicker(field, chipEl) {
+        tfHidePicker();
+        const DUR_PRESETS = [5, 10, 15, 20, 30, 45, 60];
+        let inner = '';
+        if (field === 'diff') {
+          inner = `<div class="tf-picker-cells">
+            ${[['easy','Easy'],['medium','Medium'],['hard','Hard']].map(([v,l]) =>
+              `<button class="tf-picker-cell${tfDiff === v ? ' tf-picker-cell--active' : ''}" data-pick-val="${v}" data-pick-label="${l}" type="button">${l}</button>`
+            ).join('')}
+          </div>`;
+        } else if (field === 'dur') {
+          inner = `<div class="tf-dur-grid">
+            ${DUR_PRESETS.map(v =>
+              `<button class="tf-dur-cell${tfDur === v ? ' tf-dur-cell--active' : ''}" data-pick-val="${v}" data-pick-label="${v} min" type="button">${v}</button>`
+            ).join('')}
+            <button class="tf-dur-cell" data-pick-val="custom" type="button">...</button>
+          </div>
+          <div class="tf-dur-custom-wrap is-hidden" id="tf_durCustomWrap">
+            <input type="number" id="tf_durCustom" min="1" max="300" placeholder="Minutes" value="${!DUR_PRESETS.includes(tfDur) ? tfDur : ''}">
+          </div>`;
+        } else if (field === 'tod') {
+          inner = `<div class="tf-picker-cells">
+            ${[['am','Morning'],['anytime','Anytime'],['pm','Afternoon'],['both','Both']].map(([v,l]) =>
+              `<button class="tf-picker-cell${tfTod === v ? ' tf-picker-cell--active' : ''}" data-pick-val="${v}" data-pick-label="${l}" type="button">${l}</button>`
+            ).join('')}
+          </div>`;
+        } else if (field === 'cat') {
+          inner = `<div class="tf-cat-list">
+            ${catsArr.map(c =>
+              `<button class="tf-cat-item${tfCat === c.key ? ' tf-cat-item--active' : ''}" data-pick-val="${esc(c.key)}" data-pick-label="${esc((c.icon||'')+' '+c.label)}" type="button">
+                <span class="tf-cat-icon">${c.icon||''}</span>
+                <span class="tf-cat-label">${esc(c.label)}</span>
+              </button>`
+            ).join('')}
+          </div>`;
+        }
+        const overlay = document.createElement('div');
+        overlay.className = 'tf-picker-overlay';
+        overlay.id = 'tf_pickerOverlay';
+        overlay.innerHTML = `<div class="tf-picker-backdrop"></div><div class="tf-picker" id="tf_pickerInner">${inner}</div>`;
+        document.body.appendChild(overlay);
+
+        const rect = chipEl.getBoundingClientRect();
+        const picker = overlay.querySelector('.tf-picker');
+        const W = Math.min(280, window.innerWidth - 32);
+        picker.style.width = `${W}px`;
+        let left = rect.left;
+        if (left + W > window.innerWidth - 16) left = window.innerWidth - W - 16;
+        if (left < 16) left = 16;
+        picker.style.left = `${left}px`;
+        if (window.innerHeight - rect.bottom > 200) {
+          picker.style.top = `${rect.bottom + 8}px`;
+        } else {
+          picker.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+        }
+        overlay.querySelector('.tf-picker-backdrop').addEventListener('click', tfHidePicker);
+        overlay.querySelector('[data-pick-val="custom"]')?.addEventListener('click', () => {
+          overlay.querySelector('#tf_durCustomWrap')?.classList.remove('is-hidden');
+          overlay.querySelector('#tf_durCustom')?.focus();
+        });
+        const customInput = overlay.querySelector('#tf_durCustom');
+        if (customInput) {
+          const confirmCustom = () => { const v = parseInt(customInput.value, 10); if (v > 0) tfOnPickerSelect('dur', v, `${v} min`); };
+          customInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmCustom(); });
+          customInput.addEventListener('blur', confirmCustom);
+        }
+        overlay.querySelectorAll('[data-pick-val]:not([data-pick-val="custom"])').forEach(btn => {
+          btn.addEventListener('click', () => tfOnPickerSelect(field, btn.dataset.pickVal, btn.dataset.pickLabel || btn.textContent.trim()));
+        });
+      }
+
+      function tfOnPickerSelect(field, val, label) {
+        if (field === 'diff') { tfDiff = val; document.getElementById('tf_diffChip').textContent = label; }
+        else if (field === 'dur') { tfDur = typeof val === 'number' ? val : parseInt(val, 10); document.getElementById('tf_durChip').textContent = label || `${tfDur} min`; }
+        else if (field === 'tod') { tfTod = val; document.getElementById('tf_todChip').textContent = label; }
+        else if (field === 'cat') { tfCat = val; document.getElementById('tf_catChip').textContent = label; }
+        tfHidePicker();
+      }
+
+      document.getElementById('tf_diffChip')?.addEventListener('click', e => tfShowPicker('diff', e.currentTarget));
+      document.getElementById('tf_durChip')?.addEventListener('click',  e => tfShowPicker('dur',  e.currentTarget));
+      document.getElementById('tf_todChip')?.addEventListener('click',  e => tfShowPicker('tod',  e.currentTarget));
+      document.getElementById('tf_catChip')?.addEventListener('click',  e => tfShowPicker('cat',  e.currentTarget));
+
+      // ── Notes reveal ──────────────────────────────────────────
+      document.getElementById('tf_notesChip')?.addEventListener('click', () => {
+        const reveal = document.getElementById('tf_notesReveal');
+        const chip   = document.getElementById('tf_notesChip');
+        const open   = reveal?.classList.toggle('is-open');
+        chip?.classList.toggle('is-active', open);
+        if (open) document.getElementById('tf_notes')?.focus();
+      });
+      document.getElementById('tf_notesClose')?.addEventListener('click', () => {
+        document.getElementById('tf_notesReveal')?.classList.remove('is-open');
+        document.getElementById('tf_notesChip')?.classList.remove('is-active');
+      });
+
+      // ── Options reveal ────────────────────────────────────────
+      document.getElementById('tf_optionsChip')?.addEventListener('click', () => {
+        document.getElementById('tf_optionsReveal')?.classList.toggle('is-open');
+        document.getElementById('tf_optionsChip')?.classList.toggle('is-active');
+      });
+
+      // ── Exempt toggle ─────────────────────────────────────────
+      document.getElementById('tf_exempt')?.addEventListener('click', e => {
+        const btn = e.currentTarget;
+        const on  = btn.classList.toggle('is-active');
+        btn.textContent = on ? 'On' : 'Off';
+      });
+
+      // ── Save ──────────────────────────────────────────────────
+      document.getElementById('tf_save')?.addEventListener('click', async () => {
+        const name = document.getElementById('tf_name')?.value.trim();
+        if (!name) {
+          const inp = document.getElementById('tf_name');
+          inp?.classList.add('is-invalid');
+          inp?.focus();
+          setTimeout(() => inp?.classList.remove('is-invalid'), 600);
+          return;
+        }
+
+        const ownerIds = tfGetOwnerIds();
+        const assignPill = document.getElementById('tf_assignRow')?.querySelector('.tf-assign-pill--active')?.dataset.mode;
+        const ownerAssignmentMode = ownerIds.length <= 1 ? 'fixed' : (assignPill === 'everyone' ? 'duplicate' : 'rotate');
+        const rotation = tfRotation;
+        const dayVal = document.getElementById('tf_daySelect')?.value;
+        const dedicatedDay = rotation === 'weekly'
+          ? (dayVal !== '' && dayVal != null ? parseInt(dayVal, 10) : null)
+          : null;
+        const dedicatedDate = rotation === 'once' ? (document.getElementById('tf_onceDate')?.value || null) : null;
+        const showCd = rotation === 'weekly' || rotation === 'monthly';
+        const cdVal  = document.getElementById('tf_cooldown')?.value;
+        const cdDefault = rotation === 'weekly' ? 3 : rotation === 'monthly' ? 7 : 0;
+        const cooldownDays = showCd
+          ? (cdVal !== '' ? (parseInt(cdVal, 10) || cdDefault) : cdDefault)
+          : null;
+        const exempt = document.getElementById('tf_exempt')?.classList.contains('is-active') || false;
+        const notes  = document.getElementById('tf_notes')?.value.trim() || null;
+
+        const existing = taskId ? (tasksObj[taskId] || {}) : {};
+        const taskData = {
+          name,
+          rotation,
+          difficulty: tfDiff,
+          timeOfDay: tfTod,
+          estMin: tfDur,
+          category: tfCat,
+          owners: ownerIds,
+          ownerAssignmentMode,
+          dedicatedDay,
+          dedicatedDate,
+          eventTime: existing.eventTime || null,
+          notes: notes || null,
+          cooldownDays: cooldownDays || null,
+          exempt,
+          bounty: taskId ? (existing.bounty ?? null) : null,
+          status: existing.status || 'active',
+        };
+
+        const saveBtn = document.getElementById('tf_save');
+        if (saveBtn) saveBtn.disabled = true;
+
+        if (!taskId) {
+          taskData.createdDate = today;
+          const newId = await pushTask(taskData);
+          tasksObj[newId] = taskData;
+
+          const skipToday = (rotation === 'once' && dedicatedDate && dedicatedDate !== today)
+            || ((rotation === 'weekly' || rotation === 'monthly') && dedicatedDay != null && dayOfWeek(today) !== dedicatedDay);
+          if (ownerIds.length > 0 && !skipToday) {
+            const schedUpdates = {};
+            const baseEntry = { taskId: newId, rotationType: rotation, ownerAssignmentMode, timeOfDay: tfTod };
+            let counter = 0;
+            const newKey = () => `sched_${Date.now()}_${String(counter++).padStart(5, '0')}`;
+            if (ownerAssignmentMode === 'duplicate') {
+              for (const oid of ownerIds) {
+                if (tfTod === 'both') {
+                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
+                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
+                } else {
+                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: tfTod };
+                }
+              }
+            } else {
+              const ownerId = ownerAssignmentMode === 'fixed' ? ownerIds[0] : getRotationOwner(taskData, today, newId);
+              if (tfTod === 'both') {
+                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
+                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
+              } else {
+                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: tfTod };
+              }
+            }
+            await multiUpdate(schedUpdates);
+          }
+          const allSched = await readAllSchedule() || {};
+          const allComp = await readCompletions() || {};
+          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, undefined, catsObj);
+          await multiUpdate(futureUpdates);
+        } else {
+          taskData.createdDate = existing.createdDate || today;
+          await writeTask(taskId, taskData);
+          tasksObj[taskId] = taskData;
+          const allSched = await readAllSchedule() || {};
+          const allComp = await readCompletions() || {};
+          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true }, catsObj);
+          await multiUpdate(futureUpdates);
+        }
+
+        tfHidePicker();
+        closeAdminSheet();
+        render();
+      });
+
+      // ── Delete (edit mode only) ───────────────────────────────
+      document.getElementById('tf_delete')?.addEventListener('click', async () => {
+        if (!taskId) return;
+        const name = tasksObj[taskId]?.name || 'this task';
+        if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
+        const updates = { [`tasks/${taskId}`]: null };
+        const allSched = await readAllSchedule() || {};
+        for (const [dateKey, dayEntries] of Object.entries(allSched)) {
+          for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
+            if (entry.taskId === taskId) updates[`schedule/${dateKey}/${entryKey}`] = null;
+          }
+        }
+        await multiUpdate(updates);
+        delete tasksObj[taskId];
+        tfHidePicker();
+        closeAdminSheet();
+        render();
+      });
     }
 
     // ══════════════════════════════════════════
@@ -1208,8 +1492,6 @@
     // Categories Tab
     // ══════════════════════════════════════════
 
-    let editingCatKey = null;
-
     function renderCategoriesTab() {
       let html = '';
 
@@ -1243,12 +1525,6 @@
           });
         }
         html += `</div>`;
-      }
-
-      if (editingCatKey !== null) {
-        html += `<div class="task-form-backdrop" id="catFormBackdrop">
-          <div class="task-form-modal">${renderCategoryForm(editingCatKey === 'new' ? null : editingCatKey)}</div>
-        </div>`;
       }
 
       return html;
@@ -1306,10 +1582,8 @@
     function renderCategoryForm(catKey) {
       const cat = catKey ? catsObj[catKey] : {};
       const isEdit = !!catKey;
-      const title = isEdit ? 'Edit Category' : 'New Category';
 
-      let html = `<div class="admin-form" id="catForm">
-        <h3 class="admin-form__title">${title}</h3>
+      return `<div class="admin-form" id="catForm">
         <div class="form-row">
           <div class="form-group" style="width:80px">
             <label class="form-label">Icon</label>
@@ -1347,13 +1621,87 @@
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Show icon on task cards</span><label class="form-toggle"><input type="checkbox" id="cf_showIcon"${cat.showIcon !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">PIN protected (requires PIN to complete)</span><label class="form-toggle"><input type="checkbox" id="cf_pinProtected"${cat.pinProtected ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
         <div class="admin-toggle-row"><span class="admin-toggle-row__label">Default category for new tasks</span><label class="form-toggle"><input type="checkbox" id="cf_isDefault"${cat.isDefault ? ' checked' : ''}><span class="form-toggle__track"></span></label></div>
-        <div class="admin-form__actions mt-md">
+        <div class="ef2-footer">
           ${isEdit ? '<button class="btn btn--danger btn--sm" id="catFormDelete" type="button">Delete Category</button>' : ''}
           <button class="btn btn--secondary" id="catFormCancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="catFormSave" type="button">${isEdit ? 'Save' : 'Add Category'}</button>
         </div>
       </div>`;
-      return html;
+    }
+
+    function openAdminCatSheet(catKey) {
+      const isNew = catKey === 'new';
+      const mount = document.getElementById('taskSheetMount');
+      if (!mount) return;
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">${isNew ? 'New Category' : 'Edit Category'}</h3>
+        ${renderCategoryForm(isNew ? null : catKey)}
+      `);
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
+
+      initColorButton(mount.querySelector('#cf_eventColor')?.closest('.cpick-wrap'), null);
+
+      const eventCheckbox = mount.querySelector('#cf_isEvent');
+      const eventColorRow = mount.querySelector('#eventColorRow');
+      const catLimitsRow = mount.querySelector('#catLimitsRow');
+      eventCheckbox?.addEventListener('change', () => {
+        if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? '' : 'none';
+        if (catLimitsRow) catLimitsRow.style.display = eventCheckbox.checked ? 'none' : 'flex';
+      });
+
+      mount.querySelector('#catFormCancel')?.addEventListener('click', () => { closeAdminSheet(); });
+
+      mount.querySelector('#catFormDelete')?.addEventListener('click', async () => {
+        const ca = catsArray();
+        if (ca.length <= 1) { await showConfirm({ title: 'Cannot delete the last category', alert: true }); return; }
+        const defaultEntry = Object.entries(catsObj).find(([k, c]) => k !== catKey && c?.isDefault);
+        const fallbackKey = defaultEntry ? defaultEntry[0] : (Object.keys(catsObj).find(k => k !== catKey) || 'chores');
+        const fallbackLabel = catsObj[fallbackKey]?.label || fallbackKey;
+        if (!await showConfirm({ title: `Delete category "${catsObj[catKey]?.label}"?`, message: `Tasks will be reassigned to "${fallbackLabel}".`, danger: true })) return;
+        for (const [taskId, task] of Object.entries(tasksObj)) {
+          if (task.category === catKey) { task.category = fallbackKey; await writeTask(taskId, task); }
+        }
+        delete catsObj[catKey];
+        await writeCategories(catsObj);
+        closeAdminSheet();
+        render();
+      });
+
+      mount.querySelector('#catFormSave')?.addEventListener('click', async () => {
+        const icon = mount.querySelector('#cf_icon')?.value.trim() || '📌';
+        const label = mount.querySelector('#cf_label')?.value.trim();
+        if (!label) { mount.querySelector('#cf_label')?.focus(); return; }
+        const weight = mount.querySelector('#cf_weight')?.value;
+        const showIcon = mount.querySelector('#cf_showIcon')?.checked ?? true;
+        const pinProtected = mount.querySelector('#cf_pinProtected')?.checked || false;
+        const isDefault = mount.querySelector('#cf_isDefault')?.checked || false;
+        const isEvent = mount.querySelector('#cf_isEvent')?.checked || false;
+        const limitPerson = mount.querySelector('#cf_limitPerson')?.value;
+        const limitHousehold = mount.querySelector('#cf_limitHousehold')?.value;
+        if (isDefault) {
+          for (const [k, c] of Object.entries(catsObj)) { if (c.isDefault) c.isDefault = false; }
+        }
+        const catData = {
+          label, icon, showIcon, pinProtected, isDefault, isEvent,
+          eventColor: isEvent ? (mount.querySelector('#cf_eventColor')?.value || '#5b7fd6') : null,
+          weightPercent: isEvent ? null : (weight ? parseInt(weight, 10) : null),
+          dailyLimitPerPerson: isEvent ? null : (limitPerson ? parseInt(limitPerson, 10) : null),
+          dailyLimitPerHousehold: isEvent ? null : (limitHousehold ? parseInt(limitHousehold, 10) : null)
+        };
+        if (isNew) {
+          const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
+          if (catsObj[key]) { await showConfirm({ title: 'A category with this key already exists', alert: true }); return; }
+          catsObj[key] = catData;
+        } else {
+          catsObj[catKey] = catData;
+        }
+        await writeCategories(catsObj);
+        closeAdminSheet();
+        render();
+      });
     }
 
     // ══════════════════════════════════════════
@@ -1362,12 +1710,10 @@
 
     function renderSettingsTab() {
       const tzOptions = getTimezoneOptions();
-      const lp = settings?.longPressMs ?? 800;
-      const klp = settings?.kidLongPressMs ?? 500;
       return `<div class="admin-settings" id="settingsForm">
 
         <div class="admin-settings-section">
-          <div class="admin-settings-section__title">App &amp; Family</div>
+          <div class="admin-settings-section__title">Family</div>
           <div class="form-group">
             <label class="form-label">App name</label>
             <input class="form-input" type="text" id="sf_appName" value="${esc(settings?.appName || 'Daily Rundown')}">
@@ -1385,7 +1731,7 @@
         </div>
 
         <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Display</div>
+          <div class="admin-settings-section__title">Appearance</div>
           <div class="admin-toggle-row">
             <span class="admin-toggle-row__label">
               Ambient strip
@@ -1407,12 +1753,28 @@
             <label class="form-label">Accent color</label>
             ${renderColorButton(settings?.theme?.accent || '#6c63ff', 'sf_accentPicker')}
           </div>
+          <div class="form-group mt-sm">
+            <label class="form-label">Text size</label>
+            <div class="segmented-control" id="sf_textSize">
+              <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'small' ? ' segmented-btn--active' : ''}" data-size="small">Small</button>
+              <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'default' ? ' segmented-btn--active' : ''}" data-size="default">Default</button>
+              <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'large' ? ' segmented-btn--active' : ''}" data-size="large">Large</button>
+            </div>
+          </div>
+          <div class="admin-toggle-row mt-sm">
+            <span class="admin-toggle-row__label">Show AM/PM icons on "Both" tasks</span>
+            <label class="form-toggle"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+          </div>
+          <div class="admin-toggle-row">
+            <span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span>
+            <label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+          </div>
         </div>
 
         <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Weather</div>
+          <div class="admin-settings-section__title">Integrations</div>
           <div class="form-group">
-            <label class="form-label">Location</label>
+            <label class="form-label">Weather location</label>
             <p class="form-hint">Zip code or "City, State" — e.g. Lakeville, MN</p>
             <div class="admin-form__row">
               <input class="form-input" id="sf_weatherLocation" type="text" placeholder="Lakeville, MN" value="${esc(settings?.weatherLocation || '')}">
@@ -1424,28 +1786,6 @@
             <label class="form-label">OpenWeatherMap API key</label>
             <p class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</p>
             <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password" autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
-          </div>
-        </div>
-
-        <div class="admin-settings-section">
-          <div class="admin-settings-section__title">Behavior</div>
-          <div class="form-group">
-            <label class="form-label">Long-press sensitivity — dashboard</label>
-            <input type="range" class="slider" id="sf_longPressMs" min="200" max="1000" step="50" value="${lp}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
-            <span class="form-hint" style="font-variant-numeric:tabular-nums">${lp}ms</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Long-press sensitivity — calendar &amp; kid mode</label>
-            <input type="range" class="slider" id="sf_kidLongPressMs" min="200" max="1000" step="50" value="${klp}" oninput="this.nextElementSibling.textContent=this.value+'ms'">
-            <span class="form-hint" style="font-variant-numeric:tabular-nums">${klp}ms</span>
-          </div>
-          <div class="admin-toggle-row mt-sm">
-            <span class="admin-toggle-row__label">Show AM/PM icons on "Both" tasks</span>
-            <label class="form-toggle"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-          </div>
-          <div class="admin-toggle-row">
-            <span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span>
-            <label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label>
           </div>
           <div class="form-group mt-sm">
             <label class="form-label">Auto-prune old data</label>
@@ -1479,6 +1819,7 @@
             </div>
             <p class="form-hint">Point multiplier per difficulty. Default: 1 / 2 / 3.</p>
             <button type="button" class="btn btn--ghost btn--sm" id="sf_diffReset">Reset to defaults</button>
+            <p id="sf_diffError" class="form-hint form-hint--error" hidden>Multipliers must increase: Easy &lt; Medium &lt; Hard</p>
           </div>
           <div class="form-row mt-sm">
             <div class="form-group" style="flex:1">
@@ -1494,16 +1835,6 @@
             <label class="form-label">Past-due credit %</label>
             <input class="form-input" type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100" style="max-width:100px">
             <p class="form-hint">Points awarded for completing a past-due task.</p>
-          </div>
-          <div class="form-row mt-sm">
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Points slider min %</label>
-              <input class="form-input" type="number" id="sf_sliderMin" value="${settings?.sliderMin ?? 0}" min="0" max="100">
-            </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Points slider max %</label>
-              <input class="form-input" type="number" id="sf_sliderMax" value="${settings?.sliderMax ?? 150}" min="100" max="300">
-            </div>
           </div>
         </div>
 
@@ -1553,8 +1884,19 @@
         </div>
 
         <div class="admin-settings-section">
+          <div class="admin-settings-section__title">Notifications</div>
+          <p class="form-hint">Push notifications for daily reminders and upcoming events — coming soon.</p>
+        </div>
+
+        <div class="admin-settings-section">
+          <div class="admin-settings-section__title">About</div>
+          <p class="form-hint">${esc(settings?.appName || 'Daily Rundown')} &mdash; ${esc(settings?.familyName || 'Family Task Manager')}</p>
+          <p class="form-hint">Hosted on Cloudflare Pages &middot; Firebase Realtime Database</p>
+        </div>
+
+        <div class="settings-save-footer">
+          <div id="settingsMsg" class="admin-msg"></div>
           <button class="btn btn--primary" id="settingsSave" type="button">Save Settings</button>
-          <div id="settingsMsg" class="admin-msg mt-sm"></div>
         </div>
 
       </div>`;
@@ -1702,8 +2044,8 @@
           <button class="btn btn--danger" id="showResetBtn" type="button">Factory Reset...</button>
         </div>
         <div id="resetConfirm" style="display:none;">
-          <p class="admin-msg admin-msg--danger mb-md">Type <strong>RESET</strong> below to confirm.</p>
-          <input type="text" id="resetWord" placeholder="Type RESET" style="max-width:200px;width:100%;">
+          <p class="admin-msg admin-msg--danger mb-md">Type <strong>FACTORY RESET</strong> below to confirm.</p>
+          <input type="text" id="resetWord" placeholder="Type FACTORY RESET" style="max-width:200px;width:100%;">
           <div class="admin-form__actions mt-md">
             <button class="btn btn--secondary" id="resetCancel" type="button">Cancel</button>
             <button class="btn btn--danger" id="resetConfirmBtn" type="button" disabled>Delete Everything</button>
@@ -2190,7 +2532,6 @@
     // Achievements Tab
     // ══════════════════════════════════════════
 
-    let editingAchievementId = null;
     let achievementPersonExpanded = {};
 
     const ACHIEVEMENT_STATS = [
@@ -2304,13 +2645,6 @@
         html += `</div>`;
       }
 
-      // Achievement form modal
-      if (editingAchievementId) {
-        const modalAchKey = editingAchievementId === 'new' ? null : editingAchievementId;
-        html += `<div class="task-form-backdrop" id="achFormBackdrop">
-          <div class="task-form-modal">${renderAchievementForm(modalAchKey)}</div>
-        </div>`;
-      }
 
       return html;
     }
@@ -2389,7 +2723,6 @@
       const rType = def.reward?.type || 'none';
 
       return `<div class="form-compact" id="achForm">
-        <h3 class="admin-form__title">${title}</h3>
 
         <div class="form-group">
           <label class="form-label">Name</label>
@@ -2479,11 +2812,27 @@
           </div>
         </div>
 
-        <div class="admin-form__actions">
+        <div class="ef2-footer">
           <button class="btn btn--secondary" id="af_cancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="af_save" type="button"${achKey ? ` data-ach-key="${esc(achKey)}"` : ''}>${isEdit ? 'Save' : 'Create'}</button>
         </div>
       </div>`;
+    }
+
+    function openAdminAchSheet(achKey) {
+      const isNew = achKey === 'new';
+      const mount = document.getElementById('taskSheetMount');
+      if (!mount) return;
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">${isNew ? 'New Badge' : 'Edit Badge'}</h3>
+        ${renderAchievementForm(isNew ? null : achKey)}
+      `);
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') closeAdminSheet();
+      });
+      const form = mount.querySelector('#achForm');
+      if (form) bindAchievementForm(form);
     }
 
     function bindAchievementsTab() {
@@ -2592,16 +2941,14 @@
 
       // Add badge button
       main.querySelector('#addAchBtn')?.addEventListener('click', () => {
-        editingAchievementId = 'new';
-        render();
+        openAdminAchSheet('new');
       });
 
-      // Row click to open modal
+      // Row click to open sheet
       main.querySelector('#badgeList')?.addEventListener('click', e => {
         const row = e.target.closest('[data-ach-key]');
         if (!row) return;
-        editingAchievementId = row.dataset.achKey;
-        render();
+        openAdminAchSheet(row.dataset.achKey);
       });
 
       main.querySelector('#badgesSearch')?.addEventListener('input', e => {
@@ -2644,17 +2991,6 @@
         });
       }
 
-      // Bind modal form if visible
-      const form = main.querySelector('#achForm');
-      if (form) bindAchievementForm(form);
-
-      // Backdrop close
-      document.querySelector('#achFormBackdrop')?.addEventListener('click', (e) => {
-        if (e.target.id === 'achFormBackdrop') {
-          editingAchievementId = null;
-          render();
-        }
-      });
     }
 
     function bindAchievementForm(form) {
@@ -2712,8 +3048,7 @@
 
       // Cancel
       form.querySelector('#af_cancel')?.addEventListener('click', () => {
-        editingAchievementId = null;
-        render();
+        closeAdminSheet();
       });
 
       // Save
@@ -2774,7 +3109,7 @@
         }
 
         achievementDefsObj = (await readAchievementDefs()) || {};
-        editingAchievementId = null;
+        closeAdminSheet();
         render();
       });
     }
@@ -2814,15 +3149,11 @@
       main.querySelector('#taskFilterSortBtn')?.addEventListener('click', openTasksFilterSheet);
 
       // Add task
-      main.querySelector('#addTaskBtn')?.addEventListener('click', () => {
-        editingTaskId = 'new';
-        render();
-      });
+      main.querySelector('#addTaskBtn')?.addEventListener('click', () => openAdminTaskSheet());
 
       // Select mode toggle
       main.querySelector('#selectModeBtn')?.addEventListener('click', () => {
         selectMode = true;
-        editingTaskId = null;
         render();
       });
       main.querySelector('#cancelSelectBtn')?.addEventListener('click', () => {
@@ -2861,247 +3192,10 @@
         const tid = row.dataset.taskId;
         if (selectMode) {
           if (selectedTaskIds.has(tid)) { selectedTaskIds.delete(tid); } else { selectedTaskIds.add(tid); }
-        } else {
-          editingTaskId = editingTaskId === tid ? null : tid;
-        }
-        render();
-      });
-
-      // Modal backdrop click → close
-      document.querySelector('#taskFormBackdrop')?.addEventListener('click', (e) => {
-        if (e.target.id === 'taskFormBackdrop') {
-          editingTaskId = null;
           render();
-        }
-      });
-
-      // Task form events
-      if (editingTaskId !== null) {
-        bindTaskForm();
-      }
-    }
-
-    function bindTaskForm() {
-      const root = editingTaskId === 'new' ? main : document;
-      initOwnerChips('tf_owners');
-      // Assignment mode toggle
-      for (const btn of root.querySelectorAll('#tf_assignMode .admin-mode-btn')) {
-        btn.addEventListener('click', () => {
-          root.querySelectorAll('#tf_assignMode .admin-mode-btn').forEach(b => b.classList.remove('admin-mode-btn--active'));
-          btn.classList.add('admin-mode-btn--active');
-        });
-      }
-
-      // Category change — show/hide event date icon
-      root.querySelector('#tf_category')?.addEventListener('change', (e) => {
-        const opt = e.target.selectedOptions[0];
-        const isEvent = opt?.dataset.event === '1';
-        const eventBtn = root.querySelector('#tf_eventDateBtn');
-        if (eventBtn) eventBtn.classList.toggle('is-hidden', !isEvent);
-        const eventTimeGroup = root.querySelector('#tf_eventTimeGroup');
-        if (eventTimeGroup) eventTimeGroup.classList.toggle('is-hidden', !isEvent);
-        const notesGroup = root.querySelector('#tf_notesGroup');
-        if (notesGroup) notesGroup.classList.toggle('is-hidden', !isEvent);
-        // If event, force rotation to once
-        if (isEvent) {
-          const rotSelect = root.querySelector('#tf_rotation');
-          if (rotSelect) { rotSelect.value = 'once'; rotSelect.dispatchEvent(new Event('change')); }
-        }
-      });
-
-      // Event date icon — open native date picker
-      root.querySelector('#tf_eventDateBtn')?.addEventListener('click', () => {
-        const picker = root.querySelector('#tf_eventDate');
-        if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
-      });
-
-      // Rotation change — show/hide dedicated day vs date picker
-      root.querySelector('#tf_rotation')?.addEventListener('change', (e) => {
-        const rot = e.target.value;
-        const group = root.querySelector('#tf_dedicatedDayGroup');
-        const daySelect = root.querySelector('#tf_daySelect');
-        const dateRow = root.querySelector('#tf_dedicatedDateRow');
-        const label = root.querySelector('#tf_dedicatedDayLabel');
-        const catOpt = root.querySelector('#tf_category')?.selectedOptions[0];
-        const isEvent = catOpt?.dataset.event === '1';
-        if (rot === 'daily') {
-          group.classList.add('is-hidden');
         } else {
-          group.classList.remove('is-hidden');
-          const eventBtn = label?.querySelector('#tf_eventDateBtn');
-          const btnHtml = eventBtn ? eventBtn.outerHTML : '';
-          if (rot === 'once') {
-            daySelect.classList.add('is-hidden');
-            dateRow.classList.toggle('is-hidden', isEvent);
-            label.innerHTML = (isEvent ? 'Event Date ' : 'Date ') + btnHtml;
-          } else {
-            daySelect.classList.remove('is-hidden');
-            dateRow.classList.add('is-hidden');
-            label.innerHTML = 'Day ' + btnHtml;
-          }
-          // Re-bind event date button after innerHTML replace
-          label?.querySelector('#tf_eventDateBtn')?.addEventListener('click', () => {
-            const picker = root.querySelector('#tf_eventDate');
-            if (picker) { try { picker.showPicker(); } catch(e2) { picker.click(); } }
-          });
+          openAdminTaskSheet(tid);
         }
-      });
-
-      // Exempt chip toggle
-      const exemptChip = root.querySelector('#tf_exempt');
-      if (exemptChip) {
-        exemptChip.addEventListener('click', () => exemptChip.classList.toggle('chip--active'));
-      }
-
-      // Bounty chip toggle
-      const bountyToggle = root.querySelector('#tf_bountyToggle');
-      const bountyFields = root.querySelector('#tf_bountyFields');
-      if (bountyToggle) {
-        bountyToggle.addEventListener('click', () => {
-          bountyToggle.classList.toggle('chip--active');
-          const isActive = bountyToggle.classList.contains('chip--active');
-          bountyFields.classList.toggle('is-hidden', !isActive);
-          if (isActive) {
-            exemptChip?.classList.add('chip--active');
-          }
-        });
-      }
-      // Bounty type segmented control
-      for (const btn of root.querySelectorAll('#tf_bountyType .segmented-btn')) {
-        btn.addEventListener('click', () => {
-          root.querySelectorAll('#tf_bountyType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
-          btn.classList.add('segmented-btn--active');
-          root.querySelector('#tf_bountyPointsField').classList.toggle('is-hidden', btn.dataset.value !== 'points');
-          root.querySelector('#tf_bountyRewardField').classList.toggle('is-hidden', btn.dataset.value !== 'reward');
-        });
-      }
-
-      // Cancel
-      root.querySelector('#tf_cancel')?.addEventListener('click', () => {
-        editingTaskId = null;
-        render();
-      });
-
-      // Save
-      root.querySelector('#tf_save')?.addEventListener('click', async () => {
-        const name = root.querySelector('#tf_name')?.value.trim();
-        if (!name) { root.querySelector('#tf_name')?.focus(); return; }
-
-        const owners = getSelectedOwners('tf_owners');
-        const activeMode = root.querySelector('#tf_assignMode .admin-mode-btn.admin-mode-btn--active');
-        const assignMode = activeMode?.dataset.mode || 'rotate';
-        const cooldown = root.querySelector('#tf_cooldown')?.value;
-        const rotation = root.querySelector('#tf_rotation')?.value || 'daily';
-
-        // Read dedicated day from select or date from picker
-        const dayVal = root.querySelector('#tf_daySelect')?.value;
-        const dedicatedDay = (rotation !== 'once' && dayVal !== '' && dayVal != null) ? parseInt(dayVal, 10) : null;
-        const dedicatedDate = rotation === 'once' ? (root.querySelector('#tf_dedicatedDate')?.value || null) : null;
-
-        const catKey = root.querySelector('#tf_category')?.value || '';
-        const catIsEvent = catsObj[catKey]?.isEvent || false;
-        const effectiveMode = catIsEvent ? 'fixed' : assignMode;
-
-        // Event date overrides dedicatedDate & rotation
-        const eventDate = catIsEvent ? (root.querySelector('#tf_eventDate')?.value || null) : null;
-        const effectiveRotation = catIsEvent && eventDate ? 'once' : rotation;
-        const effectiveDedicatedDate = catIsEvent && eventDate ? eventDate : dedicatedDate;
-        const eventTime = catIsEvent ? (root.querySelector('#tf_eventTime')?.value || null) : null;
-        const notes = catIsEvent ? (root.querySelector('#tf_notes')?.value.trim() || null) : null;
-
-        const taskData = {
-          name,
-          rotation: effectiveRotation,
-          difficulty: root.querySelector('#tf_difficulty')?.value || 'medium',
-          timeOfDay: root.querySelector('#tf_timeOfDay')?.value || 'anytime',
-          estMin: (v => isNaN(v) ? 10 : v)(parseInt(root.querySelector('#tf_estMin')?.value, 10)),
-          category: catKey,
-          owners,
-          ownerAssignmentMode: effectiveMode,
-          dedicatedDay,
-          dedicatedDate: effectiveDedicatedDate,
-          eventTime,
-          notes,
-          cooldownDays: cooldown ? parseInt(cooldown, 10) : null,
-          exempt: root.querySelector('#tf_exempt')?.classList.contains('chip--active') || false,
-          status: 'active'
-        };
-
-        // Read bounty data
-        const isBounty = root.querySelector('#tf_bountyToggle')?.classList.contains('chip--active');
-        let bounty = null;
-        if (isBounty) {
-          const bountyType = root.querySelector('#tf_bountyType .segmented-btn--active')?.dataset?.value || 'points';
-          bounty = {
-            type: bountyType,
-            amount: bountyType === 'points' ? (parseInt(root.querySelector('#tf_bountyAmount')?.value) || 50) : null,
-            rewardId: bountyType === 'reward' ? (root.querySelector('#tf_bountyReward')?.value || null) : null
-          };
-          taskData.exempt = true;
-        }
-        taskData.bounty = bounty;
-
-        if (editingTaskId === 'new') {
-          taskData.createdDate = today;
-          const newId = await pushTask(taskData);
-          tasksObj[newId] = taskData;
-
-          // Create schedule entry for today so the task appears immediately
-          // Skip if one-time task with a future dedicatedDate
-          // Skip weekly/monthly if they have a dedicatedDay that isn't today
-          const skipToday = (taskData.rotation === 'once' && taskData.dedicatedDate && taskData.dedicatedDate !== today)
-            || ((taskData.rotation === 'weekly' || taskData.rotation === 'monthly') && taskData.dedicatedDay != null && dayOfWeek(today) !== taskData.dedicatedDay);
-          if (owners.length > 0 && !skipToday) {
-            const schedUpdates = {};
-            const baseEntry = { taskId: newId, rotationType: taskData.rotation, ownerAssignmentMode: effectiveMode, ...(taskData.notes ? { notes: taskData.notes } : {}) };
-            const tod = taskData.timeOfDay || 'anytime';
-            let newCounter = 0;
-            const newKey = () => `sched_${Date.now()}_${String(newCounter++).padStart(5, '0')}`;
-
-            if (effectiveMode === 'duplicate') {
-              for (const oid of owners) {
-                if (tod === 'both') {
-                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'am' };
-                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: 'pm' };
-                } else {
-                  schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId: oid, timeOfDay: tod };
-                }
-              }
-            } else {
-              // Use proper rotation owner instead of always first owner
-              const ownerId = effectiveMode === 'fixed' ? owners[0] : getRotationOwner(taskData, today, newId);
-              if (tod === 'both') {
-                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'am' };
-                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: 'pm' };
-              } else {
-                schedUpdates[`schedule/${today}/${newKey()}`] = { ...baseEntry, ownerId, timeOfDay: tod };
-              }
-            }
-            await multiUpdate(schedUpdates);
-          }
-
-          // Rebuild future schedule so the new task appears on upcoming days
-          const allSched = await readAllSchedule() || {};
-          const allComp = await readCompletions() || {};
-          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, undefined, catsObj);
-          await multiUpdate(futureUpdates);
-        } else {
-          // Preserve existing fields
-          const existing = tasksObj[editingTaskId] || {};
-          taskData.createdDate = existing.createdDate || today;
-          taskData.status = existing.status || 'active';
-          await writeTask(editingTaskId, taskData);
-          tasksObj[editingTaskId] = taskData;
-
-          // Auto-rebuild future schedule so edits take effect immediately
-          const allSched = await readAllSchedule() || {};
-          const allComp = await readCompletions() || {};
-          const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp, allSched, { includeToday: true }, catsObj);
-          await multiUpdate(futureUpdates);
-        }
-
-        editingTaskId = null;
-        render();
       });
     }
 
@@ -3120,88 +3214,81 @@
         `<option value="${esc(c.key)}">${esc(c.icon)} ${esc(c.label)}</option>`
       ).join('');
 
-      const modalHtml = `<div class="task-form-backdrop" id="bulkEditBackdrop">
-        <div class="task-form-modal">
-          <div class="admin-form">
-            <h3 class="admin-form__title">Edit ${count} task${count !== 1 ? 's' : ''}</h3>
-            <div class="bulk-edit-form">
-              <div class="form-group">
-                <label class="form-label">Rotation</label>
-                <select id="be_rotation">
-                  <option value="" selected>\u2014 no change \u2014</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="once">One-Time</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Owner Assignment Mode</label>
-                <select id="be_assignMode">
-                  <option value="" selected>\u2014 no change \u2014</option>
-                  <option value="rotate">Rotate</option>
-                  <option value="duplicate">Duplicate</option>
-                  <option value="fixed">Fixed</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Category</label>
-                <select id="be_category">
-                  <option value="" selected>\u2014 no change \u2014</option>
-                  ${catOptions}
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Status</label>
-                <select id="be_status">
-                  <option value="" selected>\u2014 no change \u2014</option>
-                  <option value="active">Active</option>
-                  <option value="paused">Paused</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Difficulty</label>
-                <select id="be_difficulty">
-                  <option value="" selected>\u2014 no change \u2014</option>
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Time of Day</label>
-                <select id="be_timeOfDay">
-                  <option value="" selected>\u2014 no change \u2014</option>
-                  <option value="am">AM</option>
-                  <option value="pm">PM</option>
-                  <option value="anytime">Anytime</option>
-                  <option value="both">Both</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Estimated Minutes</label>
-                <input type="number" id="be_estMin" value="" min="0" max="120" placeholder="Leave blank for no change">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Owners</label>
-                <div class="owner-chips" id="be_owners">${ownerChips}</div>
-                <span class="owner-chips-hint" id="be_ownersHint">Leave unchanged</span>
-              </div>
-            </div>
-            <div class="admin-form__actions mt-md">
-              <button class="btn btn--secondary" id="bulkEditCancel" type="button">Cancel</button>
-              <button class="btn btn--primary" id="bulkEditApply" type="button">Apply to ${count} task${count !== 1 ? 's' : ''}</button>
-            </div>
+      const mount = document.getElementById('taskSheetMount');
+      if (!mount) return;
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">Edit ${count} task${count !== 1 ? 's' : ''}</h3>
+        <div class="bulk-edit-form">
+          <div class="form-group">
+            <label class="form-label">Rotation</label>
+            <select id="be_rotation">
+              <option value="" selected>\u2014 no change \u2014</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="once">One-Time</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Owner Assignment Mode</label>
+            <select id="be_assignMode">
+              <option value="" selected>\u2014 no change \u2014</option>
+              <option value="rotate">Rotate</option>
+              <option value="duplicate">Duplicate</option>
+              <option value="fixed">Fixed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="be_category">
+              <option value="" selected>\u2014 no change \u2014</option>
+              ${catOptions}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="be_status">
+              <option value="" selected>\u2014 no change \u2014</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Difficulty</label>
+            <select id="be_difficulty">
+              <option value="" selected>\u2014 no change \u2014</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Time of Day</label>
+            <select id="be_timeOfDay">
+              <option value="" selected>\u2014 no change \u2014</option>
+              <option value="am">AM</option>
+              <option value="pm">PM</option>
+              <option value="anytime">Anytime</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estimated Minutes</label>
+            <input type="number" id="be_estMin" value="" min="0" max="120" placeholder="Leave blank for no change">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Owners</label>
+            <div class="owner-chips" id="be_owners">${ownerChips}</div>
+            <span class="owner-chips-hint" id="be_ownersHint">Leave unchanged</span>
           </div>
         </div>
-      </div>`;
-
-      // Mount modal into document body so it's above everything
-      const mountDiv = document.createElement('div');
-      mountDiv.id = 'bulkEditMount';
-      mountDiv.innerHTML = modalHtml;
-      document.body.appendChild(mountDiv);
+        <div class="ef2-footer">
+          <button class="btn btn--secondary" id="bulkEditCancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="bulkEditApply" type="button">Apply to ${count} task${count !== 1 ? 's' : ''}</button>
+        </div>
+      `);
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
       // Track whether owners were touched
       let ownersChanged = false;
@@ -3218,9 +3305,8 @@
         }
       });
 
-      // Backdrop click closes
-      document.getElementById('bulkEditBackdrop')?.addEventListener('click', (e) => {
-        if (e.target.id === 'bulkEditBackdrop') closeBulkEditModal();
+      document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+        if (e.target.id === 'bottomSheet') closeBulkEditModal();
       });
 
       // Cancel button
@@ -3287,7 +3373,7 @@
     }
 
     function closeBulkEditModal() {
-      document.getElementById('bulkEditMount')?.remove();
+      closeAdminSheet();
     }
 
     async function handleBulkDelete() {
@@ -3302,7 +3388,6 @@
       }
       selectMode = false;
       selectedTaskIds.clear();
-      editingTaskId = null;
       render();
 
       // Delete tasks from Firebase
@@ -3376,50 +3461,44 @@
         return list.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
       };
 
-      mount.innerHTML = `<div class="task-form-backdrop" id="msgBackdrop">
-        <div class="task-form-modal">
-          <div class="form-compact" id="msgForm">
-            <h3 class="admin-form__title">Send Message</h3>
-            <div class="form-group">
-              <label class="form-label">For</label>
-              <div class="admin-msg-person" style="color:${person?.color || 'inherit'}">${esc(person?.name || 'Unknown')}</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Type</label>
-              <div class="segmented-control" id="msg_typeToggle">
-                <button class="segmented-btn${defaultType === 'bonus' ? ' segmented-btn--active' : ''}" data-type="bonus" type="button">+ Bonus</button>
-                <button class="segmented-btn${defaultType === 'deduction' ? ' segmented-btn--active' : ''}" data-type="deduction" type="button">− Deduction</button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Title</label>
-              <input type="text" id="msg_customTitle" class="form-input" placeholder="Enter message title" autocomplete="off">
-              <select class="form-input mt-xs" id="msg_templateSelect">
-                <option value="">— Or pick a template —</option>
-                ${renderTemplateOptions(defaultType)}
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Personal note (optional)</label>
-              <textarea class="form-input" id="msg_body" rows="2" placeholder="Great job helping your sister!"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Points</label>
-              <input class="form-input input--narrow" type="number" id="msg_points" value="${defaultType === 'bonus' ? '25' : '15'}" min="0">
-            </div>
-            <div class="admin-form__actions mt-md">
-              <button class="btn btn--secondary" id="msg_cancel" type="button">Cancel</button>
-              <button class="btn btn--primary" id="msg_send" type="button">Send</button>
-            </div>
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">Send Message</h3>
+        <div class="form-group">
+          <label class="form-label">For</label>
+          <div class="admin-msg-person" style="color:${person?.color || 'inherit'}">${esc(person?.name || 'Unknown')}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <div class="segmented-control" id="msg_typeToggle">
+            <button class="segmented-btn${defaultType === 'bonus' ? ' segmented-btn--active' : ''}" data-type="bonus" type="button">+ Bonus</button>
+            <button class="segmented-btn${defaultType === 'deduction' ? ' segmented-btn--active' : ''}" data-type="deduction" type="button">− Deduction</button>
           </div>
         </div>
-      </div>`;
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input type="text" id="msg_customTitle" class="form-input" placeholder="Enter message title" autocomplete="off">
+          <select class="form-input mt-xs" id="msg_templateSelect">
+            <option value="">— Or pick a template —</option>
+            ${renderTemplateOptions(defaultType)}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Personal note (optional)</label>
+          <textarea class="form-input" id="msg_body" rows="2" placeholder="Great job helping your sister!"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Points</label>
+          <input class="form-input input--narrow" type="number" id="msg_points" value="${defaultType === 'bonus' ? '25' : '15'}" min="0">
+        </div>
+        <div class="sheet-actions">
+          <button class="btn btn--secondary" id="msg_cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="msg_send" type="button">Send</button>
+        </div>
+      `);
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
       let msgType = defaultType;
-      const backdrop = mount.querySelector('#msgBackdrop');
-      backdrop?.addEventListener('click', e => { if (e.target === backdrop) mount.innerHTML = ''; });
-
-      requestAnimationFrame(() => mount.querySelector('#msg_customTitle')?.focus());
+      document.getElementById('bottomSheet')?.addEventListener('click', e => { if (e.target.id === 'bottomSheet') closeAdminSheet(); });
 
       const typeToggle = mount.querySelector('#msg_typeToggle');
       typeToggle?.addEventListener('click', e => {
@@ -3444,7 +3523,7 @@
         }
       });
 
-      mount.querySelector('#msg_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+      mount.querySelector('#msg_cancel')?.addEventListener('click', () => { closeAdminSheet(); });
 
       mount.querySelector('#msg_send')?.addEventListener('click', async () => {
         const title = mount.querySelector('#msg_customTitle')?.value.trim() || '';
@@ -3458,7 +3537,7 @@
           createdAt: firebase.database.ServerValue.TIMESTAMP,
           createdBy: 'Parent'
         });
-        mount.innerHTML = '';
+        closeAdminSheet();
         showUndoToast(`${msgType === 'bonus' ? 'Bonus' : 'Deduction'} sent!`);
       });
     }
@@ -3602,15 +3681,13 @@
 
     function bindCategoriesTab() {
       main.querySelector('#addCatBtn')?.addEventListener('click', () => {
-        editingCatKey = 'new';
-        render();
+        openAdminCatSheet('new');
       });
 
       main.querySelector('#catList')?.addEventListener('click', e => {
         const row = e.target.closest('[data-cat-key]');
         if (!row) return;
-        editingCatKey = row.dataset.catKey;
-        render();
+        openAdminCatSheet(row.dataset.catKey);
       });
 
       main.querySelector('#catsSearch')?.addEventListener('input', e => {
@@ -3620,109 +3697,39 @@
         if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
       });
       main.querySelector('#catsFilterSortBtn')?.addEventListener('click', openCatsFilterSheet);
-
-      if (editingCatKey !== null) {
-        main.querySelector('#catFormBackdrop')?.addEventListener('click', e => {
-          if (e.target.id === 'catFormBackdrop') { editingCatKey = null; render(); }
-        });
-        bindCategoryForm();
-      }
-    }
-
-    function bindCategoryForm() {
-      main.querySelector('#catFormCancel')?.addEventListener('click', () => {
-        editingCatKey = null;
-        render();
-      });
-
-      main.querySelector('#catFormDelete')?.addEventListener('click', async () => {
-        const key = editingCatKey;
-        const ca = catsArray();
-        if (ca.length <= 1) { await showConfirm({ title: 'Cannot delete the last category', alert: true }); return; }
-
-        const defaultEntry = Object.entries(catsObj).find(([k, c]) => k !== key && c?.isDefault);
-        const fallbackKey = defaultEntry ? defaultEntry[0] : (Object.keys(catsObj).find(k => k !== key) || 'chores');
-        const fallbackLabel = catsObj[fallbackKey]?.label || fallbackKey;
-
-        if (!await showConfirm({ title: `Delete category "${catsObj[key]?.label}"?`, message: `Tasks will be reassigned to "${fallbackLabel}".`, danger: true })) return;
-
-        for (const [taskId, task] of Object.entries(tasksObj)) {
-          if (task.category === key) {
-            task.category = fallbackKey;
-            await writeTask(taskId, task);
-          }
-        }
-
-        delete catsObj[key];
-        await writeCategories(catsObj);
-        editingCatKey = null;
-        render();
-      });
-
-      // Color button for event color
-      initColorButton(main.querySelector('#cf_eventColor')?.closest('.cpick-wrap'), null);
-
-      // Event toggle shows/hides color picker
-      const eventCheckbox = main.querySelector('#cf_isEvent');
-      const eventColorRow = main.querySelector('#eventColorRow');
-      const catLimitsRow = main.querySelector('#catLimitsRow');
-      eventCheckbox?.addEventListener('change', () => {
-        if (eventColorRow) eventColorRow.style.display = eventCheckbox.checked ? '' : 'none';
-        if (catLimitsRow) catLimitsRow.style.display = eventCheckbox.checked ? 'none' : 'flex';
-      });
-
-
-      main.querySelector('#catFormSave')?.addEventListener('click', async () => {
-        const icon = main.querySelector('#cf_icon')?.value.trim() || '📌';
-        const label = main.querySelector('#cf_label')?.value.trim();
-        if (!label) { main.querySelector('#cf_label')?.focus(); return; }
-
-        const weight = main.querySelector('#cf_weight')?.value;
-        const showIcon = main.querySelector('#cf_showIcon')?.checked ?? true;
-        const pinProtected = main.querySelector('#cf_pinProtected')?.checked || false;
-        const isDefault = main.querySelector('#cf_isDefault')?.checked || false;
-        const isEvent = main.querySelector('#cf_isEvent')?.checked || false;
-        const limitPerson = main.querySelector('#cf_limitPerson')?.value;
-        const limitHousehold = main.querySelector('#cf_limitHousehold')?.value;
-
-        // If setting as default, clear default from all other categories
-        if (isDefault) {
-          for (const [k, c] of Object.entries(catsObj)) {
-            if (c.isDefault) c.isDefault = false;
-          }
-        }
-
-        const catData = {
-          label,
-          icon,
-          showIcon,
-          pinProtected,
-          isDefault,
-          isEvent,
-          eventColor: isEvent ? (main.querySelector('#cf_eventColor')?.value || '#5b7fd6') : null,
-          weightPercent: isEvent ? null : (weight ? parseInt(weight, 10) : null),
-          dailyLimitPerPerson: isEvent ? null : (limitPerson ? parseInt(limitPerson, 10) : null),
-          dailyLimitPerHousehold: isEvent ? null : (limitHousehold ? parseInt(limitHousehold, 10) : null)
-        };
-
-        if (editingCatKey === 'new') {
-          const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
-          if (catsObj[key]) { await showConfirm({ title: 'A category with this key already exists', alert: true }); return; }
-          catsObj[key] = catData;
-        } else {
-          catsObj[editingCatKey] = catData;
-        }
-
-        await writeCategories(catsObj);
-        editingCatKey = null;
-        render();
-      });
     }
 
     // ── Settings tab events ──
 
     function bindSettingsTab() {
+      function validateDiffMults() {
+        const clamp = (raw, fb) => Math.min(10, Math.max(1, parseIntOr(raw, fb)));
+        const easy   = clamp(main.querySelector('#sf_diffEasy')?.value, 1);
+        const medium = clamp(main.querySelector('#sf_diffMedium')?.value, 2);
+        const hard   = clamp(main.querySelector('#sf_diffHard')?.value, 3);
+        const invalid = easy >= medium || medium >= hard;
+        const errEl  = main.querySelector('#sf_diffError');
+        const saveBtn = main.querySelector('#settingsSave');
+        if (errEl)   errEl.hidden = !invalid;
+        if (saveBtn) saveBtn.disabled = invalid;
+        return !invalid;
+      }
+
+      for (const id of ['#sf_diffEasy', '#sf_diffMedium', '#sf_diffHard']) {
+        main.querySelector(id)?.addEventListener('input', validateDiffMults);
+      }
+
+      // Text size — live apply on tap
+      for (const btn of main.querySelectorAll('#sf_textSize .segmented-btn')) {
+        btn.addEventListener('click', () => {
+          main.querySelectorAll('#sf_textSize .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+          btn.classList.add('segmented-btn--active');
+          document.documentElement.setAttribute('data-text-size', btn.dataset.size);
+        });
+      }
+
       main.querySelector('#settingsSave')?.addEventListener('click', async () => {
+        if (!validateDiffMults()) return;
         const msgEl = main.querySelector('#settingsMsg');
         const newPin = main.querySelector('#sf_newPin')?.value.trim();
 
@@ -3734,30 +3741,17 @@
         const newDiffMedium = clampMult(main.querySelector('#sf_diffMedium')?.value, 2);
         const newDiffHard = clampMult(main.querySelector('#sf_diffHard')?.value, 3);
 
-        // Soft warning on non-monotonic multipliers
-        if (newDiffEasy > newDiffMedium || newDiffMedium > newDiffHard) {
-          const ok = await showConfirm({
-            title: 'Difficulty multipliers are usually increasing (easy ≤ medium ≤ hard).',
-            message: `You entered: easy=${newDiffEasy}, medium=${newDiffMedium}, hard=${newDiffHard}. Save anyway?`,
-            danger: false
-          });
-          if (!ok) return;
-        }
-
         const updated = {
           ...settings,
           appName: main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
           familyName: main.querySelector('#sf_familyName')?.value.trim() || '',
           timezone: main.querySelector('#sf_timezone')?.value || settings?.timezone,
+          textSize: main.querySelector('#sf_textSize .segmented-btn--active')?.dataset.size || 'default',
           weekendWeightWeekly: parseFloatOr(main.querySelector('#sf_weekendWeightWeekly')?.value, 1.5),
           weekendWeightMonthly: parseFloatOr(main.querySelector('#sf_weekendWeightMonthly')?.value, 3),
           pastDueCreditPct: parseIntOr(main.querySelector('#sf_pastDueCredit')?.value, 75),
-          sliderMin: parseIntOr(main.querySelector('#sf_sliderMin')?.value, 0),
-          sliderMax: parseIntOr(main.querySelector('#sf_sliderMax')?.value, 150),
           showTodIconBoth: !!main.querySelector('#sf_showTodIconBoth')?.checked,
           showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
-          longPressMs: parseIntOr(main.querySelector('#sf_longPressMs')?.value, 800),
-          kidLongPressMs: parseIntOr(main.querySelector('#sf_kidLongPressMs')?.value, 500),
           difficultyMultipliers: { easy: newDiffEasy, medium: newDiffMedium, hard: newDiffHard },
           calendarDefaults: {
             defaultView: main.querySelector('#set_calView')?.value || 'week',
@@ -3770,6 +3764,10 @@
           weatherLocation: main.querySelector('#sf_weatherLocation')?.value.trim() || '',
           weatherApiKey:   main.querySelector('#sf_weatherApiKey')?.value.trim() || '',
         };
+        delete updated.sliderMin;
+        delete updated.sliderMax;
+        delete updated.longPressMs;
+        delete updated.kidLongPressMs;
 
         if ((settings?.weatherLocation || '') !== (updated.weatherLocation || '')) {
           clearWeatherCache();
@@ -3803,6 +3801,7 @@
         if (easyInput) easyInput.value = 1;
         if (mediumInput) mediumInput.value = 2;
         if (hardInput) hardInput.value = 3;
+        validateDiffMults();
       });
 
       main.querySelector('#sf_themePreset')?.addEventListener('change', async (e) => {
@@ -3863,6 +3862,15 @@
         ['resetScheduleBtn', true, 'Clear Past & Rebuild']
       ]) {
         main.querySelector(`#${btnId}`)?.addEventListener('click', async () => {
+          const confirmed = await showConfirm({
+            title: clearPast ? 'Clear Past & Rebuild Schedule?' : 'Rebuild Schedule?',
+            message: clearPast
+              ? 'Removes all uncompleted past schedule entries, then regenerates today + 90 future days.'
+              : 'Regenerates today + 90 future days based on current task settings.',
+            danger: clearPast
+          });
+          if (!confirmed) return;
+
           const msgEl = main.querySelector('#scheduleMsg');
           const btn = main.querySelector(`#${btnId}`);
           btn.disabled = true;
@@ -4009,7 +4017,7 @@
       const resetBtn = main.querySelector('#resetConfirmBtn');
       if (resetWord && resetBtn) {
         resetWord.addEventListener('input', () => {
-          resetBtn.disabled = resetWord.value.trim() !== 'RESET';
+          resetBtn.disabled = resetWord.value.trim() !== 'FACTORY RESET';
         });
 
         resetBtn.addEventListener('click', async () => {

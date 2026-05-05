@@ -1,4 +1,4 @@
-// components.js — Reusable UI rendering functions (v2)
+﻿// components.js â€” Reusable UI rendering functions (v2)
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 
@@ -171,9 +171,9 @@ const NAV_ITEMS = [
  * More is a button (opens a sheet in-page); the first four are anchors.
  *
  * Signatures:
- *   renderNavBar(activePage)                       // legacy — More is rendered
+ *   renderNavBar(activePage)                       // legacy â€” More is rendered
  *                                                  //   but unbound (no-op)
- *   renderNavBar(activePage, { onMoreClick })      // Phase 1+ — dashboard binds More
+ *   renderNavBar(activePage, { onMoreClick })      // Phase 1+ â€” dashboard binds More
  *
  * Person-link mode: the page rewrites href values after render (existing behavior).
  */
@@ -219,11 +219,12 @@ export function renderNavBar(activePage, options = {}) {
  * @param {object} [familyTheme] - current family theme for openDeviceThemeSheet
  */
 export function initNavMore(sheetMount, getTheme, personOpts) {
+  const _svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">${p}</svg>`;
   const items = [
-    { id: 'admin',    label: 'Admin' },
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'tracker',  label: 'Tracker' },
-    { id: 'theme',    label: 'Theme' },
+    { id: 'admin',    label: 'Admin',    icon: _svg('<circle cx="12" cy="12" r="3"></circle><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>') },
+    { id: 'calendar', label: 'Calendar', icon: _svg('<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>') },
+    { id: 'tracker',  label: 'Tracker',  icon: _svg('<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>') },
+    { id: 'theme',    label: 'Theme',    icon: _svg('<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>') },
   ];
 
   function openMoreSheet() {
@@ -260,11 +261,11 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
  *
  *  STANDARD (all pages except admin):
  *    renderHeader({ title, subtitle, showBell })
- *    — font-2xl title, optional subtitle, gear button, optional bell
+ *    â€” font-2xl title, optional subtitle, gear button, optional bell
  *
  *  ADMIN VARIANT:
  *    renderHeader({ variant: 'admin', title, subtitle })
- *    — same structure but no bell and no gear (avoids self-referential settings button)
+ *    â€” same structure but no bell and no gear (avoids self-referential settings button)
  */
 export function renderHeader(options = {}) {
   if (options.variant === 'admin') {
@@ -337,12 +338,12 @@ export function renderUndoToast(message) {
  * Render an empty state message.
  */
 const EMPTY_VARIANTS = {
-  'all-done':     { icon: '🏆', title: 'Nothing left — you crushed it!' },
-  'free-day':     { icon: '🏖️', title: 'Free day!', subtitle: 'Nothing scheduled — enjoy it.' },
-  'future-empty': { icon: '📅', title: 'Nothing planned yet' },
-  'no-match':     { icon: '🔍', title: 'No tasks for {name}', subtitle: 'Try a different filter.' },
-  'kid-done':     { icon: '🎉', title: "You're all done!", subtitle: 'Go play!' },
-  'kid-free':     { icon: '☀️', title: 'No chores today!', subtitle: 'Lucky you!' }
+  'all-done':     { icon: 'ðŸ†', title: 'Nothing left â€” you crushed it!' },
+  'free-day':     { icon: 'ðŸ–ï¸', title: 'Free day!', subtitle: 'Nothing scheduled â€” enjoy it.' },
+  'future-empty': { icon: 'ðŸ“…', title: 'Nothing planned yet' },
+  'no-match':     { icon: 'ðŸ”', title: 'No tasks for {name}', subtitle: 'Try a different filter.' },
+  'kid-done':     { icon: 'ðŸŽ‰', title: "You're all done!", subtitle: 'Go play!' },
+  'kid-free':     { icon: 'â˜€ï¸', title: 'No chores today!', subtitle: 'Lucky you!' }
 };
 
 export function renderEmptyState(icon, title, subtitle = '', options = {}) {
@@ -364,14 +365,14 @@ export function renderEmptyState(icon, title, subtitle = '', options = {}) {
 
 /**
  * Render an error state into a DOM element.
- * Spec §5.19: title, optional message, optional retry callback.
+ * Spec Â§5.19: title, optional message, optional retry callback.
  * root: HTMLElement to write into
  * options: { title, message, retry }
  */
 export function renderErrorState(root, { title = 'Something went wrong', message = 'Check your connection and try again.', retry } = {}) {
   const retryBtn = retry ? `<button class="error-state__retry" type="button" id="errorStateRetry">Try again</button>` : '';
   root.innerHTML = `<div class="error-state">
-    <span class="error-state__icon" aria-hidden="true">⚠️</span>
+    <span class="error-state__icon" aria-hidden="true">âš ï¸</span>
     <h3 class="error-state__title">${esc(title)}</h3>
     ${message ? `<p class="error-state__message">${esc(message)}</p>` : ''}
     ${retryBtn}
@@ -439,7 +440,7 @@ export function renderProgressBar(done, total) {
 /**
  * Render a single task card.
  * options: { entryKey, entry, task, person, category, completed, overdue, dateLabel, points }
- * points: optional { possible, override } — override is the pointsOverride percentage (null = no override)
+ * points: optional { possible, override } â€” override is the pointsOverride percentage (null = no override)
  * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --owner-color / --event-color).
  */
 export function renderTaskCard(options) {
@@ -455,16 +456,16 @@ export function renderTaskCard(options) {
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
   const catName = category?.name || '';
 
-  // Override-direction cue: ▲ if override raises points, ▼ if it lowers them.
-  // No bare scoring-pt chip — store-economy points live in the section meta only (spec 2026-04-25 §3.7).
+  // Override-direction cue: â–² if override raises points, â–¼ if it lowers them.
+  // No bare scoring-pt chip â€” store-economy points live in the section meta only (spec 2026-04-25 Â§3.7).
   let ptsLabel = '';
   if (points && !isEvent && !task.exempt && points.override != null && points.override !== 100) {
     const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
-    const icon = points.override > 100 ? '▲' : '▼';
+    const icon = points.override > 100 ? 'â–²' : 'â–¼';
     ptsLabel = `<span class="${colorClass}">${icon}</span>`;
   }
 
-  // Rotation tag (spec §5.4) — only for non-daily rotations.
+  // Rotation tag (spec Â§5.4) â€” only for non-daily rotations.
   const rotationLabel = task?.rotation === 'weekly' ? 'Weekly'
     : task?.rotation === 'monthly' ? 'Monthly'
     : task?.rotation === 'once' ? 'One-Time'
@@ -477,7 +478,7 @@ export function renderTaskCard(options) {
   let actionTags = '';
   if (entryKey && entryKey.includes('_delegate')) {
     const fromName = entry.delegatedFromName || '?';
-    actionTags += `<span class="task-card__tag task-card__tag--delegated">↪ ${esc(fromName)}</span>`;
+    actionTags += `<span class="task-card__tag task-card__tag--delegated">â†ª ${esc(fromName)}</span>`;
   }
   if (entryKey && entryKey.includes('_moved')) {
     const fromDate = entry.movedFromDate || '';
@@ -502,10 +503,10 @@ export function renderTaskCard(options) {
   const taskTod = task.timeOfDay;
   const isAmOrPm = entryTod === 'am' || entryTod === 'pm';
   const showTod = isAmOrPm && ((taskTod === 'both' && options.showTodIconBoth) || (taskTod !== 'both' && options.showTodIconSingle));
-  const todLabel = showTod ? (entryTod === 'am' ? '🌅 AM' : '🌙 PM') : '';
+  const todLabel = showTod ? (entryTod === 'am' ? 'ðŸŒ… AM' : 'ðŸŒ™ PM') : '';
 
-  // Build meta row as mockup: category · meta-dot · (tod/event-time/est joined by · ) · rotationTag · actionTags · points.
-  const rightMeta = [todLabel, eventTimeLabel, estLabel].filter(Boolean).join(' · ');
+  // Build meta row as mockup: category Â· meta-dot Â· (tod/event-time/est joined by Â· ) Â· rotationTag Â· actionTags Â· points.
+  const rightMeta = [todLabel, eventTimeLabel, estLabel].filter(Boolean).join(' Â· ');
   const catSpan = catName ? `<span>${esc(catName)}</span>` : '';
   const dotSpan = (catSpan && rightMeta) ? `<span class="card__meta-dot" aria-hidden="true"></span>` : '';
   const rightSpan = rightMeta ? `<span>${esc(rightMeta)}</span>` : '';
@@ -513,7 +514,7 @@ export function renderTaskCard(options) {
   const metaInner = `${catSpan}${dotSpan}${rightSpan}${rotationTag}${actionTags}${ptsSpan}`;
 
   const dateLine = dateLabel ? `<span class="task-card__date">${esc(dateLabel)}</span>` : '';
-  const eventPrefix = isEvent ? '📅 ' : '';
+  const eventPrefix = isEvent ? 'ðŸ“… ' : '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
 
@@ -522,7 +523,7 @@ export function renderTaskCard(options) {
     ? `<div class="card__leading">${esc(eventTimeLabel) || ''}</div>`
     : `<div class="card__leading"><span class="avatar" data-person-color="${esc(ownerColor)}">${esc(ownerInitial)}</span></div>`;
 
-  // Trailing check button — decorative within the card click region (spec §3.6).
+  // Trailing check button â€” decorative within the card click region (spec Â§3.6).
   const checkSvg = completed
     ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>'
     : '';
@@ -556,9 +557,9 @@ export function renderOverdueBanner(count) {
   if (count === 0) return '';
   const s = count === 1 ? 'task' : 'tasks';
   return `<button class="overdue-banner" id="overdueToggle" type="button" aria-expanded="false" aria-controls="overdueList">
-    <span class="overdue-banner__icon" aria-hidden="true">⚠️</span>
+    <span class="overdue-banner__icon" aria-hidden="true">âš ï¸</span>
     <span class="overdue-banner__text">${count} overdue ${s}</span>
-    <span class="overdue-banner__arrow" id="overdueArrow" aria-hidden="true">▸</span>
+    <span class="overdue-banner__arrow" id="overdueArrow" aria-hidden="true">â–¸</span>
   </button>`;
 }
 
@@ -567,7 +568,7 @@ export function renderOverdueBanner(count) {
  * Called by dashboard.js resolveBanner(); caller is responsible for mounting the
  * returned HTML into #bannerMount and wiring any action button via click delegation.
  * `bodyClickable: true` wraps the body in a button; the page binds clicks
- * via `[data-banner-body]` selector. Used by --overdue per spec §3.2.
+ * via `[data-banner-body]` selector. Used by --overdue per spec Â§3.2.
  */
 export function renderBanner(variant, { title, message, action, bodyClickable = false } = {}) {
   const iconMap = {
@@ -641,7 +642,7 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
   const metaParts = [
     b.streak.current > 0 ? `${b.streak.current}d streak` : null,
     `${liveBalance.toLocaleString()} pts`,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(' Â· ');
 
   const badgeRow = badgeIcons
     ? `<div class="card--score__badges">${badgeIcons}</div>`
@@ -685,7 +686,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
   let badges = '';
   if (reward.streakRequirement) {
     const needed = reward.streakRequirement - streak;
-    badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak${!meetsStreak ? ` · need ${needed} more` : ''}</span>`;
+    badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak${!meetsStreak ? ` Â· need ${needed} more` : ''}</span>`;
   }
   if (reward.maxRedemptions && stockOk) {
     badges += `<span class="chip chip--muted">${reward.maxRedemptions - redemptionCount} left</span>`;
@@ -702,7 +703,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
   const dimClass = canGet || !showGet ? '' : ' card--dim';
   return `<div class="card card--reward${dimClass}" data-reward-id="${esc(reward.id)}">
     <div class="card__leading">
-      <span class="icon-tile">${esc(reward.icon || '🎁')}</span>
+      <span class="icon-tile">${esc(reward.icon || 'ðŸŽ')}</span>
     </div>
     <div class="card__body">
       <div class="card__title">${esc(reward.name)}</div>
@@ -734,7 +735,7 @@ export function renderBankToken(tokenId, token, opts = {}) {
 
   return `<div class="card card--reward" data-token-id="${esc(tokenId)}" data-reward-type="${esc(token.rewardType || 'custom')}">
     <div class="card__leading">
-      <span class="icon-tile">${esc(token.rewardIcon || '🎁')}</span>
+      <span class="icon-tile">${esc(token.rewardIcon || 'ðŸŽ')}</span>
     </div>
     <div class="card__body">
       <div class="card__title">${typeLabel}</div>
@@ -746,7 +747,7 @@ export function renderBankToken(tokenId, token, opts = {}) {
         data-reward-type="${esc(token.rewardType || 'custom')}"
         data-token-name="${esc(typeLabel)}"
         data-reward-id="${esc(token.rewardId || '')}"
-        data-reward-icon="${esc(token.rewardIcon || '🎁')}"
+        data-reward-icon="${esc(token.rewardIcon || 'ðŸŽ')}"
         data-can-instant="${canUseInstant}"
         type="button">Use</button>
     </div>` : ''}
@@ -770,18 +771,18 @@ export function renderHistoryRow(entry, tz) {
     : '';
 
   const typeIcons = {
-    'redemption-request': '🎁',
-    'redemption-approved': '✅',
-    'redemption-denied': '❌',
-    'use-request': '🎁',
-    'use-approved': '✅',
-    'use-denied': '❌',
-    'reward-used': '🎁',
-    'bonus': '⭐',
-    'deduction': '📉',
-    'fyi': 'ℹ️',
+    'redemption-request': 'ðŸŽ',
+    'redemption-approved': 'âœ…',
+    'redemption-denied': 'âŒ',
+    'use-request': 'ðŸŽ',
+    'use-approved': 'âœ…',
+    'use-denied': 'âŒ',
+    'reward-used': 'ðŸŽ',
+    'bonus': 'â­',
+    'deduction': 'ðŸ“‰',
+    'fyi': 'â„¹ï¸',
   };
-  const icon = typeIcons[entry.type] || '•';
+  const icon = typeIcons[entry.type] || 'â€¢';
 
   return `<div class="history-row">
     <span class="history-row__icon">${icon}</span>
@@ -810,7 +811,7 @@ export function renderApprovalRow(msgId, msg, person, reward) {
       <span class="approval-row__name">${esc(person?.name || '?')}</span>
     </div>
     <div class="approval-row__reward">
-      <span>${esc(reward?.icon || '🎁')}</span>
+      <span>${esc(reward?.icon || 'ðŸŽ')}</span>
       <span>${esc(reward?.name || msg.title || 'Reward')}</span>
       <span class="chip ${intentClass}">${intentLabel}</span>
     </div>
@@ -937,7 +938,7 @@ export function renderGradeBadge(grade, tier) {
   return `<span class="grade-badge grade-badge--${tier}" aria-label="Grade: ${grade}">${grade}</span>`;
 }
 
-// ── Calendar event helpers (private) ──────────────────────────
+// â”€â”€ Calendar event helpers (private) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /** Format "HH:MM" 24h to "3:30pm" */
 function formatTime12(time24) {
@@ -948,14 +949,14 @@ function formatTime12(time24) {
   return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
-/** Format time range "3:30pm – 4:30pm" or just "3:30pm" if no end */
+/** Format time range "3:30pm â€“ 4:30pm" or just "3:30pm" if no end */
 function formatTimeRange(start, end) {
   const s = formatTime12(start);
   if (!end) return s;
-  return `${s} – ${formatTime12(end)}`;
+  return `${s} â€“ ${formatTime12(end)}`;
 }
 
-// ── Calendar event components ─────────────────────────────────
+// â”€â”€ Calendar event components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Render an event pill for week/month views.
@@ -1084,7 +1085,7 @@ function ef2fmt12(t) {
 function ef2TimeDisplay(start, end) {
   if (!start) return 'Set time';
   if (!end) return ef2fmt12(start);
-  return `${ef2fmt12(start)} → ${ef2fmt12(end)}`;
+  return `${ef2fmt12(start)} â†’ ${ef2fmt12(end)}`;
 }
 
 function ef2ParseTime(hhmm) {
@@ -1105,8 +1106,8 @@ function ef2RepeatLabel(rule) {
   if (!rule || !rule.type || rule.type === 'none') return '+ Repeat';
   if (rule.type === 'daily') return 'Daily';
   if (rule.type === 'weekly') {
-    const days = (rule.days || []).join(' · ');
-    return `Weekly${days ? ' · ' + days : ''}`;
+    const days = (rule.days || []).join(' Â· ');
+    return `Weekly${days ? ' Â· ' + days : ''}`;
   }
   if (rule.type === 'monthly') return 'Monthly';
   if (rule.type === 'yearly') return 'Yearly';
@@ -1174,7 +1175,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   <div class="ef2-import-feedback">
     <div class="ef2-import-loading" id="ef2_importLoading">
       <div class="spinner spinner--sm"></div>
-      <span id="ef2_importMsg">Reading…</span>
+      <span id="ef2_importMsg">Readingâ€¦</span>
     </div>
     <div class="ef2-import-error" id="ef2_importError"></div>
   </div>
@@ -1199,7 +1200,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
           <input type="text" class="ef2-time-text" id="ef2_startText" inputmode="numeric" maxlength="5" placeholder="9:00" value="${ef2TimeToText(startTime)}">
           <button class="ef2-ampm-btn" id="ef2_startAmPm" data-ampm="${ef2ParseTime(startTime).ampm}" type="button">${ef2ParseTime(startTime).ampm}</button>
         </div>
-        <span class="ef2-time-arrow" aria-hidden="true">→</span>
+        <span class="ef2-time-arrow" aria-hidden="true">â†’</span>
         <div class="ef2-time-entry">
           <input type="text" class="ef2-time-text" id="ef2_endText" inputmode="numeric" maxlength="5" placeholder="10:00" value="${ef2TimeToText(endTime)}">
           <button class="ef2-ampm-btn" id="ef2_endAmPm" data-ampm="${ef2ParseTime(endTime).ampm}" type="button">${ef2ParseTime(endTime).ampm}</button>
@@ -1226,7 +1227,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   <div class="ef2-field-reveal${notesOpen}" id="ef2_notesReveal">
     <div class="ef2-field-reveal-inner">
-      <textarea id="ef2_notes" rows="3" placeholder="Notes…">${esc(event.notes || '')}</textarea>
+      <textarea id="ef2_notes" rows="3" placeholder="Notesâ€¦">${esc(event.notes || '')}</textarea>
       <button class="ef2-field-close" id="ef2_notesClose" type="button" aria-label="Close notes">${CLOSE_SVG}</button>
     </div>
   </div>
@@ -1261,9 +1262,9 @@ export function renderEventDetailSheet(eventId, event, people = []) {
     ${event.location ? `<div class="event-detail__row"><strong>Location:</strong> ${esc(event.location)}</div>` : ''}
     ${event.notes ? `<div class="event-detail__row"><strong>Notes:</strong> ${esc(event.notes)}</div>` : ''}
     ${event.url ? `<div class="event-detail__row"><a href="${esc(event.url)}" target="_blank" rel="noopener">Open Link</a></div>` : ''}
-    <div class="admin-form__actions mt-md">
+    <div class="ef2-footer">
       <button class="btn btn--secondary" id="eventEdit" data-event-id="${eventId}" type="button">Edit</button>
-      <button class="btn btn--danger btn--small" id="eventDelete" data-event-id="${eventId}" type="button">Delete</button>
+      <button class="btn btn--danger btn--sm" id="eventDelete" data-event-id="${eventId}" type="button">Delete</button>
     </div>
   </div>`;
 }
@@ -1299,13 +1300,13 @@ export function renderTaskDetailSheet(options) {
 
   let html = `<div class="task-detail-sheet">`;
 
-  // ── Header ───────────────────────────────────────────────
+  // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   html += `<div class="sheet__header">
     <h2 class="sheet__title" data-owner-color="${esc(ownerColor)}">${esc(task.name)}${catIcon ? ' ' + catIcon : ''}</h2>
     <button class="ef2-icon-btn" id="dsClose" type="button" aria-label="Close">${DS_CLOSE}</button>
   </div>`;
 
-  // ── Meta chips ───────────────────────────────────────────
+  // â”€â”€ Meta chips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   html += `<div class="task-detail__chips">`;
   if (person) html += `<span class="chip" data-person-color="${esc(person.color)}">${esc(person.name)}</span>`;
   if (rotLabel) html += `<span class="chip">${rotLabel}</span>`;
@@ -1315,17 +1316,17 @@ export function renderTaskDetailSheet(options) {
   if (task.estMin) html += `<span class="chip">${task.estMin}m</span>`;
   html += `</div>`;
 
-  // ── Source info ──────────────────────────────────────────
+  // â”€â”€ Source info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (entry.delegatedFromName || entry.movedFromDate) {
     html += `<div class="task-detail__source-row">`;
-    if (entry.delegatedFromName) html += `<span class="task-detail__source-item">↪ Delegated from <strong>${esc(entry.delegatedFromName)}</strong></span>`;
+    if (entry.delegatedFromName) html += `<span class="task-detail__source-item">â†ª Delegated from <strong>${esc(entry.delegatedFromName)}</strong></span>`;
     if (entry.movedFromDate) html += `<span class="task-detail__source-item">${DS_CAL_SM} Moved from <strong>${formatMovedDate(entry.movedFromDate).replace('from ', '')}</strong></span>`;
     html += `</div>`;
   }
 
   html += `<div class="ef2-divider"></div>`;
 
-  // ── Event notes ──────────────────────────────────────────
+  // â”€â”€ Event notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (isEvent) {
     const noteText = entry.notes || '';
     if (readOnly) {
@@ -1354,7 +1355,7 @@ export function renderTaskDetailSheet(options) {
     }
   }
 
-  // ── Action list (complete + edit/move/skip/delegate) ─────
+  // â”€â”€ Action list (complete + edit/move/skip/delegate) â”€â”€â”€â”€â”€
   const DS_CHECK  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
   const DS_UNDO   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>`;
   const isLateEligible = isPastDate && !completed && !isEvent && !task.exempt;
@@ -1367,7 +1368,7 @@ export function renderTaskDetailSheet(options) {
     html += `</div>`;
   }
 
-  // ── Delegate panel ───────────────────────────────────────
+  // â”€â”€ Delegate panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (showDelegate && people) {
     const otherPeople = people.filter(p => p.id !== entry.ownerId);
     html += `<div class="task-detail__delegate-panel is-hidden" id="delegatePanel">
@@ -1387,7 +1388,7 @@ export function renderTaskDetailSheet(options) {
     html += `<input type="date" id="moveDatePicker" class="task-detail__date-input task-detail__date-input--hidden">`;
   }
 
-  // ── Points slider ────────────────────────────────────────
+  // â”€â”€ Points slider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (points) {
     const min = sliderMin ?? 0;
     const max = sliderMax ?? 150;
@@ -1406,7 +1407,7 @@ export function renderTaskDetailSheet(options) {
     </div>`;
   }
 
-  // ── Complete footer ──────────────────────────────────────
+  // â”€â”€ Complete footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (!readOnly && !isEvent && !task.exempt) {
     if (isLateEligible) {
       html += `<div class="task-detail__complete-footer">
@@ -1445,159 +1446,9 @@ export function renderCelebration() {
   return `<div class="celebration" id="celebration">
     ${confetti}
     <div class="celebration__content">
-      <span class="celebration__icon">🎉</span>
+      <span class="celebration__icon">ðŸŽ‰</span>
       <h3 class="celebration__title">All Done!</h3>
       <p class="celebration__subtitle">Great job finishing today's tasks!</p>
-    </div>
-  </div>`;
-}
-
-/**
- * Render a condensed task form that fits mobile without scrolling.
- * @param {Object} opts
- * @param {Object} opts.task - task object ({} for new)
- * @param {string|null} opts.taskId - task ID or null for create
- * @param {'create'|'edit'} opts.mode
- * @param {Array} opts.categories - [{ key, label, icon, isEvent, isDefault }]
- * @param {Array} opts.people - [{ id, name, color }]
- * @param {string} opts.prefix - ID prefix ('tf','qa','et')
- */
-export function renderTaskFormCompact({ task = {}, taskId = null, mode = 'create', categories = [], people = [], prefix = 'tf', rewards = {} }) {
-  const isEdit = mode === 'edit';
-  const title = isEdit ? 'Edit Task' : 'New Task';
-  const selectedOwners = task.owners || [];
-  const assignMode = task.ownerAssignmentMode || 'rotate';
-  const catObj = categories.find(c => c.key === task.category);
-  const isEvent = !!catObj?.isEvent;
-  const showDedicated = task.rotation && task.rotation !== 'daily';
-
-  const catOptions = categories.map(c =>
-    `<option value="${esc(c.key)}" data-event="${c.isEvent ? '1' : ''}"${
-      task.category === c.key || (!task.category && c.isDefault) ? ' selected' : ''
-    }>${esc(c.icon)} ${esc(c.label)}</option>`
-  ).join('');
-
-  const ownerChips = people.map(p =>
-    `<button type="button" class="owner-chip${selectedOwners.includes(p.id) ? ' owner-chip--selected' : ''}" data-id="${p.id}">${esc(p.name)}</button>`
-  ).join('');
-
-  const dayOptions = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
-    const val = (i + 1) % 7;
-    return `<option value="${val}"${task.dedicatedDay === val ? ' selected' : ''}>${d}</option>`;
-  }).join('');
-
-  return `<div class="form-compact" id="${prefix}_form">
-    <h3 class="admin-form__title">${title}</h3>
-    <div class="form-group">
-      <label class="form-label">Name</label>
-      <input type="text" id="${prefix}_name" value="${esc(task.name || '')}" placeholder="e.g., Take out trash">
-    </div>
-    <div class="form-row-3">
-      <div class="form-group">
-        <label class="form-label">Rotation</label>
-        <select id="${prefix}_rotation">
-          <option value="daily"${task.rotation === 'daily' ? ' selected' : ''}>Daily</option>
-          <option value="weekly"${task.rotation === 'weekly' ? ' selected' : ''}>Weekly</option>
-          <option value="monthly"${task.rotation === 'monthly' ? ' selected' : ''}>Monthly</option>
-          <option value="once"${task.rotation === 'once' ? ' selected' : ''}>One-Time</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Difficulty</label>
-        <select id="${prefix}_difficulty">
-          <option value="easy"${task.difficulty === 'easy' ? ' selected' : ''}>Easy</option>
-          <option value="medium"${(task.difficulty || 'medium') === 'medium' ? ' selected' : ''}>Medium</option>
-          <option value="hard"${task.difficulty === 'hard' ? ' selected' : ''}>Hard</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Time</label>
-        <select id="${prefix}_timeOfDay">
-          <option value="anytime"${(task.timeOfDay || 'anytime') === 'anytime' ? ' selected' : ''}>Any</option>
-          <option value="am"${task.timeOfDay === 'am' ? ' selected' : ''}>AM</option>
-          <option value="pm"${task.timeOfDay === 'pm' ? ' selected' : ''}>PM</option>
-          <option value="both"${task.timeOfDay === 'both' ? ' selected' : ''}>Both</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row-2">
-      <div class="form-group form-group--2fr">
-        <label class="form-label">Category</label>
-        <select id="${prefix}_category">${catOptions}</select>
-      </div>
-      <div class="form-group form-group--1fr">
-        <label class="form-label">Est. Min</label>
-        <input type="number" id="${prefix}_estMin" value="${task.estMin ?? 10}" min="0" max="120">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Owners</label>
-      <div class="owner-chips" id="${prefix}_owners">${ownerChips}</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Assign</label>
-      <div class="form-row" id="${prefix}_assignMode">
-        <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'rotate' ? ' admin-mode-btn--active' : ''}" data-mode="rotate" type="button">Rotate</button>
-        <button class="btn btn--secondary btn--sm admin-mode-btn${assignMode === 'duplicate' ? ' admin-mode-btn--active' : ''}" data-mode="duplicate" type="button">Duplicate</button>
-      </div>
-    </div>
-    <div class="form-row form-row--cooldown">
-      <div class="form-group form-group--grow">
-        <label class="form-label">Cooldown</label>
-        <input type="number" id="${prefix}_cooldown" value="${task.cooldownDays || ''}" min="0" max="30" placeholder="0">
-      </div>
-      <div class="chip-group chip-group--cooldown">
-        <button type="button" class="chip chip--selectable${task.exempt ? ' chip--active' : ''}" id="${prefix}_exempt">Exempt</button>
-        <button type="button" class="chip chip--selectable${task.bounty ? ' chip--active' : ''}" id="${prefix}_bountyToggle">Bounty</button>
-      </div>
-    </div>
-    <div id="${prefix}_bountyFields"${task.bounty ? '' : ' class="is-hidden"'}>
-      <div class="form-hint form-compact__bounty-hint">Scoring-exempt. Reward granted on completion.</div>
-      <div class="form-row-2">
-        <div class="form-group">
-          <label class="form-label">Type</label>
-          <div class="segmented-control" id="${prefix}_bountyType">
-            <button type="button" class="segmented-btn${(!task.bounty || task.bounty.type === 'points') ? ' segmented-btn--active' : ''}" data-value="points">Points</button>
-            <button type="button" class="segmented-btn${task.bounty?.type === 'reward' ? ' segmented-btn--active' : ''}" data-value="reward">Reward</button>
-          </div>
-        </div>
-        <div class="form-group${task.bounty?.type === 'reward' ? ' is-hidden' : ''}" id="${prefix}_bountyPointsField">
-          <label class="form-label">Bonus pts</label>
-          <input type="number" id="${prefix}_bountyAmount" class="form-input" value="${task.bounty?.amount || 50}" min="1">
-        </div>
-        <div class="form-group${task.bounty?.type !== 'reward' ? ' is-hidden' : ''}" id="${prefix}_bountyRewardField">
-          <label class="form-label">Reward</label>
-          <select id="${prefix}_bountyReward" class="form-input">
-            <option value="">Select...</option>
-            ${Object.entries(rewards).filter(([,r]) => r.status === 'active').map(([id, r]) =>
-              `<option value="${id}" ${task.bounty?.rewardId === id ? 'selected' : ''}>${esc(r.icon || '')} ${esc(r.name)}</option>`
-            ).join('')}
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="form-group${showDedicated ? '' : ' is-hidden'}" id="${prefix}_dedicatedDayGroup">
-      <label class="form-label" id="${prefix}_dedicatedDayLabel">${task.rotation === 'once' ? (isEvent ? 'Event Date' : 'Date') : 'Day'} <button type="button" id="${prefix}_eventDateBtn" class="btn btn--ghost btn--sm form-compact__date-calendar-btn${isEvent ? '' : ' is-hidden'}" title="Pick event date"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></label>
-      <input type="date" id="${prefix}_eventDate" class="form-compact__date-hidden" value="${task.dedicatedDate || ''}">
-      <select id="${prefix}_daySelect" class="dedicated-day-select${task.rotation === 'once' ? ' is-hidden' : ''}">
-        <option value=""${task.dedicatedDay == null ? ' selected' : ''}>Any</option>
-        ${dayOptions}
-      </select>
-      <div id="${prefix}_dedicatedDateRow"${task.rotation === 'once' && !isEvent ? '' : ' class="is-hidden"'}>
-        <input type="date" id="${prefix}_dedicatedDate" class="task-detail__date-input task-detail__date-input--fill" value="${task.dedicatedDate || ''}">
-      </div>
-    </div>
-    <div class="form-group${isEvent ? '' : ' is-hidden'}" id="${prefix}_eventTimeGroup">
-      <label class="form-label">Event Time</label>
-      <input type="time" id="${prefix}_eventTime" value="${task.eventTime || ''}">
-    </div>
-    <div class="form-group${isEvent ? '' : ' is-hidden'}" id="${prefix}_notesGroup">
-      <label class="form-label">Notes</label>
-      <textarea id="${prefix}_notes" class="task-detail__notes-input" rows="3" placeholder="Add notes for this event...">${esc(task.notes || '')}</textarea>
-    </div>
-    <div class="admin-form__actions">
-      <button class="btn btn--secondary" id="${prefix}_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="${prefix}_save" type="button"${taskId ? ` data-task-id="${taskId}"` : ''}>${isEdit ? 'Save' : 'Create'}</button>
     </div>
   </div>`;
 }
@@ -1707,7 +1558,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
 
   <div class="ef2-field-reveal${notesOpen}" id="tf_notesReveal">
     <div class="ef2-field-reveal-inner">
-      <textarea id="tf_notes" rows="3" placeholder="Notes…">${esc(task.notes || '')}</textarea>
+      <textarea id="tf_notes" rows="3" placeholder="Notesâ€¦">${esc(task.notes || '')}</textarea>
       <button class="ef2-field-close" id="tf_notesClose" type="button" aria-label="Close notes">${CLOSE_SVG_TF}</button>
     </div>
   </div>
@@ -1729,41 +1580,6 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
 </div>`;
 }
 
-/**
- * Render the quick-add task bottom sheet.
- * people: array of { id, name, color }
- * categories: array of { key, label, icon }
- */
-export function renderQuickAddSheet(people, categories, defaultCategoryKey, rewards = {}, defaultOwnerId = null) {
-  const task = {};
-  if (defaultCategoryKey) task.category = defaultCategoryKey;
-  if (defaultOwnerId) task.owners = [defaultOwnerId];
-  return `<div class="task-detail-sheet">${renderTaskFormCompact({
-    task,
-    mode: 'create',
-    categories,
-    people,
-    prefix: 'qa',
-    rewards
-  })}</div>`;
-}
-
-/**
- * Render an inline edit task form inside a bottom sheet.
- * task: the task object, categories: [{key, label, icon}], people: [{id, name, color}]
- */
-export function renderEditTaskSheet(taskId, task, categories, people, rewards = {}) {
-  return `<div class="task-detail-sheet">${renderTaskFormCompact({
-    task,
-    taskId,
-    mode: 'edit',
-    categories,
-    people,
-    prefix: 'et',
-    rewards
-  })}</div>`;
-}
-
 export function renderOfflineBanner(message) {
   return `<div class="offline-banner" role="status" aria-live="polite">
     <span class="offline-banner__dot"></span>
@@ -1772,7 +1588,7 @@ export function renderOfflineBanner(message) {
 }
 
 // initOwnerChips / getSelectedOwners moved to ./dom-helpers.js
-// (components.js stays pure — no DOM access)
+// (components.js stays pure â€” no DOM access)
 
 /**
  * Open the device theme picker bottom sheet.
@@ -1912,10 +1728,10 @@ export function renderSkeleton(variant = 'dashboard') {
 }
 
 /**
- * Dashboard loading skeleton — card-shaped placeholders matching the
+ * Dashboard loading skeleton â€” card-shaped placeholders matching the
  * populated layout. Used during first paint before Firebase resolves
  * (typically <500ms in cached + fresh cases). Replaces the inline
- * spinner per spec 2026-04-25 §3.7 + §5.18.
+ * spinner per spec 2026-04-25 Â§3.7 + Â§5.18.
  */
 export function renderDashboardSkeleton() {
   const row = `<div class="skeleton-card-row">
@@ -1940,7 +1756,7 @@ export function renderDashboardSkeleton() {
  * Creates a mount element, subscribes to connection changes, and auto-hides banners.
  *
  * @param {Function} onConnectionChange - Firebase connection listener function
- * @param {object} options - { showConnectionDot: boolean } — dot updates the header
+ * @param {object} options - { showConnectionDot: boolean } â€” dot updates the header
  * @returns {Function} unsubscribe function
  */
 export function initOfflineBanner(onConnectionChange, options = {}) {
@@ -1961,7 +1777,7 @@ export function initOfflineBanner(onConnectionChange, options = {}) {
 
     if (timer) clearTimeout(timer);
     if (!connected) {
-      mount.innerHTML = renderOfflineBanner('Working offline — changes will sync');
+      mount.innerHTML = renderOfflineBanner('Working offline â€” changes will sync');
       timer = setTimeout(() => { mount.innerHTML = ''; }, 3000);
     } else {
       mount.innerHTML = '';
@@ -2006,7 +1822,7 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
     const approveClass = isUseRequest ? 'bell-approve-use' : 'bell-approve';
     const denyClass = isUseRequest ? 'bell-deny-use' : 'bell-deny';
     html += `<div class="bell-dropdown__item bell-dropdown__item--pending" data-msg-id="${esc(req.id)}" data-person-id="${esc(req.personId)}">
-      <span class="bell-dropdown__icon">${esc(isUseRequest ? (req.rewardIcon || reward.icon || '🎁') : (reward.icon || '🎁'))}</span>
+      <span class="bell-dropdown__icon">${esc(isUseRequest ? (req.rewardIcon || reward.icon || 'ðŸŽ') : (reward.icon || 'ðŸŽ'))}</span>
       <div class="bell-dropdown__body">
         <div class="bell-dropdown__item-title">${label}</div>
         <div class="bell-dropdown__item-subtitle">${subtitle}</div>
@@ -2019,14 +1835,14 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
   }
 
   for (const item of recentActivity.slice(0, 20)) {
-    const icon = item.type === 'fyi' ? '🛍️' :
-                 item.type === 'bonus' ? '➕' :
-                 item.type === 'deduction' ? '➖' :
-                 item.type === 'redemption-approved' ? '✅' :
-                 item.type === 'redemption-denied' ? '❌' :
-                 item.type === 'use-approved' ? '✅' :
-                 item.type === 'use-denied' ? '❌' :
-                 item.type === 'reward-used' ? '🎉' : '📋';
+    const icon = item.type === 'fyi' ? 'ðŸ›ï¸' :
+                 item.type === 'bonus' ? 'âž•' :
+                 item.type === 'deduction' ? 'âž–' :
+                 item.type === 'redemption-approved' ? 'âœ…' :
+                 item.type === 'redemption-denied' ? 'âŒ' :
+                 item.type === 'use-approved' ? 'âœ…' :
+                 item.type === 'use-denied' ? 'âŒ' :
+                 item.type === 'reward-used' ? 'ðŸŽ‰' : 'ðŸ“‹';
     const canRevoke = item.type === 'fyi' && item.bankTokenId;
     html += `<div class="bell-dropdown__item">
       <span class="bell-dropdown__icon">${icon}</span>
@@ -2040,14 +1856,14 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
     </div>`;
   }
 
-  // Kids' bank summary — shows active saved tokens per child
+  // Kids' bank summary â€” shows active saved tokens per child
   if (kidBankSummary.length > 0) {
     html += `<div class="bell-dropdown__section-head">Kids' Banks</div>`;
     for (const kid of kidBankSummary) {
       if (kid.activeCount === 0) continue;
       const names = kid.tokens.map(t => esc(t.rewardName || 'Reward')).join(', ');
       html += `<div class="bell-dropdown__item bell-dropdown__item--bank">
-        <span class="bell-dropdown__icon">🏦</span>
+        <span class="bell-dropdown__icon">ðŸ¦</span>
         <div class="bell-dropdown__body">
           <div class="bell-dropdown__item-title">${esc(kid.name)} &middot; ${kid.activeCount} saved</div>
           <div class="bell-dropdown__item-subtitle">${names}</div>
@@ -2084,7 +1900,7 @@ export function renderSendMessageSheet(people, preselectedPersonId = null, rewar
     .filter(([, r]) => r.status !== 'archived')
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
   const rewardOpts = activeRewards.map(([id, r]) =>
-    `<option value="${esc(id)}">${esc(r.icon || '🎁')} ${esc(r.name)} (${r.pointCost ?? 0} pts)</option>`
+    `<option value="${esc(id)}">${esc(r.icon || 'ðŸŽ')} ${esc(r.name)} (${r.pointCost ?? 0} pts)</option>`
   ).join('');
 
   return renderBottomSheet(`
@@ -2101,13 +1917,13 @@ export function renderSendMessageSheet(people, preselectedPersonId = null, rewar
     <label class="form-label sheet-label--spaced">Type</label>
     <div class="segmented-control msg-type-toggle">
       <button class="segmented-btn msg-type-btn msg-type-btn--active" data-type="bonus" type="button">+ Bonus</button>
-      <button class="segmented-btn msg-type-btn" data-type="deduction" type="button">− Deduction</button>
+      <button class="segmented-btn msg-type-btn" data-type="deduction" type="button">âˆ’ Deduction</button>
     </div>
 
     <label class="form-label sheet-label--spaced">Title</label>
     <input type="text" id="msg_customTitle" class="form-input" placeholder="Enter message title" autocomplete="off">
     <select class="form-input mt-xs" id="msg_templateSelect">
-      <option value="">— Or pick a template —</option>
+      <option value="">â€” Or pick a template â€”</option>
       ${positiveOpts}
     </select>
 
@@ -2124,7 +1940,7 @@ export function renderSendMessageSheet(people, preselectedPersonId = null, rewar
       ${rewardOpts}
     </select>` : ''}
 
-    <div class="admin-form__actions mt-md">
+    <div class="ef2-footer">
       <button class="btn btn--secondary" id="msg_cancel" type="button">Cancel</button>
       <button class="btn btn--primary" id="msg_send" type="button">Send</button>
     </div>
@@ -2146,7 +1962,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
     chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
   }
 
-  // Type toggle — swap template options and default points
+  // Type toggle â€” swap template options and default points
   for (const btn of sheet.querySelectorAll('.msg-type-btn')) {
     btn.addEventListener('click', () => {
       sheet.querySelectorAll('.msg-type-btn').forEach(b => b.classList.remove('msg-type-btn--active'));
@@ -2155,7 +1971,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
       const sel = sheet.querySelector('#msg_templateSelect');
       if (sel) {
         const templates = msgType === 'bonus' ? POSITIVE_TEMPLATES : NEGATIVE_TEMPLATES;
-        sel.innerHTML = `<option value="">— Or pick a template —</option>` +
+        sel.innerHTML = `<option value="">â€” Or pick a template â€”</option>` +
           templates.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
         sel.value = '';
       }
@@ -2163,7 +1979,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
     });
   }
 
-  // Template select → populate title input
+  // Template select â†’ populate title input
   sheet.querySelector('#msg_templateSelect')?.addEventListener('change', (e) => {
     if (e.target.value) {
       const titleInput = sheet.querySelector('#msg_customTitle');
@@ -2215,7 +2031,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
           rewardType: reward.rewardType || 'custom',
           rewardId,
           rewardName: reward.name || 'Reward',
-          rewardIcon: reward.icon || '🎁',
+          rewardIcon: reward.icon || 'ðŸŽ',
           acquiredAt: Date.now(),
           used: false,
           usedAt: null,
@@ -2223,7 +2039,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
         });
         await writeMessageFn(pid, {
           type: 'redemption-approved',
-          title: `${reward.icon || '🎁'} ${reward.name || 'Reward'} sent!`,
+          title: `${reward.icon || 'ðŸŽ'} ${reward.name || 'Reward'} sent!`,
           body: null,
           amount: 0,
           rewardId,
@@ -2243,7 +2059,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
 export function renderBonusDaySheet(people, todayDate) {
   const today = todayDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
   return renderBottomSheet(`
-    <h3 class="sheet-section-title">🎉 Bonus Day</h3>
+    <h3 class="sheet-section-title">ðŸŽ‰ Bonus Day</h3>
 
     <label class="form-label">Who</label>
     <div class="chip-group" id="bd_people">
@@ -2265,7 +2081,7 @@ export function renderBonusDaySheet(people, todayDate) {
     <label class="form-label sheet-label--spaced">Note (optional)</label>
     <input type="text" id="bd_note" class="form-input" placeholder="Happy Birthday!">
 
-    <div class="admin-form__actions mt-md">
+    <div class="ef2-footer">
       <button class="btn btn--secondary" id="bd_cancel" type="button">Cancel</button>
       <button class="btn btn--primary" id="bd_save" type="button">Set Bonus Day</button>
     </div>
@@ -2274,7 +2090,7 @@ export function renderBonusDaySheet(people, todayDate) {
 
 /**
  * Show a polished in-app confirmation/alert modal. Replaces browser confirm()/alert().
- * Returns a Promise<boolean> — true if confirmed, false if cancelled.
+ * Returns a Promise<boolean> â€” true if confirmed, false if cancelled.
  */
 export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false, alert: isAlert = false, inputPlaceholder = '' } = {}) {
   return new Promise((resolve) => {
@@ -2342,14 +2158,14 @@ export function showToast(message, duration = 3000) {
 }
 
 /**
- * Ambient strip — 2-up chip row: Weather + Dinner. Both chips are
+ * Ambient strip â€” 2-up chip row: Weather + Dinner. Both chips are
  * tappable. Empty-state nudges shown when data is absent (chip still
  * renders, with prompt copy). Caller passes data; component is pure.
  *
- * weather: { tempLabel: '72°', conditionLabel: 'Sunny', glyph: 'sun'|'cloud'|'rain'|'snow'|'fog', isPast?: bool, isFuture?: bool } | null
+ * weather: { tempLabel: '72Â°', conditionLabel: 'Sunny', glyph: 'sun'|'cloud'|'rain'|'snow'|'fog', isPast?: bool, isFuture?: bool } | null
  * dinner:  { name: 'Spaghetti', source?: 'manual'|'school' } | null
  *
- * Per spec 2026-04-25 §3.3: chip leading icons are SVG glyphs (no emoji
+ * Per spec 2026-04-25 Â§3.3: chip leading icons are SVG glyphs (no emoji
  * in chrome). Meal names may include emoji as user-authored text.
  */
 export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
@@ -2358,13 +2174,13 @@ export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
   const utensilsGlyph = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>';
 
   // Weather chip
-  let weatherValue = '—° · Set location';
+  let weatherValue = 'â€”Â° Â· Set location';
   let weatherGlyph = weatherGlyphs.cloud;
   if (weather) {
     if (weather.isPast) weatherValue = 'Past day';
-    else if (weather.isFuture) weatherValue = '—° · No forecast yet';
+    else if (weather.isFuture) weatherValue = 'â€”Â° Â· No forecast yet';
     else {
-      weatherValue = `${esc(weather.conditionLabel)} · ${esc(weather.tempLabel)}`;
+      weatherValue = `${esc(weather.conditionLabel)} Â· ${esc(weather.tempLabel)}`;
       weatherGlyph = weatherGlyphs[weather.glyph] || weatherGlyphs.cloud;
     }
   }
@@ -2457,17 +2273,17 @@ export function renderWeatherSheet(days, today, tomorrow) {
 }
 
 /**
- * Coming up rail — 7-day forward look. Collapsed by default; expanded
+ * Coming up rail â€” 7-day forward look. Collapsed by default; expanded
  * shows day-blocks for the next 7 days starting today+1 (today excluded).
- * Days with zero events render zero rows. Spec 2026-04-25 §3.4.
+ * Days with zero events render zero rows. Spec 2026-04-25 Â§3.4.
  *
  * Args:
  *   days: Array<{ dateKey, dayLabel: { dow, monthDay }, events: Array<[eventId, event]> }>
  *     Sorted ascending; only days with events.
- *   isExpanded: boolean — current expand state.
- *   summary: string — pre-built summary line ("3 events this week" /
+ *   isExpanded: boolean â€” current expand state.
+ *   summary: string â€” pre-built summary line ("3 events this week" /
  *     "clear week" / "2 events for Noah this week" / etc.).
- *   filterPersonName: string — used by empty-state copy ("for Noah").
+ *   filterPersonName: string â€” used by empty-state copy ("for Noah").
  */
 export function renderComingUp({ days = [], isExpanded = false, summary = '', filterPersonName = '' } = {}) {
   const chevSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>`;
@@ -2483,7 +2299,7 @@ export function renderComingUp({ days = [], isExpanded = false, summary = '', fi
     blocksHtml = days.map(d => {
       const eventsHtml = d.events.map(([eventId, ev]) => {
         const time = ev.allDay ? 'All day' : (ev.startTime ? _formatEventTime12h(ev.startTime) : '');
-        const meta = [ev.location].filter(Boolean).map(esc).join(' · ');
+        const meta = [ev.location].filter(Boolean).map(esc).join(' Â· ');
         const metaHtml = meta ? `<span class="event-row__meta">${meta}</span>` : '';
         return `<button class="event-row" data-event-id="${esc(eventId)}" type="button">
           <span class="event-row__time">${esc(time)}</span>
@@ -2514,7 +2330,7 @@ export function renderComingUp({ days = [], isExpanded = false, summary = '', fi
   </section>`;
 }
 
-// Internal helper — 24h "07:00" -> "7:00 AM".
+// Internal helper â€” 24h "07:00" -> "7:00 AM".
 function _formatEventTime12h(t24) {
   if (!t24) return '';
   const [hStr, mStr] = t24.split(':');
@@ -2549,7 +2365,7 @@ export function initBanner({ getIsOffline = () => false } = {}) {
       const s = window.__activeActivitySession;
       banner = {
         variant: 'info',
-        title: `${s.name} · ${s.elapsed}`,
+        title: `${s.name} Â· ${s.elapsed}`,
         action: { label: 'Stop', onClick: () => window.__stopActivitySession?.() }
       };
     } else if (getIsOffline()) {
@@ -2684,7 +2500,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
         bindSendMessageSheet(mount, writeMessageFn, approver, writeBankTokenFn, getRewards);
       });
 
-      // Wire "Clear All" button — deletes all messages except unseen FYIs with revoke options
+      // Wire "Clear All" button â€” deletes all messages except unseen FYIs with revoke options
       document.getElementById('bellClearAll')?.addEventListener('click', async () => {
         if (!await showConfirm({ title: 'Clear all notification history?', danger: true })) return;
         const people = getPeople();
@@ -2692,7 +2508,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
           const msgs = bellMessages[p.id];
           if (!msgs) continue;
           for (const [msgId, msg] of Object.entries(msgs)) {
-            // Keep unseen FYIs that have a bank token — parent may still want to revoke
+            // Keep unseen FYIs that have a bank token â€” parent may still want to revoke
             if (msg.type === 'fyi' && !msg.seen && msg.bankTokenId) continue;
             if (removeMessageFn) await removeMessageFn(p.id, msgId);
             else await markMessageSeenFn(p.id, msgId);
@@ -2767,7 +2583,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
 
           const reward = getRewards()[msg.rewardId] || {};
           if (msg.intent === 'use-now') {
-            // One approval covers purchase + use — no bank token
+            // One approval covers purchase + use â€” no bank token
             await writeMessageFn(personId, {
               type: 'redemption-approved',
               title: `${reward.name || 'Reward'} approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
@@ -2792,7 +2608,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
               createdBy: approver
             });
           } else {
-            // Legacy save intent — bank the token
+            // Legacy save intent â€” bank the token
             await writeMessageFn(personId, {
               type: 'redemption-approved',
               title: `${reward.name || 'Reward'} approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
@@ -2808,7 +2624,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
               rewardType: reward.rewardType || 'custom',
               rewardId: msg.rewardId,
               rewardName: reward.name || 'Reward',
-              rewardIcon: reward.icon || '🎁',
+              rewardIcon: reward.icon || 'ðŸŽ',
               acquiredAt: Date.now(),
               used: false,
               usedAt: null,
@@ -2836,7 +2652,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             confirmLabel: 'Deny',
             cancelLabel: 'Cancel',
             danger: true,
-            inputPlaceholder: 'Reason (optional — kid will see this)'
+            inputPlaceholder: 'Reason (optional â€” kid will see this)'
           });
           if (!result) return;
           const reason = typeof result === 'object' ? result.value : '';
@@ -2889,7 +2705,7 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
 
           await writeMessageFn(personId, {
             type: 'use-approved',
-            title: `${msg.rewardName || 'Reward'} — approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
+            title: `${msg.rewardName || 'Reward'} â€” approved${approver !== 'Parent' ? ` by ${approver}` : ''}!`,
             body: null,
             amount: 0,
             rewardId: msg.rewardId || null,
@@ -2917,14 +2733,14 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             confirmLabel: 'Deny',
             cancelLabel: 'Cancel',
             danger: true,
-            inputPlaceholder: 'Reason (optional — kid will see this)'
+            inputPlaceholder: 'Reason (optional â€” kid will see this)'
           });
           if (!result) return;
           const reason = typeof result === 'object' ? result.value : '';
 
           await writeMessageFn(personId, {
             type: 'use-denied',
-            title: `${msg.rewardName || 'Reward'} — not right now (${approver})`,
+            title: `${msg.rewardName || 'Reward'} â€” not right now (${approver})`,
             body: reason || null,
             amount: 0,
             rewardId: msg.rewardId || null,
@@ -3005,12 +2821,12 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
  * Returns HTML string; mount inside renderBottomSheet() then bind #meForm events in the page.
  *
  * Events the page must bind after mounting:
- *   #meForm submit           → save
- *   #me_addIngredient click  → add ingredient row
- *   .me-ingredient-remove    → remove ingredient row (delegate on #me_ingredients)
- *   #me_tagInput keydown     → Enter/comma adds a tag
- *   .me-tag__remove          → remove tag (delegate on #me_tags)
- *   #meDelete click          → delete (edit mode only)
+ *   #meForm submit           â†’ save
+ *   #me_addIngredient click  â†’ add ingredient row
+ *   .me-ingredient-remove    â†’ remove ingredient row (delegate on #me_ingredients)
+ *   #me_tagInput keydown     â†’ Enter/comma adds a tag
+ *   .me-tag__remove          â†’ remove tag (delegate on #me_tags)
+ *   #meDelete click          â†’ delete (edit mode only)
  */
 export function renderMealEditorSheet(meal = null, mealId = null) {
   const isEdit = meal !== null;
@@ -3079,7 +2895,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
       <label class="field__label" for="me_url">Recipe link</label>
       <div class="me-url-row">
         <input class="field__input" id="me_url" type="url" value="${url}"
-               placeholder="https://…">
+               placeholder="https://â€¦">
         <a class="me-url-open" id="me_urlOpen" href="${esc(url || '#')}"
            target="_blank" rel="noopener noreferrer" aria-label="Open recipe link"${url ? '' : ' hidden'}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -3089,7 +2905,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
 
     <label class="field">
       <span class="field__label">Notes</span>
-      <textarea class="field__input" id="me_notes" placeholder="Any notes…" rows="3">${notes}</textarea>
+      <textarea class="field__input" id="me_notes" placeholder="Any notesâ€¦" rows="3">${notes}</textarea>
     </label>
 
     <input type="hidden" id="me_mealId" value="${esc(mealId || '')}">
@@ -3100,19 +2916,19 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
  * Render the meal plan sheet body (assign a meal to a day/slot).
  *
  * opts:
- *   date: string 'YYYY-MM-DD' — pre-selected date
- *   slot: 'breakfast'|'lunch'|'dinner'|'snack' — pre-selected slot
- *   library: object { [mealId]: mealObj } — full meal library
- *   currentMealId: string|null — currently assigned meal for this slot (for remove link)
+ *   date: string 'YYYY-MM-DD' â€” pre-selected date
+ *   slot: 'breakfast'|'lunch'|'dinner'|'snack' â€” pre-selected slot
+ *   library: object { [mealId]: mealObj } â€” full meal library
+ *   currentMealId: string|null â€” currently assigned meal for this slot (for remove link)
  *
  * Events the page must bind after mounting:
- *   #mpForm submit                    → save selected meal
- *   .mp-slot-tab click                → switch active slot (delegate on #mp_slotTabs)
- *   #mp_search input                  → filter library chips
- *   .meal-chip[data-meal-id] click    → select a meal
- *   #mp_createNew click               → open inline editor (hide results, show #mp_inlineEditor)
- *   #mp_removeLink click              → remove existing assignment
- *   #mp_inlineBack click              → back to picker from inline editor
+ *   #mpForm submit                    â†’ save selected meal
+ *   .mp-slot-tab click                â†’ switch active slot (delegate on #mp_slotTabs)
+ *   #mp_search input                  â†’ filter library chips
+ *   .meal-chip[data-meal-id] click    â†’ select a meal
+ *   #mp_createNew click               â†’ open inline editor (hide results, show #mp_inlineEditor)
+ *   #mp_removeLink click              â†’ remove existing assignment
+ *   #mp_inlineBack click              â†’ back to picker from inline editor
  */
 export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, currentMealId = null } = {}) {
   const SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -3168,7 +2984,7 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
     <div class="mp-meal-section">
       <div class="mp-search-row">
         <input class="field__input mp-search-input" id="mp_search" type="search"
-               placeholder="Search meals…" autocomplete="off">
+               placeholder="Search mealsâ€¦" autocomplete="off">
         <button class="mp-create-btn" id="mp_createNew" type="button" aria-label="Create new meal">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
@@ -3180,7 +2996,7 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
 
     <div class="mp-inline-editor" id="mp_inlineEditor" hidden>
       <div class="mp-inline-header">
-        <button class="btn btn--ghost btn--sm" id="mp_inlineBack" type="button">← Back</button>
+        <button class="btn btn--ghost btn--sm" id="mp_inlineBack" type="button">â† Back</button>
         <span class="mp-inline-title">New meal</span>
       </div>
       <label class="field">
@@ -3195,11 +3011,11 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
       </label>
       <label class="field">
         <span class="field__label">Recipe link</span>
-        <input class="field__input" id="mp_inlineUrl" type="url" placeholder="https://…">
+        <input class="field__input" id="mp_inlineUrl" type="url" placeholder="https://â€¦">
       </label>
       <label class="field">
         <span class="field__label">Notes</span>
-        <textarea class="field__input" id="mp_inlineNotes" placeholder="Any notes…" rows="2"></textarea>
+        <textarea class="field__input" id="mp_inlineNotes" placeholder="Any notesâ€¦" rows="2"></textarea>
       </label>
     </div>
 
@@ -3213,16 +3029,16 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
  *
  * meal: meal library object { name, ingredients, url, notes, prepTime, isFavorite, tags }
  * planEntry: { mealId, source } from meals/{date}/{slot}
- * slot: string — slot key for display label
- * readonly: boolean — when true, hides edit/change/remove actions (kid mode / calendar)
+ * slot: string â€” slot key for display label
+ * readonly: boolean â€” when true, hides edit/change/remove actions (kid mode / calendar)
  *
  * Events the page must bind after mounting:
- *   #mdClose click     → close sheet
- *   #mdLink click      → open recipe URL (only if meal.url)
- *   #mdAddToList click → add ingredients to shopping list (only if ingredients present)
- *   #mdChange click    → open plan sheet to change meal (only if !readonly && !isSchool)
- *   #mdEdit click      → open meal editor (only if !readonly && !isSchool)
- *   #mdRemove click    → remove this slot from plan (only if !readonly && !isSchool)
+ *   #mdClose click     â†’ close sheet
+ *   #mdLink click      â†’ open recipe URL (only if meal.url)
+ *   #mdAddToList click â†’ add ingredients to shopping list (only if ingredients present)
+ *   #mdChange click    â†’ open plan sheet to change meal (only if !readonly && !isSchool)
+ *   #mdEdit click      â†’ open meal editor (only if !readonly && !isSchool)
+ *   #mdRemove click    â†’ remove this slot from plan (only if !readonly && !isSchool)
  */
 export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = '') {
   if (!meal) return `<p class="text-muted" style="padding:var(--spacing-md)">Meal not found.</p>`;
@@ -3328,7 +3144,7 @@ export function renderRepeatSheet(rule) {
   const endCount = rule?.end?.count || 5;
 
   return `<div class="sheet__header sheet__header--with-back">
-    <button class="btn btn--ghost btn--sm" id="rptBack" type="button">← Back</button>
+    <button class="btn btn--ghost btn--sm" id="rptBack" type="button">â† Back</button>
     <h2 class="sheet__title">Repeat</h2>
   </div>
   <div class="sheet__content">
