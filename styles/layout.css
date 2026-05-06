@@ -131,11 +131,11 @@
 /* Active state — neon glow: bright stroke + layered drop-shadow halo. */
 .bottom-nav__item.is-active { color: var(--accent-ink); }
 .bottom-nav__item.is-active svg {
-  stroke-width: 2;
+  stroke-width: 2.25;
   color: var(--accent-bright, var(--accent));
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 80%, transparent))
-          drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 50%, transparent))
-          drop-shadow(0 0 16px color-mix(in srgb, var(--accent) 25%, transparent));
+  filter: drop-shadow(0 0 4px currentColor)
+          drop-shadow(0 0 10px currentColor)
+          drop-shadow(0 0 20px currentColor);
 }
 .bottom-nav__item.is-active .nav-item__label { color: var(--accent-ink); font-weight: 600; }
 .bottom-nav__item.is-active::before { display: none; }
