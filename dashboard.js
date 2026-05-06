@@ -473,6 +473,19 @@ async function render() {
       html += `<div class="progress-bar progress-bar--slim" role="progressbar" aria-valuenow="${progPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${prog.done} of ${prog.total} tasks done"><div class="progress-bar__fill" data-progress="${progPct}"></div></div>`;
     }
 
+    // Per-person daily possible — needed to normalize task base pts into store pts.
+    // Store pts = round(taskBasePoints / ownerDailyPossible × 100)
+    const entriesByOwner = {};
+    for (const [ek, en] of Object.entries(filtered)) {
+      if (!entriesByOwner[en.ownerId]) entriesByOwner[en.ownerId] = {};
+      entriesByOwner[en.ownerId][ek] = en;
+    }
+    const ownerDailyPossible = {};
+    for (const [ownerId, ownerEntries] of Object.entries(entriesByOwner)) {
+      const { possible } = dailyPossible(ownerEntries, tasks, cats, settings?.difficultyMultipliers);
+      ownerDailyPossible[ownerId] = possible || 1;
+    }
+
     // Sort all entries together with the new sort rule (incomplete before complete,
     // owner -> late-today-first -> TOD -> name).
     const sortedAll = sortEntries(filtered, completions, tasks, people, today);
@@ -480,7 +493,8 @@ async function render() {
       const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
       const person = people.find(p => p.id === entry.ownerId);
       const cat = task.category ? cats[task.category] : null;
-      const pts = score.pointsMap[entryKey] || basePoints(task, settings?.difficultyMultipliers);
+      const rawPts = basePoints(task, settings?.difficultyMultipliers);
+      const storePts = Math.round(rawPts / ownerDailyPossible[entry.ownerId] * 100);
       const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
       const done = isComplete(entryKey, completions);
       html += renderTaskCard({
@@ -491,7 +505,7 @@ async function render() {
         category: cat,
         completed: done,
         overdue: false,
-        points: { possible: pts, override: ovr },
+        points: { possible: storePts, override: ovr },
         isEvent: !!cat?.isEvent,
         showTodIconBoth: !!settings?.showTodIconBoth,
         showTodIconSingle: !!settings?.showTodIconSingle,
