@@ -72,7 +72,7 @@
     } from './shared/firebase.js';
     import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
 
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
@@ -1996,6 +1996,18 @@
             <div class="admin-toggle-row">
               <span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span>
               <label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+            </div>
+            <div class="admin-toggle-row mt-xs">
+              <span class="admin-toggle-row__label">Show owner avatar on task cards</span>
+              <label class="form-toggle"><input type="checkbox" id="sf_showAvatar"${settings?.showAvatar !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+            </div>
+            <div class="admin-toggle-row">
+              <span class="admin-toggle-row__label">Show estimated duration on task cards</span>
+              <label class="form-toggle"><input type="checkbox" id="sf_showDuration"${settings?.showDuration !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+            </div>
+            <div class="admin-toggle-row">
+              <span class="admin-toggle-row__label">Show point value on task cards</span>
+              <label class="form-toggle"><input type="checkbox" id="sf_showPoints"${settings?.showPoints ? ' checked' : ''}><span class="form-toggle__track"></span></label>
             </div>
           </div>`;
           break;
@@ -3973,13 +3985,18 @@
         const updated = buildSettingsUpdate({ theme: { ...(settings?.theme || {}), preset: main.querySelector('#sf_themePreset')?.value } });
         await writeSettings(updated); settings = updated; flashSaved();
       });
-      for (const id of ['#sf_showTodIconBoth', '#sf_showTodIconSingle']) {
+      for (const id of ['#sf_showTodIconBoth', '#sf_showTodIconSingle', '#sf_showAvatar', '#sf_showDuration', '#sf_showPoints']) {
         main.querySelector(id)?.addEventListener('change', async () => {
           const updated = buildSettingsUpdate({
             showTodIconBoth:   !!main.querySelector('#sf_showTodIconBoth')?.checked,
             showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
+            showAvatar:        !!main.querySelector('#sf_showAvatar')?.checked,
+            showDuration:      !!main.querySelector('#sf_showDuration')?.checked,
+            showPoints:        !!main.querySelector('#sf_showPoints')?.checked,
           });
-          await writeSettings(updated); settings = updated; flashSaved();
+          await writeSettings(updated); settings = updated;
+          applyTaskDisplayPrefs(updated);
+          flashSaved();
         });
       }
       // Text size segmented control — already has click handler above for active state; save on click too

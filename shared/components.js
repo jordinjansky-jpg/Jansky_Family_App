@@ -475,15 +475,6 @@ export function renderTaskCard(options) {
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
   const catName = category?.name || '';
 
-  // Override-direction cue: ▲ if override raises points, ▼ if it lowers them.
-  // No bare scoring-pt chip — store-economy points live in the section meta only (spec 2026-04-25 §3.7).
-  let ptsLabel = '';
-  if (points && !isEvent && !task.exempt && points.override != null && points.override !== 100) {
-    const colorClass = points.override > 100 ? 'task-card__pts--up' : 'task-card__pts--down';
-    const icon = points.override > 100 ? '▲' : '▼';
-    ptsLabel = `<span class="${colorClass}">${icon}</span>`;
-  }
-
   // Rotation tag (spec §5.4) — only for non-daily rotations.
   const rotationLabel = task?.rotation === 'weekly' ? 'Weekly'
     : task?.rotation === 'monthly' ? 'Monthly'
@@ -493,7 +484,7 @@ export function renderTaskCard(options) {
     ? `<span class="tag tag--rotation">${esc(rotationLabel)}</span>`
     : '';
 
-  // Existing action tags (delegated, moved, late, skipped, bounty).
+  // Action tags (delegated, moved, late, skipped, bounty).
   let actionTags = '';
   if (entryKey && entryKey.includes('_delegate')) {
     const fromName = entry.delegatedFromName || '?';
@@ -524,38 +515,47 @@ export function renderTaskCard(options) {
   const showTod = isAmOrPm && ((taskTod === 'both' && options.showTodIconBoth) || (taskTod !== 'both' && options.showTodIconSingle));
   const timePill = showTod ? renderTimeOfDayPill(entryTod) : '';
 
-  // Build meta row: time pill (standalone) · category · dot · event-time/est · rotationTag · actionTags · points.
-  const rightMeta = [eventTimeLabel, estLabel].filter(Boolean).join(' · ');
-  const catSpan = catName ? `<span class="card__meta-text">${esc(catName)}</span>` : '';
-  const dotSpan = (catSpan && rightMeta) ? `<span class="card__meta-dot" aria-hidden="true"></span>` : '';
-  const rightSpan = rightMeta ? `<span class="card__meta-text">${esc(rightMeta)}</span>` : '';
-  const ptsSpan = ptsLabel || '';
-  const metaInner = `${timePill}${catSpan}${dotSpan}${rightSpan}${rotationTag}${actionTags}${ptsSpan}`;
+  // Leading: events show time label; non-events show avatar + AM/PM pill.
+  const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
+  const leading = isEvent
+    ? `<div class="task-card__leading task-card__leading--event"><span class="task-card__event-time">${esc(eventTimeLabel)}</span></div>`
+    : `<div class="task-card__leading"><span class="avatar avatar--sm task-card__avatar" data-person-color="${esc(ownerColor)}">${esc(ownerInitial)}</span><span class="task-card__slot">${timePill}</span></div>`;
 
-  const dateLine = dateLabel ? `<span class="task-card__date">${esc(dateLabel)}</span>` : '';
   const eventPrefix = isEvent ? '📅 ' : '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
-  const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
 
-  const leading = isEvent
-    ? `<div class="card__leading">${esc(eventTimeLabel) || ''}</div>`
-    : `<div class="card__leading"><span class="avatar avatar--sm" data-person-color="${esc(ownerColor)}">${esc(ownerInitial)}</span></div>`;
-
-  // Trailing check button — decorative within the card click region (spec §3.6).
-  const checkSvg = completed
-    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+  // Tags row: category, date, rotation, action tags.
+  const catTag = catName ? `<span class="task-card__cat">${esc(catName)}</span>` : '';
+  const dateTag = dateLabel ? `<span class="task-card__date">${esc(dateLabel)}</span>` : '';
+  const tagsRow = (catTag || dateTag || rotationTag || actionTags)
+    ? `<div class="task-card__tags">${catTag}${dateTag}${rotationTag}${actionTags}</div>`
     : '';
-  const checkClass = completed ? 'check check--done' : 'check';
-  const checkLabel = completed ? 'Undo' : 'Mark complete';
-  const trailing = `<div class="card__trailing"><button class="${checkClass}" aria-label="${checkLabel}" type="button" tabindex="-1">${checkSvg}</button></div>`;
+
+  // Right meta column: duration (top) + points (bottom).
+  const durItem = estLabel
+    ? `<span class="task-card__meta-item task-card__meta-item--duration">${esc(estLabel)}</span>`
+    : '';
+  let ptsItem = '';
+  if (points && !isEvent && !task.exempt) {
+    const val = points.possible || 0;
+    let arrow = '', cls = '';
+    if (points.override != null && points.override !== 100) {
+      arrow = points.override > 100 ? '▲' : '▼';
+      cls = points.override > 100 ? ' task-card__pts--up' : ' task-card__pts--down';
+    }
+    ptsItem = `<span class="task-card__meta-item task-card__meta-item--points${cls}">${val}pt${arrow}</span>`;
+  }
+  const metaCol = (durItem || ptsItem)
+    ? `<div class="task-card__meta">${durItem}${ptsItem}</div>`
+    : '';
 
   return `<article class="card task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${esc(entryKey)}" data-date-key="${esc(entry.dateKey || '')}" role="button" tabindex="0" aria-pressed="${completed}" data-owner-color="${esc(ownerColor)}"${eventColorAttr}>
       ${leading}
-      <div class="card__body task-card__body">
-        <div class="card__title task-card__name">${taskName}</div>
-        <div class="card__meta task-card__meta">${metaInner}${dateLine}</div>
+      <div class="task-card__body">
+        <div class="task-card__name">${taskName}</div>
+        ${tagsRow}
       </div>
-      ${trailing}
+      ${metaCol}
     </article>`;
 }
 

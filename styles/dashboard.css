@@ -6,11 +6,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-sm);
-  padding: 0 var(--spacing-md);
-  margin: 0 auto var(--spacing-md);
-  max-width: var(--max-content);
-  width: 100%;
-  box-sizing: border-box;
+  margin-bottom: var(--spacing-md);
 }
 
 /* Coming up and section header horizontal alignment */
