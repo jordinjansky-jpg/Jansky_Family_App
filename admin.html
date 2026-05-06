@@ -2796,36 +2796,43 @@
 
       for (const p of ppl) {
         const pa = allAchievements[p.id] || {};
-        const unlocked = Object.keys(pa).filter(k => activeDefs[k] && !pa[k].revoked).length;
-        const total = Object.keys(activeDefs).length;
+        const eligible = Object.entries(activeDefs).filter(([k, def]) => !def.perPerson || def.perPerson.includes(p.id));
+        const unlocked = eligible.filter(([k]) => pa[k] && !pa[k].revoked).length;
+        const total = eligible.length;
+        const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0;
         const isExpanded = achievementPersonExpanded[p.id];
 
         html += `<div class="ach-person-row">
           <button class="ach-person-header" data-person-id="${p.id}" type="button">
-            <span class="sb-mini-dot" style="background:${p.color}"></span>
-            <span class="ach-person-name">${esc(p.name)}</span>
-            <span class="ach-person-count">${unlocked}/${total}</span>
-            <span class="ach-person-chevron">${isExpanded ? '▾' : '▸'}</span>
+            <div class="ach-person-header-row">
+              <span class="sb-mini-dot" style="background:${p.color}"></span>
+              <span class="ach-person-name">${esc(p.name)}</span>
+              <span class="ach-person-count">${unlocked}/${total}</span>
+              <span class="ach-person-chevron${isExpanded ? ' is-open' : ''}">›</span>
+            </div>
+            <div class="ach-person-progress">
+              <div class="ach-person-progress-fill" style="width:${pct}%;background:${p.color}"></div>
+            </div>
           </button>`;
 
         if (isExpanded) {
+          const unlockedEntries = eligible
+            .filter(([k]) => pa[k] && !pa[k].revoked)
+            .sort((a, b) => (pa[b[0]]?.unlockedAt || 0) - (pa[a[0]]?.unlockedAt || 0));
+          const lockedEntries = eligible.filter(([k]) => !pa[k] || pa[k].revoked);
           html += `<div class="ach-person-badges">`;
-          for (const [key, def] of Object.entries(activeDefs)) {
-            if (def.perPerson && !def.perPerson.includes(p.id)) continue;
+          for (const [key, def] of [...unlockedEntries, ...lockedEntries]) {
             const got = pa[key];
             const isRevoked = got?.revoked;
             const isUnlocked = got && !isRevoked;
-            const date = isUnlocked ? new Date(got.unlockedAt).toLocaleDateString('en-US', { timeZone: tz }) : '';
-            html += `<button class="ach-badge-btn ${isUnlocked ? 'ach-badge-btn--unlocked' : ''}" data-key="${esc(key)}" data-person-id="${p.id}" type="button" title="${esc(def.label)}">
+            html += `<div class="ach-badge-btn ${isUnlocked ? 'ach-badge-btn--unlocked' : ''}" title="${esc(def.label)}">
               <span class="ach-badge-icon">${def.icon}</span>
               <span class="ach-badge-label">${esc(def.label)}</span>
-              ${isRevoked ? '<span class="ach-badge-date" style="color: var(--accent-danger, #e53e3e);">Revoked</span>' : ''}
-              ${date ? `<span class="ach-badge-date">${date}</span>` : ''}
-            </button>`;
+            </div>`;
           }
           html += `</div>`;
           if (unlocked > 0 || Object.keys(pa).length > 0) {
-            html += `<div style="text-align: right; margin-top: var(--spacing-xs);">
+            html += `<div style="text-align: right; padding: 0 var(--spacing-md) var(--spacing-xs);">
               <button class="btn btn--ghost btn--xs ach-reset-all" data-person-id="${p.id}" type="button" style="color: var(--accent-danger, #e53e3e);">Reset All</button>
             </div>`;
           }
@@ -3082,17 +3089,20 @@
         });
       }
 
-      // Person expand/collapse
+      // Person expand/collapse — only one open at a time
       for (const btn of main.querySelectorAll('.ach-person-header')) {
         btn.addEventListener('click', () => {
           const pid = btn.dataset.personId;
-          achievementPersonExpanded[pid] = !achievementPersonExpanded[pid];
+          const wasExpanded = achievementPersonExpanded[pid];
+          achievementPersonExpanded = {};
+          if (!wasExpanded) achievementPersonExpanded[pid] = true;
           render();
         });
       }
 
-      // Badge long-press in person view — opens popup to award/revoke
+      // Badge long-press in person view — opens popup to award/revoke (only for cells with data-key)
       for (const btn of main.querySelectorAll('.ach-badge-btn')) {
+        if (!btn.dataset.key) continue;
         let pressTimer = null;
         const openPopup = () => {
           const key = btn.dataset.key;
