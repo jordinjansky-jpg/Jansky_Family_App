@@ -2234,8 +2234,6 @@
             <option value="12"${settings?.autoPruneMonths === 12 ? ' selected' : ''}>Older than 12 months</option>
           </select>
         </div>
-        <button class="btn btn--primary btn--sm" id="autoPruneSave" type="button" style="margin-top:var(--spacing-sm)">Save</button>
-        <div id="autoPruneMsg" class="admin-msg mt-sm"></div>
 
         <h3 class="admin-form__title mt-lg">Reset Scoreboard</h3>
         <p class="form-hint mb-md">Delete all snapshots, streaks, completions, reward balances, and banked tokens. Tasks, schedule, and achievements are kept. Scores will rebuild from scratch.</p>
@@ -4092,18 +4090,12 @@
     // ── Data tab events ──
 
     function bindDataTab() {
-      // Auto-prune save
-      main.querySelector('#autoPruneSave')?.addEventListener('click', async () => {
+      // Auto-prune: save on change
+      main.querySelector('#set_autoPruneMonths')?.addEventListener('change', async () => {
         const months = parseInt(main.querySelector('#set_autoPruneMonths')?.value || '0', 10);
         const updated = { ...settings, autoPruneMonths: months };
         await writeSettings(updated);
         settings = updated;
-        const msgEl = main.querySelector('#autoPruneMsg');
-        if (msgEl) {
-          msgEl.textContent = 'Saved!';
-          msgEl.className = 'admin-msg admin-msg--success mt-sm';
-          setTimeout(() => { msgEl.textContent = ''; msgEl.className = 'admin-msg mt-sm'; }, 2000);
-        }
       });
 
       main.querySelector('#exportDataBtn')?.addEventListener('click', async () => {

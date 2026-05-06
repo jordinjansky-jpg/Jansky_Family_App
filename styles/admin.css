@@ -288,7 +288,16 @@
 .admin-form__title {
   font-size: var(--font-md);
   font-weight: 700;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Tighter field density inside admin forms (Tools / Data tabs) */
+.admin-form .form-group {
+  margin-bottom: 12px;
+}
+.admin-form .form-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
 }
 
 .admin-msg-person {

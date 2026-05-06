@@ -16,22 +16,28 @@
 }
 
 .btn--primary {
-  background: var(--accent);
-  color: white;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  min-width: 120px;
 }
 
 .btn--primary:hover {
-  background: var(--accent-hover);
+  background: var(--border);
 }
 
 .btn--primary:active {
-  background: var(--accent-pressed);
-  transform: scale(0.97);
+  opacity: 0.75;
 }
 
 .btn--primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* xs variant is intentionally tiny — no min-width */
+.btn--xs.btn--primary {
+  min-width: unset;
 }
 
 .btn--secondary {
