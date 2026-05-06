@@ -298,6 +298,12 @@
 .admin-form .form-label {
   font-size: var(--font-sm);
   font-weight: 500;
+  margin-bottom: 4px;
+}
+.admin-form input,
+.admin-form select,
+.admin-form textarea {
+  padding: 8px 12px;
 }
 
 .admin-msg-person {
@@ -927,16 +933,15 @@
 .admin-lib-tabs .tab,
 .admin-settings-tabs .tab { font-size: var(--font-xs); }
 
-/* Settings sub-nav — scrollable, matches Library sub-nav layout */
+/* Settings + Tools sub-nav — equal-width tabs */
 .admin-settings-tabs {
   overflow-x: auto;
   scrollbar-width: none;
   flex-wrap: nowrap;
-  justify-content: space-evenly;
   margin-bottom: var(--spacing-md);
 }
 .admin-settings-tabs::-webkit-scrollbar { display: none; }
-.admin-settings-tabs .tab { flex: 0 0 auto; padding: 8px var(--spacing-sm); }
+.admin-settings-tabs .tab { flex: 1; padding: 8px var(--spacing-sm); }
 
 /* ── Pricing Helper ── */
 .pricing-helper input[type="range"] { accent-color: var(--accent); }
@@ -1270,7 +1275,7 @@
 }
 
 .admin-settings-section {
-  padding: var(--spacing-sm) 0;
+  padding: 10px 0;
   border-top: 1px solid var(--border);
 }
 
@@ -1288,14 +1293,18 @@
   margin-bottom: var(--spacing-sm);
 }
 
-/* Tighter label + field gap inside settings */
+/* Tighter field density inside settings panels */
+.admin-settings .form-group {
+  margin-bottom: 12px;
+}
 .admin-settings .form-label {
   font-size: var(--font-sm);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
-.admin-settings .form-input {
-  padding-top: 7px;
-  padding-bottom: 7px;
+.admin-settings input,
+.admin-settings select,
+.admin-settings textarea {
+  padding: 8px 12px;
 }
 
 /* Theme preset pill row */

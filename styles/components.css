@@ -3006,16 +3006,15 @@
 /* Admin section nav — full-width equal tabs */
 .admin-section-tabs { margin-bottom: var(--spacing-sm); }
 
-/* Admin library sub-nav — scrollable natural-width tabs */
+/* Admin library sub-nav — equal-width tabs */
 .admin-lib-tabs {
   overflow-x: auto;
   scrollbar-width: none;
   flex-wrap: nowrap;
-  justify-content: space-evenly;
   margin-bottom: var(--spacing-md);
 }
 .admin-lib-tabs::-webkit-scrollbar { display: none; }
-.admin-lib-tabs .tab { flex: 0 0 auto; padding: 8px var(--spacing-sm); }
+.admin-lib-tabs .tab { flex: 1; padding: 8px var(--spacing-sm); }
 
 /* ── Field (label + input pair, used in sheets) ── */
 .field {
