@@ -1,5 +1,18 @@
-/* v2 */
-/* dashboard.css — Dashboard task detail sheet + celebration */
+/* v3 */
+/* dashboard.css — Dashboard layout + task detail sheet + celebration */
+
+/* ============ Dashboard info tiles (Weather, Dinner) ============ */
+.dashboard-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Coming up and section header horizontal alignment */
+.page-content > .coming-up  { margin: 0 var(--spacing-md) var(--spacing-md); }
+.page-content > .section-header { padding-left: var(--spacing-md); padding-right: var(--spacing-md); }
 /* ============ Task Detail Sheet ============ */
 /* task-detail__chips, task-detail__action-list, task-detail__action-row → components.css */
 

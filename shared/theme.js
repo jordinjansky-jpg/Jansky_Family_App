@@ -297,6 +297,27 @@ export function gradeColor(grade) {
   return colors[letter] || '#999';
 }
 
+const TEXT_SIZE_KEY = 'dr-text-size';
+const VALID_SIZES = ['small', 'default', 'large'];
+
+export function getTextSize() {
+  const stored = localStorage.getItem(TEXT_SIZE_KEY);
+  return VALID_SIZES.includes(stored) ? stored : 'default';
+}
+
+export function applyTextSize(size) {
+  const value = VALID_SIZES.includes(size) ? size : 'default';
+  document.documentElement.setAttribute('data-text-size', value);
+  localStorage.setItem(TEXT_SIZE_KEY, value);
+}
+
+export function initTextSize() {
+  applyTextSize(getTextSize());
+}
+
+// Auto-apply text size on import (same pattern as applyTheme in page bootstraps)
+initTextSize();
+
 /**
  * Person color palette for the setup wizard.
  */

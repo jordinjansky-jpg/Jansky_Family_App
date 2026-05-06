@@ -103,14 +103,14 @@
   --spacing-2xl: 48px;
 
   /* Type */
-  --font-xs: 0.75rem;
-  --font-sm: 0.875rem;
-  --font-md: 1rem;
-  --font-base: var(--font-md); /* alias — bare --font-base maps to 1rem body size */
-  --font-lg: 1.125rem;
-  --font-xl: 1.375rem;
-  --font-2xl: 1.5rem; /* 24px — used by header title */
-  --font-3xl: 2.25rem;
+  --font-xs: 0.6875rem;   /* 11px */
+  --font-sm: 0.8125rem;   /* 13px */
+  --font-md: 0.9375rem;   /* 15px — new default */
+  --font-base: var(--font-md);
+  --font-lg: 1.0625rem;   /* 17px */
+  --font-xl: 1.25rem;     /* 20px */
+  --font-2xl: 1.4375rem;  /* 23px */
+  --font-3xl: 2rem;       /* 32px */
 
   /* Skeleton shimmer tokens */
   --skeleton-base: var(--surface);
@@ -142,9 +142,9 @@
   --ambient-dinner-fg: #b85c1a;
 }
 
-[data-text-size="small"]   { --font-base: 0.875rem; }
-[data-text-size="default"] { --font-base: 1rem; }
-[data-text-size="large"]   { --font-base: 1.125rem; }
+[data-text-size="small"]   { --font-base: 0.8125rem; }  /* 13px */
+[data-text-size="default"] { --font-base: 0.9375rem; }  /* 15px */
+[data-text-size="large"]   { --font-base: 1.0625rem; }  /* 17px */
 
 /* ============ Dark mode tokens ============
  * Explicit theme via [data-theme="dark"] (set by shared/theme.js) ALWAYS wins.

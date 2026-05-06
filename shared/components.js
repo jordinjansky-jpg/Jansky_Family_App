@@ -274,41 +274,49 @@ export function renderHeader(options = {}) {
   return _renderHeaderV2(options);
 }
 
-function _renderHeaderV2({ title, subtitle, showBell }) {
+function _renderHeaderV2({ title = '', subtitle = '', showBell = false, showSettings = true, showStatus = false, statusActive = false } = {}) {
+  const statusHtml = showStatus
+    ? `<span class="app-header__status${statusActive ? ' is-active' : ''}" aria-hidden="true"></span>`
+    : '';
   const bellHtml = showBell
-    ? `<button class="btn-icon" id="headerBell" aria-label="Notifications" type="button">
-         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-           <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+    ? `<button class="app-header__icon-btn" id="headerBell" aria-label="Notifications" type="button">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="22" height="22">
+           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
          </svg>
          <span class="btn-icon__dot is-hidden" id="headerBellDot" aria-hidden="true"></span>
        </button>`
     : '';
-  const adminHtml = `<button class="btn-icon" id="headerAdmin" aria-label="Settings" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 10 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-  </button>`;
+  const settingsHtml = showSettings
+    ? `<button class="app-header__icon-btn" id="headerAdmin" aria-label="Settings" type="button">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="22" height="22">
+           <circle cx="12" cy="12" r="3"/>
+           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 10 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+         </svg>
+       </button>`
+    : '';
   return `<header class="app-header">
-    <div class="app-header__text">
-      <div class="app-header__title">${esc(title)}</div>
-      ${subtitle ? `<div class="app-header__subtitle">${esc(subtitle)}</div>` : ''}
-    </div>
-    <div class="app-header__actions">
-      ${bellHtml}
-      ${adminHtml}
+    <div class="app-header__inner">
+      <div class="app-header__titles">
+        <h1 class="app-header__title">${esc(title)}</h1>
+        ${subtitle ? `<div class="app-header__subtitle">${esc(subtitle)}</div>` : ''}
+      </div>
+      <div class="app-header__actions">
+        ${statusHtml}${bellHtml}${settingsHtml}
+      </div>
     </div>
   </header>`;
 }
 
-function _renderHeaderAdmin({ title, subtitle }) {
+function _renderHeaderAdmin({ title = '', subtitle = '' } = {}) {
   return `<header class="app-header">
-    <div class="app-header__text">
-      <div class="app-header__title">${esc(title)}</div>
-      ${subtitle ? `<div class="app-header__subtitle">${esc(subtitle)}</div>` : ''}
+    <div class="app-header__inner">
+      <div class="app-header__titles">
+        <h1 class="app-header__title">${esc(title)}</h1>
+        ${subtitle ? `<div class="app-header__subtitle">${esc(subtitle)}</div>` : ''}
+      </div>
+      <div class="app-header__actions"></div>
     </div>
-    <div class="app-header__actions"></div>
   </header>`;
 }
 
@@ -518,10 +526,11 @@ export function renderTaskCard(options) {
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
 
-  // Leading slot: event time label (events) or avatar initial (regular tasks).
+  // Leading slot: event time for events only. Regular tasks use the colored
+  // left stripe (border-left) for ownership — no redundant avatar.
   const leading = isEvent
     ? `<div class="card__leading">${esc(eventTimeLabel) || ''}</div>`
-    : `<div class="card__leading"><span class="avatar" data-person-color="${esc(ownerColor)}">${esc(ownerInitial)}</span></div>`;
+    : '';
 
   // Trailing check button — decorative within the card click region (spec §3.6).
   const checkSvg = completed
@@ -2168,6 +2177,50 @@ export function showToast(message, duration = 3000) {
  * Per spec 2026-04-25 §3.3: chip leading icons are SVG glyphs (no emoji
  * in chrome). Meal names may include emoji as user-authored text.
  */
+/**
+ * Expose a single weather glyph SVG by key. Shared between renderAmbientStrip
+ * and dashboard.js tile rendering.
+ */
+export function getWeatherGlyph(key) {
+  return WEATHER_GLYPHS[key] || WEATHER_GLYPHS.cloud;
+}
+
+/**
+ * Dashboard info tile (Weather, Dinner). Generic card: icon circle + label + value.
+ * action: string — data-tile-action value. Makes tile tappable.
+ * iconColor: CSS color string applied to --tile-icon-color.
+ * empty: bool — dims the value text.
+ */
+export function renderDashboardTile({ label = '', value = '', icon = '', iconColor = '', action = '', empty = false } = {}) {
+  const actionAttrs = action ? ` data-tile-action="${esc(action)}"` : '';
+  const emptyClass = empty ? ' dashboard-tile--empty' : '';
+  const iconStyle = iconColor ? ` style="--tile-icon-color: ${esc(iconColor)}"` : '';
+  return `<div class="dashboard-tile${emptyClass}"${actionAttrs}>
+    <div class="dashboard-tile__icon"${iconStyle}>${icon}</div>
+    <div class="dashboard-tile__content">
+      <div class="dashboard-tile__label">${esc(label)}</div>
+      <div class="dashboard-tile__value">${value}</div>
+    </div>
+  </div>`;
+}
+
+/**
+ * Section header — label + optional right-aligned meta + optional action chip.
+ * Lighter than renderSectionHead; no divider, no metaHtml raw slot.
+ */
+export function renderSectionHeader({ label = '', meta = '', action = null } = {}) {
+  const actionHtml = action
+    ? `<button class="section-header__action" type="button" data-section-action="${esc(action.id || '')}">
+        ${esc(action.label)}${action.chevron ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>` : ''}
+      </button>`
+    : '';
+  return `<div class="section-header">
+    <div class="section-header__label">${esc(label)}</div>
+    ${meta ? `<div class="section-header__meta">${esc(meta)}</div>` : ''}
+    ${actionHtml}
+  </div>`;
+}
+
 export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
   // Use module-level glyph map (shared with renderWeatherSheet).
   const weatherGlyphs = WEATHER_GLYPHS;
@@ -2285,47 +2338,33 @@ export function renderWeatherSheet(days, today, tomorrow) {
  *     "clear week" / "2 events for Noah this week" / etc.).
  *   filterPersonName: string — used by empty-state copy ("for Noah").
  */
-export function renderComingUp({ days = [], isExpanded = false, summary = '', filterPersonName = '' } = {}) {
-  const chevSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>`;
-  const expandedAttr = isExpanded ? 'true' : 'false';
+export function renderComingUp({ items = [], expanded = false, summary = '', filterPersonName = '' } = {}) {
+  const chevSvg = `<svg class="coming-up__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="20" height="20"><polyline points="6 9 12 15 18 9"/></svg>`;
+  const expandedCls = expanded ? ' is-expanded' : '';
 
-  let blocksHtml = '';
-  if (days.length === 0) {
+  let bodyHtml = '';
+  if (items.length === 0) {
     const emptyCopy = filterPersonName
       ? `No events for ${esc(filterPersonName)} in the next 7 days`
       : 'No events in the next 7 days';
-    blocksHtml = `<div class="coming-up__empty">${emptyCopy}</div>`;
+    bodyHtml = `<div class="coming-up__empty">${emptyCopy}</div>`;
   } else {
-    blocksHtml = days.map(d => {
-      const eventsHtml = d.events.map(([eventId, ev]) => {
-        const time = ev.allDay ? 'All day' : (ev.startTime ? _formatEventTime12h(ev.startTime) : '');
-        const meta = [ev.location].filter(Boolean).map(esc).join(' · ');
-        const metaHtml = meta ? `<span class="event-row__meta">${meta}</span>` : '';
-        return `<button class="event-row" data-event-id="${esc(eventId)}" type="button">
-          <span class="event-row__time">${esc(time)}</span>
-          <span class="event-row__title">${esc(ev.name || '')}</span>
-          ${metaHtml}
-        </button>`;
-      }).join('');
-      return `<div class="cal-day-block">
-        <button class="cal-day-block__head" data-date="${esc(d.dateKey)}" type="button">
-          <strong>${esc(d.dayLabel.dow)}</strong> ${esc(d.dayLabel.monthDay)}
-        </button>
-        ${eventsHtml}
-      </div>`;
-    }).join('');
+    bodyHtml = items.map(item => `<button class="coming-up__item" data-event-id="${esc(item.eventId || '')}" type="button">
+      <div class="coming-up__item-date">${esc(item.dateLabel)}</div>
+      <div class="coming-up__item-title">${esc(item.title)}</div>
+    </button>`).join('');
   }
 
-  return `<section class="coming-up" data-expanded="${expandedAttr}">
-    <button class="coming-up__row" id="comingUpToggle" aria-expanded="${expandedAttr}" aria-controls="comingUpBlocks" type="button">
-      <span class="coming-up__text">
-        <span class="coming-up__label">Coming up</span>
-        <span class="coming-up__summary">${esc(summary)}</span>
-      </span>
-      <span class="coming-up__chev" aria-hidden="true">${chevSvg}</span>
+  return `<section class="coming-up${expandedCls}">
+    <button class="coming-up__header" id="comingUpToggle" aria-expanded="${expanded ? 'true' : 'false'}" type="button">
+      <div class="coming-up__header-text">
+        <div class="coming-up__label">Coming up</div>
+        <div class="coming-up__summary">${esc(summary)}</div>
+      </div>
+      ${chevSvg}
     </button>
-    <div class="coming-up__blocks" id="comingUpBlocks"${isExpanded ? '' : ' hidden'}>
-      ${blocksHtml}
+    <div class="coming-up__body">
+      ${bodyHtml}
     </div>
   </section>`;
 }

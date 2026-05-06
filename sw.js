@@ -235,7 +235,9 @@
 // v147 (2026-05-04) — P2c: self-host Plus Jakarta Sans (fonts/ dir), remove Google Fonts CDN,
 //                     manifest fixes (maskable icon, bg/theme colors, scope/lang/orientation/categories/shortcuts).
 // v148 (2026-05-04) — P3: setup.css extracted from setup.html inline <style> block.
-const CACHE_NAME = 'family-hub-v148';
+// v149 (2026-05-02) — Foundation: type scale shifted down (15px default), text-size localStorage persistence, kid.css floor.
+// v150 (2026-05-02) — Dashboard P1: frosted header, dashboard tiles, coming-up card, section-header, neutral FAB, nav active fix, no avatar on task cards.
+const CACHE_NAME = 'family-hub-v150';
 
 const APP_SHELL = [
   '/',

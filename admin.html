@@ -72,7 +72,7 @@
     } from './shared/firebase.js';
     import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
 
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
@@ -123,7 +123,7 @@
     // ── Load data ──
     let settings = await readSettings();
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
-    document.documentElement.setAttribute('data-text-size', settings?.textSize || 'default');
+    applyTextSize(settings?.textSize || 'default');
 
     let peopleObj = await readPeople() || {};
     let tasksObj = await readTasks() || {};
@@ -3834,7 +3834,7 @@
         btn.addEventListener('click', () => {
           main.querySelectorAll('#sf_textSize .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
           btn.classList.add('segmented-btn--active');
-          document.documentElement.setAttribute('data-text-size', btn.dataset.size);
+          applyTextSize(btn.dataset.size);
         });
       }
 

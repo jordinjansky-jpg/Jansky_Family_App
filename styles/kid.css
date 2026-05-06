@@ -1,6 +1,13 @@
 /* v2 */
 /* kid.css — Kid mode specific styles */
 
+/* Kid surfaces ignore family text-size and default to a readable floor.
+   [data-text-size="large"] attribute selector still beats :root, so parents
+   can push even larger if desired. */
+:root {
+  --font-base: 1.0625rem;
+}
+
     body {
       padding-bottom: 0;
     }

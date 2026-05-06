@@ -14,39 +14,45 @@
   animation: pageFadeIn 0.3s ease-out;
 }
 
-/* ============ Header (Phase 1 — mockup-aligned) ============ */
+/* ============ Header (v4 — frosted glass, refined hierarchy) ============ */
 .app-header {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+}
+.app-header__inner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
-  padding-top: calc(var(--spacing-md) + env(safe-area-inset-top, 0px));
-  background: var(--bg);
-  min-height: var(--header-height);
+  padding: var(--spacing-lg) var(--spacing-md) var(--spacing-md);
+  padding-top: calc(var(--spacing-lg) + env(safe-area-inset-top, 0px));
+  max-width: var(--max-content);
+  margin: 0 auto;
 }
-.app-header__text {
+.app-header__titles {
   flex: 1;
   min-width: 0;
 }
 .app-header__title {
-  font-size: var(--font-2xl);
+  font-size: var(--font-3xl);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
-  line-height: 1.15;
+  line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin: 0;
 }
 .app-header__subtitle {
   font-size: var(--font-sm);
   color: var(--text-muted);
   margin-top: 2px;
-  font-weight: 400;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -56,9 +62,34 @@
 .app-header__actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+.app-header__status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  margin-right: 4px;
   flex-shrink: 0;
 }
+.app-header__status.is-active { background: var(--success); }
+.app-header__icon-btn {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.app-header__icon-btn:hover  { background: var(--bg-hover); }
+.app-header__icon-btn:active { background: var(--surface-2); }
 
 
 /* ============ Bottom Navigation (Phase 1 — 5-slot frosted) ============ */
@@ -97,7 +128,9 @@
 }
 .bottom-nav__item svg { width: 22px; height: 22px; stroke-width: 1.75; }
 
-.bottom-nav__item.is-active { color: var(--accent); }
+/* Active state: text uses --text (not accent) for cross-theme contrast;
+   accent is reserved for the top indicator bar only. */
+.bottom-nav__item.is-active { color: var(--text); }
 .bottom-nav__item.is-active svg { stroke-width: 2; }
 .bottom-nav__item.is-active::before {
   content: "";

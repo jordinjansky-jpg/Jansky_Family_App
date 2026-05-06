@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
@@ -299,14 +299,43 @@ async function render() {
   // Gated on settings.ambientStrip; renders zero pixels until 1.3 + 1.4 wire data.
   // Both chips render with nudge copy when their data source is absent.
   if (settings?.ambientStrip ?? true) {
-    // Both data sources are nullable; component handles empty-state internally.
     const weatherData = await fetchWeather(viewDate, settings);
     lastWeatherData = weatherData;
     const dinnerPlan = viewMeals?.dinner;
     const dinnerEntry = dinnerPlan?.recipeId ? recipes[dinnerPlan.recipeId] : null;
     const dinnerName = dinnerEntry?.name || dinnerPlan?.customName || null;
-    const dinnerData = dinnerName ? { name: dinnerName, source: dinnerPlan?.source } : null;
-    html += renderAmbientStrip({ weather: weatherData, dinner: dinnerData });
+
+    // Weather tile
+    let weatherValue = '—° · Set location';
+    let weatherGlyph = getWeatherGlyph('cloud');
+    if (weatherData) {
+      if (weatherData.isPast) weatherValue = 'Past day';
+      else if (weatherData.isFuture) weatherValue = '—° · No forecast yet';
+      else {
+        weatherValue = `${esc(weatherData.conditionLabel)} · ${esc(weatherData.tempLabel)}`;
+        weatherGlyph = getWeatherGlyph(weatherData.glyph);
+      }
+    }
+    const weatherTile = renderDashboardTile({
+      label: 'Weather',
+      value: weatherValue,
+      icon: weatherGlyph,
+      iconColor: 'var(--ambient-weather-fg)',
+      action: 'weather',
+      empty: !weatherData || weatherData.isPast || weatherData.isFuture
+    });
+
+    // Dinner tile
+    const dinnerTile = renderDashboardTile({
+      label: 'Dinner',
+      value: dinnerName || 'Not planned',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>',
+      iconColor: 'var(--ambient-dinner-fg)',
+      action: 'dinner',
+      empty: !dinnerName
+    });
+
+    html += `<div class="dashboard-tiles">${weatherTile}${dinnerTile}</div>`;
   }
 
   // === Coming up rail (spec §3.4) ===
@@ -354,9 +383,17 @@ async function render() {
         ? `${cuTotalEvents} ${cuNoun} for ${cuFilterPersonName} this week`
         : `${cuTotalEvents} ${cuNoun} this week`;
     }
+    // Flatten day-blocks into a single sorted list of {dateLabel, title, eventId}
+    const cuItems = cuDays.flatMap(d =>
+      d.events.map(([eventId, ev]) => ({
+        dateLabel: `${d.dayLabel.dow} ${d.dayLabel.monthDay}`,
+        title: ev.name || '',
+        eventId
+      }))
+    );
     html += renderComingUp({
-      days: cuDays,
-      isExpanded: comingUpExpanded,
+      items: cuItems,
+      expanded: comingUpExpanded,
       summary: cuSummary,
       filterPersonName: cuFilterPersonName
     });
@@ -720,16 +757,16 @@ function bindEvents() {
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
   });
 
-  // Ambient chips — tap = recipe/plan, long-press = manage (edit/change/remove)
-  main.querySelectorAll('.ambient-chip').forEach(chip => {
+  // Dashboard tiles — tap = open sheet, dinner tile long-press = manage
+  main.querySelectorAll('.dashboard-tile[data-tile-action]').forEach(tile => {
     let didLongPress = false;
     let pressTimer = null;
     let startX = 0, startY = 0;
 
-    chip.addEventListener('pointerdown', e => {
+    tile.addEventListener('pointerdown', e => {
       didLongPress = false;
       startX = e.clientX; startY = e.clientY;
-      const which = chip.dataset.chip;
+      const which = tile.dataset.tileAction;
       if (which !== 'dinner') return;
       const dinnerPlan = viewMeals?.dinner;
       if (!dinnerPlan?.recipeId && !dinnerPlan?.customName) return;
@@ -740,19 +777,19 @@ function bindEvents() {
       }, settings?.longPressMs ?? 800);
     });
 
-    chip.addEventListener('pointermove', e => {
+    tile.addEventListener('pointermove', e => {
       if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
         clearTimeout(pressTimer); pressTimer = null;
       }
     });
 
-    chip.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
-    chip.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
-    chip.addEventListener('contextmenu', e => e.preventDefault());
+    tile.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
+    tile.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+    tile.addEventListener('contextmenu', e => e.preventDefault());
 
-    chip.addEventListener('click', async () => {
+    tile.addEventListener('click', async () => {
       if (didLongPress) { didLongPress = false; return; }
-      const which = chip.dataset.chip;
+      const which = tile.dataset.tileAction;
       if (which === 'dinner') {
         const dinnerPlan = viewMeals?.dinner;
         if (dinnerPlan?.recipeId || dinnerPlan?.customName) {
@@ -767,9 +804,7 @@ function bindEvents() {
           return;
         }
         if (lastWeatherData?.isPast || lastWeatherData?.isFuture) return;
-
         const tomorrowK = addDays(today, 1);
-
         taskSheetMount.innerHTML = renderWeatherSheet(
           await fetchForecast(settings),
           today,
@@ -786,31 +821,16 @@ function bindEvents() {
     });
   });
 
-  // Coming up rail (Task 8)
+  // Coming up rail
   const comingUpEl = main.querySelector('.coming-up');
   if (comingUpEl) {
     document.getElementById('comingUpToggle')?.addEventListener('click', () => {
-      const isExpanded = comingUpEl.dataset.expanded === 'true';
-      const next = !isExpanded;
-      comingUpEl.dataset.expanded = next ? 'true' : 'false';
+      const next = !comingUpEl.classList.contains('is-expanded');
+      comingUpEl.classList.toggle('is-expanded', next);
       document.getElementById('comingUpToggle')?.setAttribute('aria-expanded', next ? 'true' : 'false');
-      const blocks = document.getElementById('comingUpBlocks');
-      if (blocks) blocks.hidden = !next;
       localStorage.setItem('dr-coming-up-state', next ? 'expanded' : 'collapsed');
     });
-    comingUpEl.querySelectorAll('.cal-day-block__head').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const date = btn.dataset.date;
-        if (!date) return;
-        viewDate = date;
-        celebrationShown = false;
-        updateHeaderSubtitle();
-        subscribeSchedule(viewDate);
-        viewMeals = (await readKitchenPlan(viewDate)) || {};
-        await loadData();
-      });
-    });
-    comingUpEl.querySelectorAll('.event-row').forEach(btn => {
+    comingUpEl.querySelectorAll('.coming-up__item[data-event-id]').forEach(btn => {
       let pressTimer = null, didLong = false, sx = 0, sy = 0;
       btn.addEventListener('pointerdown', e => {
         didLong = false; sx = e.clientX; sy = e.clientY;
