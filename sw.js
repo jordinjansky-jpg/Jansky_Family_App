@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v152 (2026-05-06) — Dashboard patch v2: tiles full-width, dark mode surface lift, AM/PM SVG pills,
+//                    bottom nav active uses --accent-ink. base.css, dashboard.css, components.js/css, layout.css.
 // v151 (2026-05-02) — Dashboard patch: accent FAB with auto-contrast --fab-ink, coming-up hover fix,
 //                    small avatar restored, dashboard tiles compact. components.js/css, theme.js, dashboard.js.
 // v150 (2026-05-02) — Dashboard P1 redesign: frosted header, dashboard tiles, coming-up rail, section header,
@@ -241,7 +243,7 @@
 // v148 (2026-05-04) — P3: setup.css extracted from setup.html inline <style> block.
 // v149 (2026-05-02) — Foundation: type scale shifted down (15px default), text-size localStorage persistence, kid.css floor.
 // v150 (2026-05-02) — Dashboard P1: frosted header, dashboard tiles, coming-up card, section-header, neutral FAB, nav active fix, no avatar on task cards.
-const CACHE_NAME = 'family-hub-v151';
+const CACHE_NAME = 'family-hub-v152';
 
 const APP_SHELL = [
   '/',

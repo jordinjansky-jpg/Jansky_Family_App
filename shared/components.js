@@ -445,6 +445,17 @@ export function renderProgressBar(done, total) {
   </div>`;
 }
 
+function renderTimeOfDayPill(slot) {
+  if (!slot) return '';
+  const s = String(slot).toLowerCase();
+  const amIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
+  const pmIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  if (s === 'am') return `<span class="time-pill time-pill--am" aria-label="Morning">${amIcon}</span>`;
+  if (s === 'pm') return `<span class="time-pill time-pill--pm" aria-label="Evening">${pmIcon}</span>`;
+  if (s === 'both') return `<span class="time-pill time-pill--both" aria-label="Anytime">${amIcon}${pmIcon}</span>`;
+  return '';
+}
+
 /**
  * Render a single task card.
  * options: { entryKey, entry, task, person, category, completed, overdue, dateLabel, points }
@@ -511,15 +522,15 @@ export function renderTaskCard(options) {
   const taskTod = task.timeOfDay;
   const isAmOrPm = entryTod === 'am' || entryTod === 'pm';
   const showTod = isAmOrPm && ((taskTod === 'both' && options.showTodIconBoth) || (taskTod !== 'both' && options.showTodIconSingle));
-  const todLabel = showTod ? (entryTod === 'am' ? '🌅 AM' : '🌙 PM') : '';
+  const timePill = showTod ? renderTimeOfDayPill(entryTod) : '';
 
-  // Build meta row as mockup: category · meta-dot · (tod/event-time/est joined by · ) · rotationTag · actionTags · points.
-  const rightMeta = [todLabel, eventTimeLabel, estLabel].filter(Boolean).join(' · ');
-  const catSpan = catName ? `<span>${esc(catName)}</span>` : '';
+  // Build meta row: time pill (standalone) · category · dot · event-time/est · rotationTag · actionTags · points.
+  const rightMeta = [eventTimeLabel, estLabel].filter(Boolean).join(' · ');
+  const catSpan = catName ? `<span class="card__meta-text">${esc(catName)}</span>` : '';
   const dotSpan = (catSpan && rightMeta) ? `<span class="card__meta-dot" aria-hidden="true"></span>` : '';
-  const rightSpan = rightMeta ? `<span>${esc(rightMeta)}</span>` : '';
+  const rightSpan = rightMeta ? `<span class="card__meta-text">${esc(rightMeta)}</span>` : '';
   const ptsSpan = ptsLabel || '';
-  const metaInner = `${catSpan}${dotSpan}${rightSpan}${rotationTag}${actionTags}${ptsSpan}`;
+  const metaInner = `${timePill}${catSpan}${dotSpan}${rightSpan}${rotationTag}${actionTags}${ptsSpan}`;
 
   const dateLine = dateLabel ? `<span class="task-card__date">${esc(dateLabel)}</span>` : '';
   const eventPrefix = isEvent ? '📅 ' : '';

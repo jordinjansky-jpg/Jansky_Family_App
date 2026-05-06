@@ -954,10 +954,28 @@
 .task-card__meta {
   font-size: var(--font-xs);
   color: var(--text-faint);
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  flex-wrap: nowrap;
 }
+
+/* ── Time of day pill (AM / PM / Both) ── */
+.time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 5px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  line-height: 1;
+}
+[data-theme="dark"] .time-pill { background: var(--surface-3); }
+.time-pill--am { color: #d68b3a; }
+[data-theme="dark"] .time-pill--am { color: #e8a55b; }
+.time-pill--pm { color: #6b7fc4; }
+[data-theme="dark"] .time-pill--pm { color: #8aa0e0; }
+.time-pill--both { color: var(--text-muted); gap: 4px; }
 
 .task-card__date {
   font-size: var(--font-xs);
@@ -1759,12 +1777,14 @@
   font-size: var(--font-sm); color: var(--text-muted);
   margin-top: 3px;
   display: flex; align-items: center; flex-wrap: wrap;
-  gap: var(--spacing-sm);
+  gap: 6px;
 }
+.card__meta-text { display: inline-block; }
 .card__meta-dot {
-  width: 4px; height: 4px; border-radius: var(--radius-full);
+  width: 3px; height: 3px; border-radius: var(--radius-full);
   background: var(--text-faint);
   flex-shrink: 0;
+  display: inline-block;
 }
 
 /* Event variant — uses event color for the left stripe + leading time label */
