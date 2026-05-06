@@ -1758,7 +1758,7 @@
     function renderCategoryForm(catKey) {
       const cat = catKey ? catsObj[catKey] : {};
       const isEdit = !!catKey;
-      const advancedOpen = !!(cat.dailyLimitPerPerson || cat.dailyLimitPerHousehold);
+      const advancedOpen = !!(cat.dailyLimitPerPerson || cat.dailyLimitPerHousehold || (cat.weightPercent != null && cat.weightPercent !== ''));
 
       return `<div class="tf-form">
   <div class="sheet__header">
@@ -1770,15 +1770,9 @@
     </div>
   </div>
 
-  <div class="tf-title-row">
-    <input class="tf-title-input" id="cf_label" type="text" placeholder="Category name" value="${esc(cat.label || '')}" autocomplete="off">
-  </div>
-
-  <div class="ef2-divider"></div>
-
-  <div class="cf-icon-weight-row">
+  <div class="rf-title-row">
     <input class="cf-icon-input" id="cf_icon" type="text" placeholder="🧹" maxlength="4" value="${esc(cat.icon || '')}">
-    <input class="cf-weight-input" id="cf_weight" type="number" placeholder="%" min="0" max="100" value="${cat.weightPercent != null ? cat.weightPercent : ''}">
+    <input class="tf-title-input" id="cf_label" type="text" placeholder="Category name" value="${esc(cat.label || '')}" autocomplete="off">
   </div>
 
   <div class="ef2-divider"></div>
@@ -1822,6 +1816,11 @@
   </div>
   <div class="ef2-field-reveal${advancedOpen ? ' is-open' : ''}${cat.isEvent ? ' is-hidden' : ''}" id="cf_advancedReveal">
     <div class="tf-options-inner">
+      <div class="tf-options-row">
+        <span class="tf-options-label">Scoring weight</span>
+        <input class="tf-cooldown-input" id="cf_weight" type="number" placeholder="None" min="0" max="100" value="${cat.weightPercent != null ? cat.weightPercent : ''}">
+      </div>
+      <p class="form-hint" style="margin:0 0 var(--spacing-xs)">Percentage of total score this category contributes. Leave empty for no weighting.</p>
       <div class="tf-options-row">
         <span class="tf-options-label">Limit per person (min/day)</span>
         <input class="tf-cooldown-input" id="cf_limitPerson" type="number" placeholder="—" min="1" value="${cat.dailyLimitPerPerson || ''}">
