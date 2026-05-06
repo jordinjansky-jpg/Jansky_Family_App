@@ -824,10 +824,11 @@ function bindEvents() {
   // Coming up rail
   const comingUpEl = main.querySelector('.coming-up');
   if (comingUpEl) {
-    document.getElementById('comingUpToggle')?.addEventListener('click', () => {
+    document.querySelector('[data-coming-up-toggle]')?.addEventListener('click', (e) => {
+      e.currentTarget.blur();
       const next = !comingUpEl.classList.contains('is-expanded');
       comingUpEl.classList.toggle('is-expanded', next);
-      document.getElementById('comingUpToggle')?.setAttribute('aria-expanded', next ? 'true' : 'false');
+      e.currentTarget.setAttribute('aria-expanded', next ? 'true' : 'false');
       localStorage.setItem('dr-coming-up-state', next ? 'expanded' : 'collapsed');
     });
     comingUpEl.querySelectorAll('.coming-up__item[data-event-id]').forEach(btn => {

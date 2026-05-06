@@ -121,6 +121,9 @@ const PRESET_VAR_KEYS = new Set();
 for (const _preset of Object.values(PRESETS)) {
   for (const _key of Object.keys(_preset.vars)) PRESET_VAR_KEYS.add(_key);
 }
+// Computed accent-derived tokens — not in any preset's vars object but must
+// be cleaned up on theme switch so stale values don't linger.
+PRESET_VAR_KEYS.add('--fab-ink');
 
 /**
  * Get all available theme presets.
@@ -132,6 +135,16 @@ export function getPresets() {
     mode: preset.mode,
     coloredCells: !!preset.coloredCells
   }));
+}
+
+function _getAccentInkColor(hex) {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.slice(0, 2), 16) / 255;
+  const g = parseInt(c.slice(2, 4), 16) / 255;
+  const b = parseInt(c.slice(4, 6), 16) / 255;
+  const lin = x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return L > 0.179 ? '#000000' : '#ffffff';
 }
 
 /**
@@ -148,6 +161,7 @@ export function getThemeVars(themeConfig) {
     const accent = themeConfig.accentColor;
     vars['--accent'] = accent;
     vars['--accent-hover'] = accent + 'dd';
+    vars['--fab-ink'] = _getAccentInkColor(accent);
 
     // Spec-aligned tokens. color-mix(in srgb, X% accent, white/black)
     // — X is how much accent remains, so lower X = more of the other color.
@@ -203,6 +217,7 @@ export function applyTheme(themeConfig) {
     const isDark = (preset.mode || themeConfig.mode) === 'dark';
     root.style.setProperty('--accent', fallbackAccent);
     root.style.setProperty('--accent-hover', fallbackAccent + 'dd');
+    root.style.setProperty('--fab-ink', _getAccentInkColor(fallbackAccent));
     // Spec-aligned tokens.
     if (isDark) {
       root.style.setProperty('--accent', `color-mix(in srgb, ${fallbackAccent} 75%, #fff)`);

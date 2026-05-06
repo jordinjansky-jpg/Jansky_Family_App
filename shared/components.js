@@ -526,11 +526,9 @@ export function renderTaskCard(options) {
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
 
-  // Leading slot: event time for events only. Regular tasks use the colored
-  // left stripe (border-left) for ownership — no redundant avatar.
   const leading = isEvent
     ? `<div class="card__leading">${esc(eventTimeLabel) || ''}</div>`
-    : '';
+    : `<div class="card__leading"><span class="avatar avatar--sm" data-person-color="${esc(ownerColor)}">${esc(ownerInitial)}</span></div>`;
 
   // Trailing check button — decorative within the card click region (spec §3.6).
   const checkSvg = completed
@@ -2356,7 +2354,7 @@ export function renderComingUp({ items = [], expanded = false, summary = '', fil
   }
 
   return `<section class="coming-up${expandedCls}">
-    <button class="coming-up__header" id="comingUpToggle" aria-expanded="${expanded ? 'true' : 'false'}" type="button">
+    <button class="coming-up__header" id="comingUpToggle" data-coming-up-toggle aria-expanded="${expanded ? 'true' : 'false'}" type="button">
       <div class="coming-up__header-text">
         <div class="coming-up__label">Coming up</div>
         <div class="coming-up__summary">${esc(summary)}</div>
