@@ -128,13 +128,14 @@
 }
 .bottom-nav__item svg { width: 22px; height: 22px; stroke-width: 1.75; }
 
-/* Active state: accent color with glow on icon, accent-ink on label for contrast. */
+/* Active state — neon glow: bright stroke + layered drop-shadow halo. */
 .bottom-nav__item.is-active { color: var(--accent-ink); }
 .bottom-nav__item.is-active svg {
   stroke-width: 2;
-  color: var(--accent);
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent))
-          drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 30%, transparent));
+  color: var(--accent-bright, var(--accent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 80%, transparent))
+          drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 50%, transparent))
+          drop-shadow(0 0 16px color-mix(in srgb, var(--accent) 25%, transparent));
 }
 .bottom-nav__item.is-active .nav-item__label { color: var(--accent-ink); font-weight: 600; }
 .bottom-nav__item.is-active::before { display: none; }

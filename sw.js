@@ -244,7 +244,8 @@
 // v149 (2026-05-02) — Foundation: type scale shifted down (15px default), text-size localStorage persistence, kid.css floor.
 // v150 (2026-05-02) — Dashboard P1: frosted header, dashboard tiles, coming-up card, section-header, neutral FAB, nav active fix, no avatar on task cards.
 // v153 (2026-05-06) — Dashboard P3: task card layout rework (leading/body/meta), 3 display toggles, nav glow, tiles full-width.
-const CACHE_NAME = 'family-hub-v153';
+// v154 (2026-05-06) — Dashboard P4: avatar ring+soft fill, time pill enlarged + anytime icon, accent-bright token, nav neon glow.
+const CACHE_NAME = 'family-hub-v154';
 
 const APP_SHELL = [
   '/',

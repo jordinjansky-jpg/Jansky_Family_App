@@ -446,14 +446,13 @@ export function renderProgressBar(done, total) {
 }
 
 function renderTimeOfDayPill(slot) {
-  if (!slot) return '';
-  const s = String(slot).toLowerCase();
-  const amIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
-  const pmIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  const s = slot ? String(slot).toLowerCase() : 'anytime';
+  const amIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
+  const pmIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  const anytimeIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="9"/><line x1="5" y1="19" x2="19" y2="5"/><line x1="15.5" y1="5.5" x2="16.5" y2="4.5"/><line x1="18" y1="8" x2="19.5" y2="7.5"/><line x1="17" y1="11" x2="18.5" y2="11"/><circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/><path d="M11 14.5 a3 3 0 1 0 -3 -3 a2.5 2.5 0 0 1 3 3z" fill="currentColor" stroke="none"/></svg>`;
   if (s === 'am') return `<span class="time-pill time-pill--am" aria-label="Morning">${amIcon}</span>`;
   if (s === 'pm') return `<span class="time-pill time-pill--pm" aria-label="Evening">${pmIcon}</span>`;
-  if (s === 'both') return `<span class="time-pill time-pill--both" aria-label="Anytime">${amIcon}${pmIcon}</span>`;
-  return '';
+  return `<span class="time-pill time-pill--anytime" aria-label="Anytime">${anytimeIcon}</span>`;
 }
 
 /**
@@ -509,11 +508,7 @@ export function renderTaskCard(options) {
   }
 
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
-  const entryTod = entry.timeOfDay;
-  const taskTod = task.timeOfDay;
-  const isAmOrPm = entryTod === 'am' || entryTod === 'pm';
-  const showTod = isAmOrPm && ((taskTod === 'both' && options.showTodIconBoth) || (taskTod !== 'both' && options.showTodIconSingle));
-  const timePill = showTod ? renderTimeOfDayPill(entryTod) : '';
+  const timePill = renderTimeOfDayPill(entry.timeOfDay || task.timeOfDay || 'anytime');
 
   // Leading: events show time label; non-events show avatar + AM/PM pill.
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';

@@ -916,20 +916,6 @@
   justify-content: center;
 }
 
-.task-card__avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--owner-color, var(--text-faint));
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: var(--font-sm);
-  flex-shrink: 0;
-  line-height: 1;
-}
 
 .task-card__event-time {
   font-size: var(--font-xs);
@@ -978,24 +964,27 @@
 [data-show-duration="off"] .task-card__meta-item--duration { display: none; }
 [data-show-points="off"] .task-card__meta-item--points { display: none; }
 
-/* ── Time of day pill (AM / PM / Both) ── */
+/* ── Time of day pill (AM / PM / Anytime) ── */
 .time-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: 2px 5px;
+  padding: 4px 8px;
   border-radius: var(--radius-full);
   background: var(--surface-2);
   color: var(--text-muted);
   flex-shrink: 0;
-  line-height: 1;
+  min-width: 28px;
+  min-height: 28px;
 }
 [data-theme="dark"] .time-pill { background: var(--surface-3); }
 .time-pill--am { color: #d68b3a; }
 [data-theme="dark"] .time-pill--am { color: #e8a55b; }
 .time-pill--pm { color: #6b7fc4; }
 [data-theme="dark"] .time-pill--pm { color: #8aa0e0; }
-.time-pill--both { color: var(--text-muted); gap: 4px; }
+.time-pill--anytime { color: var(--text-faint); }
+.time-pill svg { display: block; }
 
 .task-card__cat {
   font-size: var(--font-xs);
@@ -1797,19 +1786,30 @@
 .tag--late     { background: var(--danger-soft);  color: var(--danger); }
 .tag--school   { background: var(--surface-2);    color: var(--text-muted); }
 
-/* Avatar (runtime owner color via --person-color on element) */
+/* Avatar — ring + soft fill */
 .avatar {
-  width: 36px; height: 36px;
+  --avatar-color: var(--person-color, var(--accent));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-full);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-weight: 600; font-size: var(--font-sm);
-  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--avatar-color) 12%, transparent);
+  border: 2px solid var(--avatar-color);
+  color: var(--avatar-color);
+  font-weight: 700;
+  font-size: var(--font-md);
+  letter-spacing: 0;
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--person-color, var(--accent)) 18%, var(--surface-2));
-  color: var(--person-color, var(--accent));
+  transition: background var(--t-fast);
 }
-.avatar--sm { width: 28px; height: 28px; font-size: var(--font-xs); font-weight: 600; }
-.avatar--lg { width: 52px; height: 52px; font-size: var(--font-md); }
+[data-theme="dark"] .avatar {
+  background: color-mix(in srgb, var(--avatar-color) 18%, transparent);
+}
+.avatar--sm  { width: 32px; height: 32px; font-size: var(--font-sm); border-width: 2px; }
+.avatar--xs  { width: 24px; height: 24px; font-size: var(--font-xs); border-width: 1.5px; }
+.avatar--lg  { width: 52px; height: 52px; font-size: var(--font-lg); }
 
 /* Check button — 32px circle, hover fills with accent-soft, press scales 0.95 */
 .check {
@@ -4122,13 +4122,6 @@ label.ef2-icon-btn  { cursor: pointer; }
   gap: var(--spacing-xs);
 }
 
-/* Score card and task card avatars use solid person color (not soft-tinted like default .avatar) */
-.card--score .avatar,
-.task-card .avatar {
-  background: var(--person-color, var(--accent));
-  color: var(--on-accent);
-  font-weight: 700;
-}
 
 .card--score__pct {
   font-size: var(--font-sm);
