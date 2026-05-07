@@ -1315,6 +1315,25 @@
   margin-top: var(--spacing-xs);
 }
 
+/* iCal feed form */
+.if-url-input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-sm);
+  color: var(--text);
+  outline: none;
+}
+.if-url-input::placeholder { color: var(--text-faint); }
+.if-url-input:focus { border-bottom-color: var(--accent); }
+.if-enabled-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
 /* iCal feed list */
 .admin-ical-icon {
   display: flex;

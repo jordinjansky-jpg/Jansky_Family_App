@@ -243,7 +243,6 @@
       { id: 'family',   label: 'Family'   },
       { id: 'style',    label: 'Style'    },
       { id: 'scoring',  label: 'Scoring'  },
-      { id: 'calendar', label: 'Calendar' },
       { id: 'connect',  label: 'Connect'  },
     ];
 
@@ -1114,38 +1113,44 @@
       const ownerSet = new Set(feed.owners || []);
 
       const ownerChips = pa.map(p =>
-        `<button type="button" class="owner-chip${ownerSet.has(p.id) ? ' owner-chip--selected' : ''}" data-id="${p.id}" style="--chip-color:${p.color}">${esc(p.name)}</button>`
+        `<button type="button" class="ef2-person-chip" data-person-id="${p.id}"${ownerSet.has(p.id) ? ' data-state="primary"' : ''} style="--chip-color:${p.color}">${esc(p.name)}</button>`
       ).join('');
 
       const mount = document.getElementById('taskSheetMount');
       mount.innerHTML = renderBottomSheet(`
-        <h3 class="sheet-section-title">${isEdit ? 'Edit Calendar' : 'Add Calendar'}</h3>
-        <div class="form-group">
-          <label class="form-label">Name</label>
-          <input type="text" id="if_name" class="form-input" placeholder="e.g. Lila Soccer" value="${esc(feed.name || '')}" autocomplete="off">
-        </div>
-        <div class="form-group">
-          <label class="form-label">iCal URL</label>
-          <input type="url" id="if_url" class="form-input" placeholder="https://…" value="${esc(feed.url || '')}" autocomplete="off" spellcheck="false">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Assign to</label>
-          <div class="owner-chips" id="if_owners">${ownerChips}</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Sync every</label>
-          <div class="segmented-control" id="if_interval">
-            ${intervals.map(({v,l}) => `<button type="button" class="segmented-btn${currentInterval===v?' segmented-btn--active':''}" data-interval="${v}">${l}</button>`).join('')}
+        <div class="tf-form">
+          <div class="tf-title-row">
+            <input class="tf-title-input" id="if_name" type="text" placeholder="Calendar name" value="${esc(feed.name || '')}" autocomplete="off">
           </div>
-        </div>
-        ${isEdit ? `<div class="admin-toggle-row mt-xs">
-          <span class="admin-toggle-row__label">Enabled</span>
-          <label class="form-toggle"><input type="checkbox" id="if_enabled"${feed.enabled !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-        </div>` : ''}
-        <div class="sheet-actions">
-          ${isEdit ? `<button class="btn btn--danger btn--sm" id="if_delete" type="button">Delete</button>` : ''}
-          <button class="btn btn--secondary" id="if_cancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="if_save" type="button">${isEdit ? 'Save' : 'Add'}</button>
+          <div class="ef2-divider"></div>
+          <div class="ef2-for-section">
+            <span class="ef2-section-label">iCal URL</span>
+            <input type="url" id="if_url" class="if-url-input" placeholder="webcal://… or https://…" value="${esc(feed.url || '')}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="ef2-divider"></div>
+          <div class="ef2-for-section">
+            <span class="ef2-section-label">Assign to</span>
+            <div class="ef2-person-chips" id="if_owners">${ownerChips || '<span style="font-size:var(--font-sm);color:var(--text-faint)">No people yet</span>'}</div>
+          </div>
+          <div class="ef2-divider"></div>
+          <div class="ef2-for-section">
+            <span class="ef2-section-label">Sync every</span>
+            <div class="segmented-control" id="if_interval">
+              ${intervals.map(({v,l}) => `<button type="button" class="segmented-btn${currentInterval===v?' segmented-btn--active':''}" data-interval="${v}">${l}</button>`).join('')}
+            </div>
+          </div>
+          ${isEdit ? `
+          <div class="ef2-divider"></div>
+          <div class="ef2-for-section">
+            <span class="ef2-section-label">Sync</span>
+            <label class="form-toggle"><input type="checkbox" id="if_enabled"${feed.enabled !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+            <span class="if-enabled-label">${feed.enabled !== false ? 'Active' : 'Paused'}</span>
+          </div>` : ''}
+          <div class="sheet__footer">
+            ${isEdit ? `<button class="btn btn--danger" id="if_delete" type="button">Delete</button>` : ''}
+            <button class="btn btn--secondary" id="if_cancel" type="button">Cancel</button>
+            <button class="btn btn--primary" id="if_save" type="button">${isEdit ? 'Save' : 'Add'}</button>
+          </div>
         </div>
       `);
 
@@ -1154,8 +1159,8 @@
 
       // Owner chip toggle
       mount.querySelector('#if_owners')?.addEventListener('click', e => {
-        const chip = e.target.closest('.owner-chip');
-        if (chip) chip.classList.toggle('owner-chip--selected');
+        const chip = e.target.closest('.ef2-person-chip');
+        if (chip) chip.dataset.state = chip.dataset.state === 'primary' ? '' : 'primary';
       });
 
       // Interval segmented control
@@ -1166,6 +1171,11 @@
         btn.classList.add('segmented-btn--active');
       });
 
+      mount.querySelector('#if_enabled')?.addEventListener('change', e => {
+        const label = mount.querySelector('.if-enabled-label');
+        if (label) label.textContent = e.target.checked ? 'Active' : 'Paused';
+      });
+
       mount.querySelector('#if_cancel')?.addEventListener('click', closeAdminSheet);
 
       mount.querySelector('#if_save')?.addEventListener('click', async () => {
@@ -1173,7 +1183,7 @@
         const url  = mount.querySelector('#if_url')?.value.trim();
         if (!name || !url) { showToast('Name and URL are required'); return; }
 
-        const owners = Array.from(mount.querySelectorAll('#if_owners .owner-chip--selected')).map(b => b.dataset.id);
+        const owners = Array.from(mount.querySelectorAll('#if_owners .ef2-person-chip[data-state="primary"]')).map(b => b.dataset.personId);
         const intervalBtn = mount.querySelector('#if_interval .segmented-btn--active');
         const syncIntervalHours = parseInt(intervalBtn?.dataset.interval || '6', 10);
         const enabled = isEdit ? !!(mount.querySelector('#if_enabled')?.checked) : true;
@@ -2173,6 +2183,38 @@
               <span class="admin-toggle-row__label">Show point value on task cards</span>
               <label class="form-toggle"><input type="checkbox" id="sf_showPoints"${settings?.showPoints ? ' checked' : ''}><span class="form-toggle__track"></span></label>
             </div>
+            <div class="form-row mt-sm">
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Calendar default view</label>
+                <select class="form-input" id="set_calView">
+                  <option value="week"${(settings?.calendarDefaults?.defaultView || 'week') === 'week' ? ' selected' : ''}>Week</option>
+                  <option value="month"${(settings?.calendarDefaults?.defaultView || 'week') === 'month' ? ' selected' : ''}>Month</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Week starts on</label>
+                <select class="form-input" id="set_weekStart">
+                  <option value="0"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '0' ? ' selected' : ''}>Sunday</option>
+                  <option value="1"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '1' ? ' selected' : ''}>Monday</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row mt-xs">
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Calendar density</label>
+                <select class="form-input" id="set_calDensity">
+                  <option value="snug"${(settings?.calendarDefaults?.density || 'snug') === 'snug' ? ' selected' : ''}>Snug</option>
+                  <option value="cozy"${(settings?.calendarDefaults?.density || 'snug') === 'cozy' ? ' selected' : ''}>Cozy</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Daily tasks in week view</label>
+                <select class="form-input" id="set_showDaily">
+                  <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
+                  <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
+                </select>
+              </div>
+            </div>
           </div>`;
           break;
 
@@ -2213,44 +2255,6 @@
               <label class="form-label">Past-due credit %</label>
               <input class="form-input" type="number" id="sf_pastDueCredit" value="${settings?.pastDueCreditPct ?? 75}" min="0" max="100" style="max-width:100px">
               <p class="form-hint">Points awarded for completing a past-due task.</p>
-            </div>
-          </div>`;
-          break;
-
-        case 'calendar':
-          panel = `
-          <div class="admin-settings-section">
-            <div class="form-row">
-              <div class="form-group" style="flex:1">
-                <label class="form-label">Default view</label>
-                <select class="form-input" id="set_calView">
-                  <option value="week"${(settings?.calendarDefaults?.defaultView || 'week') === 'week' ? ' selected' : ''}>Week</option>
-                  <option value="month"${(settings?.calendarDefaults?.defaultView || 'week') === 'month' ? ' selected' : ''}>Month</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex:1">
-                <label class="form-label">Week starts on</label>
-                <select class="form-input" id="set_weekStart">
-                  <option value="0"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '0' ? ' selected' : ''}>Sunday</option>
-                  <option value="1"${String(settings?.calendarDefaults?.weekStartDay ?? 0) === '1' ? ' selected' : ''}>Monday</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row mt-xs">
-              <div class="form-group" style="flex:1">
-                <label class="form-label">Display density</label>
-                <select class="form-input" id="set_calDensity">
-                  <option value="snug"${(settings?.calendarDefaults?.density || 'snug') === 'snug' ? ' selected' : ''}>Snug</option>
-                  <option value="cozy"${(settings?.calendarDefaults?.density || 'snug') === 'cozy' ? ' selected' : ''}>Cozy</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex:1">
-                <label class="form-label">Daily tasks in week view</label>
-                <select class="form-input" id="set_showDaily">
-                  <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
-                  <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
-                </select>
-              </div>
             </div>
           </div>`;
           break;
