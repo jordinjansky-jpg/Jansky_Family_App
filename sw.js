@@ -254,7 +254,8 @@
 // v161 (2026-05-06) — Dashboard P11: initial color darkened (color-mix→black 40%), 13px explicit size; anytime sun moved to (7,7) equidistant from divider.
 // v162 (2026-05-06) — Dashboard P12: avatar border 3px, initial 45% blend to black; dashboard-tile__icon overflow:hidden + 18px svg; fork/cloud stay in circle.
 // v163 (2026-05-06) — Dashboard P13: initial 15px + white halo text-shadow for readability on any tinted background.
-const CACHE_NAME = 'family-hub-v163';
+// v164 (2026-05-06) — Dashboard P14: drop text-shadow (caused fuzz/J bleed); color-mix(pill 30%, --text) — crisp, readable in both modes.
+const CACHE_NAME = 'family-hub-v164';
 
 const APP_SHELL = [
   '/',

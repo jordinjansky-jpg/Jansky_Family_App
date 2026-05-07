@@ -933,19 +933,12 @@
 
 .task-card__avatar-initial {
   font-size: 15px;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--pill-color) 45%, black);
+  font-weight: 800;
+  /* Blend toward --text (near-black in light, near-white in dark) — always readable,
+     one rule covers both modes, no shadow effects needed */
+  color: color-mix(in srgb, var(--pill-color) 30%, var(--text));
   letter-spacing: 0;
   line-height: 1;
-  /* White halo lifts the letter off any pastel/tinted background */
-  text-shadow: -1px 0 rgba(255,255,255,0.7), 1px 0 rgba(255,255,255,0.7),
-               0 -1px rgba(255,255,255,0.7), 0 1px rgba(255,255,255,0.7),
-               0 0 6px rgba(255,255,255,0.5);
-}
-[data-theme="dark"] .task-card__avatar-initial {
-  color: color-mix(in srgb, var(--pill-color) 85%, white);
-  text-shadow: -1px 0 rgba(255,255,255,0.2), 1px 0 rgba(255,255,255,0.2),
-               0 -1px rgba(255,255,255,0.2), 0 1px rgba(255,255,255,0.2);
 }
 
 /* Event tab — same flush tab treatment */
