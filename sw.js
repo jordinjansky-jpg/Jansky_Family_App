@@ -257,7 +257,8 @@
 // v164 (2026-05-06) — Dashboard P14: drop text-shadow (caused fuzz/J bleed); color-mix(pill 30%, --text) — crisp, readable in both modes.
 // v165 (2026-05-06) — Nav active: pill indicator (24×3px) at top edge + bold 2px stroke, no glow filter.
 // v166 (2026-05-06) — Dashboard tiles: hide labels, 28px icon, 10px h-pad, 6px gap; back-to-today: accent-tinted pill.
-const CACHE_NAME = 'family-hub-v166';
+// v167 (2026-05-06) — Tile value back to font-sm; back-to-today zero-height so button floats without shifting layout.
+const CACHE_NAME = 'family-hub-v167';
 
 const APP_SHELL = [
   '/',
