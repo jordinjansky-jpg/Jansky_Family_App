@@ -1964,16 +1964,30 @@
 .back-to-today__btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  max-width: 320px;
-  min-height: 44px;
+  gap: 4px;
+  min-height: 36px;
+  padding: 6px 16px 6px 12px;
+  border-radius: var(--radius-full);
+  /* Override btn--secondary — accent-tinted pill */
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-size: var(--font-sm);
+}
+.back-to-today__btn:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+[data-theme="dark"] .back-to-today__btn {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .back-to-today__chevron {
   display: inline-flex;
   align-items: center;
-  color: var(--text-muted);
+  color: var(--accent);
 }
-.back-to-today__chevron svg { width: 14px; height: 14px; stroke-width: 2; }
+.back-to-today__chevron svg { width: 14px; height: 14px; stroke-width: 2.5; }
 
 @keyframes backToTodayEnter {
   from { opacity: 0; transform: translateY(-4px); }
@@ -2259,16 +2273,15 @@
   .ambient-chip { transition: none; }
 }
 
-/* === Dashboard Tile (Weather, Dinner) — v5 === */
+/* === Dashboard Tile (Weather, Dinner) — v6 === */
 .dashboard-tile {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
+  gap: 6px;
+  padding: 8px 10px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  min-height: 64px;
   transition: background var(--t-fast), border-color var(--t-fast);
 }
 [data-theme="dark"] .dashboard-tile {
@@ -2279,27 +2292,20 @@
 .dashboard-tile[data-tile-action]:hover { background: var(--surface-2); }
 [data-theme="dark"] .dashboard-tile[data-tile-action]:hover { background: var(--surface-3); }
 .dashboard-tile__icon {
-  width: 32px; height: 32px;
+  width: 28px; height: 28px;
   border-radius: var(--radius-full);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
   background: color-mix(in srgb, var(--tile-icon-color, var(--text-muted)) 15%, transparent);
   color: var(--tile-icon-color, var(--text));
-  font-size: 16px;
 }
-.dashboard-tile__icon svg { width: 18px; height: 18px; display: block; }
+.dashboard-tile__icon svg { width: 15px; height: 15px; display: block; }
 .dashboard-tile__content { flex: 1; min-width: 0; }
-.dashboard-tile__label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  margin-bottom: 2px;
-}
+/* Label hidden — icon + color already identify weather vs dinner */
+.dashboard-tile__label { display: none; }
 .dashboard-tile__value {
-  font-size: var(--font-sm);
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--text);
   line-height: 1.3;

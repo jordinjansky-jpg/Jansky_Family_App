@@ -256,7 +256,8 @@
 // v163 (2026-05-06) — Dashboard P13: initial 15px + white halo text-shadow for readability on any tinted background.
 // v164 (2026-05-06) — Dashboard P14: drop text-shadow (caused fuzz/J bleed); color-mix(pill 30%, --text) — crisp, readable in both modes.
 // v165 (2026-05-06) — Nav active: pill indicator (24×3px) at top edge + bold 2px stroke, no glow filter.
-const CACHE_NAME = 'family-hub-v165';
+// v166 (2026-05-06) — Dashboard tiles: hide labels, 28px icon, 10px h-pad, 6px gap; back-to-today: accent-tinted pill.
+const CACHE_NAME = 'family-hub-v166';
 
 const APP_SHELL = [
   '/',
