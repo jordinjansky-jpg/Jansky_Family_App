@@ -4430,50 +4430,56 @@
 
     function renderAiImportsTab() {
       return `
-        <p class="imports-section-label">Connected</p>
-        <p class="form-hint imports-section-hint">Set once — syncs automatically on a schedule.</p>
-        <div class="imports-section">
-          ${renderCalendarsTab()}
-        </div>
-
-        <p class="imports-section-label mt-lg">Scan &amp; Import</p>
-        <p class="form-hint imports-section-hint">Trigger a one-time import right now.</p>
-        <div class="imports-section">
-          <div class="imports-item">
-            <div class="imports-item__header">
-              <span class="imports-item__title">School Lunch Menu</span>
-              <button class="btn-icon" id="slPhotoBtn" type="button" aria-label="Import school lunch menu">${CAMERA_SVG}</button>
-              <input type="file" id="slCamera" accept="image/*" capture="environment" hidden>
-              <input type="file" id="slGallery" accept="image/*" hidden>
-              <input type="file" id="slFiles" accept="application/pdf,.pdf,image/*" hidden>
-            </div>
-            <p class="form-hint">Upload the school's monthly lunch PDF or photo. Menus appear in the Kitchen meal plan.</p>
-            <div id="schoolLunchStatus"></div>
-            <button class="btn btn--ghost btn--sm" id="clearSchoolLunchBtn" type="button" style="margin-top:var(--spacing-sm)">Clear all school lunches</button>
-          </div>
-          <div class="imports-item imports-item--divided">
-            <div class="imports-item__header">
-              <span class="imports-item__title">Task Scanner</span>
-              <button class="btn-icon" id="tsPhotoBtn" type="button" aria-label="Scan document for tasks">${CAMERA_SVG}</button>
-              <input type="file" id="tsCamera" accept="image/*" capture="environment" hidden>
-              <input type="file" id="tsGallery" accept="image/*" hidden>
-              <input type="file" id="tsFiles" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" hidden>
-            </div>
-            <p class="form-hint">Scan homework sheets, permission slips, chore charts. Detected tasks are added to the schedule.</p>
-            <div id="taskScanStatus"></div>
+        <div class="imports-group">
+          <p class="imports-group__label">Connected</p>
+          <p class="imports-group__hint">Set once — syncs automatically on a schedule.</p>
+          <div class="imports-connected">
+            ${renderCalendarsTab()}
           </div>
         </div>
 
-        <p class="imports-section-label mt-lg">Review Queue</p>
-        <p class="form-hint imports-section-hint">Items that arrived automatically, waiting on your approval.</p>
-        <div class="imports-section" id="emailImportsSection">
-          <div class="imports-item">
-            <div class="imports-item__header">
-              <span class="imports-item__title">Email Imports</span>
-              <button class="btn btn--ghost btn--sm" id="emailImportsRefresh" style="font-size:var(--font-xs)">Refresh</button>
+        <div class="imports-group">
+          <p class="imports-group__label">Scan &amp; Import</p>
+          <p class="imports-group__hint">Trigger a one-time import right now.</p>
+          <div class="imports-scan-list">
+            <div class="imports-scan-item">
+              <div class="imports-scan-item__hd">
+                <span class="imports-scan-item__title">School Lunch Menu</span>
+                <button class="btn-icon" id="slPhotoBtn" type="button" aria-label="Import school lunch menu">${CAMERA_SVG}</button>
+                <input type="file" id="slCamera" accept="image/*" capture="environment" hidden>
+                <input type="file" id="slGallery" accept="image/*" hidden>
+                <input type="file" id="slFiles" accept="application/pdf,.pdf,image/*" hidden>
+              </div>
+              <p class="form-hint">Upload the school's monthly lunch PDF or photo. Menus appear in the Kitchen meal plan.</p>
+              <div id="schoolLunchStatus"></div>
+              <button class="btn btn--ghost btn--sm" id="clearSchoolLunchBtn" type="button" style="margin-top:var(--spacing-sm)">Clear all school lunches</button>
             </div>
-            <p class="form-hint">Events extracted from forwarded emails appear here for review.</p>
-            <div id="emailImportsList"></div>
+            <div class="imports-scan-item">
+              <div class="imports-scan-item__hd">
+                <span class="imports-scan-item__title">Task Scanner</span>
+                <button class="btn-icon" id="tsPhotoBtn" type="button" aria-label="Scan document for tasks">${CAMERA_SVG}</button>
+                <input type="file" id="tsCamera" accept="image/*" capture="environment" hidden>
+                <input type="file" id="tsGallery" accept="image/*" hidden>
+                <input type="file" id="tsFiles" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" hidden>
+              </div>
+              <p class="form-hint">Scan homework sheets, permission slips, chore charts. Detected tasks are added to the schedule.</p>
+              <div id="taskScanStatus"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="imports-group" id="emailImportsSection">
+          <p class="imports-group__label">Review Queue</p>
+          <p class="imports-group__hint">Items that arrived automatically, waiting on your approval.</p>
+          <div class="imports-scan-list">
+            <div class="imports-scan-item">
+              <div class="imports-scan-item__hd">
+                <span class="imports-scan-item__title">Email Imports</span>
+                <button class="btn btn--ghost btn--sm" id="emailImportsRefresh">Refresh</button>
+              </div>
+              <p class="form-hint">Events extracted from forwarded emails appear here for review.</p>
+              <div id="emailImportsList"></div>
+            </div>
           </div>
         </div>`;
     }

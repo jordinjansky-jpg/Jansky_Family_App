@@ -1316,43 +1316,62 @@
 }
 
 /* Imports tab layout */
-.imports-section-label {
-  font-size: var(--font-sm);
-  font-weight: 600;
+.imports-group {
+  margin-bottom: var(--spacing-xl);
+}
+.imports-group:last-child { margin-bottom: 0; }
+.imports-group__label {
+  font-size: var(--font-xs);
+  font-weight: 700;
   color: var(--text-faint);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   margin: 0 0 var(--spacing-xs);
 }
-.imports-section-hint {
+.imports-group__hint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
   margin: 0 0 var(--spacing-sm);
 }
-.imports-section {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+
+/* Connected section: iCal feeds inline, no wrapper card */
+.imports-connected .admin-filters--row {
+  padding: 0;
+  border-bottom: none;
+  margin-bottom: var(--spacing-xs);
+  justify-content: flex-end;
 }
-.imports-item {
-  padding: var(--spacing-md);
+.imports-connected .admin-list {
+  gap: 0;
+  border-top: 1px solid var(--border-subtle, var(--border));
 }
-.imports-item--divided {
-  border-top: 1px solid var(--border);
+.imports-connected .admin-list-item:last-child { border-bottom: none; }
+.imports-connected .admin-empty {
+  padding: var(--spacing-sm) 0;
+  font-size: var(--font-sm);
+  color: var(--text-faint);
 }
-.imports-item__header {
+
+/* Scan & Import / Review Queue items */
+.imports-scan-list {
+  border-top: 1px solid var(--border-subtle, var(--border));
+}
+.imports-scan-item {
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+}
+.imports-scan-item:last-child { border-bottom: none; }
+.imports-scan-item__hd {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-xs);
 }
-.imports-item__title {
+.imports-scan-item__title {
+  flex: 1;
   font-weight: 600;
   font-size: var(--font-base);
-  flex: 1;
 }
-/* Connected section: remove inner card chrome since the outer border provides it */
-.imports-section .admin-filters { padding: var(--spacing-md); padding-bottom: 0; }
-.imports-section .admin-list { padding: 0; }
-.imports-section .admin-empty { padding: var(--spacing-md); }
 
 /* iCal feed form */
 .if-url-input {

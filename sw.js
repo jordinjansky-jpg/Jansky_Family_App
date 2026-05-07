@@ -270,7 +270,8 @@
 // v177 (2026-05-07) — iCal form restyled to task-form pattern; calendar display settings moved from Settings→Calendar into Settings→Style.
 // v178 (2026-05-07) — Move iCal feed management from Library→Calendars into Settings→Connect; library back to 5 tabs.
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
-const CACHE_NAME = 'family-hub-v179';
+// v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
+const CACHE_NAME = 'family-hub-v180';
 
 const APP_SHELL = [
   '/',
