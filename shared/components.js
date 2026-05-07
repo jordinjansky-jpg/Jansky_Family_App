@@ -459,10 +459,11 @@ function renderTimeOfDayPill(slot) {
   const s = slot ? String(slot).toLowerCase() : 'anytime';
   const amIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
   const pmIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-  const anytimeIcon = `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><g class="anytime-icon__sun" stroke="currentColor"><path d="M3 13a4 4 0 0 1 8 0"/><line x1="7" y1="4" x2="7" y2="6"/><line x1="2.5" y1="9" x2="4" y2="10"/><line x1="11.5" y1="9" x2="10" y2="10"/><line x1="3" y1="13" x2="1.5" y2="13"/><line x1="11" y1="13" x2="12.5" y2="13"/></g><line class="anytime-icon__divider" x1="18" y1="3" x2="7" y2="21" stroke="currentColor"/><g class="anytime-icon__moon" stroke="currentColor"><path d="M21 17 a4 4 0 1 1 -4 -5 a3.2 3.2 0 0 0 4 5z"/><path d="M15 20 l0.4 1 l1 0.2 l-0.7 0.7 l0.2 1 l-0.9 -0.5 l-0.9 0.5 l0.2 -1 l-0.7 -0.7 l1 -0.2 z" fill="currentColor" stroke="none"/></g></svg>`;
   if (s === 'am') return `<span class="time-pill time-pill--am" aria-label="Morning">${amIcon}</span>`;
   if (s === 'pm') return `<span class="time-pill time-pill--pm" aria-label="Evening">${pmIcon}</span>`;
-  return `<span class="time-pill time-pill--anytime" aria-label="Anytime">${anytimeIcon}</span>`;
+  const anytimeSun = `<svg class="anytime-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
+  const anytimeMoon = `<svg class="anytime-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  return `<span class="time-pill time-pill--anytime" aria-label="Anytime">${anytimeSun}${anytimeMoon}</span>`;
 }
 
 /**
@@ -484,14 +485,11 @@ export function renderTaskCard(options) {
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
   const catName = category?.name || '';
 
-  // Rotation tag (spec §5.4) — only for non-daily rotations.
+  // Rotation label — shown in meta column, not as a tag in the body.
   const rotationLabel = task?.rotation === 'weekly' ? 'Weekly'
     : task?.rotation === 'monthly' ? 'Monthly'
     : task?.rotation === 'once' ? 'One-Time'
     : null;
-  const rotationTag = (rotationLabel && !isEvent)
-    ? `<span class="tag tag--rotation">${esc(rotationLabel)}</span>`
-    : '';
 
   // Action tags (delegated, moved, late, skipped, bounty).
   let actionTags = '';
@@ -531,11 +529,11 @@ export function renderTaskCard(options) {
   const eventPrefix = isEvent ? '📅 ' : '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
 
-  // Tags row: category, date, rotation, action tags.
+  // Tags row: category, date, action tags (rotation moved to meta column).
   const catTag = catName ? `<span class="task-card__cat">${esc(catName)}</span>` : '';
   const dateTag = dateLabel ? `<span class="task-card__date">${esc(dateLabel)}</span>` : '';
-  const tagsRow = (catTag || dateTag || rotationTag || actionTags)
-    ? `<div class="task-card__tags">${catTag}${dateTag}${rotationTag}${actionTags}</div>`
+  const tagsRow = (catTag || dateTag || actionTags)
+    ? `<div class="task-card__tags">${catTag}${dateTag}${actionTags}</div>`
     : '';
 
   // Right meta column: duration (top) + points (bottom).
@@ -552,8 +550,11 @@ export function renderTaskCard(options) {
     }
     ptsItem = `<span class="task-card__meta-item task-card__meta-item--points${cls}">${val}pt${arrow}</span>`;
   }
-  const metaCol = (durItem || ptsItem)
-    ? `<div class="task-card__meta">${durItem}${ptsItem}</div>`
+  const rotItem = (rotationLabel && !isEvent)
+    ? `<span class="task-card__meta-item task-card__meta-item--rotation">${esc(rotationLabel)}</span>`
+    : '';
+  const metaCol = (durItem || ptsItem || rotItem)
+    ? `<div class="task-card__meta">${durItem}${ptsItem}${rotItem}</div>`
     : '';
 
   return `<article class="card task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${esc(entryKey)}" data-date-key="${esc(entry.dateKey || '')}" role="button" tabindex="0" aria-pressed="${completed}"${personColorAttr}${eventColorAttr}>

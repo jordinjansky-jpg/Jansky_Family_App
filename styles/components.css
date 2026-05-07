@@ -901,22 +901,24 @@
   background: color-mix(in srgb, var(--warning) 5%, var(--surface));
 }
 
-/* Avatar pill — vertical capsule, inset from card edges */
+/* Avatar tab — flush to left edge, full card height, bordered right/top/bottom */
 .task-card__avatar-pill {
   --pill-color: var(--person-color, var(--accent));
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  width: 34px;
   align-self: stretch;
-  margin: var(--spacing-sm) 0 var(--spacing-sm) var(--spacing-sm);
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--pill-color) 18%, transparent);
-  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--pill-color) 15%, transparent);
+  border-right: 1.5px solid var(--pill-color);
+  border-top: 1.5px solid var(--pill-color);
+  border-bottom: 1.5px solid var(--pill-color);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 [data-theme="dark"] .task-card__avatar-pill {
-  background: color-mix(in srgb, var(--pill-color) 28%, transparent);
+  background: color-mix(in srgb, var(--pill-color) 25%, transparent);
 }
 
 .task-card__avatar-initial {
@@ -927,7 +929,7 @@
   line-height: 1;
 }
 
-/* Event time pill — same capsule treatment */
+/* Event tab — same flush tab treatment */
 .task-card__event-time-pill {
   --pill-color: var(--event-color, var(--accent));
   display: flex;
@@ -936,10 +938,12 @@
   padding: 0 10px;
   min-width: 44px;
   align-self: stretch;
-  margin: var(--spacing-sm) 0 var(--spacing-sm) var(--spacing-sm);
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--pill-color) 18%, transparent);
-  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--pill-color) 15%, transparent);
+  border-right: 1.5px solid var(--pill-color);
+  border-top: 1.5px solid var(--pill-color);
+  border-bottom: 1.5px solid var(--pill-color);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-size: var(--font-sm);
   font-weight: 700;
   color: var(--pill-color);
@@ -947,7 +951,7 @@
 }
 
 [data-theme="dark"] .task-card__event-time-pill {
-  background: color-mix(in srgb, var(--pill-color) 28%, transparent);
+  background: color-mix(in srgb, var(--pill-color) 25%, transparent);
 }
 
 /* Inner: slot + body + meta */
@@ -1019,13 +1023,10 @@
 [data-theme="dark"] .time-pill--am { color: #e8a55b; }
 .time-pill--pm { color: #6b7fc4; }
 [data-theme="dark"] .time-pill--pm { color: #8aa0e0; }
-.time-pill--anytime { color: var(--text-faint); background: color-mix(in srgb, #d68b3a 8%, var(--surface-2)); }
-[data-theme="dark"] .time-pill--anytime { background: var(--surface-3); }
-.time-pill--anytime svg .anytime-icon__sun { color: #d68b3a; }
-[data-theme="dark"] .time-pill--anytime svg .anytime-icon__sun { color: #e8a55b; }
-.time-pill--anytime svg .anytime-icon__moon { color: #6b7fc4; }
-[data-theme="dark"] .time-pill--anytime svg .anytime-icon__moon { color: #8aa0e0; }
-.time-pill--anytime svg .anytime-icon__divider { color: var(--text-muted); opacity: 0.5; }
+.time-pill--anytime .anytime-sun { color: #d68b3a; }
+[data-theme="dark"] .time-pill--anytime .anytime-sun { color: #e8a55b; }
+.time-pill--anytime .anytime-moon { color: #6b7fc4; }
+[data-theme="dark"] .time-pill--anytime .anytime-moon { color: #8aa0e0; }
 .time-pill svg { display: block; }
 
 .task-card__cat {
