@@ -923,7 +923,7 @@
   align-self: stretch;
   flex-shrink: 0;
   background: color-mix(in srgb, var(--pill-color) 15%, transparent);
-  border-right: 2.5px solid var(--pill-color);
+  border-right: 3px solid var(--pill-color);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
@@ -934,13 +934,13 @@
 .task-card__avatar-initial {
   font-size: 13px;
   font-weight: 700;
-  /* Blend toward black so pastels/lights are always readable on the tinted background */
-  color: color-mix(in srgb, var(--pill-color) 60%, black);
+  /* Aggressive blend toward black — pastels become dark enough to read on the tinted bg */
+  color: color-mix(in srgb, var(--pill-color) 45%, black);
   letter-spacing: 0;
   line-height: 1;
 }
 [data-theme="dark"] .task-card__avatar-initial {
-  color: color-mix(in srgb, var(--pill-color) 90%, white);
+  color: color-mix(in srgb, var(--pill-color) 85%, white);
 }
 
 /* Event tab — same flush tab treatment */
@@ -2285,10 +2285,12 @@
   border-radius: var(--radius-full);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
   background: color-mix(in srgb, var(--tile-icon-color, var(--text-muted)) 15%, transparent);
   color: var(--tile-icon-color, var(--text));
   font-size: 16px;
 }
+.dashboard-tile__icon svg { width: 18px; height: 18px; display: block; }
 .dashboard-tile__content { flex: 1; min-width: 0; }
 .dashboard-tile__label {
   font-size: 10px;
