@@ -259,7 +259,8 @@
 // v166 (2026-05-06) — Dashboard tiles: hide labels, 28px icon, 10px h-pad, 6px gap; back-to-today: accent-tinted pill.
 // v167 (2026-05-06) — Tile value back to font-sm; back-to-today zero-height so button floats without shifting layout.
 // v168 (2026-05-06) — Back-to-today in header center slot (absolute, 45% max-width, shrinks on long names, no layout shift).
-const CACHE_NAME = 'family-hub-v168';
+// v169 (2026-05-06) — Kid mode: .kid-tasks .card.task-card (0,3,0) forces padding:0 so avatar tab stays flush.
+const CACHE_NAME = 'family-hub-v169';
 
 const APP_SHELL = [
   '/',
