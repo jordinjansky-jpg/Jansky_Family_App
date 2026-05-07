@@ -919,11 +919,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
+  width: 40px;
   align-self: stretch;
   flex-shrink: 0;
   background: color-mix(in srgb, var(--pill-color) 15%, transparent);
-  border-right: 1.5px solid var(--pill-color);
+  border-right: 2.5px solid var(--pill-color);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
@@ -933,10 +933,12 @@
 
 .task-card__avatar-initial {
   font-size: var(--font-md);
-  font-weight: 700;
+  font-weight: 800;
   color: var(--pill-color);
   letter-spacing: 0;
   line-height: 1;
+  /* Subtle shadow lifts the letter on any light or pastel background */
+  text-shadow: 0 1px 3px rgba(0,0,0,0.18);
 }
 
 /* Event tab — same flush tab treatment */
@@ -1023,12 +1025,10 @@
   background: var(--surface-2);
   color: var(--text-muted);
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
 }
-/* Anytime needs a touch more width to contain the split icon */
-.time-pill--anytime { width: 34px; }
 [data-theme="dark"] .time-pill { background: var(--surface-3); }
 .time-pill--am { color: #d68b3a; }
 [data-theme="dark"] .time-pill--am { color: #e8a55b; }
@@ -1039,7 +1039,7 @@
 .time-pill--anytime .anytime-moon { color: #6b7fc4; }
 [data-theme="dark"] .time-pill--anytime .anytime-moon { color: #8aa0e0; }
 .time-pill--anytime .anytime-divider { color: var(--text-muted); opacity: 0.5; }
-.time-pill svg { display: block; }
+.time-pill svg { display: block; width: 20px; height: 20px; }
 
 .task-card__cat {
   font-size: var(--font-xs);
