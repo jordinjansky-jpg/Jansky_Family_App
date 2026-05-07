@@ -865,11 +865,11 @@
   width: 100%;
   text-align: left;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 0 1px var(--border), var(--shadow-sm);
   transition: all var(--t-fast);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -888,7 +888,6 @@
 .task-card--done {
   opacity: 0.65;
   background: color-mix(in srgb, var(--success) 4%, var(--surface-2));
-  border-color: transparent;
   box-shadow: none;
 }
 
@@ -901,7 +900,7 @@
   background: color-mix(in srgb, var(--warning) 5%, var(--surface));
 }
 
-/* Avatar tab — flush to left edge, full card height, bordered right/top/bottom */
+/* Avatar tab — part of the card frame, left corners match card, right edge bordered */
 .task-card__avatar-pill {
   --pill-color: var(--person-color, var(--accent));
   display: flex;
@@ -912,9 +911,7 @@
   flex-shrink: 0;
   background: color-mix(in srgb, var(--pill-color) 15%, transparent);
   border-right: 1.5px solid var(--pill-color);
-  border-top: 1.5px solid var(--pill-color);
-  border-bottom: 1.5px solid var(--pill-color);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-lg) var(--radius-sm) var(--radius-sm) var(--radius-lg);
 }
 
 [data-theme="dark"] .task-card__avatar-pill {
@@ -941,9 +938,7 @@
   flex-shrink: 0;
   background: color-mix(in srgb, var(--pill-color) 15%, transparent);
   border-right: 1.5px solid var(--pill-color);
-  border-top: 1.5px solid var(--pill-color);
-  border-bottom: 1.5px solid var(--pill-color);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-lg) var(--radius-sm) var(--radius-sm) var(--radius-lg);
   font-size: var(--font-sm);
   font-weight: 700;
   color: var(--pill-color);
@@ -1027,6 +1022,7 @@
 [data-theme="dark"] .time-pill--anytime .anytime-sun { color: #e8a55b; }
 .time-pill--anytime .anytime-moon { color: #6b7fc4; }
 [data-theme="dark"] .time-pill--anytime .anytime-moon { color: #8aa0e0; }
+.time-pill--anytime .anytime-divider { color: var(--text-muted); opacity: 0.5; }
 .time-pill svg { display: block; }
 
 .task-card__cat {

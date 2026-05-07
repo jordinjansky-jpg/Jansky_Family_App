@@ -248,7 +248,8 @@
 // v155 (2026-05-06) — Dashboard P5: edge-flush avatar/event pill, AM/PM 20px, new anytime icon, nav two-tone neon.
 // v156 (2026-05-06) — Dashboard P6: capsule pill geometry (inset, rounded), strip avatar circle, two-tone anytime icon.
 // v157 (2026-05-06) — Dashboard P7: avatar tab flush-left w/ border, anytime sun+moon side-by-side, recurrence to meta col.
-const CACHE_NAME = 'family-hub-v157';
+// v158 (2026-05-06) — Dashboard P8: tab truly flush (box-shadow border, explicit left radius), anytime diagonal sun/divider/moon.
+const CACHE_NAME = 'family-hub-v158';
 
 const APP_SHELL = [
   '/',

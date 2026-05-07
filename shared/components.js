@@ -461,9 +461,9 @@ function renderTimeOfDayPill(slot) {
   const pmIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
   if (s === 'am') return `<span class="time-pill time-pill--am" aria-label="Morning">${amIcon}</span>`;
   if (s === 'pm') return `<span class="time-pill time-pill--pm" aria-label="Evening">${pmIcon}</span>`;
-  const anytimeSun = `<svg class="anytime-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
-  const anytimeMoon = `<svg class="anytime-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-  return `<span class="time-pill time-pill--anytime" aria-label="Anytime">${anytimeSun}${anytimeMoon}</span>`;
+  // Anytime: sun upper-left, diagonal divider, moon lower-right
+  const anytimeIcon = `<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><g class="anytime-sun" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="5.5" r="2"/><line x1="5.5" y1="1.5" x2="5.5" y2="3"/><line x1="5.5" y1="8" x2="5.5" y2="9.5"/><line x1="1.5" y1="5.5" x2="3" y2="5.5"/><line x1="8" y1="5.5" x2="9.5" y2="5.5"/><line x1="3.1" y1="3.1" x2="3.9" y2="3.9"/><line x1="7.1" y1="7.1" x2="8" y2="8"/><line x1="3.1" y1="8" x2="3.9" y2="7.1"/><line x1="7.1" y1="3.9" x2="8" y2="3.1"/></g><line class="anytime-divider" x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="1"/><g class="anytime-moon" stroke="currentColor" stroke-width="1.5"><path d="M21.5 20A5 5 0 1 1 16.2 14.7 3.9 3.9 0 0 0 21.5 20z"/></g></svg>`;
+  return `<span class="time-pill time-pill--anytime" aria-label="Anytime">${anytimeIcon}</span>`;
 }
 
 /**
