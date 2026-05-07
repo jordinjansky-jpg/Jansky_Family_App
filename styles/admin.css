@@ -1315,6 +1315,45 @@
   margin-top: var(--spacing-xs);
 }
 
+/* Imports tab layout */
+.imports-section-label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--spacing-xs);
+}
+.imports-section-hint {
+  margin: 0 0 var(--spacing-sm);
+}
+.imports-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.imports-item {
+  padding: var(--spacing-md);
+}
+.imports-item--divided {
+  border-top: 1px solid var(--border);
+}
+.imports-item__header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+.imports-item__title {
+  font-weight: 600;
+  font-size: var(--font-base);
+  flex: 1;
+}
+/* Connected section: remove inner card chrome since the outer border provides it */
+.imports-section .admin-filters { padding: var(--spacing-md); padding-bottom: 0; }
+.imports-section .admin-list { padding: 0; }
+.imports-section .admin-empty { padding: var(--spacing-md); }
+
 /* iCal feed form */
 .if-url-input {
   flex: 1;

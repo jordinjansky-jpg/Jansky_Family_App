@@ -2275,11 +2275,6 @@
               <p class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</p>
               <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password" autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
             </div>
-            <div class="form-group mt-sm">
-              <label class="form-label">Connected calendars</label>
-              <p class="form-hint">Add iCal links to sync events automatically.</p>
-              ${renderCalendarsTab()}
-            </div>
           </div>`;
           break;
       }
@@ -4223,7 +4218,6 @@
         const updated = buildSettingsUpdate({ weatherApiKey: main.querySelector('#sf_weatherApiKey')?.value.trim() || '' });
         await writeSettings(updated); settings = updated; flashSaved();
       });
-      bindCalendarsTab();
     }
     // ── Schedule tab events ──
 
@@ -4432,44 +4426,55 @@
 
     // ── AI Imports tab ──────────────────────────────────────────────────────────
 
+    const CAMERA_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+
     function renderAiImportsTab() {
       return `
-        <div class="admin-form__section">
-          <div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-xs)">
-            <h4 class="admin-form__subtitle" style="margin:0">School Lunch Menu</h4>
-            <button class="btn-icon" id="slPhotoBtn" type="button" aria-label="Import school lunch menu from photo">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            </button>
-            <input type="file" id="slCamera" accept="image/*" capture="environment" hidden>
-            <input type="file" id="slGallery" accept="image/*" hidden>
-            <input type="file" id="slFiles" accept="application/pdf,.pdf,image/*" hidden>
-          </div>
-          <p class="form-hint mb-md">Upload the school's monthly lunch PDF or photo. Menus will be imported as school lunch entries visible in the Kitchen meal plan.</p>
-          <div id="schoolLunchStatus"></div>
-          <button class="btn btn--ghost btn--sm" id="clearSchoolLunchBtn" type="button" style="margin-top:var(--spacing-sm)">Clear all school lunches</button>
+        <p class="imports-section-label">Connected</p>
+        <p class="form-hint imports-section-hint">Set once — syncs automatically on a schedule.</p>
+        <div class="imports-section">
+          ${renderCalendarsTab()}
         </div>
 
-        <div class="admin-form__section mt-lg">
-          <div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-xs)">
-            <h4 class="admin-form__subtitle" style="margin:0">Task Scanner</h4>
-            <button class="btn-icon" id="tsPhotoBtn" type="button" aria-label="Scan document for tasks">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            </button>
-            <input type="file" id="tsCamera" accept="image/*" capture="environment" hidden>
-            <input type="file" id="tsGallery" accept="image/*" hidden>
-            <input type="file" id="tsFiles" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" hidden>
+        <p class="imports-section-label mt-lg">Scan &amp; Import</p>
+        <p class="form-hint imports-section-hint">Trigger a one-time import right now.</p>
+        <div class="imports-section">
+          <div class="imports-item">
+            <div class="imports-item__header">
+              <span class="imports-item__title">School Lunch Menu</span>
+              <button class="btn-icon" id="slPhotoBtn" type="button" aria-label="Import school lunch menu">${CAMERA_SVG}</button>
+              <input type="file" id="slCamera" accept="image/*" capture="environment" hidden>
+              <input type="file" id="slGallery" accept="image/*" hidden>
+              <input type="file" id="slFiles" accept="application/pdf,.pdf,image/*" hidden>
+            </div>
+            <p class="form-hint">Upload the school's monthly lunch PDF or photo. Menus appear in the Kitchen meal plan.</p>
+            <div id="schoolLunchStatus"></div>
+            <button class="btn btn--ghost btn--sm" id="clearSchoolLunchBtn" type="button" style="margin-top:var(--spacing-sm)">Clear all school lunches</button>
           </div>
-          <p class="form-hint mb-md">Scan any document with tasks — homework sheets, permission slips, school forms, chore charts. Detected tasks are added to the schedule.</p>
-          <div id="taskScanStatus"></div>
+          <div class="imports-item imports-item--divided">
+            <div class="imports-item__header">
+              <span class="imports-item__title">Task Scanner</span>
+              <button class="btn-icon" id="tsPhotoBtn" type="button" aria-label="Scan document for tasks">${CAMERA_SVG}</button>
+              <input type="file" id="tsCamera" accept="image/*" capture="environment" hidden>
+              <input type="file" id="tsGallery" accept="image/*" hidden>
+              <input type="file" id="tsFiles" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" hidden>
+            </div>
+            <p class="form-hint">Scan homework sheets, permission slips, chore charts. Detected tasks are added to the schedule.</p>
+            <div id="taskScanStatus"></div>
+          </div>
         </div>
 
-        <div class="admin-form__section mt-lg" id="emailImportsSection">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:var(--spacing-xs)">
-            <h4 class="admin-form__subtitle" style="margin:0">Email Imports</h4>
-            <button class="btn btn--ghost btn--sm" id="emailImportsRefresh" style="font-size:var(--font-xs)">Refresh</button>
+        <p class="imports-section-label mt-lg">Review Queue</p>
+        <p class="form-hint imports-section-hint">Items that arrived automatically, waiting on your approval.</p>
+        <div class="imports-section" id="emailImportsSection">
+          <div class="imports-item">
+            <div class="imports-item__header">
+              <span class="imports-item__title">Email Imports</span>
+              <button class="btn btn--ghost btn--sm" id="emailImportsRefresh" style="font-size:var(--font-xs)">Refresh</button>
+            </div>
+            <p class="form-hint">Events extracted from forwarded emails appear here for review.</p>
+            <div id="emailImportsList"></div>
           </div>
-          <p class="form-hint mb-md">Events extracted from forwarded emails appear here for review.</p>
-          <div id="emailImportsList"></div>
         </div>`;
     }
 
@@ -4518,6 +4523,7 @@
     let adminPhotoContext = '';
 
     function bindAiImportsTab() {
+      bindCalendarsTab();
       if (!KITCHEN_WORKER_URL) return;
 
       // ── School Lunch ──
