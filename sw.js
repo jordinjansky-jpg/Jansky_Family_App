@@ -245,7 +245,8 @@
 // v150 (2026-05-02) — Dashboard P1: frosted header, dashboard tiles, coming-up card, section-header, neutral FAB, nav active fix, no avatar on task cards.
 // v153 (2026-05-06) — Dashboard P3: task card layout rework (leading/body/meta), 3 display toggles, nav glow, tiles full-width.
 // v154 (2026-05-06) — Dashboard P4: avatar ring+soft fill, time pill enlarged + anytime icon, accent-bright token, nav neon glow.
-const CACHE_NAME = 'family-hub-v154';
+// v155 (2026-05-06) — Dashboard P5: edge-flush avatar/event pill, AM/PM 20px, new anytime icon, nav two-tone neon.
+const CACHE_NAME = 'family-hub-v155';
 
 const APP_SHELL = [
   '/',

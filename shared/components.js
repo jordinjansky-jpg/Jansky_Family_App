@@ -196,15 +196,25 @@ export function renderNavBar(activePage, options = {}) {
         : `${it.href}?person=${encodeURIComponent(personHome)}`;
     }
     return `<a class="bottom-nav__item${isActive ? ' is-active' : ''}" href="${href}" data-page="${it.page}">
-      <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${it.svg}</svg>
+      <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <g class="nav-icon__base">${it.svg}</g>
+        <g class="nav-icon__core">${it.svg}</g>
+      </svg>
       <span class="nav-item__label">${esc(it.label)}</span>
     </a>`;
   }).join('');
   const moreItem = `<button class="bottom-nav__item${moreActive ? ' is-active' : ''}" id="navMore" type="button"${options.onMoreClick ? '' : ' data-more-unbound="1"'}>
     <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <circle cx="5" cy="12" r="1.5"></circle>
-      <circle cx="12" cy="12" r="1.5"></circle>
-      <circle cx="19" cy="12" r="1.5"></circle>
+      <g class="nav-icon__base">
+        <circle cx="5" cy="12" r="1.5"></circle>
+        <circle cx="12" cy="12" r="1.5"></circle>
+        <circle cx="19" cy="12" r="1.5"></circle>
+      </g>
+      <g class="nav-icon__core">
+        <circle cx="5" cy="12" r="1.5"></circle>
+        <circle cx="12" cy="12" r="1.5"></circle>
+        <circle cx="19" cy="12" r="1.5"></circle>
+      </g>
     </svg>
     <span class="nav-item__label">More</span>
   </button>`;
@@ -447,9 +457,9 @@ export function renderProgressBar(done, total) {
 
 function renderTimeOfDayPill(slot) {
   const s = slot ? String(slot).toLowerCase() : 'anytime';
-  const amIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
-  const pmIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-  const anytimeIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="9"/><line x1="5" y1="19" x2="19" y2="5"/><line x1="15.5" y1="5.5" x2="16.5" y2="4.5"/><line x1="18" y1="8" x2="19.5" y2="7.5"/><line x1="17" y1="11" x2="18.5" y2="11"/><circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/><path d="M11 14.5 a3 3 0 1 0 -3 -3 a2.5 2.5 0 0 1 3 3z" fill="currentColor" stroke="none"/></svg>`;
+  const amIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
+  const pmIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  const anytimeIcon = `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 14 a5 5 0 0 1 10 0" stroke="currentColor"/><line x1="10" y1="4" x2="10" y2="6.5"/><line x1="3.5" y1="9" x2="5.5" y2="10.5"/><line x1="16.5" y1="9" x2="14.5" y2="10.5"/><line x1="5" y1="14" x2="3" y2="14"/><line x1="15" y1="14" x2="17" y2="14"/><line x1="22" y1="4" x2="11" y2="28"/><path d="M27 18 a5 5 0 1 1 -4.5 -7 a4 4 0 0 0 4.5 7z"/><path d="M21 22 l0.6 1.4 l1.4 0.2 l-1 1 l0.3 1.4 l-1.3 -0.7 l-1.3 0.7 l0.3 -1.4 l-1 -1 l1.4 -0.2 z" fill="currentColor" stroke="none"/></svg>`;
   if (s === 'am') return `<span class="time-pill time-pill--am" aria-label="Morning">${amIcon}</span>`;
   if (s === 'pm') return `<span class="time-pill time-pill--pm" aria-label="Evening">${pmIcon}</span>`;
   return `<span class="time-pill time-pill--anytime" aria-label="Anytime">${anytimeIcon}</span>`;
@@ -510,11 +520,13 @@ export function renderTaskCard(options) {
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
   const timePill = renderTimeOfDayPill(entry.timeOfDay || task.timeOfDay || 'anytime');
 
-  // Leading: events show time label; non-events show avatar + AM/PM pill.
+  // Leading pill: events use event-time-pill; non-events use avatar-pill.
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
+  const personColorAttr = !isEvent ? ` data-person-color="${esc(ownerColor)}"` : '';
   const leading = isEvent
-    ? `<div class="task-card__leading task-card__leading--event"><span class="task-card__event-time">${esc(eventTimeLabel)}</span></div>`
-    : `<div class="task-card__leading"><span class="avatar avatar--sm task-card__avatar" data-person-color="${esc(ownerColor)}">${esc(ownerInitial)}</span><span class="task-card__slot">${timePill}</span></div>`;
+    ? `<div class="task-card__event-time-pill"><span class="task-card__event-time">${esc(eventTimeLabel)}</span></div>`
+    : `<div class="task-card__avatar-pill"><span class="avatar avatar--sm task-card__avatar">${esc(ownerInitial)}</span></div>`;
+  const slotEl = !isEvent ? `<span class="task-card__slot">${timePill}</span>` : '';
 
   const eventPrefix = isEvent ? '📅 ' : '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
@@ -544,13 +556,16 @@ export function renderTaskCard(options) {
     ? `<div class="task-card__meta">${durItem}${ptsItem}</div>`
     : '';
 
-  return `<article class="card task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${esc(entryKey)}" data-date-key="${esc(entry.dateKey || '')}" role="button" tabindex="0" aria-pressed="${completed}" data-owner-color="${esc(ownerColor)}"${eventColorAttr}>
+  return `<article class="card task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${esc(entryKey)}" data-date-key="${esc(entry.dateKey || '')}" role="button" tabindex="0" aria-pressed="${completed}"${personColorAttr}${eventColorAttr}>
       ${leading}
-      <div class="task-card__body">
-        <div class="task-card__name">${taskName}</div>
-        ${tagsRow}
+      <div class="task-card__inner">
+        ${slotEl}
+        <div class="task-card__body">
+          <div class="task-card__name">${taskName}</div>
+          ${tagsRow}
+        </div>
+        ${metaCol}
       </div>
-      ${metaCol}
     </article>`;
 }
 

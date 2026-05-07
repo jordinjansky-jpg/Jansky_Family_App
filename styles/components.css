@@ -861,14 +861,13 @@
 /* ============ Task Card ============ */
 .task-card {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
+  align-items: stretch;
   width: 100%;
   text-align: left;
-  padding: var(--spacing-md);
+  padding: 0;
+  overflow: hidden;
   background: var(--surface);
-  border: 1px solid var(--border, var(--border));
-  border-left: 3px solid var(--owner-color, var(--border));
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   transition: all var(--t-fast);
@@ -876,6 +875,7 @@
   -webkit-tap-highlight-color: transparent;
   min-height: 60px;
 }
+.task-card::before { display: none; }
 
 .task-card + .task-card {
   margin-top: var(--spacing-sm);
@@ -889,7 +889,6 @@
   opacity: 0.65;
   background: color-mix(in srgb, var(--success) 4%, var(--surface-2));
   border-color: transparent;
-  border-left-color: var(--owner-color, transparent);
   box-shadow: none;
 }
 
@@ -899,29 +898,49 @@
 }
 
 .task-card--overdue {
-  border-left-color: var(--warning);
   background: color-mix(in srgb, var(--warning) 5%, var(--surface));
 }
 
-/* Leading: avatar + AM/PM pill side by side */
-.task-card__leading {
+/* Edge-flush avatar pill (non-event tasks) */
+.task-card__avatar-pill {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.task-card__leading--event {
   justify-content: center;
+  gap: 6px;
+  width: 52px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--person-color, var(--accent)) 15%, var(--surface-2));
+  padding: var(--spacing-sm) 0;
 }
 
+/* Edge-flush event time pill */
+.task-card__event-time-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--event-color, var(--accent)) 12%, var(--surface-2));
+  padding: var(--spacing-sm) 4px;
+}
 
 .task-card__event-time {
   font-size: var(--font-xs);
   font-weight: 700;
   color: var(--event-color, var(--accent));
   white-space: nowrap;
+  text-align: center;
+}
+
+/* Inner: slot + body + meta */
+.task-card__inner {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
 }
 
 /* Body: name + tags */
@@ -960,7 +979,7 @@
 .task-card__pts--down { color: var(--danger); }
 
 /* Visibility toggles (admin → settings → style) */
-[data-show-avatar="off"] .task-card__avatar { display: none; }
+[data-show-avatar="off"] .task-card__avatar-pill { display: none; }
 [data-show-duration="off"] .task-card__meta-item--duration { display: none; }
 [data-show-points="off"] .task-card__meta-item--points { display: none; }
 
@@ -1001,28 +1020,27 @@
 
 /* ── Colored cells (vivid themes) ── */
 [data-colored-cells="true"] .task-card {
-  background: color-mix(in srgb, var(--owner-color) 12%, var(--surface));
-  border-left-color: color-mix(in srgb, var(--owner-color) 40%, var(--surface));
+  background: color-mix(in srgb, var(--person-color, var(--text-faint)) 12%, var(--surface));
 }
 [data-colored-cells="true"][data-theme="dark"] .task-card {
-  background: color-mix(in srgb, var(--owner-color) 18%, var(--surface));
-  border-left-color: color-mix(in srgb, var(--owner-color) 50%, var(--surface));
+  background: color-mix(in srgb, var(--person-color, var(--text-faint)) 18%, var(--surface));
+}
+[data-colored-cells="true"] .task-card__avatar-pill {
+  background: color-mix(in srgb, var(--person-color, var(--accent)) 25%, var(--surface-2));
 }
 [data-colored-cells="true"] .task-card--done {
-  background: color-mix(in srgb, var(--owner-color) 5%, color-mix(in srgb, var(--success) 3%, var(--surface-2)));
+  background: color-mix(in srgb, var(--person-color, var(--text-faint)) 5%, color-mix(in srgb, var(--success) 3%, var(--surface-2)));
 }
 [data-colored-cells="true"][data-theme="dark"] .task-card--done {
-  background: color-mix(in srgb, var(--owner-color) 8%, color-mix(in srgb, var(--success) 4%, var(--surface-2)));
+  background: color-mix(in srgb, var(--person-color, var(--text-faint)) 8%, color-mix(in srgb, var(--success) 4%, var(--surface-2)));
 }
 [data-colored-cells="true"] .task-card--overdue {
-  background: color-mix(in srgb, var(--warning) 8%, color-mix(in srgb, var(--owner-color) 10%, var(--surface)));
+  background: color-mix(in srgb, var(--warning) 8%, color-mix(in srgb, var(--person-color, var(--text-faint)) 10%, var(--surface)));
 }
 
 /* ── Event task cards ── */
 .task-card--event {
-  border-left-color: var(--event-color, var(--accent));
   background: color-mix(in srgb, var(--event-color, var(--accent)) 6%, var(--surface));
-  border-style: solid;
 }
 .task-card--event.task-card--done {
   background: color-mix(in srgb, var(--event-color, var(--accent)) 4%, var(--surface-2));
