@@ -258,7 +258,8 @@
 // v165 (2026-05-06) — Nav active: pill indicator (24×3px) at top edge + bold 2px stroke, no glow filter.
 // v166 (2026-05-06) — Dashboard tiles: hide labels, 28px icon, 10px h-pad, 6px gap; back-to-today: accent-tinted pill.
 // v167 (2026-05-06) — Tile value back to font-sm; back-to-today zero-height so button floats without shifting layout.
-const CACHE_NAME = 'family-hub-v167';
+// v168 (2026-05-06) — Back-to-today in header center slot (absolute, 45% max-width, shrinks on long names, no layout shift).
+const CACHE_NAME = 'family-hub-v168';
 
 const APP_SHELL = [
   '/',

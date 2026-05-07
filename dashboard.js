@@ -281,18 +281,17 @@ async function render() {
   // to position 2 regardless of which sections below it are populated.
   html += `<div id="bannerMount"></div>`;
 
-  // Back-to-Today pill (non-today only). Animate only on the transition away
-  // from today — not on every Firebase-driven re-render of the same past day.
-  if (!isToday) {
-    const isEntering = lastRenderedIsToday;
-    const wrapperCls = isEntering ? 'back-to-today is-entering' : 'back-to-today';
-    const chevronSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
-    html += `<div class="${wrapperCls}">
-      <button class="btn btn--secondary btn--sm back-to-today__btn" id="goToday" type="button">
-        <span class="back-to-today__chevron" aria-hidden="true">${chevronSvg}</span>
-        <span>Back to Today</span>
-      </button>
-    </div>`;
+  // Back-to-Today lives in the header center slot — update it directly so it
+  // never displaces page content. Animate only on the transition away from today.
+  const headerCenter = document.getElementById('headerCenter');
+  if (headerCenter) {
+    if (!isToday) {
+      const enterCls = lastRenderedIsToday ? ' is-entering' : '';
+      const chevronSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
+      headerCenter.innerHTML = `<button class="back-to-today__btn${enterCls}" id="goToday" type="button"><span class="back-to-today__chevron" aria-hidden="true">${chevronSvg}</span><span>Back to Today</span></button>`;
+    } else {
+      headerCenter.innerHTML = '';
+    }
   }
   lastRenderedIsToday = isToday;
 

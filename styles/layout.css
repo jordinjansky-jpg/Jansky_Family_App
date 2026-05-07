@@ -32,7 +32,21 @@
   padding-top: calc(var(--spacing-lg) + env(safe-area-inset-top, 0px));
   max-width: var(--max-content);
   margin: 0 auto;
+  position: relative;
 }
+/* Absolutely centered slot — floats over the flex layout, never displaces titles or actions */
+.app-header__center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  max-width: 45%;
+  min-width: 0;
+  pointer-events: none;
+}
+.app-header__center > * { pointer-events: auto; }
 .app-header__titles {
   flex: 1;
   min-width: 0;

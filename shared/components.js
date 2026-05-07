@@ -311,6 +311,7 @@ function _renderHeaderV2({ title = '', subtitle = '', showBell = false, showSett
         <h1 class="app-header__title">${esc(title)}</h1>
         ${subtitle ? `<div class="app-header__subtitle">${esc(subtitle)}</div>` : ''}
       </div>
+      <div class="app-header__center" id="headerCenter"></div>
       <div class="app-header__actions">
         ${statusHtml}${bellHtml}${settingsHtml}
       </div>
