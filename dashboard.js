@@ -34,9 +34,8 @@ const [settings, peopleObj, tasksObj, catsObj, eventsObj] = await Promise.all([
 // Apply family theme from Firebase only if no device override
 if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 applyTaskDisplayPrefs(settings);
-// Apply text size: person pref overrides family setting
-const effectiveTextSize = linkedPerson?.prefs?.textSize || settings?.textSize;
-if (effectiveTextSize) applyTextSize(effectiveTextSize);
+// Sync text size from Firebase (person override applied after linkedPerson is resolved below)
+if (settings?.textSize) applyTextSize(settings.textSize);
 // Cache app name for instant title on next load (used by inline script)
 if (settings?.appName) localStorage.setItem('dr-app-name', settings.appName);
 
@@ -57,6 +56,9 @@ const personParam = new URLSearchParams(window.location.search).get('person');
 const linkedPerson = personParam
   ? people.find(p => p.name.toLowerCase() === personParam.toLowerCase())
   : null;
+
+// Apply person text size override now that linkedPerson is resolved
+if (linkedPerson?.prefs?.textSize) applyTextSize(linkedPerson.prefs.textSize);
 
 // Show error if person param given but not found
 if (personParam && !linkedPerson) {
