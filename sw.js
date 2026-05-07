@@ -253,7 +253,8 @@
 // v160 (2026-05-06) — Dashboard P10: avatar tab 40px + 2.5px border, initial bolder+shadow, pills 30×30 circles, svg 20×20 CSS-sized.
 // v161 (2026-05-06) — Dashboard P11: initial color darkened (color-mix→black 40%), 13px explicit size; anytime sun moved to (7,7) equidistant from divider.
 // v162 (2026-05-06) — Dashboard P12: avatar border 3px, initial 45% blend to black; dashboard-tile__icon overflow:hidden + 18px svg; fork/cloud stay in circle.
-const CACHE_NAME = 'family-hub-v162';
+// v163 (2026-05-06) — Dashboard P13: initial 15px + white halo text-shadow for readability on any tinted background.
+const CACHE_NAME = 'family-hub-v163';
 
 const APP_SHELL = [
   '/',

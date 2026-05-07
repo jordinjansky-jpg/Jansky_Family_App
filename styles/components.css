@@ -932,15 +932,20 @@
 }
 
 .task-card__avatar-initial {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  /* Aggressive blend toward black — pastels become dark enough to read on the tinted bg */
   color: color-mix(in srgb, var(--pill-color) 45%, black);
   letter-spacing: 0;
   line-height: 1;
+  /* White halo lifts the letter off any pastel/tinted background */
+  text-shadow: -1px 0 rgba(255,255,255,0.7), 1px 0 rgba(255,255,255,0.7),
+               0 -1px rgba(255,255,255,0.7), 0 1px rgba(255,255,255,0.7),
+               0 0 6px rgba(255,255,255,0.5);
 }
 [data-theme="dark"] .task-card__avatar-initial {
   color: color-mix(in srgb, var(--pill-color) 85%, white);
+  text-shadow: -1px 0 rgba(255,255,255,0.2), 1px 0 rgba(255,255,255,0.2),
+               0 -1px rgba(255,255,255,0.2), 0 1px rgba(255,255,255,0.2);
 }
 
 /* Event tab — same flush tab treatment */
