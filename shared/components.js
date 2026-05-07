@@ -459,7 +459,7 @@ function renderTimeOfDayPill(slot) {
   const s = slot ? String(slot).toLowerCase() : 'anytime';
   const amIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="7" y2="7"/><line x1="17" y1="17" x2="18.4" y2="18.4"/><line x1="5.6" y1="18.4" x2="7" y2="17"/><line x1="17" y1="7" x2="18.4" y2="5.6"/></svg>`;
   const pmIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-  const anytimeIcon = `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M5 14 a5 5 0 0 1 10 0" stroke="currentColor"/><line x1="10" y1="4" x2="10" y2="6.5"/><line x1="3.5" y1="9" x2="5.5" y2="10.5"/><line x1="16.5" y1="9" x2="14.5" y2="10.5"/><line x1="5" y1="14" x2="3" y2="14"/><line x1="15" y1="14" x2="17" y2="14"/><line x1="22" y1="4" x2="11" y2="28"/><path d="M27 18 a5 5 0 1 1 -4.5 -7 a4 4 0 0 0 4.5 7z"/><path d="M21 22 l0.6 1.4 l1.4 0.2 l-1 1 l0.3 1.4 l-1.3 -0.7 l-1.3 0.7 l0.3 -1.4 l-1 -1 l1.4 -0.2 z" fill="currentColor" stroke="none"/></svg>`;
+  const anytimeIcon = `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><g class="anytime-icon__sun" stroke="currentColor"><path d="M3 13a4 4 0 0 1 8 0"/><line x1="7" y1="4" x2="7" y2="6"/><line x1="2.5" y1="9" x2="4" y2="10"/><line x1="11.5" y1="9" x2="10" y2="10"/><line x1="3" y1="13" x2="1.5" y2="13"/><line x1="11" y1="13" x2="12.5" y2="13"/></g><line class="anytime-icon__divider" x1="18" y1="3" x2="7" y2="21" stroke="currentColor"/><g class="anytime-icon__moon" stroke="currentColor"><path d="M21 17 a4 4 0 1 1 -4 -5 a3.2 3.2 0 0 0 4 5z"/><path d="M15 20 l0.4 1 l1 0.2 l-0.7 0.7 l0.2 1 l-0.9 -0.5 l-0.9 0.5 l0.2 -1 l-0.7 -0.7 l1 -0.2 z" fill="currentColor" stroke="none"/></g></svg>`;
   if (s === 'am') return `<span class="time-pill time-pill--am" aria-label="Morning">${amIcon}</span>`;
   if (s === 'pm') return `<span class="time-pill time-pill--pm" aria-label="Evening">${pmIcon}</span>`;
   return `<span class="time-pill time-pill--anytime" aria-label="Anytime">${anytimeIcon}</span>`;
@@ -524,8 +524,8 @@ export function renderTaskCard(options) {
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
   const personColorAttr = !isEvent ? ` data-person-color="${esc(ownerColor)}"` : '';
   const leading = isEvent
-    ? `<div class="task-card__event-time-pill"><span class="task-card__event-time">${esc(eventTimeLabel)}</span></div>`
-    : `<div class="task-card__avatar-pill"><span class="avatar avatar--sm task-card__avatar">${esc(ownerInitial)}</span></div>`;
+    ? `<div class="task-card__event-time-pill"><span>${esc(eventTimeLabel)}</span></div>`
+    : `<div class="task-card__avatar-pill"><span class="task-card__avatar-initial">${esc(ownerInitial)}</span></div>`;
   const slotEl = !isEvent ? `<span class="task-card__slot">${timePill}</span>` : '';
 
   const eventPrefix = isEvent ? '📅 ' : '';
