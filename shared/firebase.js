@@ -805,3 +805,25 @@ export async function pushKitchenStaple(data) {
 export async function removeKitchenStaple(id) {
   return removeData(`kitchen/staples/${id}`);
 }
+
+// ─── iCal Feeds ──────────────────────────────────────────────────────────────
+
+export async function readIcalFeeds() {
+  return readOnce('icalFeeds');
+}
+
+export async function pushIcalFeed(data) {
+  return pushData('icalFeeds', data);
+}
+
+export async function writeIcalFeed(id, data) {
+  return writeData(`icalFeeds/${id}`, data);
+}
+
+export async function removeIcalFeed(id) {
+  return removeData(`icalFeeds/${id}`);
+}
+
+export async function writeIcalFeedLastSync(id, ts) {
+  return writeData(`icalFeeds/${id}/lastSync`, ts);
+}

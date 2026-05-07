@@ -266,7 +266,8 @@
 // v173 (2026-05-07) — Fix text size: scale all font tokens (xs/sm/md/lg/xl/2xl/3xl) per size; body uses --font-base.
 // v174 (2026-05-07) — Text size in My Settings: per-person override via person.prefs.textSize, applied immediately.
 // v175 (2026-05-07) — Event location taps open Google Maps (with pin icon); works as native maps prompt on mobile.
-const CACHE_NAME = 'family-hub-v175';
+// v176 (2026-05-07) — iCal feed sync: admin Calendars tab, per-feed owner assignment, 6-hr cooldown, dashboard fire-and-forget sync.
+const CACHE_NAME = 'family-hub-v176';
 
 const APP_SHELL = [
   '/',

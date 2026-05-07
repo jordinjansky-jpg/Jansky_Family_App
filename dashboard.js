@@ -1,4 +1,4 @@
-import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem } from './shared/firebase.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
 import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
@@ -3374,6 +3374,72 @@ async function runRollover() {
 }
 
 // ══════════════════════════════════════════
+// iCal feed sync — cooldown-gated, fire-and-forget
+// ══════════════════════════════════════════
+
+async function syncIcalFeeds() {
+  const feedsObj = await readIcalFeeds();
+  if (!feedsObj) return;
+
+  const now = Date.now();
+  for (const [feedId, feed] of Object.entries(feedsObj)) {
+    if (!feed.enabled || !feed.url) continue;
+    const intervalMs = (feed.syncIntervalHours || 6) * 3600 * 1000;
+    if (now - (feed.lastSync || 0) < intervalMs) continue;
+
+    try {
+      const res = await fetch(KITCHEN_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'ical', input: feed.url }),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!Array.isArray(data.events)) continue;
+
+      const primaryOwnerId = (feed.owners || [])[0] || null;
+      const primaryPerson = people.find(p => p.id === primaryOwnerId);
+      const color = primaryPerson?.color || '#4285f4';
+
+      const updates = {};
+
+      // Remove stale events for this feed
+      for (const [eid, ev] of Object.entries(events)) {
+        if (ev.source === 'ical' && ev.feedId === feedId) {
+          updates[`events/${eid}`] = null;
+        }
+      }
+
+      // Write refreshed events
+      for (let i = 0; i < data.events.length; i++) {
+        const ev = data.events[i];
+        const newKey = `ical_${feedId}_${Date.now()}_${i}`;
+        updates[`events/${newKey}`] = {
+          name: ev.name,
+          date: ev.date,
+          allDay: ev.allDay ?? true,
+          startTime: ev.allDay ? null : (ev.time || null),
+          endTime: null,
+          color,
+          people: feed.owners || [],
+          notes: ev.notes || null,
+          location: null,
+          repeat: null,
+          createdDate: today,
+          source: 'ical',
+          feedId,
+        };
+      }
+
+      if (Object.keys(updates).length > 0) await multiUpdate(updates);
+      await writeIcalFeedLastSync(feedId, now);
+    } catch {
+      // Silently skip feeds that fail — try again next interval
+    }
+  }
+}
+
+// ══════════════════════════════════════════
 // Initial load
 // ══════════════════════════════════════════
 
@@ -3384,6 +3450,7 @@ await loadData();
 // listeners will trigger debouncedRender; run render immediately for first paint
 render();
 runRollover(); // fire-and-forget, don't block UI
+syncIcalFeeds(); // fire-and-forget, cooldown-gated
 
 
 } // end person-not-found else
