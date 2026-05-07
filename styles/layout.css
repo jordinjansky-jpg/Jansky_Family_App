@@ -128,23 +128,31 @@
 }
 .bottom-nav__item svg { width: 22px; height: 22px; stroke-width: 1.75; }
 
-/* Active state — two-tone neon glow. */
+/* Active state — indicator pill + bold clean stroke, no glow. */
 .bottom-nav__item.is-active { color: var(--accent-ink); }
-.bottom-nav__item.is-active svg {
-  color: var(--accent-bright, var(--accent));
-  filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 10px currentColor);
+
+/* Pill indicator sits on the top edge of the nav bar */
+.bottom-nav__item.is-active::before {
+  display: block;
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--accent-bright, var(--accent));
 }
-.bottom-nav__item.is-active .nav-icon__base {
-  stroke: var(--accent);
-  stroke-width: 2.5;
-  opacity: 0.9;
-}
+
+.bottom-nav__item.is-active svg { color: var(--accent-bright, var(--accent)); }
+.bottom-nav__item.is-active .nav-icon__base,
 .bottom-nav__item.is-active .nav-icon__core {
   stroke: var(--accent-bright, var(--accent));
-  stroke-width: 1.5;
+  stroke-width: 2;
+  opacity: 1;
 }
 .bottom-nav__item.is-active .nav-item__label { color: var(--accent-ink); font-weight: 600; }
-.bottom-nav__item.is-active::before { display: none; }
 
 /* Tablet: centered single column (spec §3.1). Kiosk is separate (display.html). */
 @media (min-width: 768px) {

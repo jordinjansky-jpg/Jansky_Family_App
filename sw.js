@@ -255,7 +255,8 @@
 // v162 (2026-05-06) — Dashboard P12: avatar border 3px, initial 45% blend to black; dashboard-tile__icon overflow:hidden + 18px svg; fork/cloud stay in circle.
 // v163 (2026-05-06) — Dashboard P13: initial 15px + white halo text-shadow for readability on any tinted background.
 // v164 (2026-05-06) — Dashboard P14: drop text-shadow (caused fuzz/J bleed); color-mix(pill 30%, --text) — crisp, readable in both modes.
-const CACHE_NAME = 'family-hub-v164';
+// v165 (2026-05-06) — Nav active: pill indicator (24×3px) at top edge + bold 2px stroke, no glow filter.
+const CACHE_NAME = 'family-hub-v165';
 
 const APP_SHELL = [
   '/',
