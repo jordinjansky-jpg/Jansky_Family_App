@@ -3950,9 +3950,8 @@ label.ef2-icon-btn  { cursor: pointer; }
   transition: all 0.15s ease;
 }
 .tf-rot-pill--active {
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--text);
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -4185,6 +4184,24 @@ label.ef2-icon-btn  { cursor: pointer; }
   color: var(--text-muted);
   font-style: italic;
 }
+.recipe-pick__new-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 13px var(--spacing-md);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.recipe-pick__new-row:active { background: var(--accent-soft); }
 
 /* ── Card stack (flex column wrapper — suppresses card self-margin) ── */
 .card-stack {
@@ -4702,6 +4719,11 @@ label.ef2-icon-btn  { cursor: pointer; }
 .kp-slot-tabs .tab {
   position: relative;
 }
+.kp-slot-tabs .tab.is-active {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
 .kp-slot-tabs .tab.is-occupied:not(.is-active)::after {
   content: '';
   position: absolute;
@@ -4745,7 +4767,20 @@ label.ef2-icon-btn  { cursor: pointer; }
 .kp-meal-select.is-open svg { transform: rotate(180deg); }
 .kp-meal-dropdown { display: none; padding-top: var(--spacing-xs); }
 .kp-meal-dropdown.is-open { display: block; }
-.kp-meal-dropdown .kp-search-input { margin-bottom: var(--spacing-xs); }
+.kp-meal-dropdown .kp-search-input {
+  margin-bottom: 0;
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.kp-meal-dropdown .recipe-pick-list {
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
 .kp-search-input {
   width: 100%;
   padding: 10px var(--spacing-sm);

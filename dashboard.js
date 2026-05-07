@@ -1505,7 +1505,6 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
     <div class="kp-meal-section">
       <div class="kp-meal-header">
         <span class="ef2-section-label">Meal</span>
-        <button class="btn btn--ghost btn--sm" id="kp_createRecipe" type="button">+ New recipe</button>
       </div>
       <button class="kp-meal-select${preRecipeName ? ' has-value' : ''}${preRecipeName ? '' : ' is-open'}" id="kp_mealSelect" type="button">
         <span id="kp_mealLabel">${esc(preRecipeName || 'Choose a meal…')}</span>
@@ -1514,6 +1513,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
       <div class="kp-meal-dropdown${preRecipeName ? '' : ' is-open'}" id="kp_mealDropdown">
         <input class="kp-search-input" id="kp_search" type="text" autocomplete="off" placeholder="Search…" value="${esc(preRecipeName)}">
         <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
+        <button class="recipe-pick__new-row" id="kp_createRecipe" type="button">+ New recipe</button>
       </div>
     </div>
     <div class="kp-footer">
@@ -1537,6 +1537,7 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
   document.getElementById('kp_close')?.addEventListener('click', closeTaskSheet);
   document.getElementById('kp_cancel')?.addEventListener('click', closeTaskSheet);
   document.getElementById('kp_delete')?.addEventListener('click', async () => {
+    if (!await showConfirm({ title: 'Remove this meal?', danger: true })) return;
     await removeKitchenPlanSlot(day, preSlot);
     viewMeals = (await readKitchenPlan(viewDate)) || {};
     closeTaskSheet();
