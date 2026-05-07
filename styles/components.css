@@ -932,13 +932,15 @@
 }
 
 .task-card__avatar-initial {
-  font-size: var(--font-md);
-  font-weight: 800;
-  color: var(--pill-color);
+  font-size: 13px;
+  font-weight: 700;
+  /* Blend toward black so pastels/lights are always readable on the tinted background */
+  color: color-mix(in srgb, var(--pill-color) 60%, black);
   letter-spacing: 0;
   line-height: 1;
-  /* Subtle shadow lifts the letter on any light or pastel background */
-  text-shadow: 0 1px 3px rgba(0,0,0,0.18);
+}
+[data-theme="dark"] .task-card__avatar-initial {
+  color: color-mix(in srgb, var(--pill-color) 90%, white);
 }
 
 /* Event tab — same flush tab treatment */

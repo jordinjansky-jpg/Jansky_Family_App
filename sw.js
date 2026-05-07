@@ -251,7 +251,8 @@
 // v158 (2026-05-06) — Dashboard P8: tab truly flush (box-shadow border, explicit left radius), anytime diagonal sun/divider/moon.
 // v159 (2026-05-06) — Dashboard P9: cascade fix (.card.task-card 0,2,0), tab flush + strip fallback, circle time pills, anytime moon unclipped.
 // v160 (2026-05-06) — Dashboard P10: avatar tab 40px + 2.5px border, initial bolder+shadow, pills 30×30 circles, svg 20×20 CSS-sized.
-const CACHE_NAME = 'family-hub-v160';
+// v161 (2026-05-06) — Dashboard P11: initial color darkened (color-mix→black 40%), 13px explicit size; anytime sun moved to (7,7) equidistant from divider.
+const CACHE_NAME = 'family-hub-v161';
 
 const APP_SHELL = [
   '/',
