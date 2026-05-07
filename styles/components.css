@@ -154,6 +154,20 @@
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
 }
 
+/* Device theme sheet — toggle row */
+.dt-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+}
+.dt-toggle-row--mt { margin-top: var(--spacing-xs); }
+.dt-toggle-row__label {
+  font-size: var(--font-sm);
+  color: var(--text);
+}
+
 /* Color button + popover picker */
 .cpick-wrap {
   position: relative;

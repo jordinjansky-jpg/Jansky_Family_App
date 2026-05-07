@@ -130,7 +130,7 @@ function openMoreSheet() {
           document.getElementById('taskSheetMount'),
           settings?.theme,
           linkedPerson ? () => render() : undefined,
-          linkedPerson ? { person: linkedPerson, writePerson } : undefined
+          linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined
         );
       } else if (itemId === 'debug') {
         localStorage.setItem('dr-debug', 'false');
@@ -231,6 +231,11 @@ async function render() {
   try {
   clearTimeout(activePressTimer);
   activePressTimer = null;
+  // Re-apply display prefs on every render so person overrides stay in sync
+  applyTaskDisplayPrefs(settings, linkedPerson?.prefs);
+  const _dp = linkedPerson?.prefs || {};
+  const showTodIconBoth   = _dp.showTodIconBoth   !== undefined ? !!_dp.showTodIconBoth   : !!settings?.showTodIconBoth;
+  const showTodIconSingle = _dp.showTodIconSingle !== undefined ? !!_dp.showTodIconSingle : !!settings?.showTodIconSingle;
   // Filter out event schedule entries (type: 'event') — real events come from events collection
   let displayEntries = {};
   for (const [key, entry] of Object.entries(viewEntries)) {
@@ -506,8 +511,8 @@ async function render() {
         overdue: false,
         points: { possible: storePts, override: ovr },
         isEvent: !!cat?.isEvent,
-        showTodIconBoth: !!settings?.showTodIconBoth,
-        showTodIconSingle: !!settings?.showTodIconSingle,
+        showTodIconBoth,
+        showTodIconSingle,
         isPastDaily: !done && viewDate < today && entry.rotationType === 'daily'
       });
     }
@@ -627,8 +632,8 @@ function openOverdueSheet(items) {
       overdue: true,
       points: { possible: pts, override: e.pointsOverride ?? null },
       isEvent: !!cat?.isEvent,
-      showTodIconBoth: !!settings?.showTodIconBoth,
-      showTodIconSingle: !!settings?.showTodIconSingle,
+      showTodIconBoth:   linkedPerson?.prefs?.showTodIconBoth   !== undefined ? !!linkedPerson.prefs.showTodIconBoth   : !!settings?.showTodIconBoth,
+      showTodIconSingle: linkedPerson?.prefs?.showTodIconSingle !== undefined ? !!linkedPerson.prefs.showTodIconSingle : !!settings?.showTodIconSingle,
       isPastDaily: false
     });
   }).join('');

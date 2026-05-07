@@ -3,7 +3,7 @@
 // Pages call these functions and insert results into the DOM.
 
 import { escapeHtml, formatDateShort } from './utils.js';
-import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig } from './theme.js';
+import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig, applyTaskDisplayPrefs } from './theme.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -1638,6 +1638,40 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     ? (personOpts.person.color || '#5b7fd6')
     : (current?.accentColor || familyTheme?.accentColor || '#5b7fd6');
 
+  // Resolve display pref values (person overrides > family defaults)
+  const dispDef = personOpts?.displayDefaults || {};
+  const dispPref = personOpts?.person?.prefs || {};
+  const resolveDisp = (key, defaultOn) => {
+    if (dispPref[key] !== undefined && dispPref[key] !== null) return !!dispPref[key];
+    if (key in dispDef) return defaultOn ? dispDef[key] !== false : !!dispDef[key];
+    return defaultOn;
+  };
+
+  const displaySection = personOpts ? `
+    <div class="dt-section">
+      <label class="form-label">Display</label>
+      <div class="dt-toggle-row">
+        <span class="dt-toggle-row__label">Owner avatar on task cards</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_showAvatar"${resolveDisp('showAvatar', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+      <div class="dt-toggle-row">
+        <span class="dt-toggle-row__label">Estimated duration on task cards</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_showDuration"${resolveDisp('showDuration', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+      <div class="dt-toggle-row">
+        <span class="dt-toggle-row__label">Point value on task cards</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_showPoints"${resolveDisp('showPoints', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+      <div class="dt-toggle-row dt-toggle-row--mt">
+        <span class="dt-toggle-row__label">AM/PM icon on tasks with both times</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_showTodIconBoth"${resolveDisp('showTodIconBoth', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+      <div class="dt-toggle-row">
+        <span class="dt-toggle-row__label">AM/PM icon on AM-only or PM-only tasks</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_showTodIconSingle"${resolveDisp('showTodIconSingle', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+    </div>` : '';
+
   const html = renderBottomSheet(`<div class="task-detail-sheet">
     <h3 class="admin-form__title">${personOpts ? 'My Settings' : 'Device Theme'}</h3>
     <div class="dt-section">
@@ -1651,6 +1685,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
       <label class="form-label">${personOpts ? 'My Color' : 'Accent Color'}</label>
       ${renderColorButton(currentAccent, 'dt_accentPicker')}
     </div>
+    ${displaySection}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>
@@ -1706,6 +1741,27 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     if (personOpts) personOpts.person.color = color;
     applyAndSave();
   });
+
+  // Display pref toggles (person view only)
+  if (personOpts) {
+    const dispKeys = [
+      ['dt_showAvatar',        'showAvatar'],
+      ['dt_showDuration',      'showDuration'],
+      ['dt_showPoints',        'showPoints'],
+      ['dt_showTodIconBoth',   'showTodIconBoth'],
+      ['dt_showTodIconSingle', 'showTodIconSingle'],
+    ];
+    for (const [elId, key] of dispKeys) {
+      mountEl.querySelector(`#${elId}`)?.addEventListener('change', async (e) => {
+        if (!personOpts.person.prefs) personOpts.person.prefs = {};
+        personOpts.person.prefs[key] = e.target.checked;
+        const { id, ...data } = personOpts.person;
+        await personOpts.writePerson(id, data);
+        applyTaskDisplayPrefs(personOpts.displayDefaults, personOpts.person.prefs);
+        if (onApply) onApply();
+      });
+    }
+  }
 
   // Close
   function closeSheet() {

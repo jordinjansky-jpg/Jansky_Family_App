@@ -261,7 +261,8 @@
 // v168 (2026-05-06) — Back-to-today in header center slot (absolute, 45% max-width, shrinks on long names, no layout shift).
 // v169 (2026-05-06) — Kid mode: .kid-tasks .card.task-card (0,3,0) forces padding:0 so avatar tab stays flush.
 // v170 (2026-05-06) — Fix: color picker in More theme sheet no longer forces a preset when activePreset is '' (Family Default).
-const CACHE_NAME = 'family-hub-v170';
+// v171 (2026-05-07) — Per-person display prefs in My Settings: avatar, duration, points, AM/PM icons. Overrides family defaults per person.
+const CACHE_NAME = 'family-hub-v171';
 
 const APP_SHELL = [
   '/',

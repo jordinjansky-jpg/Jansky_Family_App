@@ -351,12 +351,17 @@ initTextSize();
  * CSS uses [data-show-avatar="off"], [data-show-duration="off"], [data-show-points="off"]
  * to hide the corresponding elements. Default ON: avatar, duration. Default OFF: points.
  */
-export function applyTaskDisplayPrefs(settings) {
+export function applyTaskDisplayPrefs(settings, personPrefs) {
   const root = document.documentElement;
   const apply = (attr, isOn) => { if (isOn) root.removeAttribute(attr); else root.setAttribute(attr, 'off'); };
-  apply('data-show-avatar',   settings?.showAvatar !== false);
-  apply('data-show-duration', settings?.showDuration !== false);
-  apply('data-show-points',   !!settings?.showPoints);
+  const resolve = (key, defaultOn) => {
+    if (personPrefs && personPrefs[key] !== undefined && personPrefs[key] !== null) return !!personPrefs[key];
+    if (settings && settings[key] !== undefined) return defaultOn ? settings[key] !== false : !!settings[key];
+    return defaultOn;
+  };
+  apply('data-show-avatar',   resolve('showAvatar', true));
+  apply('data-show-duration', resolve('showDuration', true));
+  apply('data-show-points',   resolve('showPoints', false));
 }
 
 /**
