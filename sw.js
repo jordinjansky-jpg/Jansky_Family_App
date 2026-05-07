@@ -271,7 +271,8 @@
 // v178 (2026-05-07) — Move iCal feed management from Library→Calendars into Settings→Connect; library back to 5 tabs.
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
-const CACHE_NAME = 'family-hub-v180';
+// v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
+const CACHE_NAME = 'family-hub-v181';
 
 const APP_SHELL = [
   '/',

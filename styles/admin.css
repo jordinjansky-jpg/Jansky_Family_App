@@ -1384,12 +1384,22 @@
   font-size: var(--font-sm);
   color: var(--text);
   outline: none;
+  box-shadow: none;
 }
 .if-url-input::placeholder { color: var(--text-faint); }
-.if-url-input:focus { border-bottom-color: var(--accent); }
+.if-url-input:focus { outline: none; box-shadow: none; border-bottom-color: var(--accent); }
 .if-enabled-label {
   font-size: var(--font-sm);
   color: var(--text-muted);
+}
+/* Chips container can shrink so overflow-x scroll works */
+.tf-form .ef2-person-chips { min-width: 0; }
+/* Sync interval — column layout so pills fill full width */
+.if-interval-section {
+  padding: var(--spacing-sm) 0 var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
 }
 
 /* iCal feed list */

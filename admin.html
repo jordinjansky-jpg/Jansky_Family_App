@@ -1110,9 +1110,12 @@
       const currentInterval = feed.syncIntervalHours || 6;
       const ownerSet = new Set(feed.owners || []);
 
-      const ownerChips = pa.map(p =>
-        `<button type="button" class="ef2-person-chip" data-person-id="${p.id}"${ownerSet.has(p.id) ? ' data-state="primary"' : ''} style="--chip-color:${p.color}">${esc(p.name)}</button>`
-      ).join('');
+      const owners = feed.owners || [];
+      const ownerChips = pa.map(p => {
+        const idx = owners.indexOf(p.id);
+        const state = idx === 0 ? ' data-state="primary"' : idx > 0 ? ' data-state="attending"' : '';
+        return `<button type="button" class="ef2-person-chip" data-person-id="${p.id}"${state} style="--chip-color:${p.color}">${esc(p.name)}</button>`;
+      }).join('');
 
       const mount = document.getElementById('taskSheetMount');
       mount.innerHTML = renderBottomSheet(`
@@ -1131,10 +1134,10 @@
             <div class="ef2-person-chips" id="if_owners">${ownerChips || '<span style="font-size:var(--font-sm);color:var(--text-faint)">No people yet</span>'}</div>
           </div>
           <div class="ef2-divider"></div>
-          <div class="ef2-for-section">
+          <div class="if-interval-section">
             <span class="ef2-section-label">Sync every</span>
-            <div class="segmented-control" id="if_interval">
-              ${intervals.map(({v,l}) => `<button type="button" class="segmented-btn${currentInterval===v?' segmented-btn--active':''}" data-interval="${v}">${l}</button>`).join('')}
+            <div class="tf-rotation-pills" id="if_interval">
+              ${intervals.map(({v,l}) => `<button type="button" class="tf-rot-pill${currentInterval===v?' tf-rot-pill--active':''}" data-interval="${v}">${l}</button>`).join('')}
             </div>
           </div>
           ${isEdit ? `
@@ -1155,18 +1158,29 @@
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
       document.getElementById('bottomSheet')?.addEventListener('click', e => { if (e.target.id === 'bottomSheet') closeAdminSheet(); });
 
-      // Owner chip toggle
+      // Owner chip toggle — primary → attending → unselected state machine
       mount.querySelector('#if_owners')?.addEventListener('click', e => {
         const chip = e.target.closest('.ef2-person-chip');
-        if (chip) chip.dataset.state = chip.dataset.state === 'primary' ? '' : 'primary';
+        if (!chip) return;
+        const chips = [...mount.querySelectorAll('#if_owners .ef2-person-chip')];
+        const state = chip.dataset.state;
+        if (state === 'primary') {
+          chip.dataset.state = '';
+          const firstAttending = chips.find(c => c.dataset.state === 'attending');
+          if (firstAttending) firstAttending.dataset.state = 'primary';
+        } else if (state === 'attending') {
+          chip.dataset.state = '';
+        } else {
+          chip.dataset.state = chips.some(c => c.dataset.state === 'primary') ? 'attending' : 'primary';
+        }
       });
 
-      // Interval segmented control
+      // Interval pill control
       mount.querySelector('#if_interval')?.addEventListener('click', e => {
         const btn = e.target.closest('[data-interval]');
         if (!btn) return;
-        mount.querySelectorAll('#if_interval .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
-        btn.classList.add('segmented-btn--active');
+        mount.querySelectorAll('#if_interval .tf-rot-pill').forEach(b => b.classList.remove('tf-rot-pill--active'));
+        btn.classList.add('tf-rot-pill--active');
       });
 
       mount.querySelector('#if_enabled')?.addEventListener('change', e => {
@@ -1181,8 +1195,10 @@
         const url  = mount.querySelector('#if_url')?.value.trim();
         if (!name || !url) { showToast('Name and URL are required'); return; }
 
-        const owners = Array.from(mount.querySelectorAll('#if_owners .ef2-person-chip[data-state="primary"]')).map(b => b.dataset.personId);
-        const intervalBtn = mount.querySelector('#if_interval .segmented-btn--active');
+        const primaryIds  = Array.from(mount.querySelectorAll('#if_owners .ef2-person-chip[data-state="primary"]')).map(b => b.dataset.personId);
+        const attendingIds = Array.from(mount.querySelectorAll('#if_owners .ef2-person-chip[data-state="attending"]')).map(b => b.dataset.personId);
+        const owners = [...primaryIds, ...attendingIds];
+        const intervalBtn = mount.querySelector('#if_interval .tf-rot-pill--active');
         const syncIntervalHours = parseInt(intervalBtn?.dataset.interval || '6', 10);
         const enabled = isEdit ? !!(mount.querySelector('#if_enabled')?.checked) : true;
 
