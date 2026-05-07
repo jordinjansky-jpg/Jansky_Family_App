@@ -263,7 +263,8 @@
 // v170 (2026-05-06) — Fix: color picker in More theme sheet no longer forces a preset when activePreset is '' (Family Default).
 // v171 (2026-05-07) — Per-person display prefs in My Settings: avatar, duration, points, AM/PM icons. Overrides family defaults per person.
 // v172 (2026-05-07) — Text size from Firebase settings applied on all pages (dashboard, calendar, scoreboard, tracker, kid).
-const CACHE_NAME = 'family-hub-v172';
+// v173 (2026-05-07) — Fix text size: scale all font tokens (xs/sm/md/lg/xl/2xl/3xl) per size; body uses --font-base.
+const CACHE_NAME = 'family-hub-v173';
 
 const APP_SHELL = [
   '/',
