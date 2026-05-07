@@ -1703,13 +1703,6 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
   // Accent color button (also sets person color when on a person page)
   initColorButton(mountEl.querySelector('#dt_accentPicker')?.closest('.cpick-wrap'), async (color) => {
     activeAccent = color;
-    if (!activePreset) {
-      const fam = familyTheme || defaultThemeConfig();
-      activePreset = fam.preset;
-      mountEl.querySelectorAll('.dt-theme-btn').forEach(b => {
-        b.classList.toggle('dt-theme-btn--active', b.dataset.preset === activePreset);
-      });
-    }
     if (personOpts) personOpts.person.color = color;
     applyAndSave();
   });
