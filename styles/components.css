@@ -881,6 +881,19 @@
   margin-top: var(--spacing-sm);
 }
 
+/* Specificity fix: .card.task-card (0,2,0) beats .card (0,1,0) regardless of file order.
+   .card sets border, padding, align-items, gap, box-shadow, margin-bottom — all wrong for task-card. */
+.card.task-card {
+  border: none;
+  box-shadow: 0 0 0 1px var(--border), var(--shadow-sm);
+  padding: 0;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 0;
+}
+.card.task-card + .card.task-card { margin-top: var(--spacing-sm); }
+.card.task-card.task-card--done { box-shadow: none; }
+
 .task-card:active {
   transform: scale(0.98);
 }
@@ -911,7 +924,7 @@
   flex-shrink: 0;
   background: color-mix(in srgb, var(--pill-color) 15%, transparent);
   border-right: 1.5px solid var(--pill-color);
-  border-radius: var(--radius-lg) var(--radius-sm) var(--radius-sm) var(--radius-lg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 [data-theme="dark"] .task-card__avatar-pill {
@@ -938,7 +951,7 @@
   flex-shrink: 0;
   background: color-mix(in srgb, var(--pill-color) 15%, transparent);
   border-right: 1.5px solid var(--pill-color);
-  border-radius: var(--radius-lg) var(--radius-sm) var(--radius-sm) var(--radius-lg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-size: var(--font-sm);
   font-weight: 700;
   color: var(--pill-color);
@@ -996,6 +1009,8 @@
 
 /* Visibility toggles (admin → settings → style) */
 [data-show-avatar="off"] .task-card__avatar-pill { display: none; }
+/* When avatar is hidden, surface the 4px person-color strip via ::before (card::before already positioned) */
+[data-show-avatar="off"] .task-card::before { display: block; background: var(--person-color, var(--accent)); }
 [data-show-duration="off"] .task-card__meta-item--duration { display: none; }
 [data-show-points="off"] .task-card__meta-item--points { display: none; }
 
@@ -1004,15 +1019,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 4px 8px;
   border-radius: var(--radius-full);
   background: var(--surface-2);
   color: var(--text-muted);
   flex-shrink: 0;
-  min-width: 28px;
-  min-height: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
 }
+/* Anytime needs a touch more width to contain the split icon */
+.time-pill--anytime { width: 34px; }
 [data-theme="dark"] .time-pill { background: var(--surface-3); }
 .time-pill--am { color: #d68b3a; }
 [data-theme="dark"] .time-pill--am { color: #e8a55b; }

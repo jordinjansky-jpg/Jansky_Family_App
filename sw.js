@@ -249,7 +249,8 @@
 // v156 (2026-05-06) — Dashboard P6: capsule pill geometry (inset, rounded), strip avatar circle, two-tone anytime icon.
 // v157 (2026-05-06) — Dashboard P7: avatar tab flush-left w/ border, anytime sun+moon side-by-side, recurrence to meta col.
 // v158 (2026-05-06) — Dashboard P8: tab truly flush (box-shadow border, explicit left radius), anytime diagonal sun/divider/moon.
-const CACHE_NAME = 'family-hub-v158';
+// v159 (2026-05-06) — Dashboard P9: cascade fix (.card.task-card 0,2,0), tab flush + strip fallback, circle time pills, anytime moon unclipped.
+const CACHE_NAME = 'family-hub-v159';
 
 const APP_SHELL = [
   '/',
