@@ -2437,6 +2437,8 @@ export function renderWeatherSheet(days, today, tomorrow) {
  *   filterPersonName: string — used by empty-state copy ("for Noah").
  */
 export function renderComingUp({ items = [], expanded = false, summary = '', filterPersonName = '' } = {}) {
+  if (items.length === 0) return '';
+
   const chevSvg = `<svg class="coming-up__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="20" height="20"><polyline points="6 9 12 15 18 9"/></svg>`;
   const expandedCls = expanded ? ' is-expanded' : '';
 
