@@ -233,7 +233,6 @@
     const LIBRARY_SECTIONS = [
       { id: 'tasks',      label: 'Tasks'      },
       { id: 'events',     label: 'Events'     },
-      { id: 'calendars',  label: 'Calendars'  },
       { id: 'categories', label: 'Categories' },
       { id: 'rewards',    label: 'Rewards'    },
       { id: 'badges',     label: 'Badges'     },
@@ -374,7 +373,6 @@
           switch (activeLibrarySection) {
             case 'tasks':      html += renderTasksTab();      break;
             case 'events':     html += renderEventsTab();     break;
-            case 'calendars':  html += renderCalendarsTab();  break;
             case 'categories': html += renderCategoriesTab(); break;
             case 'rewards':    html += renderRewardsTab();    break;
             case 'badges':     html += renderAchievementsTab(); break;
@@ -2277,6 +2275,11 @@
               <p class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</p>
               <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password" autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
             </div>
+            <div class="form-group mt-sm">
+              <label class="form-label">Connected calendars</label>
+              <p class="form-hint">Add iCal links to sync events automatically.</p>
+              ${renderCalendarsTab()}
+            </div>
           </div>`;
           break;
       }
@@ -3537,7 +3540,6 @@
           switch (activeLibrarySection) {
             case 'tasks':      bindTasksTab();      break;
             case 'events':     bindEventsTab();     break;
-            case 'calendars':  bindCalendarsTab();  break;
             case 'categories': bindCategoriesTab(); break;
             case 'rewards':    bindRewardsTab();    break;
             case 'badges':     bindAchievementsTab(); break;
@@ -4221,6 +4223,7 @@
         const updated = buildSettingsUpdate({ weatherApiKey: main.querySelector('#sf_weatherApiKey')?.value.trim() || '' });
         await writeSettings(updated); settings = updated; flashSaved();
       });
+      bindCalendarsTab();
     }
     // ── Schedule tab events ──
 
