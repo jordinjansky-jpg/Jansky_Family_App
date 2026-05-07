@@ -34,8 +34,9 @@ const [settings, peopleObj, tasksObj, catsObj, eventsObj] = await Promise.all([
 // Apply family theme from Firebase only if no device override
 if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 applyTaskDisplayPrefs(settings);
-// Sync text size from Firebase so new devices match the family setting
-if (settings?.textSize) applyTextSize(settings.textSize);
+// Apply text size: person pref overrides family setting
+const effectiveTextSize = linkedPerson?.prefs?.textSize || settings?.textSize;
+if (effectiveTextSize) applyTextSize(effectiveTextSize);
 // Cache app name for instant title on next load (used by inline script)
 if (settings?.appName) localStorage.setItem('dr-app-name', settings.appName);
 
@@ -233,8 +234,10 @@ async function render() {
   try {
   clearTimeout(activePressTimer);
   activePressTimer = null;
-  // Re-apply display prefs on every render so person overrides stay in sync
+  // Re-apply display/text prefs on every render so person overrides stay in sync
   applyTaskDisplayPrefs(settings, linkedPerson?.prefs);
+  const _ts = linkedPerson?.prefs?.textSize || settings?.textSize;
+  if (_ts) applyTextSize(_ts);
   const _dp = linkedPerson?.prefs || {};
   const showTodIconBoth   = _dp.showTodIconBoth   !== undefined ? !!_dp.showTodIconBoth   : !!settings?.showTodIconBoth;
   const showTodIconSingle = _dp.showTodIconSingle !== undefined ? !!_dp.showTodIconSingle : !!settings?.showTodIconSingle;

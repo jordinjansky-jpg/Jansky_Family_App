@@ -3,7 +3,7 @@
 // Pages call these functions and insert results into the DOM.
 
 import { escapeHtml, formatDateShort } from './utils.js';
-import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig, applyTaskDisplayPrefs } from './theme.js';
+import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig, applyTaskDisplayPrefs, applyTextSize } from './theme.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -1647,7 +1647,17 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     return defaultOn;
   };
 
+  const personTextSize = dispPref.textSize || dispDef.textSize || 'default';
+
   const displaySection = personOpts ? `
+    <div class="dt-section">
+      <label class="form-label">Text Size</label>
+      <div class="segmented-control" id="dt_textSize">
+        <button type="button" class="segmented-btn${personTextSize === 'small'   ? ' segmented-btn--active' : ''}" data-size="small">Small</button>
+        <button type="button" class="segmented-btn${personTextSize === 'default' ? ' segmented-btn--active' : ''}" data-size="default">Default</button>
+        <button type="button" class="segmented-btn${personTextSize === 'large'   ? ' segmented-btn--active' : ''}" data-size="large">Large</button>
+      </div>
+    </div>
     <div class="dt-section">
       <label class="form-label">Display</label>
       <div class="dt-toggle-row">
@@ -1741,6 +1751,22 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     if (personOpts) personOpts.person.color = color;
     applyAndSave();
   });
+
+  // Text size segmented control (person view only)
+  if (personOpts) {
+    mountEl.querySelector('#dt_textSize')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.segmented-btn');
+      if (!btn) return;
+      const size = btn.dataset.size;
+      mountEl.querySelectorAll('#dt_textSize .segmented-btn').forEach(b => b.classList.toggle('segmented-btn--active', b === btn));
+      if (!personOpts.person.prefs) personOpts.person.prefs = {};
+      personOpts.person.prefs.textSize = size;
+      const { id, ...data } = personOpts.person;
+      await personOpts.writePerson(id, data);
+      applyTextSize(size);
+      if (onApply) onApply();
+    });
+  }
 
   // Display pref toggles (person view only)
   if (personOpts) {
