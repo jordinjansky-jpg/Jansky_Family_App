@@ -1291,7 +1291,7 @@ export function renderEventDetailSheet(eventId, event, people = []) {
     <div class="event-detail__time">${esc(timeStr)}</div>
     <div class="event-detail__date">${formatDateShort(event.date)}</div>
     ${peopleHtml ? `<div class="event-detail__people">${peopleHtml}</div>` : ''}
-    ${event.location ? `<div class="event-detail__row"><strong>Location:</strong> ${esc(event.location)}</div>` : ''}
+    ${event.location ? `<div class="event-detail__row"><strong>Location:</strong> <a class="event-detail__map-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener">${esc(event.location)}</a></div>` : ''}
     ${event.notes ? `<div class="event-detail__row"><strong>Notes:</strong> ${esc(event.notes)}</div>` : ''}
     ${event.url ? `<div class="event-detail__row"><a href="${esc(event.url)}" target="_blank" rel="noopener">Open Link</a></div>` : ''}
     <div class="ef2-footer">
