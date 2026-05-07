@@ -41,7 +41,7 @@
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, writeCompletion, removeCompletion, writeTask, removeTask, writePerson, multiUpdate, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards } from './shared/firebase.js';
     import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderErrorState, renderPersonFilter, renderTaskDetailSheet, renderBottomSheet, renderTaskForm, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderSectionHead, showConfirm } from './shared/components.js';
     import { basePoints, gradeDisplay } from './shared/scoring.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, dateRange, formatDateShort, dayOfWeek, DAY_NAMES_SHORT, isoWeekNumber, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete } from './shared/state.js';
@@ -63,6 +63,7 @@
     ]);
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
+    if (settings?.textSize) applyTextSize(settings.textSize);
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
