@@ -2394,7 +2394,7 @@ function _glyphToLabel(glyph) {
 }
 
 function _rainDrop(pop, uid) {
-  if (!pop || pop < 0) pop = 0;
+  if (!pop || pop <= 0) return '';
   const pct = Math.min(pop, 100) / 100;
   // Raindrop path: viewBox 0 0 12 18, occupies y=1–17 (16 units tall)
   const clipY = (17 - pct * 16).toFixed(1);
@@ -2416,7 +2416,6 @@ function _rainDrop(pop, uid) {
 export function renderWeatherSheet(days, today, tomorrow) {
   function dayLabel(dk) {
     if (dk === today) return 'Today';
-    if (dk === tomorrow) return 'Tmrw';
     return new Date(dk + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
   }
   function shortDate(dk) {
@@ -2428,7 +2427,7 @@ export function renderWeatherSheet(days, today, tomorrow) {
       <h3 class="sheet-section-title">Weather</h3>
       <div class="wf-empty">Could not load forecast. Check your connection.</div>
       <div class="sheet-actions">
-        <button class="btn btn--secondary btn--full" id="weatherSheetClose" type="button">Done</button>
+        <button class="btn btn--ghost btn--sm" id="weatherSheetClose" type="button">Done</button>
       </div>
     `);
   }
@@ -2479,7 +2478,7 @@ export function renderWeatherSheet(days, today, tomorrow) {
     <h3 class="sheet-section-title">Weather</h3>
     <div class="wf-rows">${rowsHtml}</div>
     <div class="sheet-actions">
-      <button class="btn btn--secondary btn--full" id="weatherSheetClose" type="button">Done</button>
+      <button class="btn btn--ghost btn--sm" id="weatherSheetClose" type="button">Done</button>
     </div>
   `);
 }

@@ -3067,7 +3067,7 @@
 .wf-drop-pct {
   font-size: 9px;
   line-height: 1;
-  color: var(--wf-rain, #42a5f5);
+  color: #5BA3C9;
 }
 
 .wf-col--conditions {
@@ -3081,6 +3081,7 @@
   grid-template-columns: 1fr 16px;
   gap: 5px;
   align-items: center;
+  min-width: 0;
 }
 .wf-period-icon {
   width: 16px;
@@ -3098,11 +3099,10 @@
   text-overflow: ellipsis;
 }
 
-/* Condition icon colors */
-.wf-icon--clear, .wf-icon--partly-cloudy { color: var(--wf-sun, #FFB300); }
-.wf-icon--rain, .wf-icon--drizzle { color: var(--wf-rain, #42a5f5); }
-.wf-icon--thunder { color: var(--wf-storm, #FF8F00); }
-.wf-icon--snow { color: var(--wf-snow, #90CAF9); }
+/* Condition icon colors — only precipitation types get color; sun/cloud inherit muted */
+.wf-icon--rain, .wf-icon--drizzle { color: #5BA3C9; }
+.wf-icon--thunder { color: #C8924A; }
+.wf-icon--snow { color: #7DB8D4; }
 
 .wf-col--temp {
   display: flex;
@@ -3114,10 +3114,12 @@
   font-size: var(--font-sm);
   font-weight: 600;
   color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 .wf-temp-low {
   font-size: var(--font-xs);
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .wf-col--sun {
@@ -3129,18 +3131,16 @@
   display: flex;
   align-items: center;
   gap: 3px;
+  color: var(--text-muted);
 }
-.wf-sun-item { color: var(--text-muted); }
-.wf-sun-item svg {
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-}
-.wf-sun-item--rise { color: var(--wf-sunrise, #FFB300); }
-.wf-sun-item--set  { color: var(--wf-sunset, #FF7043); }
+.wf-sun-item svg { width: 13px; height: 13px; flex-shrink: 0; }
+.wf-sun-item--rise svg { color: #C8924A; }
+.wf-sun-item--set svg  { color: #B07050; }
 .wf-sun-time {
   font-size: 9px;
   white-space: nowrap;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .wf-sun-na {
   font-size: var(--font-xs);
