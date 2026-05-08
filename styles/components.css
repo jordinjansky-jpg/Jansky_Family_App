@@ -3021,8 +3021,8 @@
 
 .wf-row {
   display: grid;
-  grid-template-columns: 48px 28px 1fr 40px 68px;
-  gap: 8px;
+  grid-template-columns: 44px 22px 1fr 42px 66px;
+  gap: 10px;
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
@@ -3075,20 +3075,19 @@
   flex-direction: column;
   gap: 5px;
   min-width: 0;
-  align-items: flex-end;
 }
 .wf-period {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 16px;
   gap: 5px;
-  justify-content: flex-end;
+  align-items: center;
 }
 .wf-period-icon {
-  flex-shrink: 0;
   width: 16px;
   height: 16px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 }
 .wf-period-icon svg { width: 16px; height: 16px; }
 .wf-period-label {
