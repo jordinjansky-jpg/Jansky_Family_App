@@ -1481,7 +1481,6 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
     <div class="sheet__header">
       <h2 class="sheet__title">Plan a meal</h2>
       <div class="rf-header-actions">
-        ${hasExisting ? `<button class="ef2-icon-btn rf-delete-btn" id="kp_delete" type="button" aria-label="Remove meal"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}
         <button class="ef2-icon-btn" id="kp_close" aria-label="Close" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -1505,15 +1504,11 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
     <div class="kp-meal-section">
       <div class="kp-meal-header">
         <span class="ef2-section-label">Meal</span>
+        <button class="btn btn--ghost btn--sm" id="kp_createRecipe" type="button">+ New recipe</button>
       </div>
-      <button class="kp-meal-select${preRecipeName ? ' has-value' : ''}${preRecipeName ? '' : ' is-open'}" id="kp_mealSelect" type="button">
-        <span id="kp_mealLabel">${esc(preRecipeName || 'Choose a meal…')}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      <div class="kp-meal-dropdown${preRecipeName ? '' : ' is-open'}" id="kp_mealDropdown">
-        <input class="kp-search-input" id="kp_search" type="text" autocomplete="off" placeholder="Search…" value="${esc(preRecipeName)}">
+      <input class="kp-search-input" id="kp_search" type="text" autocomplete="off" placeholder="Search meals…" value="${esc(preRecipeName)}">
+      <div class="kp-meal-dropdown" id="kp_mealDropdown">
         <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
-        <button class="recipe-pick__new-row" id="kp_createRecipe" type="button">+ New recipe</button>
       </div>
     </div>
     <div class="kp-footer">
@@ -1524,24 +1519,23 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
 
   requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
-  document.getElementById('kp_mealSelect')?.addEventListener('click', () => {
-    const dropdown = document.getElementById('kp_mealDropdown');
-    const willOpen = !dropdown.classList.contains('is-open');
-    dropdown.classList.toggle('is-open');
-    document.getElementById('kp_mealSelect').classList.toggle('is-open', willOpen);
-    if (willOpen) setTimeout(() => document.getElementById('kp_search')?.focus(), 50);
-  });
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
   document.getElementById('kp_close')?.addEventListener('click', closeTaskSheet);
   document.getElementById('kp_cancel')?.addEventListener('click', closeTaskSheet);
-  document.getElementById('kp_delete')?.addEventListener('click', async () => {
-    if (!await showConfirm({ title: 'Remove this meal?', danger: true })) return;
-    await removeKitchenPlanSlot(day, preSlot);
-    viewMeals = (await readKitchenPlan(viewDate)) || {};
-    closeTaskSheet();
-    render();
+
+  const kpSearch = document.getElementById('kp_search');
+  const kpDropdown = document.getElementById('kp_mealDropdown');
+  kpSearch?.addEventListener('focus', () => {
+    kpDropdown.classList.add('is-open');
+    kpSearch.classList.add('kp-search--open');
+  });
+  kpSearch?.addEventListener('blur', () => {
+    setTimeout(() => {
+      kpDropdown.classList.remove('is-open');
+      kpSearch.classList.remove('kp-search--open');
+    }, 150);
   });
 
   document.getElementById('kp_datebtn')?.addEventListener('click', () => {
@@ -1573,15 +1567,9 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
     document.getElementById('kp_save').disabled = !(val || selectedRecipeId);
   }
 
-  function syncMealLabel(name) {
-    const label = document.getElementById('kp_mealLabel');
-    if (label) label.textContent = name || 'Choose a meal…';
-    document.getElementById('kp_mealSelect')?.classList.toggle('has-value', !!name);
-  }
-
   function closeMealDropdown() {
     document.getElementById('kp_mealDropdown')?.classList.remove('is-open');
-    document.getElementById('kp_mealSelect')?.classList.remove('is-open');
+    document.getElementById('kp_search')?.classList.remove('kp-search--open');
   }
 
   function bindPickRows() {
@@ -1590,12 +1578,10 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
         if (selectedRecipeId === btn.dataset.recipePick) {
           selectedRecipeId = null;
           document.getElementById('kp_search').value = '';
-          syncMealLabel('');
         } else {
           selectedRecipeId = btn.dataset.recipePick;
           const name = recipes[selectedRecipeId]?.name || '';
           document.getElementById('kp_search').value = name;
-          syncMealLabel(name);
           closeMealDropdown();
         }
         document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
@@ -1610,7 +1596,6 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
     selectedRecipeId = null;
     document.getElementById('recipePick').innerHTML = buildRecipeRows(e.target.value);
     bindPickRows();
-    syncMealLabel(e.target.value.trim());
     updateSaveBtn();
   });
 
