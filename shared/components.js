@@ -2444,9 +2444,9 @@ export function renderWeatherSheet(days, today, tomorrow) {
     const pmLabel = day.afternoonLabel || _glyphToLabel(day.afternoonGlyph || day.glyph);
 
     const sunriseHtml = day.sunrise
-      ? `<div class="wf-sun-item">${WEATHER_ICONS.sunrise}<span class="wf-sun-time">${esc(day.sunrise)}</span></div>` : '';
+      ? `<div class="wf-sun-item wf-sun-item--rise">${WEATHER_ICONS.sunrise}<span class="wf-sun-time">${esc(day.sunrise)}</span></div>` : '';
     const sunsetHtml = day.sunset
-      ? `<div class="wf-sun-item">${WEATHER_ICONS.sunset}<span class="wf-sun-time">${esc(day.sunset)}</span></div>` : '';
+      ? `<div class="wf-sun-item wf-sun-item--set">${WEATHER_ICONS.sunset}<span class="wf-sun-time">${esc(day.sunset)}</span></div>` : '';
 
     return `<div class="wf-row${isToday ? ' wf-row--today' : ''}">
       <div class="wf-col--day">
@@ -2456,11 +2456,11 @@ export function renderWeatherSheet(days, today, tomorrow) {
       <div class="wf-col--precip">${_rainDrop(day.pop ?? 0, uid)}</div>
       <div class="wf-col--conditions">
         <div class="wf-period">
-          <span class="wf-period-icon" aria-hidden="true">${WEATHER_ICONS[amCode] || WEATHER_ICONS.cloudy}</span>
+          <span class="wf-period-icon wf-icon--${amCode}" aria-hidden="true">${WEATHER_ICONS[amCode] || WEATHER_ICONS.cloudy}</span>
           <span class="wf-period-label">AM · ${esc(amLabel)}</span>
         </div>
         <div class="wf-period">
-          <span class="wf-period-icon" aria-hidden="true">${WEATHER_ICONS[pmCode] || WEATHER_ICONS.cloudy}</span>
+          <span class="wf-period-icon wf-icon--${pmCode}" aria-hidden="true">${WEATHER_ICONS[pmCode] || WEATHER_ICONS.cloudy}</span>
           <span class="wf-period-label">PM · ${esc(pmLabel)}</span>
         </div>
       </div>

@@ -3075,11 +3075,13 @@
   flex-direction: column;
   gap: 5px;
   min-width: 0;
+  align-items: flex-end;
 }
 .wf-period {
   display: flex;
   align-items: center;
   gap: 5px;
+  justify-content: flex-end;
 }
 .wf-period-icon {
   flex-shrink: 0;
@@ -3096,6 +3098,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Condition icon colors */
+.wf-icon--clear, .wf-icon--partly-cloudy { color: var(--wf-sun, #FFB300); }
+.wf-icon--rain, .wf-icon--drizzle { color: var(--wf-rain, #42a5f5); }
+.wf-icon--thunder { color: var(--wf-storm, #FF8F00); }
+.wf-icon--snow { color: var(--wf-snow, #90CAF9); }
 
 .wf-col--temp {
   display: flex;
@@ -3123,15 +3131,16 @@
   align-items: center;
   gap: 3px;
 }
+.wf-sun-item { color: var(--text-muted); }
 .wf-sun-item svg {
   width: 13px;
   height: 13px;
   flex-shrink: 0;
-  color: var(--text-muted);
 }
+.wf-sun-item--rise { color: var(--wf-sunrise, #FFB300); }
+.wf-sun-item--set  { color: var(--wf-sunset, #FF7043); }
 .wf-sun-time {
   font-size: 9px;
-  color: var(--text-muted);
   white-space: nowrap;
 }
 .wf-sun-na {
