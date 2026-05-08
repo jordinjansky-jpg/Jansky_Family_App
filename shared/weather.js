@@ -2,7 +2,8 @@
 // Pure module — no DOM access. Fetches from OpenWeatherMap free tier and caches per-date.
 
 const OWM_BASE = 'https://api.openweathermap.org/data/2.5';
-const TTL_TODAY_MS = 60 * 60 * 1000; // 60 min
+const TTL_TODAY_MS     = 60 * 60 * 1000; // 60 min
+const TTL_FORECAST_MS  =  3 * 60 * 60 * 1000; // 3 hours
 
 function _dateKey(tsMs, timezone) {
   return new Date(tsMs).toLocaleDateString('en-CA', { timeZone: timezone });
@@ -103,7 +104,8 @@ function _toResult(entry) {
 
 function _isFresh(entry, isToday) {
   if (!entry?.fetched) return false;
-  return isToday ? (Date.now() - entry.fetched < TTL_TODAY_MS) : true;
+  const ttl = isToday ? TTL_TODAY_MS : TTL_FORECAST_MS;
+  return Date.now() - entry.fetched < ttl;
 }
 
 function _parseCurrent(json, timezone) {
