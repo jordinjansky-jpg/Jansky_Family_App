@@ -3021,7 +3021,7 @@
 
 .wf-row {
   display: grid;
-  grid-template-columns: 56px 1fr 40px 68px;
+  grid-template-columns: 48px 28px 1fr 40px 68px;
   gap: 8px;
   align-items: center;
   padding: 10px 0;
@@ -3052,11 +3052,16 @@
   font-size: var(--font-xs);
   color: var(--text-muted);
 }
+.wf-col--precip {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 .wf-drop-wrap {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 3px;
-  margin-top: 2px;
+  gap: 2px;
 }
 .wf-drop-svg { width: 8px; height: 12px; }
 .wf-drop-pct {

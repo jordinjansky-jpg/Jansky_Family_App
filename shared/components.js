@@ -2452,8 +2452,8 @@ export function renderWeatherSheet(days, today, tomorrow) {
       <div class="wf-col--day">
         <span class="wf-day-name">${esc(dayLabel(day.dateKey))}</span>
         <span class="wf-day-date">${esc(shortDate(day.dateKey))}</span>
-        ${_rainDrop(day.pop ?? 0, uid)}
       </div>
+      <div class="wf-col--precip">${_rainDrop(day.pop ?? 0, uid)}</div>
       <div class="wf-col--conditions">
         <div class="wf-period">
           <span class="wf-period-icon" aria-hidden="true">${WEATHER_ICONS[amCode] || WEATHER_ICONS.cloudy}</span>
