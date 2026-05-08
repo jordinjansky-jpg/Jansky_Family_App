@@ -1,8 +1,9 @@
 // shared/weather.js
-// Pure module — no DOM access. Fetches from OpenWeatherMap free tier and caches per-date.
+// Pure module — no DOM access. Fetches from Open-Meteo (no API key required) and caches per-date.
 
-const OWM_BASE = 'https://api.openweathermap.org/data/2.5';
-const TTL_TODAY_MS     = 60 * 60 * 1000; // 60 min
+const OM_FORECAST_BASE = 'https://api.open-meteo.com/v1/forecast';
+const OM_GEO_BASE      = 'https://geocoding-api.open-meteo.com/v1/search';
+const TTL_TODAY_MS     =  1 * 60 * 60 * 1000; // 60 min
 const TTL_FORECAST_MS  =  3 * 60 * 60 * 1000; // 3 hours
 
 function _dateKey(tsMs, timezone) {
@@ -17,43 +18,60 @@ function _daysDiff(dk1, dk2) {
   return Math.round((new Date(dk1 + 'T12:00:00') - new Date(dk2 + 'T12:00:00')) / 86400000);
 }
 
-function _codeToGlyph(code) {
-  if (code >= 200 && code < 600) return 'rain';
-  if (code >= 600 && code < 700) return 'snow';
-  if (code >= 700 && code < 800) return 'fog';
-  if (code === 800) return 'sun';
-  return 'cloud';
+// WMO weather code → ambient strip glyph (5-type system for ambient strip compat)
+function _wmoToGlyph(code) {
+  if (code === 0) return 'sun';
+  if (code <= 3)  return 'cloud';
+  if (code <= 48) return 'fog';
+  if (code <= 67 || (code >= 80 && code <= 82)) return 'rain';
+  if (code <= 86) return 'snow';
+  return 'rain'; // thunder → rain glyph
 }
 
-function _codeToIconCode(code) {
-  if (code >= 200 && code < 300) return 'thunder';
-  if (code >= 300 && code < 400) return 'drizzle';
-  if (code >= 500 && code < 600) return 'rain';
-  if (code >= 600 && code < 700) return 'snow';
-  if (code >= 700 && code < 800) return 'fog';
-  if (code === 800) return 'clear';
-  if (code === 801 || code === 802) return 'partly-cloudy';
-  return 'cloudy';
+// WMO weather code → detailed icon type for weather sheet
+function _wmoToIconCode(code) {
+  if (code === 0)  return 'clear';
+  if (code <= 2)   return 'partly-cloudy';
+  if (code === 3)  return 'cloudy';
+  if (code <= 48)  return 'fog';
+  if (code <= 55)  return 'drizzle';
+  if (code <= 67 || (code >= 80 && code <= 82)) return 'rain';
+  if (code <= 86)  return 'snow';
+  return 'thunder';
 }
 
-function _codeToShortLabel(code) {
-  if (code >= 200 && code < 300) return 'Stormy';
-  if (code >= 300 && code < 400) return 'Drizzle';
-  if (code === 500) return 'Light Rain';
-  if (code === 501) return 'Rain';
-  if (code >= 502 && code < 512) return 'Heavy Rain';
-  if (code >= 520 && code < 532) return 'Showers';
-  if (code >= 600 && code < 611) return 'Snow';
-  if (code >= 611 && code < 616) return 'Sleet';
-  if (code >= 620) return 'Flurries';
-  if (code === 701) return 'Mist';
-  if (code === 741) return 'Foggy';
-  if (code >= 700 && code < 800) return 'Hazy';
-  if (code === 800) return 'Clear';
-  if (code === 801) return 'Mostly Clear';
-  if (code === 802) return 'Pt. Cloudy';
-  if (code === 803) return 'Mostly Cloudy';
-  return 'Overcast';
+// WMO weather code → short label
+function _wmoToShortLabel(code) {
+  if (code === 0)  return 'Clear';
+  if (code === 1)  return 'Mostly Clear';
+  if (code === 2)  return 'Pt. Cloudy';
+  if (code === 3)  return 'Overcast';
+  if (code <= 48)  return 'Foggy';
+  if (code === 51) return 'Lt. Drizzle';
+  if (code === 53) return 'Drizzle';
+  if (code === 55) return 'Hvy. Drizzle';
+  if (code === 61) return 'Light Rain';
+  if (code === 63) return 'Rain';
+  if (code === 65) return 'Heavy Rain';
+  if (code === 71) return 'Light Snow';
+  if (code === 73) return 'Snow';
+  if (code === 75) return 'Heavy Snow';
+  if (code === 77) return 'Flurries';
+  if (code <= 82)  return 'Showers';
+  if (code <= 86)  return 'Snow Showers';
+  if (code === 95) return 'Thunderstorm';
+  return 'T-Storm';
+}
+
+// Open-Meteo returns sunrise/sunset as "2026-05-08T05:52" (already in requested timezone).
+// Parse directly without timezone conversion.
+function _formatSunTime(isoStr) {
+  if (!isoStr) return null;
+  const timePart = isoStr.split('T')[1];
+  if (!timePart) return null;
+  const [h, m] = timePart.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${suffix}`;
 }
 
 function _readCache(dateKey) {
@@ -72,28 +90,6 @@ function _writeCoords(lat, lon) {
   try { localStorage.setItem('dr-weather-coord', JSON.stringify({ lat, lon })); } catch {}
 }
 
-// Sunrise/sunset via NOAA simplified solar algorithm. Accurate to ~1 min for non-polar latitudes.
-// Returns { sunrise, sunset } as locale time strings, or null for polar day/night.
-function _sunTimes(lat, lon, dateKey, timezone) {
-  const D = Math.PI / 180;
-  const JD = new Date(dateKey + 'T12:00:00Z').getTime() / 86400000 + 2440587.5;
-  const n = Math.round(JD) - 2451545 + 0.5;
-  const Js = n - lon / 360;
-  const M = (357.5291 + 0.98560028 * Js) % 360;
-  const Mr = M * D;
-  const C = 1.9148 * Math.sin(Mr) + 0.0200 * Math.sin(2 * Mr) + 0.0003 * Math.sin(3 * Mr);
-  const lam = ((M + C + 180 + 102.9372) % 360) * D;
-  const Jnoon = 2451545 + Js + 0.0053 * Math.sin(Mr) - 0.0069 * Math.sin(2 * lam);
-  const sinDec = Math.sin(lam) * Math.sin(23.4397 * D);
-  const cosOmega = (Math.sin(-0.833 * D) - Math.sin(lat * D) * sinDec)
-    / (Math.cos(lat * D) * Math.sqrt(1 - sinDec * sinDec));
-  if (Math.abs(cosOmega) > 1) return null;
-  const omega = Math.acos(cosOmega) / D;
-  const jdToLocal = jd => new Date(Math.round((jd - 2440587.5) * 86400000))
-    .toLocaleTimeString('en-US', { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: true });
-  return { sunrise: jdToLocal(Jnoon - omega / 360), sunset: jdToLocal(Jnoon + omega / 360) };
-}
-
 function _toResult(entry) {
   if (!entry) return null;
   const { tempLabel, conditionLabel, glyph, high, low, morningGlyph, afternoonGlyph, pop,
@@ -108,94 +104,88 @@ function _isFresh(entry, isToday) {
   return Date.now() - entry.fetched < ttl;
 }
 
-function _parseCurrent(json, timezone) {
-  const dk = _todayKey(timezone);
-  if (json.coord?.lat != null) _writeCoords(json.coord.lat, json.coord.lon);
-  return {
-    dateKey: dk,
-    tempLabel: Math.round(json.main.temp) + '°',
-    conditionLabel: json.weather[0].description.replace(/\b\w/g, c => c.toUpperCase()),
-    glyph: _codeToGlyph(json.weather[0].id),
-    high: Math.round(json.main.temp_max) + '°',
-    low: Math.round(json.main.temp_min) + '°',
-  };
+export async function geocodeLocation(loc) {
+  const r = await fetch(`${OM_GEO_BASE}?name=${encodeURIComponent(loc)}&count=1&language=en&format=json`);
+  if (!r.ok) throw new Error(`Geocode ${r.status}`);
+  const j = await r.json();
+  const result = j.results?.[0];
+  if (!result) throw new Error('Location not found');
+  return { lat: result.latitude, lon: result.longitude, name: result.name,
+           region: result.admin1 || '', country: result.country_code?.toUpperCase() || '' };
 }
 
-function _parseForecast(json, timezone) {
-  const byDate = {};
-  for (const item of json.list) {
-    const dk = _dateKey(item.dt * 1000, timezone);
-    if (!byDate[dk]) byDate[dk] = [];
-    byDate[dk].push(item);
+async function _fetchAndCache(loc, timezone) {
+  let coords = _readCoords();
+  if (!coords) {
+    const geo = await geocodeLocation(loc);
+    coords = { lat: geo.lat, lon: geo.lon };
+    _writeCoords(coords.lat, coords.lon);
   }
-  return Object.entries(byDate).map(([dk, items]) => {
-    const temps = items.map(i => i.main.temp);
-    const freq = {};
-    for (const i of items) freq[i.weather[0].id] = (freq[i.weather[0].id] || 0) + 1;
-    const dominantCode = parseInt(Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0]);
-    const high = Math.round(Math.max(...temps));
 
-    const morningSlots = items.filter(i => { const h = new Date(i.dt * 1000).getUTCHours(); return h >= 6 && h < 12; });
-    const afternoonSlots = items.filter(i => { const h = new Date(i.dt * 1000).getUTCHours(); return h >= 12 && h < 18; });
-    const morningCode = morningSlots.length
-      ? morningSlots.reduce((best, i) => {
-          const bh = Math.abs(new Date(best.dt * 1000).getUTCHours() - 9);
-          const ih = Math.abs(new Date(i.dt * 1000).getUTCHours() - 9);
-          return ih < bh ? i : best;
-        }).weather[0].id
-      : dominantCode;
-    const afternoonCode = afternoonSlots.length
-      ? afternoonSlots.reduce((best, i) => {
-          const bh = Math.abs(new Date(best.dt * 1000).getUTCHours() - 15);
-          const ih = Math.abs(new Date(i.dt * 1000).getUTCHours() - 15);
-          return ih < bh ? i : best;
-        }).weather[0].id
-      : dominantCode;
-    const pop = Math.round(Math.max(...items.map(i => i.pop || 0)) * 100);
+  const url = `${OM_FORECAST_BASE}?latitude=${coords.lat}&longitude=${coords.lon}` +
+    `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
+    `&hourly=weathercode` +
+    `&temperature_unit=fahrenheit` +
+    `&timezone=${encodeURIComponent(timezone)}` +
+    `&forecast_days=5`;
 
-    return {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`OM ${r.status}`);
+  const j = await r.json();
+
+  const { daily, hourly } = j;
+
+  // Build hourly lookup: dateKey → { amCode, pmCode } (closest hour to 9am / 3pm)
+  const hourlyByDate = {};
+  for (let i = 0; i < hourly.time.length; i++) {
+    const [date, time] = hourly.time[i].split('T');
+    const hour = parseInt(time);
+    if (!hourlyByDate[date]) hourlyByDate[date] = { amDist: Infinity, pmDist: Infinity, amCode: null, pmCode: null };
+    const slot = hourlyByDate[date];
+    if (Math.abs(hour - 9) < slot.amDist)  { slot.amDist = Math.abs(hour - 9);  slot.amCode = hourly.weathercode[i]; }
+    if (Math.abs(hour - 15) < slot.pmDist) { slot.pmDist = Math.abs(hour - 15); slot.pmCode = hourly.weathercode[i]; }
+  }
+
+  for (let i = 0; i < daily.time.length; i++) {
+    const dk     = daily.time[i];
+    const code   = daily.weathercode[i];
+    const high   = Math.round(daily.temperature_2m_max[i]);
+    const low    = Math.round(daily.temperature_2m_min[i]);
+    const pop    = daily.precipitation_probability_max[i] ?? 0;
+    const sunrise = _formatSunTime(daily.sunrise[i]);
+    const sunset  = _formatSunTime(daily.sunset[i]);
+    const h      = hourlyByDate[dk] || {};
+    const amCode = h.amCode ?? code;
+    const pmCode = h.pmCode ?? code;
+
+    _writeCache(dk, {
       dateKey: dk,
       tempLabel: high + '°',
-      conditionLabel: items.find(i => i.weather[0].id === dominantCode).weather[0].description
-        .replace(/\b\w/g, c => c.toUpperCase()),
-      glyph: _codeToGlyph(dominantCode),
+      conditionLabel: _wmoToShortLabel(code),
+      glyph: _wmoToGlyph(code),
       high: high + '°',
-      low: Math.round(Math.min(...temps)) + '°',
-      morningGlyph: _codeToGlyph(morningCode),
-      afternoonGlyph: _codeToGlyph(afternoonCode),
-      morningIconCode: _codeToIconCode(morningCode),
-      morningLabel: _codeToShortLabel(morningCode),
-      afternoonIconCode: _codeToIconCode(afternoonCode),
-      afternoonLabel: _codeToShortLabel(afternoonCode),
+      low: low + '°',
+      morningGlyph:     _wmoToGlyph(amCode),
+      afternoonGlyph:   _wmoToGlyph(pmCode),
+      morningIconCode:  _wmoToIconCode(amCode),
+      morningLabel:     _wmoToShortLabel(amCode),
+      afternoonIconCode: _wmoToIconCode(pmCode),
+      afternoonLabel:   _wmoToShortLabel(pmCode),
       pop,
-    };
-  });
-}
-
-async function _fetchAndCache(loc, key, timezone) {
-  const [cr, fr] = await Promise.all([
-    fetch(`${OWM_BASE}/weather?q=${encodeURIComponent(loc)}&appid=${encodeURIComponent(key)}&units=imperial`),
-    fetch(`${OWM_BASE}/forecast?q=${encodeURIComponent(loc)}&appid=${encodeURIComponent(key)}&units=imperial&cnt=40`),
-  ]);
-  if (!cr.ok || !fr.ok) throw new Error(`OWM ${cr.status}/${fr.status}`);
-  const [cj, fj] = await Promise.all([cr.json(), fr.json()]);
-  const todayEntry = _parseCurrent(cj, timezone);
-  _writeCache(todayEntry.dateKey, todayEntry);
-  for (const entry of _parseForecast(fj, timezone)) {
-    if (entry.dateKey !== todayEntry.dateKey) _writeCache(entry.dateKey, entry);
+      sunrise,
+      sunset,
+    });
   }
 }
 
 /**
  * Fetch weather for a specific date.
- * Returns: { tempLabel, conditionLabel, glyph, high, low }
- *        | { isPast: true }
- *        | { isFuture: true }
- *        | null (no config or unrecoverable error)
+ * Returns: { tempLabel, conditionLabel, glyph, high, low, ... }
+ *        | { isPast: true } | { isFuture: true } | null
  */
 export async function fetchWeather(dateKey, settings) {
-  const { weatherLocation: loc, weatherApiKey: key, timezone } = settings || {};
-  if (!loc || !key) return null;
+  const { weatherLocation: loc, timezone } = settings || {};
+  if (!loc) return null;
 
   const today = _todayKey(timezone);
   const diff = _daysDiff(dateKey, today);
@@ -205,22 +195,17 @@ export async function fetchWeather(dateKey, settings) {
   const cached = _readCache(dateKey);
   if (_isFresh(cached, dateKey === today)) return _toResult(cached);
 
-  try {
-    await _fetchAndCache(loc, key, timezone);
-  } catch {
-    return _toResult(cached);
-  }
+  try { await _fetchAndCache(loc, timezone); } catch { return _toResult(cached); }
   return _toResult(_readCache(dateKey));
 }
 
 /**
  * Fetch 5-day forecast (today + 4) for the forecast sheet.
- * Returns array of { dateKey, tempLabel, conditionLabel, glyph, high, low }.
- * Falls back to cache on network failure.
+ * Returns array of { dateKey, ..., sunrise, sunset }.
  */
 export async function fetchForecast(settings) {
-  const { weatherLocation: loc, weatherApiKey: key, timezone } = settings || {};
-  if (!loc || !key) return [];
+  const { weatherLocation: loc, timezone } = settings || {};
+  if (!loc) return [];
 
   const today = _todayKey(timezone);
   const dates = Array.from({ length: 5 }, (_, i) => {
@@ -231,24 +216,17 @@ export async function fetchForecast(settings) {
 
   const allCached = dates.map(dk => _readCache(dk));
   if (allCached.every(Boolean) && _isFresh(allCached[0], true)) {
-    const coords = _readCoords();
-    return allCached.map((d, i) => {
-      const dk = dates[i];
-      const sun = coords ? _sunTimes(coords.lat, coords.lon, dk, timezone) : null;
-      return { ..._toResult(d), dateKey: dk, sunrise: sun?.sunrise ?? null, sunset: sun?.sunset ?? null };
-    });
+    return allCached.map((d, i) => ({
+      ..._toResult(d), dateKey: dates[i], sunrise: d.sunrise ?? null, sunset: d.sunset ?? null,
+    }));
   }
 
-  try {
-    await _fetchAndCache(loc, key, timezone);
-  } catch {}
+  try { await _fetchAndCache(loc, timezone); } catch {}
 
-  const coords = _readCoords();
   return dates.map(dk => {
     const d = _readCache(dk);
     if (!d) return null;
-    const sun = coords ? _sunTimes(coords.lat, coords.lon, dk, timezone) : null;
-    return { ..._toResult(d), dateKey: dk, sunrise: sun?.sunrise ?? null, sunset: sun?.sunset ?? null };
+    return { ..._toResult(d), dateKey: dk, sunrise: d.sunrise ?? null, sunset: d.sunset ?? null };
   }).filter(Boolean);
 }
 

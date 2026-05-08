@@ -78,7 +78,7 @@
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
-    import { clearWeatherCache } from './shared/weather.js';
+    import { clearWeatherCache, geocodeLocation } from './shared/weather.js';
     import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
@@ -2286,11 +2286,6 @@
               </div>
               <div id="sf_weatherTestResult" class="form-hint" hidden></div>
             </div>
-            <div class="form-group mt-xs">
-              <label class="form-label">OpenWeatherMap API key</label>
-              <p class="form-hint">Free at openweathermap.org — 1,000 calls/day included.</p>
-              <input class="form-input form-input--mono" id="sf_weatherApiKey" type="password" autocomplete="off" value="${esc(settings?.weatherApiKey || '')}">
-            </div>
           </div>`;
           break;
       }
@@ -4053,10 +4048,9 @@
       // ── Weather test ──
       main.querySelector('#sf_weatherTest')?.addEventListener('click', async () => {
         const loc = main.querySelector('#sf_weatherLocation')?.value.trim();
-        const key = main.querySelector('#sf_weatherApiKey')?.value.trim();
         const resultEl = main.querySelector('#sf_weatherTestResult');
-        if (!loc || !key) {
-          resultEl.textContent = '✗ Enter a location and API key first.';
+        if (!loc) {
+          resultEl.textContent = '✗ Enter a location first.';
           resultEl.className = 'form-hint form-hint--error';
           resultEl.hidden = false;
           return;
@@ -4065,18 +4059,12 @@
         resultEl.className = 'form-hint';
         resultEl.hidden = false;
         try {
-          const res = await fetch(
-            `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(loc)}&appid=${encodeURIComponent(key)}&units=imperial`
-          );
-          if (!res.ok) throw new Error(res.status);
-          const json = await res.json();
-          const temp = Math.round(json.main.temp);
-          const cond = json.weather[0].description.replace(/\b\w/g, c => c.toUpperCase());
-          resultEl.textContent = `✓ ${json.name} · ${temp}°F · ${cond}`;
+          const geo = await geocodeLocation(loc);
+          resultEl.textContent = `✓ Found: ${geo.name}${geo.region ? ', ' + geo.region : ''} (${geo.country})`;
           resultEl.className = 'form-hint form-hint--success';
           setTimeout(() => { resultEl.hidden = true; }, 10000);
-        } catch (err) {
-          resultEl.textContent = "✗ Couldn't fetch — check location and API key.";
+        } catch {
+          resultEl.textContent = "✗ Location not found — try a city name or zip code.";
           resultEl.className = 'form-hint form-hint--error';
           setTimeout(() => { resultEl.hidden = true; }, 10000);
         }
@@ -4228,10 +4216,6 @@
         const newLoc = main.querySelector('#sf_weatherLocation')?.value.trim() || '';
         if ((settings?.weatherLocation || '') !== newLoc) clearWeatherCache();
         const updated = buildSettingsUpdate({ weatherLocation: newLoc });
-        await writeSettings(updated); settings = updated; flashSaved();
-      });
-      main.querySelector('#sf_weatherApiKey')?.addEventListener('blur', async () => {
-        const updated = buildSettingsUpdate({ weatherApiKey: main.querySelector('#sf_weatherApiKey')?.value.trim() || '' });
         await writeSettings(updated); settings = updated; flashSaved();
       });
     }

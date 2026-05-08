@@ -825,7 +825,7 @@ function bindEvents() {
         }
       }
       if (which === 'weather') {
-        if (!settings?.weatherLocation || !settings?.weatherApiKey) {
+        if (!settings?.weatherLocation) {
           location.href = 'admin.html';
           return;
         }
