@@ -17,6 +17,31 @@ const WEATHER_GLYPHS = {
   fog:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="3" y1="18" x2="15" y2="18"/></svg>'
 };
 
+// Detailed icon map for weather sheet (8 condition types + sunrise/sunset).
+// Separate from WEATHER_GLYPHS which uses 5 coarser types for the ambient strip.
+const WEATHER_ICONS = {
+  'clear':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+  'partly-cloudy':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="2.5"/><path d="M9 4v1M4.87 4.87l.71.71M3.5 9h1M4.87 13.13l.71-.71M13.13 4.87l-.71.71"/><path d="M19 16a4.5 4.5 0 0 0-1.5-8.75A5.5 5.5 0 0 0 9 12a4 4 0 0 0 4 4h6z"/></svg>',
+  'cloudy':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.5-8.78A6 6 0 0 0 4 13.5 5.5 5.5 0 0 0 9.5 19h8z"/></svg>',
+  'rain':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14a4 4 0 0 0-1.5-7.75A5.5 5.5 0 0 0 4 10.5a4 4 0 0 0 4 4h9z"/><line x1="8" y1="19" x2="6.5" y2="23"/><line x1="12" y1="19" x2="10.5" y2="23"/><line x1="16" y1="19" x2="14.5" y2="23"/></svg>',
+  'drizzle':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14a4 4 0 0 0-1.5-7.75A5.5 5.5 0 0 0 4 10.5a4 4 0 0 0 4 4h9z"/><line x1="8" y1="19" x2="7.3" y2="21.2"/><line x1="12" y1="19" x2="11.3" y2="21.2"/><line x1="16" y1="19" x2="15.3" y2="21.2"/></svg>',
+  'thunder':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14a4 4 0 0 0-1.5-7.75A5.5 5.5 0 0 0 4 10.5a4 4 0 0 0 4 4h9z"/><polyline points="13 13 9.5 20 14 20 10.5 23"/></svg>',
+  'snow':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14a4 4 0 0 0-1.5-7.75A5.5 5.5 0 0 0 4 10.5a4 4 0 0 0 4 4h9z"/><circle cx="8" cy="19.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="19.5" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="19.5" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="22.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="22.5" r="1" fill="currentColor" stroke="none"/></svg>',
+  'fog':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="3" y1="18" x2="15" y2="18"/></svg>',
+  'sunrise':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/></svg>',
+  'sunset':
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="16 5 12 9 8 5"/></svg>',
+};
+
 /**
  * Render a color-button + swatch popover.
  * @param {string} selected  - hex color currently selected
@@ -2358,26 +2383,50 @@ export function renderAmbientStrip({ weather = null, dinner = null } = {}) {
   </div>`;
 }
 
+function _glyphToIconCode(glyph) {
+  const m = { sun: 'clear', cloud: 'cloudy', rain: 'rain', snow: 'snow', fog: 'fog' };
+  return m[glyph] || 'cloudy';
+}
+
+function _glyphToLabel(glyph) {
+  const m = { sun: 'Clear', cloud: 'Cloudy', rain: 'Rain', snow: 'Snow', fog: 'Foggy' };
+  return m[glyph] || 'Cloudy';
+}
+
+function _rainDrop(pop, uid) {
+  if (!pop || pop < 0) pop = 0;
+  const pct = Math.min(pop, 100) / 100;
+  // Raindrop path: viewBox 0 0 12 18, occupies y=1–17 (16 units tall)
+  const clipY = (17 - pct * 16).toFixed(1);
+  const id = `wfrd-${uid}`;
+  const col = 'var(--wf-rain,#42a5f5)';
+  const path = 'M6 1 C5 4 1 8 1 12 a5 5 0 0 0 10 0 C11 8 7 4 6 1z';
+  const fill = pct > 0
+    ? `<path d="${path}" fill="${col}" clip-path="url(#${id})"/>`
+    : '';
+  const label = pop >= 10 ? `<span class="wf-drop-pct">${pop}%</span>` : '';
+  return `<div class="wf-drop-wrap"><svg class="wf-drop-svg" viewBox="0 0 12 18" aria-hidden="true"><defs><clipPath id="${id}"><rect x="0" y="${clipY}" width="12" height="${(pct * 16).toFixed(1)}"/></clipPath></defs><path d="${path}" stroke="${col}" stroke-width="1.2" fill="none" stroke-linejoin="round"/>${fill}</svg>${label}</div>`;
+}
+
 /**
  * 5-day weather forecast bottom sheet.
- * days: Array<{ dateKey, tempLabel, conditionLabel, glyph, high, low }>
+ * days: Array<{ dateKey, high, low, pop?, morningIconCode?, morningLabel?,
+ *               afternoonIconCode?, afternoonLabel?, glyph?, sunrise?, sunset? }>
  */
 export function renderWeatherSheet(days, today, tomorrow) {
   function dayLabel(dk) {
     if (dk === today) return 'Today';
-    if (dk === tomorrow) return 'Tomorrow';
-    const d = new Date(dk + 'T12:00:00'); // noon avoids DST midnight ambiguity
-    return d.toLocaleDateString('en-US', { weekday: 'long' });
+    if (dk === tomorrow) return 'Tmrw';
+    return new Date(dk + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
   }
   function shortDate(dk) {
-    const d = new Date(dk + 'T12:00:00'); // noon avoids DST midnight ambiguity
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return new Date(dk + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   if (!days || days.length === 0) {
     return renderBottomSheet(`
       <h3 class="sheet-section-title">Weather</h3>
-      <div class="weather-sheet__rows weather-sheet__rows--empty">Could not load forecast. Check your connection.</div>
+      <div class="wf-empty">Could not load forecast. Check your connection.</div>
       <div class="sheet-actions">
         <button class="btn btn--secondary btn--full" id="weatherSheetClose" type="button">Done</button>
       </div>
@@ -2386,37 +2435,49 @@ export function renderWeatherSheet(days, today, tomorrow) {
 
   const rowsHtml = days.map(day => {
     if (!day) return '';
-    const glyph = WEATHER_GLYPHS[day.glyph] || WEATHER_GLYPHS.cloud;
-    const morningGlyph = WEATHER_GLYPHS[day.morningGlyph || day.glyph] || WEATHER_GLYPHS.cloud;
-    const afternoonGlyph = WEATHER_GLYPHS[day.afternoonGlyph || day.glyph] || WEATHER_GLYPHS.cloud;
-    const popHtml = (day.pop != null && day.pop > 0) ? `<span class="weather-row__pop">${day.pop}% precip</span>` : '';
-    return `<div class="weather-row">
-      <div class="weather-row__day">
-        <strong>${esc(dayLabel(day.dateKey))}</strong>
-        <span>${esc(shortDate(day.dateKey))}</span>
+    const isToday = day.dateKey === today;
+    const uid = day.dateKey.replace(/-/g, '');
+
+    const amCode = day.morningIconCode || _glyphToIconCode(day.morningGlyph || day.glyph);
+    const amLabel = day.morningLabel || _glyphToLabel(day.morningGlyph || day.glyph);
+    const pmCode = day.afternoonIconCode || _glyphToIconCode(day.afternoonGlyph || day.glyph);
+    const pmLabel = day.afternoonLabel || _glyphToLabel(day.afternoonGlyph || day.glyph);
+
+    const sunriseHtml = day.sunrise
+      ? `<div class="wf-sun-item">${WEATHER_ICONS.sunrise}<span class="wf-sun-time">${esc(day.sunrise)}</span></div>` : '';
+    const sunsetHtml = day.sunset
+      ? `<div class="wf-sun-item">${WEATHER_ICONS.sunset}<span class="wf-sun-time">${esc(day.sunset)}</span></div>` : '';
+
+    return `<div class="wf-row${isToday ? ' wf-row--today' : ''}">
+      <div class="wf-col--day">
+        <span class="wf-day-name">${esc(dayLabel(day.dateKey))}</span>
+        <span class="wf-day-date">${esc(shortDate(day.dateKey))}</span>
+        ${_rainDrop(day.pop ?? 0, uid)}
       </div>
-      <div class="weather-row__glyph" aria-hidden="true">${glyph}</div>
-      <div class="weather-row__data">
-        <strong>${esc(day.high)} / ${esc(day.low)}</strong>
-        <span>${esc(day.conditionLabel)}</span>
-        ${popHtml}
+      <div class="wf-col--conditions">
+        <div class="wf-period">
+          <span class="wf-period-icon" aria-hidden="true">${WEATHER_ICONS[amCode] || WEATHER_ICONS.cloudy}</span>
+          <span class="wf-period-label">AM · ${esc(amLabel)}</span>
+        </div>
+        <div class="wf-period">
+          <span class="wf-period-icon" aria-hidden="true">${WEATHER_ICONS[pmCode] || WEATHER_ICONS.cloudy}</span>
+          <span class="wf-period-label">PM · ${esc(pmLabel)}</span>
+        </div>
       </div>
-      <div class="weather-row__periods" aria-label="Morning and afternoon forecast">
-        <div class="weather-period">
-          <span class="weather-period__glyph" aria-hidden="true">${morningGlyph}</span>
-          <span class="weather-period__label">AM</span>
-        </div>
-        <div class="weather-period">
-          <span class="weather-period__glyph" aria-hidden="true">${afternoonGlyph}</span>
-          <span class="weather-period__label">PM</span>
-        </div>
+      <div class="wf-col--temp">
+        <span class="wf-temp-high">${esc(day.high)}</span>
+        <span class="wf-temp-low">${esc(day.low)}</span>
+      </div>
+      <div class="wf-col--sun">
+        ${sunriseHtml}${sunsetHtml}
+        ${!sunriseHtml && !sunsetHtml ? '<span class="wf-sun-na">—</span>' : ''}
       </div>
     </div>`;
   }).join('');
 
   return renderBottomSheet(`
     <h3 class="sheet-section-title">Weather</h3>
-    <div class="weather-sheet__rows">${rowsHtml}</div>
+    <div class="wf-rows">${rowsHtml}</div>
     <div class="sheet-actions">
       <button class="btn btn--secondary btn--full" id="weatherSheetClose" type="button">Done</button>
     </div>

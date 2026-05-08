@@ -24,6 +24,37 @@ function _codeToGlyph(code) {
   return 'cloud';
 }
 
+function _codeToIconCode(code) {
+  if (code >= 200 && code < 300) return 'thunder';
+  if (code >= 300 && code < 400) return 'drizzle';
+  if (code >= 500 && code < 600) return 'rain';
+  if (code >= 600 && code < 700) return 'snow';
+  if (code >= 700 && code < 800) return 'fog';
+  if (code === 800) return 'clear';
+  if (code === 801 || code === 802) return 'partly-cloudy';
+  return 'cloudy';
+}
+
+function _codeToShortLabel(code) {
+  if (code >= 200 && code < 300) return 'Stormy';
+  if (code >= 300 && code < 400) return 'Drizzle';
+  if (code === 500) return 'Light Rain';
+  if (code === 501) return 'Rain';
+  if (code >= 502 && code < 512) return 'Heavy Rain';
+  if (code >= 520 && code < 532) return 'Showers';
+  if (code >= 600 && code < 611) return 'Snow';
+  if (code >= 611 && code < 616) return 'Sleet';
+  if (code >= 620) return 'Flurries';
+  if (code === 701) return 'Mist';
+  if (code === 741) return 'Foggy';
+  if (code >= 700 && code < 800) return 'Hazy';
+  if (code === 800) return 'Clear';
+  if (code === 801) return 'Mostly Clear';
+  if (code === 802) return 'Pt. Cloudy';
+  if (code === 803) return 'Mostly Cloudy';
+  return 'Overcast';
+}
+
 function _readCache(dateKey) {
   try { return JSON.parse(localStorage.getItem('dr-weather-' + dateKey)); } catch { return null; }
 }
@@ -32,10 +63,42 @@ function _writeCache(dateKey, data) {
   try { localStorage.setItem('dr-weather-' + dateKey, JSON.stringify({ ...data, fetched: Date.now() })); } catch {}
 }
 
+function _readCoords() {
+  try { return JSON.parse(localStorage.getItem('dr-weather-coord')); } catch { return null; }
+}
+
+function _writeCoords(lat, lon) {
+  try { localStorage.setItem('dr-weather-coord', JSON.stringify({ lat, lon })); } catch {}
+}
+
+// Sunrise/sunset via NOAA simplified solar algorithm. Accurate to ~1 min for non-polar latitudes.
+// Returns { sunrise, sunset } as locale time strings, or null for polar day/night.
+function _sunTimes(lat, lon, dateKey, timezone) {
+  const D = Math.PI / 180;
+  const JD = new Date(dateKey + 'T12:00:00Z').getTime() / 86400000 + 2440587.5;
+  const n = Math.round(JD) - 2451545 + 0.5;
+  const Js = n - lon / 360;
+  const M = (357.5291 + 0.98560028 * Js) % 360;
+  const Mr = M * D;
+  const C = 1.9148 * Math.sin(Mr) + 0.0200 * Math.sin(2 * Mr) + 0.0003 * Math.sin(3 * Mr);
+  const lam = ((M + C + 180 + 102.9372) % 360) * D;
+  const Jnoon = 2451545 + Js + 0.0053 * Math.sin(Mr) - 0.0069 * Math.sin(2 * lam);
+  const sinDec = Math.sin(lam) * Math.sin(23.4397 * D);
+  const cosOmega = (Math.sin(-0.833 * D) - Math.sin(lat * D) * sinDec)
+    / (Math.cos(lat * D) * Math.sqrt(1 - sinDec * sinDec));
+  if (Math.abs(cosOmega) > 1) return null;
+  const omega = Math.acos(cosOmega) / D;
+  const jdToLocal = jd => new Date(Math.round((jd - 2440587.5) * 86400000))
+    .toLocaleTimeString('en-US', { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: true });
+  return { sunrise: jdToLocal(Jnoon - omega / 360), sunset: jdToLocal(Jnoon + omega / 360) };
+}
+
 function _toResult(entry) {
   if (!entry) return null;
-  const { tempLabel, conditionLabel, glyph, high, low, morningGlyph, afternoonGlyph, pop } = entry;
-  return { tempLabel, conditionLabel, glyph, high, low, morningGlyph, afternoonGlyph, pop };
+  const { tempLabel, conditionLabel, glyph, high, low, morningGlyph, afternoonGlyph, pop,
+          morningIconCode, morningLabel, afternoonIconCode, afternoonLabel } = entry;
+  return { tempLabel, conditionLabel, glyph, high, low, morningGlyph, afternoonGlyph, pop,
+           morningIconCode, morningLabel, afternoonIconCode, afternoonLabel };
 }
 
 function _isFresh(entry, isToday) {
@@ -45,6 +108,7 @@ function _isFresh(entry, isToday) {
 
 function _parseCurrent(json, timezone) {
   const dk = _todayKey(timezone);
+  if (json.coord?.lat != null) _writeCoords(json.coord.lat, json.coord.lon);
   return {
     dateKey: dk,
     tempLabel: Math.round(json.main.temp) + '°',
@@ -97,6 +161,10 @@ function _parseForecast(json, timezone) {
       low: Math.round(Math.min(...temps)) + '°',
       morningGlyph: _codeToGlyph(morningCode),
       afternoonGlyph: _codeToGlyph(afternoonCode),
+      morningIconCode: _codeToIconCode(morningCode),
+      morningLabel: _codeToShortLabel(morningCode),
+      afternoonIconCode: _codeToIconCode(afternoonCode),
+      afternoonLabel: _codeToShortLabel(afternoonCode),
       pop,
     };
   });
@@ -161,16 +229,24 @@ export async function fetchForecast(settings) {
 
   const allCached = dates.map(dk => _readCache(dk));
   if (allCached.every(Boolean) && _isFresh(allCached[0], true)) {
-    return allCached.map((d, i) => ({ ..._toResult(d), dateKey: dates[i] }));
+    const coords = _readCoords();
+    return allCached.map((d, i) => {
+      const dk = dates[i];
+      const sun = coords ? _sunTimes(coords.lat, coords.lon, dk, timezone) : null;
+      return { ..._toResult(d), dateKey: dk, sunrise: sun?.sunrise ?? null, sunset: sun?.sunset ?? null };
+    });
   }
 
   try {
     await _fetchAndCache(loc, key, timezone);
   } catch {}
 
+  const coords = _readCoords();
   return dates.map(dk => {
     const d = _readCache(dk);
-    return d ? { ..._toResult(d), dateKey: dk } : null;
+    if (!d) return null;
+    const sun = coords ? _sunTimes(coords.lat, coords.lon, dk, timezone) : null;
+    return { ..._toResult(d), dateKey: dk, sunrise: sun?.sunrise ?? null, sunset: sun?.sunset ?? null };
   }).filter(Boolean);
 }
 
