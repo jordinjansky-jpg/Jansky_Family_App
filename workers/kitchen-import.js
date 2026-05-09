@@ -27,6 +27,10 @@ INGREDIENT NAME RULES:
 - Keep modifiers that change the SKU: "extra virgin olive oil" stays as is; "diced tomatoes" stays as is (canned, different from fresh tomatoes); "boneless skinless chicken breast" stays as is.
 - Lowercase the first letter unless it's a brand name.
 
+QUANTITY RULES:
+- Keep mixed fractions together in qty: "1 1/4 tsp" not "1" + "1/4 tsp". The qty field is the full amount with unit.
+- Ingredient name is only the bare grocery item — never the unit.
+
 Return JSON:
 {
   "name": "recipe name or null",
@@ -657,6 +661,7 @@ async function handleUrl(url, env, corsHeaders) {
 
   let extractedText = '';
   let fallbackTitle = '';
+  let ogImage = '';
 
   if (isTikTokUrl(url)) {
     const tt = await extractTikTokContent(url);
@@ -677,6 +682,7 @@ async function handleUrl(url, env, corsHeaders) {
       const html = await res.text();
       const meta = extractMetadata(html);
       fallbackTitle = fallbackTitle || meta.ogTitle || meta.title || '';
+      ogImage = ogImage || meta.ogImage || '';
       const metaText = [
         meta.title && `Title: ${meta.title}`,
         meta.ogTitle && meta.ogTitle !== meta.title && `og:title: ${meta.ogTitle}`,
@@ -705,7 +711,7 @@ async function handleUrl(url, env, corsHeaders) {
     if (parsed.error && !ingredients.length && !parsed.name) {
       return partialResp({ name: fallbackTitle });
     }
-    return jsonOk({ url, name, ingredients, notes }, corsHeaders);
+    return jsonOk({ url, name, ingredients, notes, imageUrl: ogImage }, corsHeaders);
   } catch {
     return partialResp({ name: fallbackTitle });
   }

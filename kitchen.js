@@ -635,32 +635,46 @@ function openRecipeDetailSheet(recipeId) {
   const TRASH_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
   const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
+  const metaChips = [
+    recipe.prepTime   ? `<span class="rd-meta-chip">${esc(recipe.prepTime)}</span>` : '',
+    recipe.servings   ? `<span class="rd-meta-chip">Serves ${recipe.servings}</span>` : '',
+    recipe.difficulty ? `<span class="rd-meta-chip">${esc(recipe.difficulty)}</span>` : '',
+  ].filter(Boolean).join('');
+
+  let sourceDomain = '';
+  if (recipe.url) { try { sourceDomain = new URL(recipe.url).hostname.replace(/^www\./, ''); } catch {} }
+
+  const ingredientRows = (recipe.ingredients || []).map(i =>
+    `<span class="rd-ing-qty">${esc(i.qty || '')}</span><span class="rd-ing-name">${esc(i.name || '')}</span>`
+  ).join('');
+
   mount.innerHTML = renderBottomSheet(`
+    ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy"/></div>` : ''}
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(recipe.name)}</h2>
       <div class="rf-header-actions">
-        ${recipe.url ? `<a class="ef2-icon-btn" href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open link">${LINK_SVG}</a>` : ''}
-        <button class="ef2-icon-btn rf-delete-btn" id="deleteRecipeBtn" aria-label="Delete recipe" type="button">${TRASH_SVG}</button>
-        <button class="ef2-icon-btn" id="editRecipeBtn" aria-label="Edit recipe" type="button">${PENCIL_SVG}</button>
+        ${recipe.url ? `<a class="ef2-icon-btn" href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open recipe">${LINK_SVG}</a>` : ''}
+        <button class="ef2-icon-btn rf-delete-btn" id="deleteRecipeBtn" aria-label="Delete" type="button">${TRASH_SVG}</button>
+        <button class="ef2-icon-btn" id="editRecipeBtn" aria-label="Edit" type="button">${PENCIL_SVG}</button>
         <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">${CLOSE_SVG}</button>
       </div>
     </div>
-    <div class="me-detail__chips">
-      <button class="chip" id="planThisMealBtn" type="button">Plan this meal</button>
-      ${hasIngredients ? `<button class="chip" id="addToListBtn" type="button">Add to list</button>` : ''}
-    </div>
+    ${metaChips ? `<div class="rd-meta">${metaChips}</div>` : ''}
+    ${sourceDomain ? `<p class="rd-source">from ${esc(sourceDomain)}</p>` : ''}
+    ${recipe.notes ? `
+      <details class="rd-chef-notes" open>
+        <summary class="rd-chef-notes__label">Chef's notes</summary>
+        <p class="rd-chef-notes__body">${esc(recipe.notes)}</p>
+      </details>` : ''}
     ${hasIngredients ? `
       <div class="me-detail__section">
         <span class="me-detail__section-label">Ingredients</span>
-        <ul class="me-detail__ingredients">
-          ${recipe.ingredients.map(i => `<li>${i.qty ? `<span class="me-detail__ing-qty">${esc(i.qty)}</span>` : ''}<span>${esc(i.name || '')}</span></li>`).join('')}
-        </ul>
+        <div class="rd-ingredients">${ingredientRows}</div>
       </div>` : ''}
-    ${recipe.notes ? `
-      <div class="me-detail__section">
-        <span class="me-detail__section-label">Notes</span>
-        <p class="me-detail__notes">${esc(recipe.notes)}</p>
-      </div>` : ''}`);
+    <div class="sheet__footer">
+      ${hasIngredients ? `<button class="btn btn--primary" id="addToListBtn" type="button">Add to list</button>` : ''}
+      <button class="btn btn--ghost" id="planThisMealBtn" type="button">Plan this meal</button>
+    </div>`);
   activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
@@ -949,6 +963,7 @@ const RECIPE_SITES = [
 function openRecipeForm(recipeId, onSave = null) {
   const existing = recipeId ? recipes[recipeId] : null;
   const ingredients = existing?.ingredients ? [...existing.ingredients] : [];
+  let imageUrl = existing?.imageUrl || '';
 
   const mount = document.getElementById('sheetMount');
 
@@ -995,6 +1010,28 @@ function openRecipeForm(recipeId, onSave = null) {
       <button class="ef2-icon-btn" id="kr_photo" type="button" aria-label="Import from photo">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
+    </div>
+
+    <div class="kr-section kr-meta-row">
+      <label class="field">
+        <span class="field__label">Prep time</span>
+        <input id="recipePrepTime" type="text" class="field__input" placeholder="30 min"
+          value="${esc(existing?.prepTime || '')}" autocomplete="off">
+      </label>
+      <label class="field">
+        <span class="field__label">Serves</span>
+        <input id="recipeServings" type="number" class="field__input" min="1" max="99" placeholder="4"
+          value="${existing?.servings || ''}" autocomplete="off">
+      </label>
+      <label class="field">
+        <span class="field__label">Difficulty</span>
+        <select id="recipeDifficulty" class="field__input">
+          <option value="">—</option>
+          <option value="Easy"${existing?.difficulty === 'Easy' ? ' selected' : ''}>Easy</option>
+          <option value="Medium"${existing?.difficulty === 'Medium' ? ' selected' : ''}>Medium</option>
+          <option value="Hard"${existing?.difficulty === 'Hard' ? ' selected' : ''}>Hard</option>
+        </select>
+      </label>
     </div>
 
     <div class="kr-section">
@@ -1106,6 +1143,7 @@ function openRecipeForm(recipeId, onSave = null) {
       if (data.notes && !document.getElementById('recipeNotes').value) {
         document.getElementById('recipeNotes').value = data.notes;
       }
+      if (data.imageUrl && !imageUrl) imageUrl = data.imageUrl;
       if (data.ingredients?.length) {
         data.ingredients.forEach(ing => {
           if (!ing.name) return;
@@ -1218,6 +1256,10 @@ function openRecipeForm(recipeId, onSave = null) {
       ingredients,
       isFavorite: existing?.isFavorite || false,
       lastUsed: existing?.lastUsed || null,
+      prepTime: document.getElementById('recipePrepTime')?.value.trim() || null,
+      servings: parseInt(document.getElementById('recipeServings')?.value, 10) || null,
+      difficulty: document.getElementById('recipeDifficulty')?.value || null,
+      imageUrl: imageUrl || null,
     };
 
     if (recipeId) {

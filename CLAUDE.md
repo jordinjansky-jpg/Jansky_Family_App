@@ -257,7 +257,16 @@ Family activity tracker — shared library of optional activities (walk, read, j
 
 **1.8 — Kitchen Hub** · Mostly shipped · In progress
 
-kitchen.html / kitchen.js — combined hub (Lists, Recipes, Staples, Plan) superseding both 1.3 Meal Planning and 1.7 Shopping Lists. **What's shipped:** list CRUD with AI auto-categorize, recipe library (URL field + link icons), staples with star/long-press-edit, bulk-add FAB, 7-day meal look-ahead, plan-a-meal sheet. **What's pending:** redeploy Worker with `url` + `screenshot` handlers (fills name + all ingredients with qty from recipe pages); school-lunch-2 slot display in week view plan; add-from-recipe shortcut to shopping list.
+kitchen.html / kitchen.js — combined hub (Lists, Recipes, Staples, Plan) superseding both 1.3 Meal Planning and 1.7 Shopping Lists. **What's shipped:** list CRUD with AI auto-categorize, recipe library (URL field + link icons), staples with star/long-press-edit, bulk-add FAB, 7-day meal look-ahead, plan-a-meal sheet, recipe detail redesign (hero image, two-column ingredients, metadata chips, chef's notes, primary CTA). **What's pending:** school-lunch-2 slot display in week view plan; add-from-recipe shortcut to shopping list; dashboard.js `openRecipeForm` needs the same prepTime/servings/difficulty/imageUrl fields added (currently only in kitchen.js).
+
+**1.8a — Recipe polish (backlog)** · Low-Medium each
+
+- **Servings scaler** — tap Serves chip in detail view to change serving count; all qty amounts re-calculate in real time. Requires fraction-aware math (e.g. "1 1/4 cup" × 1.5 = "1 7/8 cup"). Likely needs a small fraction library or custom reducer.
+- **Cook mode** — full-screen step-by-step view: large text, screen-stay-on (`WakeLock API`), built-in timer per step. Premium differentiator vs generic meal planners. Reuses `shared/timer.js` (built in 1.6 Activities).
+- **Pantry awareness** — mark items as "always stocked" (olive oil, garlic, salt); strike through in ingredient list; "Add to list" skips stocked items. Schema: `kitchen/pantry/{itemName}: true`.
+- **Family ratings** — after cooking, rate the meal (1–5 stars) + short note ("Lexi loved it"). Stored on `mealLibrary/{id}/ratings: [{personId, stars, note, date}]`. Surfaces in recipe detail as "Last made: ⭐⭐⭐⭐ May 3rd".
+- **Photo storage for manually-entered recipes** — currently photos are AI-only (not stored). Add resized thumbnail storage: convert to 640px JPEG in browser, store as base64 in `imageUrl` field. ~15KB per recipe, acceptable for RTDB.
+- **Recipe source attribution** — already partially implemented (sourceDomain in detail view). Extend: show favicon, link styled as "from allrecipes.com" chip.
 
 ---
 
