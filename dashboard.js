@@ -6,7 +6,7 @@ import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTas
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
-import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD } from './shared/state.js';
+import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
 import { bindTaskRowGesture } from './shared/dom-helpers.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
@@ -207,7 +207,7 @@ async function render() {
   const showTodIconBoth   = _dp.showTodIconBoth   !== undefined ? !!_dp.showTodIconBoth   : !!settings?.showTodIconBoth;
   const showTodIconSingle = _dp.showTodIconSingle !== undefined ? !!_dp.showTodIconSingle : !!settings?.showTodIconSingle;
   const avatarStyle   = _dp.avatarStyle   || settings?.avatarStyle   || 'tab';
-  const taskGrouping  = _dp.taskGrouping  || settings?.taskGrouping  || 'sections';
+  const taskGrouping  = normalizeTaskGrouping(_dp.taskGrouping || settings?.taskGrouping);
   // Filter out event schedule entries (type: 'event') — real events come from events collection
   let displayEntries = {};
   for (const [key, entry] of Object.entries(viewEntries)) {
@@ -491,17 +491,33 @@ async function render() {
       });
     };
 
-    if (taskGrouping === 'sections') {
-      const groups = groupBySectionsTOD(sortedAll, people, tasks);
-      for (const { person, am, anytime, pm } of groups) {
+    if (taskGrouping === 'minimal') {
+      // Flat sorted list, no headers.
+      for (const [entryKey, entry] of sortedAll) {
+        html += renderCard(entryKey, entry);
+      }
+    } else {
+      // 'grouped' and 'focus' both group by person → AM/Anytime/PM. They differ
+      // only in where completed entries land:
+      //   grouped → per-person Completed section at the end of each person
+      //   focus   → one shared Completed section at the very bottom
+      const groups = groupBySectionsTOD(sortedAll, people, tasks, completions);
+      const pooledCompleted = [];
+      for (const { person, am, anytime, pm, completed } of groups) {
         html += renderPersonHeader(person?.name || '?', person?.color);
         if (am.length)      { html += renderTimeHeader('Morning');   for (const [ek, en] of am)      html += renderCard(ek, en); }
         if (anytime.length) { html += renderTimeHeader('Anytime');   for (const [ek, en] of anytime) html += renderCard(ek, en); }
         if (pm.length)      { html += renderTimeHeader('Afternoon'); for (const [ek, en] of pm)      html += renderCard(ek, en); }
+        if (taskGrouping === 'grouped' && completed.length) {
+          html += renderTimeHeader(`Completed (${completed.length})`);
+          for (const [ek, en] of completed) html += renderCard(ek, en);
+        } else if (taskGrouping === 'focus') {
+          for (const pair of completed) pooledCompleted.push(pair);
+        }
       }
-    } else {
-      for (const [entryKey, entry] of sortedAll) {
-        html += renderCard(entryKey, entry);
+      if (taskGrouping === 'focus' && pooledCompleted.length) {
+        html += renderTimeHeader(`Completed (${pooledCompleted.length})`);
+        for (const [ek, en] of pooledCompleted) html += renderCard(ek, en);
       }
     }
     html += `</section>`;

@@ -4,6 +4,7 @@
 
 import { escapeHtml, formatDateShort } from './utils.js';
 import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig, applyTaskDisplayPrefs, applyTextSize } from './theme.js';
+import { normalizeTaskGrouping } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -1718,8 +1719,10 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
 
   const personTextSize = dispPref.textSize || dispDef.textSize || 'default';
   const currentAvatarStyle = dispPref.avatarStyle || dispDef.avatarStyle || 'tab';
-  const currentTaskGrouping = dispPref.taskGrouping || dispDef.taskGrouping || 'sections';
-  const sectionsNudgeVisible = currentTaskGrouping === 'sections' && (currentAvatarStyle === 'tab' || currentAvatarStyle === 'circle');
+  const currentTaskGrouping = normalizeTaskGrouping(dispPref.taskGrouping || dispDef.taskGrouping);
+  // Nudge applies to any grouped layout (Grouped or Focus) — both put owner color
+  // adjacent to a person header, where bold avatar styles get redundant.
+  const sectionsNudgeVisible = (currentTaskGrouping === 'grouped' || currentTaskGrouping === 'focus') && (currentAvatarStyle === 'tab' || currentAvatarStyle === 'circle');
   const avatarStyleLabels = { tab: 'Tab', circle: 'Circle', edge: 'Edge', 'edge-initial': 'Edge+I', hidden: 'Hidden' };
   const avatarPreviewHtml = (style) => {
     const inner = {
@@ -1764,14 +1767,15 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
       <div class="av-picker" id="dt_avatarStyle">
         ${['tab','circle','edge','edge-initial','hidden'].map(style => `<button type="button" class="av-card${currentAvatarStyle === style ? ' av-card--active' : ''}" data-style="${style}">${avatarPreviewHtml(style)}<span class="av-label">${avatarStyleLabels[style]}</span></button>`).join('')}
       </div>
-      <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Sections mode.</p>
+      <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Grouped/Focus modes.</p>
       <div class="form-group mt-sm">
         <label class="form-label">Grouping</label>
         <div class="segmented-control" id="dt_taskGrouping">
-          <button type="button" class="segmented-btn${currentTaskGrouping === 'icons'    ? ' segmented-btn--active' : ''}" data-grouping="icons">Icons</button>
-          <button type="button" class="segmented-btn${currentTaskGrouping === 'sections' ? ' segmented-btn--active' : ''}" data-grouping="sections">Sections</button>
+          <button type="button" class="segmented-btn${currentTaskGrouping === 'minimal' ? ' segmented-btn--active' : ''}" data-grouping="minimal">Minimal</button>
+          <button type="button" class="segmented-btn${currentTaskGrouping === 'grouped' ? ' segmented-btn--active' : ''}" data-grouping="grouped">Grouped</button>
+          <button type="button" class="segmented-btn${currentTaskGrouping === 'focus'   ? ' segmented-btn--active' : ''}" data-grouping="focus">Focus</button>
         </div>
-        <p class="form-hint mt-xs">Sections groups by person → AM → Anytime → PM.</p>
+        <p class="form-hint mt-xs">Grouped = per-person, with each person's Completed at the end. Focus = per-person, with one shared Completed at the bottom.</p>
       </div>
       <div class="dt-toggle-row mt-sm">
         <span class="dt-toggle-row__label">Show AM/PM icons</span>
@@ -1884,8 +1888,8 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
       const nudge = mountEl.querySelector('#dt_sectionsNudge');
       if (!nudge) return;
       const style    = mountEl.querySelector('#dt_avatarStyle .av-card--active')?.dataset.style || 'tab';
-      const grouping = mountEl.querySelector('#dt_taskGrouping .segmented-btn--active')?.dataset.grouping || 'sections';
-      nudge.style.display = (grouping === 'sections' && (style === 'tab' || style === 'circle')) ? '' : 'none';
+      const grouping = mountEl.querySelector('#dt_taskGrouping .segmented-btn--active')?.dataset.grouping || 'grouped';
+      nudge.style.display = ((grouping === 'grouped' || grouping === 'focus') && (style === 'tab' || style === 'circle')) ? '' : 'none';
     };
 
     // Avatar style picker

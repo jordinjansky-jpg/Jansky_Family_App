@@ -74,6 +74,7 @@
     import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
+    import { normalizeTaskGrouping } from './shared/state.js';
     import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
@@ -2204,10 +2205,11 @@
             <div class="form-group mt-xs">
               <label class="form-label">Task grouping (family default)</label>
               <div class="segmented-control" id="sf_taskGrouping">
-                <button type="button" class="segmented-btn${settings?.taskGrouping === 'icons' ? ' segmented-btn--active' : ''}" data-grouping="icons">Icons</button>
-                <button type="button" class="segmented-btn${(settings?.taskGrouping || 'sections') === 'sections' ? ' segmented-btn--active' : ''}" data-grouping="sections">Sections</button>
+                <button type="button" class="segmented-btn${normalizeTaskGrouping(settings?.taskGrouping) === 'minimal' ? ' segmented-btn--active' : ''}" data-grouping="minimal">Minimal</button>
+                <button type="button" class="segmented-btn${normalizeTaskGrouping(settings?.taskGrouping) === 'grouped' ? ' segmented-btn--active' : ''}" data-grouping="grouped">Grouped</button>
+                <button type="button" class="segmented-btn${normalizeTaskGrouping(settings?.taskGrouping) === 'focus'   ? ' segmented-btn--active' : ''}" data-grouping="focus">Focus</button>
               </div>
-              <p class="form-hint mt-xs">Sections groups tasks by person → AM → Anytime → PM.</p>
+              <p class="form-hint mt-xs">Grouped = per-person, Completed at end of each person. Focus = per-person, one shared Completed at the bottom. Minimal = flat list.</p>
             </div>
             <div class="admin-toggle-row mt-xs">
               <span class="admin-toggle-row__label">Show estimated duration on task cards</span>
@@ -4186,7 +4188,7 @@
           showDuration:  !!main.querySelector('#sf_showDuration')?.checked,
           showPoints:    !!main.querySelector('#sf_showPoints')?.checked,
           avatarStyle:   main.querySelector('#sf_avatarStyle')?.value || 'tab',
-          taskGrouping:  main.querySelector('#sf_taskGrouping .segmented-btn--active')?.dataset.grouping || 'sections',
+          taskGrouping:  main.querySelector('#sf_taskGrouping .segmented-btn--active')?.dataset.grouping || 'grouped',
         });
         await writeSettings(updated); syncSettings(updated);
         applyTaskDisplayPrefs(updated);

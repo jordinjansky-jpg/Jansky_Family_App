@@ -203,24 +203,32 @@ export function sortEntries(entries, completions, tasks = null, people = null, t
 }
 
 /**
- * Group sorted entries into Sections layout: per-person, then by time-of-day bucket.
- * Pure data — caller renders the headers + cards.
+ * Group sorted entries into per-person, per-time-of-day buckets.
+ * Pure data — caller renders headers + cards and decides where completed entries land.
  *
  * Person order follows the `people` array (matches sortEntries owner ranking).
  * TOD bucket falls back to the task's own timeOfDay, then 'anytime'.
+ * Completed entries (per `completions`) are split into a separate `completed` bucket
+ * so callers can either render them per-person ('Grouped' mode) or pool them across
+ * everyone at the bottom ('Focus' mode).
  *
  * @param {Array<[string, object]>} sortedEntries - From sortEntries(). Pre-sorted [entryKey, entry] pairs.
  * @param {Array} people - People array; order defines person ordering.
  * @param {object} tasks - { taskId: task } — used to resolve timeOfDay fallback.
- * @returns {Array<{ person, am: Array, anytime: Array, pm: Array }>} Person groups in people-array order.
+ * @param {object} [completions] - { entryKey: completionRecord }. Omit to keep all entries in TOD buckets.
+ * @returns {Array<{ person, am: Array, anytime: Array, pm: Array, completed: Array }>}
  */
-export function groupBySectionsTOD(sortedEntries, people, tasks) {
+export function groupBySectionsTOD(sortedEntries, people, tasks, completions) {
   const personOrder = (people || []).map(p => p.id);
   const personMap = new Map();
   for (const [entryKey, entry] of (sortedEntries || [])) {
     const pid = entry.ownerId;
     if (!personMap.has(pid)) {
-      personMap.set(pid, { person: people?.find(p => p.id === pid), am: [], anytime: [], pm: [] });
+      personMap.set(pid, { person: people?.find(p => p.id === pid), am: [], anytime: [], pm: [], completed: [] });
+    }
+    if (completions && completions[entryKey]) {
+      personMap.get(pid).completed.push([entryKey, entry]);
+      continue;
     }
     const tod = entry.timeOfDay || tasks?.[entry.taskId]?.timeOfDay || 'anytime';
     const bucket = tod === 'am' ? 'am' : tod === 'pm' ? 'pm' : 'anytime';
@@ -229,6 +237,19 @@ export function groupBySectionsTOD(sortedEntries, people, tasks) {
   return [...personMap.entries()]
     .sort(([a], [b]) => personOrder.indexOf(a) - personOrder.indexOf(b))
     .map(([, group]) => group);
+}
+
+/**
+ * Normalize a saved taskGrouping value to a current key.
+ * Renames in 2026-05: 'icons' → 'minimal', 'sections' → 'grouped'.
+ * New mode 'focus' has no legacy alias.
+ * Empty/unknown falls back to the default ('grouped').
+ */
+export function normalizeTaskGrouping(value) {
+  if (value === 'icons') return 'minimal';
+  if (value === 'sections') return 'grouped';
+  if (value === 'minimal' || value === 'grouped' || value === 'focus') return value;
+  return 'grouped';
 }
 
 // ── Event helpers ────────────────────────────────────────────────────────────
