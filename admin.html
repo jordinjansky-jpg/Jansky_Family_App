@@ -2438,6 +2438,11 @@
           </div>
         </div>
 
+        <h3 class="admin-form__title mt-lg">Refresh Recipes from URLs</h3>
+        <p class="form-hint mb-md">Re-fetches each recipe that has a URL and fills in any missing fields (image, prep time, servings, difficulty, ingredients). Existing data is never overwritten.</p>
+        <button class="btn btn--secondary" id="refreshRecipesBtn" type="button">Refresh recipes</button>
+        <div id="refreshRecipesStatus" class="mt-sm" style="display:none;"></div>
+
         <h3 class="admin-form__title mt-lg">Factory Reset</h3>
         <p class="form-hint mb-md">Permanently delete ALL data under rundown/ and return to the setup wizard. This cannot be undone.</p>
         <div id="resetSection">
@@ -4386,6 +4391,57 @@
       main.querySelector('#resetCancel')?.addEventListener('click', () => {
         main.querySelector('#resetConfirm').style.display = 'none';
         main.querySelector('#resetSection').style.display = '';
+      });
+
+      main.querySelector('#refreshRecipesBtn')?.addEventListener('click', async () => {
+        const btn = main.querySelector('#refreshRecipesBtn');
+        const statusEl = main.querySelector('#refreshRecipesStatus');
+        const WORKER = 'https://kitchen-import.jordin-jansky.workers.dev';
+
+        btn.disabled = true;
+        btn.textContent = 'Refreshing…';
+        statusEl.style.display = 'none';
+
+        const recipes = await readOnce('kitchen/recipes');
+        if (!recipes) {
+          btn.disabled = false;
+          btn.textContent = 'Refresh recipes';
+          return;
+        }
+
+        const entries = Object.entries(recipes).filter(([, r]) => r.url);
+        let updated = 0;
+
+        for (const [id, recipe] of entries) {
+          try {
+            const res = await fetch(WORKER, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'url', input: recipe.url }),
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const patch = {};
+            if (!recipe.name        && data.name)        patch.name        = data.name;
+            if (!recipe.notes       && data.notes)       patch.notes       = data.notes;
+            if (!recipe.imageUrl    && data.imageUrl)    patch.imageUrl    = data.imageUrl;
+            if (!recipe.prepTime    && data.prepTime)    patch.prepTime    = data.prepTime;
+            if (!recipe.servings    && data.servings)    patch.servings    = data.servings;
+            if (!recipe.difficulty  && data.difficulty)  patch.difficulty  = data.difficulty;
+            if ((!recipe.ingredients || recipe.ingredients.length === 0) && data.ingredients?.length) {
+              patch.ingredients = data.ingredients.filter(i => i.name).map(i => ({ name: i.name, qty: i.qty || null }));
+            }
+            if (Object.keys(patch).length) {
+              await updateData(`kitchen/recipes/${id}`, patch);
+              updated++;
+            }
+          } catch { /* skip on error */ }
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Refresh recipes';
+        statusEl.textContent = `Done — ${updated} recipe${updated !== 1 ? 's' : ''} updated.`;
+        statusEl.style.display = 'block';
       });
 
       const resetWord = main.querySelector('#resetWord');
