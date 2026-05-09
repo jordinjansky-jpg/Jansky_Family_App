@@ -1697,7 +1697,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
 
   const personTextSize = dispPref.textSize || dispDef.textSize || 'default';
   const currentAvatarStyle = dispPref.avatarStyle || dispDef.avatarStyle || 'tab';
-  const currentTaskGrouping = dispPref.taskGrouping || dispDef.taskGrouping || 'icons';
+  const currentTaskGrouping = dispPref.taskGrouping || dispDef.taskGrouping || 'sections';
   const sectionsNudgeVisible = currentTaskGrouping === 'sections' && (currentAvatarStyle === 'tab' || currentAvatarStyle === 'circle');
   const avatarStyleLabels = { tab: 'Tab', circle: 'Circle', edge: 'Edge', 'edge-initial': 'Edge+I', hidden: 'Hidden' };
   const avatarPreviewHtml = (style) => {
@@ -1842,7 +1842,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
       const nudge = mountEl.querySelector('#dt_sectionsNudge');
       if (!nudge) return;
       const style    = mountEl.querySelector('#dt_avatarStyle .av-card--active')?.dataset.style || 'tab';
-      const grouping = mountEl.querySelector('#dt_taskGrouping .segmented-btn--active')?.dataset.grouping || 'icons';
+      const grouping = mountEl.querySelector('#dt_taskGrouping .segmented-btn--active')?.dataset.grouping || 'sections';
       nudge.style.display = (grouping === 'sections' && (style === 'tab' || style === 'circle')) ? '' : 'none';
     };
 

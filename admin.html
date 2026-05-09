@@ -2195,8 +2195,8 @@
             <div class="form-group mt-xs">
               <label class="form-label">Task grouping (family default)</label>
               <div class="segmented-control" id="sf_taskGrouping">
-                <button type="button" class="segmented-btn${(settings?.taskGrouping || 'icons') === 'icons' ? ' segmented-btn--active' : ''}" data-grouping="icons">Icons</button>
-                <button type="button" class="segmented-btn${settings?.taskGrouping === 'sections' ? ' segmented-btn--active' : ''}" data-grouping="sections">Sections</button>
+                <button type="button" class="segmented-btn${settings?.taskGrouping === 'icons' ? ' segmented-btn--active' : ''}" data-grouping="icons">Icons</button>
+                <button type="button" class="segmented-btn${(settings?.taskGrouping || 'sections') === 'sections' ? ' segmented-btn--active' : ''}" data-grouping="sections">Sections</button>
               </div>
               <p class="form-hint mt-xs">Sections groups tasks by person → AM → Anytime → PM.</p>
             </div>
@@ -4177,7 +4177,7 @@
           showDuration:  !!main.querySelector('#sf_showDuration')?.checked,
           showPoints:    !!main.querySelector('#sf_showPoints')?.checked,
           avatarStyle:   main.querySelector('#sf_avatarStyle')?.value || 'tab',
-          taskGrouping:  main.querySelector('#sf_taskGrouping .segmented-btn--active')?.dataset.grouping || 'icons',
+          taskGrouping:  main.querySelector('#sf_taskGrouping .segmented-btn--active')?.dataset.grouping || 'sections',
         });
         await writeSettings(updated); settings = updated;
         applyTaskDisplayPrefs(updated);

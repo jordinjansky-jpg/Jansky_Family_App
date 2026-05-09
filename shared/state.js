@@ -202,6 +202,35 @@ export function sortEntries(entries, completions, tasks = null, people = null, t
   });
 }
 
+/**
+ * Group sorted entries into Sections layout: per-person, then by time-of-day bucket.
+ * Pure data — caller renders the headers + cards.
+ *
+ * Person order follows the `people` array (matches sortEntries owner ranking).
+ * TOD bucket falls back to the task's own timeOfDay, then 'anytime'.
+ *
+ * @param {Array<[string, object]>} sortedEntries - From sortEntries(). Pre-sorted [entryKey, entry] pairs.
+ * @param {Array} people - People array; order defines person ordering.
+ * @param {object} tasks - { taskId: task } — used to resolve timeOfDay fallback.
+ * @returns {Array<{ person, am: Array, anytime: Array, pm: Array }>} Person groups in people-array order.
+ */
+export function groupBySectionsTOD(sortedEntries, people, tasks) {
+  const personOrder = (people || []).map(p => p.id);
+  const personMap = new Map();
+  for (const [entryKey, entry] of (sortedEntries || [])) {
+    const pid = entry.ownerId;
+    if (!personMap.has(pid)) {
+      personMap.set(pid, { person: people?.find(p => p.id === pid), am: [], anytime: [], pm: [] });
+    }
+    const tod = entry.timeOfDay || tasks?.[entry.taskId]?.timeOfDay || 'anytime';
+    const bucket = tod === 'am' ? 'am' : tod === 'pm' ? 'pm' : 'anytime';
+    personMap.get(pid)[bucket].push([entryKey, entry]);
+  }
+  return [...personMap.entries()]
+    .sort(([a], [b]) => personOrder.indexOf(a) - personOrder.indexOf(b))
+    .map(([, group]) => group);
+}
+
 // ── Event helpers ────────────────────────────────────────────────────────────
 // Events are a first-class data type stored separately from schedule entries.
 // Event objects: { name, date, allDay, startTime, endTime, color, people[], location, notes, url }

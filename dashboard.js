@@ -6,7 +6,7 @@ import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTas
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
-import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
+import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD } from './shared/state.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
@@ -244,7 +244,7 @@ async function render() {
   const showTodIconBoth   = _dp.showTodIconBoth   !== undefined ? !!_dp.showTodIconBoth   : !!settings?.showTodIconBoth;
   const showTodIconSingle = _dp.showTodIconSingle !== undefined ? !!_dp.showTodIconSingle : !!settings?.showTodIconSingle;
   const avatarStyle   = _dp.avatarStyle   || settings?.avatarStyle   || 'tab';
-  const taskGrouping  = _dp.taskGrouping  || settings?.taskGrouping  || 'icons';
+  const taskGrouping  = _dp.taskGrouping  || settings?.taskGrouping  || 'sections';
   // Filter out event schedule entries (type: 'event') — real events come from events collection
   let displayEntries = {};
   for (const [key, entry] of Object.entries(viewEntries)) {
@@ -529,18 +529,8 @@ async function render() {
     };
 
     if (taskGrouping === 'sections') {
-      // Group by person (in people array order), then by TOD bucket (am / anytime / pm).
-      const personOrder = people.map(p => p.id);
-      const personMap = new Map();
-      for (const [entryKey, entry] of sortedAll) {
-        const pid = entry.ownerId;
-        if (!personMap.has(pid)) personMap.set(pid, { person: people.find(p => p.id === pid), am: [], anytime: [], pm: [] });
-        const tod = entry.timeOfDay || tasks[entry.taskId]?.timeOfDay || 'anytime';
-        const bucket = tod === 'am' ? 'am' : tod === 'pm' ? 'pm' : 'anytime';
-        personMap.get(pid)[bucket].push([entryKey, entry]);
-      }
-      const orderedPersons = [...personMap.entries()].sort(([a], [b]) => personOrder.indexOf(a) - personOrder.indexOf(b));
-      for (const [, { person, am, anytime, pm }] of orderedPersons) {
+      const groups = groupBySectionsTOD(sortedAll, people, tasks);
+      for (const { person, am, anytime, pm } of groups) {
         html += renderPersonHeader(person?.name || '?', person?.color);
         if (am.length)      { html += renderTimeHeader('Morning');   for (const [ek, en] of am)      html += renderCard(ek, en); }
         if (anytime.length) { html += renderTimeHeader('Anytime');   for (const [ek, en] of anytime) html += renderCard(ek, en); }
