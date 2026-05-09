@@ -694,6 +694,7 @@ function openRecipeDetailSheet(recipeId) {
     if (!baseServings) return '';
     return `
       <div class="rd-serves-stepper">
+        <span class="rd-stepper-label">Serves</span>
         <button class="rd-stepper-btn" id="rdServingsDown" type="button" aria-label="Fewer servings">−</button>
         <span class="rd-stepper-val" id="rdServingsVal">${currentServings}</span>
         <button class="rd-stepper-btn" id="rdServingsUp" type="button" aria-label="More servings">+</button>
@@ -730,8 +731,10 @@ function openRecipeDetailSheet(recipeId) {
         </div>
       </div>
       ${metaChips ? `<div class="rd-meta">${metaChips}</div>` : ''}
-      ${sourceDomain ? `<p class="rd-source">from ${esc(sourceDomain)}</p>` : ''}
-      <div class="rd-stars" id="rdStars">${buildStars(recipe.rating || 0)}</div>
+      <div class="rd-source-row">
+        ${sourceDomain ? `<span class="rd-source">from ${esc(sourceDomain)}</span>` : '<span></span>'}
+        <div class="rd-stars" id="rdStars">${buildStars(recipe.rating || 0)}</div>
+      </div>
       ${recipe.notes ? `
         <details class="rd-chef-notes" open>
           <summary class="rd-chef-notes__label">Chef's notes</summary>

@@ -340,14 +340,23 @@
   display: grid;
   grid-template-columns: 1fr 72px 1fr;
   gap: var(--spacing-sm);
-  align-items: end;
+  align-items: start;
+}
+
+/* ── Source + stars row ── */
+.rd-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+  min-height: 24px;
 }
 
 /* ── Star rating (rd-stars) ── */
 .rd-stars {
   display: flex;
-  gap: 4px;
-  margin-bottom: var(--spacing-sm);
+  gap: 2px;
+  flex-shrink: 0;
 }
 .rd-star {
   font-size: 22px;
@@ -387,6 +396,12 @@
   transition: background var(--t-fast);
 }
 .rd-stepper-btn:active { background: var(--border); }
+.rd-stepper-label {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  padding-right: 2px;
+}
 .rd-stepper-val {
   font-size: var(--font-xs);
   font-weight: 600;
