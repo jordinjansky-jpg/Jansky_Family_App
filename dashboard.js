@@ -396,12 +396,17 @@ async function render() {
         eventId
       }))
     );
-    html += renderComingUp({
-      items: cuItems,
-      expanded: comingUpExpanded,
-      summary: cuSummary,
-      filterPersonName: cuFilterPersonName
-    });
+    // Hide the rail entirely when nothing's coming up — empty-state copy was
+    // dashboard noise. The rail will reappear automatically once any event
+    // lands within the next 7 days.
+    if (cuTotalEvents > 0) {
+      html += renderComingUp({
+        items: cuItems,
+        expanded: comingUpExpanded,
+        summary: cuSummary,
+        filterPersonName: cuFilterPersonName
+      });
+    }
   }
 
   let firstSectionRendered = false;
