@@ -19,6 +19,45 @@ import { resizeImageForUpload, renderConfirmRow } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
+// ── Fraction helpers (servings scaler) ────────────────────────────────────────
+function parseQtyAmount(str) {
+  if (!str) return null;
+  const s = str.trim();
+  let m;
+  m = s.match(/^(\d+)\s+(\d+)\/(\d+)(.*)/);
+  if (m) return { amount: parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]), unit: m[4].trim() };
+  m = s.match(/^(\d+)\/(\d+)(.*)/);
+  if (m) return { amount: parseInt(m[1]) / parseInt(m[2]), unit: m[3].trim() };
+  m = s.match(/^(\d*\.?\d+)(.*)/);
+  if (m) return { amount: parseFloat(m[1]), unit: m[2].trim() };
+  return null;
+}
+
+function formatFraction(n) {
+  if (n <= 0) return '0';
+  const whole = Math.floor(n);
+  const frac = n - whole;
+  if (frac < 0.03) return String(whole || '0');
+  if (frac > 0.97) return String(whole + 1);
+  const fracs = [[1,8],[1,6],[1,4],[1,3],[3,8],[1,2],[5,8],[2,3],[3,4],[7,8]];
+  let best = fracs[0], bestDist = Infinity;
+  for (const [num, den] of fracs) {
+    const d = Math.abs(frac - num / den);
+    if (d < bestDist) { bestDist = d; best = [num, den]; }
+  }
+  const fracStr = `${best[0]}/${best[1]}`;
+  return whole ? `${whole} ${fracStr}` : fracStr;
+}
+
+function scaleQty(qtyStr, factor) {
+  if (!qtyStr || factor === 1) return qtyStr;
+  const parsed = parseQtyAmount(qtyStr);
+  if (!parsed || !parsed.amount) return qtyStr;
+  const scaled = parsed.amount * factor;
+  const fmt = formatFraction(scaled);
+  return parsed.unit ? `${fmt} ${parsed.unit}` : fmt;
+}
+
 // Worker URL — set when Cloudflare Worker is deployed
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
@@ -628,134 +667,254 @@ function openRecipeDetailSheet(recipeId) {
   const recipe = recipes[recipeId];
   if (!recipe) return;
   const mount = document.getElementById('sheetMount');
-  const hasIngredients = (recipe.ingredients?.length || 0) > 0;
 
-  const LINK_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+  const LINK_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
   const PENCIL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const TRASH_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
-  const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-
-  const metaChips = [
-    recipe.prepTime   ? `<span class="rd-meta-chip">${esc(recipe.prepTime)}</span>` : '',
-    recipe.servings   ? `<span class="rd-meta-chip">Serves ${recipe.servings}</span>` : '',
-    recipe.difficulty ? `<span class="rd-meta-chip">${esc(recipe.difficulty)}</span>` : '',
-  ].filter(Boolean).join('');
+  const TRASH_SVG  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const CLOSE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
   let sourceDomain = '';
   if (recipe.url) { try { sourceDomain = new URL(recipe.url).hostname.replace(/^www\./, ''); } catch {} }
 
-  const ingredientRows = (recipe.ingredients || []).map(i =>
-    `<span class="rd-ing-qty">${esc(i.qty || '')}</span><span class="rd-ing-name">${esc(i.name || '')}</span>`
-  ).join('');
+  const baseServings = recipe.servings || null;
+  let currentServings = baseServings;
 
-  mount.innerHTML = renderBottomSheet(`
-    ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy"/></div>` : ''}
-    <div class="sheet__header">
-      <h2 class="sheet__title">${esc(recipe.name)}</h2>
-      <div class="rf-header-actions">
-        ${recipe.url ? `<a class="ef2-icon-btn" href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open recipe">${LINK_SVG}</a>` : ''}
-        <button class="ef2-icon-btn rf-delete-btn" id="deleteRecipeBtn" aria-label="Delete" type="button">${TRASH_SVG}</button>
-        <button class="ef2-icon-btn" id="editRecipeBtn" aria-label="Edit" type="button">${PENCIL_SVG}</button>
-        <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">${CLOSE_SVG}</button>
+  function scaleFactor() {
+    return (baseServings && currentServings) ? currentServings / baseServings : 1;
+  }
+
+  function buildIngredientRows() {
+    const factor = scaleFactor();
+    return (recipe.ingredients || []).map(i =>
+      `<span class="rd-ing-qty">${esc(scaleQty(i.qty || '', factor) || '')}</span><span class="rd-ing-name">${esc(i.name || '')}</span>`
+    ).join('');
+  }
+
+  function buildServingsChip() {
+    if (!baseServings) return '';
+    return `
+      <div class="rd-serves-stepper">
+        <button class="rd-stepper-btn" id="rdServingsDown" type="button" aria-label="Fewer servings">−</button>
+        <span class="rd-stepper-val" id="rdServingsVal">${currentServings}</span>
+        <button class="rd-stepper-btn" id="rdServingsUp" type="button" aria-label="More servings">+</button>
+      </div>`;
+  }
+
+  function buildMetaChips() {
+    return [
+      recipe.prepTime   ? `<span class="rd-meta-chip">${esc(recipe.prepTime)}</span>` : '',
+      baseServings      ? buildServingsChip() : '',
+      recipe.difficulty ? `<span class="rd-meta-chip">${esc(recipe.difficulty)}</span>` : '',
+    ].filter(Boolean).join('');
+  }
+
+  function buildStars(current) {
+    return Array.from({ length: 5 }, (_, i) =>
+      `<button class="rd-star${i < current ? ' rd-star--filled' : ''}" data-star="${i + 1}" type="button" aria-label="${i + 1} star">★</button>`
+    ).join('');
+  }
+
+  const hasIngredients = (recipe.ingredients?.length || 0) > 0;
+
+  function render() {
+    const metaChips = buildMetaChips();
+    mount.innerHTML = renderBottomSheet(`
+      ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy"/></div>` : ''}
+      <div class="sheet__header">
+        <h2 class="sheet__title">${esc(recipe.name)}</h2>
+        <div class="rf-header-actions">
+          ${recipe.url ? `<a class="ef2-icon-btn" href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open recipe">${LINK_SVG}</a>` : ''}
+          <button class="ef2-icon-btn rf-delete-btn" id="deleteRecipeBtn" aria-label="Delete" type="button">${TRASH_SVG}</button>
+          <button class="ef2-icon-btn" id="editRecipeBtn" aria-label="Edit" type="button">${PENCIL_SVG}</button>
+          <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">${CLOSE_SVG}</button>
+        </div>
       </div>
-    </div>
-    ${metaChips ? `<div class="rd-meta">${metaChips}</div>` : ''}
-    ${sourceDomain ? `<p class="rd-source">from ${esc(sourceDomain)}</p>` : ''}
-    ${recipe.notes ? `
-      <details class="rd-chef-notes" open>
-        <summary class="rd-chef-notes__label">Chef's notes</summary>
-        <p class="rd-chef-notes__body">${esc(recipe.notes)}</p>
-      </details>` : ''}
-    ${hasIngredients ? `
-      <div class="me-detail__section">
-        <span class="me-detail__section-label">Ingredients</span>
-        <div class="rd-ingredients">${ingredientRows}</div>
-      </div>` : ''}
-    <div class="sheet__footer">
-      ${hasIngredients ? `<button class="btn btn--primary" id="addToListBtn" type="button">Add to list</button>` : ''}
-      <button class="btn btn--ghost" id="planThisMealBtn" type="button">Plan this meal</button>
-    </div>`);
-  activateSheet(mount);
+      ${metaChips ? `<div class="rd-meta">${metaChips}</div>` : ''}
+      ${sourceDomain ? `<p class="rd-source">from ${esc(sourceDomain)}</p>` : ''}
+      <div class="rd-stars" id="rdStars">${buildStars(recipe.rating || 0)}</div>
+      ${recipe.notes ? `
+        <details class="rd-chef-notes" open>
+          <summary class="rd-chef-notes__label">Chef's notes</summary>
+          <p class="rd-chef-notes__body">${esc(recipe.notes)}</p>
+        </details>` : ''}
+      ${hasIngredients ? `
+        <div class="me-detail__section">
+          <span class="me-detail__section-label">Ingredients</span>
+          <div class="rd-ingredients" id="rdIngredients">${buildIngredientRows()}</div>
+        </div>` : ''}
+      <div class="sheet__footer">
+        ${hasIngredients ? `<button class="btn btn--primary" id="addToListBtn" type="button">Add to list</button>` : ''}
+        <button class="btn btn--ghost" id="planThisMealBtn" type="button">Plan this meal</button>
+      </div>`);
+    activateSheet(mount);
+    bindButtons();
+  }
+
+  function bindButtons() {
+    document.getElementById('closeRecipeDetail')?.addEventListener('click', close);
+
+    document.getElementById('rdServingsDown')?.addEventListener('click', () => {
+      if (currentServings <= 1) return;
+      currentServings--;
+      document.getElementById('rdServingsVal').textContent = currentServings;
+      document.getElementById('rdIngredients').innerHTML = buildIngredientRows();
+    });
+    document.getElementById('rdServingsUp')?.addEventListener('click', () => {
+      currentServings++;
+      document.getElementById('rdServingsVal').textContent = currentServings;
+      document.getElementById('rdIngredients').innerHTML = buildIngredientRows();
+    });
+
+    document.getElementById('rdStars')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-star]');
+      if (!btn) return;
+      const star = parseInt(btn.dataset.star, 10);
+      const newRating = recipe.rating === star ? 0 : star;
+      recipe.rating = newRating;
+      recipes[recipeId] = recipe;
+      document.getElementById('rdStars').innerHTML = buildStars(newRating);
+      await writeKitchenRecipe(recipeId, { ...recipe });
+    });
+
+    document.getElementById('planThisMealBtn')?.addEventListener('click', () => {
+      close();
+      const tz = settings?.timezone || 'America/Chicago';
+      openPlanMealSheet(todayKey(tz), 'dinner', recipeId);
+    });
+
+    document.getElementById('addToListBtn')?.addEventListener('click', () => {
+      close();
+      openAddToListReviewSheet(recipe, currentServings, baseServings);
+    });
+
+    document.getElementById('editRecipeBtn')?.addEventListener('click', () => {
+      close();
+      openRecipeForm(recipeId);
+    });
+
+    document.getElementById('deleteRecipeBtn')?.addEventListener('click', async () => {
+      const confirmed = await showConfirm({ title: `Delete "${recipe.name}"?`, confirmLabel: 'Delete', danger: true });
+      if (!confirmed) return;
+      await removeKitchenRecipe(recipeId);
+      delete recipes[recipeId];
+      close();
+      renderActiveTab();
+      showToast('Recipe deleted');
+    });
+  }
 
   const close = () => { mount.innerHTML = ''; };
-  document.getElementById('closeRecipeDetail')?.addEventListener('click', close);
-
-  document.getElementById('planThisMealBtn')?.addEventListener('click', () => {
-    close();
-    const tz = settings?.timezone || 'America/Chicago';
-    openPlanMealSheet(todayKey(tz), 'dinner', recipeId);
-  });
-
-  document.getElementById('addToListBtn')?.addEventListener('click', async () => {
-    close();
-    await addRecipeIngredientsToList(recipe);
-  });
-
-  document.getElementById('editRecipeBtn')?.addEventListener('click', () => {
-    close();
-    openRecipeForm(recipeId);
-  });
-
-  document.getElementById('deleteRecipeBtn')?.addEventListener('click', async () => {
-    const confirmed = await showConfirm({ title: `Delete "${recipe.name}"?`, confirmLabel: 'Delete', danger: true });
-    if (!confirmed) return;
-    await removeKitchenRecipe(recipeId);
-    delete recipes[recipeId];
-    close();
-    renderActiveTab();
-    showToast('Recipe deleted');
-  });
+  render();
 }
 
-async function addRecipeIngredientsToList(recipe) {
+function openAddToListReviewSheet(recipe, currentServings, baseServings) {
+  const mount = document.getElementById('sheetMount');
   const listEntries = Object.entries(lists);
-  if (!listEntries.length) {
-    openCreateListSheet(async (listId) => {
-      const now = Date.now();
-      for (const ing of (recipe.ingredients || [])) {
-        if (!ing.name?.trim()) continue;
-        await pushKitchenItem(listId, { name: ing.name.trim(), qty: ing.qty || null, checked: false, addedAt: now });
-      }
-      showToast(`Added ${(recipe.ingredients || []).length} items to ${lists[listId]?.name || 'list'}`);
-    });
-    return;
-  }
-  const listId = listEntries.length === 1 ? listEntries[0][0] : await pickList(listEntries);
-  if (!listId) return;
-  const now = Date.now();
-  for (const ing of (recipe.ingredients || [])) {
-    if (!ing.name?.trim()) continue;
-    await pushKitchenItem(listId, { name: ing.name.trim(), qty: ing.qty || null, checked: false, addedAt: now });
-  }
-  showToast(`Added ${(recipe.ingredients || []).length} items to ${lists[listId]?.name || 'list'}`);
-}
+  const factor = (baseServings && currentServings) ? currentServings / baseServings : 1;
 
-async function pickList(listEntries) {
-  return new Promise((resolve) => {
-    const mount = document.getElementById('sheetMount');
-    const CHEVRON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+  // Build working copy of ingredients (scaled qty, editable)
+  const items = (recipe.ingredients || [])
+    .filter(i => i.name?.trim())
+    .map((i, idx) => ({ idx, name: i.name.trim(), qty: scaleQty(i.qty || '', factor) || i.qty || '', checked: true }));
+
+  if (!items.length) return;
+
+  function buildRows() {
+    return items.map((it, i) => `
+      <div class="ral-row${it.checked ? '' : ' ral-row--unchecked'}" data-ral-idx="${i}">
+        <button class="ral-check" data-ral-check="${i}" type="button" aria-label="${it.checked ? 'Deselect' : 'Select'}">
+          ${it.checked
+            ? `<svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="var(--accent)"/><path d="M6.5 11l3 3 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+            : `<svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="var(--border)" stroke-width="1.5"/></svg>`}
+        </button>
+        <input class="ral-qty" data-ral-qty="${i}" type="text" value="${esc(it.qty)}" placeholder="qty" autocomplete="off">
+        <span class="ral-name">${esc(it.name)}</span>
+      </div>`).join('');
+  }
+
+  function buildListSelector() {
+    if (listEntries.length <= 1) return '';
+    return `<div class="ral-list-row">
+      <span class="ral-list-label">Add to</span>
+      <select class="ral-list-select" id="ralListSelect">
+        ${listEntries.map(([id, l]) => `<option value="${esc(id)}">${esc(l.name)}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+
+  function checkedCount() { return items.filter(i => i.checked).length; }
+
+  function renderSheet() {
     mount.innerHTML = renderBottomSheet(`
       <div class="sheet__header">
         <h2 class="sheet__title">Add to list</h2>
+        <button class="ef2-icon-btn" id="ralClose" type="button" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
-      <div class="kl-pick-list">
-        ${listEntries.map(([id, l]) =>
-          `<button class="kl-pick-row" data-pick-id="${esc(id)}" type="button">
-            <span>${esc(l.name)}</span>${CHEVRON}
-          </button>`
-        ).join('')}
-      </div>
-      <div class="kl-footer">
-        <button class="btn btn--ghost" id="cancelPickList" type="button">Cancel</button>
+      ${buildListSelector()}
+      <div class="ral-list" id="ralList">${buildRows()}</div>
+      <div class="sheet__footer">
+        <button class="btn btn--ghost" id="ralCancel" type="button">Cancel</button>
+        <button class="btn btn--primary" id="ralAdd" type="button">Add <span id="ralCount">${checkedCount()}</span> items</button>
       </div>`);
     activateSheet(mount);
 
-    mount.querySelectorAll('[data-pick-id]').forEach(btn => {
-      btn.addEventListener('click', () => { mount.innerHTML = ''; resolve(btn.dataset.pickId); });
+    document.getElementById('ralClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    document.getElementById('ralCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+    mount.querySelector('#ralList')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-ral-check]');
+      if (!btn) return;
+      const i = parseInt(btn.dataset.ralCheck, 10);
+      items[i].checked = !items[i].checked;
+      mount.querySelector('#ralList').innerHTML = buildRows();
+      rebindQtyInputs();
+      document.getElementById('ralCount').textContent = checkedCount();
     });
-    document.getElementById('cancelPickList')?.addEventListener('click', () => { mount.innerHTML = ''; resolve(null); });
-  });
+
+    function rebindQtyInputs() {
+      mount.querySelectorAll('[data-ral-qty]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          items[parseInt(inp.dataset.ralQty, 10)].qty = inp.value;
+        });
+      });
+    }
+    rebindQtyInputs();
+
+    document.getElementById('ralAdd')?.addEventListener('click', async () => {
+      const selectedItems = items.filter(i => i.checked);
+      if (!selectedItems.length) { mount.innerHTML = ''; return; }
+
+      let listId;
+      if (listEntries.length === 0) {
+        mount.innerHTML = '';
+        openCreateListSheet(async (newId) => {
+          const now = Date.now();
+          for (const it of selectedItems)
+            await pushKitchenItem(newId, { name: it.name, qty: it.qty || null, checked: false, addedAt: now });
+          showToast(`Added ${selectedItems.length} item${selectedItems.length !== 1 ? 's' : ''}`);
+        });
+        return;
+      } else if (listEntries.length === 1) {
+        listId = listEntries[0][0];
+      } else {
+        listId = document.getElementById('ralListSelect')?.value;
+      }
+      if (!listId) { mount.innerHTML = ''; return; }
+
+      mount.innerHTML = '';
+      const now = Date.now();
+      for (const it of selectedItems)
+        await pushKitchenItem(listId, { name: it.name, qty: it.qty || null, checked: false, addedAt: now });
+      showToast(`Added ${selectedItems.length} item${selectedItems.length !== 1 ? 's' : ''} to ${lists[listId]?.name || 'list'}`);
+    });
+  }
+
+  renderSheet();
 }
+
+// pickList removed — list selection is now inline in openAddToListReviewSheet
 
 function openFindRecipesSheet() {
   const mount = document.getElementById('sheetMount');
@@ -1241,7 +1400,9 @@ function openRecipeForm(recipeId, onSave = null) {
       const file = e.target.files?.[0];
       if (!file) return;
       e.target.value = '';
-      const { base64, mediaType } = await resizeImageForUpload(file);
+      const { base64, mediaType } = await resizeImageForUpload(file, 640);
+      // Store as hero image immediately — worker extraction may fail or return no image
+      if (!imageUrl) imageUrl = `data:image/jpeg;base64,${base64}`;
       runImport('screenshot', { base64, mediaType, context: krPhotoContext });
     });
   });

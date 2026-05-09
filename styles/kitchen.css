@@ -342,3 +342,121 @@
   gap: var(--spacing-sm);
   align-items: end;
 }
+
+/* ── Star rating (rd-stars) ── */
+.rd-stars {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--spacing-sm);
+}
+.rd-star {
+  font-size: 22px;
+  line-height: 1;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--border);
+  transition: color var(--t-fast);
+}
+.rd-star--filled { color: #D4A843; }
+.rd-star:active { opacity: 0.7; }
+
+/* ── Servings stepper (rd-serves-stepper) ── */
+.rd-serves-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  padding: 3px 6px;
+}
+.rd-stepper-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-fast);
+}
+.rd-stepper-btn:active { background: var(--border); }
+.rd-stepper-val {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text);
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ── Review-before-add sheet (ral-*) ── */
+.ral-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--spacing-sm);
+}
+.ral-list-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.ral-list-select {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--font-sm);
+  padding: 6px var(--spacing-sm);
+}
+.ral-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: var(--spacing-md);
+}
+.ral-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 4px 0;
+  transition: opacity var(--t-fast);
+}
+.ral-row--unchecked { opacity: 0.4; }
+.ral-check {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
+.ral-qty {
+  width: 60px;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--font-sm);
+  padding: 4px 6px;
+  text-align: right;
+}
+.ral-qty:focus { outline: none; border-color: var(--accent); }
+.ral-name {
+  font-size: var(--font-sm);
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
