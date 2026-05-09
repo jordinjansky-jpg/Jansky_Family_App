@@ -690,21 +690,24 @@ function openRecipeDetailSheet(recipeId) {
     ).join('');
   }
 
-  function buildServingsChip() {
+  function buildServingsRow() {
     if (!baseServings) return '';
     return `
-      <div class="rd-serves-stepper">
-        <span class="rd-stepper-label">Serves</span>
-        <button class="rd-stepper-btn" id="rdServingsDown" type="button" aria-label="Fewer servings">−</button>
-        <span class="rd-stepper-val" id="rdServingsVal">${currentServings}</span>
-        <button class="rd-stepper-btn" id="rdServingsUp" type="button" aria-label="More servings">+</button>
+      <div class="rd-servings-row">
+        <span class="rd-servings-label">Ingredients</span>
+        <div class="rd-serves-stepper">
+          <button class="rd-stepper-btn" id="rdServingsDown" type="button" aria-label="Fewer servings">−</button>
+          <span class="rd-stepper-val" id="rdServingsVal">${currentServings}</span>
+          <span class="rd-stepper-unit">servings</span>
+          <button class="rd-stepper-btn" id="rdServingsUp" type="button" aria-label="More servings">+</button>
+        </div>
       </div>`;
   }
 
   function buildMetaChips() {
     return [
       recipe.prepTime   ? `<span class="rd-meta-chip">${esc(recipe.prepTime)}</span>` : '',
-      baseServings      ? buildServingsChip() : '',
+      baseServings      ? `<span class="rd-meta-chip">Serves ${baseServings}</span>` : '',
       recipe.difficulty ? `<span class="rd-meta-chip">${esc(recipe.difficulty)}</span>` : '',
     ].filter(Boolean).join('');
   }
@@ -742,7 +745,8 @@ function openRecipeDetailSheet(recipeId) {
         </details>` : ''}
       ${hasIngredients ? `
         <div class="me-detail__section">
-          <span class="me-detail__section-label">Ingredients</span>
+          ${buildServingsRow()}
+          ${!baseServings ? '<span class="me-detail__section-label">Ingredients</span>' : ''}
           <div class="rd-ingredients" id="rdIngredients">${buildIngredientRows()}</div>
         </div>` : ''}
       <div class="sheet__footer">

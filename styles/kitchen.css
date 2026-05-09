@@ -371,43 +371,56 @@
 .rd-star--filled { color: #D4A843; }
 .rd-star:active { opacity: 0.7; }
 
-/* ── Servings stepper (rd-serves-stepper) ── */
+/* ── Servings stepper row (above ingredients) ── */
+.rd-servings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xs);
+}
+.rd-servings-label {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
 .rd-serves-stepper {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   background: var(--surface-2);
   border-radius: var(--radius-full);
-  padding: 3px 6px;
+  padding: 2px 4px;
 }
 .rd-stepper-btn {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: none;
-  border: none;
-  font-size: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 1.1rem;
   line-height: 1;
-  color: var(--text-muted);
+  color: var(--text);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background var(--t-fast);
+  flex-shrink: 0;
 }
-.rd-stepper-btn:active { background: var(--border); }
-.rd-stepper-label {
-  font-size: var(--font-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-  padding-right: 2px;
-}
+.rd-stepper-btn:active { background: var(--surface-2); }
 .rd-stepper-val {
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   font-weight: 600;
   color: var(--text);
-  min-width: 20px;
+  min-width: 24px;
   text-align: center;
+}
+.rd-stepper-unit {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  padding: 0 4px 0 2px;
 }
 
 /* ── Review-before-add sheet (ral-*) ── */
