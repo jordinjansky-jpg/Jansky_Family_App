@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v182 (2026-05-09) — New PWA icon: family-on-calendar (4 navy silhouettes — Dad/Mom/girl/boy by descending
+//                    size on a teal background calendar). Renamed from "App Icon.png" → "app-icon.png"
+//                    (no space) to fix local-dev URL encoding. Updated manifest.json + sw.js + 9 HTML files.
 // v152 (2026-05-06) — Dashboard patch v2: tiles full-width, dark mode surface lift, AM/PM SVG pills,
 //                    bottom nav active uses --accent-ink. base.css, dashboard.css, components.js/css, layout.css.
 // v151 (2026-05-02) — Dashboard patch: accent FAB with auto-contrast --fab-ink, coming-up hover fix,
@@ -272,7 +275,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v181';
+const CACHE_NAME = 'family-hub-v182';
 
 const APP_SHELL = [
   '/',
@@ -289,7 +292,7 @@ const APP_SHELL = [
   '/rewards.html',
   '/kitchen.html',
   '/manifest.json',
-  '/App Icon.png',
+  '/app-icon.png',
   // Self-hosted variable fonts
   '/fonts/PlusJakartaSans[wght].woff2',
   '/fonts/PlusJakartaSans-Italic[wght].woff2',
@@ -370,7 +373,7 @@ self.addEventListener('fetch', (event) => {
       display: "standalone",
       background_color: "#141413",
       theme_color: "#141413",
-      icons: [{ src: "/App Icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
+      icons: [{ src: "/app-icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
     };
     event.respondWith(new Response(JSON.stringify(manifest), {
       headers: { 'Content-Type': 'application/manifest+json' }
@@ -390,7 +393,7 @@ self.addEventListener('fetch', (event) => {
       display: "standalone",
       background_color: "#141413",
       theme_color: "#141413",
-      icons: [{ src: "/App Icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
+      icons: [{ src: "/app-icon.png", sizes: "512x512", type: "image/png", purpose: "any" }]
     };
     event.respondWith(new Response(JSON.stringify(manifest), {
       headers: { 'Content-Type': 'application/manifest+json' }

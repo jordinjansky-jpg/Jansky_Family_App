@@ -13,13 +13,13 @@
   "categories": ["productivity", "lifestyle"],
   "icons": [
     {
-      "src": "/App Icon.png",
+      "src": "/app-icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/App Icon.png",
+      "src": "/app-icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -31,14 +31,14 @@
       "short_name": "Kitchen",
       "description": "Shopping lists, recipes, and meal planning",
       "url": "/kitchen.html",
-      "icons": [{ "src": "/App Icon.png", "sizes": "512x512" }]
+      "icons": [{ "src": "/app-icon.png", "sizes": "512x512" }]
     },
     {
       "name": "Scores",
       "short_name": "Scores",
       "description": "Family leaderboard and grades",
       "url": "/scoreboard.html",
-      "icons": [{ "src": "/App Icon.png", "sizes": "512x512" }]
+      "icons": [{ "src": "/app-icon.png", "sizes": "512x512" }]
     }
   ]
 }
