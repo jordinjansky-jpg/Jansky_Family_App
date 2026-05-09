@@ -2455,17 +2455,20 @@ export function renderWeatherSheet(days, today, tomorrow) {
       <div class="wf-col--precip">${_rainDrop(day.pop ?? 0, uid)}</div>
       <div class="wf-col--conditions">
         <div class="wf-period">
-          <span class="wf-period-label">AM · ${esc(amLabel)}</span>
           <span class="wf-period-icon wf-icon--${amCode}" aria-hidden="true">${WEATHER_ICONS[amCode] || WEATHER_ICONS.cloudy}</span>
+          <span class="wf-period-label">AM · ${esc(amLabel)}</span>
         </div>
         <div class="wf-period">
-          <span class="wf-period-label">PM · ${esc(pmLabel)}</span>
           <span class="wf-period-icon wf-icon--${pmCode}" aria-hidden="true">${WEATHER_ICONS[pmCode] || WEATHER_ICONS.cloudy}</span>
+          <span class="wf-period-label">PM · ${esc(pmLabel)}</span>
         </div>
       </div>
       <div class="wf-col--temp">
-        <span class="wf-temp-high">${esc(day.high)}</span>
-        <span class="wf-temp-low">${esc(day.low)}</span>
+        <span class="wf-temp-current">${esc(day.tempLabel)}</span>
+        <div class="wf-temp-range">
+          <span class="wf-temp-high">${esc(day.high)}</span>
+          <span class="wf-temp-low">${esc(day.low)}</span>
+        </div>
       </div>
       <div class="wf-col--sun">
         ${sunriseHtml}${sunsetHtml}

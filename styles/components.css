@@ -3021,7 +3021,7 @@
 
 .wf-row {
   display: grid;
-  grid-template-columns: 44px 22px 1fr 42px 66px;
+  grid-template-columns: 44px 22px 1fr 66px 66px;
   gap: 10px;
   align-items: center;
   padding: 10px 0;
@@ -3078,7 +3078,7 @@
 }
 .wf-period {
   display: grid;
-  grid-template-columns: 1fr 16px;
+  grid-template-columns: 16px 1fr;
   gap: 5px;
   align-items: center;
   min-width: 0;
@@ -3089,6 +3089,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-muted);
 }
 .wf-period-icon svg { width: 16px; height: 16px; }
 .wf-period-label {
@@ -3099,21 +3100,34 @@
   text-overflow: ellipsis;
 }
 
-/* Condition icon colors — only precipitation types get color; sun/cloud inherit muted */
+/* Condition icon colors */
+.wf-icon--clear, .wf-icon--partly-cloudy { color: #D4A843; }
 .wf-icon--rain, .wf-icon--drizzle { color: #5BA3C9; }
 .wf-icon--thunder { color: #C8924A; }
 .wf-icon--snow { color: #7DB8D4; }
 
 .wf-col--temp {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
 }
-.wf-temp-high {
+.wf-temp-current {
   font-size: var(--font-sm);
   font-weight: 600;
   color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.wf-temp-range {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.wf-temp-high {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 .wf-temp-low {

@@ -123,6 +123,7 @@ async function _fetchAndCache(loc, timezone) {
   }
 
   const url = `${OM_FORECAST_BASE}?latitude=${coords.lat}&longitude=${coords.lon}` +
+    `&current=temperature_2m` +
     `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
     `&hourly=weathercode` +
     `&temperature_unit=fahrenheit` +
@@ -133,7 +134,8 @@ async function _fetchAndCache(loc, timezone) {
   if (!r.ok) throw new Error(`OM ${r.status}`);
   const j = await r.json();
 
-  const { daily, hourly } = j;
+  const { daily, hourly, current } = j;
+  const todayDk = daily.time[0];
 
   // Build hourly lookup: dateKey → { amCode, pmCode } (closest hour to 9am / 3pm)
   const hourlyByDate = {};
@@ -158,9 +160,13 @@ async function _fetchAndCache(loc, timezone) {
     const amCode = h.amCode ?? code;
     const pmCode = h.pmCode ?? code;
 
+    const tempLabel = (dk === todayDk && current?.temperature_2m != null)
+      ? Math.round(current.temperature_2m) + '°'
+      : high + '°';
+
     _writeCache(dk, {
       dateKey: dk,
-      tempLabel: high + '°',
+      tempLabel,
       conditionLabel: _wmoToShortLabel(code),
       glyph: _wmoToGlyph(code),
       high: high + '°',
