@@ -3020,9 +3020,8 @@
 .wf-rows { border-top: 1px solid var(--border); }
 
 .wf-row {
-  display: grid;
-  grid-template-columns: 44px 22px 1fr 52px 60px;
-  gap: 10px;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
@@ -3037,6 +3036,7 @@
 }
 
 .wf-col--day {
+  flex: 0 0 44px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3053,6 +3053,7 @@
   color: var(--text-muted);
 }
 .wf-col--precip {
+  flex: 0 0 20px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -3071,11 +3072,11 @@
 }
 
 .wf-col--conditions {
+  flex: 0 0 120px;
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
-  padding-left: 24px;
 }
 .wf-period {
   display: grid;
@@ -3108,6 +3109,7 @@
 .wf-icon--snow { color: #7DB8D4; }
 
 .wf-col--temp {
+  flex: 0 0 52px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -3138,6 +3140,7 @@
 }
 
 .wf-col--sun {
+  flex: 0 0 60px;
   display: flex;
   flex-direction: column;
   gap: 5px;
