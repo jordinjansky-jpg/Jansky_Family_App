@@ -110,6 +110,13 @@
 }
 
 /* ============ Device Theme Picker ============ */
+.dt-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+.dt-sheet-header .admin-form__title { margin-bottom: 0; }
 .dt-section {
   margin-bottom: var(--spacing-md);
 }
@@ -1067,11 +1074,13 @@
   background: var(--pill-color);
 }
 
-/* Edge + initial — strip with small initial to its right */
+/* Edge + initial — strip with small initial centered in the area beside it */
 .task-card__avatar-edge--initial {
   width: 24px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  padding-left: 4px;
   align-self: stretch;
   flex-shrink: 0;
   position: relative;
@@ -1085,7 +1094,6 @@
 }
 .task-card__avatar-edge--initial .task-card__avatar-initial {
   font-size: 10px;
-  padding-left: 7px;
 }
 
 /* ── Time-of-day section header (sections mode + kid page) ── */

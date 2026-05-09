@@ -1712,17 +1712,20 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
   };
 
   const html = renderBottomSheet(`<div class="task-detail-sheet">
-    <h3 class="admin-form__title">${personOpts ? 'My Settings' : 'Device Theme'}</h3>
+    ${personOpts
+      ? `<div class="dt-sheet-header"><h3 class="admin-form__title">My Settings</h3>${renderColorButton(currentAccent, 'dt_accentPicker')}</div>`
+      : `<h3 class="admin-form__title">Device Theme</h3>`}
     <div class="dt-section">
       <label class="form-label">Theme</label>
       <div class="dt-themes">
         <button class="dt-theme-btn${!currentPreset ? ' dt-theme-btn--active' : ''}" data-preset="" type="button">Family Default</button>
         ${presets.map(p => `<button class="dt-theme-btn${currentPreset === p.key ? ' dt-theme-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
       </div>
+      ${!personOpts ? `
       <div class="form-group mt-sm">
-        <label class="form-label">${personOpts ? 'My Color' : 'Accent Color'}</label>
+        <label class="form-label">Accent Color</label>
         ${renderColorButton(currentAccent, 'dt_accentPicker')}
-      </div>
+      </div>` : ''}
       ${personOpts ? `
       <div class="form-group mt-sm">
         <label class="form-label">Text Size</label>
