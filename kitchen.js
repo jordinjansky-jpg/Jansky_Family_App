@@ -1569,13 +1569,29 @@ function renderItemsArea(items) {
   }
 
   if (checked.length > 0) {
-    html += `<div class="shopping-checked-divider"></div>`;
-    for (const [id, item] of checked) {
-      html += renderShoppingCard(id, item, true);
+    // Collapse completed items behind a "Completed (N) ▾" header so a busy list
+    // shows only what's left to buy. State persists across re-renders (which fire
+    // on every check/uncheck via the Firebase listener).
+    const expanded = localStorage.getItem('dr-shopping-completed-expanded') === 'true';
+    const chevron = `<svg class="shopping-completed-toggle__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>`;
+    html += `<button class="shopping-completed-toggle${expanded ? ' is-expanded' : ''}" type="button" data-shopping-completed-toggle aria-expanded="${expanded}">
+      <span class="shopping-completed-toggle__label">Completed (${checked.length})</span>
+      ${chevron}
+    </button>`;
+    if (expanded) {
+      for (const [id, item] of checked) {
+        html += renderShoppingCard(id, item, true);
+      }
     }
   }
 
   area.innerHTML = html;
+
+  area.querySelector('[data-shopping-completed-toggle]')?.addEventListener('click', () => {
+    const cur = localStorage.getItem('dr-shopping-completed-expanded') === 'true';
+    localStorage.setItem('dr-shopping-completed-expanded', cur ? 'false' : 'true');
+    renderItemsArea(currentItems);
+  });
 
   area.querySelectorAll('.card--shopping').forEach(card => {
     const id = card.dataset.itemId;

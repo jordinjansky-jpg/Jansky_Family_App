@@ -4688,6 +4688,33 @@ label.ef2-icon-btn  { cursor: pointer; }
   background: var(--border);
   margin: var(--spacing-md) 0;
 }
+
+/* Completed (N) ▾ collapse toggle — replaces the simple divider when the list
+   has any checked items. Tap to show/hide completed items. */
+.shopping-completed-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  margin: var(--spacing-md) 0 var(--spacing-xs);
+  padding: var(--spacing-xs) 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.shopping-completed-toggle__label { flex: 1; }
+.shopping-completed-toggle__chevron {
+  transition: transform var(--t-fast);
+  flex-shrink: 0;
+}
+.shopping-completed-toggle.is-expanded .shopping-completed-toggle__chevron {
+  transform: rotate(180deg);
+}
 .approval-row__actions { display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-xs); }
 
 /* ── AI confirm rows ──────────────────────────────────────────── */
