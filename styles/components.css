@@ -3021,7 +3021,7 @@
 
 .wf-row {
   display: grid;
-  grid-template-columns: 44px 22px 1fr 66px 66px;
+  grid-template-columns: 44px 22px 1fr 52px 60px;
   gap: 10px;
   align-items: center;
   padding: 10px 0;
