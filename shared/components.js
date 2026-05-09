@@ -255,8 +255,9 @@ export function renderNavBar(activePage, options = {}) {
  * @param {Function} getTheme - returns current family theme for openDeviceThemeSheet
  * @param {object} [personOpts] - { person, writePerson, displayDefaults } for person mode
  * @param {object} [familyOpts] - { settings, writeSettings, displayDefaults } for family-defaults mode
+ * @param {Function} [onApply] - called after a theme/pref change so the page can re-render
  */
-export function initNavMore(sheetMount, getTheme, personOpts, familyOpts) {
+export function initNavMore(sheetMount, getTheme, personOpts, familyOpts, onApply) {
   const _svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">${p}</svg>`;
   const items = [
     { id: 'admin',    label: 'Admin',    icon: _svg('<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>') },
@@ -286,7 +287,7 @@ export function initNavMore(sheetMount, getTheme, personOpts, familyOpts) {
       if (id === 'admin')    location.href = 'admin.html';
       if (id === 'calendar') location.href = 'calendar.html';
       if (id === 'tracker')  location.href = 'tracker.html';
-      if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, undefined, personOpts, familyOpts);
+      if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, onApply, personOpts, familyOpts);
     });
   }
 
@@ -1806,7 +1807,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
   let activePreset = currentPreset;
   let activeAccent = currentAccent;
 
-  async function applyAndSave() {
+  function applyAndSave() {
     const themeConfig = activePreset
       ? (() => {
           const info = presets.find(p => p.key === activePreset);
@@ -1814,20 +1815,24 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         })()
       : null;
 
+    // Mutate the in-memory target + apply theme synchronously (instant visual feedback);
+    // persist to Firebase in the background so the click feels snappy.
+    let persistPromise = Promise.resolve();
     if (personOpts) {
       personOpts.person.theme = themeConfig;
       const { id, ...data } = personOpts.person;
-      await personOpts.writePerson(id, data);
+      persistPromise = personOpts.writePerson(id, data);
       applyTheme(themeConfig || familyTheme || defaultThemeConfig());
     } else if (familyOpts) {
       familyOpts.settings.theme = themeConfig;
-      await familyOpts.writeSettings(familyOpts.settings);
+      persistPromise = familyOpts.writeSettings(familyOpts.settings);
       applyTheme(themeConfig || defaultThemeConfig());
     } else {
       saveDeviceTheme(themeConfig);
       applyTheme(themeConfig || familyTheme || defaultThemeConfig());
     }
     if (onApply) onApply();
+    persistOrLog(persistPromise);
   }
 
   // Theme buttons
@@ -1847,18 +1852,24 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     applyAndSave();
   });
 
-  // Helper: persist a single pref to person.prefs (person mode) or settings (family mode)
-  async function savePref(key, value) {
+  // Apply a pref change in two phases so the UI can re-render instantly:
+  //   1. Mutate the in-memory object (synchronous) — the dashboard's `settings`
+  //      / `linkedPerson` references the same object, so the next render() sees
+  //      the new value immediately.
+  //   2. Persist to Firebase (async) — runs in background, errors logged.
+  function savePref(key, value) {
     if (personOpts) {
       if (!personOpts.person.prefs) personOpts.person.prefs = {};
       personOpts.person.prefs[key] = value;
       const { id, ...data } = personOpts.person;
-      await personOpts.writePerson(id, data);
+      return personOpts.writePerson(id, data);
     } else if (familyOpts) {
       familyOpts.settings[key] = value;
-      await familyOpts.writeSettings(familyOpts.settings);
+      return familyOpts.writeSettings(familyOpts.settings);
     }
+    return Promise.resolve();
   }
+  const persistOrLog = (p) => p?.catch?.(err => console.error('Save failed', err));
 
   // Re-apply task display prefs after a toggle change
   function reapplyDisplayPrefs() {
@@ -1871,12 +1882,12 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
 
   // Text size segmented control (rich mode, hidden in kidMode)
   if (richExtras) {
-    mountEl.querySelector('#dt_textSize')?.addEventListener('click', async (e) => {
+    mountEl.querySelector('#dt_textSize')?.addEventListener('click', (e) => {
       const btn = e.target.closest('.segmented-btn');
       if (!btn) return;
       const size = btn.dataset.size;
       mountEl.querySelectorAll('#dt_textSize .segmented-btn').forEach(b => b.classList.toggle('segmented-btn--active', b === btn));
-      await savePref('textSize', size);
+      persistOrLog(savePref('textSize', size));
       applyTextSize(size);
       if (onApply) onApply();
     });
@@ -1893,21 +1904,21 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     };
 
     // Avatar style picker
-    mountEl.querySelector('#dt_avatarStyle')?.addEventListener('click', async (e) => {
+    mountEl.querySelector('#dt_avatarStyle')?.addEventListener('click', (e) => {
       const btn = e.target.closest('.av-card');
       if (!btn) return;
       mountEl.querySelectorAll('#dt_avatarStyle .av-card').forEach(b => b.classList.toggle('av-card--active', b === btn));
-      await savePref('avatarStyle', btn.dataset.style);
+      persistOrLog(savePref('avatarStyle', btn.dataset.style));
       updateSectionsNudge();
       if (onApply) onApply();
     });
 
     // Task grouping segmented control
-    mountEl.querySelector('#dt_taskGrouping')?.addEventListener('click', async (e) => {
+    mountEl.querySelector('#dt_taskGrouping')?.addEventListener('click', (e) => {
       const btn = e.target.closest('.segmented-btn');
       if (!btn) return;
       mountEl.querySelectorAll('#dt_taskGrouping .segmented-btn').forEach(b => b.classList.toggle('segmented-btn--active', b === btn));
-      await savePref('taskGrouping', btn.dataset.grouping);
+      persistOrLog(savePref('taskGrouping', btn.dataset.grouping));
       updateSectionsNudge();
       if (onApply) onApply();
     });
@@ -1919,8 +1930,8 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
       ['dt_showPoints',    'showPoints'],
     ];
     for (const [elId, key] of dispKeys) {
-      mountEl.querySelector(`#${elId}`)?.addEventListener('change', async (e) => {
-        await savePref(key, e.target.checked);
+      mountEl.querySelector(`#${elId}`)?.addEventListener('change', (e) => {
+        persistOrLog(savePref(key, e.target.checked));
         reapplyDisplayPrefs();
         if (onApply) onApply();
       });

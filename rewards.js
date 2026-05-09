@@ -81,7 +81,8 @@ async function init() {
       getTodayFn: () => todayKey(settings?.timezone),
     });
     initNavMore(document.getElementById('sheetMount'), () => settings?.theme, undefined,
-      { settings, writeSettings, displayDefaults: settings });
+      { settings, writeSettings, displayDefaults: settings },
+      () => render());
     initOfflineBanner(onConnectionChange);
   } else {
     document.getElementById('headerMount').innerHTML = renderKidHeader();

@@ -95,6 +95,7 @@ let celebrationShown = false;
 let lastRenderedIsToday = true; // tracks viewDate==today across renders so Back-to-Today pill only animates on the transition away from today, not on passive re-renders
 let lastWeatherData = null; // set in render(); read by ambient chip tap handler
 let renderInFlight = false; // prevents concurrent renders when fetchWeather is awaited
+let renderPending = false; // set when render() is called while a prior render is in flight; triggers a follow-up render after the current one completes
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
@@ -147,7 +148,8 @@ initNavMore(
   document.getElementById('taskSheetMount'),
   () => settings?.theme,
   linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
-  linkedPerson ? undefined : { settings, writeSettings, displayDefaults: settings }
+  linkedPerson ? undefined : { settings, writeSettings, displayDefaults: settings },
+  () => render()
 );
 
 // FAB (primary add action)
@@ -194,7 +196,13 @@ async function loadData() {
 }
 
 async function render() {
-  if (renderInFlight) return;
+  if (renderInFlight) {
+    // A render is already underway. Mark that another one is needed once it
+    // finishes — otherwise settings/data changes that landed during the in-flight
+    // render would be silently lost (e.g., toggling grouping never re-renders).
+    renderPending = true;
+    return;
+  }
   renderInFlight = true;
   try {
   clearTimeout(activePressTimer);
@@ -536,6 +544,11 @@ async function render() {
   mountBannerQueue({ overdueItems: overdueFiltered });
   } finally {
     renderInFlight = false;
+    // If a render() call landed while we were busy, run it now.
+    if (renderPending) {
+      renderPending = false;
+      render();
+    }
   }
 }
 

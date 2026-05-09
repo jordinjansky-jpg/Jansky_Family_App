@@ -130,7 +130,8 @@ async function init() {
   // Nav
   document.getElementById('navMount').innerHTML = renderNavBar('kitchen');
   initNavMore(document.getElementById('sheetMount'), () => settings?.theme, undefined,
-    { settings, writeSettings, displayDefaults: settings });
+    { settings, writeSettings, displayDefaults: settings },
+    () => render());
   initOfflineBanner(onConnectionChange);
 
   // Bell

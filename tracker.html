@@ -141,7 +141,8 @@
     document.getElementById('navMount').innerHTML = renderNavBar('tracker');
     initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme,
       linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
-      { settings, writeSettings, displayDefaults: settings });
+      { settings, writeSettings, displayDefaults: settings },
+      () => render());
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);

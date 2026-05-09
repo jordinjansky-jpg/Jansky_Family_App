@@ -120,7 +120,8 @@
     document.getElementById('navMount').innerHTML = renderNavBar('calendar');
     initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme,
       linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
-      { settings, writeSettings, displayDefaults: settings });
+      { settings, writeSettings, displayDefaults: settings },
+      () => render());
     initOfflineBanner(onConnectionChange);
     initBell(() => people, () => calRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
 
