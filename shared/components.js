@@ -1689,6 +1689,11 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
   const presets = getPresets();
   const colorPalette = getColorPalette();
   const richMode = !!personOpts || !!familyOpts;
+  // Kid mode: rich-mode shell (header color button) but only Theme is exposed —
+  // no text size, avatar style, grouping, or toggles. Kids shouldn't have to
+  // discover settings to fix obvious noise; keep the surface tiny.
+  const kidMode = !!personOpts?.kidMode;
+  const richExtras = richMode && !kidMode;
   const current = loadDeviceTheme();
   // Preset selection: person.theme > family settings.theme > device override > none
   const currentPreset = personOpts
@@ -1743,7 +1748,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         <label class="form-label">Accent Color</label>
         ${renderColorButton(currentAccent, 'dt_accentPicker')}
       </div>` : ''}
-      ${richMode ? `
+      ${richExtras ? `
       <div class="form-group mt-sm">
         <label class="form-label">Text Size</label>
         <div class="segmented-control" id="dt_textSize">
@@ -1753,7 +1758,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         </div>
       </div>` : ''}
     </div>
-    ${richMode ? `
+    ${richExtras ? `
     <div class="dt-section">
       <label class="form-label">Task Cards</label>
       <div class="av-picker" id="dt_avatarStyle">
@@ -1860,8 +1865,8 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     }
   }
 
-  // Text size segmented control (rich mode)
-  if (richMode) {
+  // Text size segmented control (rich mode, hidden in kidMode)
+  if (richExtras) {
     mountEl.querySelector('#dt_textSize')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('.segmented-btn');
       if (!btn) return;
@@ -1873,8 +1878,8 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     });
   }
 
-  // Display pref toggles + selectors (rich mode)
-  if (richMode) {
+  // Display pref toggles + selectors (rich mode, hidden in kidMode)
+  if (richExtras) {
     const updateSectionsNudge = () => {
       const nudge = mountEl.querySelector('#dt_sectionsNudge');
       if (!nudge) return;

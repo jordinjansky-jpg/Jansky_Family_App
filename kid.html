@@ -51,8 +51,8 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, writeSnapshot, readAchievementDefs, readKitchenPlan, readKitchenRecipes } from './shared/firebase.js';
-    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
+    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet, openDeviceThemeSheet } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
@@ -2087,84 +2087,17 @@
         // ══════════════════════════════════════════
 
         const kidSettingsMount = document.getElementById('kidSettingsMount');
-        const presets = getPresets();
-        const colorPalette = getColorPalette();
 
+        // Kid settings sheet — same shared bottom sheet as person/family/admin,
+        // with kidMode flag that hides text size, avatar style, grouping, and
+        // toggles. Kid sees only Theme + Color (in header).
         function openKidSettings() {
-          const currentThemePreset = kid.theme?.preset || '';
-          const currentColor = kid.color;
-
-          let html = `<div class="kid-settings-overlay" id="kidSettingsOverlay">
-            <div class="kid-settings-panel">
-              <div class="kid-settings__title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> My Settings</div>
-
-              <div class="kid-settings__section">
-                <div class="kid-settings__label">Theme</div>
-                <div class="kid-settings__themes">
-                  <button class="kid-settings__theme-btn${!currentThemePreset ? ' kid-settings__theme-btn--active' : ''}" data-preset="" type="button">Family Default</button>
-                  ${presets.map(p => `<button class="kid-settings__theme-btn${currentThemePreset === p.key ? ' kid-settings__theme-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
-                </div>
-              </div>
-
-              <div class="kid-settings__section">
-                <div class="kid-settings__label">My Color</div>
-                <div class="kid-settings__colors">
-                  ${colorPalette.map(c => `<button class="kid-settings__color-btn${c === currentColor ? ' kid-settings__color-btn--active' : ''}" data-color="${c}" style="background:${c}" type="button" aria-label="${c}"></button>`).join('')}
-                </div>
-              </div>
-
-              <button class="btn btn--secondary btn--full mt-md" id="kidSettingsClose" type="button">Done</button>
-            </div>
-          </div>`;
-
-          kidSettingsMount.innerHTML = html;
-
-          requestAnimationFrame(() => {
-            document.getElementById('kidSettingsOverlay')?.classList.add('active');
-          });
-
-          // Theme buttons
-          kidSettingsMount.querySelectorAll('.kid-settings__theme-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-              const preset = btn.dataset.preset;
-              kidSettingsMount.querySelectorAll('.kid-settings__theme-btn').forEach(b => b.classList.remove('kid-settings__theme-btn--active'));
-              btn.classList.add('kid-settings__theme-btn--active');
-
-              if (preset) {
-                kid.theme = { preset, accentColor: settings?.theme?.accentColor || '#5b7fd6' };
-                applyTheme(kid.theme);
-              } else {
-                kid.theme = null;
-                applyTheme(settings?.theme || defaultThemeConfig());
-              }
-              await writePerson(kid.id, { ...kid });
-            });
-          });
-
-          // Color buttons
-          kidSettingsMount.querySelectorAll('.kid-settings__color-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-              const color = btn.dataset.color;
-              kidSettingsMount.querySelectorAll('.kid-settings__color-btn').forEach(b => b.classList.remove('kid-settings__color-btn--active'));
-              btn.classList.add('kid-settings__color-btn--active');
-              kid.color = color;
-              await writePerson(kid.id, { ...kid });
-              render();
-            });
-          });
-
-          // Close
-          const closeSettings = () => {
-            const overlay = document.getElementById('kidSettingsOverlay');
-            if (overlay) {
-              overlay.classList.remove('active');
-              setTimeout(() => { kidSettingsMount.innerHTML = ''; }, 300);
-            }
-          };
-          document.getElementById('kidSettingsClose')?.addEventListener('click', closeSettings);
-          document.getElementById('kidSettingsOverlay')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) closeSettings();
-          });
+          openDeviceThemeSheet(
+            kidSettingsMount,
+            settings?.theme,
+            () => render(),
+            { person: kid, writePerson, displayDefaults: settings, kidMode: true }
+          );
         }
 
         // ══════════════════════════════════════════
