@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
+import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
@@ -100,52 +100,8 @@ let renderInFlight = false; // prevents concurrent renders when fetchWeather is 
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
 
 // ── Header & Nav ──
-function openMoreSheet() {
-  const items = [
-    { id: 'admin',    label: 'Admin' },
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'tracker',  label: 'Tracker' },
-    { id: 'theme',    label: 'Theme' },
-  ];
-  if (localStorage.getItem('dr-debug') === 'true') {
-    items.push({ id: 'debug', label: 'Debug (turn off)' });
-  }
-  taskSheetMount.innerHTML = renderBottomSheet(
-    `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(items)}`
-  );
-  requestAnimationFrame(() => {
-    document.getElementById('bottomSheet')?.classList.add('active');
-  });
-  document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
-    if (e.target.id === 'bottomSheet') closeTaskSheet();
-  });
-  taskSheetMount.querySelector('.overflow-menu')?.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('[data-item-id]');
-    if (!btn) return;
-    const itemId = btn.dataset.itemId;
-    closeTaskSheet();
-    setTimeout(() => {
-      if (itemId === 'admin') {
-        location.href = 'admin.html';
-      } else if (itemId === 'calendar') {
-        location.href = 'calendar.html';
-      } else if (itemId === 'tracker') {
-        location.href = 'tracker.html';
-      } else if (itemId === 'theme') {
-        openDeviceThemeSheet(
-          document.getElementById('taskSheetMount'),
-          settings?.theme,
-          () => render(),
-          linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
-          linkedPerson ? undefined : { settings, writeSettings, displayDefaults: settings }
-        );
-      } else if (itemId === 'debug') {
-        localStorage.setItem('dr-debug', 'false');
-        render();
-      }
-    }, 320);
-  });
-}
+// More menu is rendered by the shared initNavMore (icons + page list match
+// every other page). The dashboard wires it after renderNavBar below.
 
 function wireHeaderActions() {
   document.getElementById('headerAdmin')?.addEventListener('click', () => { location.href = 'admin.html'; });
@@ -185,9 +141,14 @@ function getTodayFilterChipHtml() {
   });
 }
 
-// 5-tab bottom nav with More → openMoreSheet
+// 5-tab bottom nav with More → shared initNavMore (matches every other page).
 document.getElementById('navMount').innerHTML = renderNavBar('home', { onMoreClick: true });
-document.getElementById('navMore')?.addEventListener('click', () => openMoreSheet());
+initNavMore(
+  document.getElementById('taskSheetMount'),
+  () => settings?.theme,
+  linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
+  linkedPerson ? undefined : { settings, writeSettings, displayDefaults: settings }
+);
 
 // FAB (primary add action)
 document.getElementById('fabMount').innerHTML = renderFab({ id: 'fabAdd', label: 'Add' });
