@@ -3021,8 +3021,8 @@
 
 .wf-row {
   display: grid;
-  grid-template-columns: 42px 20px 1fr 52px 58px;
-  gap: 8px;
+  grid-template-columns: 44px 22px 1fr 66px 66px;
+  gap: 10px;
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
@@ -3032,6 +3032,8 @@
 .wf-row--today {
   background: var(--surface-2);
   border-radius: var(--radius-md);
+  padding: 10px 8px;
+  margin: 0 -8px;
 }
 
 .wf-col--day {
@@ -3106,9 +3108,10 @@
 
 .wf-col--temp {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
 }
 .wf-temp-current {
   font-size: var(--font-sm);
@@ -3118,8 +3121,9 @@
 }
 .wf-temp-range {
   display: flex;
-  gap: 3px;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
 }
 .wf-temp-high {
   font-size: var(--font-xs);

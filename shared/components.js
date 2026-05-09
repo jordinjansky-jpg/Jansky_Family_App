@@ -2465,9 +2465,10 @@ export function renderWeatherSheet(days, today, tomorrow) {
       </div>
       <div class="wf-col--temp">
         <span class="wf-temp-current">${esc(day.tempLabel)}</span>
-        ${isToday
-          ? `<div class="wf-temp-range"><span class="wf-temp-high">${esc(day.high)}</span><span class="wf-temp-low">${esc(day.low)}</span></div>`
-          : `<span class="wf-temp-low">${esc(day.low)}</span>`}
+        <div class="wf-temp-range">
+          <span class="wf-temp-high">${esc(day.high)}</span>
+          <span class="wf-temp-low">${esc(day.low)}</span>
+        </div>
       </div>
       <div class="wf-col--sun">
         ${sunriseHtml}${sunsetHtml}
