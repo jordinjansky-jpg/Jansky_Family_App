@@ -1132,15 +1132,11 @@
 .av-picker {
   display: flex;
   gap: 8px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 2px;
 }
-.av-picker::-webkit-scrollbar { display: none; }
 
 .av-card {
-  flex-shrink: 0;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1151,7 +1147,6 @@
   background: var(--surface);
   cursor: pointer;
   transition: border-color var(--t-fast), background var(--t-fast);
-  width: 56px;
 }
 .av-card--active {
   border-color: var(--accent);
