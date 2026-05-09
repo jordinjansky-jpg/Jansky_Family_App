@@ -122,9 +122,17 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load data ──
-    let settings = await readSettings();
+    // settings is mutated in place (via syncSettings) so closures like initNavMore
+    // familyOpts always see the current values. Reassigning would orphan them.
+    let settings = await readSettings() || {};
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     applyTextSize(settings?.textSize || 'default');
+
+    // Replace settings contents in place — keeps the object reference stable for closures.
+    function syncSettings(updated) {
+      for (const k of Object.keys(settings)) if (!(k in updated)) delete settings[k];
+      Object.assign(settings, updated);
+    }
 
     let peopleObj = await readPeople() || {};
     let tasksObj = await readTasks() || {};
@@ -149,7 +157,8 @@
       subtitle: settings?.appName || 'Daily Rundown',
     });
     document.getElementById('navMount').innerHTML = renderNavBar(null);
-    initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme);
+    initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme, undefined,
+      { settings, writeSettings, displayDefaults: settings });
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);
@@ -4048,7 +4057,7 @@
         const theme = { ...(settings?.theme || {}), preset: e.target.value };
         const updated = { ...settings, theme };
         await writeSettings(updated);
-        settings = updated;
+        syncSettings(updated);
         applyTheme(resolveTheme(settings.theme));
       });
 
@@ -4058,7 +4067,7 @@
         applyTheme(resolveTheme(theme));
         const updated = { ...settings, theme };
         await writeSettings(updated);
-        settings = updated;
+        syncSettings(updated);
       });
 
       // ── Weather test ──
@@ -4129,7 +4138,7 @@
             appName:    main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
             familyName: main.querySelector('#sf_familyName')?.value.trim() || '',
           });
-          await writeSettings(updated); settings = updated;
+          await writeSettings(updated); syncSettings(updated);
           document.getElementById('headerMount').innerHTML = renderHeader({
             variant: 'admin', title: 'Admin', subtitle: settings.appName,
           });
@@ -4138,7 +4147,7 @@
       }
       main.querySelector('#sf_timezone')?.addEventListener('change', async () => {
         const updated = buildSettingsUpdate({ timezone: main.querySelector('#sf_timezone')?.value || settings?.timezone });
-        await writeSettings(updated); settings = updated; flashSaved();
+        await writeSettings(updated); syncSettings(updated); flashSaved();
       });
 
       // ── Auto-save: PIN (blur, validated) ──
@@ -4153,7 +4162,7 @@
         }
         if (errEl) errEl.hidden = true;
         const updated = buildSettingsUpdate({ adminPin: newPin });
-        await writeSettings(updated); settings = updated;
+        await writeSettings(updated); syncSettings(updated);
         if (pinEl) pinEl.value = '';
         flashSaved();
       });
@@ -4165,11 +4174,11 @@
       // ── Auto-save: Style ──
       main.querySelector('#set_ambientStrip')?.addEventListener('change', async () => {
         const updated = buildSettingsUpdate({ ambientStrip: !!main.querySelector('#set_ambientStrip')?.checked });
-        await writeSettings(updated); settings = updated; flashSaved();
+        await writeSettings(updated); syncSettings(updated); flashSaved();
       });
       main.querySelector('#sf_themePreset')?.addEventListener('change', async () => {
         const updated = buildSettingsUpdate({ theme: { ...(settings?.theme || {}), preset: main.querySelector('#sf_themePreset')?.value } });
-        await writeSettings(updated); settings = updated; flashSaved();
+        await writeSettings(updated); syncSettings(updated); flashSaved();
       });
       const saveDisplayPrefs = async () => {
         const updated = buildSettingsUpdate({
@@ -4179,7 +4188,7 @@
           avatarStyle:   main.querySelector('#sf_avatarStyle')?.value || 'tab',
           taskGrouping:  main.querySelector('#sf_taskGrouping .segmented-btn--active')?.dataset.grouping || 'sections',
         });
-        await writeSettings(updated); settings = updated;
+        await writeSettings(updated); syncSettings(updated);
         applyTaskDisplayPrefs(updated);
         flashSaved();
       };
@@ -4197,7 +4206,7 @@
         const btn = e.target.closest('.segmented-btn');
         if (!btn) return;
         const updated = buildSettingsUpdate({ textSize: btn.dataset.size || 'default' });
-        await writeSettings(updated); settings = updated; flashSaved();
+        await writeSettings(updated); syncSettings(updated); flashSaved();
       });
 
       // ── Auto-save: Scoring ──
@@ -4215,7 +4224,7 @@
             weekendWeightMonthly: parseFloatOr(main.querySelector('#sf_weekendWeightMonthly')?.value, 3),
             pastDueCreditPct:     parseIntOr(main.querySelector('#sf_pastDueCredit')?.value, 75),
           });
-          await writeSettings(updated); settings = updated; flashSaved();
+          await writeSettings(updated); syncSettings(updated); flashSaved();
         });
       }
 
@@ -4230,7 +4239,7 @@
               showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false',
             },
           });
-          await writeSettings(updated); settings = updated; flashSaved();
+          await writeSettings(updated); syncSettings(updated); flashSaved();
         });
       }
 
@@ -4239,7 +4248,7 @@
         const newLoc = main.querySelector('#sf_weatherLocation')?.value.trim() || '';
         if ((settings?.weatherLocation || '') !== newLoc) clearWeatherCache();
         const updated = buildSettingsUpdate({ weatherLocation: newLoc });
-        await writeSettings(updated); settings = updated; flashSaved();
+        await writeSettings(updated); syncSettings(updated); flashSaved();
       });
     }
     // ── Schedule tab events ──
@@ -4301,7 +4310,7 @@
         const months = parseInt(main.querySelector('#set_autoPruneMonths')?.value || '0', 10);
         const updated = { ...settings, autoPruneMonths: months };
         await writeSettings(updated);
-        settings = updated;
+        syncSettings(updated);
       });
 
       main.querySelector('#exportDataBtn')?.addEventListener('click', async () => {
