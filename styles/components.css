@@ -3072,11 +3072,10 @@
 }
 
 .wf-col--conditions {
-  flex: 0 0 120px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  min-width: 0;
 }
 .wf-period {
   display: grid;
@@ -3098,8 +3097,6 @@
   font-size: var(--font-xs);
   color: var(--text-muted);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Condition icon colors */
