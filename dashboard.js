@@ -7,6 +7,7 @@ import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWee
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD } from './shared/state.js';
+import { bindTaskRowGesture } from './shared/dom-helpers.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
@@ -752,54 +753,19 @@ function bindEvents() {
     await loadData();
   });
 
-  // Task card: tap to toggle, long-press to open detail sheet
-  // Movement threshold (px) — cancel long-press if finger moves more than this (scroll detection)
-  const PRESS_MOVE_THRESHOLD = 10;
+  // Task card: tap to toggle, long-press to open detail sheet (shared helper).
   main.querySelectorAll('.task-card').forEach(btn => {
-    let didLongPress = false;
-    let startX = 0, startY = 0;
-
-    const startPress = (e) => {
-      didLongPress = false;
-      startX = e.clientX; startY = e.clientY;
-      clearTimeout(activePressTimer);
-      activePressTimer = setTimeout(() => {
-        didLongPress = true;
-        activePressTimer = null;
-        openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
-      }, settings?.longPressMs ?? 800);
-    };
-
-    const movePress = (e) => {
-      if (activePressTimer && (Math.abs(e.clientX - startX) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - startY) > PRESS_MOVE_THRESHOLD)) {
-        clearTimeout(activePressTimer); activePressTimer = null;
-      }
-    };
-
-    const endPress = (e) => {
-      clearTimeout(activePressTimer);
-      activePressTimer = null;
-      if (!didLongPress) {
-        // Block tap on past incomplete daily tasks — must use detail sheet
-        const ek = btn.dataset.entryKey;
-        const dk = btn.dataset.dateKey || viewDate;
+    bindTaskRowGesture(btn, {
+      longPressMs: settings?.longPressMs ?? 800,
+      onTap: (ek, dk) => toggleTask(ek, dk || viewDate),
+      onLongPress: (ek, dk) => openTaskSheet(ek, dk || viewDate),
+      isTapBlocked: (ek, dk) => {
+        // Past incomplete daily tasks: tap routes to detail sheet (per-spec, can't toggle).
         const entry = viewEntries[ek] || overdueItems.find(o => o.entryKey === ek);
-        if (entry && dk < today && entry.rotationType === 'daily' && !isComplete(ek, completions)) {
-          openTaskSheet(ek, dk);
-          return;
-        }
-        toggleTask(ek, dk);
-      }
-    };
-
-    const cancelPress = () => { clearTimeout(activePressTimer); activePressTimer = null; };
-
-    btn.addEventListener('pointerdown', startPress);
-    btn.addEventListener('pointermove', movePress);
-    btn.addEventListener('pointerup', endPress);
-    btn.addEventListener('pointerleave', cancelPress);
-    btn.addEventListener('pointercancel', cancelPress);
-    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+        const date = dk || viewDate;
+        return !!(entry && date < today && entry.rotationType === 'daily' && !isComplete(ek, completions));
+      },
+    });
   });
 
   // Dashboard tiles — tap = open sheet, dinner tile long-press = manage

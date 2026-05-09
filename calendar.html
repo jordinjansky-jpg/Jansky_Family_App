@@ -41,6 +41,7 @@
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
     import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet } from './shared/components.js';
+    import { bindTaskRowGesture } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml } from './shared/utils.js';
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
@@ -407,32 +408,12 @@
       });
 
       main.querySelectorAll('.cal-day__task').forEach(row => {
-        let pressTimer = null;
-        let didLongPress = false;
-        const entryKey = row.dataset.entryKey;
-        const dateKey = row.dataset.dateKey;
-        const tapBlocked = row.querySelector('.cal-day__task-check')?.dataset.tapBlocked === 'true';
-
-        row.addEventListener('pointerdown', (e) => {
-          didLongPress = false;
-          pressTimer = setTimeout(() => {
-            didLongPress = true;
-            openTaskSheet(entryKey, dateKey);
-          }, settings?.longPressMs ?? 800);
+        bindTaskRowGesture(row, {
+          longPressMs: settings?.longPressMs ?? 800,
+          onTap: toggleTask,
+          onLongPress: openTaskSheet,
+          isTapBlocked: () => row.querySelector('.cal-day__task-check')?.dataset.tapBlocked === 'true',
         });
-        row.addEventListener('pointerup', () => {
-          clearTimeout(pressTimer);
-          if (!didLongPress) {
-            if (tapBlocked) {
-              openTaskSheet(entryKey, dateKey);
-            } else {
-              toggleTask(entryKey, dateKey);
-            }
-          }
-        });
-        row.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
-        row.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
-        row.addEventListener('contextmenu', (e) => e.preventDefault());
       });
 
       // Meal cards

@@ -16,3 +16,66 @@ export function initOwnerChips(containerId) {
 export function getSelectedOwners(containerId) {
   return Array.from(document.querySelectorAll(`#${containerId} .owner-chip--selected`)).map(b => b.dataset.id);
 }
+
+/**
+ * Bind tap + long-press gesture to a task row element.
+ * Used by dashboard's `.task-card` and calendar's `.cal-day__task`.
+ *
+ * - Tap: fires `onTap(entryKey, dateKey)`.
+ * - Long-press (>= longPressMs): fires `onLongPress(entryKey, dateKey)`.
+ * - If `isTapBlocked(entryKey, dateKey)` returns true, a tap fires `onLongPress`
+ *   instead (used for past-incomplete-daily where toggling is forbidden).
+ * - Movement past `moveThreshold` px cancels the press timer (so scrolling
+ *   doesn't trigger an accidental long-press).
+ *
+ * Reads `entryKey`/`dateKey` from row.dataset. Both must be set by the renderer.
+ */
+export function bindTaskRowGesture(row, opts) {
+  const {
+    longPressMs = 800,
+    moveThreshold = 10,
+    onTap,
+    onLongPress,
+    isTapBlocked,
+  } = opts || {};
+  const entryKey = row.dataset.entryKey;
+  const dateKey = row.dataset.dateKey;
+  let didLongPress = false;
+  let pressTimer = null;
+  let startX = 0, startY = 0;
+
+  row.addEventListener('pointerdown', (e) => {
+    didLongPress = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      didLongPress = true;
+      pressTimer = null;
+      onLongPress?.(entryKey, dateKey);
+    }, longPressMs);
+  });
+
+  row.addEventListener('pointermove', (e) => {
+    if (pressTimer && (Math.abs(e.clientX - startX) > moveThreshold || Math.abs(e.clientY - startY) > moveThreshold)) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
+
+  row.addEventListener('pointerup', () => {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    if (didLongPress) return;
+    if (isTapBlocked && isTapBlocked(entryKey, dateKey)) {
+      onLongPress?.(entryKey, dateKey);
+    } else {
+      onTap?.(entryKey, dateKey);
+    }
+  });
+
+  const cancel = () => { clearTimeout(pressTimer); pressTimer = null; };
+  row.addEventListener('pointerleave', cancel);
+  row.addEventListener('pointercancel', cancel);
+  row.addEventListener('contextmenu', (e) => e.preventDefault());
+}
