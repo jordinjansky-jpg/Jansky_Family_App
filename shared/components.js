@@ -251,9 +251,11 @@ export function renderNavBar(activePage, options = {}) {
  * Shows a sheet with Admin, Calendar, Rewards, Theme options (alphabetical).
  * Call after renderNavBar() has mounted to DOM.
  * @param {HTMLElement} sheetMount - element to mount the sheet into
- * @param {object} [familyTheme] - current family theme for openDeviceThemeSheet
+ * @param {Function} getTheme - returns current family theme for openDeviceThemeSheet
+ * @param {object} [personOpts] - { person, writePerson, displayDefaults } for person mode
+ * @param {object} [familyOpts] - { settings, writeSettings, displayDefaults } for family-defaults mode
  */
-export function initNavMore(sheetMount, getTheme, personOpts) {
+export function initNavMore(sheetMount, getTheme, personOpts, familyOpts) {
   const _svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">${p}</svg>`;
   const items = [
     { id: 'admin',    label: 'Admin',    icon: _svg('<circle cx="12" cy="12" r="3"></circle><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>') },
@@ -283,7 +285,7 @@ export function initNavMore(sheetMount, getTheme, personOpts) {
       if (id === 'admin')    location.href = 'admin.html';
       if (id === 'calendar') location.href = 'calendar.html';
       if (id === 'tracker')  location.href = 'tracker.html';
-      if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, undefined, personOpts);
+      if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, undefined, personOpts, familyOpts);
     });
   }
 

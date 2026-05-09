@@ -1,5 +1,5 @@
 // kitchen.js — Kitchen page: meal planning + shopping lists
-import { initFirebase, readSettings, readPeople, onConnectionChange,
+import { initFirebase, readSettings, writeSettings, readPeople, onConnectionChange,
   onAllMessages, writeMessage, markMessageSeen, removeMessage,
   writeBankToken, markBankTokenUsed, removeBankToken, readBank, writeMultiplier,
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
@@ -129,7 +129,8 @@ async function init() {
 
   // Nav
   document.getElementById('navMount').innerHTML = renderNavBar('kitchen');
-  initNavMore(document.getElementById('sheetMount'), () => settings?.theme);
+  initNavMore(document.getElementById('sheetMount'), () => settings?.theme, undefined,
+    { settings, writeSettings, displayDefaults: settings });
   initOfflineBanner(onConnectionChange);
 
   // Bell

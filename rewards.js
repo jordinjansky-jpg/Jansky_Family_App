@@ -1,4 +1,4 @@
-import { initFirebase, readSettings, readPeople, readRewards, readAllMessages,
+import { initFirebase, readSettings, writeSettings, readPeople, readRewards, readAllMessages,
   readAllBalanceAnchors, readAllSnapshots, readBank, readMultipliers,
   writeFyiMessage, writeMessage, markMessageSeen, writeBankToken,
   markBankTokenUsed, removeBankToken, onConnectionChange, pushReward,
@@ -80,7 +80,8 @@ async function init() {
       writeMultiplierFn: writeMultiplier,
       getTodayFn: () => todayKey(settings?.timezone),
     });
-    initNavMore(document.getElementById('sheetMount'), () => theme);
+    initNavMore(document.getElementById('sheetMount'), () => settings?.theme, undefined,
+      { settings, writeSettings, displayDefaults: settings });
     initOfflineBanner(onConnectionChange);
   } else {
     document.getElementById('headerMount').innerHTML = renderKidHeader();
