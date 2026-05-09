@@ -362,6 +362,12 @@ export function applyTaskDisplayPrefs(settings, personPrefs) {
   apply('data-show-avatar',   resolve('showAvatar', true));
   apply('data-show-duration', resolve('showDuration', true));
   apply('data-show-points',   resolve('showPoints', false));
+  // showTodIcons: single on/off for all AM/PM time-of-day pills. Default on.
+  // Compat: if showTodIcons not set, fall back to showTodIconBoth as proxy.
+  const todIconsOn = (personPrefs?.showTodIcons !== undefined || settings?.showTodIcons !== undefined)
+    ? resolve('showTodIcons', true)
+    : (resolve('showTodIconBoth', true) || resolve('showTodIconSingle', true));
+  apply('data-show-tod', todIconsOn);
 }
 
 /**

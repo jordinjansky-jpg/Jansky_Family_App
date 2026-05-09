@@ -2178,12 +2178,8 @@
               </div>
             </div>
             <div class="admin-toggle-row mt-xs">
-              <span class="admin-toggle-row__label">Show AM/PM icons on "Both" tasks</span>
-              <label class="form-toggle"><input type="checkbox" id="sf_showTodIconBoth"${settings?.showTodIconBoth ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-            </div>
-            <div class="admin-toggle-row">
-              <span class="admin-toggle-row__label">Show AM/PM icons on dedicated AM or PM tasks</span>
-              <label class="form-toggle"><input type="checkbox" id="sf_showTodIconSingle"${settings?.showTodIconSingle ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+              <span class="admin-toggle-row__label">Show AM/PM icons on task cards</span>
+              <label class="form-toggle"><input type="checkbox" id="sf_showTodIcons"${settings?.showTodIcons !== false ? ' checked' : ''}><span class="form-toggle__track"></span></label>
             </div>
             <div class="form-group mt-xs">
               <label class="form-label">Avatar style (family default)</label>
@@ -4177,18 +4173,17 @@
       });
       const saveDisplayPrefs = async () => {
         const updated = buildSettingsUpdate({
-          showTodIconBoth:   !!main.querySelector('#sf_showTodIconBoth')?.checked,
-          showTodIconSingle: !!main.querySelector('#sf_showTodIconSingle')?.checked,
-          showDuration:      !!main.querySelector('#sf_showDuration')?.checked,
-          showPoints:        !!main.querySelector('#sf_showPoints')?.checked,
-          avatarStyle:       main.querySelector('#sf_avatarStyle')?.value || 'tab',
-          taskGrouping:      main.querySelector('#sf_taskGrouping .segmented-btn--active')?.dataset.grouping || 'icons',
+          showTodIcons:  !!main.querySelector('#sf_showTodIcons')?.checked,
+          showDuration:  !!main.querySelector('#sf_showDuration')?.checked,
+          showPoints:    !!main.querySelector('#sf_showPoints')?.checked,
+          avatarStyle:   main.querySelector('#sf_avatarStyle')?.value || 'tab',
+          taskGrouping:  main.querySelector('#sf_taskGrouping .segmented-btn--active')?.dataset.grouping || 'icons',
         });
         await writeSettings(updated); settings = updated;
         applyTaskDisplayPrefs(updated);
         flashSaved();
       };
-      for (const id of ['#sf_showTodIconBoth', '#sf_showTodIconSingle', '#sf_showDuration', '#sf_showPoints', '#sf_avatarStyle']) {
+      for (const id of ['#sf_showTodIcons', '#sf_showDuration', '#sf_showPoints', '#sf_avatarStyle']) {
         main.querySelector(id)?.addEventListener('change', saveDisplayPrefs);
       }
       main.querySelector('#sf_taskGrouping')?.addEventListener('click', async (e) => {

@@ -1711,50 +1711,6 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     return `<div class="av-preview">${inner[style] || inner.tab}</div>`;
   };
 
-  const displaySection = personOpts ? `
-    <div class="dt-section">
-      <label class="form-label">Text Size</label>
-      <div class="segmented-control" id="dt_textSize">
-        <button type="button" class="segmented-btn${personTextSize === 'small'   ? ' segmented-btn--active' : ''}" data-size="small">Small</button>
-        <button type="button" class="segmented-btn${personTextSize === 'default' ? ' segmented-btn--active' : ''}" data-size="default">Default</button>
-        <button type="button" class="segmented-btn${personTextSize === 'large'   ? ' segmented-btn--active' : ''}" data-size="large">Large</button>
-      </div>
-    </div>
-    <div class="dt-section">
-      <label class="form-label">Display</label>
-      <div class="form-group">
-        <label class="form-label form-label--sub">Avatar style</label>
-        <div class="av-picker" id="dt_avatarStyle">
-          ${['tab','circle','edge','edge-initial','hidden'].map(style => `<button type="button" class="av-card${currentAvatarStyle === style ? ' av-card--active' : ''}" data-style="${style}">${avatarPreviewHtml(style)}<span class="av-label">${avatarStyleLabels[style]}</span></button>`).join('')}
-        </div>
-        <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Sections mode.</p>
-      </div>
-      <div class="form-group mt-sm">
-        <label class="form-label form-label--sub">Task grouping</label>
-        <div class="segmented-control" id="dt_taskGrouping">
-          <button type="button" class="segmented-btn${currentTaskGrouping === 'icons'    ? ' segmented-btn--active' : ''}" data-grouping="icons">Icons</button>
-          <button type="button" class="segmented-btn${currentTaskGrouping === 'sections' ? ' segmented-btn--active' : ''}" data-grouping="sections">Sections</button>
-        </div>
-        <p class="form-hint mt-xs">Sections groups by person → AM → Anytime → PM.</p>
-      </div>
-      <div class="dt-toggle-row mt-sm">
-        <span class="dt-toggle-row__label">Estimated duration on task cards</span>
-        <label class="form-toggle"><input type="checkbox" id="dt_showDuration"${resolveDisp('showDuration', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-      </div>
-      <div class="dt-toggle-row">
-        <span class="dt-toggle-row__label">Point value on task cards</span>
-        <label class="form-toggle"><input type="checkbox" id="dt_showPoints"${resolveDisp('showPoints', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-      </div>
-      <div class="dt-toggle-row dt-toggle-row--mt">
-        <span class="dt-toggle-row__label">AM/PM icon on tasks with both times</span>
-        <label class="form-toggle"><input type="checkbox" id="dt_showTodIconBoth"${resolveDisp('showTodIconBoth', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-      </div>
-      <div class="dt-toggle-row">
-        <span class="dt-toggle-row__label">AM/PM icon on AM-only or PM-only tasks</span>
-        <label class="form-toggle"><input type="checkbox" id="dt_showTodIconSingle"${resolveDisp('showTodIconSingle', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-      </div>
-    </div>` : '';
-
   const html = renderBottomSheet(`<div class="task-detail-sheet">
     <h3 class="admin-form__title">${personOpts ? 'My Settings' : 'Device Theme'}</h3>
     <div class="dt-section">
@@ -1763,12 +1719,48 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
         <button class="dt-theme-btn${!currentPreset ? ' dt-theme-btn--active' : ''}" data-preset="" type="button">Family Default</button>
         ${presets.map(p => `<button class="dt-theme-btn${currentPreset === p.key ? ' dt-theme-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
       </div>
+      <div class="form-group mt-sm">
+        <label class="form-label">${personOpts ? 'My Color' : 'Accent Color'}</label>
+        ${renderColorButton(currentAccent, 'dt_accentPicker')}
+      </div>
+      ${personOpts ? `
+      <div class="form-group mt-sm">
+        <label class="form-label">Text Size</label>
+        <div class="segmented-control" id="dt_textSize">
+          <button type="button" class="segmented-btn${personTextSize === 'small'   ? ' segmented-btn--active' : ''}" data-size="small">Small</button>
+          <button type="button" class="segmented-btn${personTextSize === 'default' ? ' segmented-btn--active' : ''}" data-size="default">Default</button>
+          <button type="button" class="segmented-btn${personTextSize === 'large'   ? ' segmented-btn--active' : ''}" data-size="large">Large</button>
+        </div>
+      </div>` : ''}
     </div>
+    ${personOpts ? `
     <div class="dt-section">
-      <label class="form-label">${personOpts ? 'My Color' : 'Accent Color'}</label>
-      ${renderColorButton(currentAccent, 'dt_accentPicker')}
-    </div>
-    ${displaySection}
+      <label class="form-label">Task Cards</label>
+      <div class="av-picker" id="dt_avatarStyle">
+        ${['tab','circle','edge','edge-initial','hidden'].map(style => `<button type="button" class="av-card${currentAvatarStyle === style ? ' av-card--active' : ''}" data-style="${style}">${avatarPreviewHtml(style)}<span class="av-label">${avatarStyleLabels[style]}</span></button>`).join('')}
+      </div>
+      <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Sections mode.</p>
+      <div class="form-group mt-sm">
+        <label class="form-label">Grouping</label>
+        <div class="segmented-control" id="dt_taskGrouping">
+          <button type="button" class="segmented-btn${currentTaskGrouping === 'icons'    ? ' segmented-btn--active' : ''}" data-grouping="icons">Icons</button>
+          <button type="button" class="segmented-btn${currentTaskGrouping === 'sections' ? ' segmented-btn--active' : ''}" data-grouping="sections">Sections</button>
+        </div>
+        <p class="form-hint mt-xs">Sections groups by person → AM → Anytime → PM.</p>
+      </div>
+      <div class="dt-toggle-row mt-sm">
+        <span class="dt-toggle-row__label">Show AM/PM icons</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_showTodIcons"${resolveDisp('showTodIcons', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+      <div class="dt-toggle-row">
+        <span class="dt-toggle-row__label">Estimated duration</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_showDuration"${resolveDisp('showDuration', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+      <div class="dt-toggle-row">
+        <span class="dt-toggle-row__label">Point value</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_showPoints"${resolveDisp('showPoints', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+    </div>` : ''}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>
@@ -1879,10 +1871,9 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
 
     // Boolean display pref toggles
     const dispKeys = [
-      ['dt_showDuration',      'showDuration'],
-      ['dt_showPoints',        'showPoints'],
-      ['dt_showTodIconBoth',   'showTodIconBoth'],
-      ['dt_showTodIconSingle', 'showTodIconSingle'],
+      ['dt_showTodIcons',  'showTodIcons'],
+      ['dt_showDuration',  'showDuration'],
+      ['dt_showPoints',    'showPoints'],
     ];
     for (const [elId, key] of dispKeys) {
       mountEl.querySelector(`#${elId}`)?.addEventListener('change', async (e) => {

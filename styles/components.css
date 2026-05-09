@@ -1029,6 +1029,7 @@
 [data-show-avatar="off"] .task-card::before { display: block; background: var(--person-color, var(--accent)); }
 [data-show-duration="off"] .task-card__meta-item--duration { display: none; }
 [data-show-points="off"] .task-card__meta-item--points { display: none; }
+[data-show-tod="off"] .task-card__slot { display: none; }
 
 /* ── Avatar style variants ── */
 
@@ -1046,12 +1047,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--pill-color) 15%, transparent);
   border: 2px solid var(--pill-color);
-  font-size: 12px;
+  font-size: 13px;
 }
 [data-theme="dark"] .task-card__avatar-circle .task-card__avatar-initial {
   background: color-mix(in srgb, var(--pill-color) 25%, transparent);
@@ -1087,19 +1088,28 @@
   padding-left: 7px;
 }
 
+/* ── Time-of-day section header (sections mode + kid page) ── */
+.time-header {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: var(--spacing-sm) 0 4px;
+}
+
 /* ── Person section header (sections grouping mode) ── */
 .person-section-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  padding: var(--spacing-sm) 0 var(--spacing-xs);
+  padding: var(--spacing-sm) 0 2px;
+  margin-top: var(--spacing-md);
 }
-.person-section-header + .person-section-header {
-  margin-top: var(--spacing-sm);
-}
+.person-section-header:first-of-type { margin-top: 0; }
 .person-section-header__dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: var(--person-color, var(--text-faint));
   flex-shrink: 0;
