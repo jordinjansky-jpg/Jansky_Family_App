@@ -329,10 +329,12 @@ async function render() {
       empty: !weatherData || weatherData.isPast || weatherData.isFuture
     });
 
-    // Dinner tile
+    // Dinner tile — empty state uses verb form ("Plan dinner") + chevron via the
+    // tile's built-in empty-action affordance so the tap target reads as actionable
+    // rather than as static status.
     const dinnerTile = renderDashboardTile({
       label: 'Dinner',
-      value: dinnerName || 'Not planned',
+      value: dinnerName || 'Plan dinner',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>',
       iconColor: 'var(--ambient-dinner-fg)',
       action: 'dinner',
