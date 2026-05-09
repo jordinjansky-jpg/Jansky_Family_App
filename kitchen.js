@@ -1151,6 +1151,7 @@ function openRecipeForm(recipeId, onSave = null) {
       if (data.difficulty && !document.getElementById('recipeDifficulty')?.value)
         document.getElementById('recipeDifficulty').value = data.difficulty;
       if (data.ingredients?.length) {
+        ingredients.length = 0;
         data.ingredients.forEach(ing => {
           if (!ing.name) return;
           const cleaned = cleanIngredientName(ing.name);
