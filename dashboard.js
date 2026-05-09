@@ -96,6 +96,7 @@ let lastRenderedIsToday = true; // tracks viewDate==today across renders so Back
 let lastWeatherData = null; // set in render(); read by ambient chip tap handler
 let renderInFlight = false; // prevents concurrent renders when fetchWeather is awaited
 let renderPending = false; // set when render() is called while a prior render is in flight; triggers a follow-up render after the current one completes
+let pendingApprovalCount = 0; // unseen redemption-request / use-request across all family inboxes; drives the "approvals" banner
 
 // ── Person link title (uses app name from Firebase settings) ──
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
@@ -176,6 +177,24 @@ onConnectionChange((connected) => {
 
 // ── Notification bell ──
 initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, removeBankTokenFn: removeBankToken, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
+
+// ── Pending-approvals banner driver ──
+// Subscribe separately from initBell so the dashboard knows about unseen
+// requests even when the bell isn't open. Triggers a render to refresh the
+// banner queue whenever the count changes.
+onAllMessages((allMsgs) => {
+  let count = 0;
+  for (const msgs of Object.values(allMsgs || {})) {
+    if (!msgs) continue;
+    for (const msg of Object.values(msgs)) {
+      if ((msg.type === 'redemption-request' || msg.type === 'use-request') && !msg.seen) count++;
+    }
+  }
+  if (count !== pendingApprovalCount) {
+    pendingApprovalCount = count;
+    if (typeof render === 'function') render();
+  }
+});
 
 // Skeleton is replaced by render() below; no show/hide needed.
 const main = document.getElementById('mainContent');
@@ -584,7 +603,22 @@ function resolveBanner(overdueIncomplete, isOffline) {
       onBodyClick: () => openOverdueSheet(overdueIncomplete)
     };
   }
-  // 4. Multiplier.
+  // 4. Pending approvals (kid reward requests etc.).
+  // Persistent until the parent acts — solves the "I missed the bell dot in the
+  // brief unseen window" problem by surfacing the queue at the top of the page.
+  if (pendingApprovalCount > 0) {
+    const n = pendingApprovalCount;
+    const openBell = () => document.getElementById('headerBell')?.click();
+    return {
+      variant: 'approvals',
+      title: `${n} pending ${n === 1 ? 'approval' : 'approvals'}`,
+      message: 'Tap to review.',
+      action: { label: 'Review', onClick: openBell },
+      bodyClickable: true,
+      onBodyClick: openBell
+    };
+  }
+  // 5. Multiplier.
   const todayMultipliers = multipliers?.[today] || {};
   const scope = activePerson || 'all';
   const m = todayMultipliers[scope] || todayMultipliers.all;
