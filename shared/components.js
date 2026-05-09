@@ -1671,24 +1671,38 @@ export function renderOfflineBanner(message) {
 // (components.js stays pure — no DOM access)
 
 /**
- * Open the device theme picker bottom sheet.
+ * Open the display settings bottom sheet.
+ * Three modes, governed by which opts object is passed:
+ *   - personOpts:   "My Settings"  — saves to person.theme / person.color / person.prefs
+ *   - familyOpts:   "App Defaults" — saves to settings.theme / settings.{textSize,avatarStyle,...}
+ *   - neither:      "Device Theme" — legacy device-only theme localStorage override
+ *
  * mountEl: DOM element to render into
- * familyTheme: the Firebase settings.theme (fallback when device override cleared)
- * onApply: optional callback after theme changes (e.g. to re-render page)
+ * familyTheme: the Firebase settings.theme (used as preset baseline + family-mode current value)
+ * onApply: optional callback after settings change (e.g. to re-render page)
+ * personOpts: { person, writePerson, displayDefaults }
+ * familyOpts: { settings, writeSettings, displayDefaults }
  */
-export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) {
+export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, familyOpts) {
   const presets = getPresets();
   const colorPalette = getColorPalette();
+  const richMode = !!personOpts || !!familyOpts;
   const current = loadDeviceTheme();
-  const currentPreset = current?.preset || '';
-  // For person pages, use person's color as the active accent
+  // Preset selection: person.theme > family settings.theme > device override > none
+  const currentPreset = personOpts
+    ? (personOpts.person?.theme?.preset || '')
+    : familyOpts
+      ? (familyOpts.settings?.theme?.preset || '')
+      : (current?.preset || '');
   const currentAccent = personOpts
     ? (personOpts.person.color || '#5b7fd6')
-    : (current?.accentColor || familyTheme?.accentColor || '#5b7fd6');
+    : familyOpts
+      ? (familyOpts.settings?.theme?.accentColor || familyTheme?.accentColor || '#5b7fd6')
+      : (current?.accentColor || familyTheme?.accentColor || '#5b7fd6');
 
-  // Resolve display pref values (person overrides > family defaults)
-  const dispDef = personOpts?.displayDefaults || {};
-  const dispPref = personOpts?.person?.prefs || {};
+  // Resolve display pref values: person.prefs > familyOpts.settings > displayDefaults
+  const dispDef = personOpts?.displayDefaults || familyOpts?.displayDefaults || {};
+  const dispPref = personOpts?.person?.prefs || familyOpts?.settings || {};
   const resolveDisp = (key, defaultOn) => {
     if (dispPref[key] !== undefined && dispPref[key] !== null) return !!dispPref[key];
     if (key in dispDef) return defaultOn ? dispDef[key] !== false : !!dispDef[key];
@@ -1711,22 +1725,23 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     return `<div class="av-preview">${inner[style] || inner.tab}</div>`;
   };
 
+  const sheetTitle = personOpts ? 'My Settings' : familyOpts ? 'App Defaults' : 'Device Theme';
   const html = renderBottomSheet(`<div class="task-detail-sheet">
-    ${personOpts
-      ? `<div class="dt-sheet-header"><h3 class="admin-form__title">My Settings</h3>${renderColorButton(currentAccent, 'dt_accentPicker')}</div>`
-      : `<h3 class="admin-form__title">Device Theme</h3>`}
+    ${richMode
+      ? `<div class="dt-sheet-header"><h3 class="admin-form__title">${esc(sheetTitle)}</h3>${renderColorButton(currentAccent, 'dt_accentPicker')}</div>`
+      : `<h3 class="admin-form__title">${esc(sheetTitle)}</h3>`}
     <div class="dt-section">
       <label class="form-label">Theme</label>
       <div class="dt-themes">
         <button class="dt-theme-btn${!currentPreset ? ' dt-theme-btn--active' : ''}" data-preset="" type="button">Family Default</button>
         ${presets.map(p => `<button class="dt-theme-btn${currentPreset === p.key ? ' dt-theme-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
       </div>
-      ${!personOpts ? `
+      ${!richMode ? `
       <div class="form-group mt-sm">
         <label class="form-label">Accent Color</label>
         ${renderColorButton(currentAccent, 'dt_accentPicker')}
       </div>` : ''}
-      ${personOpts ? `
+      ${richMode ? `
       <div class="form-group mt-sm">
         <label class="form-label">Text Size</label>
         <div class="segmented-control" id="dt_textSize">
@@ -1736,7 +1751,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
         </div>
       </div>` : ''}
     </div>
-    ${personOpts ? `
+    ${richMode ? `
     <div class="dt-section">
       <label class="form-label">Task Cards</label>
       <div class="av-picker" id="dt_avatarStyle">
@@ -1781,24 +1796,25 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
   let activeAccent = currentAccent;
 
   async function applyAndSave() {
-    if (!activePreset) {
-      if (!personOpts) saveDeviceTheme(null);
-      applyTheme(familyTheme || defaultThemeConfig());
-      if (personOpts) {
-        personOpts.person.theme = null;
-        const { id, ...data } = personOpts.person;
-        await personOpts.writePerson(id, data);
-      }
+    const themeConfig = activePreset
+      ? (() => {
+          const info = presets.find(p => p.key === activePreset);
+          return { mode: info.mode, preset: activePreset, accentColor: activeAccent };
+        })()
+      : null;
+
+    if (personOpts) {
+      personOpts.person.theme = themeConfig;
+      const { id, ...data } = personOpts.person;
+      await personOpts.writePerson(id, data);
+      applyTheme(themeConfig || familyTheme || defaultThemeConfig());
+    } else if (familyOpts) {
+      familyOpts.settings.theme = themeConfig;
+      await familyOpts.writeSettings(familyOpts.settings);
+      applyTheme(themeConfig || defaultThemeConfig());
     } else {
-      const info = presets.find(p => p.key === activePreset);
-      const themeConfig = { mode: info.mode, preset: activePreset, accentColor: activeAccent };
-      if (!personOpts) saveDeviceTheme(themeConfig);
-      applyTheme(themeConfig);
-      if (personOpts) {
-        personOpts.person.theme = themeConfig;
-        const { id, ...data } = personOpts.person;
-        await personOpts.writePerson(id, data);
-      }
+      saveDeviceTheme(themeConfig);
+      applyTheme(themeConfig || familyTheme || defaultThemeConfig());
     }
     if (onApply) onApply();
   }
@@ -1813,31 +1829,50 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     });
   });
 
-  // Accent color button (also sets person color when on a person page)
+  // Accent color button — sets person.color (person mode), family theme accent (family mode), or device accent
   initColorButton(mountEl.querySelector('#dt_accentPicker')?.closest('.cpick-wrap'), async (color) => {
     activeAccent = color;
     if (personOpts) personOpts.person.color = color;
     applyAndSave();
   });
 
-  // Text size segmented control (person view only)
-  if (personOpts) {
+  // Helper: persist a single pref to person.prefs (person mode) or settings (family mode)
+  async function savePref(key, value) {
+    if (personOpts) {
+      if (!personOpts.person.prefs) personOpts.person.prefs = {};
+      personOpts.person.prefs[key] = value;
+      const { id, ...data } = personOpts.person;
+      await personOpts.writePerson(id, data);
+    } else if (familyOpts) {
+      familyOpts.settings[key] = value;
+      await familyOpts.writeSettings(familyOpts.settings);
+    }
+  }
+
+  // Re-apply task display prefs after a toggle change
+  function reapplyDisplayPrefs() {
+    if (personOpts) {
+      applyTaskDisplayPrefs(personOpts.displayDefaults, personOpts.person.prefs);
+    } else if (familyOpts) {
+      applyTaskDisplayPrefs(familyOpts.settings);
+    }
+  }
+
+  // Text size segmented control (rich mode)
+  if (richMode) {
     mountEl.querySelector('#dt_textSize')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('.segmented-btn');
       if (!btn) return;
       const size = btn.dataset.size;
       mountEl.querySelectorAll('#dt_textSize .segmented-btn').forEach(b => b.classList.toggle('segmented-btn--active', b === btn));
-      if (!personOpts.person.prefs) personOpts.person.prefs = {};
-      personOpts.person.prefs.textSize = size;
-      const { id, ...data } = personOpts.person;
-      await personOpts.writePerson(id, data);
+      await savePref('textSize', size);
       applyTextSize(size);
       if (onApply) onApply();
     });
   }
 
-  // Display pref toggles + selectors (person view only)
-  if (personOpts) {
+  // Display pref toggles + selectors (rich mode)
+  if (richMode) {
     const updateSectionsNudge = () => {
       const nudge = mountEl.querySelector('#dt_sectionsNudge');
       if (!nudge) return;
@@ -1851,10 +1886,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
       const btn = e.target.closest('.av-card');
       if (!btn) return;
       mountEl.querySelectorAll('#dt_avatarStyle .av-card').forEach(b => b.classList.toggle('av-card--active', b === btn));
-      if (!personOpts.person.prefs) personOpts.person.prefs = {};
-      personOpts.person.prefs.avatarStyle = btn.dataset.style;
-      const { id, ...data } = personOpts.person;
-      await personOpts.writePerson(id, data);
+      await savePref('avatarStyle', btn.dataset.style);
       updateSectionsNudge();
       if (onApply) onApply();
     });
@@ -1864,10 +1896,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
       const btn = e.target.closest('.segmented-btn');
       if (!btn) return;
       mountEl.querySelectorAll('#dt_taskGrouping .segmented-btn').forEach(b => b.classList.toggle('segmented-btn--active', b === btn));
-      if (!personOpts.person.prefs) personOpts.person.prefs = {};
-      personOpts.person.prefs.taskGrouping = btn.dataset.grouping;
-      const { id, ...data } = personOpts.person;
-      await personOpts.writePerson(id, data);
+      await savePref('taskGrouping', btn.dataset.grouping);
       updateSectionsNudge();
       if (onApply) onApply();
     });
@@ -1880,11 +1909,8 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     ];
     for (const [elId, key] of dispKeys) {
       mountEl.querySelector(`#${elId}`)?.addEventListener('change', async (e) => {
-        if (!personOpts.person.prefs) personOpts.person.prefs = {};
-        personOpts.person.prefs[key] = e.target.checked;
-        const { id, ...data } = personOpts.person;
-        await personOpts.writePerson(id, data);
-        applyTaskDisplayPrefs(personOpts.displayDefaults, personOpts.person.prefs);
+        await savePref(key, e.target.checked);
+        reapplyDisplayPrefs();
         if (onApply) onApply();
       });
     }
