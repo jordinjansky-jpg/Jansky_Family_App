@@ -501,7 +501,7 @@ function renderTimeOfDayPill(slot) {
  * @caller Must call `applyDataColors(container)` after inserting this HTML (propagates --owner-color / --event-color).
  */
 export function renderTaskCard(options) {
-  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, isPastDaily = false } = options;
+  const { entryKey, entry, task, person, category, completed, overdue, dateLabel, points, isEvent, isPastDaily = false, avatarStyle = 'tab' } = options;
   const doneClass = completed ? ' card--done task-card--done' : '';
   const overdueClass = overdue ? ' task-card--overdue' : '';
   const eventClass = isEvent ? ' card--event task-card--event' : '';
@@ -546,12 +546,26 @@ export function renderTaskCard(options) {
   const eventTimeLabel = isEvent && task.eventTime ? formatEventTime(task.eventTime) : '';
   const timePill = renderTimeOfDayPill(entry.timeOfDay || task.timeOfDay || 'anytime');
 
-  // Leading pill: events use event-time-pill; non-events use avatar-pill.
+  // Leading pill: events use event-time-pill; non-events use avatar variant.
   const eventColorAttr = eventColor ? ` data-event-color="${esc(eventColor)}"` : '';
   const personColorAttr = !isEvent ? ` data-person-color="${esc(ownerColor)}"` : '';
-  const leading = isEvent
-    ? `<div class="task-card__event-time-pill"><span>${esc(eventTimeLabel)}</span></div>`
-    : `<div class="task-card__avatar-pill"><span class="task-card__avatar-initial">${esc(ownerInitial)}</span></div>`;
+  let leading;
+  if (isEvent) {
+    leading = `<div class="task-card__event-time-pill"><span>${esc(eventTimeLabel)}</span></div>`;
+  } else {
+    switch (avatarStyle) {
+      case 'circle':
+        leading = `<div class="task-card__avatar-circle"><span class="task-card__avatar-initial">${esc(ownerInitial)}</span></div>`; break;
+      case 'edge':
+        leading = `<div class="task-card__avatar-edge"></div>`; break;
+      case 'edge-initial':
+        leading = `<div class="task-card__avatar-edge task-card__avatar-edge--initial"><span class="task-card__avatar-initial">${esc(ownerInitial)}</span></div>`; break;
+      case 'hidden':
+        leading = ''; break;
+      default:
+        leading = `<div class="task-card__avatar-pill"><span class="task-card__avatar-initial">${esc(ownerInitial)}</span></div>`;
+    }
+  }
   const slotEl = !isEvent ? `<span class="task-card__slot">${timePill}</span>` : '';
 
   const eventPrefix = isEvent ? '📅 ' : '';
@@ -604,6 +618,15 @@ export function renderTaskCard(options) {
  */
 export function renderTimeHeader(label) {
   return `<div class="time-header">${label}</div>`;
+}
+
+/**
+ * Render a person section header (used in sections grouping mode).
+ * name: person display name, color: hex color string
+ */
+export function renderPersonHeader(name, color) {
+  const colorAttr = color ? ` data-person-color="${esc(color)}"` : '';
+  return `<div class="person-section-header"${colorAttr}><div class="person-section-header__dot"></div><span class="person-section-header__name">${esc(name)}</span></div>`;
 }
 
 /**
@@ -1673,6 +1696,20 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
   };
 
   const personTextSize = dispPref.textSize || dispDef.textSize || 'default';
+  const currentAvatarStyle = dispPref.avatarStyle || dispDef.avatarStyle || 'tab';
+  const currentTaskGrouping = dispPref.taskGrouping || dispDef.taskGrouping || 'icons';
+  const sectionsNudgeVisible = currentTaskGrouping === 'sections' && (currentAvatarStyle === 'tab' || currentAvatarStyle === 'circle');
+  const avatarStyleLabels = { tab: 'Tab', circle: 'Circle', edge: 'Edge', 'edge-initial': 'Edge+I', hidden: 'Hidden' };
+  const avatarPreviewHtml = (style) => {
+    const inner = {
+      tab:            `<div class="av-pre-tab">J</div><div class="av-pre-line"></div>`,
+      circle:         `<div class="av-pre-circle">J</div><div class="av-pre-line"></div>`,
+      edge:           `<div class="av-pre-edge"></div><div class="av-pre-line"></div>`,
+      'edge-initial': `<div class="av-pre-edge"></div><span class="av-pre-edge-i">J</span><div class="av-pre-line"></div>`,
+      hidden:         `<div class="av-pre-line av-pre-line--wide"></div>`,
+    };
+    return `<div class="av-preview">${inner[style] || inner.tab}</div>`;
+  };
 
   const displaySection = personOpts ? `
     <div class="dt-section">
@@ -1685,11 +1722,22 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     </div>
     <div class="dt-section">
       <label class="form-label">Display</label>
-      <div class="dt-toggle-row">
-        <span class="dt-toggle-row__label">Owner avatar on task cards</span>
-        <label class="form-toggle"><input type="checkbox" id="dt_showAvatar"${resolveDisp('showAvatar', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      <div class="form-group">
+        <label class="form-label form-label--sub">Avatar style</label>
+        <div class="av-picker" id="dt_avatarStyle">
+          ${['tab','circle','edge','edge-initial','hidden'].map(style => `<button type="button" class="av-card${currentAvatarStyle === style ? ' av-card--active' : ''}" data-style="${style}">${avatarPreviewHtml(style)}<span class="av-label">${avatarStyleLabels[style]}</span></button>`).join('')}
+        </div>
+        <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Sections mode.</p>
       </div>
-      <div class="dt-toggle-row">
+      <div class="form-group mt-sm">
+        <label class="form-label form-label--sub">Task grouping</label>
+        <div class="segmented-control" id="dt_taskGrouping">
+          <button type="button" class="segmented-btn${currentTaskGrouping === 'icons'    ? ' segmented-btn--active' : ''}" data-grouping="icons">Icons</button>
+          <button type="button" class="segmented-btn${currentTaskGrouping === 'sections' ? ' segmented-btn--active' : ''}" data-grouping="sections">Sections</button>
+        </div>
+        <p class="form-hint mt-xs">Sections groups by person → AM → Anytime → PM.</p>
+      </div>
+      <div class="dt-toggle-row mt-sm">
         <span class="dt-toggle-row__label">Estimated duration on task cards</span>
         <label class="form-toggle"><input type="checkbox" id="dt_showDuration"${resolveDisp('showDuration', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
       </div>
@@ -1793,10 +1841,44 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts) 
     });
   }
 
-  // Display pref toggles (person view only)
+  // Display pref toggles + selectors (person view only)
   if (personOpts) {
+    const updateSectionsNudge = () => {
+      const nudge = mountEl.querySelector('#dt_sectionsNudge');
+      if (!nudge) return;
+      const style    = mountEl.querySelector('#dt_avatarStyle .av-card--active')?.dataset.style || 'tab';
+      const grouping = mountEl.querySelector('#dt_taskGrouping .segmented-btn--active')?.dataset.grouping || 'icons';
+      nudge.style.display = (grouping === 'sections' && (style === 'tab' || style === 'circle')) ? '' : 'none';
+    };
+
+    // Avatar style picker
+    mountEl.querySelector('#dt_avatarStyle')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.av-card');
+      if (!btn) return;
+      mountEl.querySelectorAll('#dt_avatarStyle .av-card').forEach(b => b.classList.toggle('av-card--active', b === btn));
+      if (!personOpts.person.prefs) personOpts.person.prefs = {};
+      personOpts.person.prefs.avatarStyle = btn.dataset.style;
+      const { id, ...data } = personOpts.person;
+      await personOpts.writePerson(id, data);
+      updateSectionsNudge();
+      if (onApply) onApply();
+    });
+
+    // Task grouping segmented control
+    mountEl.querySelector('#dt_taskGrouping')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.segmented-btn');
+      if (!btn) return;
+      mountEl.querySelectorAll('#dt_taskGrouping .segmented-btn').forEach(b => b.classList.toggle('segmented-btn--active', b === btn));
+      if (!personOpts.person.prefs) personOpts.person.prefs = {};
+      personOpts.person.prefs.taskGrouping = btn.dataset.grouping;
+      const { id, ...data } = personOpts.person;
+      await personOpts.writePerson(id, data);
+      updateSectionsNudge();
+      if (onApply) onApply();
+    });
+
+    // Boolean display pref toggles
     const dispKeys = [
-      ['dt_showAvatar',        'showAvatar'],
       ['dt_showDuration',      'showDuration'],
       ['dt_showPoints',        'showPoints'],
       ['dt_showTodIconBoth',   'showTodIconBoth'],

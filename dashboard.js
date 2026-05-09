@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
-import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
+import { renderNavBar, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
@@ -243,6 +243,8 @@ async function render() {
   const _dp = linkedPerson?.prefs || {};
   const showTodIconBoth   = _dp.showTodIconBoth   !== undefined ? !!_dp.showTodIconBoth   : !!settings?.showTodIconBoth;
   const showTodIconSingle = _dp.showTodIconSingle !== undefined ? !!_dp.showTodIconSingle : !!settings?.showTodIconSingle;
+  const avatarStyle   = _dp.avatarStyle   || settings?.avatarStyle   || 'tab';
+  const taskGrouping  = _dp.taskGrouping  || settings?.taskGrouping  || 'icons';
   // Filter out event schedule entries (type: 'event') — real events come from events collection
   let displayEntries = {};
   for (const [key, entry] of Object.entries(viewEntries)) {
@@ -500,7 +502,8 @@ async function render() {
     // Sort all entries together with the new sort rule (incomplete before complete,
     // owner -> late-today-first -> TOD -> name).
     const sortedAll = sortEntries(filtered, completions, tasks, people, today);
-    for (const [entryKey, entry] of sortedAll) {
+
+    const renderCard = (entryKey, entry) => {
       const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
       const person = people.find(p => p.id === entry.ownerId);
       const cat = task.category ? cats[task.category] : null;
@@ -508,7 +511,7 @@ async function render() {
       const storePts = Math.round(rawPts / ownerDailyPossible[entry.ownerId] * 100);
       const ovr = completions[entryKey]?.pointsOverride ?? entry.pointsOverride ?? null;
       const done = isComplete(entryKey, completions);
-      html += renderTaskCard({
+      return renderTaskCard({
         entryKey,
         entry: { ...entry, dateKey: viewDate },
         task,
@@ -518,10 +521,35 @@ async function render() {
         overdue: false,
         points: { possible: storePts, override: ovr },
         isEvent: !!cat?.isEvent,
+        avatarStyle,
         showTodIconBoth,
         showTodIconSingle,
         isPastDaily: !done && viewDate < today && entry.rotationType === 'daily'
       });
+    };
+
+    if (taskGrouping === 'sections') {
+      // Group by person (in people array order), then by TOD bucket (am / anytime / pm).
+      const personOrder = people.map(p => p.id);
+      const personMap = new Map();
+      for (const [entryKey, entry] of sortedAll) {
+        const pid = entry.ownerId;
+        if (!personMap.has(pid)) personMap.set(pid, { person: people.find(p => p.id === pid), am: [], anytime: [], pm: [] });
+        const tod = entry.timeOfDay || tasks[entry.taskId]?.timeOfDay || 'anytime';
+        const bucket = tod === 'am' ? 'am' : tod === 'pm' ? 'pm' : 'anytime';
+        personMap.get(pid)[bucket].push([entryKey, entry]);
+      }
+      const orderedPersons = [...personMap.entries()].sort(([a], [b]) => personOrder.indexOf(a) - personOrder.indexOf(b));
+      for (const [, { person, am, anytime, pm }] of orderedPersons) {
+        html += renderPersonHeader(person?.name || '?', person?.color);
+        if (am.length)      { html += renderTimeHeader('Morning');   for (const [ek, en] of am)      html += renderCard(ek, en); }
+        if (anytime.length) { html += renderTimeHeader('Anytime');   for (const [ek, en] of anytime) html += renderCard(ek, en); }
+        if (pm.length)      { html += renderTimeHeader('Afternoon'); for (const [ek, en] of pm)      html += renderCard(ek, en); }
+      }
+    } else {
+      for (const [entryKey, entry] of sortedAll) {
+        html += renderCard(entryKey, entry);
+      }
     }
     html += `</section>`;
   }

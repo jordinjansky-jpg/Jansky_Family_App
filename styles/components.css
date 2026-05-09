@@ -1030,6 +1030,190 @@
 [data-show-duration="off"] .task-card__meta-item--duration { display: none; }
 [data-show-points="off"] .task-card__meta-item--points { display: none; }
 
+/* ── Avatar style variants ── */
+
+/* Circle — centered circle with initial, same outer width as pill */
+.task-card__avatar-circle {
+  --pill-color: var(--person-color, var(--accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+.task-card__avatar-circle .task-card__avatar-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pill-color) 15%, transparent);
+  border: 2px solid var(--pill-color);
+  font-size: 12px;
+}
+[data-theme="dark"] .task-card__avatar-circle .task-card__avatar-initial {
+  background: color-mix(in srgb, var(--pill-color) 25%, transparent);
+}
+
+/* Edge-only — narrow colored strip, no initial */
+.task-card__avatar-edge {
+  --pill-color: var(--person-color, var(--accent));
+  width: 4px;
+  align-self: stretch;
+  flex-shrink: 0;
+  background: var(--pill-color);
+}
+
+/* Edge + initial — strip with small initial to its right */
+.task-card__avatar-edge--initial {
+  width: 24px;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  flex-shrink: 0;
+  position: relative;
+}
+.task-card__avatar-edge--initial::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--pill-color);
+}
+.task-card__avatar-edge--initial .task-card__avatar-initial {
+  font-size: 10px;
+  padding-left: 7px;
+}
+
+/* ── Person section header (sections grouping mode) ── */
+.person-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) 0 var(--spacing-xs);
+}
+.person-section-header + .person-section-header {
+  margin-top: var(--spacing-sm);
+}
+.person-section-header__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--person-color, var(--text-faint));
+  flex-shrink: 0;
+}
+.person-section-header__name {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Avatar style picker (in device theme sheet) ── */
+.av-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.av-picker::-webkit-scrollbar { display: none; }
+
+.av-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast);
+  width: 56px;
+}
+.av-card--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.av-card:active { opacity: 0.7; }
+
+.av-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1;
+}
+.av-card--active .av-label { color: var(--accent-ink); }
+
+/* Mini card preview */
+.av-preview {
+  width: 44px;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.av-pre-tab {
+  width: 13px;
+  align-self: stretch;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-right: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.av-pre-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 1.5px solid var(--accent);
+  flex-shrink: 0;
+  margin-left: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.av-pre-edge {
+  width: 3px;
+  align-self: stretch;
+  flex-shrink: 0;
+  background: var(--accent);
+}
+.av-pre-edge-i {
+  font-size: 7px;
+  font-weight: 800;
+  color: var(--accent);
+  padding-left: 2px;
+  flex-shrink: 0;
+}
+.av-pre-line {
+  flex: 1;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 0 5px;
+  min-width: 0;
+}
+.av-pre-line--wide { margin-left: 5px; }
+
 /* ── Time of day pill (AM / PM / Anytime) ── */
 .time-pill {
   display: inline-flex;
