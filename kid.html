@@ -851,7 +851,8 @@
                 points: { possible: pts, override: ovr },
                 isEvent: !!cat?.isEvent,
                 showTodIconBoth: !!settings?.showTodIconBoth,
-                showTodIconSingle: !!settings?.showTodIconSingle
+                showTodIconSingle: !!settings?.showTodIconSingle,
+                avatarStyle: 'hidden'
               });
             }
             html += `</div>`;
@@ -917,7 +918,8 @@
                     points: { possible: pts, override: ovr },
                     isEvent: !!cat?.isEvent,
                     showTodIconBoth: !!settings?.showTodIconBoth,
-                    showTodIconSingle: !!settings?.showTodIconSingle
+                    showTodIconSingle: !!settings?.showTodIconSingle,
+                avatarStyle: 'hidden'
                   });
                 }
               }
@@ -957,7 +959,8 @@
                     isEvent: !!cat?.isEvent,
                     isPastDaily: viewDate < today && entry.rotationType === 'daily',
                     showTodIconBoth: !!settings?.showTodIconBoth,
-                    showTodIconSingle: !!settings?.showTodIconSingle
+                    showTodIconSingle: !!settings?.showTodIconSingle,
+                avatarStyle: 'hidden'
                   });
                 }
               }
@@ -990,7 +993,8 @@
                       points: { possible: pts, override: ovr },
                       isEvent: !!cat?.isEvent,
                       showTodIconBoth: !!settings?.showTodIconBoth,
-                      showTodIconSingle: !!settings?.showTodIconSingle
+                      showTodIconSingle: !!settings?.showTodIconSingle,
+                avatarStyle: 'hidden'
                     });
                   }
                 }
