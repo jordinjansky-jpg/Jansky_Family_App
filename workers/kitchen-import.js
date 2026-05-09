@@ -592,6 +592,7 @@ function extractTikTokRehydrationData(html) {
     if (!desc && !challenges && !author) return null;
     return {
       title: desc.split(/[.!?\n]/)[0].slice(0, 100).trim(),
+      thumbnailUrl: itemStruct.video?.cover || itemStruct.video?.originCover || '',
       text: [
         desc && `Caption: ${desc}`,
         challenges && `Hashtags: ${challenges}`,
@@ -614,6 +615,7 @@ async function fetchTikTokOembed(url) {
     if (!data || (!data.title && !data.author_name)) return null;
     return {
       title: (data.title || '').split(/[.!?\n]/)[0].slice(0, 100).trim(),
+      thumbnailUrl: data.thumbnail_url || '',
       text: [
         data.title && `Caption: ${data.title}`,
         data.author_name && `Author: ${data.author_name}`,
@@ -668,7 +670,7 @@ async function handleUrl(url, env, corsHeaders) {
 
   if (isTikTokUrl(url)) {
     const tt = await extractTikTokContent(url);
-    if (tt) { extractedText = tt.text; fallbackTitle = tt.title; }
+    if (tt) { extractedText = tt.text; fallbackTitle = tt.title; ogImage = tt.thumbnailUrl || ''; }
   }
 
   if (!extractedText) {
