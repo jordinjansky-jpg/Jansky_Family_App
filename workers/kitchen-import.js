@@ -36,6 +36,9 @@ Return JSON:
   "name": "recipe name or null",
   "ingredients": [{"name": "clean grocery name", "qty": "amount with unit, or null"}],
   "notes": "brief description or prep note (max 200 chars), or null",
+  "prepTime": "total time as a short string e.g. '35 min' or '1 hr 20 min', or null",
+  "servings": integer number of servings or null,
+  "difficulty": "Easy", "Medium", or "Hard" based on technique complexity, or null,
   "error": "reason if no recipe at all, else null"
 }
 If multiple recipes appear, extract the primary or most prominent one. Extract as much as is visible even if some fields are incomplete. Return only valid JSON, nothing else.`;
