@@ -52,6 +52,7 @@
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, writeSnapshot, readAchievementDefs, readKitchenPlan, readKitchenRecipes } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet, openDeviceThemeSheet } from './shared/components.js';
+    import { closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -1911,22 +1912,19 @@
         }
 
         async function closeTaskSheet() {
-          if (pendingSliderOverride) {
-            const { entryKey, dateKey: sliderDateKey, value } = pendingSliderOverride;
-            const override = value === 100 ? null : value;
-            pendingSliderOverride = null;
-            await multiUpdate({ [`schedule/${sliderDateKey}/${entryKey}/pointsOverride`]: override });
-            if (viewEntries[entryKey]) viewEntries[entryKey].pointsOverride = override;
-            if (isComplete(entryKey, completions)) {
-              completions[entryKey].pointsOverride = override;
-              await writeCompletion(entryKey, completions[entryKey]);
-            }
-          }
-          const overlay = document.getElementById('bottomSheet');
-          if (overlay) {
-            overlay.classList.remove('active');
-            setTimeout(() => { taskSheetMount.innerHTML = ''; render(); }, 300);
-          }
+          const override = pendingSliderOverride;
+          pendingSliderOverride = null;
+          await closeTaskSheetShared({
+            mount: taskSheetMount,
+            pendingOverride: override,
+            completions,
+            multiUpdate,
+            writeCompletion,
+            applyToScheduleEntry: (ek, dk, ov) => {
+              if (viewEntries[ek]) viewEntries[ek].pointsOverride = ov;
+            },
+            onClosed: render,
+          });
         }
 
         function bindTaskSheetEvents(entryKey, dateKey) {

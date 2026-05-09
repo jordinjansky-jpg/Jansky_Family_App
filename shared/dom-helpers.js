@@ -79,3 +79,51 @@ export function bindTaskRowGesture(row, opts) {
   row.addEventListener('pointercancel', cancel);
   row.addEventListener('contextmenu', (e) => e.preventDefault());
 }
+
+/**
+ * Close the task detail bottom sheet, persisting any pending slider override first.
+ * Used by dashboard, kid, calendar, tracker — each had a near-identical inline copy
+ * of this logic that drifted independently.
+ *
+ * Two-phase close:
+ *   1. If `pendingOverride` ({ entryKey, dateKey, value }) is non-null, persist
+ *      `value === 100 ? null : value` to schedule/{dateKey}/{entryKey}/pointsOverride
+ *      via `multiUpdate`, sync the in-memory schedule entry through
+ *      `applyToScheduleEntry`, and (if the task is already completed) write the
+ *      override onto the completion record via `writeCompletion`.
+ *   2. Animate the sheet out (300ms) and clear `mount.innerHTML`. Calls
+ *      `onClosed()` after the unmount.
+ *
+ * Caller is responsible for clearing its own `pendingSliderOverride` variable
+ * before calling — pass the snapshotted value in. Keeps the helper unaware of
+ * any specific module's state.
+ *
+ * @param {object} opts
+ * @param {HTMLElement} opts.mount - the sheet mount element (taskSheetMount usually)
+ * @param {object|null} opts.pendingOverride - { entryKey, dateKey, value } or null
+ * @param {object} opts.completions - completion map { entryKey: completion }
+ * @param {Function} opts.multiUpdate - shared/firebase.js multiUpdate
+ * @param {Function} opts.writeCompletion - shared/firebase.js writeCompletion
+ * @param {Function} [opts.applyToScheduleEntry] - (entryKey, dateKey, override) => void; mutate the page-local schedule snapshot
+ * @param {Function} [opts.onClosed] - called after the sheet is unmounted (e.g., page render)
+ */
+export async function closeTaskSheet({ mount, pendingOverride, completions, multiUpdate, writeCompletion, applyToScheduleEntry, onClosed }) {
+  if (pendingOverride) {
+    const { entryKey, dateKey, value } = pendingOverride;
+    const override = value === 100 ? null : value;
+    await multiUpdate({ [`schedule/${dateKey}/${entryKey}/pointsOverride`]: override });
+    if (applyToScheduleEntry) applyToScheduleEntry(entryKey, dateKey, override);
+    if (completions && completions[entryKey]) {
+      completions[entryKey].pointsOverride = override;
+      await writeCompletion(entryKey, completions[entryKey]);
+    }
+  }
+  const overlay = document.getElementById('bottomSheet');
+  if (overlay) {
+    overlay.classList.remove('active');
+    setTimeout(() => { mount.innerHTML = ''; if (onClosed) onClosed(); }, 300);
+  } else {
+    mount.innerHTML = '';
+    if (onClosed) onClosed();
+  }
+}

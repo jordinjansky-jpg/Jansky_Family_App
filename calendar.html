@@ -41,7 +41,7 @@
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
     import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet } from './shared/components.js';
-    import { bindTaskRowGesture } from './shared/dom-helpers.js';
+    import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml } from './shared/utils.js';
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
@@ -1704,25 +1704,21 @@
     // ══════════════════════════════════════════
 
     function closeTaskSheet() {
-      if (pendingSliderOverride) {
-        const { entryKey, dateKey: sliderDateKey, value } = pendingSliderOverride;
-        const override = value === 100 ? null : value;
-        pendingSliderOverride = null;
-        multiUpdate({ [`schedule/${sliderDateKey}/${entryKey}/pointsOverride`]: override });
-        const dayEntries = allSchedule[sliderDateKey] || {};
-        if (dayEntries[entryKey]) dayEntries[entryKey].pointsOverride = override;
-        if (isComplete(entryKey, completions)) {
-          completions[entryKey].pointsOverride = override;
-          writeCompletion(entryKey, completions[entryKey]);
-        }
-      }
-      const overlay = document.getElementById('bottomSheet');
-      if (overlay) {
-        overlay.classList.remove('active');
-        setTimeout(() => { taskSheetMount.innerHTML = ''; }, 300);
-      } else {
-        taskSheetMount.innerHTML = '';
-      }
+      const override = pendingSliderOverride;
+      pendingSliderOverride = null;
+      // Note: no onClosed re-render here — calendar's prior version intentionally
+      // omitted it (calendar relies on its Firebase listeners to refresh).
+      return closeTaskSheetShared({
+        mount: taskSheetMount,
+        pendingOverride: override,
+        completions,
+        multiUpdate,
+        writeCompletion,
+        applyToScheduleEntry: (ek, dk, ov) => {
+          const dayEntries = allSchedule[dk] || {};
+          if (dayEntries[ek]) dayEntries[ek].pointsOverride = ov;
+        },
+      });
     }
 
     function openTaskSheet(entryKey, dateKey) {

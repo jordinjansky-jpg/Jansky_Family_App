@@ -7,7 +7,7 @@ import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWee
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
-import { bindTaskRowGesture } from './shared/dom-helpers.js';
+import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 
@@ -2628,26 +2628,19 @@ function openTaskSheet(entryKey, dateKey) {
 }
 
 async function closeTaskSheet() {
-  // Save any pending slider override before closing
-  if (pendingSliderOverride) {
-    const { entryKey, dateKey: sliderDateKey, value } = pendingSliderOverride;
-    const override = value === 100 ? null : value;
-    pendingSliderOverride = null;
-    // Always persist to schedule entry (works for both complete and incomplete tasks)
-    await multiUpdate({ [`schedule/${sliderDateKey}/${entryKey}/pointsOverride`]: override });
-    // Also update the in-memory schedule entry
-    if (viewEntries[entryKey]) viewEntries[entryKey].pointsOverride = override;
-    // If already completed, update the completion record too
-    if (isComplete(entryKey, completions)) {
-      completions[entryKey].pointsOverride = override;
-      await writeCompletion(entryKey, completions[entryKey]);
-    }
-  }
-  const overlay = document.getElementById('bottomSheet');
-  if (overlay) {
-    overlay.classList.remove('active');
-    setTimeout(() => { taskSheetMount.innerHTML = ''; render(); }, 300);
-  }
+  const override = pendingSliderOverride;
+  pendingSliderOverride = null;
+  await closeTaskSheetShared({
+    mount: taskSheetMount,
+    pendingOverride: override,
+    completions,
+    multiUpdate,
+    writeCompletion,
+    applyToScheduleEntry: (ek, dk, ov) => {
+      if (viewEntries[ek]) viewEntries[ek].pointsOverride = ov;
+    },
+    onClosed: render,
+  });
 }
 
 function bindTaskSheetEvents(entryKey, dateKey) {
