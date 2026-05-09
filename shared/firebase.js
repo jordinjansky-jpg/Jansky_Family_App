@@ -11,7 +11,8 @@ const FIREBASE_CONFIG = {
   databaseURL: "https://jansky-home-default-rtdb.firebaseio.com"
 };
 
-const ROOT = 'rundown';
+export const isDev = location.search.includes('env=dev');
+const ROOT = isDev ? 'rundown-dev' : 'rundown';
 
 let db = null;
 let connectionListeners = [];
