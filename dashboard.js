@@ -380,7 +380,8 @@ async function render() {
       : '';
     let cuSummary;
     if (cuTotalEvents === 0) {
-      cuSummary = cuFilterPersonName ? `clear week for ${cuFilterPersonName}` : 'clear week';
+      // Was "clear week" — read as a destructive button label instead of the empty-state phrase it is.
+      cuSummary = cuFilterPersonName ? `nothing this week for ${cuFilterPersonName}` : 'nothing coming up';
     } else {
       const cuNoun = cuTotalEvents === 1 ? 'event' : 'events';
       cuSummary = cuFilterPersonName

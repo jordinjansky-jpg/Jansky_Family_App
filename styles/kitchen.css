@@ -141,6 +141,15 @@
   flex: 1;
   min-width: 0;
 }
+/* Recipe names are the whole value of the card — wrap to two lines instead of
+   the single-line ellipsis that .card__title applies globally. */
+.rl-card-body .card__title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 .rl-card-actions {
   display: flex;

@@ -152,8 +152,10 @@ function renderPersonSwitcherChip() {
   const opts = people.map(p =>
     `<option value="${esc(p.id)}"${p.id === activePerson.id ? ' selected' : ''}>${esc(p.name)}</option>`
   ).join('');
-  return `<label class="rewards-view-as">
-    <span class="rewards-view-as__label">View as</span>
+  // Title was getting truncated to "Rew..." because the "View as" label took ~50px
+  // beyond the dropdown. The styled select with the person's name + chevron is
+  // self-explanatory in this header context.
+  return `<label class="rewards-view-as" aria-label="View as person">
     <select class="rewards-view-as__select" id="personSwitcherSelect">${opts}</select>
   </label>`;
 }
