@@ -9,8 +9,6 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
-// v183 (2026-05-09) — manifest.json background_color → #3FB8AC (icon's teal). Improves Android splash
-//                    coherence; iOS still uses apple-touch-icon-stretched fallback for splash.
 // v182 (2026-05-09) — New PWA icon: family-on-calendar (4 navy silhouettes — Dad/Mom/girl/boy by descending
 //                    size on a teal background calendar). Renamed from "App Icon.png" → "app-icon.png"
 //                    (no space) to fix local-dev URL encoding. Updated manifest.json + sw.js + 9 HTML files.
@@ -277,7 +275,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v183';
+const CACHE_NAME = 'family-hub-v182';
 
 const APP_SHELL = [
   '/',
