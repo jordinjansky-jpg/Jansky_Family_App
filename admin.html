@@ -1654,6 +1654,14 @@
       return html;
     }
 
+    function deriveInitialsFromName(name) {
+      if (!name) return '';
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) return '';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
     function openPersonSheet(personId) {
       const isEdit = !!personId;
       const person = personId ? (peopleObj[personId] || {}) : {};
@@ -1667,6 +1675,7 @@
       const personName = esc(person.name || '');
       let avatarUrl = person.avatarUrl || '';
       const initials = esc(person.initials || '');
+      const displayInitials = person.initials || deriveInitialsFromName(person.name || '');
       const birthdate = person.birthdate || '';
       const profileBase = role === 'child' ? 'kid.html?kid=' : 'person.html?person=';
       const profileHref = profileBase + encodeURIComponent(person.name || '');
@@ -1689,7 +1698,7 @@
 
   <div class="rf-title-row">
     <button class="ps-avatar" id="ps_avatarBtn" type="button" title="Upload photo" data-bg-color="${esc(selColor)}">
-      ${avatarUrl ? `<img id="ps_avatarImg" src="${esc(avatarUrl)}" alt="">` : `<span class="ps-avatar-initials" id="ps_avatarInitials">${initials || '+'}</span>`}
+      ${avatarUrl ? `<img id="ps_avatarImg" src="${esc(avatarUrl)}" alt="">` : `<span class="ps-avatar-initials" id="ps_avatarInitials">${esc(displayInitials)}</span>`}
     </button>
     <input type="file" accept="image/*" id="ps_avatarFile" hidden>
     <input class="tf-title-input" id="ps_name" type="text" placeholder="Name" value="${personName}" autocomplete="off">
@@ -1837,15 +1846,20 @@
         }
       });
 
-      // Initials field → update avatar display
+      // Live-update avatar text: custom initials override; otherwise derive from name.
+      function refreshAvatarInitials() {
+        if (avatarUrl) return;
+        const custom = (mount.querySelector('#ps_initials')?.value || '').trim();
+        const nameVal = mount.querySelector('#ps_name')?.value || '';
+        const text = custom || deriveInitialsFromName(nameVal);
+        const initEl = avatarBtn?.querySelector('.ps-avatar-initials');
+        if (initEl) initEl.textContent = text;
+      }
       mount.querySelector('#ps_initials')?.addEventListener('input', (e) => {
-        const v = e.target.value.toUpperCase();
-        e.target.value = v;
-        if (!avatarUrl) {
-          const initEl = avatarBtn?.querySelector('.ps-avatar-initials');
-          if (initEl) initEl.textContent = v || '+';
-        }
+        e.target.value = e.target.value.toUpperCase();
+        refreshAvatarInitials();
       });
+      mount.querySelector('#ps_name')?.addEventListener('input', refreshAvatarInitials);
 
       // Birthdate picker
       bindDateInput({
