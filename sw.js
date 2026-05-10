@@ -9,6 +9,13 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v192 (2026-05-10) — Form-system Phase 3 (1/N — Task Form): sticky fs-footer
+//                    (Cancel + Save Changes/Add Task), One-Time date input
+//                    migrated from raw <input type="date"> (form review's
+//                    🔴 critical) to fs-date-btn pattern. Disabled save state
+//                    on header tf_save + footer tf_footerSave when title
+//                    empty. Wired in all 4 openers (dashboard.js, calendar.html,
+//                    admin.html openAdminTaskSheet, tracker.html).
 // v191 (2026-05-10) — Form-system Phase 2: bring Event Form up to §5.23 v2.
 //                    (1) Sticky fs-footer with Cancel + Save Changes/Add Event;
 //                    (2) Date pill triggers OS .showPicker() directly (drop
@@ -313,7 +320,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v191';
+const CACHE_NAME = 'family-hub-v192';
 
 const APP_SHELL = [
   '/',
