@@ -9,6 +9,10 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v198 (2026-05-10) — Form-system Phase 3 (6/N — Bonus Day sheet): bd_date
+//                    raw <input type='date'> migrated to fs-date-btn pattern.
+//                    Form already had ef2-footer with Cancel + Save (ahead of
+//                    curve, kept intact).
 // v197 (2026-05-10) — Form-system Phase 3 (5/N — Reward admin variant): sticky
 //                    fs-footer + disabled save when rf_name empty. Brings the
 //                    admin.html duplicate of rewards.js openRewardForm to
@@ -345,7 +349,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v197';
+const CACHE_NAME = 'family-hub-v198';
 
 const APP_SHELL = [
   '/',
