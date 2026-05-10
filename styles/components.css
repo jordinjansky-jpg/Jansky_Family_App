@@ -197,13 +197,13 @@
   border-radius: var(--radius-md);
   padding: var(--spacing-sm);
   display: grid;
-  grid-template-columns: repeat(8, 28px);
+  grid-template-columns: repeat(8, 36px);
   gap: 6px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.22);
 }
 .cpick-swatch {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 3px solid transparent;
   cursor: pointer;
@@ -3978,6 +3978,11 @@ label.ef2-icon-btn  { cursor: pointer; }
 
 .ef2-subsheet-overlay.active .ef2-subsheet { transform: translateY(0); }
 
+@media (prefers-reduced-motion: reduce) {
+  .ef2-subsheet-overlay,
+  .ef2-subsheet { transition: none; }
+}
+
 /* Photo source action sheet rows */
 .ef2-source-btn {
   display: flex;
@@ -4940,7 +4945,12 @@ label.ef2-icon-btn  { cursor: pointer; }
   background: var(--surface);
   cursor: pointer;
   padding: 0;
+  transition: border-color var(--t-fast), transform var(--t-fast);
 }
+@media (prefers-reduced-motion: reduce) {
+  .fs-emoji-cell { transition: none; }
+}
+.fs-emoji-cell:active { transform: scale(0.94); }
 .fs-emoji-cell.is-selected {
   border-width: 2px;
   border-color: var(--accent);

@@ -570,15 +570,15 @@ export function bindDateInput({ btnId, inputId, labelId, format, onChange }) {
 export function renderEmojiPicker({ pickerId, hiddenId, value = '', emojis, allowCustom = true, customPlaceholder = 'Type any emoji…' }) {
   const isCustom = value && !emojis.includes(value);
   const cellsHtml = emojis.map(e =>
-    `<button type="button" class="fs-emoji-cell${value === e ? ' is-selected' : ''}" data-emoji="${esc(e)}">${esc(e)}</button>`
+    `<button type="button" class="fs-emoji-cell${value === e ? ' is-selected' : ''}" data-emoji="${esc(e)}" role="radio" aria-checked="${value === e ? 'true' : 'false'}" aria-label="${esc(e)}">${esc(e)}</button>`
   ).join('');
   const customCell = allowCustom
-    ? `<button type="button" class="fs-emoji-cell fs-emoji-cell--custom${isCustom ? ' is-selected' : ''}" data-custom="1">${isCustom ? esc(value) : '+'}</button>`
+    ? `<button type="button" class="fs-emoji-cell fs-emoji-cell--custom${isCustom ? ' is-selected' : ''}" data-custom="1" role="radio" aria-checked="${isCustom ? 'true' : 'false'}" aria-label="Custom emoji">${isCustom ? esc(value) : '+'}</button>`
     : '';
   const customInput = allowCustom
     ? `<input type="text" class="fs-emoji-custom-input${isCustom ? '' : ' is-hidden'}" id="${esc(pickerId)}__custom" placeholder="${esc(customPlaceholder)}" maxlength="4" value="${isCustom ? esc(value) : ''}">`
     : '';
-  return `<div class="fs-emoji-grid" id="${esc(pickerId)}">${cellsHtml}${customCell}${customInput}</div>
+  return `<div class="fs-emoji-grid" id="${esc(pickerId)}" role="radiogroup">${cellsHtml}${customCell}${customInput}</div>
 <input type="hidden" id="${esc(hiddenId)}" value="${esc(value)}">`;
 }
 
@@ -599,8 +599,14 @@ export function bindEmojiPicker({ pickerId, hiddenId, onChange }) {
   if (!root || !hidden) return;
   const setValue = (val, sourceCell) => {
     hidden.value = val;
-    root.querySelectorAll('.fs-emoji-cell').forEach(c => c.classList.remove('is-selected'));
-    if (sourceCell) sourceCell.classList.add('is-selected');
+    root.querySelectorAll('.fs-emoji-cell').forEach(c => {
+      c.classList.remove('is-selected');
+      c.setAttribute('aria-checked', 'false');
+    });
+    if (sourceCell) {
+      sourceCell.classList.add('is-selected');
+      sourceCell.setAttribute('aria-checked', 'true');
+    }
     if (typeof onChange === 'function') onChange(val);
   };
   root.addEventListener('click', (e) => {
@@ -2143,7 +2149,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
     <div class="tf-options-inner">
       <div class="tf-options-row${showCooldown ? '' : ' is-hidden'}" id="tf_cooldownRow">
         <span class="tf-options-label">Cooldown</span>
-        <input class="tf-cooldown-input" type="number" id="tf_cooldown" min="0" max="60" value="${esc(cooldownVal)}" placeholder="${cdDefault || ''}">
+        <input class="tf-cooldown-input" type="number" id="tf_cooldown" inputmode="numeric" min="0" max="60" value="${esc(cooldownVal)}" placeholder="${cdDefault || ''}">
         <span class="tf-options-unit">days</span>
       </div>
       <div class="tf-options-row">
