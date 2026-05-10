@@ -2958,11 +2958,39 @@ function openTaskForm(taskId = null, savedState = null) {
 
   requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
-  // ── Close ────────────────────────────────────────────────
+  // ── Close / Cancel ───────────────────────────────────────
   const doClose = () => { tfHidePicker(); closeTaskSheet(); };
   document.getElementById('tf_close')?.addEventListener('click', doClose);
+  document.getElementById('tf_cancel')?.addEventListener('click', doClose);
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
     if (e.target === document.getElementById('bottomSheet')) doClose();
+  });
+
+  // Footer Save delegates to header tf_save (single save handler wired below).
+  document.getElementById('tf_footerSave')?.addEventListener('click', () => {
+    document.getElementById('tf_save')?.click();
+  });
+
+  // Title input → disable both save buttons when empty.
+  document.getElementById('tf_name')?.addEventListener('input', (e) => {
+    const empty = !e.target.value.trim();
+    const headerSave = document.getElementById('tf_save');
+    const footerSave = document.getElementById('tf_footerSave');
+    if (headerSave) headerSave.disabled = empty;
+    if (footerSave) footerSave.disabled = empty;
+  });
+
+  // One-Time date pill — tap opens OS picker via .showPicker(); change updates label.
+  document.getElementById('tf_onceBtn')?.addEventListener('click', () => {
+    const input = document.getElementById('tf_onceDate');
+    if (typeof input?.showPicker === 'function') {
+      try { input.showPicker(); return; } catch (_) { /* fall through */ }
+    }
+    input?.focus();
+  });
+  document.getElementById('tf_onceDate')?.addEventListener('change', (e) => {
+    const label = document.getElementById('tf_onceDateLabel');
+    if (label) label.textContent = e.target.value ? formatDateShort(e.target.value) : 'Set date';
   });
 
   // ── Person chip state machine ─────────────────────────────
