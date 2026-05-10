@@ -1323,6 +1323,13 @@
   text-align: right;
   max-width: 60%;
 }
+.ps-initials-input {
+  max-width: 64px;
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
 
 /* Fix 3 — role toggle min-width so Adult/Kid pills have room to breathe */
 .ps-color-role-row .tf-rotation-pills {

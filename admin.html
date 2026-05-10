@@ -1654,14 +1654,6 @@
       return html;
     }
 
-    function getPersonInitials(name) {
-      if (!name) return '?';
-      const parts = name.trim().split(/\s+/).filter(Boolean);
-      if (parts.length === 0) return '?';
-      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-
     function openPersonSheet(personId) {
       const isEdit = !!personId;
       const person = personId ? (peopleObj[personId] || {}) : {};
@@ -1674,13 +1666,10 @@
       const isAdmin = !!person.isAdmin;
       const personName = esc(person.name || '');
       let avatarUrl = person.avatarUrl || '';
-      const nickname = esc(person.nickname || '');
-      const pronouns = esc(person.pronouns || '');
+      const initials = esc(person.initials || '');
       const birthdate = person.birthdate || '';
       const profileBase = role === 'child' ? 'kid.html?kid=' : 'person.html?person=';
       const profileHref = profileBase + encodeURIComponent(person.name || '');
-      const profileDetailsOpen = (person.nickname || person.pronouns || person.birthdate) ? ' is-open' : '';
-      const profileDetailsActive = profileDetailsOpen ? ' is-active' : '';
 
       const mount = document.getElementById('taskSheetMount');
       if (!mount) return;
@@ -1698,9 +1687,9 @@
     </div>
   </div>
 
-  <div class="tf-title-row">
+  <div class="rf-title-row">
     <button class="ps-avatar" id="ps_avatarBtn" type="button" title="Upload photo" data-bg-color="${esc(selColor)}">
-      ${avatarUrl ? `<img id="ps_avatarImg" src="${esc(avatarUrl)}" alt="">` : `<span class="ps-avatar-initials" id="ps_avatarInitials">${esc(getPersonInitials(person.name || ''))}</span>`}
+      ${avatarUrl ? `<img id="ps_avatarImg" src="${esc(avatarUrl)}" alt="">` : `<span class="ps-avatar-initials" id="ps_avatarInitials">${initials || '+'}</span>`}
     </button>
     <input type="file" accept="image/*" id="ps_avatarFile" hidden>
     <input class="tf-title-input" id="ps_name" type="text" placeholder="Name" value="${personName}" autocomplete="off">
@@ -1772,6 +1761,22 @@
       </div>
 
       <div class="tf-options-row">
+        <span class="tf-options-label">Initials</span>
+        <input type="text" id="ps_initials" class="ps-detail-input ps-initials-input" value="${initials}" maxlength="2" autocomplete="off" placeholder="JJ">
+      </div>
+
+      <div class="tf-options-row">
+        <span class="tf-options-label">Birthdate</span>
+        ${renderDateInput({
+          btnId: 'ps_birthdateBtn',
+          inputId: 'ps_birthdate',
+          labelId: 'ps_birthdateLabel',
+          value: birthdate,
+          label: birthdate ? formatDateShort(birthdate) : 'Set date',
+        })}
+      </div>
+
+      <div class="tf-options-row">
         <span class="tf-options-label">Personal theme</span>
         <select id="ps_theme" class="ps-options-select">
           <option value=""${!person.theme?.preset ? ' selected' : ''}>Family theme</option>
@@ -1799,33 +1804,6 @@
       </div>
       ` : ''}
 
-    </div>
-  </div>
-
-  <div class="ef2-secondary-row">
-    <button class="ef2-add-chip${profileDetailsActive}" id="ps_detailsChip" type="button">+ Profile details</button>
-  </div>
-
-  <div class="ef2-field-reveal${profileDetailsOpen}" id="ps_detailsReveal">
-    <div class="tf-options-inner">
-      <div class="tf-options-row">
-        <span class="tf-options-label">Nickname</span>
-        <input type="text" id="ps_nickname" class="ps-detail-input" value="${nickname}" autocomplete="off" placeholder="Goes by…">
-      </div>
-      <div class="tf-options-row">
-        <span class="tf-options-label">Pronouns</span>
-        <input type="text" id="ps_pronouns" class="ps-detail-input" value="${pronouns}" autocomplete="off" placeholder="she/her, he/him…">
-      </div>
-      <div class="tf-options-row">
-        <span class="tf-options-label">Birthdate</span>
-        ${renderDateInput({
-          btnId: 'ps_birthdateBtn',
-          inputId: 'ps_birthdate',
-          labelId: 'ps_birthdateLabel',
-          value: birthdate,
-          label: birthdate ? formatDateShort(birthdate) : 'Set date',
-        })}
-      </div>
     </div>
   </div>
 
@@ -1859,21 +1837,14 @@
         }
       });
 
-      // Name → update initials when no avatar uploaded
-      mount.querySelector('#ps_name')?.addEventListener('input', (e) => {
+      // Initials field → update avatar display
+      mount.querySelector('#ps_initials')?.addEventListener('input', (e) => {
+        const v = e.target.value.toUpperCase();
+        e.target.value = v;
         if (!avatarUrl) {
-          const initials = getPersonInitials(e.target.value || '');
           const initEl = avatarBtn?.querySelector('.ps-avatar-initials');
-          if (initEl) initEl.textContent = initials;
+          if (initEl) initEl.textContent = v || '+';
         }
-      });
-
-      // Profile details disclosure
-      mount.querySelector('#ps_detailsChip')?.addEventListener('click', () => {
-        const chip = mount.querySelector('#ps_detailsChip');
-        const reveal = mount.querySelector('#ps_detailsReveal');
-        const open = reveal?.classList.toggle('is-open');
-        chip?.classList.toggle('is-active', !!open);
       });
 
       // Birthdate picker
@@ -1961,15 +1932,13 @@
         const themePreset = mount.querySelector('#ps_theme')?.value || '';
         const theme = themePreset ? { preset: themePreset } : undefined;
 
-        const nicknameVal = mount.querySelector('#ps_nickname')?.value.trim() || null;
-        const pronounsVal = mount.querySelector('#ps_pronouns')?.value.trim() || null;
+        const initialsVal = (mount.querySelector('#ps_initials')?.value || '').trim().toUpperCase() || null;
         const birthdateVal = mount.querySelector('#ps_birthdate')?.value || null;
 
         const data = {
           name, color, role: roleVal, isAdmin: isAdminVal,
           avatarUrl: avatarUrl || null,
-          nickname: nicknameVal,
-          pronouns: pronounsVal,
+          initials: initialsVal,
           birthdate: birthdateVal,
           ...(kidSettings && { kidSettings }),
           ...(pfPrefs && { prefs: pfPrefs }),
