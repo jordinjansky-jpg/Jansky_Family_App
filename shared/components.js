@@ -551,6 +551,65 @@ export function bindDateInput({ btnId, inputId, labelId, format, onChange }) {
 }
 
 /**
+ * Render a chip-picker — short list of mutually-exclusive options as a row of
+ * pills (purple-filled active state). For short lists (≤7 options). For longer
+ * lists, use a sub-sheet pattern instead. Anchors on `.tabs.tabs--pill` (same
+ * visual as the Slot picker in Meal Plan).
+ *
+ * Pairs with bindChipPicker() for click-to-select wiring. The hidden input
+ * keeps the id `hiddenId`, so `document.getElementById(hiddenId).value` works
+ * the same as a native <select> for save handlers.
+ *
+ * See DESIGN.md §5.23 v2 "Active states" — purple-filled (segmented) is the
+ * canonical active treatment for this pattern.
+ *
+ * @param {object}  opts
+ * @param {string}  opts.pickerId       DOM id for the wrapper <nav>.
+ * @param {string}  opts.hiddenId       DOM id for the hidden value-tracking <input>. Save handlers read this.
+ * @param {array}   opts.options        Array of { value, label } objects.
+ * @param {string}  [opts.value='']     Currently selected value (empty = none selected).
+ * @param {boolean} [opts.allowClear=true] If true, clicking the active chip deselects.
+ * @returns {string} HTML for `<nav class="tabs tabs--pill">…</nav>` + hidden input.
+ */
+export function renderChipPicker({ pickerId, hiddenId, options, value = '', allowClear = true }) {
+  const chipsHtml = options.map(opt =>
+    `<button class="tab${opt.value === value ? ' is-active' : ''}" data-val="${esc(opt.value)}" type="button">${esc(opt.label)}</button>`
+  ).join('');
+  return `<nav class="tabs tabs--pill" id="${esc(pickerId)}" data-allow-clear="${allowClear ? '1' : '0'}">${chipsHtml}</nav>
+<input type="hidden" id="${esc(hiddenId)}" value="${esc(value)}">`;
+}
+
+/**
+ * Wire a renderChipPicker(): clicking a chip activates it and updates the hidden
+ * input. If allowClear is true (default), clicking the active chip clears the
+ * selection.
+ *
+ * @param {object}   opts
+ * @param {string}   opts.pickerId   Same pickerId passed to renderChipPicker().
+ * @param {string}   opts.hiddenId   Same hiddenId passed to renderChipPicker().
+ * @param {function} [opts.onChange] (newValue) => void after each selection change.
+ */
+export function bindChipPicker({ pickerId, hiddenId, onChange }) {
+  const root = document.getElementById(pickerId);
+  const hidden = document.getElementById(hiddenId);
+  if (!root || !hidden) return;
+  const allowClear = root.dataset.allowClear === '1';
+  root.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-val]');
+    if (!chip || !root.contains(chip)) return;
+    const wasActive = chip.classList.contains('is-active');
+    root.querySelectorAll('.tab').forEach(t => t.classList.remove('is-active'));
+    if (wasActive && allowClear) {
+      hidden.value = '';
+    } else {
+      chip.classList.add('is-active');
+      hidden.value = chip.dataset.val;
+    }
+    if (typeof onChange === 'function') onChange(hidden.value);
+  });
+}
+
+/**
  * Render the canonical 6-element AM/PM time picker (start + end time). Replaces
  * every native <input type="time"> in form sheets — that input renders as a
  * wheel on Android. See DESIGN.md §5.23 v2 "Time input" + §13.13 Step 4.
