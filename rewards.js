@@ -12,7 +12,7 @@ import { renderNavBar, initNavMore, renderHeader, initBell, initOfflineBanner,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
   openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
   renderDateInput, bindDateInput, renderSwitchToggle,
-  renderColorButton, initColorButton
+  renderColorButton, initColorButton, renderPersonAvatar
 } from './shared/components.js';
 import { todayKey, formatDateShort } from './shared/utils.js';
 
@@ -196,7 +196,7 @@ function renderBalanceZone() {
   if (!activePerson) return '';
   const balance = getBalance(activePerson.id);
   return `<div class="rewards-balance-zone">
-    <div class="avatar" style="--person-color:${esc(activePerson.color)}">${esc(activePerson.name[0].toUpperCase())}</div>
+    ${renderPersonAvatar(activePerson, { size: 'lg' })}
     <div class="rewards-balance__info">
       <div class="rewards-balance__name">${esc(activePerson.name)}</div>
       <div class="rewards-balance__amount">${balance.toLocaleString()}<span class="rewards-balance__unit">pts</span></div>
