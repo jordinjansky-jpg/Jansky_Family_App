@@ -25,7 +25,8 @@ Activities (in MEDIUM below) would earn a slot only by retiring an existing one 
 - Rewards Store (points, approval flow, kid store, badges, multipliers) — 2026-04-18
 - Meal Planning (migrated into Kitchen Hub) — 2026-04-25
 - Weather Widget (5-day forecast, OpenWeatherMap) — shipped
-- Kitchen Hub — mostly shipped (small pending items in EASY below)
+- **Kitchen Hub** — fully shipped (week view incl. school-lunch-2, add-from-recipe shortcut, photo storage, recipe-form parity)
+- **Recipe Polish** — Servings scaler ✓, Photo storage ✓, Source attribution ✓, single 0–5 star rating ✓ (per-person ratings + pantry awareness passed — not on roadmap)
 
 **Tier 2 — Deepening**
 - AI Import Suite — all 14 handlers in `workers/kitchen-import.js` with frontend triggers (URL/photo recipe, school lunch PDF, calendar photo, iCal subscription, text→event wand, homework scanner, photo→shopping list, email→calendar). 2026-04 incremental.
@@ -66,19 +67,7 @@ One-page "this week" PDF for the fridge — kids physically check off as the wee
 **Reading log** · No deps · Cost: $0
 Per-kid reading minutes. Daily check-in, weekly streak, monthly leaderboard. Schema: `rundown/reading/{personId}/{YYYY-MM-DD}: minutes`. Could integrate with Activities later (in MEDIUM) but ships standalone first.
 
-**Kitchen Hub — pending sub-items**
-- school-lunch-2 slot display in week view plan
-- Add-from-recipe shortcut to shopping list
-- `dashboard.js openRecipeForm` `imageUrl` field (last gap in recipe-form parity)
-
-**Kitchen Hub — Recipe Polish backlog** (each is its own EASY item)
-- Servings scaler — tap Serves chip to change count; quantities recalculate. Needs fraction-aware math.
-- Pantry awareness — mark staples as always stocked; strike in ingredient list; "Add to list" skips stocked items. Schema: `kitchen/pantry/{itemName}: true`.
-- Family ratings — rate a meal after cooking (1–5 stars + note). `mealLibrary/{id}/ratings: [{personId, stars, note, date}]`.
-- Photo storage for manual recipes — resize to 640px JPEG in browser, store as base64 in `imageUrl` (~15KB each).
-- Recipe source attribution — favicon + "from allrecipes.com" chip. `sourceDomain` partially implemented.
-
-**Form Polish parking lot** — 20 small items surfaced by the 2026-05-09 form review (Family quick-select chip, avatar upload on Person, URL/link field on Event, recipe optional disclosure chips, badge preview cards, etc.). Each is low-effort polish on already-shipped forms. Full list at the bottom of this file.
+**Form Polish parking lot** — 13 small items from the 2026-05-09 form review (avatar upload, URL field on Event, badge threshold visibility, etc.). Each is low-effort polish on already-shipped forms. Full list at the bottom of this file.
 
 ---
 
@@ -154,25 +143,19 @@ Family members opt-in share location. Map view shows where everyone is. Could in
 
 ## Form Polish parking lot
 
-**Context:** Form review on 2026-05-09 ([superpowers/specs/2026-05-09-form-review.md](superpowers/specs/2026-05-09-form-review.md)) surfaced both polish gaps AND feature-shaped items. The polish work shipped via the Form System Initiative. The items below are **feature decisions that need product approval before implementation** — they are NOT polish blockers. Each is sized as low/medium individually. Pulling any of these into a session = adding it as an EASY entry above.
+**Context:** Form review on 2026-05-09 ([superpowers/specs/2026-05-09-form-review.md](superpowers/specs/2026-05-09-form-review.md)) surfaced both polish gaps AND feature-shaped items. The polish work shipped via the Form System Initiative. The items below are **feature decisions that have been triaged** — each is individually low-effort polish on already-shipped forms. Pulling any of these into a session = adding it as an EASY entry above.
 
-- **Family / All-kids quick-select chip** (Task + Event forms) · Low · Adds an accent-colored chip next to the For label that selects all family members in one tap. DESIGN.md §5.23 documents the `.<prefix>-person-chip--family` style for forms that opt in.
-- **Avatar / photo upload on Person form** · Low-Medium · Today people are color + first letter; add resized 96px avatar stored as base64 (~5KB each).
+- **Person form rework** · Medium · Encompasses several improvements: (1) move "Open profile" from inside the form to an icon in the top header, (2) add two-letter initial avatar option (currently single letter), (3) optionally support photo upload for the avatar (resized 96px base64 in `person.avatarUrl`, falls back to initial circle when no photo), (4) add nickname / pronouns / birthdate fields (birthdate may overlap with Birthday & Milestone Tracking in EASY — coordinate).
+- **Avatar / photo upload on Person form** · Low-Medium · Sub-feature of Person form rework — actual photo uploads, browser-resized to 96px JPEG (~5KB base64). Avatar displays wherever a person appears.
+- **Custom badge icons (SVG)** · Medium · Small library of built-in SVG icons (trophy, star, fire, lightning, leaf, etc.) plus optional upload. Replaces or augments the current emoji-only badge identity. Adds real visual differentiation between badges.
 - **Color picker for Reward icon background** · Low · Most paid family apps offer color + emoji combo; today only emoji.
-- **URL/link field on Event form** · Low · Zoom/Meet/school events commonly include a link; currently no field.
+- **URL/link field on Event form** · Low · Zoom/Meet/school event links. Currently no field.
 - **Recipe ingredient autocomplete** · Medium · Suggest from past ingredients + staples as user types in Recipe form.
-- **Recipe optional disclosures** · Low · `+ Tags`, `+ Cook time`, `+ Yield/units` chips beyond the existing Prep / Serves / Difficulty.
-- **Recipe image preview after photo upload** · Low · Today the photo is stored in a hidden `imageUrl` variable with no thumbnail in the form.
-- **Badge two-step wizard** (1: name + emoji, 2: trigger + reward) · Medium · The current single-screen badge form is dense; two-step would reduce cognitive load.
-- **Badge preview in scoreboard before saving** · Low-Medium · Show how the badge will appear in the trophy case + scoreboard.
-- **Reward shop-card preview before saving** · Low-Medium · Show how the reward will appear in the Shop.
-- **Person form: nickname / pronouns / birthdate fields** · Low · Captures more identity beyond name + color. Note: birthdate may overlap with **Birthday & Milestone Tracking** (in EASY) — coordinate.
+- **Recipe optional disclosures** · Low · `+ Tags`, `+ Cook time`, `+ Yield/units` chips at the bottom of Recipe form, collapsed by default (same pattern as existing `+ Notes` / `+ Location` reveal chips on Event form). Keeps form short unless user opts in.
+- **Badge two-step wizard** · Medium · Step 1: name + icon. Step 2: trigger + reward. Reduces cognitive load on a dense form.
 - **Shopping list icon/color picker** · Low · Differentiate Walmart vs Target vs Costco visually beyond the name.
-- **Bulk-add inline "save to staples" star** · Low · Currently the star only appears after the item is added to the bottom list; should appear as user types.
-- **Hide Badge threshold input when condition is boolean** · Low · "First Store Purchase" condition has no threshold; field should disappear.
+- **Bulk-add inline "save to staples" star** · Low · Today the star only appears after item is added to the bottom list; should appear as user types.
+- **Hide Badge threshold input when condition is boolean** · Low · "First Store Purchase" condition is a one-shot boolean with no threshold; the numeric field should disappear. Conditions like "Current Streak (days)" still need it.
 - **Show "≥" comparison operator on Badge condition** · Low · Currently `Current Streak (days) [e.g. 7]` is ambiguous about >, =, ≥.
-- **Pricing-help calculator extended to Task points** · Low-Medium · The Reward form's grade-based points calculator could help Task creators set difficulty/duration → expected points.
 - **Image thumbnails on Meal Plan recipe rows** · Low · Currently recipe rows are plain text; paid meal-planning apps show small images.
-- **Meal Plan default list (favorites + 3 most-recent)** · Low · DESIGN.md §5.24 already calls for this; implementation hides the list until the user types in search.
-- **Recipe form: reorder so name comes above link** · Low · Today URL is at top, name second; reverse for natural-first focus.
 - **Auto-collapse Recipe URL input after parse** · Low · Once AI parses the URL, fold the URL field away.
