@@ -445,6 +445,26 @@ export function renderBottomSheet(content) {
 }
 
 /**
+ * Render the canonical sticky footer for a form sheet (Cancel + primary action).
+ * See DESIGN.md §5.23 v2 "Sticky footer (the fs-footer rule — universal)".
+ *
+ * @param {object}  opts
+ * @param {string}  opts.saveLabel              Visible text on the primary button (e.g. "Save", "Add Event").
+ * @param {string}  opts.cancelId               DOM id for the Cancel button (caller wires the listener).
+ * @param {string}  opts.saveId                 DOM id for the primary button.
+ * @param {boolean} [opts.disabled=false]       If true, primary button rendered with the disabled attribute.
+ * @param {string}  [opts.cancelLabel='Cancel'] Override the Cancel text if needed.
+ * @returns {string} HTML for `<div class="fs-footer">…</div>` — drop into bottom-sheet content directly.
+ */
+export function renderFormFooter({ saveLabel, cancelId, saveId, disabled = false, cancelLabel = 'Cancel' }) {
+  const disabledAttr = disabled ? ' disabled' : '';
+  return `<div class="fs-footer">
+    <button class="btn btn--ghost" id="${esc(cancelId)}" type="button">${esc(cancelLabel)}</button>
+    <button class="btn btn--primary" id="${esc(saveId)}" type="button"${disabledAttr}>${esc(saveLabel)}</button>
+  </div>`;
+}
+
+/**
  * Render person filter pills.
  * people: array of { id, name, color }
  * activePerson: id of selected person or null for "All"
