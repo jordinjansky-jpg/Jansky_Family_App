@@ -4847,6 +4847,32 @@ label.ef2-icon-btn  { cursor: pointer; }
 .kl-footer .btn, .kb-footer .btn, .ki-footer .btn,
 .ks-footer .btn, .km-footer .btn, .kp-footer .btn { flex: 1; }
 
+/* ── Form-system shared primitives (fs-*) ─────────────────────────────────
+   Canonical sticky footer + disabled state. New forms use these classes;
+   existing forms (kl-, kb-, ki-, ks-, km-, kp-, ef2-) keep their per-form
+   classes which map to the same visual via the rules above. See DESIGN.md
+   §5.23 v2 "Sticky footer (the fs-footer rule — universal)".
+   ────────────────────────────────────────────────────────────────────── */
+.fs-footer {
+  position: sticky;
+  bottom: 0;
+  margin: var(--spacing-sm) calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg));
+  padding: var(--spacing-sm) var(--spacing-md);
+  padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--spacing-sm);
+  z-index: 1;
+}
+.fs-footer .btn { flex: 1; }
+.fs-footer .btn[disabled],
+.fs-footer .btn[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+/* ── End form-system shared primitives ─────────────────────────────────── */
+
 /* Shared delete zone — below sticky footer in edit sheets */
 .ks-delete-zone, .ki-delete-zone, .km-delete-zone {
   /* margin-top compensates for the sticky footer's negative margin-bottom so the zone
