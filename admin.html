@@ -1654,6 +1654,14 @@
       return html;
     }
 
+    function getPersonInitials(name) {
+      if (!name) return '?';
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) return '?';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
     function openPersonSheet(personId) {
       const isEdit = !!personId;
       const person = personId ? (peopleObj[personId] || {}) : {};
@@ -1665,16 +1673,25 @@
       const prefs = person.prefs || {};
       const isAdmin = !!person.isAdmin;
       const personName = esc(person.name || '');
+      let avatarUrl = person.avatarUrl || '';
+      const nickname = esc(person.nickname || '');
+      const pronouns = esc(person.pronouns || '');
+      const birthdate = person.birthdate || '';
       const profileBase = role === 'child' ? 'kid.html?kid=' : 'person.html?person=';
       const profileHref = profileBase + encodeURIComponent(person.name || '');
+      const profileDetailsOpen = (person.nickname || person.pronouns || person.birthdate) ? ' is-open' : '';
+      const profileDetailsActive = profileDetailsOpen ? ' is-active' : '';
 
       const mount = document.getElementById('taskSheetMount');
       if (!mount) return;
+
+      const PROFILE_LINK_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
 
       mount.innerHTML = renderBottomSheet(`<div class="tf-form">
   <div class="sheet__header">
     <h2 class="sheet__title">${isEdit ? personName || 'Person' : 'New Person'}</h2>
     <div class="rf-header-actions">
+      ${isEdit ? `<a class="ef2-icon-btn" id="ps_profileLink" href="${profileHref}" target="_blank" aria-label="Open profile" title="Open profile">${PROFILE_LINK_SVG}</a>` : ''}
       ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="ps_delete" type="button" aria-label="Delete" title="Delete">${RF_DELETE_SVG}</button>` : ''}
       <button class="ef2-icon-btn rf-save-btn" id="ps_save" type="button" aria-label="${isEdit ? 'Save' : 'Add person'}" title="${isEdit ? 'Save' : 'Add person'}"${person.name ? '' : ' disabled'}>${RF_SAVE_SVG}</button>
       <button class="ef2-icon-btn" id="ps_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
@@ -1682,6 +1699,10 @@
   </div>
 
   <div class="tf-title-row">
+    <button class="ps-avatar" id="ps_avatarBtn" type="button" title="Upload photo" data-bg-color="${esc(selColor)}">
+      ${avatarUrl ? `<img id="ps_avatarImg" src="${esc(avatarUrl)}" alt="">` : `<span class="ps-avatar-initials" id="ps_avatarInitials">${esc(getPersonInitials(person.name || ''))}</span>`}
+    </button>
+    <input type="file" accept="image/*" id="ps_avatarFile" hidden>
     <input class="tf-title-input" id="ps_name" type="text" placeholder="Name" value="${personName}" autocomplete="off">
   </div>
 
@@ -1778,10 +1799,33 @@
       </div>
       ` : ''}
 
-      <div class="tf-options-row">
-        <a class="btn btn--ghost btn--sm" id="ps_profileLink" href="${profileHref}" target="_blank">Open profile</a>
-      </div>
+    </div>
+  </div>
 
+  <div class="ef2-secondary-row">
+    <button class="ef2-add-chip${profileDetailsActive}" id="ps_detailsChip" type="button">+ Profile details</button>
+  </div>
+
+  <div class="ef2-field-reveal${profileDetailsOpen}" id="ps_detailsReveal">
+    <div class="tf-options-inner">
+      <div class="tf-options-row">
+        <span class="tf-options-label">Nickname</span>
+        <input type="text" id="ps_nickname" class="ps-detail-input" value="${nickname}" autocomplete="off" placeholder="Goes by…">
+      </div>
+      <div class="tf-options-row">
+        <span class="tf-options-label">Pronouns</span>
+        <input type="text" id="ps_pronouns" class="ps-detail-input" value="${pronouns}" autocomplete="off" placeholder="she/her, he/him…">
+      </div>
+      <div class="tf-options-row">
+        <span class="tf-options-label">Birthdate</span>
+        ${renderDateInput({
+          btnId: 'ps_birthdateBtn',
+          inputId: 'ps_birthdate',
+          labelId: 'ps_birthdateLabel',
+          value: birthdate,
+          label: birthdate ? formatDateShort(birthdate) : 'Set date',
+        })}
+      </div>
     </div>
   </div>
 
@@ -1789,11 +1833,56 @@
 </div>`);
 
       requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      applyDataColors(mount);
       document.getElementById('bottomSheet')?.addEventListener('click', e => {
         if (e.target.id === 'bottomSheet') closeAdminSheet();
       });
 
-      initColorButton(mount.querySelector('#ps_colorPicker')?.closest('.cpick-wrap'), null);
+      // Color picker — update avatar background live
+      const avatarBtn = mount.querySelector('#ps_avatarBtn');
+      initColorButton(mount.querySelector('#ps_colorPicker')?.closest('.cpick-wrap'), (color) => {
+        if (avatarBtn) avatarBtn.style.background = color;
+      });
+
+      // Avatar upload
+      avatarBtn?.addEventListener('click', () => mount.querySelector('#ps_avatarFile')?.click());
+      mount.querySelector('#ps_avatarFile')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = '';
+        try {
+          const { base64, mediaType } = await resizeImageForUpload(file, 320);
+          avatarUrl = `data:${mediaType};base64,${base64}`;
+          avatarBtn.innerHTML = `<img id="ps_avatarImg" src="${avatarUrl}" alt="">`;
+        } catch (err) {
+          showToast('Could not load image');
+        }
+      });
+
+      // Name → update initials when no avatar uploaded
+      mount.querySelector('#ps_name')?.addEventListener('input', (e) => {
+        if (!avatarUrl) {
+          const initials = getPersonInitials(e.target.value || '');
+          const initEl = avatarBtn?.querySelector('.ps-avatar-initials');
+          if (initEl) initEl.textContent = initials;
+        }
+      });
+
+      // Profile details disclosure
+      mount.querySelector('#ps_detailsChip')?.addEventListener('click', () => {
+        const chip = mount.querySelector('#ps_detailsChip');
+        const reveal = mount.querySelector('#ps_detailsReveal');
+        const open = reveal?.classList.toggle('is-open');
+        chip?.classList.toggle('is-active', !!open);
+      });
+
+      // Birthdate picker
+      bindDateInput({
+        btnId: 'ps_birthdateBtn',
+        inputId: 'ps_birthdate',
+        labelId: 'ps_birthdateLabel',
+        format: (v) => v ? formatDateShort(v) : 'Set date',
+      });
 
       let currentRole = role;
 
@@ -1807,7 +1896,7 @@
         const link = mount.querySelector('#ps_profileLink');
         if (link) {
           const name = mount.querySelector('#ps_name')?.value.trim() || '';
-          link.href = (currentRole === 'child' ? 'kid.html?kid=' : 'person.html?person=') + encodeURIComponent(name);
+          link.setAttribute('href', (currentRole === 'child' ? 'kid.html?kid=' : 'person.html?person=') + encodeURIComponent(name));
         }
       });
 
@@ -1872,8 +1961,16 @@
         const themePreset = mount.querySelector('#ps_theme')?.value || '';
         const theme = themePreset ? { preset: themePreset } : undefined;
 
+        const nicknameVal = mount.querySelector('#ps_nickname')?.value.trim() || null;
+        const pronounsVal = mount.querySelector('#ps_pronouns')?.value.trim() || null;
+        const birthdateVal = mount.querySelector('#ps_birthdate')?.value || null;
+
         const data = {
           name, color, role: roleVal, isAdmin: isAdminVal,
+          avatarUrl: avatarUrl || null,
+          nickname: nicknameVal,
+          pronouns: pronounsVal,
+          birthdate: birthdateVal,
           ...(kidSettings && { kidSettings }),
           ...(pfPrefs && { prefs: pfPrefs }),
           ...(theme && { theme }),

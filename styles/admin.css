@@ -1228,7 +1228,8 @@
 
 /* Fix 2 & 4 — plain text chip (no pill border) for admin expanders */
 #cf_advancedChip,
-#ps_optionsChip {
+#ps_optionsChip,
+#ps_detailsChip {
   border: none;
   background: none;
   border-radius: 0;
@@ -1236,10 +1237,54 @@
   min-height: unset;
 }
 #cf_advancedChip:hover, #cf_advancedChip.is-active,
-#ps_optionsChip:hover,  #ps_optionsChip.is-active {
+#ps_optionsChip:hover,  #ps_optionsChip.is-active,
+#ps_detailsChip:hover,  #ps_detailsChip.is-active {
   border: none;
   background: none;
   color: var(--accent);
+}
+
+/* Person form — avatar circle + profile detail inputs */
+.ps-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.ps-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+.ps-avatar-initials {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.ps-detail-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-sm);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: right;
+  max-width: 60%;
 }
 
 /* Fix 3 — role toggle min-width so Adult/Kid pills have room to breathe */
