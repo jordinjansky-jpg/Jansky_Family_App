@@ -54,7 +54,7 @@ Do not skip these based on familiarity. Design drift happens when DESIGN.md is n
 |---|---|
 | Any UI work — component, CSS, sheet, form, card, banner, nav change | [docs/DESIGN.md](docs/DESIGN.md) |
 | Building any form sheet or bottom sheet | [docs/DESIGN.md](docs/DESIGN.md) §5.23 + §13.13 |
-| Adding a feature or deciding where it lives in the UI | [docs/DESIGN.md](docs/DESIGN.md) §2 + [docs/ROADMAP.md](docs/ROADMAP.md) (local file, not committed — may not exist) |
+| Adding a feature or deciding where it lives in the UI | [docs/DESIGN.md](docs/DESIGN.md) §2 + [docs/ROADMAP.md](docs/ROADMAP.md) |
 | Any Firebase schema change or new data path | [shared/firebase.js](shared/firebase.js) |
 | About to call any UI work complete | [docs/DESIGN.md](docs/DESIGN.md) — verify against spec before signing off |
 | Any question about a specific page's behavior or features | Read that page's `.js` file, or its HTML file if no separate `.js` exists (see Note below); if no screenshot this session for that page, take one at 412×915 before responding |
@@ -79,10 +79,10 @@ Do not skip these based on familiarity. Design drift happens when DESIGN.md is n
 ├── workers/kitchen-import.js     ← Cloudflare Worker — AI categorize, recipe import, future handlers
 ├── shared/
 │   ├── firebase.js               ← ONLY module that touches DB (~25 exports)
-│   ├── components.js             ← All reusable HTML rendering (~600 lines)
-│   ├── scheduler.js              ← Schedule generation — rotation, cooldown, load balancing (~850 lines)
-│   ├── scoring.js                ← Points formula, grades, streaks, snapshots (~400 lines)
-│   ├── calendar-views.js         ← Month/week/day renderers (~600 lines)
+│   ├── components.js             ← All reusable HTML + form-system primitives (~4,000 lines)
+│   ├── scheduler.js              ← Schedule generation — rotation, cooldown, load balancing (~1,000 lines)
+│   ├── scoring.js                ← Points formula, grades, streaks, snapshots (~600 lines)
+│   ├── calendar-views.js         ← Month/week/day renderers (~450 lines)
 │   ├── state.js                  ← Completion queries, entry filtering/sorting
 │   ├── theme.js                  ← 5 theme presets, CSS variable generation
 │   ├── utils.js                  ← Date math, timezone handling, formatting
@@ -102,7 +102,7 @@ Do not skip these based on familiarity. Design drift happens when DESIGN.md is n
 - **After any write:** `loadData(); render()` — never `location.reload()`.
 - **SW cache:** Bump `CACHE_NAME` in `sw.js` when files are added or renamed.
 - **Worker deploy:** Not auto-deployed with `git push` — must run `wrangler deploy` separately.
-- **Form pattern:** The Event Form (`renderEventForm` + `openEventForm`) is the canonical reference for all form sheets. Read DESIGN.md §5.23 + §13.13 before building any form.
+- **Form pattern:** Compose from `fs-*` primitives in `shared/components.js` — `renderFormFooter`, `renderFormSheetHeader`, `renderDateInput`+`bindDateInput`, `renderTimeInput`, `renderChipPicker`+`bindChipPicker`, `renderEmojiPicker`+`bindEmojiPicker`, `renderColorButton`+`initColorButton`, `renderSwitchToggle`, `renderHelperText`. Sub-sheets: `openIcalUrlSubsheet`, `openEventPhotoSourceSheet`, `openRepeatSubsheet`. Read DESIGN.md §5.23 v2 + §13.13 before building any form.
 
 ## Critical Behavior Rules
 These cannot be derived from reading the code:

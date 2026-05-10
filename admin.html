@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed
     } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -2839,7 +2839,13 @@
               </div>
               <div class="rf-adv-row">
                 <span class="rf-adv-label">Expires</span>
-                <input type="date" id="rf_expiresAt" class="rf-adv-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz }) : ''}">
+                ${renderDateInput({
+                  btnId: 'rf_expiresAtBtn',
+                  inputId: 'rf_expiresAt',
+                  labelId: 'rf_expiresAtLabel',
+                  value: reward.expiresAt ? new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz }) : '',
+                  label: reward.expiresAt ? formatDateShort(new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz })) : 'Set date',
+                })}
               </div>
             </div>
           </div>
@@ -2870,6 +2876,14 @@
         const footerSave = mount.querySelector('#rf_footerSave');
         if (headerSave) headerSave.disabled = empty;
         if (footerSave) footerSave.disabled = empty;
+      });
+
+      // Expires date pill (parity with rewards.js openRewardForm).
+      bindDateInput({
+        btnId: 'rf_expiresAtBtn',
+        inputId: 'rf_expiresAt',
+        labelId: 'rf_expiresAtLabel',
+        format: (v) => v ? formatDateShort(v) : 'Set date',
       });
 
       // Emoji preview + grid toggle

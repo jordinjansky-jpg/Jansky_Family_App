@@ -4119,6 +4119,21 @@ label.ef2-icon-btn  { cursor: pointer; }
 
 .ef2-repeat-end.is-open { display: block; }
 
+/* Repeat sub-sheet — Ends section subfields. */
+.ef2-repeat-end-label { margin-top: var(--spacing-md); }
+.ef2-repeat-end-select { width: 100%; }
+.ef2-repeat-end-date-wrap { margin-top: var(--spacing-xs); }
+.ef2-repeat-end-date-wrap.is-hidden { display: none; }
+.ef2-repeat-end-count-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+.ef2-repeat-end-count-wrap.is-hidden { display: none; }
+.ef2-repeat-end-count-input { width: 80px; }
+.ef2-repeat-end-count-unit { font-size: var(--font-sm); }
+
 .ef2-date-label {
   font-size: var(--font-xs);
   color: var(--text-muted);

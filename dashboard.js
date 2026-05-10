@@ -2525,8 +2525,8 @@ function openRepeatSheet(currentRule, onDone, onCancel) {
   });
 
   document.getElementById('rptEndType')?.addEventListener('change', (e) => {
-    document.getElementById('rptEndDateWrap').style.display = e.target.value === 'on' ? 'block' : 'none';
-    document.getElementById('rptEndCountWrap').style.display = e.target.value === 'after' ? 'flex' : 'none';
+    document.getElementById('rptEndDateWrap')?.classList.toggle('is-hidden', e.target.value !== 'on');
+    document.getElementById('rptEndCountWrap')?.classList.toggle('is-hidden', e.target.value !== 'after');
   });
 
   // End-date pill — tap opens OS picker via .showPicker(); change updates label.
