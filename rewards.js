@@ -10,9 +10,10 @@ import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
-  openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState
+  openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
+  renderDateInput, bindDateInput
 } from './shared/components.js';
-import { todayKey } from './shared/utils.js';
+import { todayKey, formatDateShort } from './shared/utils.js';
 
 await initFirebase();
 applyTheme(resolveTheme());
@@ -1204,7 +1205,13 @@ function openRewardForm(rewardId = null) {
           </div>
           <div class="rf-adv-row">
             <span class="rf-adv-label">Expires</span>
-            <input type="date" id="rcf_expiresAt" class="rf-adv-input" value="${reward.expiresAt ? new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz }) : ''}">
+            ${renderDateInput({
+              btnId: 'rcf_expiresAtBtn',
+              inputId: 'rcf_expiresAt',
+              labelId: 'rcf_expiresAtLabel',
+              value: reward.expiresAt ? new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz }) : '',
+              label: reward.expiresAt ? formatDateShort(new Date(reward.expiresAt).toLocaleDateString('en-CA', { timeZone: tz })) : 'Set date',
+            })}
           </div>
         </div>
       </div>
@@ -1217,6 +1224,14 @@ function openRewardForm(rewardId = null) {
 
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
     if (e.target.id === 'bottomSheet') close();
+  });
+
+  // Date picker (Expires)
+  bindDateInput({
+    btnId: 'rcf_expiresAtBtn',
+    inputId: 'rcf_expiresAt',
+    labelId: 'rcf_expiresAtLabel',
+    format: (v) => v ? formatDateShort(v) : 'Set date',
   });
 
   // Emoji
