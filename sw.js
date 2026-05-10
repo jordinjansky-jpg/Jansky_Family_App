@@ -9,6 +9,10 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v190 (2026-05-10) — Fix(forms): mirror Recipe meta-row + chip-picker into
+//                    dashboard.js openRecipeForm so Plan-a-meal "+ New recipe"
+//                    matches kitchen.js. Plus padding fix for cf-icon-section
+//                    so emoji grid has breathing room above ef2-divider.
 // v189 (2026-05-10) — Form-system PR E: renderSwitchToggle + renderHelperText
 //                    helpers. Migrate Reward "Approval required" from a
 //                    chip-toggle (visual-only is-active class + closure var) to
@@ -300,7 +304,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v189';
+const CACHE_NAME = 'family-hub-v190';
 
 const APP_SHELL = [
   '/',
