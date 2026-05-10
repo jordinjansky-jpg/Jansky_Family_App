@@ -11,7 +11,8 @@ import { renderNavBar, initNavMore, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
   openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
-  renderDateInput, bindDateInput, renderSwitchToggle
+  renderDateInput, bindDateInput, renderSwitchToggle,
+  renderColorButton, initColorButton
 } from './shared/components.js';
 import { todayKey, formatDateShort } from './shared/utils.js';
 
@@ -1133,7 +1134,7 @@ function openRewardForm(rewardId = null) {
       </div>
 
       <div class="rf-title-row">
-        <button class="rf-emoji-btn" id="rcf_emojiBtnPreview" type="button" title="Pick emoji">${defaultEmoji}</button>
+        <button class="rf-emoji-btn" id="rcf_emojiBtnPreview" type="button" title="Pick emoji" data-bg-color="${esc(reward.iconColor || '#FFE6CC')}">${defaultEmoji}</button>
         <input class="tf-title-input" id="rcf_name" type="text" placeholder="Reward name" value="${esc(reward.name || '')}" autocomplete="off">
       </div>
 
@@ -1141,6 +1142,10 @@ function openRewardForm(rewardId = null) {
         <div class="rf-emoji-grid">
           ${REWARD_EMOJIS.map(e => `<button type="button" class="rf-emoji-cell${defaultEmoji === e ? ' is-selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
           <input type="search" id="rcf_customEmoji" class="rf-emoji-custom" placeholder="+">
+        </div>
+        <div class="rf-color-row">
+          <span class="rf-color-label">Background color</span>
+          ${renderColorButton(reward.iconColor || '#FFE6CC', 'rcf_iconColor')}
         </div>
       </div>
 
@@ -1238,8 +1243,15 @@ function openRewardForm(rewardId = null) {
     format: (v) => v ? formatDateShort(v) : 'Set date',
   });
 
-  // Emoji
+  // Emoji + icon background color
   let currentEmoji = defaultEmoji;
+  let currentIconColor = reward.iconColor || '#FFE6CC';
+  const emojiPreview = mount.querySelector('#rcf_emojiBtnPreview');
+  if (emojiPreview) emojiPreview.style.backgroundColor = currentIconColor;
+  initColorButton(mount.querySelector('#rcf_iconColor')?.closest('.cpick-wrap'), (color) => {
+    currentIconColor = color;
+    if (emojiPreview) emojiPreview.style.backgroundColor = color;
+  });
   const emojiReveal = mount.querySelector('#rcf_emojiReveal');
   mount.querySelector('#rcf_emojiBtnPreview')?.addEventListener('click', () => {
     emojiReveal?.classList.toggle('is-open');
@@ -1381,7 +1393,7 @@ function openRewardForm(rewardId = null) {
     const expiresAt = expiresDate ? new Date(expiresDate + 'T23:59:59').getTime() : null;
     const approvalRequired = mount.querySelector('#rcf_approvalRequired')?.checked ?? true;
     const data = {
-      name, icon: currentEmoji, pointCost: cost, rewardType,
+      name, icon: currentEmoji, iconColor: currentIconColor, pointCost: cost, rewardType,
       approvalRequired, perPerson: selectedPeople,
       maxRedemptions, streakRequirement: streakReq, expiresAt,
       status: reward.status || 'active'

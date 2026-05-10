@@ -1280,9 +1280,10 @@ export function renderRewardCard(reward, balance, opts = {}) {
 
   const costChipClass = canAfford ? 'chip--success' : 'chip--muted';
   const dimClass = canGet || !showGet ? '' : ' card--dim';
+  const iconBg = reward.iconColor ? ` data-bg-color="${esc(reward.iconColor)}"` : '';
   return `<div class="card card--reward${dimClass}" data-reward-id="${esc(reward.id)}">
     <div class="card__leading">
-      <span class="icon-tile">${esc(reward.icon || '🎁')}</span>
+      <span class="icon-tile"${iconBg}>${esc(reward.icon || '🎁')}</span>
     </div>
     <div class="card__body">
       <div class="card__title">${esc(reward.name)}</div>
@@ -1736,6 +1737,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   const notesOpen = (event.notes || event.notesOpen) ? ' is-open' : '';
   const locOpen = (event.location || event.locOpen) ? ' is-open' : '';
+  const urlOpen = (event.url || event.urlOpen) ? ' is-open' : '';
   const repeatLabel = ef2RepeatLabel(event.repeat);
   const repeatActive = (event.repeat && event.repeat.type && event.repeat.type !== 'none') ? ' is-active' : '';
 
@@ -1794,6 +1796,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     <button class="ef2-add-chip${event.allDay ? ' is-active' : ''}" id="ef2_allDay" type="button">All day</button>
     <button class="ef2-add-chip${notesOpen ? ' is-active' : ''}" id="ef2_notesChip" type="button">+ Notes</button>
     <button class="ef2-add-chip${locOpen ? ' is-active' : ''}" id="ef2_locChip" type="button">+ Location</button>
+    <button class="ef2-add-chip${urlOpen ? ' is-active' : ''}" id="ef2_urlChip" type="button">+ Link</button>
     <button class="ef2-add-chip${repeatActive}" id="ef2_repeatChip" type="button">${esc(repeatLabel)}</button>
   </div>
 
@@ -1808,6 +1811,13 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     <div class="ef2-field-reveal-inner">
       <input type="text" id="ef2_location" placeholder="Location" value="${esc(event.location || '')}">
       <button class="ef2-field-close" id="ef2_locClose" type="button" aria-label="Close location">${CLOSE_SVG}</button>
+    </div>
+  </div>
+
+  <div class="ef2-field-reveal${urlOpen}" id="ef2_urlReveal">
+    <div class="ef2-field-reveal-inner">
+      <input type="url" id="ef2_url" placeholder="https://… (Zoom, school, etc.)" value="${esc(event.url || '')}" autocomplete="off">
+      <button class="ef2-field-close" id="ef2_urlClose" type="button" aria-label="Close link">${CLOSE_SVG}</button>
     </div>
   </div>
 

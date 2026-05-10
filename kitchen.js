@@ -14,7 +14,8 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   initOfflineBanner, showConfirm, showToast, renderFab,
   renderBottomSheet, renderEmptyState, renderAddMenu, renderSkeleton, renderErrorState,
   renderFormFooter, renderFormSheetHeader,
-  renderChipPicker, bindChipPicker
+  renderChipPicker, bindChipPicker,
+  renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
 import { todayKey, escapeHtml } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow } from './shared/ai-helpers.js';
@@ -1521,11 +1522,15 @@ function renderListsTab() {
   content.innerHTML = `
     <div class="list-switcher">
       <div class="list-switcher__tabs">
-        ${listIds.map(id => `
+        ${listIds.map(id => {
+          const l = lists[id];
+          const icon = l.icon ? `<span class="tab--list-icon" data-bg-color="${esc(l.color || DEFAULT_LIST_COLOR)}">${esc(l.icon)}</span>` : '';
+          return `
           <button class="tab${id === activeListId ? ' is-active' : ''} tab--list"
                   data-list-id="${esc(id)}" type="button">
-            ${esc(lists[id].name)}
-          </button>`).join('')}
+            ${icon}${esc(l.name)}
+          </button>`;
+        }).join('')}
       </div>
       <div class="list-switcher__actions">
         <button class="btn-icon" id="addListBtn" aria-label="New list" type="button">
@@ -1547,6 +1552,8 @@ function renderListsTab() {
     </div>
     <div id="itemAddMount"></div>
     <div id="listItemsArea" class="list-content"></div>`;
+
+  applyDataColors(content);
 
   document.querySelector('.list-switcher')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-list-id]');
@@ -1699,8 +1706,12 @@ async function toggleItem(id) {
   }
 }
 
+const LIST_EMOJIS = ['🛒','🛍️','🏪','🥬','🍎','🥩','🧀','🥛','🍞','🐟','🌮','🍕','🥗','🧴','🧻','🍷'];
+const DEFAULT_LIST_COLOR = '#FFE6CC';
+
 function openCreateListSheet(onCreated = null) {
   const mount = document.getElementById('sheetMount');
+  const defaultEmoji = '🛒';
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">New list</h2>
@@ -1708,14 +1719,55 @@ function openCreateListSheet(onCreated = null) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="kl-name-row">
-      <input class="kl-name-input" id="kl_name" type="text" placeholder="Grocery, Costco, Target…" autocomplete="off">
+    <div class="rf-title-row">
+      <button class="rf-emoji-btn" id="kl_emojiBtnPreview" type="button" title="Pick icon" data-bg-color="${DEFAULT_LIST_COLOR}">${defaultEmoji}</button>
+      <input class="tf-title-input" id="kl_name" type="text" placeholder="Grocery, Costco, Target…" autocomplete="off">
+    </div>
+    <div class="rf-emoji-reveal" id="kl_emojiReveal">
+      <div class="rf-emoji-grid">
+        ${LIST_EMOJIS.map(e => `<button type="button" class="rf-emoji-cell${defaultEmoji === e ? ' is-selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+        <input type="search" id="kl_customEmoji" class="rf-emoji-custom" placeholder="+">
+      </div>
+      <div class="rf-color-row">
+        <span class="rf-color-label">Background color</span>
+        ${renderColorButton(DEFAULT_LIST_COLOR, 'kl_iconColor')}
+      </div>
     </div>
     <div class="me-detail__chips">
       <button class="chip" id="kl_cancel" type="button">Cancel</button>
       <button class="chip" id="kl_save" type="button">Create</button>
     </div>`);
   activateSheet(mount);
+  applyDataColors(mount);
+
+  let currentEmoji = defaultEmoji;
+  let currentColor = DEFAULT_LIST_COLOR;
+  const emojiPreview = mount.querySelector('#kl_emojiBtnPreview');
+  if (emojiPreview) emojiPreview.style.backgroundColor = currentColor;
+  initColorButton(mount.querySelector('#kl_iconColor')?.closest('.cpick-wrap'), (color) => {
+    currentColor = color;
+    if (emojiPreview) emojiPreview.style.backgroundColor = color;
+  });
+  const emojiReveal = mount.querySelector('#kl_emojiReveal');
+  emojiPreview?.addEventListener('click', () => emojiReveal?.classList.toggle('is-open'));
+  for (const cell of mount.querySelectorAll('.rf-emoji-cell')) {
+    cell.addEventListener('click', () => {
+      mount.querySelectorAll('.rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+      cell.classList.add('is-selected');
+      currentEmoji = cell.dataset.emoji;
+      emojiPreview.textContent = currentEmoji;
+      mount.querySelector('#kl_customEmoji').value = '';
+      emojiReveal?.classList.remove('is-open');
+    });
+  }
+  mount.querySelector('#kl_customEmoji')?.addEventListener('input', e => {
+    const v = e.target.value.trim();
+    if (v) {
+      currentEmoji = v;
+      emojiPreview.textContent = v;
+      mount.querySelectorAll('.rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+    }
+  });
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kl_close')?.addEventListener('click', close);
@@ -1729,8 +1781,9 @@ function openCreateListSheet(onCreated = null) {
       return;
     }
     const sortOrder = Object.keys(lists).length;
-    const id = await pushKitchenList({ name, sortOrder, createdAt: firebase.database.ServerValue.TIMESTAMP });
-    lists[id] = { name, sortOrder };
+    const data = { name, sortOrder, icon: currentEmoji, color: currentColor, createdAt: firebase.database.ServerValue.TIMESTAMP };
+    const id = await pushKitchenList(data);
+    lists[id] = { name, sortOrder, icon: currentEmoji, color: currentColor };
     activeListId = id;
     localStorage.setItem('dr-kitchen-active-list', id);
     close();
@@ -1742,7 +1795,10 @@ function openCreateListSheet(onCreated = null) {
 
 function openManageListSheet() {
   if (!activeListId || !lists[activeListId]) return;
-  const listName = lists[activeListId].name;
+  const list = lists[activeListId];
+  const listName = list.name;
+  const initialEmoji = list.icon || '🛒';
+  const initialColor = list.color || DEFAULT_LIST_COLOR;
   const mount = document.getElementById('sheetMount');
   const TRASH_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
   const SAVE_SVG  = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
@@ -1756,14 +1812,55 @@ function openManageListSheet() {
         <button class="ef2-icon-btn" id="km_close" aria-label="Close" type="button">${CLOSE_SVG}</button>
       </div>
     </div>
-    <div class="kl-name-row">
-      <input class="kl-name-input" id="km_name" type="text" value="${esc(listName)}" autocomplete="off">
+    <div class="rf-title-row">
+      <button class="rf-emoji-btn" id="km_emojiBtnPreview" type="button" title="Pick icon" data-bg-color="${esc(initialColor)}">${esc(initialEmoji)}</button>
+      <input class="tf-title-input" id="km_name" type="text" value="${esc(listName)}" autocomplete="off">
+    </div>
+    <div class="rf-emoji-reveal" id="km_emojiReveal">
+      <div class="rf-emoji-grid">
+        ${LIST_EMOJIS.map(e => `<button type="button" class="rf-emoji-cell${initialEmoji === e ? ' is-selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+        <input type="search" id="km_customEmoji" class="rf-emoji-custom" placeholder="+">
+      </div>
+      <div class="rf-color-row">
+        <span class="rf-color-label">Background color</span>
+        ${renderColorButton(initialColor, 'km_iconColor')}
+      </div>
     </div>
     <div class="me-detail__chips">
       <button class="chip" id="km_copyBtn" type="button">Copy list</button>
       <button class="chip" id="km_clearBtn" type="button">Clear checked</button>
     </div>`);
   activateSheet(mount);
+  applyDataColors(mount);
+
+  let currentEmoji = initialEmoji;
+  let currentColor = initialColor;
+  const emojiPreview = mount.querySelector('#km_emojiBtnPreview');
+  if (emojiPreview) emojiPreview.style.backgroundColor = currentColor;
+  initColorButton(mount.querySelector('#km_iconColor')?.closest('.cpick-wrap'), (color) => {
+    currentColor = color;
+    if (emojiPreview) emojiPreview.style.backgroundColor = color;
+  });
+  const emojiReveal = mount.querySelector('#km_emojiReveal');
+  emojiPreview?.addEventListener('click', () => emojiReveal?.classList.toggle('is-open'));
+  for (const cell of mount.querySelectorAll('.rf-emoji-cell')) {
+    cell.addEventListener('click', () => {
+      mount.querySelectorAll('.rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+      cell.classList.add('is-selected');
+      currentEmoji = cell.dataset.emoji;
+      emojiPreview.textContent = currentEmoji;
+      mount.querySelector('#km_customEmoji').value = '';
+      emojiReveal?.classList.remove('is-open');
+    });
+  }
+  mount.querySelector('#km_customEmoji')?.addEventListener('input', e => {
+    const v = e.target.value.trim();
+    if (v) {
+      currentEmoji = v;
+      emojiPreview.textContent = v;
+      mount.querySelectorAll('.rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+    }
+  });
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('km_close')?.addEventListener('click', close);
@@ -1771,8 +1868,9 @@ function openManageListSheet() {
   document.getElementById('km_save')?.addEventListener('click', async () => {
     const name = document.getElementById('km_name')?.value.trim();
     if (!name) return;
-    await writeKitchenList(activeListId, { ...lists[activeListId], name });
-    lists[activeListId].name = name;
+    const updated = { ...lists[activeListId], name, icon: currentEmoji, color: currentColor };
+    await writeKitchenList(activeListId, updated);
+    lists[activeListId] = updated;
     close();
     renderListsTab();
   });

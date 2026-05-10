@@ -5370,6 +5370,19 @@ label.ef2-icon-btn  { cursor: pointer; }
 .rf-emoji-btn:hover { background: var(--surface-3, var(--surface-2)); }
 .rf-emoji-reveal { display: none; }
 .rf-emoji-reveal.is-open { display: block; }
+
+/* Reward icon background color row inside emoji reveal */
+.rf-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0 var(--spacing-xs);
+}
+.rf-color-label {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
 .rf-emoji-grid {
   display: flex;
   flex-wrap: wrap;
