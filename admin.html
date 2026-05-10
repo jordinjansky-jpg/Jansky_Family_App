@@ -1496,6 +1496,17 @@
         document.getElementById('ef2_locChip')?.classList.remove('is-active');
       });
 
+      document.getElementById('ef2_urlChip')?.addEventListener('click', () => {
+        const reveal = document.getElementById('ef2_urlReveal');
+        const isOpen = reveal?.classList.contains('is-open');
+        if (isOpen) { reveal.classList.remove('is-open'); document.getElementById('ef2_urlChip')?.classList.remove('is-active'); }
+        else { reveal?.classList.add('is-open'); document.getElementById('ef2_urlChip')?.classList.add('is-active'); document.getElementById('ef2_url')?.focus(); }
+      });
+      document.getElementById('ef2_urlClose')?.addEventListener('click', () => {
+        document.getElementById('ef2_urlReveal')?.classList.remove('is-open');
+        document.getElementById('ef2_urlChip')?.classList.remove('is-active');
+      });
+
       let currentRepeat = event.repeat || null;
       document.getElementById('ef2_repeatChip')?.addEventListener('click', () => {
         const formState = captureFormState();
@@ -1520,8 +1531,10 @@
           people: peoplArr,
           notes: document.getElementById('ef2_notes')?.value || '',
           location: document.getElementById('ef2_location')?.value || '',
+          url: document.getElementById('ef2_url')?.value.trim() || '',
           notesOpen: document.getElementById('ef2_notesReveal')?.classList.contains('is-open') || false,
           locOpen: document.getElementById('ef2_locReveal')?.classList.contains('is-open') || false,
+          urlOpen: document.getElementById('ef2_urlReveal')?.classList.contains('is-open') || false,
           repeat: currentRepeat,
         };
       }
@@ -1549,6 +1562,7 @@
           people: formState.people,
           location: formState.location || null,
           notes: formState.notes || null,
+          url: formState.url || null,
           repeat: formState.repeat || null,
           createdDate: existingEventId ? (eventsObj[existingEventId]?.createdDate || today) : today,
         };
@@ -2776,6 +2790,10 @@
               ${REWARD_EMOJIS.map(e => `<button type="button" class="rf-emoji-cell${defaultEmoji === e ? ' is-selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
               <input type="search" id="rf_customEmoji" class="rf-emoji-custom" placeholder="+">
             </div>
+            <div class="rf-color-row">
+              <span class="rf-color-label">Background color</span>
+              ${renderColorButton(reward.iconColor || '#FFE6CC', 'rf_iconColor')}
+            </div>
           </div>
 
           <div class="ef2-divider"></div>
@@ -2886,8 +2904,15 @@
         format: (v) => v ? formatDateShort(v) : 'Set date',
       });
 
-      // Emoji preview + grid toggle
+      // Emoji preview + grid toggle + icon background color
       let currentEmoji = defaultEmoji;
+      let currentIconColor = reward.iconColor || '#FFE6CC';
+      const emojiPreview = mount.querySelector('#rf_emojiBtnPreview');
+      if (emojiPreview) emojiPreview.style.backgroundColor = currentIconColor;
+      initColorButton(mount.querySelector('#rf_iconColor')?.closest('.cpick-wrap'), (color) => {
+        currentIconColor = color;
+        if (emojiPreview) emojiPreview.style.backgroundColor = color;
+      });
       const emojiReveal = mount.querySelector('#rf_emojiReveal');
       mount.querySelector('#rf_emojiBtnPreview')?.addEventListener('click', () => {
         emojiReveal?.classList.toggle('is-open');
@@ -3022,7 +3047,7 @@
         const expiresDate = mount.querySelector('#rf_expiresAt').value;
         const expiresAt = expiresDate ? new Date(expiresDate + 'T23:59:59').getTime() : null;
         const data = {
-          name, icon: currentEmoji, pointCost: cost, rewardType,
+          name, icon: currentEmoji, iconColor: currentIconColor, pointCost: cost, rewardType,
           approvalRequired,
           perPerson: selectedPeople, maxRedemptions, streakRequirement: streakReq, expiresAt,
           status: rewardId ? (rewardsObj[rewardId]?.status || 'active') : 'active'

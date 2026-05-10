@@ -191,6 +191,20 @@
   -webkit-overflow-scrolling: touch;
 }
 .list-switcher__tabs::-webkit-scrollbar { display: none; }
+
+.tab--list { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+.tab--list-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .list-switcher__actions {
   flex-shrink: 0;
   display: flex;

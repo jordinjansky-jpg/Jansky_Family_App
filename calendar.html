@@ -1082,6 +1082,17 @@
         document.getElementById('ef2_locChip')?.classList.remove('is-active');
       });
 
+      document.getElementById('ef2_urlChip')?.addEventListener('click', () => {
+        const reveal = document.getElementById('ef2_urlReveal');
+        const isOpen = reveal?.classList.contains('is-open');
+        if (isOpen) { reveal.classList.remove('is-open'); document.getElementById('ef2_urlChip')?.classList.remove('is-active'); }
+        else { reveal?.classList.add('is-open'); document.getElementById('ef2_urlChip')?.classList.add('is-active'); document.getElementById('ef2_url')?.focus(); }
+      });
+      document.getElementById('ef2_urlClose')?.addEventListener('click', () => {
+        document.getElementById('ef2_urlReveal')?.classList.remove('is-open');
+        document.getElementById('ef2_urlChip')?.classList.remove('is-active');
+      });
+
       let currentRepeat = event.repeat || null;
       document.getElementById('ef2_repeatChip')?.addEventListener('click', () => {
         const formState = captureFormState();
@@ -1106,8 +1117,10 @@
           people: peoplArr,
           notes: document.getElementById('ef2_notes')?.value || '',
           location: document.getElementById('ef2_location')?.value || '',
+          url: document.getElementById('ef2_url')?.value.trim() || '',
           notesOpen: document.getElementById('ef2_notesReveal')?.classList.contains('is-open') || false,
           locOpen: document.getElementById('ef2_locReveal')?.classList.contains('is-open') || false,
+          urlOpen: document.getElementById('ef2_urlReveal')?.classList.contains('is-open') || false,
           repeat: currentRepeat,
         };
       }
@@ -1135,6 +1148,7 @@
           people: formState.people,
           location: formState.location || null,
           notes: formState.notes || null,
+          url: formState.url || null,
           repeat: formState.repeat || null,
           createdDate: existingEventId
             ? (events[existingEventId]?.createdDate || today)
