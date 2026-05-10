@@ -9,6 +9,11 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v194 (2026-05-10) — Form-system Phase 3 (2/N — Person Form): sticky fs-footer
+//                    + disabled save state when ps_name empty. Single opener
+//                    (admin.html openPersonSheet). Color picker (cpick-) and
+//                    Personal Theme native <select> intentionally untouched —
+//                    color is already canonical, theme is a feature decision.
 // v193 (2026-05-10) — Fix(forms): replace solid-black-fill chip-active state
 //                    with solid-border-in-accent (sticky-hover style). Resolves
 //                    form review P11 + DESIGN.md §5.23 v2 "Active states" #2
@@ -326,7 +331,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v193';
+const CACHE_NAME = 'family-hub-v194';
 
 const APP_SHELL = [
   '/',
