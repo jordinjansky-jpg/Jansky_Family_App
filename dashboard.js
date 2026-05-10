@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
-import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm } from './shared/components.js';
+import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
@@ -1266,6 +1266,27 @@ function openRecipeForm(recipeId = null, onSave = null) {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
     </div>
+    <div class="kr-section kr-meta-row">
+      <label class="field">
+        <span class="field__label">Prep time</span>
+        <input id="recipePrepTime" type="text" class="field__input" placeholder="30 min"
+          value="${esc(existing?.prepTime || '')}" autocomplete="off">
+      </label>
+      <label class="field">
+        <span class="field__label">Serves</span>
+        <input id="recipeServings" type="number" class="field__input" min="1" max="99" placeholder="4"
+          value="${existing?.servings || ''}" autocomplete="off">
+      </label>
+      <label class="field">
+        <span class="field__label">Difficulty</span>
+        ${renderChipPicker({
+          pickerId: 'recipeDifficultyPicker',
+          hiddenId: 'recipeDifficulty',
+          options: [{ value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }],
+          value: existing?.difficulty || '',
+        })}
+      </label>
+    </div>
     <div class="kr-section">
       <span class="ef2-section-label">Ingredients</span>
       <div id="ingredientList">${buildIngredientList()}</div>
@@ -1293,6 +1314,9 @@ function openRecipeForm(recipeId = null, onSave = null) {
   document.getElementById('recipeNotes')?.addEventListener('input', (e) => {
     e.target.style.height = '0'; e.target.style.height = e.target.scrollHeight + 'px';
   });
+
+  // Difficulty chip picker
+  bindChipPicker({ pickerId: 'recipeDifficultyPicker', hiddenId: 'recipeDifficulty' });
 
   document.getElementById('kr_delete')?.addEventListener('click', async () => {
     const confirmed = await showConfirm({ title: 'Delete recipe?', danger: true });
@@ -1438,6 +1462,9 @@ function openRecipeForm(recipeId = null, onSave = null) {
       name,
       url: document.getElementById('recipeUrl')?.value.trim() || null,
       notes: document.getElementById('recipeNotes')?.value.trim() || null,
+      prepTime: document.getElementById('recipePrepTime')?.value.trim() || null,
+      servings: parseInt(document.getElementById('recipeServings')?.value, 10) || null,
+      difficulty: document.getElementById('recipeDifficulty')?.value || null,
       source: existing?.source || 'manual',
       ingredients,
       isFavorite: existing?.isFavorite || false,
