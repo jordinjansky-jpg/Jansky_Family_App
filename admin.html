@@ -3397,29 +3397,33 @@
   <div class="ef2-divider"></div>
 
   <div class="af-section">
-    <div class="emoji-picker" id="af_emojiPicker">
+    <span class="ef2-section-label">Icon</span>
+    <div class="emoji-picker emoji-picker--grid" id="af_emojiPicker">
       ${ACHIEVEMENT_EMOJIS.map(e => `<button type="button" class="emoji-btn${def.icon === e ? ' emoji-btn--selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
-      <input type="text" id="af_customEmoji" class="form-input form-input--sm" placeholder="✏️" maxlength="2" style="width:44px;text-align:center;" value="${def.icon && !ACHIEVEMENT_EMOJIS.includes(def.icon) ? esc(def.icon) : ''}">
+      <input type="text" id="af_customEmoji" class="emoji-btn emoji-btn--custom" placeholder="+" maxlength="2" value="${def.icon && !ACHIEVEMENT_EMOJIS.includes(def.icon) ? esc(def.icon) : ''}">
     </div>
   </div>
 
   <div class="ef2-divider"></div>
 
   <div class="af-section">
-    <input type="text" id="af_desc" style="width:100%" placeholder="What does this badge celebrate?" value="${esc(def.description || '')}">
+    <span class="ef2-section-label">Description</span>
+    <input type="text" id="af_desc" class="af-full-input" placeholder="What does this badge celebrate?" value="${esc(def.description || '')}">
   </div>
 
   <div class="ef2-divider"></div>
 
   <div class="af-section">
+    <span class="ef2-section-label">Trigger</span>
     <div class="segmented-control" id="af_condType">
       <button type="button" class="segmented-btn${cType === 'stat' ? ' segmented-btn--active' : ''}" data-value="stat">Auto</button>
       <button type="button" class="segmented-btn${cType === 'hybrid' ? ' segmented-btn--active' : ''}" data-value="hybrid">Either</button>
       <button type="button" class="segmented-btn${cType === 'manual' ? ' segmented-btn--active' : ''}" data-value="manual">Manual</button>
     </div>
+    <div class="form-hint af-trigger-hint" id="af_triggerHint"></div>
   </div>
 
-  <div id="af_condFields"${cType === 'manual' ? ' style="display:none;"' : ''}>
+  <div id="af_condFields"${cType === 'manual' ? ' class="is-hidden"' : ''}>
     <div class="af-cond-row">
       <select id="af_stat" class="af-cond-select">
         <option value="">Select condition...</option>
@@ -3442,6 +3446,7 @@
   <div class="ef2-divider"></div>
 
   <div class="af-section">
+    <span class="ef2-section-label">Reward</span>
     <div class="segmented-control" id="af_rewardType">
       <button type="button" class="segmented-btn${rType === 'none' ? ' segmented-btn--active' : ''}" data-value="none">Badge Only</button>
       <button type="button" class="segmented-btn${rType === 'points' ? ' segmented-btn--active' : ''}" data-value="points">+ Points</button>
@@ -3449,15 +3454,15 @@
     </div>
   </div>
 
-  <div id="af_rewardPointsField"${rType !== 'points' ? ' style="display:none;"' : ''}>
+  <div id="af_rewardPointsField"${rType !== 'points' ? ' class="is-hidden"' : ''}>
     <div class="af-section">
-      <input type="number" id="af_rewardAmount" style="width:100%" value="${def.reward?.amount || 50}" min="1" placeholder="Bonus points">
+      <input type="number" id="af_rewardAmount" class="af-full-input" value="${def.reward?.amount || 50}" min="1" placeholder="Bonus points">
     </div>
   </div>
 
-  <div id="af_rewardItemField"${rType !== 'reward' ? ' style="display:none;"' : ''}>
+  <div id="af_rewardItemField"${rType !== 'reward' ? ' class="is-hidden"' : ''}>
     <div class="af-section">
-      <select id="af_rewardId" style="width:100%">
+      <select id="af_rewardId" class="af-full-input">
         <option value="">Select reward...</option>
         ${Object.entries(rewardsObj).filter(([,r]) => r.status === 'active').map(([id, r]) =>
           `<option value="${id}" ${def.reward?.rewardId === id ? 'selected' : ''}>${esc(r.icon || '')} ${esc(r.name)}</option>`
@@ -3469,10 +3474,11 @@
   <div class="ef2-divider"></div>
 
   <div class="af-section">
+    <span class="ef2-section-label">Visible to</span>
     <div class="chip-group" id="af_people">
       ${peopleArray().map(p => {
         const selected = def.perPerson && def.perPerson.includes(p.id);
-        return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" style="--person-color:${p.color}" type="button">${esc(p.name)}</button>`;
+        return `<button class="chip chip--selectable${selected ? ' chip--active' : ''}" data-person-id="${p.id}" data-person-color="${p.color}" type="button">${esc(p.name)}</button>`;
       }).join('')}
       <span class="form-hint">None = all</span>
     </div>
@@ -3657,6 +3663,8 @@
     }
 
     function bindAchievementForm(form) {
+      applyDataColors(form);
+
       // Emoji picker
       for (const btn of form.querySelectorAll('.emoji-btn')) {
         btn.addEventListener('click', () => {
@@ -3683,12 +3691,23 @@
         render();
       });
 
+      // Trigger hint — describes the active mode
+      const TRIGGER_HINTS = {
+        stat: 'Auto: awarded automatically when the condition is met.',
+        hybrid: 'Either: awarded automatically OR manually from a person\'s page.',
+        manual: 'Manual: only awarded by tapping a badge on a person\'s page.',
+      };
+      const triggerHint = form.querySelector('#af_triggerHint');
+      const initialTrigger = form.querySelector('#af_condType .segmented-btn--active')?.dataset?.value || 'hybrid';
+      if (triggerHint) triggerHint.textContent = TRIGGER_HINTS[initialTrigger] || '';
+
       // Condition type toggle
       for (const btn of form.querySelectorAll('#af_condType .segmented-btn')) {
         btn.addEventListener('click', () => {
           form.querySelectorAll('#af_condType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
           btn.classList.add('segmented-btn--active');
-          form.querySelector('#af_condFields').style.display = btn.dataset.value === 'manual' ? 'none' : '';
+          form.querySelector('#af_condFields').classList.toggle('is-hidden', btn.dataset.value === 'manual');
+          if (triggerHint) triggerHint.textContent = TRIGGER_HINTS[btn.dataset.value] || '';
         });
       }
 
@@ -3713,8 +3732,8 @@
         btn.addEventListener('click', () => {
           form.querySelectorAll('#af_rewardType .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
           btn.classList.add('segmented-btn--active');
-          form.querySelector('#af_rewardPointsField').style.display = btn.dataset.value === 'points' ? '' : 'none';
-          form.querySelector('#af_rewardItemField').style.display = btn.dataset.value === 'reward' ? '' : 'none';
+          form.querySelector('#af_rewardPointsField').classList.toggle('is-hidden', btn.dataset.value !== 'points');
+          form.querySelector('#af_rewardItemField').classList.toggle('is-hidden', btn.dataset.value !== 'reward');
         });
       }
 

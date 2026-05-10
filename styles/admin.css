@@ -806,6 +806,13 @@
 .emoji-picker { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .emoji-picker-compact { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
 
+/* Tighter, evenly-spaced grid for the Badge form icon picker */
+.emoji-picker--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 4px;
+}
+
 .emoji-btn {
   font-size: 1.3rem;
   padding: 3px 4px;
@@ -814,10 +821,40 @@
   background: none;
   cursor: pointer;
   transition: border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  min-height: 40px;
 }
 
 .emoji-btn:hover { border-color: var(--border); }
 .emoji-btn--selected { border-color: var(--accent); background: var(--surface-highlight, rgba(var(--accent-rgb, 108, 99, 255), 0.1)); }
+.emoji-btn--custom {
+  font-size: 1.1rem;
+  text-align: center;
+  border: 1.5px dashed var(--border);
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+.emoji-btn--custom:focus { outline: none; border-color: var(--accent); color: var(--text); }
+
+/* Badge form — full-width inputs + trigger hint */
+.af-full-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-sm);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+}
+.af-trigger-hint {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
 
 /* ── Achievement Admin Tab ── */
 .ach-person-row {
