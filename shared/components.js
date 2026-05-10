@@ -165,6 +165,40 @@ export function applyDataColors(root) {
   });
 }
 
+/**
+ * Derive 1-2 letter initials from a person's name when they haven't set custom ones.
+ * "Jordin" → "JO", "Mary Sue" → "MS"
+ */
+export function derivePersonInitials(name) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+/**
+ * Render a circular avatar for a person.
+ *  - If they have an avatarUrl, show the image
+ *  - Otherwise show initials (custom or derived) on their color
+ *  - size: 'xs' | 'sm' | 'md' | 'lg' (default sm)
+ */
+export function renderPersonAvatar(person, opts = {}) {
+  const size = opts.size || 'sm';
+  const extraClass = opts.className ? ` ${opts.className}` : '';
+  if (!person) return `<span class="person-avatar person-avatar--${size}${extraClass}"></span>`;
+  const initials = person.initials || derivePersonInitials(person.name || '');
+  const color = person.color || '#999';
+  if (person.avatarUrl) {
+    return `<span class="person-avatar person-avatar--${size}${extraClass}" data-bg-color="${esc(color)}">
+      <img src="${esc(person.avatarUrl)}" alt="${esc(person.name || '')}">
+    </span>`;
+  }
+  return `<span class="person-avatar person-avatar--${size}${extraClass}" data-bg-color="${esc(color)}">
+    <span class="person-avatar__initials">${esc(initials)}</span>
+  </span>`;
+}
+
 function formatEventTime(time24) {
   if (!time24) return '';
   const [h, m] = time24.split(':').map(Number);
@@ -1714,7 +1748,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   const personChipsHtml = people.map(p => {
     const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
-    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
+    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${renderPersonAvatar(p, { size: 'xs' })}${esc(p.name)}</button>`;
   }).join('');
 
   const WAND_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
@@ -2072,7 +2106,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
 
   const personChipsHtml = people.map(p => {
     const state = selectedOwners.includes(p.id) ? 'primary' : '';
-    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
+    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${renderPersonAvatar(p, { size: 'xs' })}${esc(p.name)}</button>`;
   }).join('');
 
   const dayOptions = [['', 'Any day'], ['1','Mon'], ['2','Tue'], ['3','Wed'], ['4','Thu'], ['5','Fri'], ['6','Sat'], ['0','Sun']]

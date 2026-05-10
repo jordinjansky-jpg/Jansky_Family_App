@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed
     } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -310,13 +310,14 @@
      * secondary: escaped text string or ''
      * dataAttrs: string of additional data-* attributes for the row
      */
-    function renderAdminRow({ icon, primary, secondary = '', dataAttrs = '', extraClass = '' }) {
+    function renderAdminRow({ icon, primary, secondary = '', dataAttrs = '', extraClass = '', trailing = '' }) {
       return `<div class="admin-list-item admin-list-item--clickable${extraClass ? ' ' + extraClass : ''}" ${dataAttrs}>
     <div class="admin-icon-tile">${icon}</div>
     <div class="admin-list-item__body">
       <span class="admin-list-item__name">${primary}</span>
       ${secondary ? `<span class="admin-list-item__meta">${secondary}</span>` : ''}
     </div>
+    ${trailing}
     <svg class="admin-list-item__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
   </div>`;
     }
@@ -1637,16 +1638,20 @@
       if (pa.length === 0) {
         html += `<div class="admin-empty">No people yet. Tap + Add Person to get started.</div>`;
       } else {
+        const PROFILE_LINK_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
         html += `<div class="admin-list" id="peopleList">`;
         for (const p of pa) {
-          const icon = renderColorSwatch(p.color || '#ccc');
+          const icon = renderPersonAvatar(p, { size: 'md' });
           const roleLabel = p.role === 'child' ? 'Kid' : 'Adult';
           const adminBadge = p.isAdmin ? ' · Admin' : '';
+          const profileHref = (p.role === 'child' ? 'kid.html?kid=' : 'person.html?person=') + encodeURIComponent(p.name || '');
+          const trailing = `<a class="admin-row-action" href="${profileHref}" target="_blank" rel="noopener" aria-label="Open profile" title="Open profile" data-no-row-click>${PROFILE_LINK_SVG}</a>`;
           html += renderAdminRow({
             icon,
             primary: esc(p.name),
             secondary: esc(roleLabel + adminBadge),
             dataAttrs: `data-person-id="${p.id}"`,
+            trailing,
           });
         }
         html += `</div>`;
@@ -1654,63 +1659,46 @@
       return html;
     }
 
-    function deriveInitialsFromName(name) {
-      if (!name) return '';
-      const parts = name.trim().split(/\s+/).filter(Boolean);
-      if (parts.length === 0) return '';
-      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-
     function openPersonSheet(personId) {
       const isEdit = !!personId;
       const person = personId ? (peopleObj[personId] || {}) : {};
       const colors = getColorPalette();
       const usedColors = peopleArray().filter(p => p.id !== personId).map(p => p.color);
-      const selColor = person.color || colors.find(c => !usedColors.includes(c)) || colors[0];
+      let currentColor = person.color || colors.find(c => !usedColors.includes(c)) || colors[0];
+      let avatarUrl = person.avatarUrl || '';
+      let currentInitials = person.initials || '';
       const role = person.role || 'adult';
       const ks = person.kidSettings || {};
       const prefs = person.prefs || {};
       const isAdmin = !!person.isAdmin;
       const personName = esc(person.name || '');
-      let avatarUrl = person.avatarUrl || '';
-      const initials = esc(person.initials || '');
-      const displayInitials = person.initials || deriveInitialsFromName(person.name || '');
       const birthdate = person.birthdate || '';
-      const profileBase = role === 'child' ? 'kid.html?kid=' : 'person.html?person=';
-      const profileHref = profileBase + encodeURIComponent(person.name || '');
 
       const mount = document.getElementById('taskSheetMount');
       if (!mount) return;
 
-      const PROFILE_LINK_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+      const personForAvatar = () => ({ name: mount.querySelector('#ps_name')?.value || person.name || '', initials: currentInitials, color: currentColor, avatarUrl });
 
       mount.innerHTML = renderBottomSheet(`<div class="tf-form">
   <div class="sheet__header">
-    <h2 class="sheet__title">${isEdit ? personName || 'Person' : 'New Person'}</h2>
+    <h2 class="sheet__title">${isEdit ? 'Edit person' : 'New person'}</h2>
     <div class="rf-header-actions">
-      ${isEdit ? `<a class="ef2-icon-btn" id="ps_profileLink" href="${profileHref}" target="_blank" aria-label="Open profile" title="Open profile">${PROFILE_LINK_SVG}</a>` : ''}
       ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="ps_delete" type="button" aria-label="Delete" title="Delete">${RF_DELETE_SVG}</button>` : ''}
       <button class="ef2-icon-btn rf-save-btn" id="ps_save" type="button" aria-label="${isEdit ? 'Save' : 'Add person'}" title="${isEdit ? 'Save' : 'Add person'}"${person.name ? '' : ' disabled'}>${RF_SAVE_SVG}</button>
       <button class="ef2-icon-btn" id="ps_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
     </div>
   </div>
 
-  <div class="rf-title-row">
-    <button class="ps-avatar" id="ps_avatarBtn" type="button" title="Upload photo" data-bg-color="${esc(selColor)}">
-      ${avatarUrl ? `<img id="ps_avatarImg" src="${esc(avatarUrl)}" alt="">` : `<span class="ps-avatar-initials" id="ps_avatarInitials">${esc(displayInitials)}</span>`}
+  <div class="ps-title-row">
+    <input class="tf-title-input ps-name-input" id="ps_name" type="text" placeholder="Name" value="${personName}" autocomplete="off">
+    <button class="ps-avatar-trigger" id="ps_avatarBtn" type="button" title="Edit avatar">
+      <span id="ps_avatarPreview">${renderPersonAvatar(personForAvatar(), { size: 'lg', className: 'person-avatar--clickable' })}</span>
     </button>
-    <input type="file" accept="image/*" id="ps_avatarFile" hidden>
-    <input class="tf-title-input" id="ps_name" type="text" placeholder="Name" value="${personName}" autocomplete="off">
   </div>
 
   <div class="ef2-divider"></div>
 
-  <div class="ps-color-role-row">
-    <div class="ps-color-group">
-      <span class="ef2-section-label">Color</span>
-      ${renderColorButton(selColor, 'ps_colorPicker')}
-    </div>
+  <div class="ps-role-row">
     <div class="tf-rotation-pills" id="ps_role">
       <button class="tf-rot-pill${role === 'adult' ? ' tf-rot-pill--active' : ''}" data-role="adult" type="button">Adult</button>
       <button class="tf-rot-pill${role === 'child' ? ' tf-rot-pill--active' : ''}" data-role="child" type="button">Kid</button>
@@ -1770,11 +1758,6 @@
       </div>
 
       <div class="tf-options-row">
-        <span class="tf-options-label">Initials</span>
-        <input type="text" id="ps_initials" class="ps-detail-input ps-initials-input" value="${initials}" maxlength="2" autocomplete="off" placeholder="JJ">
-      </div>
-
-      <div class="tf-options-row">
         <span class="tf-options-label">Birthdate</span>
         ${renderDateInput({
           btnId: 'ps_birthdateBtn',
@@ -1825,41 +1808,34 @@
         if (e.target.id === 'bottomSheet') closeAdminSheet();
       });
 
-      // Color picker — update avatar background live
-      const avatarBtn = mount.querySelector('#ps_avatarBtn');
-      initColorButton(mount.querySelector('#ps_colorPicker')?.closest('.cpick-wrap'), (color) => {
-        if (avatarBtn) avatarBtn.style.background = color;
-      });
-
-      // Avatar upload
-      avatarBtn?.addEventListener('click', () => mount.querySelector('#ps_avatarFile')?.click());
-      mount.querySelector('#ps_avatarFile')?.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        e.target.value = '';
-        try {
-          const { base64, mediaType } = await resizeImageForUpload(file, 320);
-          avatarUrl = `data:${mediaType};base64,${base64}`;
-          avatarBtn.innerHTML = `<img id="ps_avatarImg" src="${avatarUrl}" alt="">`;
-        } catch (err) {
-          showToast('Could not load image');
-        }
-      });
-
-      // Live-update avatar text: custom initials override; otherwise derive from name.
-      function refreshAvatarInitials() {
-        if (avatarUrl) return;
-        const custom = (mount.querySelector('#ps_initials')?.value || '').trim();
-        const nameVal = mount.querySelector('#ps_name')?.value || '';
-        const text = custom || deriveInitialsFromName(nameVal);
-        const initEl = avatarBtn?.querySelector('.ps-avatar-initials');
-        if (initEl) initEl.textContent = text;
+      // Repaint the avatar circle from current local state (color / initials / photo / name)
+      function refreshAvatarPreview() {
+        const slot = mount.querySelector('#ps_avatarPreview');
+        if (!slot) return;
+        slot.innerHTML = renderPersonAvatar(personForAvatar(), { size: 'lg', className: 'person-avatar--clickable' });
+        applyDataColors(slot);
       }
-      mount.querySelector('#ps_initials')?.addEventListener('input', (e) => {
-        e.target.value = e.target.value.toUpperCase();
-        refreshAvatarInitials();
+
+      // Avatar tap → opens the avatar editor sub-sheet (color / initials / photo).
+      mount.querySelector('#ps_avatarBtn')?.addEventListener('click', () => {
+        openAvatarEditor({
+          initialColor: currentColor,
+          initialInitials: currentInitials,
+          initialAvatarUrl: avatarUrl,
+          name: mount.querySelector('#ps_name')?.value || '',
+          onChange: ({ color, initials, photo }) => {
+            if (color !== undefined) currentColor = color;
+            if (initials !== undefined) currentInitials = initials;
+            if (photo !== undefined) avatarUrl = photo;
+            refreshAvatarPreview();
+          },
+        });
       });
-      mount.querySelector('#ps_name')?.addEventListener('input', refreshAvatarInitials);
+
+      // Name input → live-update avatar (only matters when no custom initials and no photo)
+      mount.querySelector('#ps_name')?.addEventListener('input', () => {
+        if (!avatarUrl && !currentInitials) refreshAvatarPreview();
+      });
 
       // Birthdate picker
       bindDateInput({
@@ -1878,11 +1854,6 @@
         mount.querySelectorAll('#ps_role .tf-rot-pill').forEach(p => p.classList.toggle('tf-rot-pill--active', p.dataset.role === currentRole));
         mount.querySelector('#ps_adminRow')?.classList.toggle('is-hidden', currentRole === 'child');
         mount.querySelector('#ps_kidSection')?.classList.toggle('is-hidden', currentRole !== 'child');
-        const link = mount.querySelector('#ps_profileLink');
-        if (link) {
-          const name = mount.querySelector('#ps_name')?.value.trim() || '';
-          link.setAttribute('href', (currentRole === 'child' ? 'kid.html?kid=' : 'person.html?person=') + encodeURIComponent(name));
-        }
       });
 
       mount.querySelector('#ps_optionsChip')?.addEventListener('click', () => {
@@ -1929,7 +1900,7 @@
       mount.querySelector('#ps_save')?.addEventListener('click', async () => {
         const name = mount.querySelector('#ps_name')?.value.trim();
         if (!name) { showToast('Name is required'); return; }
-        const color = mount.querySelector('#ps_colorPicker')?.value || selColor;
+        const color = currentColor;
         const roleVal = mount.querySelector('#ps_role .tf-rot-pill--active')?.dataset.role || 'adult';
         const isAdminVal = roleVal === 'adult' ? (mount.querySelector('#ps_isAdmin')?.checked || false) : false;
         const kidSettings = roleVal === 'child' ? {
@@ -1946,7 +1917,7 @@
         const themePreset = mount.querySelector('#ps_theme')?.value || '';
         const theme = themePreset ? { preset: themePreset } : undefined;
 
-        const initialsVal = (mount.querySelector('#ps_initials')?.value || '').trim().toUpperCase() || null;
+        const initialsVal = currentInitials ? currentInitials.toUpperCase() : null;
         const birthdateVal = mount.querySelector('#ps_birthdate')?.value || null;
 
         const data = {
@@ -1992,6 +1963,110 @@
           if (anchorEl) anchorEl.value = anchor?.amount ?? 0;
         });
       }
+    }
+
+    function openAvatarEditor({ initialColor, initialInitials, initialAvatarUrl, name, onChange }) {
+      let color = initialColor;
+      let initials = initialInitials || '';
+      let photo = initialAvatarUrl || '';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'ef2-subsheet-overlay';
+      const previewPerson = () => ({ name, initials, color, avatarUrl: photo });
+      overlay.innerHTML = `<div class="ef2-subsheet ps-avatar-editor">
+        <div class="sheet__header">
+          <h2 class="sheet__title">Avatar</h2>
+          <button class="ef2-icon-btn" id="pae_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
+        </div>
+        <div class="sheet__content">
+          <div class="pae-preview" id="pae_preview">
+            ${renderPersonAvatar(previewPerson(), { size: 'xl' })}
+          </div>
+          <input type="file" accept="image/*" id="pae_photoFile" hidden>
+          <div class="pae-photo-row">
+            <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">${photo ? 'Replace photo' : 'Upload photo'}</button>
+            ${photo ? `<button class="btn btn--ghost btn--sm" id="pae_removeBtn" type="button">Remove photo</button>` : ''}
+          </div>
+          <label class="field">
+            <span class="field__label">Initials (optional)</span>
+            <input id="pae_initials" type="text" class="field__input" maxlength="2" autocomplete="off" placeholder="${esc(derivePersonInitials(name) || 'JJ')}" value="${esc(initials)}">
+            <span class="form-hint">Leave blank to auto-use the first letters of the name.</span>
+          </label>
+          <div class="field">
+            <span class="field__label">Color</span>
+            ${renderColorButton(color, 'pae_color')}
+          </div>
+        </div>
+        <div class="sheet__footer">
+          <button class="btn btn--primary btn--full" id="pae_done" type="button">Done</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('active'));
+      applyDataColors(overlay);
+
+      const refreshPreview = () => {
+        const slot = overlay.querySelector('#pae_preview');
+        if (!slot) return;
+        slot.innerHTML = renderPersonAvatar(previewPerson(), { size: 'xl' });
+        applyDataColors(slot);
+      };
+
+      const close = () => {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.remove(), 280);
+      };
+
+      overlay.querySelector('#pae_close')?.addEventListener('click', close);
+      overlay.querySelector('#pae_done')?.addEventListener('click', close);
+
+      // Color picker
+      initColorButton(overlay.querySelector('#pae_color')?.closest('.cpick-wrap'), (c) => {
+        color = c;
+        onChange?.({ color });
+        refreshPreview();
+      });
+
+      // Initials
+      overlay.querySelector('#pae_initials')?.addEventListener('input', (e) => {
+        const v = (e.target.value || '').toUpperCase();
+        e.target.value = v;
+        initials = v.trim();
+        onChange?.({ initials });
+        refreshPreview();
+      });
+
+      // Photo upload
+      overlay.querySelector('#pae_uploadBtn')?.addEventListener('click', () => overlay.querySelector('#pae_photoFile')?.click());
+      overlay.querySelector('#pae_photoFile')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = '';
+        try {
+          const { base64, mediaType } = await resizeImageForUpload(file, 320);
+          photo = `data:${mediaType};base64,${base64}`;
+          onChange?.({ photo });
+          // Re-render the editor row so the "Remove photo" button appears
+          overlay.querySelector('.pae-photo-row').innerHTML = `
+            <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Replace photo</button>
+            <button class="btn btn--ghost btn--sm" id="pae_removeBtn" type="button">Remove photo</button>`;
+          overlay.querySelector('#pae_uploadBtn').addEventListener('click', () => overlay.querySelector('#pae_photoFile')?.click());
+          overlay.querySelector('#pae_removeBtn').addEventListener('click', removePhoto);
+          refreshPreview();
+        } catch {
+          showToast('Could not load image');
+        }
+      });
+
+      const removePhoto = () => {
+        photo = '';
+        onChange?.({ photo: '' });
+        overlay.querySelector('.pae-photo-row').innerHTML = `
+          <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Upload photo</button>`;
+        overlay.querySelector('#pae_uploadBtn').addEventListener('click', () => overlay.querySelector('#pae_photoFile')?.click());
+        refreshPreview();
+      };
+      overlay.querySelector('#pae_removeBtn')?.addEventListener('click', removePhoto);
     }
 
     // ══════════════════════════════════════════
@@ -4244,6 +4319,7 @@
       });
 
       main.querySelector('#peopleList')?.addEventListener('click', e => {
+        if (e.target.closest('[data-no-row-click]')) return;
         const row = e.target.closest('[data-person-id]');
         if (!row) return;
         openPersonSheet(row.dataset.personId);
