@@ -4946,6 +4946,14 @@ label.ef2-icon-btn  { cursor: pointer; }
   font-size: 18px;
   color: var(--text-muted);
 }
+/* Section wrapping the emoji picker — vertical breathing room above and
+   below so the grid doesn't sit flush against ef2-divider lines. */
+.cf-icon-section {
+  padding: var(--spacing-sm) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
 .fs-emoji-custom-input {
   grid-column: 1 / -1;
   margin-top: var(--spacing-xs);
