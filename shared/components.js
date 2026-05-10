@@ -1421,17 +1421,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       <input type="date" id="ef2_date" value="${esc(dateVal)}">
     </div>
     <div class="ef2-picker-wrap${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timePicker">
-      <div class="ef2-time-inputs">
-        <div class="ef2-time-entry">
-          <input type="text" class="ef2-time-text" id="ef2_startText" inputmode="numeric" maxlength="5" placeholder="9:00" value="${ef2TimeToText(startTime)}">
-          <button class="ef2-ampm-btn" id="ef2_startAmPm" data-ampm="${ef2ParseTime(startTime).ampm}" type="button">${ef2ParseTime(startTime).ampm}</button>
-        </div>
-        <span class="ef2-time-arrow" aria-hidden="true">→</span>
-        <div class="ef2-time-entry">
-          <input type="text" class="ef2-time-text" id="ef2_endText" inputmode="numeric" maxlength="5" placeholder="10:00" value="${ef2TimeToText(endTime)}">
-          <button class="ef2-ampm-btn" id="ef2_endAmPm" data-ampm="${ef2ParseTime(endTime).ampm}" type="button">${ef2ParseTime(endTime).ampm}</button>
-        </div>
-      </div>
+      ${renderTimeInput({ idPrefix: 'ef2', startTime, endTime })}
     </div>
   </div>
 
