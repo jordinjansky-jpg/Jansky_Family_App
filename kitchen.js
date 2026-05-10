@@ -13,7 +13,8 @@ import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
   initOfflineBanner, showConfirm, showToast, renderFab,
   renderBottomSheet, renderEmptyState, renderAddMenu, renderSkeleton, renderErrorState,
-  renderFormFooter, renderFormSheetHeader
+  renderFormFooter, renderFormSheetHeader,
+  renderChipPicker, bindChipPicker
 } from './shared/components.js';
 import { todayKey, escapeHtml } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow } from './shared/ai-helpers.js';
@@ -1185,12 +1186,12 @@ function openRecipeForm(recipeId, onSave = null) {
       </label>
       <label class="field">
         <span class="field__label">Difficulty</span>
-        <select id="recipeDifficulty" class="field__input">
-          <option value="">—</option>
-          <option value="Easy"${existing?.difficulty === 'Easy' ? ' selected' : ''}>Easy</option>
-          <option value="Medium"${existing?.difficulty === 'Medium' ? ' selected' : ''}>Medium</option>
-          <option value="Hard"${existing?.difficulty === 'Hard' ? ' selected' : ''}>Hard</option>
-        </select>
+        ${renderChipPicker({
+          pickerId: 'recipeDifficultyPicker',
+          hiddenId: 'recipeDifficulty',
+          options: [{ value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }],
+          value: existing?.difficulty || '',
+        })}
       </label>
     </div>
 
@@ -1218,6 +1219,9 @@ function openRecipeForm(recipeId, onSave = null) {
   document.getElementById('recipeNotes')?.addEventListener('input', (e) => {
     e.target.style.height = '0'; e.target.style.height = e.target.scrollHeight + 'px';
   });
+
+  // Difficulty chip picker
+  bindChipPicker({ pickerId: 'recipeDifficultyPicker', hiddenId: 'recipeDifficulty' });
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kr_close')?.addEventListener('click', close);
@@ -1308,8 +1312,15 @@ function openRecipeForm(recipeId, onSave = null) {
         document.getElementById('recipePrepTime').value = data.prepTime;
       if (data.servings && !document.getElementById('recipeServings')?.value)
         document.getElementById('recipeServings').value = data.servings;
-      if (data.difficulty && !document.getElementById('recipeDifficulty')?.value)
+      if (data.difficulty && !document.getElementById('recipeDifficulty')?.value) {
         document.getElementById('recipeDifficulty').value = data.difficulty;
+        // Sync chip-picker visual state since setting hidden input value alone
+        // doesn't update the chips. Match by data-val.
+        const picker = document.getElementById('recipeDifficultyPicker');
+        picker?.querySelectorAll('.tab').forEach(t => {
+          t.classList.toggle('is-active', t.dataset.val === data.difficulty);
+        });
+      }
       if (data.ingredients?.length) {
         ingredients.length = 0;
         data.ingredients.forEach(ing => {
