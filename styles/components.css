@@ -4954,6 +4954,23 @@ label.ef2-icon-btn  { cursor: pointer; }
   flex-direction: column;
   gap: var(--spacing-xs);
 }
+
+/* Suppress browser-default focus chrome on text inputs/textareas inside
+   a form sheet. Per DESIGN.md §5.23 v2 "Text input focus" — the magenta
+   ring on Android Chrome and the blue ring on iOS Safari are forbidden
+   inside form sheets. Per-input focus is signaled by background tint or
+   no chrome at all. Title-input and textarea-style fields handle their
+   own focus styling. */
+.bottom-sheet input[type="text"]:focus,
+.bottom-sheet input[type="url"]:focus,
+.bottom-sheet input[type="number"]:focus,
+.bottom-sheet input[type="search"]:focus,
+.bottom-sheet input[type="email"]:focus,
+.bottom-sheet input[type="tel"]:focus,
+.bottom-sheet textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
 .fs-emoji-custom-input {
   grid-column: 1 / -1;
   margin-top: var(--spacing-xs);
