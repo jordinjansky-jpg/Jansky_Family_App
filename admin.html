@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed
     } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -1684,7 +1684,7 @@
     <h2 class="sheet__title">${isEdit ? personName || 'Person' : 'New Person'}</h2>
     <div class="rf-header-actions">
       ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="ps_delete" type="button" aria-label="Delete" title="Delete">${RF_DELETE_SVG}</button>` : ''}
-      <button class="ef2-icon-btn rf-save-btn" id="ps_save" type="button" aria-label="${isEdit ? 'Save' : 'Add person'}" title="${isEdit ? 'Save' : 'Add person'}">${RF_SAVE_SVG}</button>
+      <button class="ef2-icon-btn rf-save-btn" id="ps_save" type="button" aria-label="${isEdit ? 'Save' : 'Add person'}" title="${isEdit ? 'Save' : 'Add person'}"${person.name ? '' : ' disabled'}>${RF_SAVE_SVG}</button>
       <button class="ef2-icon-btn" id="ps_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
     </div>
   </div>
@@ -1792,6 +1792,8 @@
 
     </div>
   </div>
+
+  ${renderFormFooter({ saveLabel: isEdit ? 'Save' : 'Add person', cancelId: 'ps_cancel', saveId: 'ps_footerSave', disabled: !person.name })}
 </div>`);
 
       requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
@@ -1825,6 +1827,21 @@
       });
 
       mount.querySelector('#ps_close')?.addEventListener('click', closeAdminSheet);
+      mount.querySelector('#ps_cancel')?.addEventListener('click', closeAdminSheet);
+
+      // Footer Save delegates to header ps_save (single save handler wired below).
+      mount.querySelector('#ps_footerSave')?.addEventListener('click', () => {
+        mount.querySelector('#ps_save')?.click();
+      });
+
+      // Title input → disable both save buttons when empty.
+      mount.querySelector('#ps_name')?.addEventListener('input', (e) => {
+        const empty = !e.target.value.trim();
+        const headerSave = mount.querySelector('#ps_save');
+        const footerSave = mount.querySelector('#ps_footerSave');
+        if (headerSave) headerSave.disabled = empty;
+        if (footerSave) footerSave.disabled = empty;
+      });
 
       if (isEdit) {
         mount.querySelector('#ps_delete')?.addEventListener('click', async () => {
