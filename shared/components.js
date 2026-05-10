@@ -3621,8 +3621,12 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
 
     <label class="field">
       <span class="field__label">Date</span>
-      <input class="field__input" id="mp_date" type="date" value="${esc(date || '')}"
-             aria-label="Date">
+      <div class="fs-date-wrap">
+        <button type="button" class="fs-date-btn" id="mp_dateBtn">
+          <span id="mp_dateLabel">${date ? esc(formatDateShort(date)) : 'Set date'}</span>
+        </button>
+        <input type="date" id="mp_date" class="fs-date-hidden" value="${esc(date || '')}" aria-label="Date">
+      </div>
     </label>
 
     <div class="mp-slot-section">
@@ -3826,7 +3830,12 @@ export function renderRepeatSheet(rule) {
         <option value="after"${endType === 'after' ? ' selected' : ''}>After</option>
       </select>
       <div id="rptEndDateWrap" style="margin-top:var(--spacing-xs);display:${endType === 'on' ? 'block' : 'none'}">
-        <input class="field__input" id="rptEndDate" type="date" value="${esc(endDate)}">
+        <div class="fs-date-wrap">
+          <button type="button" class="fs-date-btn" id="rptEndDateBtn">
+            <span id="rptEndDateLabel">${endDate ? esc(formatDateShort(endDate)) : 'Set date'}</span>
+          </button>
+          <input type="date" id="rptEndDate" class="fs-date-hidden" value="${esc(endDate)}">
+        </div>
       </div>
       <div id="rptEndCountWrap" style="display:${endType === 'after' ? 'flex' : 'none'};align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
         <input class="field__input" id="rptEndCount" type="number" min="1" max="999" value="${esc(endCount)}" style="width:80px">
