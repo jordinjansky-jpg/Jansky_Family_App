@@ -4897,6 +4897,65 @@ label.ef2-icon-btn  { cursor: pointer; }
   top: 0; left: 0;
   width: 100%; height: 100%;
 }
+
+/* Emoji picker grid (fs-emoji-grid). Selected cell gets card-border + ✓
+   per DESIGN.md §5.23 v2 "Selection states" #1. */
+.fs-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: var(--spacing-xs);
+}
+.fs-emoji-cell {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  padding: 0;
+}
+.fs-emoji-cell.is-selected {
+  border-width: 2px;
+  border-color: var(--accent);
+}
+.fs-emoji-cell.is-selected::after {
+  content: "✓";
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  line-height: 1;
+}
+.fs-emoji-cell--custom {
+  background: transparent;
+  border-style: dashed;
+  font-size: 18px;
+  color: var(--text-muted);
+}
+.fs-emoji-custom-input {
+  grid-column: 1 / -1;
+  margin-top: var(--spacing-xs);
+  padding: 8px var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--font-base);
+}
+.fs-emoji-custom-input.is-hidden { display: none; }
 /* ── End form-system shared primitives ─────────────────────────────────── */
 
 /* Shared delete zone — below sticky footer in edit sheets */
