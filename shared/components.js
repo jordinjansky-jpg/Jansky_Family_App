@@ -986,7 +986,7 @@ export function renderPersonFilter(people, activePerson, trailingHtml = '') {
 
   for (const p of people) {
     const active = activePerson === p.id ? ' person-pill--active' : '';
-    html += `<button class="person-pill${active}" data-person-id="${p.id}" data-person-color="${esc(p.color)}" aria-pressed="${activePerson === p.id}"><span class="person-pill__dot" data-bg-color="${esc(p.color)}"></span>${esc(p.name)}</button>`;
+    html += `<button class="person-pill${active}" data-person-id="${p.id}" data-person-color="${esc(p.color)}" aria-pressed="${activePerson === p.id}">${renderPersonAvatar(p, { size: 'sm' })}${esc(p.name)}</button>`;
   }
 
   html += trailingHtml;
@@ -1040,7 +1040,9 @@ export function renderTaskCard(options) {
   const showIcon = category?.showIcon !== false;
   const catIcon = showIcon ? (category?.icon || '') : '';
   const ownerColor = person?.color || 'var(--text-faint)';
-  const ownerInitial = (person?.name || '?')[0].toUpperCase();
+  const ownerInitial = person?.initials || derivePersonInitials(person?.name || '') || (person?.name || '?')[0].toUpperCase();
+  const ownerAvatarImg = person?.avatarUrl ? `<img class="task-card__avatar-img" src="${esc(person.avatarUrl)}" alt="">` : '';
+  const ownerContent = ownerAvatarImg || `<span class="task-card__avatar-initial">${esc(ownerInitial)}</span>`;
   const estLabel = task.estMin ? `${task.estMin}m` : '';
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
   const catName = category?.name || '';
@@ -1087,15 +1089,15 @@ export function renderTaskCard(options) {
   } else {
     switch (avatarStyle) {
       case 'circle':
-        leading = `<div class="task-card__avatar-circle"><span class="task-card__avatar-initial">${esc(ownerInitial)}</span></div>`; break;
+        leading = `<div class="task-card__avatar-circle">${ownerContent}</div>`; break;
       case 'edge':
         leading = `<div class="task-card__avatar-edge"></div>`; break;
       case 'edge-initial':
-        leading = `<div class="task-card__avatar-edge task-card__avatar-edge--initial"><span class="task-card__avatar-initial">${esc(ownerInitial)}</span></div>`; break;
+        leading = `<div class="task-card__avatar-edge task-card__avatar-edge--initial">${ownerContent}</div>`; break;
       case 'hidden':
         leading = ''; break;
       default:
-        leading = `<div class="task-card__avatar-pill"><span class="task-card__avatar-initial">${esc(ownerInitial)}</span></div>`;
+        leading = `<div class="task-card__avatar-pill">${ownerContent}</div>`;
     }
   }
   const slotEl = !isEvent ? `<span class="task-card__slot">${timePill}</span>` : '';
@@ -1263,7 +1265,7 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
 
   return `<button class="card card--score" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
     <div class="card__leading">
-      <div class="avatar" style="--person-color: ${esc(b.person.color)}">${esc((b.person.name || '?')[0].toUpperCase())}</div>
+      ${renderPersonAvatar(b.person, { size: 'md' })}
     </div>
     <div class="card__body">
       <div class="card__title">${esc(b.person.name)}</div>
@@ -1421,7 +1423,7 @@ export function renderApprovalRow(msgId, msg, person, reward) {
 
   return `<div class="approval-row" data-msg-id="${esc(msgId)}" data-person-id="${esc(person?.id || '')}" data-reward-id="${esc(msg.rewardId || '')}" data-intent="${esc(intent)}">
     <div class="approval-row__who">
-      <span class="avatar avatar--xs" style="--person-color:${esc(person?.color || '#888')}">${esc((person?.name || '?')[0].toUpperCase())}</span>
+      ${renderPersonAvatar(person, { size: 'sm' })}
       <span class="approval-row__name">${esc(person?.name || '?')}</span>
     </div>
     <div class="approval-row__reward">
@@ -1748,7 +1750,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   const personChipsHtml = people.map(p => {
     const state = p.id === primaryId ? 'primary' : (attendingIds.has(p.id) ? 'attending' : '');
-    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${renderPersonAvatar(p, { size: 'xs' })}${esc(p.name)}</button>`;
+    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
   }).join('');
 
   const WAND_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
@@ -2106,7 +2108,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
 
   const personChipsHtml = people.map(p => {
     const state = selectedOwners.includes(p.id) ? 'primary' : '';
-    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${renderPersonAvatar(p, { size: 'xs' })}${esc(p.name)}</button>`;
+    return `<button class="ef2-person-chip" data-person-id="${esc(p.id)}" data-person-color="${esc(p.color)}"${state ? ` data-state="${state}"` : ''} type="button">${esc(p.name)}</button>`;
   }).join('');
 
   const dayOptions = [['', 'Any day'], ['1','Mon'], ['2','Tue'], ['3','Wed'], ['4','Thu'], ['5','Fri'], ['6','Sat'], ['0','Sun']]
