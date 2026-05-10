@@ -685,6 +685,40 @@ export function bindChipPicker({ pickerId, hiddenId, onChange }) {
 }
 
 /**
+ * Render a switch-toggle (real on/off switch, not a chip). Use for "always
+ * on / always off" binary controls — never use a chip-toggle for these per
+ * §5.23 v2 "Active states". Anchors on the existing `.form-toggle` CSS (§5.16).
+ *
+ * The `<input type="checkbox">` retains the supplied id, so save handlers
+ * read `document.getElementById(id).checked` exactly like a raw checkbox.
+ *
+ * @param {object}  opts
+ * @param {string}  opts.id            DOM id for the underlying <input>.
+ * @param {boolean} [opts.checked=false] Initial checked state.
+ * @returns {string} HTML for `<label class="form-toggle">…</label>`.
+ */
+export function renderSwitchToggle({ id, checked = false }) {
+  return `<label class="form-toggle"><input type="checkbox" id="${esc(id)}"${checked ? ' checked' : ''}><span class="form-toggle__track"></span></label>`;
+}
+
+/**
+ * Render a helper text line under a form field. Anchors on the Category form's
+ * `.form-hint` class — promote to canonical helper-text primitive per §5.23 v2.
+ * Drops the inline `style=""` violation that the existing usage carries.
+ *
+ * @param {string} text   Helper copy (escaped).
+ * @param {object} [opts]
+ * @param {boolean} [opts.error=false] If true, render as `.form-hint--error`.
+ * @param {string}  [opts.id]          Optional DOM id (useful for hide/show error states).
+ * @returns {string} HTML for `<p class="form-hint">…</p>`.
+ */
+export function renderHelperText(text, { error = false, id } = {}) {
+  const idAttr = id ? ` id="${esc(id)}"` : '';
+  const cls = error ? 'form-hint form-hint--error' : 'form-hint';
+  return `<p${idAttr} class="${cls}">${esc(text)}</p>`;
+}
+
+/**
  * Render the canonical 6-element AM/PM time picker (start + end time). Replaces
  * every native <input type="time"> in form sheets — that input renders as a
  * wheel on Android. See DESIGN.md §5.23 v2 "Time input" + §13.13 Step 4.
