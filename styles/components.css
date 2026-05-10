@@ -4880,6 +4880,8 @@ label.ef2-icon-btn  { cursor: pointer; }
 .fs-date-btn {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
   width: 100%;
   padding: 10px var(--spacing-sm);
   border: 1px solid var(--border);
@@ -4890,6 +4892,25 @@ label.ef2-icon-btn  { cursor: pointer; }
   cursor: pointer;
   text-align: left;
 }
+/* Calendar-icon affordance — communicates "tap to open date picker" so
+   the pill doesn't read as a passive display tag. Applies to both fs-date-btn
+   (canonical, flex layout) and any chip inside fs-date-wrap (Event/Task Form
+   date pills which still use tf-detail-chip inline-block styling). */
+.fs-date-btn::after,
+.fs-date-wrap > .tf-detail-chip::after {
+  content: "";
+  display: inline-block;
+  vertical-align: middle;
+  width: 14px;
+  height: 14px;
+  margin-left: var(--spacing-xs);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>");
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.55;
+}
+/* On flex-layout fs-date-btn, push the icon to the right edge. */
+.fs-date-btn::after { margin-left: auto; }
 .fs-date-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
 .fs-date-hidden {
   position: absolute;
