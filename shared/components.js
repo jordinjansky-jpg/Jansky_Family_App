@@ -551,6 +551,41 @@ export function bindDateInput({ btnId, inputId, labelId, format, onChange }) {
 }
 
 /**
+ * Render the canonical 6-element AM/PM time picker (start + end time). Replaces
+ * every native <input type="time"> in form sheets — that input renders as a
+ * wheel on Android. See DESIGN.md §5.23 v2 "Time input" + §13.13 Step 4.
+ *
+ * Caller wires up after mount: <prefix>_startText / <prefix>_endText are text
+ * inputs (HH:MM); <prefix>_startAmPm / <prefix>_endAmPm are AM/PM toggle buttons
+ * with data-ampm attributes (caller toggles on click).
+ *
+ * Uses .ef2-time-* CSS classes (not fs-time-*). The CSS rename is deferred to
+ * the Phase 3 sweep per DESIGN.md §5.23 v2 "Existing per-form prefixes stay
+ * where they are — don't churn working CSS."
+ *
+ * @param {object}  [opts]
+ * @param {string}  [opts.idPrefix='ef2']  Generates `<prefix>_startText`, `_startAmPm`, `_endText`, `_endAmPm`.
+ * @param {string}  [opts.startTime='09:00'] 24h "HH:MM".
+ * @param {string}  [opts.endTime='10:00']   24h "HH:MM".
+ * @returns {string} HTML for `<div class="ef2-time-inputs">…</div>`.
+ */
+export function renderTimeInput({ idPrefix = 'ef2', startTime = '09:00', endTime = '10:00' } = {}) {
+  const start = ef2ParseTime(startTime);
+  const end = ef2ParseTime(endTime);
+  return `<div class="ef2-time-inputs">
+    <div class="ef2-time-entry">
+      <input type="text" class="ef2-time-text" id="${esc(idPrefix)}_startText" inputmode="numeric" maxlength="5" placeholder="9:00" value="${ef2TimeToText(startTime)}">
+      <button class="ef2-ampm-btn" id="${esc(idPrefix)}_startAmPm" data-ampm="${start.ampm}" type="button">${start.ampm}</button>
+    </div>
+    <span class="ef2-time-arrow" aria-hidden="true">→</span>
+    <div class="ef2-time-entry">
+      <input type="text" class="ef2-time-text" id="${esc(idPrefix)}_endText" inputmode="numeric" maxlength="5" placeholder="10:00" value="${ef2TimeToText(endTime)}">
+      <button class="ef2-ampm-btn" id="${esc(idPrefix)}_endAmPm" data-ampm="${end.ampm}" type="button">${end.ampm}</button>
+    </div>
+  </div>`;
+}
+
+/**
  * Render person filter pills.
  * people: array of { id, name, color }
  * activePerson: id of selected person or null for "All"
@@ -1386,17 +1421,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
       <input type="date" id="ef2_date" value="${esc(dateVal)}">
     </div>
     <div class="ef2-picker-wrap${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timePicker">
-      <div class="ef2-time-inputs">
-        <div class="ef2-time-entry">
-          <input type="text" class="ef2-time-text" id="ef2_startText" inputmode="numeric" maxlength="5" placeholder="9:00" value="${ef2TimeToText(startTime)}">
-          <button class="ef2-ampm-btn" id="ef2_startAmPm" data-ampm="${ef2ParseTime(startTime).ampm}" type="button">${ef2ParseTime(startTime).ampm}</button>
-        </div>
-        <span class="ef2-time-arrow" aria-hidden="true">→</span>
-        <div class="ef2-time-entry">
-          <input type="text" class="ef2-time-text" id="ef2_endText" inputmode="numeric" maxlength="5" placeholder="10:00" value="${ef2TimeToText(endTime)}">
-          <button class="ef2-ampm-btn" id="ef2_endAmPm" data-ampm="${ef2ParseTime(endTime).ampm}" type="button">${ef2ParseTime(endTime).ampm}</button>
-        </div>
-      </div>
+      ${renderTimeInput({ idPrefix: 'ef2', startTime, endTime })}
     </div>
   </div>
 
