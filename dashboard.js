@@ -1914,7 +1914,6 @@ function openEventForm(existingEventId = null, savedState = null) {
 
   // ── Date picker toggle ───────────────────────────────────────
   const dateBtn = document.getElementById('ef2_dateBtn');
-  const datePicker = document.getElementById('ef2_datePicker');
   const dateDisplay = document.getElementById('ef2_dateDisplay');
   const dateInput = document.getElementById('ef2_date');
   const timePicker = document.getElementById('ef2_timePicker');
@@ -1941,20 +1940,20 @@ function openEventForm(existingEventId = null, savedState = null) {
     return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
+  // Date picker — tap pill, OS picker opens via .showPicker(), label updates on change.
   dateBtn?.addEventListener('click', () => {
-    const open = datePicker.classList.toggle('is-open');
-    if (open) timePicker?.classList.remove('is-open');
+    if (typeof dateInput?.showPicker === 'function') {
+      try { dateInput.showPicker(); return; } catch (_) { /* fall through */ }
+    }
+    dateInput?.focus();
   });
-
   dateInput?.addEventListener('change', () => {
     dateDisplay.textContent = dateInput.value ? formatDateShort(dateInput.value) : 'Set date';
-    datePicker?.classList.remove('is-open');
   });
 
   // ── Time picker toggle ───────────────────────────────────────
   timeBtn?.addEventListener('click', () => {
-    const open = timePicker.classList.toggle('is-open');
-    if (open) datePicker?.classList.remove('is-open');
+    timePicker.classList.toggle('is-open');
   });
 
   function updateTimeDisplay() {

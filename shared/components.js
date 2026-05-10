@@ -1578,15 +1578,15 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   <div class="ef2-datetime-section">
     <div class="tf-details-row">
-      <button class="tf-detail-chip" id="ef2_dateBtn" type="button">
-        <span id="ef2_dateDisplay">${esc(dateDisplay)}</span>
-      </button>
+      <div class="fs-date-wrap">
+        <button class="tf-detail-chip" id="ef2_dateBtn" type="button">
+          <span id="ef2_dateDisplay">${esc(dateDisplay)}</span>
+        </button>
+        <input type="date" id="ef2_date" class="fs-date-hidden" value="${esc(dateVal)}">
+      </div>
       <button class="tf-detail-chip${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timeBtn" type="button">
         <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
       </button>
-    </div>
-    <div class="ef2-picker-wrap" id="ef2_datePicker">
-      <input type="date" id="ef2_date" value="${esc(dateVal)}">
     </div>
     <div class="ef2-picker-wrap${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timePicker">
       ${renderTimeInput({ idPrefix: 'ef2', startTime, endTime })}
