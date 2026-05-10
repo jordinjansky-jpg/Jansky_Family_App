@@ -1228,7 +1228,7 @@ function openRecipeForm(recipeId = null, onSave = null) {
   function buildIngredientRow(i) {
     const ing = ingredients[i];
     return `<div class="ingredient-row" data-index="${i}">
-        <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off" enterkeyhint="next">
+        <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" inputmode="decimal" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off" enterkeyhint="next">
         <input class="ingredient-name" data-edit-index="${i}" data-edit-field="name" type="text" value="${esc(ing.name || '')}" placeholder="ingredient" autocomplete="off">
         <button class="btn-icon" data-remove-index="${i}" type="button" aria-label="Remove">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1274,7 +1274,7 @@ function openRecipeForm(recipeId = null, onSave = null) {
       </label>
       <label class="field">
         <span class="field__label">Serves</span>
-        <input id="recipeServings" type="number" class="field__input" min="1" max="99" placeholder="4"
+        <input id="recipeServings" type="number" inputmode="numeric" class="field__input" min="1" max="99" placeholder="4"
           value="${existing?.servings || ''}" autocomplete="off">
       </label>
       <label class="field">
@@ -1291,7 +1291,7 @@ function openRecipeForm(recipeId = null, onSave = null) {
       <span class="ef2-section-label">Ingredients</span>
       <div id="ingredientList">${buildIngredientList()}</div>
       <div class="kr-add-ingredient-row">
-        <input class="kr-add-qty" id="newIngredientQty" type="text" placeholder="qty" autocomplete="off" enterkeyhint="next">
+        <input class="kr-add-qty" id="newIngredientQty" type="text" inputmode="decimal" placeholder="qty" autocomplete="off" enterkeyhint="next">
         <input class="field__input" id="newIngredientInput" type="text" placeholder="Add ingredient…" autocomplete="off" enterkeyhint="done">
         <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
       </div>

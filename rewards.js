@@ -1201,11 +1201,11 @@ function openRewardForm(rewardId = null) {
         <div class="rf-adv-grid">
           <div class="rf-adv-row">
             <span class="rf-adv-label">Max uses</span>
-            <input type="number" id="rcf_maxRedemptions" class="rf-adv-input" value="${reward.maxRedemptions || ''}" min="1" placeholder="Unlimited">
+            <input type="number" inputmode="numeric" id="rcf_maxRedemptions" class="rf-adv-input" value="${reward.maxRedemptions || ''}" min="1" placeholder="Unlimited">
           </div>
           <div class="rf-adv-row">
             <span class="rf-adv-label">Streak required</span>
-            <input type="number" id="rcf_streakReq" class="rf-adv-input" value="${reward.streakRequirement || ''}" min="1" placeholder="None">
+            <input type="number" inputmode="numeric" id="rcf_streakReq" class="rf-adv-input" value="${reward.streakRequirement || ''}" min="1" placeholder="None">
           </div>
           <div class="rf-adv-row">
             <span class="rf-adv-label">Expires</span>
