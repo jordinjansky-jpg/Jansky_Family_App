@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed
     } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -1952,6 +1952,8 @@
       }, { once: true });
     }
 
+    const CATEGORY_EMOJIS = ['🧹','🧺','🍳','🥗','🐶','🌱','📚','🛏️','🚗','💪','🎉','📌','✅','🧼','🍽️','🪥','🧸','🛁','🛒','📋'];
+
     function renderCategoryForm(catKey) {
       const cat = catKey ? catsObj[catKey] : {};
       const isEdit = !!catKey;
@@ -1968,8 +1970,19 @@
   </div>
 
   <div class="rf-title-row">
-    <input class="cf-icon-input" id="cf_icon" type="text" placeholder="🧹" maxlength="4" value="${esc(cat.icon || '')}">
     <input class="tf-title-input" id="cf_label" type="text" placeholder="Category name" value="${esc(cat.label || '')}" autocomplete="off">
+  </div>
+
+  <div class="ef2-divider"></div>
+
+  <div class="cf-icon-section">
+    <span class="ef2-section-label">Icon</span>
+    ${renderEmojiPicker({
+      pickerId: 'cf_iconPicker',
+      hiddenId: 'cf_icon',
+      value: cat.icon || '',
+      emojis: CATEGORY_EMOJIS,
+    })}
   </div>
 
   <div class="ef2-divider"></div>
@@ -2042,6 +2055,7 @@
       });
 
       initColorButton(mount.querySelector('#cf_eventColor')?.closest('.cpick-wrap'), null);
+      bindEmojiPicker({ pickerId: 'cf_iconPicker', hiddenId: 'cf_icon' });
 
       const eventCheckbox = mount.querySelector('#cf_isEvent');
       const eventColorRow = mount.querySelector('#eventColorRow');
