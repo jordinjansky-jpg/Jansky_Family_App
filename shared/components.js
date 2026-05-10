@@ -4017,13 +4017,13 @@ export function renderRepeatSheet(rule) {
     </div>
 
     <div class="ef2-repeat-end${endSectionOpen}" id="rptEndSection">
-      <div class="ef2-section-label" style="margin-top:var(--spacing-md)">Ends</div>
-      <select class="field__input" id="rptEndType" style="width:100%">
+      <div class="ef2-section-label ef2-repeat-end-label">Ends</div>
+      <select class="field__input ef2-repeat-end-select" id="rptEndType">
         <option value="never"${endType === 'never' ? ' selected' : ''}>Never</option>
         <option value="on"${endType === 'on' ? ' selected' : ''}>On date</option>
         <option value="after"${endType === 'after' ? ' selected' : ''}>After</option>
       </select>
-      <div id="rptEndDateWrap" style="margin-top:var(--spacing-xs);display:${endType === 'on' ? 'block' : 'none'}">
+      <div id="rptEndDateWrap" class="ef2-repeat-end-date-wrap${endType === 'on' ? '' : ' is-hidden'}">
         <div class="fs-date-wrap">
           <button type="button" class="fs-date-btn" id="rptEndDateBtn">
             <span id="rptEndDateLabel">${endDate ? esc(formatDateShort(endDate)) : 'Set date'}</span>
@@ -4031,9 +4031,9 @@ export function renderRepeatSheet(rule) {
           <input type="date" id="rptEndDate" class="fs-date-hidden" value="${esc(endDate)}">
         </div>
       </div>
-      <div id="rptEndCountWrap" style="display:${endType === 'after' ? 'flex' : 'none'};align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
-        <input class="field__input" id="rptEndCount" type="number" min="1" max="999" value="${esc(endCount)}" style="width:80px">
-        <span style="font-size:var(--font-sm)">occurrences</span>
+      <div id="rptEndCountWrap" class="ef2-repeat-end-count-wrap${endType === 'after' ? '' : ' is-hidden'}">
+        <input class="field__input ef2-repeat-end-count-input" id="rptEndCount" type="number" inputmode="numeric" min="1" max="999" value="${esc(endCount)}">
+        <span class="ef2-repeat-end-count-unit">occurrences</span>
       </div>
     </div>
   </div>
