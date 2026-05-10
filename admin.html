@@ -3253,7 +3253,7 @@
     <h2 class="sheet__title">${isEdit ? esc(def.label || 'Badge') : 'New Badge'}</h2>
     <div class="rf-header-actions">
       ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="af_delete" type="button" aria-label="Delete" title="Delete">${RF_DELETE_SVG}</button>` : ''}
-      <button class="ef2-icon-btn rf-save-btn" id="af_save" type="button" aria-label="${isEdit ? 'Save' : 'Add'}" title="${isEdit ? 'Save' : 'Add'}"${achKey ? ` data-ach-key="${esc(achKey)}"` : ''}>${RF_SAVE_SVG}</button>
+      <button class="ef2-icon-btn rf-save-btn" id="af_save" type="button" aria-label="${isEdit ? 'Save' : 'Add'}" title="${isEdit ? 'Save' : 'Add'}"${achKey ? ` data-ach-key="${esc(achKey)}"` : ''}${def.label ? '' : ' disabled'}>${RF_SAVE_SVG}</button>
       <button class="ef2-icon-btn" id="af_cancel" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
     </div>
   </div>
@@ -3344,6 +3344,8 @@
       <span class="form-hint">None = all</span>
     </div>
   </div>
+
+  ${renderFormFooter({ saveLabel: isEdit ? 'Save' : 'Add Badge', cancelId: 'af_footerCancel', saveId: 'af_footerSave', disabled: !def.label })}
 </div>`;
     }
 
@@ -3588,9 +3590,26 @@
         chip.addEventListener('click', () => chip.classList.toggle('chip--active'));
       }
 
-      // Cancel
+      // Cancel (header ✕ + footer Cancel)
       form.querySelector('#af_cancel')?.addEventListener('click', () => {
         closeAdminSheet();
+      });
+      form.querySelector('#af_footerCancel')?.addEventListener('click', () => {
+        closeAdminSheet();
+      });
+
+      // Footer Save delegates to header af_save (single save handler below).
+      form.querySelector('#af_footerSave')?.addEventListener('click', () => {
+        form.querySelector('#af_save')?.click();
+      });
+
+      // Name input → disable both save buttons when empty.
+      form.querySelector('#af_name')?.addEventListener('input', (e) => {
+        const empty = !e.target.value.trim();
+        const headerSave = form.querySelector('#af_save');
+        const footerSave = form.querySelector('#af_footerSave');
+        if (headerSave) headerSave.disabled = empty;
+        if (footerSave) footerSave.disabled = empty;
       });
 
       // Save
