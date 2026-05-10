@@ -3255,6 +3255,7 @@
       const cStat = def.condition?.stat || '';
       const cThreshold = def.condition?.threshold ?? '';
       const isGradeStat = ['gradeDay', 'gradeWeek', 'gradeMonth'].includes(cStat);
+      const isBoolStat = cStat === 'firstRedemption';
       const rType = def.reward?.type || 'none';
 
       return `<div class="tf-form" id="achForm">
@@ -3302,7 +3303,8 @@
         <option value="">Select condition...</option>
         ${ACHIEVEMENT_STATS.map(s => `<option value="${s.value}"${cStat === s.value ? ' selected' : ''}>${s.label}</option>`).join('')}
       </select>
-      <div id="af_thresholdGroup" class="af-threshold-group">
+      <span class="af-threshold-op${isBoolStat ? ' is-hidden' : ''}" id="af_thresholdOp" aria-hidden="true">≥</span>
+      <div id="af_thresholdGroup" class="af-threshold-group${isBoolStat ? ' is-hidden' : ''}">
         ${isGradeStat
           ? `<select id="af_threshold">
               <option value="A+"${cThreshold === 'A+' ? ' selected' : ''}>A+</option>
@@ -3310,7 +3312,7 @@
               <option value="B+"${cThreshold === 'B+' ? ' selected' : ''}>B+</option>
               <option value="B"${cThreshold === 'B' ? ' selected' : ''}>B</option>
             </select>`
-          : `<input type="number" id="af_threshold" value="${cThreshold}" min="1" placeholder="e.g. 7">`}
+          : `<input type="number" id="af_threshold" inputmode="numeric" value="${cThreshold}" min="1" placeholder="e.g. 7">`}
       </div>
     </div>
   </div>
@@ -3568,19 +3570,19 @@
         });
       }
 
-      // Stat change — swap threshold input for grade selects
+      // Stat change — swap threshold input for grade selects + show/hide for boolean
       form.querySelector('#af_stat')?.addEventListener('change', () => {
         const stat = form.querySelector('#af_stat').value;
         const isGrade = ['gradeDay', 'gradeWeek', 'gradeMonth'].includes(stat);
         const isBool = stat === 'firstRedemption';
         const group = form.querySelector('#af_thresholdGroup');
-        if (isBool) {
-          group.style.display = 'none';
-        } else {
-          group.style.display = '';
+        const op = form.querySelector('#af_thresholdOp');
+        group.classList.toggle('is-hidden', isBool);
+        op?.classList.toggle('is-hidden', isBool);
+        if (!isBool) {
           group.innerHTML = (isGrade
             ? `<select id="af_threshold"><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B">B</option></select>`
-            : `<input type="number" id="af_threshold" value="" min="1" placeholder="e.g. 7">`);
+            : `<input type="number" id="af_threshold" inputmode="numeric" value="" min="1" placeholder="e.g. 7">`);
         }
       });
 

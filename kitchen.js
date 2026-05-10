@@ -450,8 +450,12 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
 
   function buildPickRow(id, r) {
     const isSelected = selectedRecipeId === id;
+    const thumb = r.imageUrl
+      ? `<img class="recipe-pick__thumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`
+      : `<span class="recipe-pick__thumb recipe-pick__thumb--placeholder" aria-hidden="true">🍴</span>`;
     return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-recipe-pick="${esc(id)}" type="button">
-      <span>${esc(r.name)}</span>
+      ${thumb}
+      <span class="recipe-pick__name">${esc(r.name)}</span>
       ${isSelected ? '<span class="recipe-pick__check">&#10003;</span>' : ''}
     </button>`;
   }
@@ -1016,15 +1020,18 @@ function openMealFabSheet() {
 function openBulkAddSheet() {
   if (!activeListId) { openCreateListSheet(); return; }
   const mount = document.getElementById('sheetMount');
+  const starOutlineSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
   mount.innerHTML = renderBottomSheet(`
     <div class="sheet__header">
       <h2 class="sheet__title">Add items</h2>
     </div>
-    <p class="kb-hint">Type each item and press Enter, or paste a list.</p>
-    <label class="field">
+    <p class="kb-hint">Type each item and press Enter, or paste a list. Tap the star to also save each new item as a staple.</p>
+    <div class="kb-input-row">
       <input class="field__input" id="bulkAddInput" type="text"
         placeholder="e.g. Milk" autocomplete="off" autocorrect="off">
-    </label>
+      <button class="btn-icon kb-input-star" id="bulkAddStarToggle" type="button"
+        aria-pressed="false" aria-label="Also save each new item as a staple">${starOutlineSvg}</button>
+    </div>
     <div id="bulkAddedList"></div>
     <div class="kb-footer">
       <button class="btn btn--primary" id="bulkAddDone" type="button">Done</button>
@@ -1032,6 +1039,14 @@ function openBulkAddSheet() {
   activateSheet(mount);
 
   let addedItems = [];
+  let staplesByDefault = false;
+
+  const starBtn = document.getElementById('bulkAddStarToggle');
+  starBtn?.addEventListener('click', () => {
+    staplesByDefault = !staplesByDefault;
+    starBtn.setAttribute('aria-pressed', String(staplesByDefault));
+    starBtn.classList.toggle('is-active', staplesByDefault);
+  });
 
   function refreshAddedList() {
     const el = document.getElementById('bulkAddedList');
@@ -1080,6 +1095,14 @@ function openBulkAddSheet() {
       addedAt: firebase.database.ServerValue.TIMESTAMP,
       category: null,
     });
+    // Auto-save to staples when the star toggle is active and not already a staple.
+    if (staplesByDefault) {
+      const isSaved = Object.values(staples).some(s => s.name.toLowerCase() === trimmed.toLowerCase());
+      if (!isSaved) {
+        const sid = await pushKitchenStaple({ name: trimmed, category: null });
+        staples[sid] = { name: trimmed, category: null };
+      }
+    }
     refreshAddedList();
   }
 
@@ -1153,12 +1176,16 @@ function openRecipeForm(recipeId, onSave = null) {
       </div>
     </div>
 
-    <div class="kr-section">
-      <label class="field">
+    <div class="kr-section" id="recipeUrlSection">
+      <label class="field${existing?.url ? ' is-hidden' : ''}" id="recipeUrlField">
         <span class="field__label">Recipe link</span>
         <input id="recipeUrl" type="url" placeholder="https://…"
           value="${esc(existing?.url || '')}" autocomplete="off">
       </label>
+      <div class="kr-url-collapsed${existing?.url ? '' : ' is-hidden'}" id="recipeUrlCollapsed">
+        <span class="kr-url-host" id="recipeUrlHost">${existing?.url ? `from ${esc((function(u){try{return new URL(u).hostname.replace(/^www\\./,'');}catch{return u;}})(existing.url))}` : ''}</span>
+        <button class="btn btn--ghost btn--sm" id="recipeUrlEdit" type="button">Change</button>
+      </div>
       <span class="kr-import-status" id="urlImportStatus"></span>
     </div>
 
@@ -1346,6 +1373,18 @@ function openRecipeForm(recipeId, onSave = null) {
         }
         status.style.display = 'inline';
       }
+      // Auto-collapse URL section after successful import (got a name OR ingredients)
+      if (type === 'url' && (data.name || data.ingredients?.length)) {
+        const urlVal = document.getElementById('recipeUrl')?.value.trim();
+        if (urlVal) {
+          let host = urlVal;
+          try { host = new URL(urlVal).hostname.replace(/^www\./, ''); } catch (_) {}
+          const hostEl = document.getElementById('recipeUrlHost');
+          if (hostEl) hostEl.textContent = `from ${host}`;
+          document.getElementById('recipeUrlField')?.classList.add('is-hidden');
+          document.getElementById('recipeUrlCollapsed')?.classList.remove('is-hidden');
+        }
+      }
     } catch {
       if (status) { status.textContent = 'Import failed.'; status.style.color = 'var(--danger)'; status.style.display = 'inline'; }
     } finally {
@@ -1363,6 +1402,13 @@ function openRecipeForm(recipeId, onSave = null) {
   }
   document.getElementById('recipeUrl')?.addEventListener('paste', () => setTimeout(maybeAutoImportUrl, 50));
   document.getElementById('recipeUrl')?.addEventListener('blur', maybeAutoImportUrl);
+
+  // "Change" button → re-expand collapsed URL field
+  document.getElementById('recipeUrlEdit')?.addEventListener('click', () => {
+    document.getElementById('recipeUrlField')?.classList.remove('is-hidden');
+    document.getElementById('recipeUrlCollapsed')?.classList.add('is-hidden');
+    document.getElementById('recipeUrl')?.focus();
+  });
 
   const CAM_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
   const GAL_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;

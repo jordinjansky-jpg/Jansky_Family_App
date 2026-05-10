@@ -1256,7 +1256,15 @@
   align-items: center;
 }
 .af-cond-select { flex: 7; min-width: 0; }
+.af-threshold-op {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: var(--font-base);
+}
+.af-threshold-op.is-hidden { display: none; }
 .af-threshold-group { flex: 4; min-width: 0; }
+.af-threshold-group.is-hidden { display: none; }
 .af-threshold-group input,
 .af-threshold-group select { width: 100%; }
 
