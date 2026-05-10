@@ -9,6 +9,12 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v193 (2026-05-10) — Fix(forms): replace solid-black-fill chip-active state
+//                    with solid-border-in-accent (sticky-hover style). Resolves
+//                    form review P11 + DESIGN.md §5.23 v2 "Active states" #2
+//                    rule violation. Affects every form with .ef2-add-chip
+//                    instances (+ Notes / + Location / + Repeat / + Options /
+//                    + Advanced / + Pricing help / etc.) — single CSS rule.
 // v192 (2026-05-10) — Form-system Phase 3 (1/N — Task Form): sticky fs-footer
 //                    (Cancel + Save Changes/Add Task), One-Time date input
 //                    migrated from raw <input type="date"> (form review's
@@ -320,7 +326,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v192';
+const CACHE_NAME = 'family-hub-v193';
 
 const APP_SHELL = [
   '/',

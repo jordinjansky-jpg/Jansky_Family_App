@@ -3882,10 +3882,11 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 
 .ef2-add-chip:hover { border-color: var(--accent); color: var(--accent); }
+/* Active = sticky-hover (solid border in accent color). Per DESIGN.md §5.23 v2
+   "Active states" #2 — no big visual weight change, no solid-black-fill. */
 .ef2-add-chip.is-active {
-  background: var(--text);
-  color: var(--bg);
-  border-color: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
   border-style: solid;
 }
 
