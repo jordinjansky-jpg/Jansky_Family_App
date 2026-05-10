@@ -59,7 +59,7 @@ Full spec: [superpowers/specs/2026-04-19-activities-design.md](superpowers/specs
 **Pending:**
 - school-lunch-2 slot display in week view plan
 - Add-from-recipe shortcut to shopping list
-- `dashboard.js` `openRecipeForm` needs prepTime/servings/difficulty/imageUrl fields (currently only in kitchen.js)
+- `dashboard.js` `openRecipeForm` still missing the `imageUrl` field (prepTime/servings/difficulty/chip-picker shipped 2026-05-10 alongside the form-system initiative)
 
 **1.8a — Recipe Polish (backlog sub-items)** · Low-Medium each
 
