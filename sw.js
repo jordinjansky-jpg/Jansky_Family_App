@@ -9,6 +9,11 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v197 (2026-05-10) — Form-system Phase 3 (5/N — Reward admin variant): sticky
+//                    fs-footer + disabled save when rf_name empty. Brings the
+//                    admin.html duplicate of rewards.js openRewardForm to
+//                    parity. Phase 4 dedup of the 2 implementations into one
+//                    shared opener is still pending.
 // v196 (2026-05-10) — Form-system Phase 3 (4/N — Badge Form): sticky fs-footer
 //                    (Cancel + Add Badge/Save) + disabled save when af_name
 //                    empty. Single opener (admin.html openAdminAchSheet ->
@@ -340,7 +345,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v196';
+const CACHE_NAME = 'family-hub-v197';
 
 const APP_SHELL = [
   '/',
