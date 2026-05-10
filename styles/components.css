@@ -4871,6 +4871,32 @@ label.ef2-icon-btn  { cursor: pointer; }
   opacity: 0.5;
   pointer-events: none;
 }
+
+/* Date input pattern (fs-date-btn). See DESIGN.md §5.23 v2 "Date input
+   convention". Replaces every raw <input type="date"> in form sheets:
+   visible pill button + hidden native input + .showPicker(). */
+.fs-date-wrap { position: relative; }
+.fs-date-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  text-align: left;
+}
+.fs-date-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
+.fs-date-hidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+}
 /* ── End form-system shared primitives ─────────────────────────────────── */
 
 /* Shared delete zone — below sticky footer in edit sheets */
