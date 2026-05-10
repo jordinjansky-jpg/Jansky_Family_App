@@ -86,19 +86,22 @@ Daily reminders, event alerts (15/30/60 min before), task nudges. Requires FCM +
 
 ---
 
-**2.3 — AI Import Suite** · Medium (~1-2 sessions) · Depends on 1.3, 1.8 · Cost: ~$0.03/month
+~~**2.3 — AI Import Suite** · DONE — shipped incrementally through 2026-04~~
 
-All Claude Haiku import features routing through `workers/kitchen-import.js`. Worker pattern already built; each type adds a handler + UI trigger. `CLAUDE_API_KEY` secret already set.
+All 14 handlers live in `workers/kitchen-import.js` with frontend triggers wired across dashboard / kitchen / calendar / admin:
 
-- **School lunch PDF** → Worker extracts menu → `meals/{date}/school-lunch` + `school-lunch-2`
-- **Calendar photo → events** → confirm sheet → schedule entries
-- **iCal subscription** → Worker fetches (avoids CORS) + parses → bulk-import events
-- **Email → calendar** → Cloudflare Email Routing → Worker `email` handler → confirm sheet
-- **Text/voice → events** → "dentist Thursday 3pm" → event form pre-filled
-- **Homework scanner** → photo → tasks with due dates
-- **Photo → shopping list** → photo of fridge → add low items
+- **Recipe URL → recipe** (`url`) — Kitchen recipe form wand
+- **Recipe photo → recipe** (`screenshot`) — Kitchen recipe photo button
+- **School lunch PDF/photo** (`schoolLunch`) — Admin upload, fills `meals/{date}/school-lunch`
+- **Calendar photo → events** (`calendarPhoto`) — Event Form photo button (dashboard + calendar) → confirm sheet
+- **iCal subscription** (`ical`) — Worker fetch (CORS bypass) + parse — Event Form iCal button + admin iCal feed
+- **Text → events** (`parseEvent`) — Event Form wand + calendar event-text-paste
+- **Homework scanner** (`taskScan` / `homeworkScan` alias) — Admin upload → tasks with due dates
+- **Photo → shopping list** (`photoToList`) — Kitchen list FAB photo
+- **Email → calendar** (`handleEmailMessage`) — Cloudflare Email Routing → Worker email handler → confirm sheet (requires user to wire up Email Routing in Cloudflare dashboard)
+- **List utilities** — `categorize`, `cleanList`, `mergeQty`, `dedupIngredients` — used throughout kitchen flows
 
-Full UX spec: [superpowers/specs/2026-04-29-ai-features-polish.md](superpowers/specs/2026-04-29-ai-features-polish.md)
+Full UX spec (historical): [superpowers/specs/2026-04-29-ai-features-polish.md](superpowers/specs/2026-04-29-ai-features-polish.md)
 
 ---
 
