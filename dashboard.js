@@ -1250,11 +1250,15 @@ function openRecipeForm(recipeId = null, onSave = null) {
         <button class="ef2-icon-btn" id="kr_close" aria-label="Close" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
     </div>
-    <div class="kr-section">
-      <label class="field">
+    <div class="kr-section" id="recipeUrlSection">
+      <label class="field${existing?.url ? ' is-hidden' : ''}" id="recipeUrlField">
         <span class="field__label">Recipe link</span>
         <input id="recipeUrl" type="url" placeholder="https://…" value="${esc(existing?.url || '')}" autocomplete="off">
       </label>
+      <div class="kr-url-collapsed${existing?.url ? '' : ' is-hidden'}" id="recipeUrlCollapsed">
+        <span class="kr-url-host" id="recipeUrlHost">${existing?.url ? `from ${esc((function(u){try{return new URL(u).hostname.replace(/^www\\./,'');}catch{return u;}})(existing.url))}` : ''}</span>
+        <button class="btn btn--ghost btn--sm" id="recipeUrlEdit" type="button">Change</button>
+      </div>
       <span class="kr-import-status" id="urlImportStatus"></span>
     </div>
     <div class="kr-title-row">
@@ -1397,6 +1401,18 @@ function openRecipeForm(recipeId = null, onSave = null) {
         status.style.color = 'var(--text-muted)';
         status.style.display = 'inline';
       }
+      // Auto-collapse URL section after successful import (got a name OR ingredients)
+      if (type === 'url' && (data.name || data.ingredients?.length)) {
+        const urlVal = document.getElementById('recipeUrl')?.value.trim();
+        if (urlVal) {
+          let host = urlVal;
+          try { host = new URL(urlVal).hostname.replace(/^www\./, ''); } catch (_) {}
+          const hostEl = document.getElementById('recipeUrlHost');
+          if (hostEl) hostEl.textContent = `from ${host}`;
+          document.getElementById('recipeUrlField')?.classList.add('is-hidden');
+          document.getElementById('recipeUrlCollapsed')?.classList.remove('is-hidden');
+        }
+      }
     } catch {
       if (status) { status.textContent = 'Import failed.'; status.style.color = 'var(--danger)'; status.style.display = 'inline'; }
     } finally {
@@ -1408,6 +1424,13 @@ function openRecipeForm(recipeId = null, onSave = null) {
   document.getElementById('recipeUrl')?.addEventListener('blur', () => {
     const url = document.getElementById('recipeUrl')?.value.trim();
     if (url) runImport('url', url);
+  });
+
+  // "Change" button → re-expand collapsed URL field
+  document.getElementById('recipeUrlEdit')?.addEventListener('click', () => {
+    document.getElementById('recipeUrlField')?.classList.remove('is-hidden');
+    document.getElementById('recipeUrlCollapsed')?.classList.add('is-hidden');
+    document.getElementById('recipeUrl')?.focus();
   });
 
   let krPhotoContext = '';
@@ -1500,8 +1523,12 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
 
   function buildPickRow(id, r) {
     const isSelected = selectedRecipeId === id;
+    const thumb = r.imageUrl
+      ? `<img class="recipe-pick__thumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`
+      : `<span class="recipe-pick__thumb recipe-pick__thumb--placeholder" aria-hidden="true">🍴</span>`;
     return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-recipe-pick="${esc(id)}" type="button">
-      <span>${esc(r.name)}</span>
+      ${thumb}
+      <span class="recipe-pick__name">${esc(r.name)}</span>
       ${isSelected ? '<span class="recipe-pick__check">&#10003;</span>' : ''}
     </button>`;
   }

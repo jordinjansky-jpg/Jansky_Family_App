@@ -4438,9 +4438,9 @@ label.ef2-icon-btn  { cursor: pointer; }
 .recipe-pick__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--spacing-sm);
   width: 100%;
-  padding: 13px var(--spacing-md);
+  padding: 10px var(--spacing-md);
   border-bottom: 1px solid var(--border);
   text-align: left;
   font-size: var(--font-sm);
@@ -4451,7 +4451,21 @@ label.ef2-icon-btn  { cursor: pointer; }
 .recipe-pick__row:last-child { border-bottom: none; }
 .recipe-pick__row:active,
 .recipe-pick__row.is-selected { background: var(--accent-soft); }
-.recipe-pick__row.is-selected span { color: var(--accent); font-weight: 600; }
+.recipe-pick__row.is-selected .recipe-pick__name { color: var(--accent); font-weight: 600; }
+.recipe-pick__thumb {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.recipe-pick__thumb--placeholder { color: var(--text-muted); }
+.recipe-pick__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recipe-pick__check { color: var(--accent); font-weight: 700; flex-shrink: 0; }
 .recipe-pick__none {
   padding: var(--spacing-sm) var(--spacing-md);
@@ -5147,6 +5161,21 @@ label.ef2-icon-btn  { cursor: pointer; }
 .kb-added-star { color: var(--text-faint); }
 .kb-added-star.is-saved-staple { color: var(--accent); }
 
+/* Bulk-add input row — input + inline staple-toggle star */
+.kb-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.kb-input-row .field__input { flex: 1; }
+.kb-input-star {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  transition: color var(--t-fast);
+}
+.kb-input-star.is-active { color: var(--accent); }
+.kb-input-star.is-active svg { fill: var(--accent); }
+
 /* ── Manage list form (km-) ── */
 .km-delete-icon { color: var(--danger); }
 
@@ -5292,6 +5321,23 @@ label.ef2-icon-btn  { cursor: pointer; }
   display: none;
   font-size: var(--font-sm);
   padding: var(--spacing-xs) 0 0;
+}
+
+/* Recipe URL — collapsed display after AI parse */
+.kr-url-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+}
+.kr-url-collapsed.is-hidden { display: none; }
+.kr-url-host {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── End Kitchen forms ────────────────────────────────────────────────────── */
