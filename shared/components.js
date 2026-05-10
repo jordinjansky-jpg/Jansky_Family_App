@@ -2512,7 +2512,7 @@ export function renderSendMessageSheet(people, preselectedPersonId = null, rewar
 
     <div class="ef2-footer">
       <button class="btn btn--secondary" id="msg_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="msg_send" type="button">Send</button>
+      <button class="btn btn--primary" id="msg_send" type="button" disabled>Send</button>
     </div>
   `);
 }
@@ -2549,11 +2549,18 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
     });
   }
 
-  // Template select → populate title input
+  // Title input → enable/disable Send button.
+  const sendBtn = sheet.querySelector('#msg_send');
+  sheet.querySelector('#msg_customTitle')?.addEventListener('input', (e) => {
+    if (sendBtn) sendBtn.disabled = !e.target.value.trim();
+  });
+
+  // Template select → populate title input + sync Send disabled state.
   sheet.querySelector('#msg_templateSelect')?.addEventListener('change', (e) => {
     if (e.target.value) {
       const titleInput = sheet.querySelector('#msg_customTitle');
       if (titleInput) { titleInput.value = e.target.value; titleInput.focus(); }
+      if (sendBtn) sendBtn.disabled = false;
     }
   });
 
