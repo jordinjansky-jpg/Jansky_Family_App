@@ -1886,12 +1886,16 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
       return `<option value="${val}"${sel ? ' selected' : ''}>${label}</option>`;
     }).join('');
 
+  const titleEmpty = !task.name;
+  const headerSaveDisabledAttr = titleEmpty ? ' disabled' : '';
+  const saveLabel = isEdit ? 'Save Changes' : 'Add Task';
+
   return `<div class="tf-form">
   <div class="sheet__header">
     <h2 class="sheet__title">${isEdit ? 'Edit Task' : 'New Task'}</h2>
     <div class="rf-header-actions">
       ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="tf_delete" type="button" aria-label="Delete task" title="Delete task">${DELETE_SVG_TF}</button>` : ''}
-      <button class="ef2-icon-btn rf-save-btn" id="tf_save" type="button"${taskId ? ` data-task-id="${taskId}"` : ''} aria-label="${isEdit ? 'Save changes' : 'Create task'}" title="${isEdit ? 'Save changes' : 'Create task'}">${SAVE_SVG_TF}</button>
+      <button class="ef2-icon-btn rf-save-btn" id="tf_save" type="button"${taskId ? ` data-task-id="${taskId}"` : ''} aria-label="${esc(saveLabel)}" title="${esc(saveLabel)}"${headerSaveDisabledAttr}>${SAVE_SVG_TF}</button>
       <button class="ef2-icon-btn" id="tf_close" type="button" aria-label="Close">${CLOSE_SVG_TF}</button>
     </div>
   </div>
@@ -1924,7 +1928,12 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
       <select id="tf_daySelect">${dayOptions}</select>
     </div>
     <div class="tf-rot-reveal${rotation === 'once' ? ' is-open' : ''}" id="tf_onceReveal">
-      <input type="date" id="tf_onceDate" value="${esc(task.dedicatedDate || '')}">
+      <div class="fs-date-wrap">
+        <button class="tf-detail-chip" id="tf_onceBtn" type="button">
+          <span id="tf_onceDateLabel">${task.dedicatedDate ? esc(formatDateShort(task.dedicatedDate)) : 'Set date'}</span>
+        </button>
+        <input type="date" id="tf_onceDate" class="fs-date-hidden" value="${esc(task.dedicatedDate || '')}">
+      </div>
     </div>
   </div>
 
@@ -1965,6 +1974,7 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
     </div>
   </div>
 
+  ${renderFormFooter({ saveLabel, cancelId: 'tf_cancel', saveId: 'tf_footerSave', disabled: titleEmpty })}
 </div>`;
 }
 
