@@ -1908,13 +1908,27 @@ function openEventForm(existingEventId = null, savedState = null) {
 
   // ── Close / Cancel ───────────────────────────────────────────
   document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
+  document.getElementById('ef2_cancel')?.addEventListener('click', closeTaskSheet);
   document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
   });
 
+  // Footer Save delegates to header ✓ (single save handler is wired below).
+  document.getElementById('ef2_footerSave')?.addEventListener('click', () => {
+    document.getElementById('ef2_save')?.click();
+  });
+
+  // Title input → disable both save buttons when empty.
+  document.getElementById('ef2_name')?.addEventListener('input', (e) => {
+    const empty = !e.target.value.trim();
+    const headerSave = document.getElementById('ef2_save');
+    const footerSave = document.getElementById('ef2_footerSave');
+    if (headerSave) headerSave.disabled = empty;
+    if (footerSave) footerSave.disabled = empty;
+  });
+
   // ── Date picker toggle ───────────────────────────────────────
   const dateBtn = document.getElementById('ef2_dateBtn');
-  const datePicker = document.getElementById('ef2_datePicker');
   const dateDisplay = document.getElementById('ef2_dateDisplay');
   const dateInput = document.getElementById('ef2_date');
   const timePicker = document.getElementById('ef2_timePicker');
@@ -1941,20 +1955,20 @@ function openEventForm(existingEventId = null, savedState = null) {
     return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
+  // Date picker — tap pill, OS picker opens via .showPicker(), label updates on change.
   dateBtn?.addEventListener('click', () => {
-    const open = datePicker.classList.toggle('is-open');
-    if (open) timePicker?.classList.remove('is-open');
+    if (typeof dateInput?.showPicker === 'function') {
+      try { dateInput.showPicker(); return; } catch (_) { /* fall through */ }
+    }
+    dateInput?.focus();
   });
-
   dateInput?.addEventListener('change', () => {
     dateDisplay.textContent = dateInput.value ? formatDateShort(dateInput.value) : 'Set date';
-    datePicker?.classList.remove('is-open');
   });
 
   // ── Time picker toggle ───────────────────────────────────────
   timeBtn?.addEventListener('click', () => {
-    const open = timePicker.classList.toggle('is-open');
-    if (open) datePicker?.classList.remove('is-open');
+    timePicker.classList.toggle('is-open');
   });
 
   function updateTimeDisplay() {

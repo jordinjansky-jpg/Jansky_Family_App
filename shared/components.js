@@ -1546,6 +1546,9 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     <input type="file" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" id="ef2_photoFiles" hidden>
     <button class="ef2-icon-btn" id="ef2_ical" type="button" aria-label="Import from calendar URL">${ICAL_SVG}</button>`;
 
+  const titleEmpty = !event.name;
+  const headerSaveDisabledAttr = titleEmpty ? ' disabled' : '';
+
   const notesOpen = (event.notes || event.notesOpen) ? ' is-open' : '';
   const locOpen = (event.location || event.locOpen) ? ' is-open' : '';
   const repeatLabel = ef2RepeatLabel(event.repeat);
@@ -1556,7 +1559,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     <h2 class="sheet__title">${isEdit ? 'Edit Event' : 'New Event'}</h2>
     <div class="rf-header-actions">
       ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="ef2_delete" type="button" aria-label="Delete event" title="Delete event">${DELETE_SVG}</button>` : ''}
-      <button class="ef2-icon-btn rf-save-btn" id="ef2_save" type="button" aria-label="${saveLabel}" title="${saveLabel}">${SAVE_SVG}</button>
+      <button class="ef2-icon-btn rf-save-btn" id="ef2_save" type="button" aria-label="${saveLabel}" title="${saveLabel}"${headerSaveDisabledAttr}>${SAVE_SVG}</button>
       <button class="ef2-icon-btn" id="ef2_close" type="button" aria-label="Close">${CLOSE_SVG}</button>
     </div>
   </div>
@@ -1578,15 +1581,15 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   <div class="ef2-datetime-section">
     <div class="tf-details-row">
-      <button class="tf-detail-chip" id="ef2_dateBtn" type="button">
-        <span id="ef2_dateDisplay">${esc(dateDisplay)}</span>
-      </button>
+      <div class="fs-date-wrap">
+        <button class="tf-detail-chip" id="ef2_dateBtn" type="button">
+          <span id="ef2_dateDisplay">${esc(dateDisplay)}</span>
+        </button>
+        <input type="date" id="ef2_date" class="fs-date-hidden" value="${esc(dateVal)}">
+      </div>
       <button class="tf-detail-chip${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timeBtn" type="button">
         <span id="ef2_timeDisplay">${esc(timeDisplay)}</span>
       </button>
-    </div>
-    <div class="ef2-picker-wrap" id="ef2_datePicker">
-      <input type="date" id="ef2_date" value="${esc(dateVal)}">
     </div>
     <div class="ef2-picker-wrap${event.allDay ? ' ef2-hidden' : ''}" id="ef2_timePicker">
       ${renderTimeInput({ idPrefix: 'ef2', startTime, endTime })}
@@ -1623,6 +1626,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     </div>
   </div>
 
+  ${renderFormFooter({ saveLabel, cancelId: 'ef2_cancel', saveId: 'ef2_footerSave', disabled: titleEmpty })}
 </div>`;
 }
 
