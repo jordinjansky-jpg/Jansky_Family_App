@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
-import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker } from './shared/components.js';
+import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
@@ -2412,44 +2412,8 @@ function openEventForm(existingEventId = null, savedState = null) {
   }
 
   function openEfIcalSheet() {
-    const overlay = document.createElement('div');
-    overlay.className = 'ef2-subsheet-overlay';
-    overlay.innerHTML = `<div class="ef2-subsheet">
-      <div class="sheet__header">
-        <h2 class="sheet__title">Calendar URL</h2>
-      </div>
-      <div class="sheet__content">
-        <p class="sheet__hint">Paste a .ics calendar feed URL (e.g. from TeamSnap or your school).</p>
-        <div class="field">
-          <label class="field__label" for="ef2IcalUrl">Calendar URL (.ics)</label>
-          <input class="field__input" id="ef2IcalUrl" type="url" placeholder="https://…/calendar.ics" autocomplete="off">
-        </div>
-        <div id="ef2IcalStatus" class="sheet__hint"></div>
-      </div>
-      <div class="sheet__footer">
-        <button class="btn btn--ghost" id="ef2IcalCancel">Cancel</button>
-        <button class="btn btn--primary" id="ef2IcalImport">Import</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => { overlay.classList.add('active'); });
-
-    function closeIcal() {
-      overlay.classList.remove('active');
-      setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
-    }
-
-    overlay.querySelector('#ef2IcalCancel')?.addEventListener('click', closeIcal);
-
-    overlay.querySelector('#ef2IcalImport')?.addEventListener('click', async () => {
-      const url = overlay.querySelector('#ef2IcalUrl')?.value.trim();
-      if (!url) return;
-      const status = overlay.querySelector('#ef2IcalStatus');
-      const btn = overlay.querySelector('#ef2IcalImport');
-      btn.disabled = true; btn.textContent = 'Fetching…';
-      if (status) status.textContent = 'Fetching calendar…';
-
-      try {
+    openIcalUrlSubsheet({
+      onImport: async (url, status, btn, close) => {
         const res = await fetch(KITCHEN_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2457,11 +2421,11 @@ function openEventForm(existingEventId = null, savedState = null) {
         });
         const data = await res.json();
         if (data.error || !data.events?.length) {
-          if (status) status.textContent = 'Couldn\'t fetch that calendar. Check the URL.';
+          if (status) status.textContent = "Couldn't fetch that calendar. Check the URL.";
           btn.disabled = false; btn.textContent = 'Import';
           return;
         }
-        closeIcal();
+        close();
         const savedState = captureFormState();
         setTimeout(() => {
           if (!document.getElementById('bottomSheet')?.classList.contains('active')) return;
@@ -2469,10 +2433,7 @@ function openEventForm(existingEventId = null, savedState = null) {
             openEventForm(existingEventId, savedState);
           });
         }, 320);
-      } catch (err) {
-        if (status) status.textContent = 'Couldn\'t fetch that calendar. Check the URL.';
-        btn.disabled = false; btn.textContent = 'Import';
-      }
+      },
     });
   }
 }
