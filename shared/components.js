@@ -754,6 +754,75 @@ export function renderTimeInput({ idPrefix = 'ef2', startTime = '09:00', endTime
 }
 
 /**
+ * Open the iCal URL sub-sheet over the existing bottom sheet. Caller provides
+ * onImport callback that fetches + parses the URL and runs the confirmation
+ * flow. Replaces the duplicate openEfIcalSheet (dashboard) + openCalEfIcalSheet
+ * (calendar) implementations per form review P15.
+ *
+ * @param {object}   opts
+ * @param {function} opts.onImport       async (url, statusEl, btnEl, closeFn) => void.
+ *                                       Called when the user taps Import. The
+ *                                       caller decides when to close (typically
+ *                                       on success after capturing form state).
+ *                                       On thrown error, the helper resets the
+ *                                       button and shows a generic status.
+ * @param {boolean}  [opts.focusOnOpen=false] Focus the URL input after the
+ *                                       overlay animates in (use for keyboard
+ *                                       contexts; phone PWAs typically prefer
+ *                                       false to avoid keyboard popping).
+ * @returns {{ overlay: HTMLElement, close: function }}
+ */
+export function openIcalUrlSubsheet({ onImport, focusOnOpen = false }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'ef2-subsheet-overlay';
+  overlay.innerHTML = `<div class="ef2-subsheet">
+    <div class="sheet__header">
+      <h2 class="sheet__title">Calendar URL</h2>
+    </div>
+    <div class="sheet__content">
+      <p class="sheet__hint">Paste a .ics calendar feed URL (e.g. from TeamSnap or your school).</p>
+      <div class="field">
+        <label class="field__label" for="ef2IcalUrl">Calendar URL (.ics)</label>
+        <input class="field__input" id="ef2IcalUrl" type="url" placeholder="https://…/calendar.ics" autocomplete="off">
+      </div>
+      <div id="ef2IcalStatus" class="sheet__hint"></div>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--ghost" id="ef2IcalCancel">Cancel</button>
+      <button class="btn btn--primary" id="ef2IcalImport">Import</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => {
+    overlay.classList.add('active');
+    if (focusOnOpen) overlay.querySelector('#ef2IcalUrl')?.focus();
+  });
+
+  const close = () => {
+    overlay.classList.remove('active');
+    setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
+  };
+
+  overlay.querySelector('#ef2IcalCancel')?.addEventListener('click', close);
+  overlay.querySelector('#ef2IcalImport')?.addEventListener('click', async () => {
+    const url = overlay.querySelector('#ef2IcalUrl')?.value.trim();
+    if (!url) return;
+    const status = overlay.querySelector('#ef2IcalStatus');
+    const btn = overlay.querySelector('#ef2IcalImport');
+    btn.disabled = true; btn.textContent = 'Fetching…';
+    if (status) status.textContent = 'Fetching calendar…';
+    try {
+      await onImport(url, status, btn, close);
+    } catch (err) {
+      if (status) status.textContent = "Couldn't fetch that calendar. Check the URL.";
+      btn.disabled = false; btn.textContent = 'Import';
+    }
+  });
+
+  return { overlay, close };
+}
+
+/**
  * Render person filter pills.
  * people: array of { id, name, color }
  * activePerson: id of selected person or null for "All"

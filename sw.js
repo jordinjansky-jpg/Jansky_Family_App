@@ -9,6 +9,11 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v203 (2026-05-10) — Form-system Phase 4 (1/3 — iCal sub-sheet dedup):
+//                    extracted shared openIcalUrlSubsheet() helper. Removes
+//                    ~95% duplicate HTML between dashboard.js openEfIcalSheet
+//                    and calendar.html openCalEfIcalSheet. Each opener now
+//                    delegates page-specific fetch+confirm via onImport.
 // v202 (2026-05-10) — Form-system Phase 3 (8/N — Meal Editor): renderMealEditorSheet
 //                    gets sticky fs-footer + disabled save state when name
 //                    empty. Footer Save delegates via form.requestSubmit().
@@ -364,7 +369,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v202';
+const CACHE_NAME = 'family-hub-v203';
 
 const APP_SHELL = [
   '/',
