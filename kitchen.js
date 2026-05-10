@@ -12,7 +12,8 @@ import { initFirebase, readSettings, writeSettings, readPeople, onConnectionChan
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
   initOfflineBanner, showConfirm, showToast, renderFab,
-  renderBottomSheet, renderEmptyState, renderAddMenu, renderSkeleton, renderErrorState
+  renderBottomSheet, renderEmptyState, renderAddMenu, renderSkeleton, renderErrorState,
+  renderFormFooter, renderFormSheetHeader
 } from './shared/components.js';
 import { todayKey, escapeHtml } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow } from './shared/ai-helpers.js';
@@ -469,12 +470,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const preRecipeName = preRecipeId ? (recipes[preRecipeId]?.name || '') : '';
 
   mount.innerHTML = renderBottomSheet(`
-    <div class="sheet__header">
-      <h2 class="sheet__title">Plan a meal</h2>
-      <button class="ef2-icon-btn" id="kp_close" aria-label="Close" type="button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
+    ${renderFormSheetHeader({ title: 'Plan a meal', closeId: 'kp_close' })}
     <div class="kp-day-section">
       <span class="ef2-section-label">Day</span>
       <div class="kp-date-wrap">
@@ -504,11 +500,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
       </div>
     </div>
-    <div class="kp-footer">
-      <button class="btn btn--ghost" id="kp_cancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="kp_save" type="button"
-        ${preRecipeName || selectedRecipeId ? '' : 'disabled'}>Save</button>
-    </div>`);
+    ${renderFormFooter({ saveLabel: 'Save', cancelId: 'kp_cancel', saveId: 'kp_save', disabled: !(preRecipeName || selectedRecipeId) })}`);
   activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };

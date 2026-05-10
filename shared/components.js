@@ -445,6 +445,55 @@ export function renderBottomSheet(content) {
 }
 
 /**
+ * Render the canonical sticky footer for a form sheet (Cancel + primary action).
+ * See DESIGN.md §5.23 v2 "Sticky footer (the fs-footer rule — universal)".
+ *
+ * @param {object}  opts
+ * @param {string}  opts.saveLabel              Visible text on the primary button (e.g. "Save", "Add Event").
+ * @param {string}  opts.cancelId               DOM id for the Cancel button (caller wires the listener).
+ * @param {string}  opts.saveId                 DOM id for the primary button.
+ * @param {boolean} [opts.disabled=false]       If true, primary button rendered with the disabled attribute.
+ * @param {string}  [opts.cancelLabel='Cancel'] Override the Cancel text if needed.
+ * @returns {string} HTML for `<div class="fs-footer">…</div>` — drop into bottom-sheet content directly.
+ */
+export function renderFormFooter({ saveLabel, cancelId, saveId, disabled = false, cancelLabel = 'Cancel' }) {
+  const disabledAttr = disabled ? ' disabled' : '';
+  return `<div class="fs-footer">
+    <button class="btn btn--ghost" id="${esc(cancelId)}" type="button">${esc(cancelLabel)}</button>
+    <button class="btn btn--primary" id="${esc(saveId)}" type="button"${disabledAttr}>${esc(saveLabel)}</button>
+  </div>`;
+}
+
+/**
+ * Render the canonical form-sheet header (title + ✕, optional ✓ + 🗑️ icons).
+ * See DESIGN.md §5.23 v2 "Vertical structure (top-to-bottom)" + §13.13 v2.
+ *
+ * @param {object}  opts
+ * @param {string}  opts.title                  Sheet title (e.g. "New Event", "Edit Recipe").
+ * @param {string}  opts.closeId                DOM id for the ✕ close button (always present).
+ * @param {string}  [opts.saveId]               DOM id for header ✓ save button. Omit for footer-only save.
+ * @param {string}  [opts.deleteId]             DOM id for header 🗑️ delete button. Edit mode only.
+ * @param {string}  [opts.saveLabel='Save']     aria-label/title for the ✓ button.
+ * @param {string}  [opts.deleteLabel='Delete'] aria-label/title for the 🗑️ button.
+ * @returns {string} HTML for `<div class="sheet__header">…</div>`.
+ */
+export function renderFormSheetHeader({ title, closeId, saveId = null, deleteId = null, saveLabel = 'Save', deleteLabel = 'Delete' }) {
+  const CLOSE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const SAVE_SVG   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const DELETE_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const deleteBtn = deleteId ? `<button class="ef2-icon-btn rf-delete-btn" id="${esc(deleteId)}" type="button" aria-label="${esc(deleteLabel)}" title="${esc(deleteLabel)}">${DELETE_SVG}</button>` : '';
+  const saveBtn   = saveId   ? `<button class="ef2-icon-btn rf-save-btn" id="${esc(saveId)}" type="button" aria-label="${esc(saveLabel)}" title="${esc(saveLabel)}">${SAVE_SVG}</button>` : '';
+  const closeBtn  = `<button class="ef2-icon-btn" id="${esc(closeId)}" type="button" aria-label="Close">${CLOSE_SVG}</button>`;
+  const actionsHtml = (deleteBtn || saveBtn)
+    ? `<div class="rf-header-actions">${deleteBtn}${saveBtn}${closeBtn}</div>`
+    : closeBtn;
+  return `<div class="sheet__header">
+    <h2 class="sheet__title">${esc(title)}</h2>
+    ${actionsHtml}
+  </div>`;
+}
+
+/**
  * Render person filter pills.
  * people: array of { id, name, color }
  * activePerson: id of selected person or null for "All"
