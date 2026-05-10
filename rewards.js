@@ -11,7 +11,7 @@ import { renderNavBar, initNavMore, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
   openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
-  renderDateInput, bindDateInput
+  renderDateInput, bindDateInput, renderSwitchToggle
 } from './shared/components.js';
 import { todayKey, formatDateShort } from './shared/utils.js';
 
@@ -1188,8 +1188,12 @@ function openRewardForm(rewardId = null) {
 
       <div class="ef2-divider"></div>
 
+      <div class="tf-options-row">
+        <span class="tf-options-label">Approval required</span>
+        ${renderSwitchToggle({ id: 'rcf_approvalRequired', checked: isApprovalRequired })}
+      </div>
+
       <div class="ef2-secondary-row">
-        <button class="ef2-add-chip${isApprovalRequired ? ' is-active' : ''}" id="rcf_approvalChip" type="button">Approval required</button>
         <button class="ef2-add-chip" id="rcf_advancedChip" type="button">+ Advanced</button>
       </div>
 
@@ -1313,12 +1317,7 @@ function openRewardForm(rewardId = null) {
     });
   }
 
-  // Approval chip toggle
-  let approvalRequired = isApprovalRequired;
-  mount.querySelector('#rcf_approvalChip')?.addEventListener('click', () => {
-    approvalRequired = !approvalRequired;
-    mount.querySelector('#rcf_approvalChip')?.classList.toggle('is-active', approvalRequired);
-  });
+  // Approval required — native checkbox tracks state, no closure needed.
 
   // Advanced chip toggle — auto-open if any advanced fields are set
   if (reward.maxRedemptions || reward.streakRequirement || reward.expiresAt) {
@@ -1380,6 +1379,7 @@ function openRewardForm(rewardId = null) {
     const streakReq = parseInt(mount.querySelector('#rcf_streakReq').value) || null;
     const expiresDate = mount.querySelector('#rcf_expiresAt').value;
     const expiresAt = expiresDate ? new Date(expiresDate + 'T23:59:59').getTime() : null;
+    const approvalRequired = mount.querySelector('#rcf_approvalRequired')?.checked ?? true;
     const data = {
       name, icon: currentEmoji, pointCost: cost, rewardType,
       approvalRequired, perPerson: selectedPeople,
