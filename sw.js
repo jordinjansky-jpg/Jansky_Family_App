@@ -9,6 +9,15 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v191 (2026-05-10) — Form-system Phase 2: bring Event Form up to §5.23 v2.
+//                    (1) Sticky fs-footer with Cancel + Save Changes/Add Event;
+//                    (2) Date pill triggers OS .showPicker() directly (drop
+//                    inline reveal — fs-date-btn pattern);
+//                    (3) Drop browser-default focus chrome on form-sheet text
+//                    inputs (no more magenta on Location);
+//                    (4) Header ✓ + footer Save share visible disabled state
+//                    when title is empty. Wired in all three openers
+//                    (dashboard.js, calendar.html, admin.html).
 // v190 (2026-05-10) — Fix(forms): mirror Recipe meta-row + chip-picker into
 //                    dashboard.js openRecipeForm so Plan-a-meal "+ New recipe"
 //                    matches kitchen.js. Plus padding fix for cf-icon-section
@@ -304,7 +313,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v190';
+const CACHE_NAME = 'family-hub-v191';
 
 const APP_SHELL = [
   '/',
