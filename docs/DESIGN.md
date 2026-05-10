@@ -59,9 +59,9 @@ Every current and backlog feature has a named home. If a proposal doesn't fit he
 | **3.2 Task Delegation** | Task detail sheet → Propose trade | Bell proposals, Admin history | inside bell + detail sheet |
 
 **Hard rules enforced by this table:**
-- Phone tab bar never exceeds 5 slots: Home, Calendar, Scores, Tracker, More.
+- Phone tab bar never exceeds 5 slots. See [ROADMAP.md](../ROADMAP.md) Nav Bar section for current assignment.
 - Weather, Kiosk, Vacation, Recurrence, Timer, PDF import, Delegation never become tabs.
-- Kitchen (1.3+1.7), Activities (1.6) are the only backlog features that earn nav placement (inside More on phone); Kitchen's tab promotion is subject to usage review.
+- Activities (1.6) is the only backlog feature that earns a future nav slot.
 
 ---
 
@@ -207,7 +207,7 @@ Do not use z-index values outside this table.
 ### 4.1 Mobile (≤ 600px — default)
 
 - **Content width:** max 600px, centered; page gutter `--spacing-md`.
-- **Header:** 56–64px. Title left, max 2 icon slots right (Bell + overflow). One title line + optional one meta line. Never 3 lines. No gradient text.
+- **Header:** 56–64px. Title left, max 2 icon slots right (Bell + overflow). Title is `--font-2xl`, bold. Optional subtitle below title: `--font-sm`, `--text-muted` (used for date on dashboard, month range on calendar). Never 3 lines. No gradient text. Connectivity dot (8px `--success` circle) may appear as a passive indicator — it does not count against the 2-icon slot cap.
 - **Bottom nav:** 68px including safe-area-inset; 5 items max, labels + icon. Frosted glass (`backdrop-filter: blur(14px)`).
 - **Primary page action:** single FAB (56px) bottom-right, 16px margin, above nav. Never in header.
 - **Tap targets:** ≥ 44×44 (56×56 in kid mode).
@@ -279,6 +279,30 @@ Each component section includes: purpose, variants, DOM structure, sizing, behav
 - Meta row uses dot separators (`.card__meta-dot`), not pipes or bullets.
 - Completed cards render at bottom of list and get `--done` modifier.
 - **Never** invent a new card class per page. Add a variant here.
+
+**Task card flat list pattern (dashboard Today section):**
+Task cards in the Today section are rendered as a stacked flat list — zero gap between cards, no `--shadow-sm`, no elevation. Cards share the same `--surface` background. Only the first card's top corners and the last card's bottom corners show the `--radius-lg` rounding; middle cards appear square. Hairline `--border` dividers separate rows. This is the iOS grouped-list aesthetic: calm, space-efficient, scannable.
+
+**Owner color stripe (task + event cards):**
+Every `--task` and `--event` card has a 3–4px solid left-edge stripe colored with the owner's `--owner-*` token. Applied via a `border-left` or pseudo-element on `card__leading`. This is the primary at-a-glance identity signal — it lets you scan a long list and see who owns what without reading names. Never omit it, never animate it, never use it for any purpose other than owner identity.
+
+### 5.1a Section head
+**Purpose:** Titled divider between content groups on a page (Today, Events, Coming up, etc.).
+
+```html
+<div class="section-head">
+  <span class="section-head__label">TODAY</span>
+  <span class="section-head__meta">0 of 30 done</span>
+  <button class="section-head__action">Filter ˅</button>
+</div>
+```
+
+**Rules:**
+- Label: `--font-xs`, `letter-spacing: 0.08em`, `UPPERCASE`, `--text-muted`. Never mix case.
+- Meta text: `--font-sm`, `--text-muted`. Right of label, separated by a gap.
+- Action (optional): right-aligned pill or text button. Filter chip, period switcher, "See all".
+- No border beneath — the flat card list that follows acts as its own visual anchor.
+- One section head per content group. Never nest section heads.
 
 ### 5.2 Tabs
 **Purpose:** One component for every tabbed navigation.
@@ -440,7 +464,8 @@ Tap toggles completion. Long-press elsewhere on card opens detail sheet.
 - Never used for: navigation, secondary actions, kid mode.
 
 ### 5.14 Bottom nav
-- 5 slots max: Home, Calendar, Scores, Tracker, More.
+- 5 slots max — never exceeded. Adding a slot requires retiring one.
+- Slot 5 is always More (opens an in-page sheet). The other 4 are direct-nav tabs.
 - Height 68px + safe-area-inset-bottom.
 - Frosted glass (`backdrop-filter: blur(14px)`).
 - Active item: `--accent` color + slightly heavier stroke.
@@ -516,45 +541,69 @@ Never dumps raw error objects. Debug details available only in Admin → Advance
 - Fill uses `--accent`. Background `--surface-2`.
 - Single component; Score card progress, store card progress, calendar density all share.
 
-### 5.23 Form sheet pattern (the Event Form is the canonical reference)
-**Reference implementation:** `renderEventForm()` in [shared/components.js](../shared/components.js) + `openEventForm()` in [dashboard.js](../dashboard.js). Spec at [docs/superpowers/specs/2026-05-01-event-form-redesign.md](../superpowers/specs/2026-05-01-event-form-redesign.md). All other form sheets in the app (task creation/edit, recipe form, reward form, person form, list form, settings forms, etc.) must adopt this pattern — match it intentionally and document why if you deviate.
+### 5.23 Form sheet pattern
 
-**Architecture split:**
-- **HTML generator** lives in `shared/components.js` (e.g. `renderEventForm`). Pure function — no DOM access, no side effects. Returns a string. Takes `{ existing?, mode: 'create'|'edit', ...context }`.
-- **DOM wiring** lives in the page-level JS (e.g. `openEventForm` in `dashboard.js`). Mounts via `taskSheetMount.innerHTML = renderBottomSheet(html)`, attaches listeners, manages state, calls Firebase writes.
-- **CSS classes use a per-form prefix** (`ef2-*` for event form). New forms get a new prefix (e.g. `tf-*` for task form, `rf-*` for recipe form). Never reuse another form's prefix — keeps CSS isolated and scopeable.
+**Status:** v2 (2026-05-10) — reframed from a single canonical anchor (Event Form) to a best-of-app composite. The form review on 2026-05-09 found that the Event Form's implementation diverged from §5.23 v1 (no sticky footer, raw `<input type="date">`, magenta default focus rings on text inputs). Anchoring blindly on the Event Form would have copied those flaws into every other form. v2 anchors each pattern on its best in-app implementation today, codifies new mandates the v1 spec lacked (date input convention, disabled save state, active-state palette, CSS prefix policy), and lists the spec drift items explicitly. See §15 changelog for the full rationale.
 
-**Vertical structure (top-to-bottom):**
+**Scope:** Every form sheet in the app — task, event, recipe, reward, badge, person, category, list, item/staple/bulk, meal plan picker, theme picker, message form, bonus-day grant, and any future ones. Setup wizard is out of scope (separate flow, will be re-specced when redesigned).
+
+**Companion section:** §5.24 Picker-list form pattern (form's primary interaction is picking from a library — meal plan, contacts). The §5.24 pattern shares the footer + sub-sheet conventions defined here but skips the structured-data fields.
+
+#### Canonical anchor map
+
+The pattern is composite — different in-app implementations are the reference for different concerns. When building or fixing a form, anchor each piece on the named reference.
+
+| Concern | Anchor (in-app reference) | Notes |
+|---|---|---|
+| Sticky footer (Cancel + primary) | Meal Plan `kp-footer` | The only form with the working pattern today; generalize to shared `fs-footer` |
+| Date input | Meal Plan `kp-date-btn` + hidden `<input type="date">` + `.showPicker()` | Replaces every raw `<input type="date">` in the app |
+| Time input | Event Form 6-element AM/PM picker | Already correct; promote to shared `renderTimeInput()` |
+| Inline reveal (Notes / Location / Options) | Event Form `ef2-field-reveal` | Solid-border active state (NOT solid-black-fill) |
+| Sub-sheet stacking | Event Form Repeat / Photo / iCal sub-sheets | Single shell; ✕ OR Cancel button — not both |
+| Switch toggle (always-on/off binary) | Category form `.form-toggle` (§5.16) | Replaces every chip-toggle that pretends to be a switch |
+| Helper text | Category form `form-hint` | Promote to shared `fs-helper`; CSS only, no inline `style=""` |
+| Title row + AI affordances | Event Form `ef2-title-row` | Wand + photo + iCal icons (where applicable) |
+| Person chips | Event Form `ef2-person-chip` | State machine: unselected / primary / attending |
+| Form state preservation | Event Form `captureFormState()` | Inner function serializes live form before sub-sheet open |
+| Inline child-form | Meal Plan + Event Form close-delay-open | Used for `+ New recipe` and similar create-from-picker flows |
+| Edit-mode delete zone | Event Form `ef2-delete-zone` | Below sticky footer, inline confirm |
+
+#### Architecture split
+
+- **HTML generator** in `shared/components.js`. Pure function, returns a string. Signature: `renderXForm({ existing?, mode: 'create'|'edit', ...context })`. No DOM access.
+- **DOM wiring** in page-level JS. Mounts via `taskSheetMount.innerHTML = renderBottomSheet(html)`, attaches listeners, manages state, calls Firebase writes.
+- **CSS prefixes:** shared primitives use `fs-` (form-sheet). Per-form prefixes (`ef2-`, `tf-`, `kr-`, `kp-`, `cf-`, `ki-`, `ks-`, `kb-`, `kl-`, `ps-`, `cpick-`) stay where they are — don't churn working CSS — but new code uses `fs-` for shared and per-form prefix only for genuinely unique classes.
+
+#### Vertical structure (top-to-bottom)
+
 ```
-sheet__header             ← title + ✕ close
-ef2-title-row             ← large input + import icons (create mode only)
-ef2-import-feedback       ← AI loading/error inline (reserves space; min-height)
-ef2-divider               ← 1px hairline
-ef2-datetime-section      ← (or whatever primary fields)
-  ef2-date-row            ← date button + All-day pill on one row
-  ef2-picker-wrap         ← inline collapsible date picker
-  ef2-time-section        ← time button + collapsible time picker
-ef2-divider
-ef2-for-section           ← "For" header line + person chips below
-  ef2-for-header          ← section label + Family chip inline
-  ef2-person-chips        ← horizontal-scrolling row, fade gradient on right edge
-ef2-divider
-ef2-secondary-row         ← + Notes / + Location / + Repeat dashed chips
-ef2-field-reveal × N      ← progressive disclosure (notes textarea, location input)
-ef2-footer                ← STICKY: Cancel + primary action
-ef2-delete-zone           ← edit-mode only, below sticky footer
+sheet__header             ← title + ✕ + (✓ + 🗑️ in edit mode)
+<prefix>-title-row        ← large input + AI icons (create mode only)
+<prefix>-import-feedback  ← AI loading/error inline (reserves space; min-height)
+<prefix>-divider          ← 1px hairline
+<primary fields section>  ← date/time, condition+threshold, ingredients, etc.
+<prefix>-divider
+<prefix>-for-section      ← "For" label + person chips (where applicable)
+<prefix>-divider
+<prefix>-secondary-row    ← + Notes / + Location / + Options chips
+<prefix>-field-reveal × N ← progressive disclosure
+fs-footer                 ← STICKY: Cancel + labeled primary action (universal)
+<prefix>-delete-zone      ← edit-mode only, below sticky footer
 ```
 
-**Padding rules (critical):**
-- **Form sections have NO horizontal padding.** `.bottom-sheet__content` already supplies the single layer of `var(--spacing-md)`. Adding more on each section double-indents content and the title sits flush-left while everything else is squeezed inward. Use vertical padding only on sections.
-- Title row uses `padding: var(--spacing-xs) 0` (tight vertical, no horizontal).
-- Datetime/For/secondary sections use `padding: var(--spacing-sm) 0`.
+#### Padding rules
+
+- **Form sections have NO horizontal padding.** `.bottom-sheet__content` already supplies the single layer of `var(--spacing-md)`. Adding more on each section double-indents content and the title sits flush-left while everything else is squeezed inward. Use vertical padding only.
+- Title row: `padding: var(--spacing-xs) 0`.
+- Other sections: `padding: var(--spacing-sm) 0`.
 - Padding above and below each section should match (no asymmetric gaps between visual blocks).
 
-**Sticky footer pattern (the ef2-footer rule):**
-The footer needs to break out of `.bottom-sheet__content`'s padding so it spans edge-to-edge AND stick to the bottom of the scrollable container.
+#### Sticky footer (the `fs-footer` rule — universal)
+
+**Every form sheet must have a sticky footer with Cancel (ghost) + labeled primary action (filled).** No exceptions. The header save-icon (✓) and delete-icon (🗑️) stay where they are; the footer button complements, not replaces, them. The footer breaks out of `.bottom-sheet__content`'s padding to span edge-to-edge AND sticks to the bottom of the scrollable container.
+
 ```css
-.ef2-footer {
+.fs-footer {
   position: sticky;
   bottom: 0;
   margin: var(--spacing-sm) calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg));
@@ -566,82 +615,209 @@ The footer needs to break out of `.bottom-sheet__content`'s padding so it spans 
   gap: var(--spacing-sm);
   z-index: 1;
 }
-.ef2-footer .btn { flex: 1; }
+.fs-footer .btn { flex: 1; }
 ```
+
 - Negative side+bottom margin breaks out of `.bottom-sheet__content` padding.
-- Footer's own padding brings content back to the right indent.
+- Footer's own padding restores the right indent.
 - `bottom: 0` (NOT a negative value) — sticks to the visible bottom of the scrollable container.
 - `safe-area-inset-bottom` for notched devices.
 
-**Sub-sheet stacking (when a form opens another sheet):**
-Use a SECOND overlay (`.ef2-subsheet-overlay`) on top of the existing bottom-sheet, NOT a navigation push. The Repeat sub-sheet, Photo source picker, and iCal URL prompt all use this pattern. Animate up from bottom; close removes from DOM after the transition. Returning to the parent form re-mounts via `openEventForm(existingId, savedFormState)` — see "Form state preservation" below.
+Existing per-form footer classes (`ef2-footer`, `kp-footer`) remain valid where present; they all map to the same CSS via shared rules. New forms use `fs-footer` directly.
 
-**Form state preservation across sub-sheets:**
-Inner function `captureFormState()` serializes the live form to a plain object before navigating to a sub-sheet. On return, the parent form re-renders with `existingId` and `savedState` so the user's in-progress edits don't vanish. Capture EVERY field including transient UI state (`notesOpen`, `isFamilyMode`) — fields that only exist in DOM state will be lost on round-trip otherwise. The `event` object passed to the renderer accepts these transient flags as overrides (`event.notesOpen ? ' is-open' : ''`).
+#### Disabled save state (universal)
 
-**Inline pickers (date / time / repeat day selector):**
-Use `<div class="ef2-picker-wrap">` with `max-height: 0; transition: max-height 0.2s ease;` collapsed; `is-open` class sets `max-height: <enough-for-content>`. Tapping the trigger button toggles `is-open`. Tapping the inline input or selecting a value collapses it. Multiple pickers in the same section are mutually exclusive (opening one closes the others).
+The primary save action reflects the `disabled` attribute on every field-input event:
 
-**Time picker (replace `<input type="time">` everywhere):**
-Native `<input type="time">` on Android = the awful number wheel. Use the 6-select pattern from `renderEventForm`: hour (1-12, 42px) + colon + minute (5-min increments, 46px) + AM/PM (50px), then arrow → repeat for end time. Helpers `ef2ParseTime`, `ef2HourOpts`, `ef2MinOpts`, `ef2AmPmOpts` already exist in `shared/components.js` — reuse them.
+- Required fields empty → `disabled="true"`, `opacity: 0.5`, `pointer-events: none`.
+- Required fields filled → `disabled="false"`, `opacity: 1`.
 
-**Person chip state machine:**
-- **Unselected**: gray chip, color dot before name (uses `--chip-color` per-chip CSS var set via JS).
+Apply to BOTH the header ✓ icon AND the footer primary button so they stay in sync. The shake-on-required-empty pattern (defined under "Validation" below) stays as a backstop for users who tap a disabled control anyway, but the visible disabled state is the primary signal.
+
+#### Saving spinner
+
+Show a spinner inside the primary button when the save involves async work that may take time:
+
+- AI worker calls (wand parse, photo import, URL import) — always.
+- Image uploads — always.
+- Network writes that may take >150ms — always.
+- Pure local Firebase writes (`firebase.database().ref(...).update(...)`) — NOT required (typically <50ms; spinner flickers).
+
+Spinner pattern: replace button text with `<span class="spinner spinner--sm"></span> Saving…` for the duration. Re-enable on completion or error.
+
+#### Active states (TWO total — never invent a third)
+
+1. **Purple-filled** — segmented controls (rotation pills, Slot picker, type segments, Auto/Either/Manual). Background = `--accent`, text = white. Used when the control is "pick exactly one of these" AND the choices are shown as adjacent equal-weight options.
+2. **Solid-border** — chip-toggles and inline-reveal triggers (`+ Notes`, `+ Location`, `+ Repeat`, `All day`, `+ Options`, `+ Advanced`, `+ Pricing help`). Dashed border off → solid border (same color) on. Background unchanged. **No solid-black-fill.** The current Reward/Task implementations using solid-black-fill on these chips violate this rule and are scheduled for fix.
+
+If a binary control's semantic is "always on / always off" (a toggle, not a reveal), use the `.form-toggle` switch (§5.16), not a chip-toggle. Reward "Approval required" and Task "Exempt from scoring" are currently chip-toggles but should be switches.
+
+#### Selection states (TWO total — never invent a third)
+
+1. **Card border + ✓ check** — grid pickers (emoji grid, color swatch grid). Selected cell gets a 2px border in `--accent` plus a small ✓ overlay. No competing "preview tile + grid" double pattern.
+2. **Bold underline / inline check** — list pickers (recipe rows, condition lists). Selected row gets a left ✓ check and slightly-bolder text.
+
+#### Date input convention (replace every raw `<input type="date">`)
+
+Always use the Meal Plan pattern. The visible control is a styled pill button; the native input is hidden and triggered programmatically.
+
+```html
+<button type="button" class="fs-date-btn" id="myDateBtn">
+  <span id="myDateLabel">Sun, May 10</span>
+</button>
+<input type="date" class="fs-date-hidden" id="myDateInput" value="2026-05-10">
+```
+
+```js
+btn.addEventListener('click', () => {
+  if (typeof input.showPicker === 'function') input.showPicker();
+  else input.focus();
+});
+input.addEventListener('change', () => {
+  label.textContent = formatDateShort(input.value);
+});
+```
+
+Same rule applies to Reward "Expires", One-Time task date, Event date, Badge date conditions, recipe cook-date, etc. **Never expose `<input type="date">` as the visible control.**
+
+#### Time input
+
+Use the existing 6-element AM/PM pattern from `renderEventForm` — hour input + AM/PM button + arrow → repeat for end time. Helpers `ef2ParseTime`, `ef2HourOpts`, `ef2MinOpts`, `ef2AmPmOpts` exist in `shared/components.js` — reuse them. **Never use `<input type="time">`.**
+
+#### Inline pickers
+
+For any "tap to reveal a small selector inline" interaction (date pill expanding to a calendar, time pill expanding to AM/PM controls, day-of-week pill expanding):
+
+```css
+.fs-picker-wrap { max-height: 0; overflow: hidden; transition: max-height 0.2s ease; }
+.fs-picker-wrap.is-open { max-height: <enough-for-content>; }
+```
+
+Multiple pickers in the same section are mutually exclusive (opening one closes the others).
+
+#### Person chip state machine
+
+- **Unselected:** gray chip, color dot before name (uses `--chip-color` per-chip CSS var set via JS).
 - **Primary** (`data-state="primary"`): solid fill in person's color, white text.
 - **Attending** (`data-state="attending"`): outlined in person's color, person color text.
-- **Family** chip (`.ef2-person-chip--family`) uses `--accent` not a person color; lives next to the section label, not in the scrollable row.
+- **Family chip** (`.<prefix>-person-chip--family`) uses `--accent`, lives next to the section label. **Optional per form** — Task and Badge don't need primary/attending distinction so a Family chip is a quick "all family" shortcut. Adding a Family chip to a form that lacks one is a feature decision tracked in ROADMAP, not a polish blocker.
 - Click rules: unselected → primary if no primary set, else attending. Attending → primary (demote old). Primary → deselect (promote first attending).
 - Set `--chip-color` after mount: `chip.style.setProperty('--chip-color', chip.dataset.personColor)`.
 - Container is `flex-wrap: nowrap; overflow-x: auto` with a `mask-image` fade gradient on the right edge for scroll affordance. Hide scrollbar.
 
-**Add chips (Notes / Location / Repeat / etc.):**
-- Dashed border when off, solid border when active. Same color either way (no big visual weight change).
+For forms with multi-select but no primary/attending semantics (Task assignees, Badge "Visible to"), the chip primitive accepts a `mode: 'multi'` flag that disables the primary/attending state machine and uses simple selected/unselected.
+
+#### Add chips (Notes / Location / Repeat / Options / etc.)
+
+- Dashed border when off, solid border when active. **Same color either way (no big visual weight change).** Solid-black-fill is forbidden.
 - Toggle the reveal: tap once to open and focus, tap again to close. The ✕ button inside the reveal is a secondary close path.
 - `min-height: 32px`, `padding: 4px 10px`, `font-size: var(--font-sm)`. Compact — these are not primary actions.
 
-**Title input focus:**
+#### Title input focus
+
 `outline: none; box-shadow: none; border-color: transparent;` on `:focus`. The input is large enough that browser focus chrome reads as visual noise. Validation failure uses a shake animation + bottom-border in `--danger`.
 
-**Icon button focus:**
-`outline: none; background: var(--surface-2); color: var(--text);` on `:focus-visible`. NOT an outline ring — that lingers visibly when the icon's sub-sheet opens on top of the form and looks broken.
+#### Icon button focus
 
-**Validation:**
-- Required fields: pulse-shake animation + red bottom-border. Don't show inline error text; the shake is enough.
+`outline: none; background: var(--surface-2); color: var(--text);` on `:focus-visible`. **Not** an outline ring — that lingers visibly when the icon's sub-sheet opens on top of the form and looks broken.
+
+#### Text input focus (no browser default ring)
+
+`.bottom-sheet input:focus, .bottom-sheet textarea:focus { outline: none; box-shadow: none; }` (or scoped equivalent in form CSS). Per-input focus is signaled by background tint or no chrome at all. **Browser default focus rings (the magenta default on Android Chrome, the blue ring on iOS Safari) are explicitly forbidden inside form sheets.** Audit at PR time.
+
+#### Validation
+
+- Required fields: pulse-shake animation + red bottom-border. Don't show inline error text; the shake plus the visible disabled-save state is enough.
 - No `window.confirm` or `window.alert`. Use inline confirm patterns (e.g. delete zone with "Delete this? [Delete] [Keep]" buttons that toggle visibility) or the shared `showConfirm()` helper.
 
-**AI integration in forms:**
+#### Sub-sheet stacking (when a form opens another sheet)
+
+Use a SECOND overlay (`<form-prefix>-subsheet-overlay` appended to `document.body`) on top of the existing bottom-sheet, NOT a navigation push. The Repeat sub-sheet, Photo source picker, and iCal URL prompt all use this pattern. Animate up from bottom; close removes from DOM after the transition. Returning to the parent form re-mounts via `openXForm(existingId, savedFormState)` — see "Form state preservation" below.
+
+**Sub-sheet shell rules:**
+- ✕ in the header is the dismissal control. **Don't add a `← Back` link AND a Cancel button** — pick one (Cancel button in footer if the sheet has a confirmation step; ✕ alone if dismissal commits nothing).
+- Footer follows the same `fs-footer` pattern as the parent — Cancel + primary action where confirmation is needed.
+
+#### Form state preservation across sub-sheets
+
+Inner function `captureFormState()` serializes the live form to a plain object before navigating to a sub-sheet. On return, the parent form re-renders with `existingId` and `savedState` so the user's in-progress edits don't vanish. Capture EVERY field including transient UI state (`notesOpen`, `isFamilyMode`) — fields that only exist in DOM state will be lost on round-trip otherwise. The renderer's input object accepts these transient flags as overrides (`event.notesOpen ? ' is-open' : ''`).
+
+#### AI integration in forms
+
 - Inline NL parse (magic wand): single tap → fills fields. Show error inline below the title for ~3s then fade. Use a stored `errDismissTimer` so a second tap clears the first timer (don't clobber a fresh error with a stale timeout).
 - Photo / URL / file imports: open a picker sheet. Optional context input above the source buttons — pre-fill from the title field if non-empty. The context goes to the AI as `input.context` and the prompt must be designed to honor it.
 - Heuristic-only on auto-runs (free, instant). AI on explicit user action (wand button, import tap). See §13.13 "Form authoring recipe" for the full pattern.
 
-**Edit-mode delete zone:**
-Below the sticky footer, separated by a visible gap. Destructive red text style. Tap reveals inline confirm (`Delete this event? [Delete] [Keep]`) — never a separate sheet, never `window.confirm`. On error, route message through the same `ef2_importError` slot the save errors use.
+#### Edit-mode delete zone
 
-**Inline child-form (when a form has a "+ Create new" shortcut):**
+Below the sticky footer, separated by a visible gap. Destructive red text style. Tap reveals inline confirm (`Delete this event? [Delete] [Keep]`) — never a separate sheet, never `window.confirm`. On error, route message through the same `import-feedback` slot the save errors use.
+
+#### Inline child-form (when a form has a "+ Create new" shortcut)
+
 When a picker or form contains a `+ New X` action that needs to create a new item from scratch, open the child form in the same `taskSheetMount` — do NOT navigate away to another page. Pattern:
+
 ```js
-document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
-  const day = document.getElementById('kp_day')?.value;
-  const slot = document.getElementById('kp_slot')?.value;
+document.getElementById('createRecipeBtn')?.addEventListener('click', () => {
+  const day = document.getElementById('day')?.value;
+  const slot = document.getElementById('slot')?.value;
   closeTaskSheet();
   setTimeout(() => openChildForm((newId) => {
     setTimeout(() => openParentForm(slot, day, newId), 320);
   }), 320);
 });
 ```
+
 - The 320ms gap is the sheet animation budget — don't skip it.
 - The child `onSave` callback receives the new ID; pass it back to the parent as a pre-selection argument.
 - If the child form already exists in another page's JS (e.g. `openRecipeForm` in `kitchen.js`), copy it as a page-local function rather than navigating. The copy uses `taskSheetMount` and `closeTaskSheet()` instead of the source page's mount/close pattern.
 - The child form does NOT need a `savedState` round-trip because the parent form re-opens fresh — no state to preserve.
 
-**Don'ts:**
-- ❌ Don't use `<input type="time">` (the wheel).
+#### Shared primitives target (Phase 1 of form-system initiative)
+
+Target architecture: every form composes from these primitives. They live in `shared/components.js` (renderers) and `styles/components.css` (CSS, `fs-*` prefix). Until built, the list documents the target. Existing per-form copies stay in place during migration — replace incrementally (Phase 3).
+
+| Primitive | Anchor today | Status |
+|---|---|---|
+| `renderFormFooter({ saveLabel, isEdit, disabled })` | Meal Plan `kp-footer` | TODO Phase 1 |
+| `renderFormSheetHeader({ title, isEdit, hasSaveIcon, hasDeleteIcon })` | Event Form `sheet__header` | TODO Phase 1 |
+| `renderDateInput({ id, value, label })` | Meal Plan `kp-date-btn` | TODO Phase 1 |
+| `renderTimeInput({ start, end })` | Event Form 6-element picker | TODO Phase 1 (extract existing) |
+| `renderChipPicker({ options, selected, mode })` | Meal Plan slot segmented | TODO Phase 1 |
+| `renderEmojiPicker({ selected, options })` | New (no consistent in-app reference) | TODO Phase 1 |
+| `renderColorPicker({ selected, palette })` | `cpick-` (Person form) | TODO Phase 1 (promote existing) |
+| `renderPersonChips({ people, mode: 'multi'\|'primary-attending', value })` | Event Form `ef2-person-chip` | TODO Phase 1 (extract existing) |
+| `renderSwitchToggle({ id, label, value, helper? })` | Category `.form-toggle` | TODO Phase 1 |
+| `renderHelperText({ children })` | Category `form-hint` | TODO Phase 1 (CSS-only, drop inline `style=""`) |
+| `renderInlineReveal({ id, isOpen, children, closeLabel })` | Event Form `ef2-field-reveal` | TODO Phase 1 |
+| `renderFormSubSheet({ title, children, onCancel, onConfirm, confirmLabel })` | Event Form Repeat sub-sheet | TODO Phase 1 |
+
+#### Spec drift acknowledgements (v1 → v2)
+
+The previous version of §5.23 described the Event Form as "the canonical reference." The implementation diverged. This revision corrects:
+
+- **Sticky footer** — v1 required it on Event Form; implementation lacks it. v2 mandates `fs-footer` on every form. Event Form must add one (Phase 2 of initiative).
+- **Family chip** — v1 described `.ef2-person-chip--family` as part of the canonical Event Form; implementation has none. v2 marks Family chip as **optional per form**, with its style still documented above for forms that choose to include one. Adoption per form is tracked in ROADMAP, not as a polish blocker.
+- **Magenta focus outline** — v1 ruled out outline rings inside forms; implementation showed a magenta default-browser ring on the Location input. v2 adds an explicit text-input focus rule + grep audit at PR time.
+- **Native `<input type="date">`** — v1 implied an inline date picker; implementation exposed the OS native input through `ef2-picker-wrap`. v2 adopts Meal Plan's pill + `.showPicker()` pattern as the universal date convention.
+- **Active chip state** — v1 said "no big visual weight change" for active chips; implementation went solid-black-fill on `+ Notes` / `+ Location` / `+ Options` / `Approval required`. v2 forbids solid-black-fill explicitly and lists the two allowed treatments.
+
+#### Don'ts (consolidated)
+
+- ❌ Don't ship a form sheet without a sticky `fs-footer` (Cancel + labeled primary action).
+- ❌ Don't ship a primary save action without a visible `disabled` state when required fields are empty.
+- ❌ Don't expose raw `<input type="date">` as the visible control — use the `fs-date-btn` pattern.
+- ❌ Don't use `<input type="time">` (the wheel) — use the 6-element AM/PM picker.
+- ❌ Don't use solid-black-fill for chip-toggle active state — solid border, same color.
+- ❌ Don't invent a third "active" or "selected" treatment beyond the two allowed.
+- ❌ Don't use a chip-toggle when the semantic is a switch (always-on/always-off binary) — use `.form-toggle` per §5.16.
 - ❌ Don't add horizontal padding to form sections — `.bottom-sheet__content` provides it.
-- ❌ Don't use outline rings on focus inside the form — use background tint.
-- ❌ Don't push a new bottom-sheet for sub-flows; stack with `.ef2-subsheet-overlay`.
-- ❌ Don't lose form state when navigating to a sub-sheet — `captureFormState` + `savedState` pass-through is required.
-- ❌ Don't put inline `style=""` in HTML — set CSS vars via JS (`element.style.setProperty('--var', value)`) instead.
-- ❌ Don't reuse another form's CSS prefix. Pick a new one (`tf-*`, `rf-*`, etc.).
+- ❌ Don't use outline rings on focus inside the form — use background tint or no chrome.
+- ❌ Don't show the browser default focus ring on text inputs — explicit reset required.
+- ❌ Don't push a new bottom-sheet for sub-flows; stack with `<prefix>-subsheet-overlay`.
+- ❌ Don't add a `← Back` link AND a Cancel button to a sub-sheet — pick one.
+- ❌ Don't lose form state when navigating to a sub-sheet — `captureFormState` + `savedState` round-trip is required.
+- ❌ Don't put inline `style=""` in HTML — set CSS vars via JS or use a class.
+- ❌ Don't reuse another form's prefix for unrelated styles — `fs-` for shared, per-form prefix only for genuinely unique classes.
 - ❌ Don't navigate to another page to open a child form — use the inline close-delay-open callback pattern.
 
 ---
@@ -705,7 +881,7 @@ Each area lists: current contents, expansion plan, layout rules, component usage
 5. **Coming up rail** *(3.3)* — collapsed by default: `Coming up · N events this week` / `Coming up · clear week`. Expands inline to day-blocks (today excluded; events-only count, no task summaries). Tapping a day-block head jumps `viewDate`. Persists state in `localStorage['dr-coming-up-state']`.
 6. **Events section** — `.card.card--event` list (events before tasks). Tap = detail sheet; long-press 800ms = same.
 7. **Today section** — `.card` task list. Flat sort: incomplete (owner → late-today → TOD → name), completed (owner → TOD → name). Section meta carries score chips when filter set to one person: `X of Y done · NN pt · GRADE`. `pt` = store-economy points (today's percentage × multiplier). When filter = All, meta = `X of Y done` only. `settings.showPoints` and per-card scoring-point chips removed.
-8. **FAB** + **Bottom nav** — FAB pre-fills `viewDate` and `activePerson`. Phone tab bar = 4 slots (Home · Scores · Tracker · More); 5th slot reserved for Kitchen or Activities, whichever earns promotion first.
+8. **FAB** + **Bottom nav** — FAB pre-fills `viewDate` and `activePerson`. See [ROADMAP.md](../ROADMAP.md) Nav Bar section for current slot assignments.
 
 **Tablet:** two-pane. **Left pane** (~520px) = action surface (Header + Banner are full-width above; left pane has Today section + filter chip). **Right pane** (~380px) = day's context (Ambient strip 1-up vertical → Coming up always-expanded → Events). FAB lives bottom-right of the right pane.
 
@@ -891,8 +1067,8 @@ Header: back chevron + `Admin` title + search. Section switcher: horizontal pill
 The Store is a **first-class destination**, not an annex of the Scoreboard. Adults and kids see the same component, same tabs, same cards — only the post-Redeem flow differs (immediate vs approval-gated).
 
 **Opens from (four routes, all into the same component):**
-- **More tab (phone) / left rail entry (tablet)** — *primary.* Direct navigation. Discoverable for both adults and kids regardless of scoreboard-checking habits. This is the one that makes the Store feel like a real destination rather than a scoreboard sub-feature.
-- **Scoreboard balance card → "Open Store" CTA** — *contextual.* You're already looking at points; tapping through is natural. Demoted from primary in favor of the More-tab entry.
+- **Rewards nav tab (phone) / left rail entry (tablet)** — *primary.* Direct navigation via the dedicated tab. Rewards earned its own tab slot; it is no longer in the More sheet.
+- **Scoreboard balance card → "Open Store" CTA** — *contextual.* You're already looking at points; tapping through is natural.
 - **Bell notification → deep-link** — *intent-specific.* Approval requests open the Approvals view, redemption outcomes open the relevant reward, bank arrivals open Bank. Bell is the notification surface; it steers into Store, doesn't duplicate it.
 - **Kid mode → Store tile** — *kid home entry.* Unchanged.
 
@@ -908,7 +1084,7 @@ The Store is a **first-class destination**, not an annex of the Scoreboard. Adul
 - Approved custom rewards go to Bank.
 - Using from Bank: adults immediate, kids request via `use-request` message → parent approves.
 
-**Audience parity rule:** The adult experience and kid experience must use the same card patterns, same tab order, same balance display. Audience-specific differences are **flow-level only** (approval gates), not **layout-level** (no separate adult-only Store page or kid-only tabs). This is what the Phase 6 rework (see plan `2026-04-19-ui-rework.md`) establishes — today's adult-in-Scoreboard experience is out of compliance with this rule.
+**Audience parity rule:** The adult experience and kid experience must use the same card patterns, same tab order, same balance display. Audience-specific differences are **flow-level only** (approval gates), not **layout-level** (no separate adult-only Store page or kid-only tabs).
 
 **Backlog integration:**
 - New reward types plug into existing `rewardType` enum. No new UI patterns.
@@ -956,10 +1132,11 @@ Person-specific behavior is limited to: title = person's name, saved filter pers
 **Purpose:** Combined home for meal planning and shared shopping lists — supersedes the standalone 1.3 Meals and 1.7 Shopping backlog items.
 
 **Layout:**
-- Header: `Kitchen` + top-level Tabs: `Meals | Shopping`.
-- **Meals tab:** week-at-a-glance meal planner. Rows = days; columns = slots (Breakfast / Lunch / Dinner / Snack). Tap a slot → meal picker sheet with library autocomplete. `.card.card--meal` for library rows. FAB: add/plan a meal.
-- **Shopping tab:** shared grocery lists. Sub-Tabs: Grocery | Costco | Target | +. List rows: `.card.card--shopping`, checkbox in leading slot, strikethrough + sink on check. FAB: add item. Autocomplete from past items. Category grouping optional.
-- Meal library management (add/edit/archive saved meals) lives in the Meals tab overflow menu, not in Admin.
+- Header: `Kitchen` + top-level Tabs: `Meals | Recipes | Lists`.
+- **Meals tab:** 7-day forward look (today + 6 days). One row per day; tap a row → meal picker sheet (`openPlanMealSheet`) with recipe library autocomplete and slot selector. FAB: plan a meal. School-lunch slots display below the main meal row when set.
+- **Recipes tab:** recipe library. Each recipe: `.card.card--recipe` with name, source chip, prep/serves metadata. Tap → recipe detail sheet (hero image, two-column ingredients, metadata chips). FAB: add recipe (URL import or manual). Wand button triggers AI deep-clean (cleanList Worker handler: dedup, rename, re-categorize).
+- **Lists tab:** shared shopping lists. Each list is its own sub-view. List rows: `.card.card--shopping`, checkbox in leading slot, strikethrough + sink on check. FAB: add item. Bulk-add FAB (add many items quickly). AI auto-categorize on add. Tap-and-hold → delete prompt.
+- Meal library management (edit/archive saved recipes) lives in the recipe detail sheet, not in Admin.
 
 **Kid view:** read-only Tonight's Dinner tile; optional shopping peek for lists marked kid-visible.
 **Kiosk:** prominent tile in kiosk More menu; meals section in day-column view.
@@ -1164,7 +1341,7 @@ Themes redefine color tokens at `:root[data-theme="sage"]` etc. Never redefine s
 
 - ❌ Do not add a fifth tab style; use `.tabs` with variants.
 - ❌ Do not add a seventh card pattern; add a `.card--variant`.
-- ❌ Do not build a new form sheet without following §5.23 (Form sheet pattern). The Event Form is the canonical reference. Don't use `<input type="time">`, don't add horizontal padding to form sections (the bottom-sheet provides it), don't use outline focus rings inside a form, don't push a separate bottom-sheet for sub-flows (use `.&lt;prefix&gt;-subsheet-overlay`), don't lose form state across sub-sheets (`captureFormState` + `savedState` pattern).
+- ❌ Do not build a new form sheet without following §5.23 v2 (Form sheet pattern). Every form sheet must have a sticky `fs-footer` (Cancel + labeled primary action), a visible `disabled` state on the primary save when required fields are empty, no raw `<input type="date">` exposed (use the `fs-date-btn` pill + `.showPicker()` pattern), no `<input type="time">` (use the 6-element AM/PM picker), no horizontal padding on sections (the bottom-sheet provides it), no outline focus rings inside the form (text inputs included — explicit reset required to suppress the browser default), no solid-black-fill for chip-toggle active states (solid border, same color, only), no third "active" or "selected" treatment beyond the two allowed in §5.23, no chip-toggle when the semantic is a switch (use `.form-toggle` per §5.16), no separate bottom-sheet for sub-flows (use `.<prefix>-subsheet-overlay`), no `← Back` link AND a Cancel button on the same sub-sheet (pick one), no lost form state across sub-sheets (`captureFormState` + `savedState` pattern).
 - ❌ Do not auto-focus any input when a form or sheet opens. No `.focus()` in the `requestAnimationFrame` that activates the sheet, and no `autofocus` attribute. Auto-focus pops the phone keyboard before the user is ready. Permitted: focus triggered by a user tap inside an already-open form (chip toggle, "Add ingredient" button, validation failure). Inline item-add fields (shopping list, bulk add) are exempt — their sole purpose is typing.
 - ❌ Do not use emoji in nav, tabs, buttons, banners, status chips, headers, form labels.
 - ❌ Do not lock the page with `overflow:hidden; height:100dvh` outside kiosk.
@@ -1354,43 +1531,52 @@ Violations: tablet-as-wider-phone, no layout change, no density change, no left 
 
 ---
 
-### 13.13 Form authoring recipe (build a new form to match Event Form)
+### 13.13 Form authoring recipe (build a new form against §5.23 v2)
 
-When porting an existing form (task, recipe, person, reward, list, etc.) to the new pattern, follow these steps in order. The Event Form is the reference — read §5.23 alongside this recipe.
+When porting an existing form (task, recipe, person, reward, list, etc.) to the new pattern, follow these steps in order. Read §5.23 alongside this recipe — the canonical anchor map and primitives table there are the authoritative reference.
 
-**Step 1 — Pick a CSS prefix.** New prefix per form. Examples: `tf-` task form, `rf-` recipe form, `pf-` person form. Append your CSS block to `styles/components.css` after the existing form sections; bracket it with `/* ── <Form name> ─────── */` and `/* ── End <Form name> ── */` comments.
+**Step 1 — Pick CSS prefixes.** Use `fs-` for shared primitives (footer, helper, date button, picker reveal, sub-sheet shell). Use a per-form prefix (`tf-` task, `rf-` recipe, `pf-` person, `bf-` badge, etc.) only for genuinely unique classes. Append your CSS block to `styles/components.css` after the existing form sections; bracket it with `/* ── <Form name> ─────── */` and `/* ── End <Form name> ── */` comments.
 
-**Step 2 — Add the renderer to `shared/components.js`.** Pure HTML generator, exported. Signature: `renderXForm({ existing?, mode: 'create'|'edit', ...context })` returning a string. Mirror the section order from §5.23. Use `esc()` on every interpolated value. Do not call `document.*` from this function.
+**Step 2 — Add the renderer to `shared/components.js`.** Pure HTML generator, exported. Signature: `renderXForm({ existing?, mode: 'create'|'edit', ...context })` returning a string. Mirror the section order from §5.23. Use `esc()` on every interpolated value. Compose from the §5.23 shared primitives where they exist (`renderFormFooter`, `renderDateInput`, `renderSwitchToggle`, etc.). Do not call `document.*` from this function.
 
 **Step 3 — Add the wiring function to the page-level JS.** Signature: `openXForm(existingId = null, savedState = null)`. Pattern matches `openEventForm`:
-1. Resolve `event = savedState || (existingId ? collection[existingId] : {})`.
+1. Resolve `existing = savedState || (existingId ? collection[existingId] : {})`.
 2. Set `mode` from `existingId`.
-3. `taskSheetMount.innerHTML = renderBottomSheet(renderXForm({ event, eventId: existingId, ...context, mode }))`.
+3. `taskSheetMount.innerHTML = renderBottomSheet(renderXForm({ existing, existingId, ...context, mode }))`.
 4. Apply per-element CSS vars via JS (e.g. `chip.style.setProperty('--chip-color', chip.dataset.personColor)`).
 5. `requestAnimationFrame` to add `.active` only — **do not focus any input on open**. Auto-focus pops the phone keyboard before the user is ready. Focus is only permitted in response to an explicit user action inside the already-open form (e.g. tapping a chip/button, validation failure shake).
 6. Wire all listeners.
 7. Define `captureFormState()` inner function — must serialize EVERY field including transient UI state.
-8. Save handler: validate, build object, call Firebase write, `closeTaskSheet()`, `render()`. On error: re-enable button, show error in the import-feedback slot.
+8. Wire the disabled-save state: on every required-field input event, set `saveBtn.disabled = !isFormValid()`. Apply to BOTH the header ✓ icon AND the footer primary button so they stay in sync.
+9. Save handler: validate, build object, swap primary button to spinner state if the save involves async work (>150ms or AI/upload), call Firebase write, `closeTaskSheet()`, `render()`. On error: re-enable button, show error in the import-feedback slot.
 
-**Step 4 — Reuse helpers, don't recreate.** From `shared/components.js`: `ef2ParseTime`, `ef2HourOpts`, `ef2MinOpts`, `ef2AmPmOpts` for time pickers. From `shared/ai-helpers.js`: `resizeImageForUpload`, `renderConfirmRow`, `openMonthClarificationSheet`. From `shared/components.js`: `renderBottomSheet`, `showConfirm`, `showToast`. Don't import per-form variants.
+**Step 4 — Reuse helpers, don't recreate.** From `shared/components.js`: `ef2ParseTime`, `ef2HourOpts`, `ef2MinOpts`, `ef2AmPmOpts` for time pickers; the Phase-1 `fs-*` primitives once shipped. From `shared/ai-helpers.js`: `resizeImageForUpload`, `renderConfirmRow`, `openMonthClarificationSheet`. From `shared/components.js`: `renderBottomSheet`, `showConfirm`, `showToast`. Don't import per-form variants.
 
-**Step 5 — Sticky footer.** Copy the `ef2-footer` CSS block, rename the prefix. Don't try to use the global `.sheet__footer` — it doesn't break out of the bottom-sheet padding the same way. The sticky-footer rule from §5.23 is non-negotiable.
+**Step 5 — Sticky footer is mandatory.** Use `renderFormFooter()` (when shipped) or the shared `.fs-footer` CSS. Don't inline a copy of the footer block — that guarantees drift over time. The previous "copy `ef2-footer`, rename the prefix" guidance is retired in v2.
 
-**Step 6 — Form sections get NO horizontal padding.** Vertical only. The bottom-sheet content provides the single layer of horizontal padding. Verify on a 360px-wide viewport — title and section content should sit at the same left edge.
+**Step 6 — Disabled save state on empty required fields.** Both header ✓ and footer primary button reflect `disabled` on input. Visible disabled style: `opacity: 0.5; pointer-events: none;`. Required fields: title (always), plus per-form (e.g. recipe needs ingredients > 0, badge needs condition + threshold, reward needs name + points).
 
-**Step 7 — Focus styling.** Title input: `outline: none; box-shadow: none; border-color: transparent` on `:focus`. Icon buttons: `outline: none; background: var(--surface-2)` on `:focus-visible`. NEVER an outline ring inside a form sheet.
+**Step 7 — Saving spinner where async work matters.** AI calls, image uploads, network writes >150ms — show spinner inside primary button (`<span class="spinner spinner--sm"></span> Saving…`). Local Firebase writes — skip, too fast to be useful.
 
-**Step 8 — Validation.** Required field empty on save? Pulse-shake the field with a red bottom border. No inline error text — the shake is enough. Use the same `<form-prefix>-shake` keyframe pattern as `ef2-shake`.
+**Step 8 — Active state treatments.** Two only: purple-filled (segmented controls) or solid-border (chip-toggles + reveal triggers). No solid-black-fill. No third treatment. See §5.23 "Active states".
 
-**Step 9 — Sub-sheets.** If the form has any "secondary picker" flow (recurrence, source picker, list picker), use a second `<div class="<prefix>-subsheet-overlay">` appended to `document.body`. Capture form state before opening; on cancel/return, re-call `openXForm(existingId, savedState)`.
+**Step 9 — Form sections get NO horizontal padding.** Vertical only. The bottom-sheet content provides the single layer of horizontal padding. Verify on a 360px viewport — title and section content sit at the same left edge.
 
-**Step 10 — Edit mode delete.** Below the sticky footer in a `<form-prefix>-delete-zone`. Inline confirm with two buttons. Never `window.confirm`. Hide the trigger button when the confirm is open; restore on "Keep".
+**Step 10 — Focus styling.** Title input: `outline: none; box-shadow: none; border-color: transparent` on `:focus`. Icon buttons: `outline: none; background: var(--surface-2)` on `:focus-visible`. Text inputs inside the form: explicit `outline: none; box-shadow: none` to suppress the browser default focus ring. NEVER an outline ring inside a form sheet.
 
-**Step 11 — AI features (if applicable).** Wand for NL parse fills directly. Photo/file import opens a source picker sheet with an "Optional note for AI" input pre-filled from the title field. Worker calls always have a fallback (heuristic for dedup, no-op for autofill). Errors show in the import-feedback slot, auto-dismiss after 3s using a stored timer (clear before setting a new one).
+**Step 11 — Validation.** Required field empty on save? Pulse-shake the field with a red bottom border. No inline error text — the shake plus the visible disabled-save state is enough. Use the same shake-keyframe pattern as `ef2-shake`.
 
-**Step 12 — Bump the SW cache** (`sw.js` `CACHE_NAME`) when you ship. New version number, add a one-line comment in the changelog block.
+**Step 12 — Date inputs use the `fs-date-btn` pattern.** Visible pill button + hidden `<input type="date">` triggered via `.showPicker()`. Never expose the raw native input. Same rule for One-Time task date, Reward Expires, Badge date conditions.
 
-**Step 13 — Update this doc.** If your new form deviates from §5.23 in any way, document the deviation here in §13 with a named example. Drift compounds — a one-off "this form is special" becomes the next person's reference if it isn't called out.
+**Step 13 — Sub-sheets.** If the form has any "secondary picker" flow (recurrence, source picker, list picker), use a second `<div class="<prefix>-subsheet-overlay">` appended to `document.body`. Single back-out path — ✕ in the header OR Cancel button in the footer, not both. Capture form state before opening; on cancel/return, re-call `openXForm(existingId, savedState)`.
+
+**Step 14 — Edit mode delete.** Below the sticky footer in a `<form-prefix>-delete-zone`. Inline confirm with two buttons. Never `window.confirm`. Hide the trigger button when the confirm is open; restore on "Keep".
+
+**Step 15 — AI features (if applicable).** Wand for NL parse fills directly. Photo/file import opens a source picker sheet with an "Optional note for AI" input pre-filled from the title field. Worker calls always have a fallback (heuristic for dedup, no-op for autofill). Errors show in the import-feedback slot, auto-dismiss after 3s using a stored timer (clear before setting a new one).
+
+**Step 16 — Bump the SW cache** (`sw.js` `CACHE_NAME`) when you ship. New version number, add a one-line comment in the changelog block.
+
+**Step 17 — Update this doc.** If your new form deviates from §5.23 in any way, document the deviation here in §13 with a named example. Drift compounds — a one-off "this form is special" becomes the next person's reference if it isn't called out.
 
 ---
 
@@ -1413,8 +1599,11 @@ When porting an existing form (task, recipe, person, reward, list, etc.) to the 
 | 2026-04-19 | v1.0 initial spec | Design audit + rework planning |
 | 2026-04-24 | §6.9 person-mode parity rule + mount-point shell parity; §12 added three non-negotiables (no `!linkedPerson` core-control gates, no `header-height` on wrapper padding, single-gutter rule) | Phase 1 + 1.5 shipped with `!linkedPerson` hiding bell/overflow/filter chip and a missing `#fabMount` in `person.html`; also surfaced double-counted header-height and double horizontal gutter after the card density pass. Codifying so future work doesn't regress. |
 | 2026-04-25 | §6.1 dashboard rewritten as 8-section final form (adds Coming up rail, codifies ambient strip default, defines tablet two-pane split, declares kiosk reflection); §6.9 retired the `Viewing as {Name}` pill; §7.3 expanded banner-mount list to scoreboard + tracker and documented overdue body-tappable + `--info` sub-uses; §5.9 documented `--info` sub-uses. | Final-form dashboard design spec ([2026-04-25-dashboard-final-design.md](../superpowers/specs/2026-04-25-dashboard-final-design.md)) approved after Phase 2 calendar shelving made the dashboard the only phone-side surface for forward-look. Doc edits ride in the same PR that ships the spec so docs stay coherent ahead of implementation. |
+| 2026-05-09 | §5.1 task card flat-list pattern + owner color stripe documented; §5.1a section head component added; §4.1 header subtitle + connectivity dot documented; §2 + §5.14 nav slot specifics moved to ROADMAP.md. | Dashboard used as design reference — these patterns were implemented but not specced, causing drift risk in future sessions. |
+| 2026-05-09 | §5.14 nav slots updated (Home · Kitchen · Scores · Rewards · More; More sheet: Admin, Calendar, Tracker, Theme); §6.1 dashboard tab count corrected; §6.7 Rewards primary entry updated (tab, not More sheet); §6.10 Kitchen tabs updated (Meals | Recipes | Lists) + Meals tab layout corrected to 7-day single-slot-per-day; stale plan reference removed from §6.7. | Drift audit — spec was still describing old nav (Home/Calendar/Scores/Tracker/More) and old Kitchen layout (Meals/Shopping with multi-column slots). App shipped Kitchen as tab #2, Rewards as tab #4, and split Shopping into Recipes + Lists tabs. |
 | 2026-05-02 | §5.24 Picker-list form pattern (`kp-*`); §5.23 inline child-form section; §12 two new non-negotiables (no page navigation for child forms, no `sheet__content` in picker forms). | Dashboard meal picker rewritten to match kitchen's `openPlanMealSheet`. Codifying the `kp-*` structure so every "pick from library" form uses the same layout. Inline child-form pattern (`+ New recipe` opens form in same sheet via close-delay-open callback, no navigation) extracted as a named rule so future forms don't reach for sessionStorage. |
 | 2026-05-01 | §5.23 Form sheet pattern (Event Form as canonical reference) + §13.13 form authoring recipe + §12 non-negotiable for new forms. | Event Form Redesign ([2026-05-01-event-form-redesign.md](../superpowers/specs/2026-05-01-event-form-redesign.md)) shipped. Pattern cascades to all other forms (task, recipe, person, reward, list, settings). Codifying so the next form session matches without reinventing — sticky-footer breakout, no horizontal padding on sections, custom time picker (no native wheel), inline pickers, person chip state machine, sub-sheet stacking via second overlay, captureFormState round-trip. |
+| 2026-05-10 | §5.23 reframed v1→v2 (best-of-app composite anchor map; new mandates for sticky `fs-footer`, disabled-save state, saving-spinner rules, `fs-date-btn` date convention, two-only active-state palette, two-only selection-state palette, `fs-` shared CSS prefix, primitives-target table); §13.13 rewritten to compose from primitives instead of "match Event Form"; §12 form-sheet non-negotiable updated to enumerate the new requirements. ROADMAP appended with "Tier — Form Polish Initiative" parked feature items. | Form review ([2026-05-09-form-review.md](../superpowers/specs/2026-05-09-form-review.md)) showed the Event Form implementation diverged from the v1 §5.23 spec (no sticky footer, raw `<input type="date">`, magenta default focus rings on text inputs, solid-black-fill chip-toggles, missing Family chip). Reframing anchors each pattern on its best in-app implementation today (sticky footer = Meal Plan; date input = Meal Plan pill+showPicker; switch = Category `.form-toggle`; helper text = Category `form-hint`; inline reveal + sub-sheets + person chips = Event Form). Phase 0 of the form-polish initiative — Phase 1 builds the `fs-*` primitives, Phase 2 brings Event Form up to spec, Phase 3 propagates to every other form, Phase 4 dedupes the 3× Repeat / 3× Photo source / 2× iCal sub-sheet copies, Phase 5 is the a11y + tap-target + transition sweep. Feature-shaped findings (Family chip, avatar upload, color picker on Reward, recipe ingredient autocomplete, badge wizard, etc.) moved to ROADMAP as separate product decisions. |
 
 Updates to this doc require the PR description to cite the section changed and the reason.
 
