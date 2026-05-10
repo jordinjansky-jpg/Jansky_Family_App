@@ -167,13 +167,14 @@ export function applyDataColors(root) {
 
 /**
  * Derive 1-2 letter initials from a person's name when they haven't set custom ones.
- * "Jordin" → "JO", "Mary Sue" → "MS"
+ * "Jordin" → "J", "Mary Sue" → "MS". Single-name people get one letter so the
+ * default avatar matches the name's first letter (set custom initials for "JJ").
  */
 export function derivePersonInitials(name) {
   if (!name) return '';
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  if (parts.length === 1) return parts[0][0].toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
@@ -197,6 +198,120 @@ export function renderPersonAvatar(person, opts = {}) {
   return `<span class="person-avatar person-avatar--${size}${extraClass}" data-bg-color="${esc(color)}">
     <span class="person-avatar__initials">${esc(initials)}</span>
   </span>`;
+}
+
+/**
+ * Open a circular photo cropper. User drags to pan, zooms with slider/pinch.
+ * Calls onApply(dataUrl) with a JPEG data URL sized to `size` × `size`.
+ */
+export function openPhotoCropper({ file, size = 320, onApply, onCancel }) {
+  const WIN = 280;
+  const overlay = document.createElement('div');
+  overlay.className = 'photo-cropper-overlay';
+  overlay.innerHTML = `<div class="photo-cropper">
+    <div class="sheet__header"><h2 class="sheet__title">Adjust photo</h2></div>
+    <div class="pc-window" id="pc_win">
+      <img class="pc-image" id="pc_img" alt="">
+    </div>
+    <div class="pc-zoom-row">
+      <span aria-hidden="true">−</span>
+      <input type="range" id="pc_zoom" min="100" max="300" value="100" step="1">
+      <span aria-hidden="true">+</span>
+    </div>
+    <div class="sheet__footer pc-footer">
+      <button class="btn btn--ghost" id="pc_cancel" type="button">Cancel</button>
+      <button class="btn btn--primary" id="pc_apply" type="button">Apply</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('active'));
+
+  const img = overlay.querySelector('#pc_img');
+  const winEl = overlay.querySelector('#pc_win');
+  const zoom = overlay.querySelector('#pc_zoom');
+
+  let imgW = 0, imgH = 0;
+  let baseScale = 1;
+  let zoomMul = 1;
+  let tx = 0, ty = 0;
+
+  const eff = () => baseScale * zoomMul;
+
+  function clamp() {
+    const dW = imgW * eff();
+    const dH = imgH * eff();
+    tx = Math.min(0, Math.max(WIN - dW, tx));
+    ty = Math.min(0, Math.max(WIN - dH, ty));
+  }
+
+  function apply() {
+    img.style.transform = `translate(${tx}px, ${ty}px) scale(${eff()})`;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    img.onload = () => {
+      imgW = img.naturalWidth;
+      imgH = img.naturalHeight;
+      baseScale = Math.max(WIN / imgW, WIN / imgH);
+      zoomMul = 1;
+      zoom.value = '100';
+      tx = (WIN - imgW * baseScale) / 2;
+      ty = (WIN - imgH * baseScale) / 2;
+      apply();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+
+  let dragStart = null;
+  const startDrag = (x, y) => { dragStart = { x, y, tx, ty }; };
+  const moveDrag = (x, y) => {
+    if (!dragStart) return;
+    tx = dragStart.tx + (x - dragStart.x);
+    ty = dragStart.ty + (y - dragStart.y);
+    clamp();
+    apply();
+  };
+  const endDrag = () => { dragStart = null; };
+
+  winEl.addEventListener('mousedown', e => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
+  document.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+  document.addEventListener('mouseup', endDrag);
+  winEl.addEventListener('touchstart', e => { const t = e.touches[0]; startDrag(t.clientX, t.clientY); }, { passive: true });
+  winEl.addEventListener('touchmove', e => { e.preventDefault(); const t = e.touches[0]; moveDrag(t.clientX, t.clientY); }, { passive: false });
+  winEl.addEventListener('touchend', endDrag);
+
+  zoom.addEventListener('input', () => {
+    const oldEff = eff();
+    zoomMul = parseInt(zoom.value, 10) / 100;
+    const newEff = eff();
+    const cw = WIN / 2;
+    const anchorX = (cw - tx) / oldEff;
+    const anchorY = (cw - ty) / oldEff;
+    tx = cw - anchorX * newEff;
+    ty = cw - anchorY * newEff;
+    clamp();
+    apply();
+  });
+
+  const close = () => {
+    overlay.classList.remove('active');
+    setTimeout(() => overlay.remove(), 220);
+  };
+
+  overlay.querySelector('#pc_cancel').addEventListener('click', () => { close(); onCancel?.(); });
+  overlay.querySelector('#pc_apply').addEventListener('click', () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const e2 = eff();
+    ctx.drawImage(img, -tx / e2, -ty / e2, WIN / e2, WIN / e2, 0, 0, size, size);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    close();
+    onApply?.(dataUrl);
+  });
 }
 
 function formatEventTime(time24) {
@@ -1041,8 +1156,9 @@ export function renderTaskCard(options) {
   const catIcon = showIcon ? (category?.icon || '') : '';
   const ownerColor = person?.color || 'var(--text-faint)';
   const ownerInitial = person?.initials || derivePersonInitials(person?.name || '') || (person?.name || '?')[0].toUpperCase();
-  const ownerAvatarImg = person?.avatarUrl ? `<img class="task-card__avatar-img" src="${esc(person.avatarUrl)}" alt="">` : '';
-  const ownerContent = ownerAvatarImg || `<span class="task-card__avatar-initial">${esc(ownerInitial)}</span>`;
+  const ownerPhoto = person?.avatarUrl
+    ? `<img class="task-card__avatar-img" src="${esc(person.avatarUrl)}" alt="">`
+    : null;
   const estLabel = task.estMin ? `${task.estMin}m` : '';
   const eventColor = isEvent && category?.eventColor ? category.eventColor : null;
   const catName = category?.name || '';
@@ -1087,17 +1203,18 @@ export function renderTaskCard(options) {
   if (isEvent) {
     leading = `<div class="task-card__event-time-pill"><span>${esc(eventTimeLabel)}</span></div>`;
   } else {
+    const initialEl = `<span class="task-card__avatar-initial">${esc(ownerInitial)}</span>`;
     switch (avatarStyle) {
       case 'circle':
-        leading = `<div class="task-card__avatar-circle">${ownerContent}</div>`; break;
+        leading = `<div class="task-card__avatar-circle">${ownerPhoto || initialEl}</div>`; break;
       case 'edge':
         leading = `<div class="task-card__avatar-edge"></div>`; break;
       case 'edge-initial':
-        leading = `<div class="task-card__avatar-edge task-card__avatar-edge--initial">${ownerContent}</div>`; break;
+        leading = `<div class="task-card__avatar-edge task-card__avatar-edge--initial">${ownerPhoto || initialEl}</div>`; break;
       case 'hidden':
         leading = ''; break;
       default:
-        leading = `<div class="task-card__avatar-pill">${ownerContent}</div>`;
+        leading = `<div class="task-card__avatar-pill">${ownerPhoto || initialEl}</div>`;
     }
   }
   const slotEl = !isEvent ? `<span class="task-card__slot">${timePill}</span>` : '';

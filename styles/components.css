@@ -400,6 +400,70 @@
 .person-avatar--clickable { cursor: pointer; transition: transform 0.12s; }
 .person-avatar--clickable:active { transform: scale(0.94); }
 
+/* ──────────────────────────────────────────────
+   Photo cropper — drag-to-pan + zoom slider
+   ────────────────────────────────────────────── */
+.photo-cropper-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.photo-cropper-overlay.active { opacity: 1; }
+.photo-cropper {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  width: min(92vw, 360px);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.pc-window {
+  width: 280px;
+  height: 280px;
+  margin: var(--spacing-sm) auto;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-2);
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.pc-window:active { cursor: grabbing; }
+.pc-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  max-width: none;
+  max-height: none;
+}
+.pc-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-xs);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+.pc-zoom-row input[type="range"] { flex: 1; }
+.pc-footer {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+}
+
 .person-pill {
   flex-shrink: 0;
   display: inline-flex;
@@ -1000,9 +1064,9 @@
 .task-card__avatar-initial {
   font-size: 15px;
   font-weight: 800;
-  /* Blend toward --text (near-black in light, near-white in dark) — always readable,
-     one rule covers both modes, no shadow effects needed */
-  color: color-mix(in srgb, var(--pill-color) 30%, var(--text));
+  /* Pure --text (near-black light / near-white dark) — readable on every color,
+     including bright pastels where blending toward the color washed out. */
+  color: var(--text);
   letter-spacing: 0;
   line-height: 1;
 }
@@ -1014,9 +1078,21 @@
   object-fit: cover;
   display: block;
 }
-.task-card__avatar-circle .task-card__avatar-img,
 .task-card__avatar-pill .task-card__avatar-img {
-  border-radius: inherit;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+/* In the circle variant, the photo gets the inner 34px circle treatment */
+.task-card__avatar-circle .task-card__avatar-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--pill-color);
+}
+/* Edge-initial variant: photo replaces the small initial badge */
+.task-card__avatar-edge--initial .task-card__avatar-img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
 }
 
 /* Event tab — same flush tab treatment */
