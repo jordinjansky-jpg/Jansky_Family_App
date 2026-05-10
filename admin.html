@@ -2783,7 +2783,7 @@
                 ? `<button class="ef2-icon-btn" id="rf_unarchive" type="button" aria-label="Unarchive" title="Unarchive">${RF_ARCHIVE_SVG}</button>`
                 : `<button class="ef2-icon-btn" id="rf_archive" type="button" aria-label="Archive" title="Archive">${RF_ARCHIVE_SVG}</button>`) : ''}
               ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="rf_delete" type="button" aria-label="Delete" title="Delete reward">${RF_DELETE_SVG}</button>` : ''}
-              <button class="ef2-icon-btn rf-save-btn" id="rf_save" type="button" aria-label="${isEdit ? 'Save' : 'Create reward'}" title="${isEdit ? 'Save' : 'Create'}">${RF_SAVE_SVG}</button>
+              <button class="ef2-icon-btn rf-save-btn" id="rf_save" type="button" aria-label="${isEdit ? 'Save' : 'Create reward'}" title="${isEdit ? 'Save' : 'Create'}"${reward.name ? '' : ' disabled'}>${RF_SAVE_SVG}</button>
               <button class="ef2-icon-btn" id="rf_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
             </div>
           </div>
@@ -2866,6 +2866,7 @@
             </div>
           </div>
 
+          ${renderFormFooter({ saveLabel: isEdit ? 'Save' : 'Create reward', cancelId: 'rf_cancel', saveId: 'rf_footerSave', disabled: !reward.name })}
         </div>
       `);
 
@@ -2875,6 +2876,22 @@
 
       document.getElementById('bottomSheet')?.addEventListener('click', e => {
         if (e.target.id === 'bottomSheet') close();
+      });
+
+      mount.querySelector('#rf_cancel')?.addEventListener('click', close);
+
+      // Footer Save delegates to header rf_save (single save handler wired below).
+      mount.querySelector('#rf_footerSave')?.addEventListener('click', () => {
+        mount.querySelector('#rf_save')?.click();
+      });
+
+      // Title input → disable both save buttons when empty.
+      mount.querySelector('#rf_name')?.addEventListener('input', (e) => {
+        const empty = !e.target.value.trim();
+        const headerSave = mount.querySelector('#rf_save');
+        const footerSave = mount.querySelector('#rf_footerSave');
+        if (headerSave) headerSave.disabled = empty;
+        if (footerSave) footerSave.disabled = empty;
       });
 
       // Emoji preview + grid toggle
