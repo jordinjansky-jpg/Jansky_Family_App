@@ -494,6 +494,63 @@ export function renderFormSheetHeader({ title, closeId, saveId = null, deleteId 
 }
 
 /**
+ * Render the canonical date-input control: visible pill button + hidden native
+ * <input type="date">. See DESIGN.md §5.23 v2 "Date input convention".
+ * Replaces every raw <input type="date"> in form sheets — never expose the
+ * raw native input as the visible control.
+ *
+ * After mounting, call bindDateInput() with the same ids to wire click and
+ * change handlers.
+ *
+ * @param {object}  opts
+ * @param {string}  opts.btnId      DOM id for the visible pill button.
+ * @param {string}  opts.inputId    DOM id for the hidden native <input> (also the value source for save handlers).
+ * @param {string}  opts.labelId    DOM id for the <span> inside the button — bindDateInput updates this on change.
+ * @param {string}  [opts.value=''] ISO date string (YYYY-MM-DD) or empty.
+ * @param {string}  [opts.label=''] Initial visible label (e.g. formatDateShort(value) or "Set date").
+ * @returns {string} HTML for `<div class="fs-date-wrap">…</div>`.
+ */
+export function renderDateInput({ btnId, inputId, labelId, value = '', label = '' }) {
+  return `<div class="fs-date-wrap">
+    <button type="button" class="fs-date-btn" id="${esc(btnId)}">
+      <span id="${esc(labelId)}">${esc(label)}</span>
+    </button>
+    <input type="date" class="fs-date-hidden" id="${esc(inputId)}" value="${esc(value)}">
+  </div>`;
+}
+
+/**
+ * Wire up a renderDateInput() control: clicking the button calls .showPicker()
+ * on the hidden input (or .focus() as fallback); changing the input updates
+ * the visible label via the caller's format function.
+ *
+ * Call after the renderDateInput() HTML has been inserted into the DOM.
+ *
+ * @param {object}   opts
+ * @param {string}   opts.btnId      Same btnId passed to renderDateInput().
+ * @param {string}   opts.inputId    Same inputId passed to renderDateInput().
+ * @param {string}   opts.labelId    Same labelId passed to renderDateInput().
+ * @param {function} opts.format     (isoValue) => displayString. Called on change events. For empty string, return your own placeholder (e.g. "Set date").
+ * @param {function} [opts.onChange] Optional extra callback fired after label update — receives the new ISO value.
+ */
+export function bindDateInput({ btnId, inputId, labelId, format, onChange }) {
+  const btn = document.getElementById(btnId);
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  if (!btn || !input || !label) return;
+  btn.addEventListener('click', () => {
+    if (typeof input.showPicker === 'function') {
+      try { input.showPicker(); return; } catch (_) { /* fall through */ }
+    }
+    input.focus();
+  });
+  input.addEventListener('change', () => {
+    label.textContent = format(input.value);
+    if (typeof onChange === 'function') onChange(input.value);
+  });
+}
+
+/**
  * Render person filter pills.
  * people: array of { id, name, color }
  * activePerson: id of selected person or null for "All"
