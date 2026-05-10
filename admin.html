@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed
     } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -1606,29 +1606,7 @@
 
     function openAdminRepeatSheet(currentRule, onDone, onCancel) {
       const taskSheetMount = document.getElementById('taskSheetMount');
-      taskSheetMount.innerHTML = renderBottomSheet(renderRepeatSheet(currentRule));
-      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-      const getSelectedType = () => taskSheetMount.querySelector('.ef2-repeat-option.is-selected')?.dataset.type || 'none';
-      taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(opt => {
-        opt.addEventListener('click', () => {
-          taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(o => o.classList.remove('is-selected'));
-          opt.classList.add('is-selected');
-        });
-      });
-      taskSheetMount.querySelector('#rptBack')?.addEventListener('click', () => {
-        closeAdminSheet();
-        if (onCancel) setTimeout(onCancel, 320);
-      });
-      taskSheetMount.querySelector('#rptCancel')?.addEventListener('click', () => {
-        closeAdminSheet();
-        if (onCancel) setTimeout(onCancel, 320);
-      });
-      taskSheetMount.querySelector('#rptDone')?.addEventListener('click', () => {
-        const type = getSelectedType();
-        const rule = type === 'none' ? null : { type };
-        closeAdminSheet();
-        if (onDone) setTimeout(() => onDone(rule), 320);
-      });
+      openRepeatSubsheet({ mount: taskSheetMount, currentRule, onDone, onCancel, closeSheet: closeAdminSheet });
     }
 
     // ══════════════════════════════════════════

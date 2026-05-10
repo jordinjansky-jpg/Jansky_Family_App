@@ -754,6 +754,53 @@ export function renderTimeInput({ idPrefix = 'ef2', startTime = '09:00', endTime
 }
 
 /**
+ * Open the Repeat sub-sheet (simple "type-only" variant — None / Daily / Weekly
+ * / Monthly / Yearly / Custom, no inner weekly-day chips or end conditions).
+ * Mounts into the supplied element, wires the back/cancel/done buttons, and
+ * delegates close behavior to the caller via closeSheet so the helper works
+ * with either closeTaskSheet (calendar) or closeAdminSheet (admin).
+ *
+ * Dashboard's openRepeatSheet stays page-local — it produces a richer rule
+ * (weekly day chips, custom interval, end-on/end-after) that this helper
+ * deliberately doesn't cover. Phase 4 dedup target is the simple variant.
+ *
+ * @param {object}   opts
+ * @param {Element}  opts.mount        The sheet mount element (taskSheetMount).
+ * @param {object}   [opts.currentRule] Current rule object passed to renderRepeatSheet.
+ * @param {function} [opts.onDone]      (rule|null) => void — fired ~320ms after close.
+ * @param {function} [opts.onCancel]    () => void — fired ~320ms after close.
+ * @param {function} opts.closeSheet    () => void — closes the host sheet.
+ */
+export function openRepeatSubsheet({ mount, currentRule, onDone, onCancel, closeSheet }) {
+  mount.innerHTML = renderBottomSheet(renderRepeatSheet(currentRule));
+  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+  const getSelectedType = () => mount.querySelector('.ef2-repeat-option.is-selected')?.dataset.type || 'none';
+
+  mount.querySelectorAll('.ef2-repeat-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      mount.querySelectorAll('.ef2-repeat-option').forEach(o => o.classList.remove('is-selected'));
+      opt.classList.add('is-selected');
+    });
+  });
+
+  mount.querySelector('#rptBack')?.addEventListener('click', () => {
+    closeSheet();
+    if (onCancel) setTimeout(onCancel, 320);
+  });
+  mount.querySelector('#rptCancel')?.addEventListener('click', () => {
+    closeSheet();
+    if (onCancel) setTimeout(onCancel, 320);
+  });
+  mount.querySelector('#rptDone')?.addEventListener('click', () => {
+    const type = getSelectedType();
+    const rule = type === 'none' ? null : { type };
+    closeSheet();
+    if (onDone) setTimeout(() => onDone(rule), 320);
+  });
+}
+
+/**
  * Open the Event-Form photo-source sub-sheet (Camera / Gallery / Files +
  * optional AI context note). Replaces the duplicate openPhotoSourceSheet
  * (dashboard) + openCalPhotoSourceSheet (calendar) implementations per form

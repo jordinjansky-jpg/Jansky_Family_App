@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet } from './shared/components.js';
     import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml } from './shared/utils.js';
@@ -1439,29 +1439,7 @@
     }
 
     function openRepeatSheet(currentRule, onDone, onCancel) {
-      taskSheetMount.innerHTML = renderBottomSheet(renderRepeatSheet(currentRule));
-      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-      const getSelectedType = () => taskSheetMount.querySelector('.ef2-repeat-option.is-selected')?.dataset.type || 'none';
-      taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(opt => {
-        opt.addEventListener('click', () => {
-          taskSheetMount.querySelectorAll('.ef2-repeat-option').forEach(o => o.classList.remove('is-selected'));
-          opt.classList.add('is-selected');
-        });
-      });
-      taskSheetMount.querySelector('#rptBack')?.addEventListener('click', () => {
-        closeTaskSheet();
-        if (onCancel) setTimeout(onCancel, 320);
-      });
-      taskSheetMount.querySelector('#rptCancel')?.addEventListener('click', () => {
-        closeTaskSheet();
-        if (onCancel) setTimeout(onCancel, 320);
-      });
-      taskSheetMount.querySelector('#rptDone')?.addEventListener('click', () => {
-        const type = getSelectedType();
-        const rule = type === 'none' ? null : { type };
-        closeTaskSheet();
-        if (onDone) setTimeout(() => onDone(rule), 320);
-      });
+      openRepeatSubsheet({ mount: taskSheetMount, currentRule, onDone, onCancel, closeSheet: closeTaskSheet });
     }
 
     // ══════════════════════════════════════════
