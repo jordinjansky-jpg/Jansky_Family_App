@@ -1753,6 +1753,22 @@ function openMealEditorSheet(mealId = null, returnSlot = null) {
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
   document.getElementById('me_closeBtn')?.addEventListener('click', closeTaskSheet);
+  document.getElementById('me_cancel')?.addEventListener('click', closeTaskSheet);
+
+  // Footer Save submits the form (header save is type=submit; footer matches behavior).
+  document.getElementById('me_footerSave')?.addEventListener('click', () => {
+    document.getElementById('meForm')?.requestSubmit?.() ||
+      document.getElementById('meForm')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  });
+
+  // Name input → disable both save buttons when empty.
+  document.getElementById('me_name')?.addEventListener('input', (e) => {
+    const empty = !e.target.value.trim();
+    const headerSave = document.getElementById('me_headerSave');
+    const footerSave = document.getElementById('me_footerSave');
+    if (headerSave) headerSave.disabled = empty;
+    if (footerSave) footerSave.disabled = empty;
+  });
 
   document.getElementById('me_fav')?.addEventListener('click', e => {
     const btn = e.currentTarget;
