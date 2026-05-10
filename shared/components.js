@@ -551,6 +551,81 @@ export function bindDateInput({ btnId, inputId, labelId, format, onChange }) {
 }
 
 /**
+ * Render an emoji picker grid. Selected cell gets a card border + ✓ overlay
+ * per DESIGN.md §5.23 v2 "Selection states" #1 (card border + ✓ check for
+ * grid pickers). Pairs with bindEmojiPicker() for click-to-select wiring.
+ *
+ * Hidden input keeps id `hiddenId` so save handlers continue to read `.value`
+ * exactly like a native text input.
+ *
+ * @param {object}  opts
+ * @param {string}  opts.pickerId            DOM id for the wrapper grid.
+ * @param {string}  opts.hiddenId            DOM id for the hidden value-tracking input.
+ * @param {string}  [opts.value='']          Currently selected emoji.
+ * @param {string[]} opts.emojis             Curated emoji list to render as cells.
+ * @param {boolean} [opts.allowCustom=true]  If true, append a "+" cell that reveals a text input for custom emoji entry.
+ * @param {string}  [opts.customPlaceholder='Type any emoji…'] Placeholder for the custom-entry text input.
+ * @returns {string} HTML for `<div class="fs-emoji-grid">…</div>` + hidden input.
+ */
+export function renderEmojiPicker({ pickerId, hiddenId, value = '', emojis, allowCustom = true, customPlaceholder = 'Type any emoji…' }) {
+  const isCustom = value && !emojis.includes(value);
+  const cellsHtml = emojis.map(e =>
+    `<button type="button" class="fs-emoji-cell${value === e ? ' is-selected' : ''}" data-emoji="${esc(e)}">${esc(e)}</button>`
+  ).join('');
+  const customCell = allowCustom
+    ? `<button type="button" class="fs-emoji-cell fs-emoji-cell--custom${isCustom ? ' is-selected' : ''}" data-custom="1">${isCustom ? esc(value) : '+'}</button>`
+    : '';
+  const customInput = allowCustom
+    ? `<input type="text" class="fs-emoji-custom-input${isCustom ? '' : ' is-hidden'}" id="${esc(pickerId)}__custom" placeholder="${esc(customPlaceholder)}" maxlength="4" value="${isCustom ? esc(value) : ''}">`
+    : '';
+  return `<div class="fs-emoji-grid" id="${esc(pickerId)}">${cellsHtml}${customCell}${customInput}</div>
+<input type="hidden" id="${esc(hiddenId)}" value="${esc(value)}">`;
+}
+
+/**
+ * Wire a renderEmojiPicker(): clicking a cell selects it. Clicking the "+"
+ * custom cell reveals a text input that updates the hidden value as the user
+ * types.
+ *
+ * @param {object}   opts
+ * @param {string}   opts.pickerId    Same pickerId passed to renderEmojiPicker().
+ * @param {string}   opts.hiddenId    Same hiddenId passed to renderEmojiPicker().
+ * @param {function} [opts.onChange]  (newEmoji) => void after each selection change.
+ */
+export function bindEmojiPicker({ pickerId, hiddenId, onChange }) {
+  const root = document.getElementById(pickerId);
+  const hidden = document.getElementById(hiddenId);
+  const customInput = document.getElementById(`${pickerId}__custom`);
+  if (!root || !hidden) return;
+  const setValue = (val, sourceCell) => {
+    hidden.value = val;
+    root.querySelectorAll('.fs-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+    if (sourceCell) sourceCell.classList.add('is-selected');
+    if (typeof onChange === 'function') onChange(val);
+  };
+  root.addEventListener('click', (e) => {
+    const cell = e.target.closest('.fs-emoji-cell');
+    if (!cell || !root.contains(cell)) return;
+    if (cell.dataset.custom === '1') {
+      customInput?.classList.remove('is-hidden');
+      customInput?.focus();
+      setValue(customInput?.value.trim() || '', cell);
+      return;
+    }
+    customInput?.classList.add('is-hidden');
+    if (customInput) customInput.value = '';
+    setValue(cell.dataset.emoji, cell);
+  });
+  customInput?.addEventListener('input', () => {
+    const v = customInput.value.trim();
+    if (!v) return;
+    const customCell = root.querySelector('.fs-emoji-cell--custom');
+    if (customCell) customCell.textContent = v;
+    setValue(v, customCell);
+  });
+}
+
+/**
  * Render a chip-picker — short list of mutually-exclusive options as a row of
  * pills (purple-filled active state). For short lists (≤7 options). For longer
  * lists, use a sub-sheet pattern instead. Anchors on `.tabs.tabs--pill` (same
