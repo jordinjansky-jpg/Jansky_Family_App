@@ -2640,7 +2640,12 @@ export function renderBonusDaySheet(people, todayDate) {
     </div>
 
     <label class="form-label sheet-label--spaced">Date</label>
-    <input type="date" id="bd_date" class="form-input" value="${today}">
+    <div class="fs-date-wrap">
+      <button type="button" class="fs-date-btn" id="bd_dateBtn">
+        <span id="bd_dateLabel">${esc(formatDateShort(today))}</span>
+      </button>
+      <input type="date" id="bd_date" class="fs-date-hidden" value="${today}">
+    </div>
 
     <label class="form-label sheet-label--spaced">Multiplier</label>
     <div class="segmented-control" id="bd_mult">
@@ -3170,6 +3175,19 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             }
           });
         }
+
+        // Date pill — tap opens OS picker via .showPicker(); change updates label.
+        mount.querySelector('#bd_dateBtn')?.addEventListener('click', () => {
+          const input = mount.querySelector('#bd_date');
+          if (typeof input?.showPicker === 'function') {
+            try { input.showPicker(); return; } catch (_) { /* fall through */ }
+          }
+          input?.focus();
+        });
+        mount.querySelector('#bd_date')?.addEventListener('change', (e) => {
+          const label = mount.querySelector('#bd_dateLabel');
+          if (label) label.textContent = e.target.value ? formatDateShort(e.target.value) : 'Set date';
+        });
 
         // Multiplier toggle
         for (const btn of mount.querySelectorAll('#bd_mult .segmented-btn')) {
