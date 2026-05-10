@@ -3525,7 +3525,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
           ${starSvg}
         </button>
         ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="meDelete" type="button" aria-label="Delete meal">${trashSvg}</button>` : ''}
-        <button class="ef2-icon-btn rf-save-btn" type="submit" aria-label="${isEdit ? 'Save changes' : 'Create meal'}">${checkSvg}</button>
+        <button class="ef2-icon-btn rf-save-btn" id="me_headerSave" type="submit" aria-label="${isEdit ? 'Save changes' : 'Create meal'}"${name ? '' : ' disabled'}>${checkSvg}</button>
         <button class="ef2-icon-btn" id="me_closeBtn" type="button" aria-label="Close">${closeSvg}</button>
       </div>
     </div>
@@ -3567,6 +3567,8 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
     </label>
 
     <input type="hidden" id="me_mealId" value="${esc(mealId || '')}">
+
+    ${renderFormFooter({ saveLabel: isEdit ? 'Save Changes' : 'Add Meal', cancelId: 'me_cancel', saveId: 'me_footerSave', disabled: !name })}
   </form>`;
 }
 
