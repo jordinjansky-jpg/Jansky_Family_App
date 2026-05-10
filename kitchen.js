@@ -1145,18 +1145,34 @@ const RECIPE_SITES = [
   { name: 'The Kitchn',     url: 'https://www.thekitchn.com/recipes' },
 ];
 
+function buildIngredientNamePool() {
+  const set = new Set();
+  Object.values(recipes || {}).forEach(r => (r.ingredients || []).forEach(ing => {
+    const n = (ing.name || '').trim();
+    if (n) set.add(n);
+  }));
+  Object.values(staples || {}).forEach(s => {
+    const n = (s.name || '').trim();
+    if (n) set.add(n);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
 function openRecipeForm(recipeId, onSave = null) {
   const existing = recipeId ? recipes[recipeId] : null;
   const ingredients = existing?.ingredients ? [...existing.ingredients] : [];
   let imageUrl = existing?.imageUrl || '';
+  const tagsOpen = existing?.tags?.length ? ' is-open' : '';
+  const cookTimeOpen = existing?.cookTime ? ' is-open' : '';
 
   const mount = document.getElementById('sheetMount');
+  const INGREDIENT_LIST_ID = 'kr_ingredient_datalist';
 
   function buildIngredientRow(i) {
     const ing = ingredients[i];
     return `<div class="ingredient-row" data-index="${i}">
         <input class="ingredient-qty" data-edit-index="${i}" data-edit-field="qty" type="text" inputmode="decimal" value="${esc(ing.qty || '')}" placeholder="qty" autocomplete="off" enterkeyhint="next">
-        <input class="ingredient-name" data-edit-index="${i}" data-edit-field="name" type="text" value="${esc(ing.name || '')}" placeholder="ingredient" autocomplete="off">
+        <input class="ingredient-name" data-edit-index="${i}" data-edit-field="name" type="text" value="${esc(ing.name || '')}" placeholder="ingredient" autocomplete="off" list="${INGREDIENT_LIST_ID}">
         <button class="btn-icon" data-remove-index="${i}" type="button" aria-label="Remove">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -1225,12 +1241,15 @@ function openRecipeForm(recipeId, onSave = null) {
 
     <div class="kr-section">
       <span class="ef2-section-label">Ingredients</span>
+      <datalist id="${INGREDIENT_LIST_ID}">
+        ${buildIngredientNamePool().map(n => `<option value="${esc(n)}"></option>`).join('')}
+      </datalist>
       <div id="ingredientList">${buildIngredientList()}</div>
       <div class="kr-add-ingredient-row">
         <input class="kr-add-qty" id="newIngredientQty" type="text" inputmode="decimal"
           placeholder="qty" autocomplete="off" enterkeyhint="next">
         <input class="field__input" id="newIngredientInput" type="text"
-          placeholder="Add ingredient…" autocomplete="off" enterkeyhint="done">
+          placeholder="Add ingredient…" autocomplete="off" enterkeyhint="done" list="${INGREDIENT_LIST_ID}">
         <button class="btn btn--secondary" id="addIngredientBtn" type="button">Add</button>
       </div>
     </div>
@@ -1238,6 +1257,27 @@ function openRecipeForm(recipeId, onSave = null) {
     <div class="kr-section">
       <span class="ef2-section-label">Notes</span>
       <textarea id="recipeNotes" class="kr-notes" placeholder="Description, tips, source…" autocomplete="off">${esc(existing?.notes || '')}</textarea>
+    </div>
+
+    <div class="ef2-secondary-row">
+      <button class="ef2-add-chip${tagsOpen ? ' is-active' : ''}" id="kr_tagsChip" type="button">+ Tags</button>
+      <button class="ef2-add-chip${cookTimeOpen ? ' is-active' : ''}" id="kr_cookTimeChip" type="button">+ Cook time</button>
+    </div>
+
+    <div class="ef2-field-reveal${tagsOpen}" id="kr_tagsReveal">
+      <label class="field">
+        <span class="field__label">Tags</span>
+        <input id="recipeTags" type="text" class="field__input" placeholder="Italian, quick, vegetarian…"
+          value="${esc((existing?.tags || []).join(', '))}" autocomplete="off">
+      </label>
+    </div>
+
+    <div class="ef2-field-reveal${cookTimeOpen}" id="kr_cookTimeReveal">
+      <label class="field">
+        <span class="field__label">Cook time</span>
+        <input id="recipeCookTime" type="text" class="field__input" placeholder="45 min"
+          value="${esc(existing?.cookTime || '')}" autocomplete="off">
+      </label>
     </div>`);
   activateSheet(mount);
   requestAnimationFrame(() => {
@@ -1250,6 +1290,24 @@ function openRecipeForm(recipeId, onSave = null) {
 
   // Difficulty chip picker
   bindChipPicker({ pickerId: 'recipeDifficultyPicker', hiddenId: 'recipeDifficulty' });
+
+  // Tags / Cook time disclosure chips
+  document.getElementById('kr_tagsChip')?.addEventListener('click', () => {
+    const chip = document.getElementById('kr_tagsChip');
+    const reveal = document.getElementById('kr_tagsReveal');
+    const opening = !reveal.classList.contains('is-open');
+    reveal.classList.toggle('is-open');
+    chip.classList.toggle('is-active', opening);
+    if (opening) document.getElementById('recipeTags')?.focus();
+  });
+  document.getElementById('kr_cookTimeChip')?.addEventListener('click', () => {
+    const chip = document.getElementById('kr_cookTimeChip');
+    const reveal = document.getElementById('kr_cookTimeReveal');
+    const opening = !reveal.classList.contains('is-open');
+    reveal.classList.toggle('is-open');
+    chip.classList.toggle('is-active', opening);
+    if (opening) document.getElementById('recipeCookTime')?.focus();
+  });
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kr_close')?.addEventListener('click', close);
@@ -1475,6 +1533,8 @@ function openRecipeForm(recipeId, onSave = null) {
       return;
     }
     const url = document.getElementById('recipeUrl')?.value.trim() || null;
+    const tagsRaw = document.getElementById('recipeTags')?.value.trim() || '';
+    const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
     const data = {
       name,
       url,
@@ -1484,8 +1544,10 @@ function openRecipeForm(recipeId, onSave = null) {
       isFavorite: existing?.isFavorite || false,
       lastUsed: existing?.lastUsed || null,
       prepTime: document.getElementById('recipePrepTime')?.value.trim() || null,
+      cookTime: document.getElementById('recipeCookTime')?.value.trim() || null,
       servings: parseInt(document.getElementById('recipeServings')?.value, 10) || null,
       difficulty: document.getElementById('recipeDifficulty')?.value || null,
+      tags: tags.length ? tags : null,
       imageUrl: imageUrl || null,
     };
 
