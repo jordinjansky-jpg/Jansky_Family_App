@@ -1556,6 +1556,19 @@
 
       overlay?.addEventListener('click', e => { if (e.target === overlay) taskSheetMount.innerHTML = ''; });
 
+      // Date pill — tap opens OS picker via .showPicker(); change updates label.
+      document.getElementById('mp_dateBtn')?.addEventListener('click', () => {
+        const input = document.getElementById('mp_date');
+        if (typeof input?.showPicker === 'function') {
+          try { input.showPicker(); return; } catch (_) { /* fall through */ }
+        }
+        input?.focus();
+      });
+      document.getElementById('mp_date')?.addEventListener('change', (e) => {
+        const label = document.getElementById('mp_dateLabel');
+        if (label) label.textContent = e.target.value ? formatDateShort(e.target.value) : 'Set date';
+      });
+
       document.getElementById('mp_slotTabs')?.addEventListener('click', e => {
         const btn = e.target.closest('.mp-slot-tab');
         if (!btn) return;

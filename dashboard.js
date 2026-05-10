@@ -2587,6 +2587,19 @@ function openRepeatSheet(currentRule, onDone, onCancel) {
     document.getElementById('rptEndCountWrap').style.display = e.target.value === 'after' ? 'flex' : 'none';
   });
 
+  // End-date pill — tap opens OS picker via .showPicker(); change updates label.
+  document.getElementById('rptEndDateBtn')?.addEventListener('click', () => {
+    const input = document.getElementById('rptEndDate');
+    if (typeof input?.showPicker === 'function') {
+      try { input.showPicker(); return; } catch (_) { /* fall through */ }
+    }
+    input?.focus();
+  });
+  document.getElementById('rptEndDate')?.addEventListener('change', (e) => {
+    const label = document.getElementById('rptEndDateLabel');
+    if (label) label.textContent = e.target.value ? formatDateShort(e.target.value) : 'Set date';
+  });
+
   document.getElementById('rptBack')?.addEventListener('click', () => {
     closeTaskSheet();
     if (onCancel) setTimeout(onCancel, 320);
