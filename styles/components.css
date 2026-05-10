@@ -356,6 +356,50 @@
   display: none;
 }
 
+/* ──────────────────────────────────────────────
+   Person avatar — reusable circular badge
+   Renders either a photo or initials on the person's color.
+   Sized variants: xs (16px) sm (22px) md (32px) lg (48px) xl (72px)
+   Theme-safe: uses a subtle inset ring so the circle stays defined
+   on dark backgrounds, stripe patterns, and matching accent themes.
+   ────────────────────────────────────────────── */
+.person-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  background: var(--text-muted);
+  color: #fff;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+.person-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+.person-avatar__initials {
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+  font-size: inherit;
+}
+
+.person-avatar--xs { width: 16px; height: 16px; font-size: 0.55rem; }
+.person-avatar--sm { width: 22px; height: 22px; font-size: 0.65rem; }
+.person-avatar--md { width: 32px; height: 32px; font-size: 0.85rem; }
+.person-avatar--lg { width: 48px; height: 48px; font-size: 1.05rem; }
+.person-avatar--xl { width: 72px; height: 72px; font-size: 1.5rem; }
+
+.person-avatar--clickable { cursor: pointer; transition: transform 0.12s; }
+.person-avatar--clickable:active { transform: scale(0.94); }
+
 .person-pill {
   flex-shrink: 0;
   display: inline-flex;
@@ -3839,6 +3883,10 @@ label.ef2-icon-btn  { cursor: pointer; }
   background: var(--chip-color, var(--text-muted));
   flex-shrink: 0;
 }
+
+/* When the chip contains a real avatar (image or initials), suppress the dot */
+.ef2-person-chip:has(.person-avatar)::before { display: none; }
+.ef2-person-chip .person-avatar { margin-left: -4px; }
 
 .ef2-person-chip[data-state="primary"]::before { background: var(--on-accent); }
 
