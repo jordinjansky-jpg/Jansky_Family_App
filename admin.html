@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed
     } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -2036,34 +2036,36 @@
         refreshPreview();
       });
 
-      // Photo upload
-      overlay.querySelector('#pae_uploadBtn')?.addEventListener('click', () => overlay.querySelector('#pae_photoFile')?.click());
-      overlay.querySelector('#pae_photoFile')?.addEventListener('change', async (e) => {
+      // Photo upload → opens cropper, then saves the cropped dataURL
+      const triggerUpload = () => overlay.querySelector('#pae_photoFile')?.click();
+      const onPhotoChange = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         e.target.value = '';
-        try {
-          const { base64, mediaType } = await resizeImageForUpload(file, 320);
-          photo = `data:${mediaType};base64,${base64}`;
-          onChange?.({ photo });
-          // Re-render the editor row so the "Remove photo" button appears
-          overlay.querySelector('.pae-photo-row').innerHTML = `
-            <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Replace photo</button>
-            <button class="btn btn--ghost btn--sm" id="pae_removeBtn" type="button">Remove photo</button>`;
-          overlay.querySelector('#pae_uploadBtn').addEventListener('click', () => overlay.querySelector('#pae_photoFile')?.click());
-          overlay.querySelector('#pae_removeBtn').addEventListener('click', removePhoto);
-          refreshPreview();
-        } catch {
-          showToast('Could not load image');
-        }
-      });
+        openPhotoCropper({
+          file,
+          size: 320,
+          onApply: (dataUrl) => {
+            photo = dataUrl;
+            onChange?.({ photo });
+            overlay.querySelector('.pae-photo-row').innerHTML = `
+              <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Replace photo</button>
+              <button class="btn btn--ghost btn--sm" id="pae_removeBtn" type="button">Remove photo</button>`;
+            overlay.querySelector('#pae_uploadBtn').addEventListener('click', triggerUpload);
+            overlay.querySelector('#pae_removeBtn').addEventListener('click', removePhoto);
+            refreshPreview();
+          },
+        });
+      };
+      overlay.querySelector('#pae_uploadBtn')?.addEventListener('click', triggerUpload);
+      overlay.querySelector('#pae_photoFile')?.addEventListener('change', onPhotoChange);
 
       const removePhoto = () => {
         photo = '';
         onChange?.({ photo: '' });
         overlay.querySelector('.pae-photo-row').innerHTML = `
           <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Upload photo</button>`;
-        overlay.querySelector('#pae_uploadBtn').addEventListener('click', () => overlay.querySelector('#pae_photoFile')?.click());
+        overlay.querySelector('#pae_uploadBtn').addEventListener('click', triggerUpload);
         refreshPreview();
       };
       overlay.querySelector('#pae_removeBtn')?.addEventListener('click', removePhoto);
