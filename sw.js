@@ -9,6 +9,11 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v200 (2026-05-10) — Fix(forms): add 14px calendar-icon ::after affordance
+//                    to .fs-date-btn and .fs-date-wrap > .tf-detail-chip so
+//                    date pills read as tap-to-open buttons (form review
+//                    flagged the pills as visually identical to display tags).
+//                    Affects 6+ date pills in one CSS rule.
 // v199 (2026-05-10) — Form-system Phase 3 (7/N — remaining date pickers):
 //                    mp_date in renderMealPlanSheet (calendar) + rptEndDate
 //                    in renderRepeatSheet (dashboard) migrated to fs-date-btn.
@@ -353,7 +358,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v199';
+const CACHE_NAME = 'family-hub-v200';
 
 const APP_SHELL = [
   '/',
