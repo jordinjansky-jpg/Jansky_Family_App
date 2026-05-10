@@ -18,27 +18,6 @@ Activities (in MEDIUM below) would earn a slot only by retiring an existing one 
 
 ---
 
-## ✅ Shipped
-
-**Tier 1 — Hub Transformation**
-- Calendar Overhaul (three-view, swipe nav, person filters) — 2026-04-16
-- Rewards Store (points, approval flow, kid store, badges, multipliers) — 2026-04-18
-- Meal Planning (migrated into Kitchen Hub) — 2026-04-25
-- Weather Widget (5-day forecast, OpenWeatherMap) — shipped
-- **Kitchen Hub** — fully shipped (week view incl. school-lunch-2, add-from-recipe shortcut, photo storage, recipe-form parity)
-- **Recipe Polish** — Servings scaler ✓, Photo storage ✓, Source attribution ✓, single 0–5 star rating ✓ (per-person ratings + pantry awareness passed — not on roadmap)
-
-**Tier 2 — Deepening**
-- AI Import Suite — all 14 handlers in `workers/kitchen-import.js` with frontend triggers (URL/photo recipe, school lunch PDF, calendar photo, iCal subscription, text→event wand, homework scanner, photo→shopping list, email→calendar). 2026-04 incremental.
-
-**Tier 3 — Polish**
-- Dashboard Loading Skeleton (`renderDashboardSkeleton`) — shipped
-- Dashboard "Coming Up" Rail (collapsible 7-day forward look) — shipped
-
-**Form System Initiative** — 2026-05-10 — DESIGN.md §5.23 v2 + 11 shared `fs-*` primitives in `shared/components.js` + Phase 0→5 (spec rewrite, primitives, Event Form fix-up, per-form propagation, sub-sheet dedup, a11y polish). SW v183 → v207. See DESIGN.md §15 changelog.
-
----
-
 ## EASY
 
 Single-domain UI, no new schema or external APIs. ½–1 session each.
@@ -159,3 +138,20 @@ Family members opt-in share location. Map view shows where everyone is. Could in
 - **Show "≥" comparison operator on Badge condition** · Low · Currently `Current Streak (days) [e.g. 7]` is ambiguous about >, =, ≥.
 - **Image thumbnails on Meal Plan recipe rows** · Low · Currently recipe rows are plain text; paid meal-planning apps show small images.
 - **Auto-collapse Recipe URL input after parse** · Low · Once AI parses the URL, fold the URL field away.
+
+---
+
+## Explicitly passed (not coming back to roadmap)
+
+Items considered and dropped. Listed so they don't accidentally creep back in.
+
+- Pantry awareness for kitchen (won't be kept up to date)
+- Per-person meal ratings (single 0–5 rating per recipe is enough)
+- Subscription/bill tracker, home maintenance scheduler (household-level, not family-level)
+- Babysitter mode, audio messages, packing lists (out of current scope)
+- Family quick-select chip on Task/Event forms (takes space, rarely needed)
+- Recipe image preview in form (not needed)
+- Badge preview card and Reward shop-card preview (low value — replaced by Custom badge SVG icons)
+- Pricing-help calc extended to Task points (now behind the scenes)
+- Meal Plan default-list extension (keep form short)
+- Recipe form name-above-link reorder (most recipes added via URL)
