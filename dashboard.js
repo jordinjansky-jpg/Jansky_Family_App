@@ -1908,8 +1908,23 @@ function openEventForm(existingEventId = null, savedState = null) {
 
   // ── Close / Cancel ───────────────────────────────────────────
   document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
+  document.getElementById('ef2_cancel')?.addEventListener('click', closeTaskSheet);
   document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
+  });
+
+  // Footer Save delegates to header ✓ (single save handler is wired below).
+  document.getElementById('ef2_footerSave')?.addEventListener('click', () => {
+    document.getElementById('ef2_save')?.click();
+  });
+
+  // Title input → disable both save buttons when empty.
+  document.getElementById('ef2_name')?.addEventListener('input', (e) => {
+    const empty = !e.target.value.trim();
+    const headerSave = document.getElementById('ef2_save');
+    const footerSave = document.getElementById('ef2_footerSave');
+    if (headerSave) headerSave.disabled = empty;
+    if (footerSave) footerSave.disabled = empty;
   });
 
   // ── Date picker toggle ───────────────────────────────────────
