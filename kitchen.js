@@ -274,6 +274,19 @@ function getSchoolSlotLabel(slotKey, dayPlan) {
   return 'School';
 }
 
+// 32×32 thumb for a planned slot entry. Falls back to 🍴 placeholder.
+// `entry` is null for the always-on Dinner empty state (returns spacer).
+function buildSlotThumb(entry) {
+  if (!entry) {
+    return `<span class="day-block__slot-thumb day-block__slot-thumb--spacer" aria-hidden="true"></span>`;
+  }
+  const recipe = entry.recipeId ? recipes[entry.recipeId] : null;
+  if (recipe?.imageUrl) {
+    return `<img class="day-block__slot-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy">`;
+  }
+  return `<span class="day-block__slot-thumb day-block__slot-thumb--placeholder" aria-hidden="true">🍴</span>`;
+}
+
 async function renderMealsTab() {
   const content = document.getElementById('kitchenContent');
   const tz = settings?.timezone || 'America/Chicago';
@@ -312,6 +325,7 @@ async function renderMealsTab() {
             ? getSchoolSlotLabel(s, plan)
             : SLOT_LABELS[s];
           return `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
+            ${buildSlotThumb(entry)}
             <span class="day-block__slot-label">${esc(label)}</span>
             <span class="day-block__slot-name">${esc(name)}</span>
           </div>`;

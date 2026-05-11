@@ -64,17 +64,38 @@
 }
 
 .day-block__slot {
-  padding: 4px var(--spacing-md);
+  padding: 6px var(--spacing-md);
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  min-height: 32px;
+  min-height: 44px;
   cursor: pointer;
   transition: background var(--t-fast);
 }
 
 .day-block__slot:active {
   background: var(--surface-2);
+}
+
+.day-block__slot-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  font-size: 18px;
+}
+
+.day-block__slot-thumb--spacer {
+  background: transparent;
+}
+
+.day-block__slot-thumb--placeholder {
+  /* surface-2 background + emoji centered, inherited from .day-block__slot-thumb */
 }
 
 .day-block__slot-label {
@@ -91,11 +112,14 @@
   font-size: var(--font-sm);
   color: var(--text);
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .day-block__slot-name--empty {
-  color: var(--text-faint);
-  font-style: italic;
+  color: var(--accent-ink);
+  font-style: normal;
 }
 
 .day-block__slot-school {
