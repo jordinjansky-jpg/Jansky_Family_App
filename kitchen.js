@@ -9,7 +9,6 @@ import { initFirebase, readSettings, writeSettings, readPeople, onConnectionChan
   writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe,
   getDb,
   readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync,
-  writeKitchenListShareToken, removeKitchenListShareToken
 } from './shared/firebase.js';
 import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
@@ -20,7 +19,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderChipPicker, bindChipPicker,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
-import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, generateShareToken, normalizePlanSlot, pickWinner } from './shared/utils.js';
+import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -3483,7 +3482,6 @@ function openListActionsMenu() {
       <button class="lam-action" id="lam_staples" type="button">Add from staples</button>
       <button class="lam-action" id="lam_rename" type="button">Rename / change icon</button>
       <button class="lam-action" id="lam_copy" type="button">Copy as text</button>
-      <button class="lam-action" id="lam_share" type="button">Share read-only link</button>
       <button class="lam-action" id="lam_clear" type="button">Clear checked items</button>
       <div class="lam-divider"></div>
       <button class="lam-action lam-action--danger" id="lam_delete" type="button">Delete list</button>
@@ -3508,10 +3506,6 @@ function openListActionsMenu() {
   document.getElementById('lam_copy')?.addEventListener('click', () => {
     mount.innerHTML = '';
     copyListAsText();
-  });
-  document.getElementById('lam_share')?.addEventListener('click', () => {
-    mount.innerHTML = '';
-    openShareListSheet();
   });
   document.getElementById('lam_clear')?.addEventListener('click', async () => {
     mount.innerHTML = '';
@@ -3539,58 +3533,6 @@ function openListActionsMenu() {
   });
 }
 
-async function openShareListSheet() {
-  if (!activeListId || !lists[activeListId]) return;
-  const list = lists[activeListId];
-  let token = list.shareToken?.token || null;
-
-  // Generate a token if none exists yet
-  if (!token) {
-    token = generateShareToken();
-    const tokenObj = { token, createdAt: Date.now(), createdBy: linkedPerson?.id || 'anonymous' };
-    await writeKitchenListShareToken(activeListId, tokenObj);
-    lists[activeListId] = { ...list, shareToken: tokenObj };
-  }
-
-  const url = `${window.location.origin}/share-list.html?id=${encodeURIComponent(activeListId)}&token=${encodeURIComponent(token)}`;
-
-  const mount = document.getElementById('sheetMount');
-  mount.innerHTML = renderBottomSheet(`
-    ${renderFormSheetHeader({ title: `Share "${list.name}"`, closeId: 'shr_close' })}
-    <div class="shr-body">
-      <p class="shr-hint">Anyone with this link can view (not edit) this list.</p>
-      <div class="shr-url"><code>${esc(url)}</code></div>
-      <div class="shr-actions">
-        <button class="btn btn--primary" id="shr_copy" type="button">Copy link</button>
-        <a class="btn btn--secondary" id="shr_open" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open</a>
-      </div>
-      <button class="btn btn--ghost shr-revoke" id="shr_revoke" type="button">Revoke link</button>
-    </div>
-  `);
-  activateSheet(mount);
-
-  document.getElementById('shr_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
-  document.getElementById('shr_copy')?.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Link copied');
-    } catch {
-      showToast('Couldn\'t copy — long-press the URL above to copy manually');
-    }
-  });
-  document.getElementById('shr_revoke')?.addEventListener('click', async () => {
-    const ok = await showConfirm({
-      title: 'Revoke this link?\nThe existing URL will stop working immediately.',
-      confirmLabel: 'Revoke',
-      danger: true,
-    });
-    if (!ok) return;
-    await removeKitchenListShareToken(activeListId);
-    delete lists[activeListId].shareToken;
-    mount.innerHTML = '';
-    showToast('Link revoked');
-  });
-}
 
 function copyListAsText() {
   const tz = settings?.timezone || 'America/Chicago';

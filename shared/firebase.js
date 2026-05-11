@@ -800,28 +800,6 @@ export async function removeKitchenList(id) {
   return multiUpdate(updates);
 }
 
-export async function writeKitchenListShareToken(listId, tokenObj) {
-  return writeData(`kitchen/lists/${listId}/shareToken`, tokenObj);
-}
-
-export async function removeKitchenListShareToken(listId) {
-  return removeData(`kitchen/lists/${listId}/shareToken`);
-}
-
-// Read a list + its items by validating the URL token. Used by
-// share-list.html — anonymous-read path (no auth). Returns null if the
-// list doesn't exist OR the token doesn't match.
-export async function readListByToken(listId, token) {
-  await ready();
-  const listSnap = await ref(`kitchen/lists/${listId}`).once('value');
-  const list = listSnap.val();
-  if (!list) return null;
-  if (!list.shareToken || list.shareToken.token !== token) return null;
-  const itemsSnap = await ref(`kitchen/items/${listId}`).once('value');
-  const items = itemsSnap.val() || {};
-  return { list, items };
-}
-
 // ─── Kitchen: Items ───────────────────────────────────────────────────────────
 
 export function onKitchenItems(listId, callback) {
