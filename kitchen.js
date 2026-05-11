@@ -712,6 +712,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   function buildRecipeRows(filter) {
     const lc = filter?.toLowerCase() || '';
     const all = Object.entries(recipes).sort((a, b) => {
+      // Legacy isFavorite sort — field no longer exposed by rating UI but retained for backward compatibility
       if (a[1].isFavorite !== b[1].isFavorite) return a[1].isFavorite ? -1 : 1;
       return a[1].name.localeCompare(b[1].name);
     });
@@ -2433,7 +2434,6 @@ function openRecipeForm(recipeId, onSave = null) {
       notes: document.getElementById('recipeNotes')?.value.trim() || null,
       source: existing?.source || 'manual',
       ingredients,
-      isFavorite: existing?.isFavorite || false,
       lastUsed: existing?.lastUsed || null,
       prepTime: document.getElementById('recipePrepTime')?.value.trim() || null,
       cookTime: document.getElementById('recipeCookTime')?.value.trim() || null,
