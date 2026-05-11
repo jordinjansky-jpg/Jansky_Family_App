@@ -763,3 +763,70 @@
   padding: 1px 8px;
 }
 .sl-confirm-name:focus { outline: none; border-color: var(--accent); }
+
+/* ============ Recipes — Search ============ */
+.rl-search-row {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) 0;
+  background: var(--bg);
+}
+
+.rl-search-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rl-search-icon {
+  position: absolute;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.rl-search-input {
+  flex: 1;
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--font-md);
+  padding: 10px 36px 10px 38px;
+  outline: none;
+  transition: border-color var(--t-fast);
+}
+
+.rl-search-input::placeholder { color: var(--text-faint); }
+.rl-search-input:focus { border-color: var(--accent); }
+
+.rl-search-clear {
+  position: absolute;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+}
+.rl-search-clear:active { background: var(--surface-2); }
+
+/* Suppress browser-default clear UI on type="search" */
+.rl-search-input::-webkit-search-decoration,
+.rl-search-input::-webkit-search-cancel-button,
+.rl-search-input::-webkit-search-results-button,
+.rl-search-input::-webkit-search-results-decoration { -webkit-appearance: none; }

@@ -142,6 +142,7 @@ let currentItems = {}; // last items snapshot, used by wand cleanup
 let itemsUnsub = null; // Firebase onValue unsubscribe for active list
 let keepAddFieldOpen = false; // true while user is in a multi-item add session
 let recipeFilter = { sort: 'alpha', filter: 'all' }; // alpha | recent; all | favorites
+let recipeSearchQuery = ''; // transient — not persisted across sessions
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -449,6 +450,8 @@ function renderRecipesTab() {
   const content = document.getElementById('kitchenContent');
   let recipeEntries = Object.entries(recipes);
   if (recipeFilter.filter === 'favorites') recipeEntries = recipeEntries.filter(([, r]) => r.isFavorite);
+  const q = recipeSearchQuery.trim().toLowerCase();
+  if (q) recipeEntries = recipeEntries.filter(([, r]) => (r.name || '').toLowerCase().includes(q));
   if (recipeFilter.sort === 'alpha') {
     recipeEntries.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
   } else {
@@ -490,6 +493,15 @@ function renderRecipesTab() {
 
   content.innerHTML = `
     <div class="rl-wrap">
+      <div class="rl-search-row">
+        <div class="rl-search-input-wrap">
+          <span class="rl-search-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input class="rl-search-input" id="rlSearch" type="search" placeholder="Search recipes…" value="${esc(recipeSearchQuery)}" autocomplete="off">
+          ${recipeSearchQuery ? `<button class="rl-search-clear" id="rlSearchClear" type="button" aria-label="Clear search">✕</button>` : ''}
+        </div>
+      </div>
       <div class="rl-controls">
         <span class="rl-count">${esc(countLabel)}</span>
         <button class="chip rl-filter-btn${filterCount > 0 ? ' chip--active' : ''}" id="recipeFilterBtn" type="button">${filterLabel} &#9662;</button>
@@ -500,6 +512,24 @@ function renderRecipesTab() {
 
   document.getElementById('findRecipesBtn')?.addEventListener('click', openFindRecipesSheet);
   document.getElementById('recipeFilterBtn')?.addEventListener('click', openRecipeFilterSheet);
+
+  const searchInput = document.getElementById('rlSearch');
+  searchInput?.addEventListener('input', (e) => {
+    recipeSearchQuery = e.target.value;
+    renderRecipesTab();
+    // Re-focus the input — re-render replaces the DOM and the focus is lost.
+    setTimeout(() => {
+      const next = document.getElementById('rlSearch');
+      if (next) {
+        next.focus();
+        next.setSelectionRange(next.value.length, next.value.length);
+      }
+    }, 0);
+  });
+  document.getElementById('rlSearchClear')?.addEventListener('click', () => {
+    recipeSearchQuery = '';
+    renderRecipesTab();
+  });
 
   content.querySelectorAll('[data-recipe-id]').forEach(card => {
     const id = card.dataset.recipeId;
