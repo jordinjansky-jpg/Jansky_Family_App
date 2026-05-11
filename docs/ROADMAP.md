@@ -46,7 +46,7 @@ One-page "this week" PDF for the fridge — kids physically check off as the wee
 **Reading log** · No deps · Cost: $0
 Per-kid reading minutes. Daily check-in, weekly streak, monthly leaderboard. Schema: `rundown/reading/{personId}/{YYYY-MM-DD}: minutes`. Could integrate with Activities later (in MEDIUM) but ships standalone first.
 
-**Form Polish parking lot** — 13 small items from the 2026-05-09 form review (avatar upload, URL field on Event, badge threshold visibility, etc.). Each is low-effort polish on already-shipped forms. Full list at the bottom of this file.
+**Form Polish parking lot** — 2 remaining items from the 2026-05-09 form review (custom badge SVG icons + badge two-step wizard). Full list at the bottom of this file.
 
 ---
 
@@ -122,22 +122,10 @@ Family members opt-in share location. Map view shows where everyone is. Could in
 
 ## Form Polish parking lot
 
-**Context:** Form review on 2026-05-09 ([superpowers/specs/2026-05-09-form-review.md](superpowers/specs/2026-05-09-form-review.md)) surfaced both polish gaps AND feature-shaped items. The polish work shipped via the Form System Initiative. The items below are **feature decisions that have been triaged** — each is individually low-effort polish on already-shipped forms. Pulling any of these into a session = adding it as an EASY entry above.
+**Context:** Form review on 2026-05-09 ([superpowers/specs/2026-05-09-form-review.md](superpowers/specs/2026-05-09-form-review.md)) surfaced both polish gaps AND feature-shaped items. The polish work shipped via the Form System Initiative. The items below are the last two that haven't shipped yet — each is low-effort polish on the badge form.
 
-- **Person form rework** · Medium · Encompasses several improvements: (1) move "Open profile" from inside the form to an icon in the top header, (2) add two-letter initial avatar option (currently single letter), (3) optionally support photo upload for the avatar (resized 96px base64 in `person.avatarUrl`, falls back to initial circle when no photo), (4) add nickname / pronouns / birthdate fields (birthdate may overlap with Birthday & Milestone Tracking in EASY — coordinate).
-- **Avatar / photo upload on Person form** · Low-Medium · Sub-feature of Person form rework — actual photo uploads, browser-resized to 96px JPEG (~5KB base64). Avatar displays wherever a person appears.
 - **Custom badge icons (SVG)** · Medium · Small library of built-in SVG icons (trophy, star, fire, lightning, leaf, etc.) plus optional upload. Replaces or augments the current emoji-only badge identity. Adds real visual differentiation between badges.
-- **Color picker for Reward icon background** · Low · Most paid family apps offer color + emoji combo; today only emoji.
-- **URL/link field on Event form** · Low · Zoom/Meet/school event links. Currently no field.
-- **Recipe ingredient autocomplete** · Medium · Suggest from past ingredients + staples as user types in Recipe form.
-- **Recipe optional disclosures** · Low · `+ Tags`, `+ Cook time`, `+ Yield/units` chips at the bottom of Recipe form, collapsed by default (same pattern as existing `+ Notes` / `+ Location` reveal chips on Event form). Keeps form short unless user opts in.
 - **Badge two-step wizard** · Medium · Step 1: name + icon. Step 2: trigger + reward. Reduces cognitive load on a dense form.
-- **Shopping list icon/color picker** · Low · Differentiate Walmart vs Target vs Costco visually beyond the name.
-- **Bulk-add inline "save to staples" star** · Low · Today the star only appears after item is added to the bottom list; should appear as user types.
-- **Hide Badge threshold input when condition is boolean** · Low · "First Store Purchase" condition is a one-shot boolean with no threshold; the numeric field should disappear. Conditions like "Current Streak (days)" still need it.
-- **Show "≥" comparison operator on Badge condition** · Low · Currently `Current Streak (days) [e.g. 7]` is ambiguous about >, =, ≥.
-- **Image thumbnails on Meal Plan recipe rows** · Low · Currently recipe rows are plain text; paid meal-planning apps show small images.
-- **Auto-collapse Recipe URL input after parse** · Low · Once AI parses the URL, fold the URL field away.
 
 ---
 
