@@ -597,6 +597,33 @@ function isTikTokUrl(url) {
   return /(?:^|[./])tiktok\.com|^https?:\/\/(?:vm|vt)\.tiktok\.com/i.test(url);
 }
 
+// Server-side image fetch + base64 encode. Returns { imageData, imageMediaType }
+// or { imageData: null, imageMediaType: null } on any failure. Caps at 5 MB
+// raw to avoid runaway responses. Used so the client can store the image as a
+// permanent data URL without doing a separate (CORS-prone) browser fetch.
+async function fetchImageAsBase64(url) {
+  const NULL_RESULT = { imageData: null, imageMediaType: null };
+  if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url)) return NULL_RESULT;
+  try {
+    const res = await fetch(url, { redirect: 'follow' });
+    if (!res.ok) return NULL_RESULT;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > 5 * 1024 * 1024) return NULL_RESULT;
+    const mediaType = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+    if (!mediaType.startsWith('image/')) return NULL_RESULT;
+    const bytes = new Uint8Array(buf);
+    // Chunked base64 — String.fromCharCode.apply blows the stack on long arrays.
+    let binary = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    return { imageData: btoa(binary), imageMediaType: mediaType };
+  } catch {
+    return NULL_RESULT;
+  }
+}
+
 function decodeEntities(str) {
   if (!str) return '';
   return str
@@ -781,12 +808,19 @@ async function handleUrl(input, env, corsHeaders) {
     if (parsed.error && !ingredients.length && !parsed.name) {
       return partialResp({ name: fallbackTitle });
     }
+    // Server-side image proxy: download the og:image here so the client
+    // stores a permanent data URL instead of a time-signed CDN URL that
+    // will expire (TikTok, Instagram, etc.). Best-effort — fall back to the
+    // raw URL on any failure.
+    const { imageData, imageMediaType } = await fetchImageAsBase64(ogImage);
     return jsonOk({
       url,
       name,
       ingredients,
       notes,
-      imageUrl: ogImage,
+      imageUrl:       ogImage,
+      imageData,
+      imageMediaType,
       prepTime:   parsed.prepTime   || null,
       cookTime:   parsed.cookTime   || null,
       totalTime:  parsed.totalTime  || null,

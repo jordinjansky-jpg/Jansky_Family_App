@@ -20,7 +20,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
 import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner } from './shared/utils.js';
-import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl } from './shared/ai-helpers.js';
+import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -93,6 +93,59 @@ function formatPrepBucket(prepTimeStr) {
 
 // Worker URL — set when Cloudflare Worker is deployed
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
+
+// ── Self-heal for broken recipe images ────────────────────────────────────
+// Legacy recipes (imported before the Worker image-proxy landed) store CDN
+// URLs that can expire. When a thumbnail fails to load we try once per page
+// load to re-fetch via the Worker and persist the result as a data URL. Bad
+// URLs would otherwise retry-storm; the caps below bound the blast radius.
+const _selfHealAttempted = new Set();   // recipe IDs tried this page load
+let   _selfHealCountThisLoad = 0;
+const SELF_HEAL_MAX_PER_LOAD = 5;
+async function selfHealRecipeImage(recipeId) {
+  if (!recipeId) return;
+  if (_selfHealAttempted.has(recipeId)) return;
+  if (_selfHealCountThisLoad >= SELF_HEAL_MAX_PER_LOAD) return;
+  const recipe = recipes[recipeId];
+  if (!recipe || !recipe.url) return;                                     // no source to refresh from
+  if (typeof recipe.imageUrl === 'string' && recipe.imageUrl.startsWith('data:')) return; // data URLs can't break
+  _selfHealAttempted.add(recipeId);
+  _selfHealCountThisLoad++;
+  try {
+    const res = await fetch(KITCHEN_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'url', input: recipe.url }),
+    });
+    if (!res.ok) throw new Error(`Worker ${res.status}`);
+    const data = await res.json();
+    let dataUrl = null;
+    if (data?.imageData && data?.imageMediaType) {
+      dataUrl = await base64ToDataUrl(data.imageData, data.imageMediaType);
+    } else if (data?.imageUrl) {
+      dataUrl = await urlToDataUrl(data.imageUrl);
+    }
+    if (!dataUrl || !dataUrl.startsWith('data:')) throw new Error('No image');
+    const updated = { ...recipe, imageUrl: dataUrl, imageRefreshFails: null };
+    recipes[recipeId] = updated;
+    await writeKitchenRecipe(recipeId, updated);
+    // Re-render the list so the recovered image appears. Cheap; idempotent.
+    if (activeTab === 'recipes') renderRecipesTab();
+  } catch {
+    const next = (recipe.imageRefreshFails || 0) + 1;
+    const updated = { ...recipe, imageRefreshFails: next };
+    recipes[recipeId] = updated;
+    try { await writeKitchenRecipe(recipeId, updated); } catch { /* swallow */ }
+    // Once we cross the banner threshold, refresh the Recipes tab so it shows.
+    if (next === 2 && activeTab === 'recipes') renderRecipesTab();
+  }
+}
+// Expose a tiny trigger for inline `onerror` handlers — they execute outside
+// the module scope so can't reach the function directly. Inline handler owns
+// the per-context placeholder swap; this one just fires the heal.
+if (typeof window !== 'undefined') {
+  window.__krImgError = (recipeId) => selfHealRecipeImage(recipeId);
+}
 
 // Activate a sheet: animate it in and close on overlay click
 function activateSheet(mount, onClose) {
@@ -449,11 +502,13 @@ async function renderMealsTab() {
 }
 
 function renderRecipesTab() {
-  function buildRecipeCardThumb(recipe) {
+  function buildRecipeCardThumb(recipe, id) {
     if (recipe?.imageUrl) {
-      // onerror swaps the broken img for the placeholder span when the
-      // URL fails to load (TikTok CDN URLs are time-signed and expire).
-      return `<img class="rl-card-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy" onerror="this.outerHTML='&lt;span class=&quot;rl-card-thumb rl-card-thumb--placeholder&quot; aria-hidden=&quot;true&quot;&gt;\\ud83c\\udf74&lt;/span&gt;'">`;
+      // onerror: swap visual to placeholder + trigger background self-heal.
+      // (window.__krImgError lives at module scope; defensive in case the
+      // page somehow renders before the module evaluates.)
+      const onErr = `(window.__krImgError&&window.__krImgError('${esc(id)}'));this.outerHTML='&lt;span class=&quot;rl-card-thumb rl-card-thumb--placeholder&quot; aria-hidden=&quot;true&quot;&gt;\\ud83c\\udf74&lt;/span&gt;'`;
+      return `<img class="rl-card-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy" onerror="${onErr}">`;
     }
     return `<span class="rl-card-thumb rl-card-thumb--placeholder" aria-hidden="true">🍴</span>`;
   }
@@ -480,7 +535,7 @@ function renderRecipesTab() {
   function buildRecipeCard(id, r) {
     return `
       <article class="card rl-recipe-card" data-recipe-id="${esc(id)}">
-        ${buildRecipeCardThumb(r)}
+        ${buildRecipeCardThumb(r, id)}
         <div class="rl-card-body">
           <div class="rl-card-title">${esc(r.name)}</div>
           <div class="rl-card-chips">${buildRecipeCardChips(r)}</div>
@@ -585,8 +640,26 @@ function renderRecipesTab() {
 
   const countLabel = recipeEntries.length === 1 ? '1 recipe' : `${recipeEntries.length} recipes`;
 
+  // Banner when any recipe has accumulated ≥2 image-refresh failures —
+  // means self-heal couldn't recover it from the source URL. User needs to
+  // upload a new photo or clear the dead link from the recipe edit form.
+  const flagged = Object.entries(recipes).filter(([, r]) => (r.imageRefreshFails || 0) >= 2);
+  const flaggedBanner = flagged.length === 0 ? '' : (() => {
+    const label = flagged.length === 1
+      ? `Image for "${esc(flagged[0][1].name || 'recipe')}" can't be loaded — tap to fix`
+      : `${flagged.length} recipes need attention — tap to view`;
+    return `<button class="rl-attn-banner" id="rlAttnBanner" type="button">
+      <span class="rl-attn-banner__icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </span>
+      <span class="rl-attn-banner__label">${label}</span>
+      <span class="rl-attn-banner__chev" aria-hidden="true">›</span>
+    </button>`;
+  })();
+
   content.innerHTML = `
     <div class="rl-wrap">
+      ${flaggedBanner}
       <div class="rl-search-row">
         <div class="rl-search-input-wrap">
           <span class="rl-search-icon" aria-hidden="true">
@@ -602,6 +675,10 @@ function renderRecipesTab() {
       </div>
       <div id="recipeLibrary">${recipeLibHtml}</div>
     </div>`;
+
+  document.getElementById('rlAttnBanner')?.addEventListener('click', () => {
+    openBrokenRecipesSheet(flagged);
+  });
 
   document.getElementById('recipeFilterBtn')?.addEventListener('click', openRecipeFilterSheet);
 
@@ -1428,7 +1505,7 @@ function openRecipeDetailSheet(recipeId) {
   function render() {
     const timesBlock = buildTimesAndServings();
     mount.innerHTML = renderBottomSheet(`
-      ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="this.parentElement.remove()"/></div>` : ''}
+      ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="(window.__krImgError&&window.__krImgError('${esc(recipeId)}'));this.parentElement.remove()"/></div>` : ''}
       <div class="sheet__header">
         <h2 class="sheet__title">${esc(recipe.name)}</h2>
         <div class="rf-header-actions">
@@ -1857,6 +1934,39 @@ function openRecipeRatingSheet(recipeId) {
 
   render();
 }
+
+// Lists recipes whose image has failed to self-heal twice or more so the user
+// can open each one and either upload a new image or clear the dead source
+// URL. Tap a row → recipe edit form (where they pick the fix).
+function openBrokenRecipesSheet(flagged) {
+  const mount = document.getElementById('sheetMount');
+  if (!flagged?.length) return;
+  const rows = flagged.map(([id, r]) => `
+    <button class="brs-row" data-broken-id="${esc(id)}" type="button">
+      <span class="brs-row__thumb" aria-hidden="true">🍴</span>
+      <span class="brs-row__body">
+        <span class="brs-row__name">${esc(r.name || '(untitled recipe)')}</span>
+        <span class="brs-row__hint">${(r.imageRefreshFails || 0)} failed refresh${(r.imageRefreshFails || 0) === 1 ? '' : 'es'} — tap to fix</span>
+      </span>
+      <span class="brs-row__chev" aria-hidden="true">›</span>
+    </button>
+  `).join('');
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: 'Recipes needing attention', closeId: 'brs_close' })}
+    <p class="brs-intro">These recipes' images couldn't be reloaded from their source. Open each one to upload a new photo or clear the dead link.</p>
+    <div class="brs-list">${rows}</div>
+  `);
+  activateSheet(mount);
+  document.getElementById('brs_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  mount.querySelectorAll('[data-broken-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.brokenId;
+      mount.innerHTML = '';
+      openRecipeForm(id);
+    });
+  });
+}
+
 function openRecipeFilterSheet() {
   const mount = document.getElementById('sheetMount');
 
@@ -2588,6 +2698,7 @@ function openRecipeForm(recipeId, onSave = null) {
         <button class="btn btn--ghost btn--sm" id="recipeUrlEdit" type="button">Change</button>
       </div>
       <span class="kr-import-status" id="urlImportStatus"></span>
+      ${((existing?.imageRefreshFails || 0) >= 2) ? `<p class="kr-url-dead-hint">This link is no longer reachable. Upload a new photo above, or clear the link to keep the recipe without it.</p>` : ''}
     </div>
 
     <div class="kr-title-row">
@@ -2777,15 +2888,21 @@ function openRecipeForm(recipeId, onSave = null) {
       if (data.notes && !document.getElementById('recipeNotes').value) {
         document.getElementById('recipeNotes').value = data.notes;
       }
-      if (data.imageUrl && !imageUrl) {
-        imageUrl = data.imageUrl;
-        // Fire-and-forget persistence: convert the (likely time-signed) URL
-        // to a data URL so it survives expiration. Updates `imageUrl` in
-        // place; the save handler will pick up the data URL when the user
-        // submits the form.
-        urlToDataUrl(data.imageUrl).then(persistent => {
-          if (persistent && persistent !== data.imageUrl) imageUrl = persistent;
-        }).catch(() => { /* keep remote URL as fallback */ });
+      // Image: prefer the Worker-supplied base64 (server-side fetched — no
+      // CORS, no expiry). Fall back to data.imageUrl + client-side fetch for
+      // older Worker versions that don't return imageData yet.
+      if (!imageUrl) {
+        if (data.imageData && data.imageMediaType) {
+          imageUrl = data.imageUrl || ''; // placeholder while we resize
+          base64ToDataUrl(data.imageData, data.imageMediaType).then(dataUrl => {
+            if (dataUrl) imageUrl = dataUrl;
+          }).catch(() => { /* keep whatever we had */ });
+        } else if (data.imageUrl) {
+          imageUrl = data.imageUrl;
+          urlToDataUrl(data.imageUrl).then(persistent => {
+            if (persistent && persistent !== data.imageUrl) imageUrl = persistent;
+          }).catch(() => { /* keep remote URL as fallback */ });
+        }
       }
       // Prep time: prefer data.prepTime, fall back to totalTime when prep is absent
       // (some sites only expose totalTime in their JSON-LD).
@@ -2978,12 +3095,18 @@ function openRecipeForm(recipeId, onSave = null) {
         body: JSON.stringify({ type: 'url', input: sourceUrl }),
       });
       const data = await res.json();
-      if (!data?.imageUrl) {
+      // Prefer Worker-supplied base64 (server-side fetched, never expires).
+      let fresh = null;
+      if (data?.imageData && data?.imageMediaType) {
+        fresh = await base64ToDataUrl(data.imageData, data.imageMediaType);
+      } else if (data?.imageUrl) {
+        fresh = await urlToDataUrl(data.imageUrl);
+      }
+      if (!fresh) {
         showToast('No image found — try uploading a photo');
         return;
       }
-      const fresh = await urlToDataUrl(data.imageUrl);
-      imageUrl = fresh || data.imageUrl;
+      imageUrl = fresh;
       showToast(imageUrl.startsWith('data:') ? 'Image refreshed — Save to keep' : 'Image refreshed (remote) — Save to keep');
     } catch (err) {
       console.error('Image refresh failed', err);
@@ -3021,6 +3144,9 @@ function openRecipeForm(recipeId, onSave = null) {
       steps: steps.length ? steps : null,
       imageUrl: imageUrl || null,
       videoUrl: videoUrl || null,
+      // Any save implicitly "fixes" the recipe — clear the failure counter
+      // so any banner attribution disappears.
+      imageRefreshFails: null,
     };
 
     if (recipeId) {
