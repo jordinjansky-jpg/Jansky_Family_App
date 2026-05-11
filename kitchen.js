@@ -1467,6 +1467,11 @@ function openRecipeDetailSheet(recipeId) {
           <summary class="rd-chef-notes__label">Chef's notes</summary>
           <p class="rd-chef-notes__body">${esc(recipe.notes)}</p>
         </details>` : ''}
+      ${recipe.familyNotes ? `
+        <details class="rd-chef-notes rd-chef-notes--family" open>
+          <summary class="rd-chef-notes__label">Family notes</summary>
+          <p class="rd-chef-notes__body">${esc(recipe.familyNotes)}</p>
+        </details>` : ''}
       ${hasIngredients ? `
         <div class="me-detail__section">
           <span class="me-detail__section-label">Ingredients</span>
@@ -2507,6 +2512,7 @@ function openRecipeForm(recipeId, onSave = null) {
   let videoUrl = existing?.videoUrl || '';
   const tagsOpen = existing?.tags?.length ? ' is-open' : '';
   const stepsOpen = (existing?.steps?.length) ? ' is-open' : '';
+  const familyNotesOpen = existing?.familyNotes ? ' is-open' : '';
 
   function normalizeRecipeUrl(url) {
     if (!url || typeof url !== 'string') return '';
@@ -2614,7 +2620,8 @@ function openRecipeForm(recipeId, onSave = null) {
 
     <div class="ef2-secondary-row">
       <button class="ef2-add-chip${tagsOpen ? ' is-active' : ''}" id="kr_tagsChip" type="button">+ Tags</button>
-      <button class="ef2-add-chip${stepsOpen ? ' is-active' : ''}" id="kr_stepsChip" type="button">+ Steps</button>
+      <button class="ef2-add-chip${familyNotesOpen ? ' is-active' : ''}" id="kr_familyNotesChip" type="button">+ Family notes</button>
+      <button class="ef2-add-chip${stepsOpen ? ' is-active' : ''}" id="kr_stepsChip" type="button">+ Step-by-step</button>
     </div>
 
     <div class="ef2-field-reveal${tagsOpen}" id="kr_tagsReveal">
@@ -2625,9 +2632,16 @@ function openRecipeForm(recipeId, onSave = null) {
       </label>
     </div>
 
+    <div class="ef2-field-reveal${familyNotesOpen}" id="kr_familyNotesReveal">
+      <label class="field">
+        <span class="field__label">Family notes</span>
+        <textarea id="recipeFamilyNotes" class="kr-notes" placeholder="What everyone thought, tweaks for next time, kid-friendly swaps…" autocomplete="off">${esc(existing?.familyNotes || '')}</textarea>
+      </label>
+    </div>
+
     <div class="ef2-field-reveal${stepsOpen}" id="kr_stepsReveal">
       <label class="field">
-        <span class="field__label">Steps (one per line)</span>
+        <span class="field__label">Step-by-step (one per line)</span>
         <textarea id="recipeSteps" class="kr-notes" placeholder="Preheat oven to 400°F&#10;Mix dry ingredients in a bowl&#10;…" autocomplete="off">${esc((existing?.steps || []).join('\n'))}</textarea>
       </label>
     </div>`);
@@ -2640,20 +2654,20 @@ function openRecipeForm(recipeId, onSave = null) {
     e.target.style.height = '0'; e.target.style.height = e.target.scrollHeight + 'px';
   });
 
-  // Tags / Steps disclosure chips
-  document.getElementById('kr_tagsChip')?.addEventListener('click', () => {
-    const chip = document.getElementById('kr_tagsChip');
-    const reveal = document.getElementById('kr_tagsReveal');
-    const opening = !reveal.classList.contains('is-open');
-    reveal.classList.toggle('is-open');
-    chip.classList.toggle('is-active', opening);
-    if (opening) document.getElementById('recipeTags')?.focus();
-  });
-  document.getElementById('kr_stepsChip')?.addEventListener('click', () => {
-    const reveal = document.getElementById('kr_stepsReveal');
-    const open = reveal?.classList.toggle('is-open');
-    document.getElementById('kr_stepsChip')?.classList.toggle('is-active', open);
-  });
+  // Tags / Family notes / Step-by-step disclosure chips
+  function bindDisclosure(chipId, revealId, inputId) {
+    document.getElementById(chipId)?.addEventListener('click', () => {
+      const chip = document.getElementById(chipId);
+      const reveal = document.getElementById(revealId);
+      const opening = !reveal.classList.contains('is-open');
+      reveal.classList.toggle('is-open');
+      chip.classList.toggle('is-active', opening);
+      if (opening) document.getElementById(inputId)?.focus();
+    });
+  }
+  bindDisclosure('kr_tagsChip',         'kr_tagsReveal',         'recipeTags');
+  bindDisclosure('kr_familyNotesChip',  'kr_familyNotesReveal',  'recipeFamilyNotes');
+  bindDisclosure('kr_stepsChip',        'kr_stepsReveal',        'recipeSteps');
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kr_close')?.addEventListener('click', close);
@@ -2765,6 +2779,13 @@ function openRecipeForm(recipeId, onSave = null) {
         document.getElementById('kr_tagsReveal')?.classList.add('is-open');
       }
       if (data.videoUrl && !videoUrl) videoUrl = data.videoUrl;
+      if (Array.isArray(data.steps) && data.steps.length && !document.getElementById('recipeSteps')?.value) {
+        const cleaned = data.steps.map(s => String(s || '').trim()).filter(Boolean).slice(0, 30);
+        document.getElementById('recipeSteps').value = cleaned.join('\n');
+        // Open the Step-by-step disclosure so the user sees what was captured.
+        document.getElementById('kr_stepsChip')?.classList.add('is-active');
+        document.getElementById('kr_stepsReveal')?.classList.add('is-open');
+      }
       if (data.ingredients?.length) {
         ingredients.length = 0;
         data.ingredients.forEach(ing => {
@@ -2965,6 +2986,7 @@ function openRecipeForm(recipeId, onSave = null) {
       name,
       url,
       notes: document.getElementById('recipeNotes')?.value.trim() || null,
+      familyNotes: document.getElementById('recipeFamilyNotes')?.value.trim() || null,
       source: existing?.source || 'manual',
       ingredients,
       lastUsed: existing?.lastUsed || null,
