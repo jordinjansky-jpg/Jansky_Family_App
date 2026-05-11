@@ -352,50 +352,6 @@ button.rl-chip {
 .item-add-field.is-confirmed::placeholder { color: var(--accent); }
 
 /* List toolbar (staples + AI cleanup) */
-.list-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  padding-bottom: var(--spacing-xs);
-}
-
-.list-icon-group {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  margin-left: auto;
-}
-
-.list-wand-btn,
-.list-camera-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  transition: all var(--t-fast);
-}
-
-.list-wand-btn:hover,
-.list-camera-btn:hover { color: var(--accent); border-color: var(--accent); }
-.list-wand-btn:focus-visible,
-.list-camera-btn:focus-visible { outline: none; background: var(--surface-2); color: var(--text); }
-.list-wand-btn:disabled,
-.list-camera-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.list-wand-btn.is-loading { animation: list-wand-pulse 1s ease-in-out infinite; }
-
-@keyframes list-wand-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}
-
 /* ── Recipe detail (rd-*) ── */
 .rd-hero {
   margin: 0 calc(-1 * var(--spacing-md)) var(--spacing-md);
@@ -722,6 +678,13 @@ button.rl-chip {
   font-style: italic;
 }
 
+.kait-hint {
+  font-size: var(--font-xs);
+  color: var(--text-faint);
+  font-style: italic;
+  margin-top: var(--spacing-xs);
+}
+
 /* ============ School lunch confirm sheet (sl-*) ============ */
 .sl-confirm-list {
   display: flex;
@@ -953,4 +916,75 @@ button.rl-chip {
   display: flex;
   justify-content: center;
   padding: var(--spacing-sm) 0 var(--spacing-md);
+}
+
+/* ============ List switcher count chip ============ */
+.list-switcher__count {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.list-switcher__count--clear {
+  color: var(--accent-ink);
+}
+
+/* ============ List Actions Menu (overflow sheet) ============ */
+.lam-actions {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-sm) 0;
+}
+.lam-action {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px var(--spacing-md);
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: var(--font-md);
+  cursor: pointer;
+}
+.lam-action:hover,
+.lam-action:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+.lam-action--danger {
+  color: var(--danger);
+}
+.lam-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--spacing-sm) 0;
+}
+
+/* ============ List Empty State ============ */
+.list-empty {
+  text-align: center;
+  padding: var(--spacing-xl) var(--spacing-md);
+}
+
+.list-empty__title {
+  font-size: var(--font-md);
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-md);
+}
+
+.list-empty__cta {
+  margin-bottom: var(--spacing-sm);
+}
+
+.list-empty__hint {
+  font-size: var(--font-sm);
+  color: var(--text-faint);
+}
+
+.lam-empty-link {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

@@ -1806,6 +1806,14 @@ function openKitchenAiToolsSheet() {
         <button class="btn btn--secondary" id="kait_recipeFind" type="button">🔎 Find ideas online</button>
       </div>
     </div>
+    <div class="kait-section">
+      <div class="kait-section__label">LISTS</div>
+      <div class="kait-grid">
+        <button class="btn btn--secondary" id="kait_listClean" type="button"${!activeListId ? ' disabled' : ''}>🪄 Auto-categorize</button>
+        <button class="btn btn--secondary" id="kait_listPhoto" type="button"${!activeListId ? ' disabled' : ''}>📷 Photo → list</button>
+      </div>
+      ${!activeListId ? `<div class="kait-hint">Create a list first.</div>` : ''}
+    </div>
   `);
   activateSheet(mount);
   document.getElementById('kait_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
@@ -1853,6 +1861,18 @@ function openKitchenAiToolsSheet() {
   document.getElementById('kait_recipeFind')?.addEventListener('click', () => {
     mount.innerHTML = '';
     openFindRecipesSheet();
+  });
+
+  document.getElementById('kait_listClean')?.addEventListener('click', () => {
+    if (!activeListId) return;
+    mount.innerHTML = '';
+    runListCleanup(currentItems);
+  });
+
+  document.getElementById('kait_listPhoto')?.addEventListener('click', () => {
+    if (!activeListId) return;
+    mount.innerHTML = '';
+    openListPhotoSourceSheet();
   });
 }
 
@@ -2512,35 +2532,34 @@ function renderListsTab() {
   const WAND_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
   const CAM_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
 
+  const activeCount = Object.values(currentItems || {}).filter(it => !it.checked).length;
+  const totalCount = Object.values(currentItems || {}).length;
+  const countChip = (() => {
+    if (totalCount === 0) return '';
+    if (activeCount === 0) return '<span class="list-switcher__count list-switcher__count--clear">· clear ✓</span>';
+    return `<span class="list-switcher__count">· ${activeCount} left</span>`;
+  })();
+
   content.innerHTML = `
     <div class="list-switcher">
       <div class="list-switcher__tabs">
         ${listIds.map(id => {
           const l = lists[id];
           const icon = l.icon ? `<span class="tab--list-icon" data-bg-color="${esc(l.color || DEFAULT_LIST_COLOR)}">${esc(l.icon)}</span>` : '';
+          const isActive = id === activeListId;
           return `
-          <button class="tab${id === activeListId ? ' is-active' : ''} tab--list"
+          <button class="tab${isActive ? ' is-active' : ''} tab--list"
                   data-list-id="${esc(id)}" type="button">
-            ${icon}${esc(l.name)}
+            ${icon}${esc(l.name)}${isActive ? countChip : ''}
           </button>`;
         }).join('')}
       </div>
       <div class="list-switcher__actions">
-        <button class="btn-icon" id="addListBtn" aria-label="New list" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
         <button class="btn-icon" id="manageListBtn" aria-label="Manage list" type="button">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>
           </svg>
         </button>
-      </div>
-    </div>
-    <div class="list-toolbar">
-      <button class="chip" id="staplesTopBtn" type="button">Add from staples</button>
-      <div class="list-icon-group">
-        <button class="list-camera-btn" id="listCameraBtn" type="button" aria-label="Add from photo">${CAM_SVG}</button>
-        <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list" disabled>${WAND_SVG}</button>
       </div>
     </div>
     <div id="itemAddMount"></div>
@@ -2557,13 +2576,10 @@ function renderListsTab() {
       subscribeListItems();
       return;
     }
-    if (e.target.closest('#addListBtn')) { openCreateListSheet(); return; }
-    if (e.target.closest('#manageListBtn')) { openManageListSheet(); return; }
+    if (e.target.closest('#manageListBtn')) { openListActionsMenu(); return; }
   });
 
   document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
-  document.getElementById('listCameraBtn')?.addEventListener('click', openListPhotoSourceSheet);
-  document.getElementById('listCleanupBtn')?.addEventListener('click', () => runListCleanup(currentItems));
 
   subscribeListItems();
 }
@@ -2571,7 +2587,25 @@ function renderListsTab() {
 function subscribeListItems() {
   if (itemsUnsub) { itemsUnsub(); itemsUnsub = null; }
   if (!activeListId) { renderItemsArea({}); return; }
-  itemsUnsub = onKitchenItems(activeListId, (items) => renderItemsArea(items || {}));
+  itemsUnsub = onKitchenItems(activeListId, (items) => {
+    renderItemsArea(items || {});
+    updateListCountChip();
+  });
+}
+
+function updateListCountChip() {
+  const activeBtn = document.querySelector('.list-switcher .tab--list.is-active');
+  if (!activeBtn) return;
+  activeBtn.querySelectorAll('.list-switcher__count').forEach(el => el.remove());
+  const activeCount = Object.values(currentItems || {}).filter(it => !it.checked).length;
+  const totalCount = Object.values(currentItems || {}).length;
+  if (totalCount === 0) return;
+  const chip = document.createElement('span');
+  chip.className = activeCount === 0
+    ? 'list-switcher__count list-switcher__count--clear'
+    : 'list-switcher__count';
+  chip.textContent = activeCount === 0 ? '· clear ✓' : `· ${activeCount} left`;
+  activeBtn.appendChild(chip);
 }
 
 function renderItemsArea(items) {
@@ -2587,7 +2621,18 @@ function renderItemsArea(items) {
   if (wand) wand.disabled = allItems.length === 0;
 
   if (allItems.length === 0) {
-    area.innerHTML = renderEmptyState('', 'List is empty', 'Tap + to add your first item.');
+    const staplesCount = Object.keys(staples || {}).length;
+    const cta = staplesCount > 0
+      ? `<button class="btn btn--primary btn--sm" id="emptyAddFromStaples" type="button">+ Add from staples</button>`
+      : `<a class="lam-empty-link" id="emptyOpenStaples" href="#" role="button">Save your basics as staples first</a>`;
+    area.innerHTML = `
+      <div class="list-empty">
+        <div class="list-empty__title">Your list is empty.</div>
+        <div class="list-empty__cta">${cta}</div>
+        <div class="list-empty__hint">Or tap the <strong>+</strong> to add an item.</div>
+      </div>`;
+    document.getElementById('emptyAddFromStaples')?.addEventListener('click', () => openStaplesSheet());
+    document.getElementById('emptyOpenStaples')?.addEventListener('click', (e) => { e.preventDefault(); openStaplesSheet(); });
     return;
   }
 
@@ -2608,10 +2653,25 @@ function renderItemsArea(items) {
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
+  // Compute distinct visible categories for header visibility rule
+  const distinctCats = new Set(
+    Object.values(unchecked).map(([, it]) => it.category || 'Other')
+  );
+  const multipleCategories = distinctCats.size >= 2;
+
+  // Helper to normalize 'OTHER' and 'Other' as the same category
+  const isOtherCategory = (cat) => cat.toUpperCase() === 'OTHER';
+
   let html = '';
 
   for (const cat of sortedCats) {
-    html += `<div class="shopping-category-label">${esc(cat)}</div>`;
+    // Category header renders only when:
+    // 1. There are 2+ distinct visible categories, OR
+    // 2. The single visible category is NOT 'Other'/'OTHER'
+    const shouldShowHeader = multipleCategories || !isOtherCategory(cat);
+    if (shouldShowHeader) {
+      html += `<div class="shopping-category-label">${esc(cat)}</div>`;
+    }
     for (const [id, item] of byCategory[cat]) {
       html += renderShoppingCard(id, item, false);
     }
@@ -2650,6 +2710,10 @@ function renderItemsArea(items) {
       () => toggleItem(id)
     );
   });
+
+  // Fire-and-forget. Categorize uncategorized items in the background; render
+  // updates naturally when Firebase pushes the new category values.
+  healUncategorizedItems(activeListId, items).catch(err => console.warn('heal pass failed', err));
 }
 
 function renderShoppingCard(id, item, isChecked) {
@@ -2819,10 +2883,7 @@ function openManageListSheet() {
         ${renderColorButton(initialColor, 'km_iconColor')}
       </div>
     </div>
-    <div class="me-detail__chips">
-      <button class="chip" id="km_copyBtn" type="button">Copy list</button>
-      <button class="chip" id="km_clearBtn" type="button">Clear checked</button>
-    </div>`);
+`);
   activateSheet(mount);
   applyDataColors(mount);
 
@@ -2868,21 +2929,6 @@ function openManageListSheet() {
     renderListsTab();
   });
 
-  document.getElementById('km_copyBtn')?.addEventListener('click', () => {
-    copyListAsText();
-    close();
-  });
-
-  document.getElementById('km_clearBtn')?.addEventListener('click', async () => {
-    const confirmed = await showConfirm({ title: 'Remove all checked items?', confirmLabel: 'Clear' });
-    if (!confirmed) return;
-    const checkedCards = document.querySelectorAll('.card--shopping.is-checked');
-    for (const card of checkedCards) {
-      await removeKitchenItem(activeListId, card.dataset.itemId);
-    }
-    close();
-  });
-
   document.getElementById('km_deleteBtn')?.addEventListener('click', async () => {
     const itemCount = document.querySelectorAll('.card--shopping').length;
     const msg = itemCount > 0
@@ -2896,6 +2942,68 @@ function openManageListSheet() {
     if (activeListId) localStorage.setItem('dr-kitchen-active-list', activeListId);
     else localStorage.removeItem('dr-kitchen-active-list');
     close();
+    renderListsTab();
+  });
+}
+
+function openListActionsMenu() {
+  if (!activeListId || !lists[activeListId]) return;
+  const list = lists[activeListId];
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: `${list.name} actions`, closeId: 'lam_close' })}
+    <div class="lam-actions">
+      <button class="lam-action" id="lam_newList" type="button">+ New list</button>
+      <button class="lam-action" id="lam_staples" type="button">Add from staples</button>
+      <button class="lam-action" id="lam_rename" type="button">Rename / change icon</button>
+      <button class="lam-action" id="lam_copy" type="button">Copy as text</button>
+      <button class="lam-action" id="lam_clear" type="button">Clear checked items</button>
+      <div class="lam-divider"></div>
+      <button class="lam-action lam-action--danger" id="lam_delete" type="button">Delete list</button>
+    </div>
+  `);
+  activateSheet(mount);
+
+  document.getElementById('lam_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  document.getElementById('lam_newList')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openCreateListSheet();
+  });
+  document.getElementById('lam_staples')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openStaplesSheet();
+  });
+  document.getElementById('lam_rename')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openManageListSheet();
+  });
+  document.getElementById('lam_copy')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    copyListAsText();
+  });
+  document.getElementById('lam_clear')?.addEventListener('click', async () => {
+    mount.innerHTML = '';
+    const confirmed = await showConfirm({ title: 'Remove all checked items?', confirmLabel: 'Clear' });
+    if (!confirmed) return;
+    const checkedCards = document.querySelectorAll('.card--shopping.is-checked');
+    for (const card of checkedCards) {
+      await removeKitchenItem(activeListId, card.dataset.itemId);
+    }
+  });
+  document.getElementById('lam_delete')?.addEventListener('click', async () => {
+    mount.innerHTML = '';
+    const itemCount = Object.keys(currentItems || {}).length;
+    const msg = itemCount > 0
+      ? `Delete "${list.name}"? It has ${itemCount} item${itemCount !== 1 ? 's' : ''}.`
+      : `Delete "${list.name}"?`;
+    const confirmed = await showConfirm({ title: msg, confirmLabel: 'Delete', danger: true });
+    if (!confirmed) return;
+    await removeKitchenList(activeListId);
+    delete lists[activeListId];
+    activeListId = Object.keys(lists)[0] || null;
+    if (activeListId) localStorage.setItem('dr-kitchen-active-list', activeListId);
+    else localStorage.removeItem('dr-kitchen-active-list');
     renderListsTab();
   });
 }
@@ -3449,6 +3557,30 @@ async function dedupIngredientsAi(existing, incoming) {
     return data;
   } catch (err) {
     return null;
+  }
+}
+
+const _healPassLog = new Map(); // listId → lastPassTimestamp
+
+async function healUncategorizedItems(listId, items) {
+  if (!listId || !items) return;
+  const now = Date.now();
+  const last = _healPassLog.get(listId) || 0;
+  if (now - last < 60_000) return; // debounce: max one pass per minute per list
+  _healPassLog.set(listId, now);
+
+  // Find items that need re-categorization. Skip checked items (don't waste
+  // Worker calls on completed groceries).
+  const candidates = Object.entries(items)
+    .filter(([, it]) => it && it.name && !it.checked)
+    .filter(([, it]) => !it.category || it.category === '' || it.category === 'OTHER' || it.category === 'Other')
+    .slice(0, 10);
+
+  if (candidates.length === 0) return;
+
+  for (const [itemId, item] of candidates) {
+    // categorizeItem already silently writes to Firebase; no toast/UI noise.
+    await categorizeItem(listId, itemId, item.name).catch(() => { /* keep current category */ });
   }
 }
 
