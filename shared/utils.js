@@ -351,3 +351,34 @@ export function generateShareToken() {
   for (let i = 0; i < 20; i++) out += chars[Math.floor(Math.random() * chars.length)];
   return out;
 }
+
+// Convert a stored kitchenPlan slot value (legacy single object OR new
+// array shape) into an array. Always returns an array; missing slot
+// returns [].
+export function normalizePlanSlot(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  return [raw];
+}
+
+// Given an array of meal options with votes maps, return the winning
+// option. Ties broken by earliest addedAt. Returns null when the array
+// is empty.
+export function pickWinner(options) {
+  if (!Array.isArray(options) || options.length === 0) return null;
+  if (options.length === 1) return options[0];
+  let bestIdx = 0;
+  let bestScore = -1;
+  let bestAddedAt = Infinity;
+  for (let i = 0; i < options.length; i++) {
+    const opt = options[i];
+    const score = opt?.votes ? Object.keys(opt.votes).length : 0;
+    const addedAt = opt?.addedAt || 0;
+    if (score > bestScore || (score === bestScore && addedAt < bestAddedAt)) {
+      bestIdx = i;
+      bestScore = score;
+      bestAddedAt = addedAt;
+    }
+  }
+  return options[bestIdx];
+}

@@ -768,7 +768,10 @@ export async function readKitchenPlanRange(startDate, endDate) {
 }
 
 export async function writeKitchenPlanSlot(dateKey, slot, data) {
-  return writeData(`kitchen/plan/${dateKey}/${slot}`, data);
+  // Always store as an array so the schema is one shape going forward.
+  // Single-element arrays for the common case; lazy migration on read.
+  const value = Array.isArray(data) ? data : [data];
+  return writeData(`kitchen/plan/${dateKey}/${slot}`, value);
 }
 
 export async function removeKitchenPlanSlot(dateKey, slot) {
