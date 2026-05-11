@@ -694,7 +694,8 @@ function resolveSchoolSlot(dateKey) {
   return null;
 }
 
-function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
+function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
+  const appendMode = opts.appendMode === true;
   const mount = document.getElementById('sheetMount');
   let selectedRecipeId = preRecipeId;
   let secondOpen = false;
@@ -943,7 +944,21 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         firstData = { customName: typed, source: 'manual' };
       }
     }
-    await writeKitchenPlanSlot(day, concreteSlot, firstData);
+    // If appendMode and the slot already has options, append (with 3-option cap).
+    const existingOptions = normalizePlanSlot(planCache[day]?.[concreteSlot]);
+    let finalArray;
+    if (appendMode && existingOptions.length > 0) {
+      const stamped = {
+        ...firstData,
+        addedAt: Date.now(),
+        addedBy: linkedPerson?.id || null,
+      };
+      finalArray = [...existingOptions, stamped];
+      if (finalArray.length > 3) finalArray = finalArray.slice(0, 3);
+    } else {
+      finalArray = [firstData];
+    }
+    await writeKitchenPlanSlot(day, concreteSlot, finalArray);
 
     // Optional second option (only relevant for school slot, when secondOpen and the OTHER school slot is free).
     if (selectedSlot === 'school' && secondOpen && (secondRecipeId || secondTypedName)) {
