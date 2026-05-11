@@ -243,7 +243,7 @@ function bindFab() {
 
 // ── Meals tab helpers ──────────────────────────────────────────────────────────
 const SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'school-lunch-2', 'dinner', 'snack'];
-const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School 1', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
+const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', school: 'School', 'school-lunch': 'School 1', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
 const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -440,7 +440,9 @@ function bindWeekStripSwipe() {
 function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const mount = document.getElementById('sheetMount');
   let selectedRecipeId = preRecipeId;
-  const PLAN_SLOT_ORDER = SLOT_ORDER.filter(s => !s.startsWith('school'));
+  // Picker offers a single 'School' option. Auto-allocation in handleSchoolSave()
+  // maps it to school-lunch or school-lunch-2 based on day state.
+  const PLAN_SLOT_ORDER = ['breakfast', 'lunch', 'school', 'dinner', 'snack'];
 
   let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : 'dinner';
 
@@ -488,7 +490,12 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     <div class="kp-slot-section">
       <span class="ef2-section-label">Slot</span>
       <nav class="tabs tabs--pill kp-slot-tabs" id="kp_slotPills">
-        ${PLAN_SLOT_ORDER.map(s => `<button class="tab${s === selectedSlot ? ' is-active' : ''}${planCache[preDate]?.[s] ? ' is-occupied' : ''}" data-slot="${esc(s)}" type="button">${esc(SLOT_LABELS[s])}</button>`).join('')}
+        ${PLAN_SLOT_ORDER.map(s => {
+  const isOccupied = s === 'school'
+    ? !!(planCache[preDate]?.['school-lunch'] && planCache[preDate]?.['school-lunch-2'])
+    : !!planCache[preDate]?.[s];
+  return `<button class="tab${s === selectedSlot ? ' is-active' : ''}${isOccupied ? ' is-occupied' : ''}" data-slot="${esc(s)}" type="button">${esc(SLOT_LABELS[s])}</button>`;
+}).join('')}
       </nav>
     </div>
     <div class="ef2-divider"></div>
