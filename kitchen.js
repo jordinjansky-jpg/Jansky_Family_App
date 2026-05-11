@@ -135,6 +135,7 @@ initFirebase();
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let settings, people = [];
+let linkedPerson = null; // resolved from ?person=Name query param
 let recipes = {}, lists = {}, staples = {}, planCache = {};
 let activeTab = localStorage.getItem('dr-kitchen-tab') || 'meals';
 let activeListId = null;
@@ -156,6 +157,12 @@ async function init() {
     readSettings().catch(() => null),
     readPeople().then(obj => obj ? Object.entries(obj).map(([id, p]) => ({ id, ...p })) : []),
   ]);
+
+  // Resolve ?person=Name query param
+  const personParam = new URLSearchParams(window.location.search).get('person');
+  if (personParam) {
+    linkedPerson = people.find(p => p.name.toLowerCase() === personParam.toLowerCase()) || null;
+  }
 
   // Phase 2: apply family theme from Firebase
   applyTheme(resolveTheme(settings?.theme));
