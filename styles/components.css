@@ -1259,13 +1259,6 @@
 }
 .task-card__avatar-edge--initial .task-card__avatar-initial {
   font-size: 10px;
-  font-weight: 800;
-  color: var(--text);
-  /* Inverse halo in --surface keeps the letter legible on any cell tint
-     without painting a background block. */
-  text-shadow:
-    0 0 2px var(--surface),
-    0 0 3px var(--surface);
 }
 
 /* ── Time-of-day section header (sections mode + kid page) ── */
