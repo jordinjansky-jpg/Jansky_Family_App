@@ -444,6 +444,12 @@ button.rl-chip {
   line-height: 1.5;
   white-space: pre-line;
 }
+/* Family-notes variant — subtle accent tint to distinguish from chef's notes. */
+.rd-chef-notes--family {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+}
+.rd-chef-notes--family .rd-chef-notes__label { color: var(--accent); }
+.rd-chef-notes--family .rd-chef-notes__body { color: var(--text); }
 
 .rd-ingredients {
   display: grid;

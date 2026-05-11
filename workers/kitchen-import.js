@@ -38,6 +38,7 @@ METADATA SOURCES:
 - For servings: accept strings like "4 servings", "8-10", or arrays like ["8"]. Pick the primary integer.
 - For tags: pull from recipeCategory / recipeCuisine / keywords (comma- or array-separated) and any visible descriptors (e.g. "vegetarian", "quick", "Italian"). Cap at 6 short tags. Lowercase, no punctuation. Empty array if none.
 - For videoUrl: if the source has a schema.org VideoObject (often inside the Recipe's "video" field), return its embedUrl, contentUrl, or url — in that order of preference. Skip the entry if all of those are missing or empty. Do not invent a URL.
+- For steps: pull from JSON-LD recipeInstructions (HowToStep "text" or "name", or HowToSection items). If JSON-LD is missing, fall back to the visible numbered/ordered list on the page. Return an array of short strings, one per step, in order. Strip leading numbers like "1." or "Step 1:". Cap at 30 steps. Empty array if none.
 
 Return JSON:
 {
@@ -50,6 +51,7 @@ Return JSON:
   "servings":  integer number of servings or null,
   "tags": ["array of short lowercase strings (max 6) from recipeCategory/recipeCuisine/keywords; empty array if none"],
   "videoUrl": "URL to the recipe video (YouTube embed, Vimeo, or direct mp4), or null",
+  "steps": ["array of step instructions in order; empty array if none"],
   "error": "reason if no recipe at all, else null"
 }
 If multiple recipes appear, extract the primary or most prominent one. Extract as much as is visible even if some fields are incomplete. Return only valid JSON, nothing else.`;
@@ -791,6 +793,7 @@ async function handleUrl(input, env, corsHeaders) {
       servings:   parsed.servings   || null,
       tags:       Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6).filter(t => typeof t === 'string' && t.trim()) : [],
       videoUrl:   typeof parsed.videoUrl === 'string' && parsed.videoUrl.startsWith('http') ? parsed.videoUrl : null,
+      steps:      Array.isArray(parsed.steps) ? parsed.steps.slice(0, 30).map(s => String(s || '').trim()).filter(Boolean) : [],
     }, corsHeaders);
   } catch {
     return partialResp({ name: fallbackTitle });
@@ -832,6 +835,7 @@ async function handleScreenshot(input, env, corsHeaders) {
       servings:   parsed.servings   || null,
       tags:       Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6).filter(t => typeof t === 'string' && t.trim()) : [],
       videoUrl:   typeof parsed.videoUrl === 'string' && parsed.videoUrl.startsWith('http') ? parsed.videoUrl : null,
+      steps:      Array.isArray(parsed.steps) ? parsed.steps.slice(0, 30).map(s => String(s || '').trim()).filter(Boolean) : [],
     }, corsHeaders);
   } catch {
     return jsonError('Could not extract recipe', 500, corsHeaders);
