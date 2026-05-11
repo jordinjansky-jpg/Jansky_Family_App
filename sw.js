@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v227 (2026-05-10) — Kitchen Meals redesign (T14): precache shared/kitchen-ical.js.
 // v226 (2026-05-10) — Kitchen meals: per-day + button on day-header, today accent-soft bg, null-slot support.
 //
 // v208 (2026-05-10) — Form polish PR 1 — easy batch (5 items): hide Badge
@@ -399,7 +400,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v226';
+const CACHE_NAME = 'family-hub-v227';
 
 const APP_SHELL = [
   '/',
@@ -447,6 +448,7 @@ const APP_SHELL = [
   '/shared/calendar-views.js',
   '/shared/ai-helpers.js',
   '/shared/dev-banner.js',
+  '/shared/kitchen-ical.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js',
