@@ -745,6 +745,28 @@ export async function readAllKitchenPlan() {
   return readOnce('kitchen/plan');
 }
 
+/** Read plan slots for a date range (inclusive). Returns { [dateKey]: planObj }
+ * where missing dates are omitted. Used by the Meal History view. */
+export async function readKitchenPlanRange(startDate, endDate) {
+  const start = startDate instanceof Date ? startDate : new Date(startDate);
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
+  const day = new Date(start);
+  day.setHours(0, 0, 0, 0);
+  const lastDay = new Date(end);
+  lastDay.setHours(0, 0, 0, 0);
+  const out = {};
+  while (day <= lastDay) {
+    const y = day.getFullYear();
+    const m = String(day.getMonth() + 1).padStart(2, '0');
+    const d = String(day.getDate()).padStart(2, '0');
+    const dk = `${y}-${m}-${d}`;
+    const plan = await readKitchenPlan(dk).catch(() => null);
+    if (plan) out[dk] = plan;
+    day.setDate(day.getDate() + 1);
+  }
+  return out;
+}
+
 export async function writeKitchenPlanSlot(dateKey, slot, data) {
   return writeData(`kitchen/plan/${dateKey}/${slot}`, data);
 }
