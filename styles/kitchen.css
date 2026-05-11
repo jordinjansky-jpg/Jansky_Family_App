@@ -1375,3 +1375,82 @@ button.rl-chip {
   border-radius: var(--radius-full);
   padding: 1px 6px;
 }
+
+/* ── Vote cards (slot-edit sheet, multi-option) ── */
+.vote-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+}
+.vote-card {
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+}
+.vote-card--winner {
+  border: 1px solid var(--accent);
+}
+.vote-card__title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--spacing-xs);
+}
+.vote-card__crown { font-size: var(--font-sm); }
+.vote-card__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-sm);
+}
+.vote-chip {
+  font-size: var(--font-xs);
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+.vote-card__nobody {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.vote-card__actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+/* ── Who's voting? overlay ── */
+.who-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.who-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  width: 90%;
+  max-width: 360px;
+}
+.who-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+}
+.who-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+.who-cancel {
+  display: block;
+  margin: 0 auto;
+}

@@ -976,51 +976,205 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
 
 function openSlotEditSheet(dk, slot, entry) {
   const mount = document.getElementById('sheetMount');
-  const recipe = entry.recipeId ? recipes[entry.recipeId] : null;
-  const name = recipe?.name || entry.mealName || entry.customName || '';
-  const hasIngredients = (recipe?.ingredients || []).filter(i => (i?.name || i)?.trim()).length > 0;
-  const d = new Date(dk + 'T12:00:00');
-  const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
+  const slotData = planCache[dk]?.[slot];
+  const options = normalizePlanSlot(slotData);
+  if (options.length === 0) return;
 
-  const CLOSE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  if (options.length === 1) {
+    renderSingleOption(options[0]);
+  } else {
+    renderMultiOption(options);
+  }
 
-  mount.innerHTML = renderBottomSheet(`
-    <div class="task-detail-sheet">
-      <div class="sheet__header">
-        <h2 class="sheet__title">${esc(name)}</h2>
-        <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
-      </div>
-      <div class="task-detail__chips">
-        ${(() => {
-          const labelOverride = (slot === 'school-lunch' || slot === 'school-lunch-2')
-            ? getSchoolSlotLabel(slot, planCache[dk] || {})
-            : SLOT_LABELS[slot] || slot;
-          return `<span class="chip">${esc(labelOverride)}</span>`;
-        })()}
-        <span class="chip">${esc(dayLabel)}</span>
-      </div>
-      <div class="me-detail__chips">
-        ${hasIngredients ? `<button class="chip" id="slotAddToListBtn" type="button">Add to list</button>` : ''}
-        <button class="chip" id="changeSlotMeal" type="button">Change meal</button>
-        <button class="chip" id="removeSlotMeal" type="button">Remove</button>
-      </div>
-    </div>`);
-  activateSheet(mount);
+  // ============ Single-option render (existing behavior) ============
+  function renderSingleOption(opt) {
+    const recipe = opt.recipeId ? recipes[opt.recipeId] : null;
+    const name = recipe?.name || opt.mealName || opt.customName || '';
+    const hasIngredients = (recipe?.ingredients || []).filter(i => (i?.name || i)?.trim()).length > 0;
+    const d = new Date(dk + 'T12:00:00');
+    const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
 
-  document.getElementById('slotClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
-  document.getElementById('slotAddToListBtn')?.addEventListener('click', async () => {
-    mount.innerHTML = '';
-    await addRecipeIngredientsToList(recipe);
-  });
-  document.getElementById('changeSlotMeal')?.addEventListener('click', () => {
-    mount.innerHTML = '';
-    openPlanMealSheet(dk, slot, entry.recipeId || null);
-  });
-  document.getElementById('removeSlotMeal')?.addEventListener('click', async () => {
-    await removeKitchenPlanSlot(dk, slot);
-    mount.innerHTML = '';
-    await renderMealsTab();
-    showToast('Meal removed');
+    const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+    mount.innerHTML = renderBottomSheet(`
+      <div class="task-detail-sheet">
+        <div class="sheet__header">
+          <h2 class="sheet__title">${esc(name)}</h2>
+          <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
+        </div>
+        <div class="task-detail__chips">
+          ${(() => {
+            const labelOverride = (slot === 'school-lunch' || slot === 'school-lunch-2')
+              ? getSchoolSlotLabel(slot, planCache[dk] || {})
+              : SLOT_LABELS[slot] || slot;
+            return `<span class="chip">${esc(labelOverride)}</span>`;
+          })()}
+          <span class="chip">${esc(dayLabel)}</span>
+        </div>
+        <div class="me-detail__chips">
+          ${hasIngredients ? `<button class="chip" id="slotAddToListBtn" type="button">Add to list</button>` : ''}
+          <button class="chip" id="changeSlotMeal" type="button">Change meal</button>
+          <button class="chip" id="removeSlotMeal" type="button">Remove</button>
+          ${options.length < 3 ? `<button class="chip" id="addAnotherOption" type="button">+ Add another option</button>` : ''}
+        </div>
+      </div>`);
+    activateSheet(mount);
+
+    document.getElementById('slotClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    document.getElementById('slotAddToListBtn')?.addEventListener('click', async () => {
+      mount.innerHTML = '';
+      await addRecipeIngredientsToList(recipe);
+    });
+    document.getElementById('changeSlotMeal')?.addEventListener('click', () => {
+      mount.innerHTML = '';
+      openPlanMealSheet(dk, slot, opt.recipeId || null);
+    });
+    document.getElementById('removeSlotMeal')?.addEventListener('click', async () => {
+      await removeKitchenPlanSlot(dk, slot);
+      mount.innerHTML = '';
+      await renderMealsTab();
+      showToast('Meal removed');
+    });
+    document.getElementById('addAnotherOption')?.addEventListener('click', () => {
+      mount.innerHTML = '';
+      openPlanMealSheet(dk, slot, null, { appendMode: true });
+    });
+  }
+
+  // ============ Multi-option render (vote cards) ============
+  function renderMultiOption(opts) {
+    function getViewerId() {
+      if (linkedPerson) return Promise.resolve(linkedPerson.id);
+      const cached = sessionStorage.getItem('dr-kitchen-voter-id');
+      if (cached && people.find(p => p.id === cached)) return Promise.resolve(cached);
+      return openWhoVotesPrompt();
+    }
+
+    function buildCard(opt, i) {
+      const name = opt.recipeId
+        ? (recipes[opt.recipeId]?.name || 'Unknown')
+        : (opt.mealName || opt.customName || '');
+      const voteIds = Object.keys(opt.votes || {});
+      const voteCount = voteIds.length;
+      const voterNames = voteIds
+        .map(id => people.find(p => p.id === id)?.name)
+        .filter(Boolean);
+      const winnerCls = (pickWinner(opts) === opt) ? ' vote-card--winner' : '';
+      return `
+        <div class="vote-card${winnerCls}" data-vote-idx="${i}">
+          <div class="vote-card__title">${esc(name)}${winnerCls ? ' <span class="vote-card__crown">&#x1F3C6;</span>' : ''}</div>
+          <div class="vote-card__row">
+            ${voterNames.length
+              ? voterNames.map(n => `<span class="vote-chip">${esc(n)}</span>`).join('')
+              : '<span class="vote-card__nobody">No votes yet</span>'}
+            <button class="btn btn--ghost btn--sm" data-vote-toggle="${i}" type="button">&#x1F44D; ${voteCount}</button>
+          </div>
+          <div class="vote-card__actions">
+            <button class="btn btn--secondary btn--sm" data-vote-lock="${i}" type="button">Lock in</button>
+            <button class="btn btn--ghost btn--sm" data-vote-remove="${i}" type="button">Remove</button>
+          </div>
+        </div>`;
+    }
+
+    const d = new Date(dk + 'T12:00:00');
+    const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
+    const slotLabel = (slot === 'school-lunch' || slot === 'school-lunch-2')
+      ? getSchoolSlotLabel(slot, planCache[dk] || {})
+      : (SLOT_LABELS[slot] || slot);
+
+    const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+    mount.innerHTML = renderBottomSheet(`
+      <div class="task-detail-sheet">
+        <div class="sheet__header">
+          <h2 class="sheet__title">${esc(slotLabel)} &middot; ${esc(dayLabel)}</h2>
+          <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
+        </div>
+        <div class="vote-cards">
+          ${opts.map((opt, i) => buildCard(opt, i)).join('')}
+        </div>
+        ${opts.length < 3 ? `<div class="me-detail__chips"><button class="chip" id="addAnotherOption" type="button">+ Add another option</button></div>` : ''}
+      </div>`);
+    activateSheet(mount);
+
+    document.getElementById('slotClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    document.getElementById('addAnotherOption')?.addEventListener('click', () => {
+      mount.innerHTML = '';
+      openPlanMealSheet(dk, slot, null, { appendMode: true });
+    });
+
+    mount.querySelectorAll('[data-vote-toggle]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const voterId = await getViewerId();
+        if (!voterId) return;
+        const i = parseInt(btn.dataset.voteToggle, 10);
+        const opt = opts[i];
+        const votes = { ...(opt.votes || {}) };
+        if (votes[voterId]) delete votes[voterId];
+        else votes[voterId] = 1;
+        opts[i] = { ...opt, votes };
+        await writeKitchenPlanSlot(dk, slot, opts);
+        planCache[dk] = { ...planCache[dk], [slot]: opts };
+        openSlotEditSheet(dk, slot, entry); // re-render
+      });
+    });
+
+    mount.querySelectorAll('[data-vote-lock]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const i = parseInt(btn.dataset.voteLock, 10);
+        const winner = opts[i];
+        await writeKitchenPlanSlot(dk, slot, [winner]);
+        planCache[dk] = { ...planCache[dk], [slot]: [winner] };
+        mount.innerHTML = '';
+        await renderMealsTab();
+        showToast('Winner locked in');
+      });
+    });
+
+    mount.querySelectorAll('[data-vote-remove]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const i = parseInt(btn.dataset.voteRemove, 10);
+        const remaining = opts.filter((_, idx) => idx !== i);
+        if (remaining.length === 0) {
+          await removeKitchenPlanSlot(dk, slot);
+          delete planCache[dk][slot];
+          mount.innerHTML = '';
+          await renderMealsTab();
+          return;
+        }
+        await writeKitchenPlanSlot(dk, slot, remaining);
+        planCache[dk] = { ...planCache[dk], [slot]: remaining };
+        openSlotEditSheet(dk, slot, entry); // re-render
+      });
+    });
+  }
+}
+
+async function openWhoVotesPrompt() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'who-overlay';
+    overlay.innerHTML = `
+      <div class="who-card">
+        <div class="who-title">Who's voting?</div>
+        <div class="who-chips">
+          ${people.map(p => `<button class="chip" data-who-id="${esc(p.id)}" type="button">${esc(p.name)}</button>`).join('')}
+        </div>
+        <button class="btn btn--ghost btn--sm who-cancel" type="button">Cancel</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll('[data-who-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.whoId;
+        sessionStorage.setItem('dr-kitchen-voter-id', id);
+        overlay.remove();
+        resolve(id);
+      });
+    });
+    overlay.querySelector('.who-cancel').addEventListener('click', () => {
+      overlay.remove();
+      resolve(null);
+    });
   });
 }
 async function openCookModeSheet(recipe) {
