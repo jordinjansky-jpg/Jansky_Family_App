@@ -2402,16 +2402,32 @@ function openRecipeForm(recipeId, onSave = null) {
   document.getElementById('kr_refreshImage')?.addEventListener('click', async () => {
     const btn = document.getElementById('kr_refreshImage');
     if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
-    const current = existing?.imageUrl;
-    if (!current) return;
+    // Re-call the Worker with the recipe's SOURCE URL (the TikTok/page URL),
+    // not the expired image URL. The Worker returns a fresh signed imageUrl
+    // which we then persist as a data URL so it never expires again.
+    const sourceUrl = existing?.url;
+    if (!sourceUrl) {
+      showToast('No recipe link to refresh from — upload a photo instead');
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+      return;
+    }
     try {
-      const fresh = await urlToDataUrl(current);
-      if (fresh && fresh !== current) {
-        imageUrl = fresh;
-        showToast('Image refreshed — Save to keep');
-      } else {
-        showToast('Could not refresh image');
+      const res = await fetch(KITCHEN_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'url', input: sourceUrl }),
+      });
+      const data = await res.json();
+      if (!data?.imageUrl) {
+        showToast('No image found — try uploading a photo');
+        return;
       }
+      const fresh = await urlToDataUrl(data.imageUrl);
+      imageUrl = fresh || data.imageUrl;
+      showToast(imageUrl.startsWith('data:') ? 'Image refreshed — Save to keep' : 'Image refreshed (remote) — Save to keep');
+    } catch (err) {
+      console.error('Image refresh failed', err);
+      showToast('Refresh failed — try again');
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     }

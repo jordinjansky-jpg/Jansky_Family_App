@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v230 (2026-05-11) — Hot-fix: Refresh-image button now re-calls Worker with recipe.url to get a fresh imageUrl, then persists as data URL (works for already-expired TikTok URLs).
 // v229 (2026-05-11) — Hot-fix: TikTok image fallback (onerror → placeholder), recipe image persistence as data URLs on import, per-person ratings with half-star popup, drop favorite star UI, Filter SHOW: Top rated.
 // v228 (2026-05-10) — Kitchen Recipes tab depth: 56×56 thumbs, sticky search, 5-dimension filter, AI Tools RECIPES wiring.
 // v227 (2026-05-10) — Kitchen Meals redesign (T14): precache shared/kitchen-ical.js.
@@ -402,7 +403,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v229';
+const CACHE_NAME = 'family-hub-v230';
 
 const APP_SHELL = [
   '/',
