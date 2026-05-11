@@ -1035,10 +1035,18 @@ function openRecipeDetailSheet(recipeId) {
     ].filter(Boolean).join('');
   }
 
-  function buildStars(current) {
-    return Array.from({ length: 5 }, (_, i) =>
-      `<button class="rd-star${i < current ? ' rd-star--filled' : ''}" data-star="${i + 1}" type="button" aria-label="${i + 1} star">★</button>`
-    ).join('');
+  function buildStars() {
+    const { avg } = avgRating(recipe, linkedPerson?.id);
+    if (avg == null) {
+      return `<button class="rd-stars-btn rd-stars-btn--empty" id="rdStarsBtn" type="button" aria-label="Not rated — tap to rate"><span class="rd-stars-empty">☆☆☆☆☆</span></button>`;
+    }
+    const numText = Number.isInteger(avg) ? `${avg}.0` : avg.toFixed(1);
+    // Render avg as half-precision visual + numeric
+    const fullStars = Math.floor(avg);
+    const hasHalf = (avg - fullStars) >= 0.5;
+    const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
+    const visual = '★'.repeat(fullStars) + (hasHalf ? '½' : '') + '☆'.repeat(emptyStars);
+    return `<button class="rd-stars-btn" id="rdStarsBtn" type="button" aria-label="Rating ${numText} of 5 — tap to rate"><span class="rd-stars-visual">${visual}</span><span class="rd-stars-num">${esc(numText)}</span></button>`;
   }
 
   const hasIngredients = (recipe.ingredients?.length || 0) > 0;
@@ -1059,7 +1067,7 @@ function openRecipeDetailSheet(recipeId) {
       ${metaChips ? `<div class="rd-meta">${metaChips}</div>` : ''}
       <div class="rd-source-row">
         ${sourceDomain ? `<span class="rd-source">from ${esc(sourceDomain)}</span>` : '<span></span>'}
-        <div class="rd-stars" id="rdStars">${buildStars(recipe.rating || 0)}</div>
+        <div class="rd-stars">${buildStars()}</div>
       </div>
       ${recipe.notes ? `
         <details class="rd-chef-notes" open>
@@ -1095,15 +1103,9 @@ function openRecipeDetailSheet(recipeId) {
       document.getElementById('rdIngredients').innerHTML = buildIngredientRows();
     });
 
-    document.getElementById('rdStars')?.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-star]');
-      if (!btn) return;
-      const star = parseInt(btn.dataset.star, 10);
-      const newRating = recipe.rating === star ? 0 : star;
-      recipe.rating = newRating;
-      recipes[recipeId] = recipe;
-      document.getElementById('rdStars').innerHTML = buildStars(newRating);
-      await writeKitchenRecipe(recipeId, { ...recipe });
+    document.getElementById('rdStarsBtn')?.addEventListener('click', () => {
+      close();
+      openRecipeRatingSheet(recipeId);
     });
 
     document.getElementById('planThisMealBtn')?.addEventListener('click', () => {

@@ -497,18 +497,38 @@ button.rl-chip {
   gap: 2px;
   flex-shrink: 0;
 }
-.rd-star {
-  font-size: 22px;
-  line-height: 1;
+.rd-stars-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
-  color: var(--border);
-  transition: color var(--t-fast);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: var(--font-md);
+  -webkit-tap-highlight-color: transparent;
 }
-.rd-star--filled { color: #D4A843; }
-.rd-star:active { opacity: 0.7; }
+
+.rd-stars-btn--empty {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.rd-stars-visual {
+  font-size: 20px;
+  letter-spacing: 1px;
+}
+
+.rd-stars-num {
+  font-size: var(--font-sm);
+}
+
+.rd-stars-empty {
+  font-size: 20px;
+  letter-spacing: 1px;
+}
 
 /* ── Servings stepper row (above ingredients) ── */
 .rd-servings-row {
