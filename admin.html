@@ -83,7 +83,7 @@
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
     import { clearWeatherCache, geocodeLocation } from './shared/weather.js';
-    import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
+    import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl } from './shared/ai-helpers.js';
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
     const MSG_POSITIVE = ['Awesome Job!','Super Star','Great Teamwork','Above & Beyond',
@@ -4856,14 +4856,29 @@
             if (!res.ok) continue;
             const data = await res.json();
             const patch = {};
+            // Backfill only — never overwrite user edits.
             if (!recipe.name        && data.name)        patch.name        = data.name;
             if (!recipe.notes       && data.notes)       patch.notes       = data.notes;
-            if (!recipe.imageUrl    && data.imageUrl)    patch.imageUrl    = data.imageUrl;
             if (!recipe.prepTime    && data.prepTime)    patch.prepTime    = data.prepTime;
+            if (!recipe.cookTime    && data.cookTime)    patch.cookTime    = data.cookTime;
             if (!recipe.servings    && data.servings)    patch.servings    = data.servings;
-            if (!recipe.difficulty  && data.difficulty)  patch.difficulty  = data.difficulty;
+            if (!recipe.videoUrl    && data.videoUrl)    patch.videoUrl    = data.videoUrl;
+            if ((!recipe.tags  || recipe.tags.length === 0)  && Array.isArray(data.tags)  && data.tags.length)  patch.tags  = data.tags;
+            if ((!recipe.steps || recipe.steps.length === 0) && Array.isArray(data.steps) && data.steps.length) patch.steps = data.steps;
             if ((!recipe.ingredients || recipe.ingredients.length === 0) && data.ingredients?.length) {
               patch.ingredients = data.ingredients.filter(i => i.name).map(i => ({ name: i.name, qty: i.qty || null }));
+            }
+            // imageUrl: refresh when current is a non-data URL (CDN URLs from
+            // TikTok / sites are time-signed and expire). Always persist as a
+            // data URL so it survives forever.
+            const needsImageRefresh = data.imageUrl && (!recipe.imageUrl || !recipe.imageUrl.startsWith('data:'));
+            if (needsImageRefresh) {
+              const persistent = await urlToDataUrl(data.imageUrl);
+              // Only patch if the conversion produced a data URL — storing
+              // another short-lived CDN URL would just expire again.
+              if (persistent && persistent.startsWith('data:')) {
+                patch.imageUrl = persistent;
+              }
             }
             if (Object.keys(patch).length) {
               await updateData(`kitchen/recipes/${id}`, patch);

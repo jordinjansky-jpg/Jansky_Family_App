@@ -49,6 +49,33 @@ export async function resizeImageForUpload(file, maxPx = 1092) {
 }
 
 /**
+ * Download a remote image URL and convert it to a self-contained data URL via
+ * the existing image resizer. Used to convert TikTok/CDN time-signed URLs
+ * (which expire) into permanent data URLs that survive in the database.
+ *
+ * Returns the original URL on failure so callers can still save without
+ * exploding the recipe.
+ *
+ * @param {string} imageUrl
+ * @param {number} [maxPx=800]
+ * @returns {Promise<string>}
+ */
+export async function urlToDataUrl(imageUrl, maxPx = 800) {
+  if (!imageUrl || imageUrl.startsWith('data:')) return imageUrl;
+  try {
+    const res = await fetch(imageUrl, { mode: 'cors' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
+    const { base64, mediaType } = await resizeImageForUpload(file, maxPx);
+    return `data:${mediaType};base64,${base64}`;
+  } catch (err) {
+    console.warn('urlToDataUrl failed:', err);
+    return imageUrl;
+  }
+}
+
+/**
  * Render a single tap-to-deselect confirm row as an HTML string.
  * Mount rows inside a <div class="confirm-list"> container.
  * The page owns: click delegation on .confirm-list, toggling .is-deselected, reading selected state.
