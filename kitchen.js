@@ -432,7 +432,9 @@ async function renderMealsTab() {
 function renderRecipesTab() {
   function buildRecipeCardThumb(recipe) {
     if (recipe?.imageUrl) {
-      return `<img class="rl-card-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy">`;
+      // onerror swaps the broken img for the placeholder span when the
+      // URL fails to load (TikTok CDN URLs are time-signed and expire).
+      return `<img class="rl-card-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy" onerror="this.outerHTML='&lt;span class=&quot;rl-card-thumb rl-card-thumb--placeholder&quot; aria-hidden=&quot;true&quot;&gt;\\ud83c\\udf74&lt;/span&gt;'">`;
     }
     return `<span class="rl-card-thumb rl-card-thumb--placeholder" aria-hidden="true">🍴</span>`;
   }
@@ -1041,7 +1043,7 @@ function openRecipeDetailSheet(recipeId) {
   function render() {
     const metaChips = buildMetaChips();
     mount.innerHTML = renderBottomSheet(`
-      ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy"/></div>` : ''}
+      ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="this.parentElement.remove()"/></div>` : ''}
       <div class="sheet__header">
         <h2 class="sheet__title">${esc(recipe.name)}</h2>
         <div class="rf-header-actions">
