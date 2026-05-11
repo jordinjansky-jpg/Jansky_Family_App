@@ -411,6 +411,20 @@
 .person-avatar--clickable { cursor: pointer; transition: transform 0.12s; }
 .person-avatar--clickable:active { transform: scale(0.94); }
 
+/* Shared avatar editor sub-sheet — opened from admin Person form, setup wizard,
+   and My Settings. Lives here so the layout is identical on every page. */
+.ps-avatar-editor .pae-preview {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-md) 0;
+}
+.ps-avatar-editor .pae-photo-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) 0 var(--spacing-md);
+}
+
 /* ──────────────────────────────────────────────
    Photo cropper — drag-to-pan + zoom slider
    ────────────────────────────────────────────── */
@@ -1244,11 +1258,11 @@
   background: var(--pill-color);
 }
 .task-card__avatar-edge--initial .task-card__avatar-initial {
-  font-size: 13px;
-  font-weight: 900;
+  font-size: 10px;
+  font-weight: 800;
   color: var(--text);
-  /* Inverse halo: light theme uses a soft white halo, dark theme a soft dark one.
-     Keeps the letter legible on any cell tint without painting a background. */
+  /* Inverse halo in --surface keeps the letter legible on any cell tint
+     without painting a background block. */
   text-shadow:
     0 0 2px var(--surface),
     0 0 3px var(--surface);
