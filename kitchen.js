@@ -2053,6 +2053,7 @@ function openRecipeForm(recipeId, onSave = null) {
   let videoUrl = existing?.videoUrl || '';
   const tagsOpen = existing?.tags?.length ? ' is-open' : '';
   const cookTimeOpen = existing?.cookTime ? ' is-open' : '';
+  const stepsOpen = (existing?.steps?.length) ? ' is-open' : '';
 
   function normalizeRecipeUrl(url) {
     if (!url || typeof url !== 'string') return '';
@@ -2165,6 +2166,7 @@ function openRecipeForm(recipeId, onSave = null) {
     <div class="ef2-secondary-row">
       <button class="ef2-add-chip${tagsOpen ? ' is-active' : ''}" id="kr_tagsChip" type="button">+ Tags</button>
       <button class="ef2-add-chip${cookTimeOpen ? ' is-active' : ''}" id="kr_cookTimeChip" type="button">+ Cook time</button>
+      <button class="ef2-add-chip${stepsOpen ? ' is-active' : ''}" id="kr_stepsChip" type="button">+ Steps</button>
     </div>
 
     <div class="ef2-field-reveal${tagsOpen}" id="kr_tagsReveal">
@@ -2180,6 +2182,13 @@ function openRecipeForm(recipeId, onSave = null) {
         <span class="field__label">Cook time</span>
         <input id="recipeCookTime" type="text" class="field__input" placeholder="45 min"
           value="${esc(existing?.cookTime || '')}" autocomplete="off">
+      </label>
+    </div>
+
+    <div class="ef2-field-reveal${stepsOpen}" id="kr_stepsReveal">
+      <label class="field">
+        <span class="field__label">Steps (one per line)</span>
+        <textarea id="recipeSteps" class="kr-notes" placeholder="Preheat oven to 400°F&#10;Mix dry ingredients in a bowl&#10;…" autocomplete="off">${esc((existing?.steps || []).join('\n'))}</textarea>
       </label>
     </div>`);
   activateSheet(mount);
@@ -2210,6 +2219,11 @@ function openRecipeForm(recipeId, onSave = null) {
     reveal.classList.toggle('is-open');
     chip.classList.toggle('is-active', opening);
     if (opening) document.getElementById('recipeCookTime')?.focus();
+  });
+  document.getElementById('kr_stepsChip')?.addEventListener('click', () => {
+    const reveal = document.getElementById('kr_stepsReveal');
+    const open = reveal?.classList.toggle('is-open');
+    document.getElementById('kr_stepsChip')?.classList.toggle('is-active', open);
   });
 
   const close = () => { mount.innerHTML = ''; };
@@ -2529,6 +2543,8 @@ function openRecipeForm(recipeId, onSave = null) {
     const url = document.getElementById('recipeUrl')?.value.trim() || null;
     const tagsRaw = document.getElementById('recipeTags')?.value.trim() || '';
     const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const stepsRaw = document.getElementById('recipeSteps')?.value || '';
+    const steps = stepsRaw.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 30);
     const data = {
       name,
       url,
@@ -2541,6 +2557,7 @@ function openRecipeForm(recipeId, onSave = null) {
       servings: parseInt(document.getElementById('recipeServings')?.value, 10) || null,
       difficulty: document.getElementById('recipeDifficulty')?.value || null,
       tags: tags.length ? tags : null,
+      steps: steps.length ? steps : null,
       imageUrl: imageUrl || null,
       videoUrl: videoUrl || null,
     };
