@@ -422,6 +422,7 @@ const APP_SHELL = [
   '/setup.html',
   '/rewards.html',
   '/kitchen.html',
+  '/share-list.html',
   '/manifest.json',
   '/app-icon.png',
   // Self-hosted variable fonts
