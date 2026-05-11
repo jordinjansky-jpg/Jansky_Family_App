@@ -111,7 +111,6 @@ let activeListId = null;
 let currentItems = {}; // last items snapshot, used by wand cleanup
 let itemsUnsub = null; // Firebase onValue unsubscribe for active list
 let keepAddFieldOpen = false; // true while user is in a multi-item add session
-let currentWeekStart = null; // Monday of the displayed week (Date object)
 let recipeFilter = { sort: 'alpha', filter: 'all' }; // alpha | recent; all | favorites
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -232,9 +231,7 @@ function bindFab() {
     if (activeTab === 'meals') {
       const tz = settings?.timezone || 'America/Chicago';
       const todayStr = todayKey(tz);
-      const weekStr = currentWeekStart ? dateKey(currentWeekStart) : todayStr;
-      const defaultDate = weekStr > todayStr ? weekStr : todayStr;
-      openPlanMealSheet(defaultDate, 'dinner');
+      openPlanMealSheet(todayStr, 'dinner');
     }
     else if (activeTab === 'recipes') openRecipeForm(null);
     else { if (!activeListId) openCreateListSheet(); else openItemAddField(); }
@@ -292,13 +289,12 @@ async function renderMealsTab() {
   const tz = settings?.timezone || 'America/Chicago';
   const todayStr = todayKey(tz);
 
-  if (!currentWeekStart) {
-    currentWeekStart = new Date();
-    currentWeekStart.setHours(0, 0, 0, 0);
-  }
+  // Rolling 7 days starting today — no pagination.
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(currentWeekStart);
+    const d = new Date(startDate);
     d.setDate(d.getDate() + i);
     return d;
   });
@@ -366,12 +362,8 @@ async function renderMealsTab() {
 
   content.innerHTML = `
     <div class="week-strip" id="weekStrip">
-      <div class="week-strip__track" id="weekTrack">
-        <div class="week-strip__week">${weekHtml}</div>
-      </div>
+      <div class="week-strip__week">${weekHtml}</div>
     </div>`;
-
-  bindWeekStripSwipe();
 
   content.querySelectorAll('.day-block__slot').forEach(slot => {
     slot.addEventListener('click', () => {
@@ -470,28 +462,6 @@ function renderRecipesTab() {
       await writeKitchenRecipe(id, { ...recipes[id] });
       renderRecipesTab();
     });
-  });
-}
-
-function bindWeekStripSwipe() {
-  const strip = document.getElementById('weekStrip');
-  if (!strip) return;
-  let startX = 0, startY = 0, moved = false;
-  strip.addEventListener('touchstart', (e) => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    moved = false;
-  }, { passive: true });
-  strip.addEventListener('touchmove', () => { moved = true; }, { passive: true });
-  strip.addEventListener('touchend', async (e) => {
-    if (!moved) return;
-    const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-    const dir = dx < 0 ? 1 : -1;
-    currentWeekStart = new Date(currentWeekStart);
-    currentWeekStart.setDate(currentWeekStart.getDate() + dir * 7);
-    await renderMealsTab();
   });
 }
 

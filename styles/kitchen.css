@@ -8,18 +8,10 @@
 
 /* ============ Week strip (Meals tab) ============ */
 .week-strip {
-  overflow-x: hidden;
-  touch-action: pan-y;
-  user-select: none;
-}
-
-.week-strip__track {
-  display: flex;
-  transition: transform var(--t-base);
+  /* Static container — no pagination, no swipe. */
 }
 
 .week-strip__week {
-  min-width: 100%;
   padding: var(--spacing-md) 0;
   display: flex;
   flex-direction: column;
