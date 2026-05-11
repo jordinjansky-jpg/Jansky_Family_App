@@ -830,3 +830,10 @@
 .rl-search-input::-webkit-search-cancel-button,
 .rl-search-input::-webkit-search-results-button,
 .rl-search-input::-webkit-search-results-decoration { -webkit-appearance: none; }
+
+.filter-section__hint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--spacing-xs) 0;
+}

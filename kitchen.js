@@ -141,7 +141,13 @@ let activeListId = null;
 let currentItems = {}; // last items snapshot, used by wand cleanup
 let itemsUnsub = null; // Firebase onValue unsubscribe for active list
 let keepAddFieldOpen = false; // true while user is in a multi-item add session
-let recipeFilter = { sort: 'alpha', filter: 'all' }; // alpha | recent; all | favorites
+let recipeFilter = {
+  show: 'all',          // 'all' | 'favorites' | 'never-cooked'
+  prepBucket: 'any',    // 'any' | 'lt-30' | '30-60' | 'gt-60'
+  difficulty: 'any',    // 'any' | 'Easy' | 'Medium' | 'Hard'
+  tags: [],             // [] = no tag filter; else AND across these tag strings
+  sort: 'alpha',        // 'alpha' | 'recent' | 'quickest' | 'last-cooked' | 'highest-rated'
+};
 let recipeSearchQuery = ''; // transient — not persisted across sessions
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -449,25 +455,74 @@ function renderRecipesTab() {
 
   const content = document.getElementById('kitchenContent');
   let recipeEntries = Object.entries(recipes);
-  if (recipeFilter.filter === 'favorites') recipeEntries = recipeEntries.filter(([, r]) => r.isFavorite);
-  const q = recipeSearchQuery.trim().toLowerCase();
-  if (q) recipeEntries = recipeEntries.filter(([, r]) => (r.name || '').toLowerCase().includes(q));
-  if (recipeFilter.sort === 'alpha') {
-    recipeEntries.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
-  } else {
-    recipeEntries.sort((a, b) => {
-      if (b[1].isFavorite !== a[1].isFavorite) return b[1].isFavorite ? 1 : -1;
-      const at = b[1].lastUsed || b[1].createdAt || 0;
-      const bt = a[1].lastUsed || a[1].createdAt || 0;
-      return at - bt;
+
+  // SHOW
+  if (recipeFilter.show === 'favorites') {
+    recipeEntries = recipeEntries.filter(([, r]) => r.isFavorite);
+  } else if (recipeFilter.show === 'never-cooked') {
+    recipeEntries = recipeEntries.filter(([, r]) => !r.lastUsed);
+  }
+
+  // PREP BUCKET
+  if (recipeFilter.prepBucket !== 'any') {
+    recipeEntries = recipeEntries.filter(([, r]) => {
+      const mins = formatPrepBucket(r.prepTime);
+      if (mins == null) return false;
+      if (recipeFilter.prepBucket === 'lt-30') return mins < 30;
+      if (recipeFilter.prepBucket === '30-60') return mins >= 30 && mins <= 60;
+      return mins > 60;
     });
   }
+
+  // DIFFICULTY
+  if (recipeFilter.difficulty !== 'any') {
+    recipeEntries = recipeEntries.filter(([, r]) => r.difficulty === recipeFilter.difficulty);
+  }
+
+  // TAGS (AND across selected tags)
+  if (recipeFilter.tags?.length) {
+    recipeEntries = recipeEntries.filter(([, r]) => {
+      const rtags = r.tags || [];
+      return recipeFilter.tags.every(t => rtags.includes(t));
+    });
+  }
+
+  // SEARCH (added in Task 3 — keep)
+  const q = recipeSearchQuery.trim().toLowerCase();
+  if (q) recipeEntries = recipeEntries.filter(([, r]) => (r.name || '').toLowerCase().includes(q));
+
+  // SORT
+  recipeEntries.sort((a, b) => {
+    const [, ra] = a, [, rb] = b;
+    switch (recipeFilter.sort) {
+      case 'recent':         return (rb.createdAt || 0) - (ra.createdAt || 0);
+      case 'quickest': {
+        const ma = formatPrepBucket(ra.prepTime); const mb = formatPrepBucket(rb.prepTime);
+        if (ma == null && mb == null) return 0;
+        if (ma == null) return 1;
+        if (mb == null) return -1;
+        return ma - mb;
+      }
+      case 'last-cooked': {
+        const la = ra.lastUsed || 0; const lb = rb.lastUsed || 0;
+        return lb - la;
+      }
+      case 'highest-rated': return (rb.rating || 0) - (ra.rating || 0);
+      case 'alpha':
+      default:               return (ra.name || '').localeCompare(rb.name || '');
+    }
+  });
 
   const linkIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
   const starFilled = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
   const starEmpty = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
-  const filterCount = (recipeFilter.filter !== 'all' ? 1 : 0) + (recipeFilter.sort !== 'alpha' ? 1 : 0);
+  const filterCount =
+    (recipeFilter.show !== 'all'         ? 1 : 0) +
+    (recipeFilter.prepBucket !== 'any'   ? 1 : 0) +
+    (recipeFilter.difficulty !== 'any'   ? 1 : 0) +
+    (recipeFilter.tags?.length           ? 1 : 0) +
+    (recipeFilter.sort !== 'alpha'       ? 1 : 0);
   const filterLabel = filterCount > 0 ? `Filter & Sort · ${filterCount}` : 'Filter & Sort';
 
   const recipeLibHtml = recipeEntries.length > 0
@@ -1175,41 +1230,121 @@ function openFindRecipesSheet() {
 }
 function openRecipeFilterSheet() {
   const mount = document.getElementById('sheetMount');
-  const filterOpts = [{ v: 'all', l: 'All' }, { v: 'favorites', l: 'Favorites' }];
-  const sortOpts = [{ v: 'alpha', l: 'A – Z' }, { v: 'recent', l: 'Most recent' }];
+
+  // Build the tag pool from all recipes (deduplicated, alpha-sorted).
+  const tagPool = (() => {
+    const set = new Set();
+    Object.values(recipes).forEach(r => (r.tags || []).forEach(t => {
+      const trim = (t || '').trim();
+      if (trim) set.add(trim);
+    }));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  })();
+
+  // Working copy — applied only on Save.
+  const work = {
+    show: recipeFilter.show,
+    prepBucket: recipeFilter.prepBucket,
+    difficulty: recipeFilter.difficulty,
+    tags: [...(recipeFilter.tags || [])],
+    sort: recipeFilter.sort,
+  };
+
+  const showOpts = [
+    { v: 'all',          l: 'All' },
+    { v: 'favorites',    l: 'Favorites' },
+    { v: 'never-cooked', l: 'Never cooked' },
+  ];
+  const prepOpts = [
+    { v: 'any',   l: 'Any' },
+    { v: 'lt-30', l: '< 30 min' },
+    { v: '30-60', l: '30–60 min' },
+    { v: 'gt-60', l: '> 60 min' },
+  ];
+  const diffOpts = [
+    { v: 'any',    l: 'Any' },
+    { v: 'Easy',   l: 'Easy' },
+    { v: 'Medium', l: 'Medium' },
+    { v: 'Hard',   l: 'Hard' },
+  ];
+  const sortOpts = [
+    { v: 'alpha',          l: 'A–Z' },
+    { v: 'recent',         l: 'Recently added' },
+    { v: 'quickest',       l: 'Quickest first' },
+    { v: 'last-cooked',    l: 'Last cooked' },
+    { v: 'highest-rated',  l: 'Highest rated' },
+  ];
+
+  function chipRow(opts, key) {
+    return opts.map(o =>
+      `<button class="chip${work[key] === o.v ? ' chip--active' : ''}" data-rf-key="${esc(key)}" data-rf-val="${esc(o.v)}" type="button">${esc(o.l)}</button>`
+    ).join('');
+  }
+
+  function tagsHtml() {
+    if (!tagPool.length) {
+      return `<div class="filter-section__hint">No tags yet — add tags from the recipe form.</div>`;
+    }
+    return tagPool.map(t =>
+      `<button class="chip${work.tags.includes(t) ? ' chip--active' : ''}" data-rf-tag="${esc(t)}" type="button">${esc(t)}</button>`
+    ).join('');
+  }
+
   mount.innerHTML = renderBottomSheet(`
-    <div class="sheet__header"><h2 class="sheet__title">Filter & Sort</h2></div>
-    <div class="sheet__content">
-      <div class="filter-section">
-        <div class="filter-section__label">Show</div>
-        <div class="filter-chips">
-          ${filterOpts.map(o => `<button class="chip${recipeFilter.filter === o.v ? ' chip--active' : ''}" data-rf="${o.v}" type="button">${o.l}</button>`).join('')}
-        </div>
-      </div>
-      <div class="filter-section">
-        <div class="filter-section__label">Sort by</div>
-        <div class="filter-chips">
-          ${sortOpts.map(o => `<button class="chip${recipeFilter.sort === o.v ? ' chip--active' : ''}" data-rs="${o.v}" type="button">${o.l}</button>`).join('')}
-        </div>
-      </div>
+    ${renderFormSheetHeader({ title: 'Filter & Sort', closeId: 'rf_close' })}
+    <div class="filter-section">
+      <div class="filter-section__label">SHOW</div>
+      <div class="filter-chips">${chipRow(showOpts, 'show')}</div>
     </div>
-    <div class="sheet__footer">
-      <button class="btn btn--ghost" id="rfCancel" type="button">Cancel</button>
-      <button class="btn btn--primary" id="rfApply" type="button">Apply</button>
-    </div>`);
+    <div class="filter-section">
+      <div class="filter-section__label">PREP TIME</div>
+      <div class="filter-chips">${chipRow(prepOpts, 'prepBucket')}</div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-section__label">DIFFICULTY</div>
+      <div class="filter-chips">${chipRow(diffOpts, 'difficulty')}</div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-section__label">TAGS</div>
+      <div class="filter-chips" id="rfTags">${tagsHtml()}</div>
+    </div>
+    <div class="filter-section">
+      <div class="filter-section__label">SORT BY</div>
+      <div class="filter-chips">${chipRow(sortOpts, 'sort')}</div>
+    </div>
+    ${renderFormFooter({ saveLabel: 'Apply', cancelId: 'rfCancel', saveId: 'rfApply' })}
+  `);
   activateSheet(mount);
-  mount.querySelectorAll('[data-rf]').forEach(b => b.addEventListener('click', () => {
-    mount.querySelectorAll('[data-rf]').forEach(x => x.classList.remove('chip--active'));
-    b.classList.add('chip--active');
-  }));
-  mount.querySelectorAll('[data-rs]').forEach(b => b.addEventListener('click', () => {
-    mount.querySelectorAll('[data-rs]').forEach(x => x.classList.remove('chip--active'));
-    b.classList.add('chip--active');
-  }));
+
+  // Single-select chip groups (show / prepBucket / difficulty / sort)
+  mount.querySelectorAll('[data-rf-key]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.rfKey;
+      const val = btn.dataset.rfVal;
+      work[key] = val;
+      mount.querySelectorAll(`[data-rf-key="${key}"]`).forEach(b => {
+        b.classList.toggle('chip--active', b.dataset.rfVal === val);
+      });
+    });
+  });
+
+  // Multi-select tags
+  mount.querySelectorAll('[data-rf-tag]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.dataset.rfTag;
+      if (work.tags.includes(tag)) {
+        work.tags = work.tags.filter(t => t !== tag);
+      } else {
+        work.tags.push(tag);
+      }
+      btn.classList.toggle('chip--active', work.tags.includes(tag));
+    });
+  });
+
+  document.getElementById('rf_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
   document.getElementById('rfCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
   document.getElementById('rfApply')?.addEventListener('click', () => {
-    recipeFilter.filter = mount.querySelector('[data-rf].chip--active')?.dataset.rf || 'all';
-    recipeFilter.sort = mount.querySelector('[data-rs].chip--active')?.dataset.rs || 'alpha';
+    recipeFilter = { ...work };
     mount.innerHTML = '';
     renderRecipesTab();
   });
