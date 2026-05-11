@@ -1320,19 +1320,6 @@
   min-width: 160px;
 }
 
-/* Avatar editor sub-sheet */
-.ps-avatar-editor .pae-preview {
-  display: flex;
-  justify-content: center;
-  padding: var(--spacing-md) 0;
-}
-.ps-avatar-editor .pae-photo-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) 0 var(--spacing-md);
-}
-
 /* Fix 3 — role toggle min-width so Adult/Kid pills have room to breathe */
 .ps-color-role-row .tf-rotation-pills {
   min-width: 140px;
