@@ -327,3 +327,16 @@ export function avgRating(recipe, viewerPersonId) {
   }
   return { avg: null, count: 0, mine: null };
 }
+
+// Parse a recipe's notes field into an ordered list of step strings.
+// Used as the fallback for Cook mode when recipe.steps[] is absent.
+// Splits on newlines, strips leading bullets/numbers, drops empty lines,
+// caps at 30 steps (defensive — most recipes have under 15).
+export function parseSteps(notes) {
+  if (!notes || typeof notes !== 'string') return [];
+  return notes
+    .split(/\r?\n/)
+    .map(line => line.replace(/^\s*(?:\d+[.)]|[-•*])\s+/, '').trim())
+    .filter(Boolean)
+    .slice(0, 30);
+}

@@ -19,7 +19,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderChipPicker, bindChipPicker,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
-import { todayKey, escapeHtml, formatLastCooked, avgRating } from './shared/utils.js';
+import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -1009,6 +1009,89 @@ function openSlotEditSheet(dk, slot, entry) {
     showToast('Meal removed');
   });
 }
+async function openCookModeSheet(recipe) {
+  if (!recipe) return;
+  const stepList = (recipe.steps && recipe.steps.length) ? recipe.steps : parseSteps(recipe.notes);
+  if (stepList.length === 0) { showToast('No steps to cook — add steps in the recipe form'); return; }
+
+  const mount = document.getElementById('sheetMount');
+  let current = 0;
+  let wakeLock = null;
+  let ingredientsOpen = false;
+
+  // Request screen wake-lock; silent on denial.
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* silent */ }
+
+  function renderIngredientPanel() {
+    if (!ingredientsOpen) return '';
+    const rows = (recipe.ingredients || []).map(ing => `
+      <div class="cook-ing-row">
+        <span class="cook-ing-qty">${esc(ing.qty || '')}</span>
+        <span class="cook-ing-name">${esc(ing.name || '')}</span>
+      </div>`).join('');
+    return `<div class="cook-ing-panel"><div class="cook-ing-panel__title">Ingredients</div>${rows}</div>`;
+  }
+
+  function renderDots() {
+    return stepList.map((_, i) => {
+      const cls = i < current ? 'is-done' : (i === current ? 'is-current' : '');
+      return `<span class="cook-dot ${cls}"></span>`;
+    }).join('');
+  }
+
+  function render() {
+    const isLast = current === stepList.length - 1;
+    const isFirst = current === 0;
+    mount.innerHTML = `
+      <div class="cook-mode" id="cookMode">
+        <div class="cook-mode__topbar">
+          <button class="ef2-icon-btn" id="cook_back" type="button" aria-label="Back">←</button>
+          <div class="cook-mode__title">Cook · ${esc(recipe.name || '')}</div>
+          <button class="ef2-icon-btn" id="cook_close" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="cook-mode__body">
+          <div class="cook-mode__progress">Step ${current + 1} of ${stepList.length}</div>
+          <div class="cook-mode__step">${esc(stepList[current])}</div>
+          <button class="btn btn--ghost" id="cook_toggleIng" type="button">${ingredientsOpen ? 'Hide' : 'Show'} ingredients</button>
+          ${renderIngredientPanel()}
+        </div>
+        <div class="cook-mode__nav">
+          <button class="btn btn--secondary" id="cook_prev" type="button"${isFirst ? ' disabled' : ''}>‹ Prev</button>
+          <div class="cook-mode__dots">${renderDots()}</div>
+          <button class="btn btn--primary" id="cook_next" type="button">${isLast ? 'Done' : 'Next ›'}</button>
+        </div>
+      </div>`;
+
+    document.getElementById('cook_close')?.addEventListener('click', exit);
+    document.getElementById('cook_back')?.addEventListener('click', exit);
+    document.getElementById('cook_toggleIng')?.addEventListener('click', () => {
+      ingredientsOpen = !ingredientsOpen;
+      render();
+    });
+    document.getElementById('cook_prev')?.addEventListener('click', () => {
+      if (current > 0) { current--; render(); }
+    });
+    document.getElementById('cook_next')?.addEventListener('click', async () => {
+      if (current < stepList.length - 1) { current++; render(); return; }
+      // Done — bump lastUsed and exit.
+      if (recipe.id && recipes[recipe.id]) {
+        await writeKitchenRecipe(recipe.id, { ...recipes[recipe.id], lastUsed: Date.now() });
+        recipes[recipe.id].lastUsed = Date.now();
+      }
+      showToast('Recipe complete');
+      exit();
+    });
+  }
+
+  function exit() {
+    wakeLock?.release?.().catch(() => { /* silent */ });
+    mount.innerHTML = '';
+    renderActiveTab();
+  }
+
+  render();
+}
+
 function openRecipeDetailSheet(recipeId) {
   const recipe = recipes[recipeId];
   if (!recipe) return;
