@@ -1806,6 +1806,14 @@ function openKitchenAiToolsSheet() {
         <button class="btn btn--secondary" id="kait_recipeFind" type="button">🔎 Find ideas online</button>
       </div>
     </div>
+    <div class="kait-section">
+      <div class="kait-section__label">LISTS</div>
+      <div class="kait-grid">
+        <button class="btn btn--secondary" id="kait_listClean" type="button"${!activeListId ? ' disabled' : ''}>🪄 Auto-categorize</button>
+        <button class="btn btn--secondary" id="kait_listPhoto" type="button"${!activeListId ? ' disabled' : ''}>📷 Photo → list</button>
+      </div>
+      ${!activeListId ? `<div class="kait-hint">Create a list first.</div>` : ''}
+    </div>
   `);
   activateSheet(mount);
   document.getElementById('kait_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
@@ -1853,6 +1861,18 @@ function openKitchenAiToolsSheet() {
   document.getElementById('kait_recipeFind')?.addEventListener('click', () => {
     mount.innerHTML = '';
     openFindRecipesSheet();
+  });
+
+  document.getElementById('kait_listClean')?.addEventListener('click', () => {
+    if (!activeListId) return;
+    mount.innerHTML = '';
+    runListCleanup(currentItems);
+  });
+
+  document.getElementById('kait_listPhoto')?.addEventListener('click', () => {
+    if (!activeListId) return;
+    mount.innerHTML = '';
+    openListPhotoSourceSheet();
   });
 }
 

@@ -722,6 +722,13 @@ button.rl-chip {
   font-style: italic;
 }
 
+.kait-hint {
+  font-size: var(--font-xs);
+  color: var(--text-faint);
+  font-style: italic;
+  margin-top: var(--spacing-xs);
+}
+
 /* ============ School lunch confirm sheet (sl-*) ============ */
 .sl-confirm-list {
   display: flex;
