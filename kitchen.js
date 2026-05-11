@@ -198,13 +198,19 @@ async function loadData() {
 function renderTabs() {
   const tabs = ['meals', 'recipes', 'lists'];
   const labels = { meals: 'Meals', recipes: 'Recipes', lists: 'Lists' };
+  const wandSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>`;
   document.getElementById('kitchenTabsMount').innerHTML = `
-    <nav class="tabs tabs--pill tabs--md" id="kitchenTabs">
-      ${tabs.map(t => `
-        <button class="tab${t === activeTab ? ' is-active' : ''}" data-tab="${t}" type="button">
-          ${esc(labels[t])}
-        </button>`).join('')}
-    </nav>`;
+    <div class="kitchen-tabs-row">
+      <nav class="tabs tabs--pill tabs--md" id="kitchenTabs">
+        ${tabs.map(t => `
+          <button class="tab${t === activeTab ? ' is-active' : ''}" data-tab="${t}" type="button">
+            ${esc(labels[t])}
+          </button>`).join('')}
+      </nav>
+      <button class="kitchen-aitools-btn" id="kitchenAiToolsBtn" type="button" aria-label="Kitchen AI tools">
+        ${wandSvg}
+      </button>
+    </div>`;
   document.getElementById('kitchenTabs')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-tab]');
     if (!btn) return;
@@ -214,6 +220,7 @@ function renderTabs() {
     renderActiveTab();
     bindFab();
   });
+  document.getElementById('kitchenAiToolsBtn')?.addEventListener('click', openKitchenAiToolsSheet);
 }
 
 function renderActiveTab() {
@@ -1126,6 +1133,29 @@ function openRecipeFilterSheet() {
     mount.innerHTML = '';
     renderRecipesTab();
   });
+}
+
+function openKitchenAiToolsSheet() {
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: 'Kitchen AI tools', closeId: 'kait_close' })}
+    <div class="kait-section">
+      <div class="kait-section__label">SCHOOL LUNCH</div>
+      <div class="kait-grid">
+        <button class="btn btn--secondary" id="kait_schoolPhoto" type="button">📷 Take photo</button>
+        <button class="btn btn--secondary" id="kait_schoolGallery" type="button">🖼 From gallery</button>
+        <button class="btn btn--secondary" id="kait_schoolFile" type="button">📄 Upload file</button>
+        <button class="btn btn--secondary" id="kait_schoolIcal" type="button">🔗 iCal feed</button>
+      </div>
+    </div>
+    <div class="kait-section">
+      <div class="kait-section__label">RECIPES</div>
+      <div class="kait-soon">Coming in the next Kitchen update</div>
+    </div>
+  `);
+  activateSheet(mount);
+  document.getElementById('kait_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  // School lunch handlers wired in Task 9.
 }
 
 function openMealFabSheet() {

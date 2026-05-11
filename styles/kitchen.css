@@ -3,7 +3,7 @@
 
 /* ============ Tabs ============ */
 #kitchenTabsMount {
-  padding: var(--spacing-sm) 0 0;
+  /* padding moved into .kitchen-tabs-row */
 }
 
 /* ============ Week strip (Meals tab) ============ */
@@ -563,3 +563,64 @@
 .kp-second-school.is-visible { display: block; padding-top: var(--spacing-sm); }
 .kp-second-meal { display: none; padding-top: var(--spacing-xs); }
 .kp-second-meal.is-open { display: block; }
+
+/* ============ Kitchen tabs row + AI Tools wand button ============ */
+.kitchen-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0 0;
+}
+
+.kitchen-tabs-row .tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.kitchen-aitools-btn {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  flex-shrink: 0;
+}
+
+.kitchen-aitools-btn:hover,
+.kitchen-aitools-btn:focus-visible {
+  color: var(--accent);
+  background: var(--surface-2);
+  outline: none;
+}
+
+/* ============ Kitchen AI Tools sheet (kait-*) ============ */
+.kait-section {
+  padding-top: var(--spacing-md);
+}
+
+.kait-section__label {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+.kait-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.kait-soon {
+  font-size: var(--font-sm);
+  color: var(--text-faint);
+  font-style: italic;
+}
