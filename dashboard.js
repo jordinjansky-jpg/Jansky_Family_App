@@ -539,6 +539,17 @@ async function render() {
       const groups = groupBySectionsTOD(sortedAll, people, tasks, completions);
       const pooledCompleted = [];
       for (const { person, am, anytime, pm, completed } of groups) {
+        const hasActive = am.length || anytime.length || pm.length;
+        // Focus: hide the person's section entirely when nothing's incomplete.
+        // Their completed tasks roll up into the pooled Completed at the bottom.
+        if (taskGrouping === 'focus' && !hasActive) {
+          for (const pair of completed) pooledCompleted.push(pair);
+          continue;
+        }
+        // Grouped: hide the person entirely if they have nothing at all.
+        if (taskGrouping === 'grouped' && !hasActive && !completed.length) {
+          continue;
+        }
         html += renderPersonHeader(person?.name || '?', person?.color);
         if (am.length)      { html += renderTimeHeader('Morning');   for (const [ek, en] of am)      html += renderCard(ek, en); }
         if (anytime.length) { html += renderTimeHeader('Anytime');   for (const [ek, en] of anytime) html += renderCard(ek, en); }
