@@ -201,6 +201,117 @@ export function renderPersonAvatar(person, opts = {}) {
 }
 
 /**
+ * Open the shared Avatar editor sub-sheet — used wherever a person's
+ * color / initials / photo can be customized (admin Person form,
+ * Setup wizard, etc.). Live preview as the user edits; calls onChange
+ * with any subset of { color, initials, photo } on every change so the
+ * host form can mirror the avatar in its own UI.
+ */
+export function openAvatarEditor({ initialColor, initialInitials, initialAvatarUrl, name, onChange }) {
+  let color = initialColor;
+  let initials = initialInitials || '';
+  let photo = initialAvatarUrl || '';
+
+  const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'ef2-subsheet-overlay';
+  const previewPerson = () => ({ name, initials, color, avatarUrl: photo });
+  overlay.innerHTML = `<div class="ef2-subsheet ps-avatar-editor">
+    <div class="sheet__header">
+      <h2 class="sheet__title">Avatar</h2>
+      <button class="ef2-icon-btn" id="pae_close" type="button" aria-label="Close">${CLOSE_SVG}</button>
+    </div>
+    <div class="sheet__content">
+      <div class="pae-preview" id="pae_preview">
+        ${renderPersonAvatar(previewPerson(), { size: 'xl' })}
+      </div>
+      <input type="file" accept="image/*" id="pae_photoFile" hidden>
+      <div class="pae-photo-row">
+        <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">${photo ? 'Replace photo' : 'Upload photo'}</button>
+        ${photo ? `<button class="btn btn--ghost btn--sm" id="pae_removeBtn" type="button">Remove photo</button>` : ''}
+      </div>
+      <label class="field">
+        <span class="field__label">Initials (optional)</span>
+        <input id="pae_initials" type="text" class="field__input" maxlength="2" autocomplete="off" placeholder="${esc(derivePersonInitials(name) || 'J')}" value="${esc(initials)}">
+        <span class="form-hint">Leave blank to auto-use the first letter of the name.</span>
+      </label>
+      <div class="field">
+        <span class="field__label">Color</span>
+        ${renderColorButton(color, 'pae_color')}
+      </div>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--primary btn--full" id="pae_done" type="button">Done</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('active'));
+  applyDataColors(overlay);
+
+  const refreshPreview = () => {
+    const slot = overlay.querySelector('#pae_preview');
+    if (!slot) return;
+    slot.innerHTML = renderPersonAvatar(previewPerson(), { size: 'xl' });
+    applyDataColors(slot);
+  };
+
+  const close = () => {
+    overlay.classList.remove('active');
+    setTimeout(() => overlay.remove(), 280);
+  };
+
+  overlay.querySelector('#pae_close')?.addEventListener('click', close);
+  overlay.querySelector('#pae_done')?.addEventListener('click', close);
+
+  initColorButton(overlay.querySelector('#pae_color')?.closest('.cpick-wrap'), (c) => {
+    color = c;
+    onChange?.({ color });
+    refreshPreview();
+  });
+
+  overlay.querySelector('#pae_initials')?.addEventListener('input', (e) => {
+    const v = (e.target.value || '').toUpperCase();
+    e.target.value = v;
+    initials = v.trim();
+    onChange?.({ initials });
+    refreshPreview();
+  });
+
+  const triggerUpload = () => overlay.querySelector('#pae_photoFile')?.click();
+  const removePhoto = () => {
+    photo = '';
+    onChange?.({ photo: '' });
+    overlay.querySelector('.pae-photo-row').innerHTML = `
+      <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Upload photo</button>`;
+    overlay.querySelector('#pae_uploadBtn').addEventListener('click', triggerUpload);
+    refreshPreview();
+  };
+  const onPhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    openPhotoCropper({
+      file,
+      size: 320,
+      onApply: (dataUrl) => {
+        photo = dataUrl;
+        onChange?.({ photo });
+        overlay.querySelector('.pae-photo-row').innerHTML = `
+          <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Replace photo</button>
+          <button class="btn btn--ghost btn--sm" id="pae_removeBtn" type="button">Remove photo</button>`;
+        overlay.querySelector('#pae_uploadBtn').addEventListener('click', triggerUpload);
+        overlay.querySelector('#pae_removeBtn').addEventListener('click', removePhoto);
+        refreshPreview();
+      },
+    });
+  };
+  overlay.querySelector('#pae_uploadBtn')?.addEventListener('click', triggerUpload);
+  overlay.querySelector('#pae_photoFile')?.addEventListener('change', onPhotoChange);
+  overlay.querySelector('#pae_removeBtn')?.addEventListener('click', removePhoto);
+}
+
+/**
  * Open a circular photo cropper. User drags to pan, zooms with slider/pinch.
  * Calls onApply(dataUrl) with a JPEG data URL sized to `size` × `size`.
  */

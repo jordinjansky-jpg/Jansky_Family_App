@@ -71,7 +71,7 @@
       readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed
     } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper } from './shared/components.js';
+    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -1963,112 +1963,6 @@
           if (anchorEl) anchorEl.value = anchor?.amount ?? 0;
         });
       }
-    }
-
-    function openAvatarEditor({ initialColor, initialInitials, initialAvatarUrl, name, onChange }) {
-      let color = initialColor;
-      let initials = initialInitials || '';
-      let photo = initialAvatarUrl || '';
-
-      const overlay = document.createElement('div');
-      overlay.className = 'ef2-subsheet-overlay';
-      const previewPerson = () => ({ name, initials, color, avatarUrl: photo });
-      overlay.innerHTML = `<div class="ef2-subsheet ps-avatar-editor">
-        <div class="sheet__header">
-          <h2 class="sheet__title">Avatar</h2>
-          <button class="ef2-icon-btn" id="pae_close" type="button" aria-label="Close">${RF_CLOSE_SVG}</button>
-        </div>
-        <div class="sheet__content">
-          <div class="pae-preview" id="pae_preview">
-            ${renderPersonAvatar(previewPerson(), { size: 'xl' })}
-          </div>
-          <input type="file" accept="image/*" id="pae_photoFile" hidden>
-          <div class="pae-photo-row">
-            <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">${photo ? 'Replace photo' : 'Upload photo'}</button>
-            ${photo ? `<button class="btn btn--ghost btn--sm" id="pae_removeBtn" type="button">Remove photo</button>` : ''}
-          </div>
-          <label class="field">
-            <span class="field__label">Initials (optional)</span>
-            <input id="pae_initials" type="text" class="field__input" maxlength="2" autocomplete="off" placeholder="${esc(derivePersonInitials(name) || 'JJ')}" value="${esc(initials)}">
-            <span class="form-hint">Leave blank to auto-use the first letters of the name.</span>
-          </label>
-          <div class="field">
-            <span class="field__label">Color</span>
-            ${renderColorButton(color, 'pae_color')}
-          </div>
-        </div>
-        <div class="sheet__footer">
-          <button class="btn btn--primary btn--full" id="pae_done" type="button">Done</button>
-        </div>
-      </div>`;
-      document.body.appendChild(overlay);
-      requestAnimationFrame(() => overlay.classList.add('active'));
-      applyDataColors(overlay);
-
-      const refreshPreview = () => {
-        const slot = overlay.querySelector('#pae_preview');
-        if (!slot) return;
-        slot.innerHTML = renderPersonAvatar(previewPerson(), { size: 'xl' });
-        applyDataColors(slot);
-      };
-
-      const close = () => {
-        overlay.classList.remove('active');
-        setTimeout(() => overlay.remove(), 280);
-      };
-
-      overlay.querySelector('#pae_close')?.addEventListener('click', close);
-      overlay.querySelector('#pae_done')?.addEventListener('click', close);
-
-      // Color picker
-      initColorButton(overlay.querySelector('#pae_color')?.closest('.cpick-wrap'), (c) => {
-        color = c;
-        onChange?.({ color });
-        refreshPreview();
-      });
-
-      // Initials
-      overlay.querySelector('#pae_initials')?.addEventListener('input', (e) => {
-        const v = (e.target.value || '').toUpperCase();
-        e.target.value = v;
-        initials = v.trim();
-        onChange?.({ initials });
-        refreshPreview();
-      });
-
-      // Photo upload → opens cropper, then saves the cropped dataURL
-      const triggerUpload = () => overlay.querySelector('#pae_photoFile')?.click();
-      const onPhotoChange = (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        e.target.value = '';
-        openPhotoCropper({
-          file,
-          size: 320,
-          onApply: (dataUrl) => {
-            photo = dataUrl;
-            onChange?.({ photo });
-            overlay.querySelector('.pae-photo-row').innerHTML = `
-              <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Replace photo</button>
-              <button class="btn btn--ghost btn--sm" id="pae_removeBtn" type="button">Remove photo</button>`;
-            overlay.querySelector('#pae_uploadBtn').addEventListener('click', triggerUpload);
-            overlay.querySelector('#pae_removeBtn').addEventListener('click', removePhoto);
-            refreshPreview();
-          },
-        });
-      };
-      overlay.querySelector('#pae_uploadBtn')?.addEventListener('click', triggerUpload);
-      overlay.querySelector('#pae_photoFile')?.addEventListener('change', onPhotoChange);
-
-      const removePhoto = () => {
-        photo = '';
-        onChange?.({ photo: '' });
-        overlay.querySelector('.pae-photo-row').innerHTML = `
-          <button class="btn btn--secondary btn--full" id="pae_uploadBtn" type="button">Upload photo</button>`;
-        overlay.querySelector('#pae_uploadBtn').addEventListener('click', triggerUpload);
-        refreshPreview();
-      };
-      overlay.querySelector('#pae_removeBtn')?.addEventListener('click', removePhoto);
     }
 
     // ══════════════════════════════════════════
