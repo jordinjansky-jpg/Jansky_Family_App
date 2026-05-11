@@ -2258,7 +2258,7 @@ export function renderTaskDetailSheet(options) {
   if (!readOnly && !isEvent && !task.exempt) {
     if (isLateEligible) {
       html += `<div class="task-detail__complete-footer">
-        <button class="task-detail__complete-btn task-detail__complete-btn--success" id="sheetToggleComplete" type="button">${DS_CHECK} Complete (late)</button>
+        <button class="task-detail__complete-btn task-detail__complete-btn--warning" id="sheetToggleComplete" type="button">${DS_CHECK} Complete (late)</button>
         <button class="task-detail__complete-btn task-detail__complete-btn--muted" id="sheetCompleteNoPenalty" type="button">${DS_CHECK} Complete (full credit)</button>
       </div>`;
     } else if (completed) {

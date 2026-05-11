@@ -1100,14 +1100,10 @@
               clearTimeout(pressTimer);
               pressTimer = null;
               if (!didLongPress) {
-                // Block tap on past incomplete daily tasks — must use detail sheet
+                // Tap completes; for past tasks, toggleTask auto-applies the late penalty.
+                // Long-press opens the detail sheet where "Complete (full credit)" lives.
                 const ek = btn.dataset.entryKey;
                 const dk = btn.dataset.dateKey || viewDate;
-                const entry = viewEntries[ek] || overdueItems.find(o => o.entryKey === ek);
-                if (entry && dk < today && entry.rotationType === 'daily' && !isComplete(ek, completions)) {
-                  openTaskSheet(ek, dk);
-                  return;
-                }
                 toggleTask(ek, dk);
               }
             };

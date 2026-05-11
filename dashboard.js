@@ -796,18 +796,13 @@ function bindEvents() {
     await loadData();
   });
 
-  // Task card: tap to toggle, long-press to open detail sheet (shared helper).
+  // Task card: tap to toggle (past tasks auto-apply late penalty in toggleTask),
+  // long-press to open detail sheet (where "Complete (full credit)" lives).
   main.querySelectorAll('.task-card').forEach(btn => {
     bindTaskRowGesture(btn, {
       longPressMs: settings?.longPressMs ?? 800,
       onTap: (ek, dk) => toggleTask(ek, dk || viewDate),
       onLongPress: (ek, dk) => openTaskSheet(ek, dk || viewDate),
-      isTapBlocked: (ek, dk) => {
-        // Past incomplete daily tasks: tap routes to detail sheet (per-spec, can't toggle).
-        const entry = viewEntries[ek] || overdueItems.find(o => o.entryKey === ek);
-        const date = dk || viewDate;
-        return !!(entry && date < today && entry.rotationType === 'daily' && !isComplete(ek, completions));
-      },
     });
   });
 
