@@ -354,8 +354,11 @@ async function renderMealsTab() {
 
     return `<div class="day-block">
       <div class="day-block__head${isToday ? ' day-block__head--today' : ''}">
-        <span>${dayName} ${dayMonth} ${dayNum}</span>
+        <span class="day-block__head-text">${dayName} ${dayMonth} ${dayNum}</span>
         ${isToday ? '<span class="day-block__today-pill">Today</span>' : ''}
+        <button class="day-block__add" data-add-date="${esc(dk)}" type="button" aria-label="Add a meal for ${dayName} ${dayMonth} ${dayNum}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
       </div>
       <div class="day-block__slots">${slotsHtml}</div>
     </div>`;
@@ -377,6 +380,15 @@ async function renderMealsTab() {
       const entry = planCache[dk]?.[s];
       if (entry) openSlotEditSheet(dk, s, entry);
       else openPlanMealSheet(dk, s);
+    });
+  });
+
+  content.querySelectorAll('[data-add-date]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dk = btn.dataset.addDate;
+      // Open Plan-a-meal with no slot pre-selected; user picks from picker.
+      openPlanMealSheet(dk, null);
     });
   });
 }
@@ -503,7 +515,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   // maps it to school-lunch or school-lunch-2 based on day state.
   const PLAN_SLOT_ORDER = ['breakfast', 'lunch', 'school', 'dinner', 'snack'];
 
-  let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : 'dinner';
+  let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : (preSlot === null ? null : 'dinner');
 
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
@@ -584,7 +596,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         </div>
       </div>
     </div>
-    ${renderFormFooter({ saveLabel: 'Save', cancelId: 'kp_cancel', saveId: 'kp_save', disabled: !(preRecipeName || selectedRecipeId) })}`);
+    ${renderFormFooter({ saveLabel: 'Save', cancelId: 'kp_cancel', saveId: 'kp_save', disabled: !selectedSlot || !(preRecipeName || selectedRecipeId) })}`);
   activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
@@ -613,6 +625,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     selectedSlot = tab.dataset.slot;
     document.getElementById('kp_slotPills').querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
     syncSecondSchoolVisibility();
+    updateSaveBtn();
   });
 
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
@@ -624,7 +637,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
 
   function updateSaveBtn() {
     const val = document.getElementById('kp_search')?.value.trim();
-    document.getElementById('kp_save').disabled = !(val || selectedRecipeId);
+    document.getElementById('kp_save').disabled = !selectedSlot || !(val || selectedRecipeId);
   }
 
   function syncMealLabel(name) {

@@ -42,21 +42,51 @@
   align-items: center;
   gap: var(--spacing-xs);
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .day-block__head--today {
-  color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.day-block__head-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .day-block__today-pill {
   font-size: var(--font-xs);
   font-weight: 700;
-  background: var(--accent-soft);
+  background: var(--surface);
   color: var(--accent-ink);
   border-radius: var(--radius-full);
   padding: 1px 8px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.day-block__add {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.day-block__head--today .day-block__add {
+  color: var(--accent-ink);
+}
+
+.day-block__add:active {
+  background: var(--surface-2);
 }
 
 .day-block__slots {
