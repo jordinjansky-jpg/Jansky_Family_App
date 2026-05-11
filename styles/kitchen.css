@@ -564,6 +564,13 @@
 .kp-second-meal { display: none; padding-top: var(--spacing-xs); }
 .kp-second-meal.is-open { display: block; }
 
+/* ============ Plan-a-meal: slot pills (occupied state) ============ */
+.kp-slot-tabs .tab.is-occupied {
+  opacity: 0.45;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
 /* ============ Kitchen tabs row + AI Tools wand button ============ */
 .kitchen-tabs-row {
   display: flex;
