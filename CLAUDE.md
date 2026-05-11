@@ -107,7 +107,7 @@ Do not skip these based on familiarity. Design drift happens when DESIGN.md is n
 ## Critical Behavior Rules
 These cannot be derived from reading the code:
 
-- **Past daily tasks are tap-blocked** — tap opens detail sheet, does not toggle. Long-press or sheet button required.
+- **Past tasks tap-complete as late** — `toggleTask` auto-applies `isLate: true` + `pointsOverride: pastDueCreditPct`. Long-press opens the detail sheet, where "Complete (full credit)" is available as a rare admin override.
 - **Task order differs by page:** Dashboard/kid = Events → Daily → Weekly → Monthly → One-Time. Calendar day sheet = Events → Monthly → Weekly → One-Time → Daily.
 - **Long-press timing:** 500ms on tracker · 800ms on calendar/kid/dashboard.
 - **Scheduler scope:** 90 days forward. New tasks also get a same-day entry (except one-time tasks with a future `dedicatedDate`).
