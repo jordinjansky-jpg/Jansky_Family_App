@@ -437,9 +437,22 @@ function bindWeekStripSwipe() {
   });
 }
 
+// When user picks the virtual 'school' slot, resolve to the concrete
+// school-lunch or school-lunch-2 schema key based on what's free on the day.
+// Returns null when both slots are taken — caller should keep Save disabled.
+function resolveSchoolSlot(dateKey) {
+  const dayPlan = planCache[dateKey] || {};
+  if (!dayPlan['school-lunch']) return 'school-lunch';
+  if (!dayPlan['school-lunch-2']) return 'school-lunch-2';
+  return null;
+}
+
 function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const mount = document.getElementById('sheetMount');
   let selectedRecipeId = preRecipeId;
+  let secondOpen = false;
+  let secondRecipeId = null;
+  let secondTypedName = '';
   // Picker offers a single 'School' option. Auto-allocation in handleSchoolSave()
   // maps it to school-lunch or school-lunch-2 based on day state.
   const PLAN_SLOT_ORDER = ['breakfast', 'lunch', 'school', 'dinner', 'snack'];
@@ -513,6 +526,18 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
       </div>
     </div>
+    <div class="kp-second-school${selectedSlot === 'school' && (selectedRecipeId || preRecipeName) ? ' is-visible' : ''}" id="kp_secondSection">
+      <button class="ef2-add-chip${secondOpen ? ' is-active' : ''}" id="kp_addSecond" type="button">${secondOpen ? '− Remove second option' : '+ Plan a second School option'}</button>
+      <div class="kp-second-meal${secondOpen ? ' is-open' : ''}" id="kp_secondMealWrap">
+        <button class="kp-meal-select" id="kp_secondMealSelect" type="button">
+          <span id="kp_secondMealLabel">Choose a meal…</span>
+        </button>
+        <div class="kp-meal-dropdown is-open" id="kp_secondMealDropdown">
+          <input class="kp-search-input" id="kp_secondSearch" type="text" autocomplete="off" placeholder="Search…">
+          <div class="recipe-pick-list" id="kp_secondPick"></div>
+        </div>
+      </div>
+    </div>
     ${renderFormFooter({ saveLabel: 'Save', cancelId: 'kp_cancel', saveId: 'kp_save', disabled: !(preRecipeName || selectedRecipeId) })}`);
   activateSheet(mount);
 
@@ -541,6 +566,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     if (!tab) return;
     selectedSlot = tab.dataset.slot;
     document.getElementById('kp_slotPills').querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
+    syncSecondSchoolVisibility();
   });
 
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
@@ -583,10 +609,55 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
         bindPickRows();
         updateSaveBtn();
+        syncSecondSchoolVisibility();
       });
     });
   }
   bindPickRows();
+
+  function syncSecondSchoolVisibility() {
+    const section = document.getElementById('kp_secondSection');
+    const dayKey = document.getElementById('kp_day')?.value;
+    const dayPlan = planCache[dayKey] || {};
+    const otherSchoolFree = !(dayPlan['school-lunch'] && dayPlan['school-lunch-2']);
+    const show = selectedSlot === 'school' && (selectedRecipeId || document.getElementById('kp_search')?.value.trim()) && otherSchoolFree;
+    section?.classList.toggle('is-visible', show);
+  }
+
+  function bindSecondPickRows() {
+    document.getElementById('kp_secondPick')?.querySelectorAll('[data-recipe-pick]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.recipePick;
+        secondRecipeId = secondRecipeId === id ? null : id;
+        const name = secondRecipeId ? recipes[secondRecipeId]?.name || '' : '';
+        document.getElementById('kp_secondSearch').value = name;
+        document.getElementById('kp_secondMealLabel').textContent = name || 'Choose a meal…';
+        document.getElementById('kp_secondPick').innerHTML = buildRecipeRows(name);
+        bindSecondPickRows();
+      });
+    });
+  }
+
+  document.getElementById('kp_addSecond')?.addEventListener('click', () => {
+    secondOpen = !secondOpen;
+    document.getElementById('kp_addSecond').textContent = secondOpen ? '− Remove second option' : '+ Plan a second School option';
+    document.getElementById('kp_addSecond').classList.toggle('is-active', secondOpen);
+    document.getElementById('kp_secondMealWrap')?.classList.toggle('is-open', secondOpen);
+    if (secondOpen) {
+      document.getElementById('kp_secondPick').innerHTML = buildRecipeRows('');
+      bindSecondPickRows();
+    } else {
+      secondRecipeId = null;
+      secondTypedName = '';
+    }
+  });
+
+  document.getElementById('kp_secondSearch')?.addEventListener('input', (e) => {
+    secondRecipeId = null;
+    secondTypedName = e.target.value.trim();
+    document.getElementById('kp_secondPick').innerHTML = buildRecipeRows(e.target.value);
+    bindSecondPickRows();
+  });
 
   document.getElementById('kp_search')?.addEventListener('input', (e) => {
     selectedRecipeId = null;
@@ -594,32 +665,60 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     bindPickRows();
     syncMealLabel(e.target.value.trim());
     updateSaveBtn();
+    syncSecondSchoolVisibility();
   });
 
   document.getElementById('kp_save')?.addEventListener('click', async () => {
     const day = document.getElementById('kp_day')?.value;
-    const slot = selectedSlot;
+    if (!day || !selectedSlot) return;
     const typed = document.getElementById('kp_search')?.value.trim();
-    if (!day || !slot || (!selectedRecipeId && !typed)) return;
+    if (!selectedRecipeId && !typed) return;
 
-    let data;
+    // Resolve concrete schema key (school virtual → school-lunch[-2]).
+    const concreteSlot = selectedSlot === 'school' ? resolveSchoolSlot(day) : selectedSlot;
+    if (!concreteSlot) {
+      showToast('Both school slots are full for this day');
+      return;
+    }
+
+    // First option write
+    let firstData;
     if (selectedRecipeId) {
-      data = { recipeId: selectedRecipeId, source: 'manual' };
+      firstData = { recipeId: selectedRecipeId, source: 'manual' };
     } else {
       const match = Object.entries(recipes).find(([, r]) => r.name.toLowerCase() === typed.toLowerCase());
       if (match) {
         selectedRecipeId = match[0];
-        data = { recipeId: match[0], source: 'manual' };
+        firstData = { recipeId: match[0], source: 'manual' };
       } else {
-        data = { customName: typed, source: 'manual' };
+        firstData = { customName: typed, source: 'manual' };
       }
     }
+    await writeKitchenPlanSlot(day, concreteSlot, firstData);
 
-    await writeKitchenPlanSlot(day, slot, data);
+    // Optional second option (only relevant for school slot, when secondOpen and the OTHER school slot is free).
+    if (selectedSlot === 'school' && secondOpen && (secondRecipeId || secondTypedName)) {
+      const secondSlot = concreteSlot === 'school-lunch' ? 'school-lunch-2' : 'school-lunch';
+      let secondData;
+      if (secondRecipeId) {
+        secondData = { recipeId: secondRecipeId, source: 'manual' };
+      } else {
+        const match = Object.entries(recipes).find(([, r]) => r.name.toLowerCase() === secondTypedName.toLowerCase());
+        secondData = match ? { recipeId: match[0], source: 'manual' } : { customName: secondTypedName, source: 'manual' };
+      }
+      await writeKitchenPlanSlot(day, secondSlot, secondData);
+    }
+
+    // Bump lastUsed on chosen recipes
     if (selectedRecipeId) {
       await writeKitchenRecipe(selectedRecipeId, { ...recipes[selectedRecipeId], lastUsed: firebase.database.ServerValue.TIMESTAMP });
       recipes[selectedRecipeId].lastUsed = Date.now();
     }
+    if (secondRecipeId) {
+      await writeKitchenRecipe(secondRecipeId, { ...recipes[secondRecipeId], lastUsed: firebase.database.ServerValue.TIMESTAMP });
+      recipes[secondRecipeId].lastUsed = Date.now();
+    }
+
     mount.innerHTML = '';
     await renderMealsTab();
     showToast('Meal planned');

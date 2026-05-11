@@ -511,3 +511,9 @@
   flex: 1;
   min-width: 0;
 }
+
+/* ============ Plan-a-meal: second school option ============ */
+.kp-second-school { display: none; }
+.kp-second-school.is-visible { display: block; padding-top: var(--spacing-sm); }
+.kp-second-meal { display: none; padding-top: var(--spacing-xs); }
+.kp-second-meal.is-open { display: block; }
