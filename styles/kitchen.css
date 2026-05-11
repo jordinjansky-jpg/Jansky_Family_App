@@ -960,3 +960,31 @@ button.rl-chip {
   background: var(--border);
   margin: var(--spacing-sm) 0;
 }
+
+/* ============ List Empty State ============ */
+.list-empty {
+  text-align: center;
+  padding: var(--spacing-xl) var(--spacing-md);
+}
+
+.list-empty__title {
+  font-size: var(--font-md);
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-md);
+}
+
+.list-empty__cta {
+  margin-bottom: var(--spacing-sm);
+}
+
+.list-empty__hint {
+  font-size: var(--font-sm);
+  color: var(--text-faint);
+}
+
+.lam-empty-link {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

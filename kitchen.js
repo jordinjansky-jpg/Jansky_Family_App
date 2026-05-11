@@ -2621,7 +2621,18 @@ function renderItemsArea(items) {
   if (wand) wand.disabled = allItems.length === 0;
 
   if (allItems.length === 0) {
-    area.innerHTML = renderEmptyState('', 'List is empty', 'Tap + to add your first item.');
+    const staplesCount = Object.keys(staples || {}).length;
+    const cta = staplesCount > 0
+      ? `<button class="btn btn--primary btn--sm" id="emptyAddFromStaples" type="button">+ Add from staples</button>`
+      : `<a class="lam-empty-link" id="emptyOpenStaples" href="#" role="button">Save your basics as staples first</a>`;
+    area.innerHTML = `
+      <div class="list-empty">
+        <div class="list-empty__title">Your list is empty.</div>
+        <div class="list-empty__cta">${cta}</div>
+        <div class="list-empty__hint">Or tap the <strong>+</strong> to add an item.</div>
+      </div>`;
+    document.getElementById('emptyAddFromStaples')?.addEventListener('click', () => openStaplesSheet());
+    document.getElementById('emptyOpenStaples')?.addEventListener('click', (e) => { e.preventDefault(); openStaplesSheet(); });
     return;
   }
 
