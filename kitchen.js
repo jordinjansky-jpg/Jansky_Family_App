@@ -263,6 +263,17 @@ function dateKey(d) {
   return `${y}-${m}-${day}`;
 }
 
+// Returns the display label for a school-lunch slot key given the day's plan.
+// SCHOOL when only one of the two is planned; SCHOOL 1 / SCHOOL 2 when both.
+function getSchoolSlotLabel(slotKey, dayPlan) {
+  const hasOne = !!dayPlan?.['school-lunch'];
+  const hasTwo = !!dayPlan?.['school-lunch-2'];
+  if (hasOne && hasTwo) {
+    return slotKey === 'school-lunch' ? 'School 1' : 'School 2';
+  }
+  return 'School';
+}
+
 async function renderMealsTab() {
   const content = document.getElementById('kitchenContent');
   const tz = settings?.timezone || 'America/Chicago';
@@ -297,8 +308,11 @@ async function renderMealsTab() {
       ? plannedSlots.map(s => {
           const entry = plan[s];
           const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.mealName || entry.customName || '');
+          const label = (s === 'school-lunch' || s === 'school-lunch-2')
+            ? getSchoolSlotLabel(s, plan)
+            : SLOT_LABELS[s];
           return `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
-            <span class="day-block__slot-label">${esc(SLOT_LABELS[s])}</span>
+            <span class="day-block__slot-label">${esc(label)}</span>
             <span class="day-block__slot-name">${esc(name)}</span>
           </div>`;
         }).join('')
@@ -742,7 +756,12 @@ function openSlotEditSheet(dk, slot, entry) {
         <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
       </div>
       <div class="task-detail__chips">
-        <span class="chip">${esc(SLOT_LABELS[slot] || slot)}</span>
+        ${(() => {
+          const labelOverride = (slot === 'school-lunch' || slot === 'school-lunch-2')
+            ? getSchoolSlotLabel(slot, planCache[dk] || {})
+            : SLOT_LABELS[slot] || slot;
+          return `<span class="chip">${esc(labelOverride)}</span>`;
+        })()}
         <span class="chip">${esc(dayLabel)}</span>
       </div>
       <div class="me-detail__chips">
