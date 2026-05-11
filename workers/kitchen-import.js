@@ -688,7 +688,14 @@ async function extractTikTokContent(url) {
   return await fetchTikTokOembed(url);
 }
 
-async function handleUrl(url, env, corsHeaders) {
+async function handleUrl(input, env, corsHeaders) {
+  // Accept either a string URL (legacy) or { url, context } (new — matches
+  // handleScreenshot / handleSchoolLunch / handleCalendarPhoto / handleTaskScan
+  // which all thread an optional userContext into their prompts).
+  const url = typeof input === 'string' ? input : input?.url;
+  const userContext = (typeof input === 'object' && typeof input?.context === 'string')
+    ? input.context.slice(0, 500).trim()
+    : '';
   if (!url || typeof url !== 'string') return jsonError('No URL provided', 400, corsHeaders);
 
   // Always echo URL back so the client preserves it even on parse failure.
@@ -741,7 +748,7 @@ async function handleUrl(url, env, corsHeaders) {
     // to the partial response. Doubling the budget removes the truncation.
     const raw = await callClaude([{
       role: 'user',
-      content: `${RECIPE_PROMPT()}\n\nSource URL: ${url}\n\nPage content:\n${extractedText}`,
+      content: `${RECIPE_PROMPT(userContext)}\n\nSource URL: ${url}\n\nPage content:\n${extractedText}`,
     }], env, 2048);
     const parsed = parseJson(raw);
     const ingredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
@@ -924,7 +931,7 @@ async function handleTaskScan(input, env, corsHeaders) {
     const tasks = Array.isArray(parsed.tasks)
       ? parsed.tasks.filter(t => t.name)
       : [];
-    return jsonOk({ tasks, hasUncertainDates: tasks.some(t => !t.dueDate) }, corsHeaders);
+    return jsonOk({ tasks }, corsHeaders);
   } catch {
     return jsonError('Could not extract tasks', 500, corsHeaders);
   }
