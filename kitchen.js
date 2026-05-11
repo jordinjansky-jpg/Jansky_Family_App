@@ -3,7 +3,7 @@ import { initFirebase, readSettings, writeSettings, readPeople, onConnectionChan
   onAllMessages, writeMessage, markMessageSeen, removeMessage,
   writeBankToken, markBankTokenUsed, removeBankToken, readBank, writeMultiplier,
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
-  readKitchenPlan, onKitchenItems, readOnce,
+  readKitchenPlan, readKitchenPlanRange, onKitchenItems, readOnce,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
   pushKitchenItem, writeKitchenItem, pushKitchenStaple,
   writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe,
@@ -1090,6 +1090,105 @@ async function openCookModeSheet(recipe) {
   }
 
   render();
+}
+
+async function openMealHistorySheet() {
+  const mount = document.getElementById('sheetMount');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 30);
+
+  // Loading state
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: 'Meal history', closeId: 'mh_close' })}
+    <div class="mh-loading">Loading last 30 days…</div>
+  `);
+  activateSheet(mount);
+  document.getElementById('mh_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  const planByDate = await readKitchenPlanRange(start, today);
+
+  // Build a 30-day list (today backward).
+  const days = [];
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const plan = planByDate[dk];
+    days.push({ date: d, dateKey: dk, dinner: plan?.dinner || null });
+  }
+
+  function mondayOf(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  const weekGroups = {};
+  for (const dayInfo of days) {
+    const mk = mondayOf(dayInfo.date);
+    const mkStr = `${mk.getFullYear()}-${String(mk.getMonth() + 1).padStart(2, '0')}-${String(mk.getDate()).padStart(2, '0')}`;
+    if (!weekGroups[mkStr]) weekGroups[mkStr] = { monday: mk, days: [] };
+    weekGroups[mkStr].days.push(dayInfo);
+  }
+  const sortedWeeks = Object.values(weekGroups).sort((a, b) => b.monday - a.monday);
+
+  const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const weeksHtml = sortedWeeks.map(week => {
+    const m = week.monday;
+    const weekLabel = `Week of ${MONTHS_SHORT[m.getMonth()]} ${m.getDate()}`;
+    const sortedDays = [...week.days].sort((a, b) => a.date - b.date);
+    const rowsHtml = sortedDays.map(({ date, dateKey, dinner }) => {
+      const dayLabel = `${DAY_NAMES_SHORT[date.getDay()]} ${MONTHS_SHORT[date.getMonth()]} ${date.getDate()}`;
+      let dinnerName = '—';
+      let recipeIdForRow = null;
+      if (dinner) {
+        // Handle both legacy single-object and (future) array shape.
+        // Array shape from SP4-F may not be in effect yet — guard.
+        const optionsArr = Array.isArray(dinner) ? dinner : [dinner];
+        const winner = optionsArr[0]; // any element is fine for history display
+        if (winner?.recipeId) {
+          dinnerName = recipes[winner.recipeId]?.name || 'Unknown recipe';
+          recipeIdForRow = winner.recipeId;
+        } else if (winner?.customName) {
+          dinnerName = winner.customName;
+        } else if (winner?.mealName) {
+          dinnerName = winner.mealName;
+        }
+      }
+      const isInteractive = !!recipeIdForRow;
+      const attrs = isInteractive ? ` data-mh-recipe-id="${esc(recipeIdForRow)}" role="button"` : '';
+      return `<div class="mh-row${isInteractive ? ' mh-row--interactive' : ''}"${attrs}>
+        <span class="mh-day-label">${esc(dayLabel)}</span>
+        <span class="mh-meal-name">${esc(dinnerName)}</span>
+      </div>`;
+    }).join('');
+    return `<div class="mh-week">
+      <div class="mh-week-label">${esc(weekLabel)}</div>
+      ${rowsHtml}
+    </div>`;
+  }).join('');
+
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: 'Meal history', closeId: 'mh_close' })}
+    <div class="mh-hint">Last 30 days — dinners only</div>
+    <div class="mh-list">${weeksHtml}</div>
+  `);
+  activateSheet(mount);
+  document.getElementById('mh_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  mount.querySelectorAll('[data-mh-recipe-id]').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.dataset.mhRecipeId;
+      mount.innerHTML = '';
+      openRecipeDetailSheet(id);
+    });
+  });
 }
 
 function openRecipeDetailSheet(recipeId) {
