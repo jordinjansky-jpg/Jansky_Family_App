@@ -31,14 +31,24 @@ QUANTITY RULES:
 - Keep mixed fractions together in qty: "1 1/4 tsp" not "1" + "1/4 tsp". The qty field is the full amount with unit.
 - Ingredient name is only the bare grocery item — never the unit.
 
+METADATA SOURCES:
+- If JSON-LD STRUCTURED DATA appears at the top of the source, prefer it — it has machine-readable prepTime / cookTime / totalTime / recipeYield / recipeCategory / recipeCuisine / keywords.
+- ISO 8601 durations like "PT15M", "PT1H30M", "PT1H" convert to short human strings: "15 min", "1 hr 30 min", "1 hr". A duration of 0 ("PT0M") counts as null.
+- For times: extract prep / cook / total SEPARATELY when the source gives them. If the source only gives a single number ("30 min ready"), put it in totalTime.
+- For servings: accept strings like "4 servings", "8-10", or arrays like ["8"]. Pick the primary integer.
+- For tags: pull from recipeCategory / recipeCuisine / keywords (comma- or array-separated) and any visible descriptors (e.g. "vegetarian", "quick", "Italian"). Cap at 6 short tags. Lowercase, no punctuation. Empty array if none.
+
 Return JSON:
 {
   "name": "recipe name or null",
   "ingredients": [{"name": "clean grocery name", "qty": "amount with unit, or null"}],
   "notes": "brief description or prep note (max 200 chars), or null",
-  "prepTime": "total time as a short string e.g. '35 min' or '1 hr 20 min', or null",
-  "servings": integer number of servings or null,
+  "prepTime":  "prep time only, short string e.g. '15 min', or null",
+  "cookTime":  "cook time only, short string e.g. '30 min', or null",
+  "totalTime": "total time (prep+cook), short string e.g. '45 min', or null. If the source gives only one time, put it here.",
+  "servings":  integer number of servings or null,
   "difficulty": "Easy", "Medium", or "Hard" based on technique complexity, or null,
+  "tags": ["array of short lowercase strings (max 6) from recipeCategory/recipeCuisine/keywords; empty array if none"],
   "error": "reason if no recipe at all, else null"
 }
 If multiple recipes appear, extract the primary or most prominent one. Extract as much as is visible even if some fields are incomplete. Return only valid JSON, nothing else.`;
@@ -741,8 +751,11 @@ async function handleUrl(url, env, corsHeaders) {
       notes,
       imageUrl: ogImage,
       prepTime:   parsed.prepTime   || null,
+      cookTime:   parsed.cookTime   || null,
+      totalTime:  parsed.totalTime  || null,
       servings:   parsed.servings   || null,
       difficulty: parsed.difficulty || null,
+      tags:       Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6).filter(t => typeof t === 'string' && t.trim()) : [],
     }, corsHeaders);
   } catch {
     return partialResp({ name: fallbackTitle });
@@ -766,8 +779,11 @@ async function handleScreenshot(input, env, corsHeaders) {
       notes: parsed.notes || '',
       url: null,
       prepTime:   parsed.prepTime   || null,
+      cookTime:   parsed.cookTime   || null,
+      totalTime:  parsed.totalTime  || null,
       servings:   parsed.servings   || null,
       difficulty: parsed.difficulty || null,
+      tags:       Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6).filter(t => typeof t === 'string' && t.trim()) : [],
     }, corsHeaders);
   } catch {
     return jsonError('Could not extract recipe', 500, corsHeaders);

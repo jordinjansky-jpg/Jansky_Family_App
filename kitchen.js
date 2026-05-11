@@ -1051,8 +1051,11 @@ function openRecipeDetailSheet(recipeId) {
   }
 
   function buildMetaChips() {
+    // Label prep / cook explicitly only when both are present, to disambiguate.
+    const bothTimes = recipe.prepTime && recipe.cookTime;
     return [
-      recipe.prepTime   ? `<span class="rd-meta-chip">${esc(recipe.prepTime)}</span>` : '',
+      recipe.prepTime   ? `<span class="rd-meta-chip">${bothTimes ? 'Prep ' : ''}${esc(recipe.prepTime)}</span>` : '',
+      recipe.cookTime   ? `<span class="rd-meta-chip">${bothTimes ? 'Cook ' : ''}${esc(recipe.cookTime)}</span>` : '',
       baseServings      ? `<span class="rd-meta-chip">Serves ${baseServings}</span>` : '',
       recipe.difficulty ? `<span class="rd-meta-chip">${esc(recipe.difficulty)}</span>` : '',
     ].filter(Boolean).join('');
@@ -2269,8 +2272,17 @@ function openRecipeForm(recipeId, onSave = null) {
           if (persistent && persistent !== data.imageUrl) imageUrl = persistent;
         }).catch(() => { /* keep remote URL as fallback */ });
       }
-      if (data.prepTime && !document.getElementById('recipePrepTime')?.value)
-        document.getElementById('recipePrepTime').value = data.prepTime;
+      // Prep time: prefer data.prepTime, fall back to totalTime when prep is absent
+      // (some sites only expose totalTime in their JSON-LD).
+      const prepFallback = data.prepTime || data.totalTime;
+      if (prepFallback && !document.getElementById('recipePrepTime')?.value)
+        document.getElementById('recipePrepTime').value = prepFallback;
+      if (data.cookTime && !document.getElementById('recipeCookTime')?.value) {
+        document.getElementById('recipeCookTime').value = data.cookTime;
+        // Open the +Cook time disclosure chip so the user sees what was imported.
+        document.getElementById('kr_cookTimeChip')?.classList.add('is-active');
+        document.getElementById('kr_cookTimeReveal')?.classList.add('is-open');
+      }
       if (data.servings && !document.getElementById('recipeServings')?.value)
         document.getElementById('recipeServings').value = data.servings;
       if (data.difficulty && !document.getElementById('recipeDifficulty')?.value) {
@@ -2281,6 +2293,12 @@ function openRecipeForm(recipeId, onSave = null) {
         picker?.querySelectorAll('.tab').forEach(t => {
           t.classList.toggle('is-active', t.dataset.val === data.difficulty);
         });
+      }
+      if (data.tags?.length && !document.getElementById('recipeTags')?.value) {
+        document.getElementById('recipeTags').value = data.tags.join(', ');
+        // Open the +Tags disclosure chip so the imported tags are visible.
+        document.getElementById('kr_tagsChip')?.classList.add('is-active');
+        document.getElementById('kr_tagsReveal')?.classList.add('is-open');
       }
       if (data.ingredients?.length) {
         ingredients.length = 0;
