@@ -223,6 +223,28 @@ Return JSON:
 }
 If a category has nothing, return an empty array for that key. Return only valid JSON, nothing else.`;
 
+const SUGGEST_PROMPT = (pantry) => `You are helping a family decide what to make for dinner tonight.
+
+INPUT — what they have on hand (or what they're craving):
+"${pantry}"
+
+Return 3-5 recipe ideas that match. For each:
+- Use ingredients from the input where possible.
+- Suggest realistic family-friendly meals (no five-Michelin-star techniques).
+- Tag with cuisine / cook style descriptors.
+
+Return JSON:
+{
+  "suggestions": [
+    {
+      "name": "recipe name",
+      "description": "1-2 sentence summary including approximate cook time",
+      "tags": ["array of 2-4 short lowercase tags"]
+    }
+  ]
+}
+Return only valid JSON, nothing else.`;
+
 const EMAIL_PROMPT = (subject, contextDate) =>
   `Extract calendar events from this email. Today is ${contextDate}. Subject: "${subject.replace(/"/g, '\\"')}"
 
@@ -965,6 +987,36 @@ async function handlePhotoToList(input, env, corsHeaders) {
   }
 }
 
+async function handleRecipeSuggest(input, env, corsHeaders) {
+  if (!input?.pantry || typeof input.pantry !== 'string') {
+    return jsonError('No pantry input provided', 400, corsHeaders);
+  }
+  const pantry = input.pantry.slice(0, 500).trim();
+  if (!pantry) return jsonError('No pantry input provided', 400, corsHeaders);
+  try {
+    const raw = await callClaude([{
+      role: 'user',
+      content: SUGGEST_PROMPT(pantry),
+    }], env, 1024);
+    const parsed = parseJson(raw);
+    const suggestions = Array.isArray(parsed.suggestions)
+      ? parsed.suggestions
+          .filter(s => s && s.name && s.description)
+          .map(s => ({
+            name: String(s.name).slice(0, 100),
+            description: String(s.description).slice(0, 240),
+            tags: Array.isArray(s.tags)
+              ? s.tags.slice(0, 4).filter(t => typeof t === 'string' && t.trim())
+              : [],
+          }))
+          .slice(0, 5)
+      : [];
+    return jsonOk({ suggestions }, corsHeaders);
+  } catch {
+    return jsonError('Could not generate suggestions', 500, corsHeaders);
+  }
+}
+
 // Unified scan: one image → events + tasks + lunch in a single Claude call.
 async function handleScan(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No image provided', 400, corsHeaders);
@@ -1014,6 +1066,7 @@ const HANDLERS = {
   taskScan:      (input, env) => handleTaskScan(input, env, CORS),
   homeworkScan:  (input, env) => handleTaskScan(input, env, CORS),   // backward compat alias
   photoToList:   (input, env) => handlePhotoToList(input, env, CORS),
+  recipeSuggest: (input, env) => handleRecipeSuggest(input, env, CORS),
   scan:          (input, env) => handleScan(input, env, CORS),
 };
 
