@@ -91,6 +91,24 @@ function formatPrepBucket(prepTimeStr) {
   return matched && total > 0 ? Math.round(total) : null;
 }
 
+// Render a minute-count as a short human string ("25 min", "1 hr 15 min").
+function formatMinutes(mins) {
+  if (!mins || mins <= 0) return '';
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60); const r = mins % 60;
+  return r > 0 ? `${h} hr ${r} min` : `${h} hr`;
+}
+
+// Compute the recipe's total time from prep + cook. Falls back to whichever
+// one is present when only one side is set. Returns null when neither parses.
+function recipeTotalTime(recipe) {
+  if (!recipe) return null;
+  const p = formatPrepBucket(recipe.prepTime);
+  const c = formatPrepBucket(recipe.cookTime);
+  if (!p && !c) return null;
+  return (p || 0) + (c || 0);
+}
+
 // Worker URL — set when Cloudflare Worker is deployed
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
@@ -525,11 +543,15 @@ function renderRecipesTab() {
     } else {
       ratingChip = `<button class="rl-chip rl-chip--unrated" data-rate-recipe type="button" aria-label="Not yet rated — tap to rate">${STAR_EMPTY_SVG}</button>`;
     }
-    const prepChip = recipe?.prepTime ? `<span class="rl-chip">${esc(recipe.prepTime)}</span>` : '';
+    // Show total cook time (prep + cook) — that's what tells you "how long
+    // until dinner". Falls back to whichever side is populated when only one
+    // is set, so single-time recipes still display.
+    const totalMins = recipeTotalTime(recipe);
+    const timeChip = totalMins ? `<span class="rl-chip">${esc(formatMinutes(totalMins))}</span>` : '';
     const tz = settings?.timezone || 'America/Chicago';
     const todayStr = todayKey(tz);
     const lastChip = `<span class="rl-chip">${esc(formatLastCooked(recipe?.lastUsed, tz, todayStr))}</span>`;
-    return [ratingChip, prepChip, lastChip].filter(Boolean).join('<span class="rl-chip-sep">·</span>');
+    return [ratingChip, timeChip, lastChip].filter(Boolean).join('<span class="rl-chip-sep">·</span>');
   }
 
   function buildRecipeCard(id, r) {
@@ -560,10 +582,11 @@ function renderRecipesTab() {
     recipeEntries = recipeEntries.filter(([, r]) => !r.lastUsed);
   }
 
-  // PREP BUCKET
+  // TIME BUCKET (uses total time so the filter agrees with what's shown on
+  // the card chip and detail-sheet total row).
   if (recipeFilter.prepBucket !== 'any') {
     recipeEntries = recipeEntries.filter(([, r]) => {
-      const mins = formatPrepBucket(r.prepTime);
+      const mins = recipeTotalTime(r);
       if (mins == null) return false;
       if (recipeFilter.prepBucket === 'lt-30') return mins < 30;
       if (recipeFilter.prepBucket === '30-60') return mins >= 30 && mins <= 60;
@@ -589,7 +612,7 @@ function renderRecipesTab() {
     switch (recipeFilter.sort) {
       case 'recent':         return (rb.createdAt || 0) - (ra.createdAt || 0);
       case 'quickest': {
-        const ma = formatPrepBucket(ra.prepTime); const mb = formatPrepBucket(rb.prepTime);
+        const ma = recipeTotalTime(ra); const mb = recipeTotalTime(rb);
         if (ma == null && mb == null) return 0;
         if (ma == null) return 1;
         if (mb == null) return -1;
@@ -1460,16 +1483,10 @@ function openRecipeDetailSheet(recipeId) {
     const prepMins = formatPrepBucket(recipe.prepTime);
     const cookMins = formatPrepBucket(recipe.cookTime);
     const totalMins = (prepMins || 0) + (cookMins || 0);
-    const fmt = (m) => {
-      if (!m) return '';
-      if (m < 60) return `${m} min`;
-      const h = Math.floor(m / 60); const r = m % 60;
-      return r > 0 ? `${h} hr ${r} min` : `${h} hr`;
-    };
     const cells = [];
     if (recipe.prepTime) cells.push(`<div class="rd-time-cell"><span class="rd-time-label">Prep</span><span class="rd-time-val">${esc(recipe.prepTime)}</span></div>`);
     if (recipe.cookTime) cells.push(`<div class="rd-time-cell"><span class="rd-time-label">Cook</span><span class="rd-time-val">${esc(recipe.cookTime)}</span></div>`);
-    if (prepMins && cookMins) cells.push(`<div class="rd-time-cell rd-time-cell--total"><span class="rd-time-label">Total</span><span class="rd-time-val">${esc(fmt(totalMins))}</span></div>`);
+    if (prepMins && cookMins) cells.push(`<div class="rd-time-cell rd-time-cell--total"><span class="rd-time-label">Total</span><span class="rd-time-val">${esc(formatMinutes(totalMins))}</span></div>`);
     const timesHtml = cells.length ? `<div class="rd-times">${cells.join('')}</div>` : '';
     const servingsHtml = baseServings ? `
       <div class="rd-servings-row">
@@ -2029,7 +2046,7 @@ function openRecipeFilterSheet() {
       <div class="filter-chips">${chipRow(showOpts, 'show')}</div>
     </div>
     <div class="filter-section">
-      <div class="filter-section__label">PREP TIME</div>
+      <div class="filter-section__label">TOTAL TIME</div>
       <div class="filter-chips">${chipRow(prepOpts, 'prepBucket')}</div>
     </div>
     <div class="filter-section">
