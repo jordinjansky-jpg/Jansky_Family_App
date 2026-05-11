@@ -191,8 +191,8 @@ FOR EACH ITEM:
 Return JSON: {"items": [{"name": "item name", "category": "category", "confidence": "high|medium|low"}]}
 Aim for 3–20 items. Return only valid JSON, nothing else.`;
 
-const SCAN_PROMPT = (contextDate) =>
-  `Analyze this image carefully and extract ALL of the following that are present:
+const SCAN_PROMPT = (contextDate, userContext = '') =>
+  `${userContext ? `USER-PROVIDED CONTEXT (TRUST THIS — it overrides your guesses): "${userContext}"\n\n` : ''}Analyze this image carefully and extract ALL of the following that are present:
 1. Calendar events (appointments, activities, school events)
 2. Actionable tasks (things someone needs to do, sign, return, or pay)
 3. School lunch menu entries (daily lunch options)
@@ -692,7 +692,8 @@ async function handleUrl(url, env, corsHeaders) {
   if (!url || typeof url !== 'string') return jsonError('No URL provided', 400, corsHeaders);
 
   // Always echo URL back so the client preserves it even on parse failure.
-  const partialResp = (extras = {}) => jsonOk({ url, name: '', ingredients: [], notes: '', ...extras }, corsHeaders);
+  // Use null (not '') for fields the client checks truthy-falsy on.
+  const partialResp = (extras = {}) => jsonOk({ url, name: '', ingredients: [], notes: null, ...extras }, corsHeaders);
 
   let extractedText = '';
   let fallbackTitle = '';
@@ -734,14 +735,18 @@ async function handleUrl(url, env, corsHeaders) {
   if (!extractedText) return partialResp({ name: fallbackTitle });
 
   try {
+    // 2048 tokens — RECIPE_PROMPT asks for up to 10 fields plus ingredient
+    // array; long recipes (15-20 ingredients) blow past 1024 and the JSON gets
+    // truncated mid-array, which makes parseJson throw and silently fall back
+    // to the partial response. Doubling the budget removes the truncation.
     const raw = await callClaude([{
       role: 'user',
       content: `${RECIPE_PROMPT()}\n\nSource URL: ${url}\n\nPage content:\n${extractedText}`,
-    }], env, 1024);
+    }], env, 2048);
     const parsed = parseJson(raw);
     const ingredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
     const name = parsed.name || fallbackTitle || '';
-    const notes = parsed.notes || '';
+    const notes = parsed.notes || null;
     // Even when the AI says "not a recipe", we keep the URL + any title we found.
     if (parsed.error && !ingredients.length && !parsed.name) {
       return partialResp({ name: fallbackTitle });
@@ -770,12 +775,25 @@ async function handleScreenshot(input, env, corsHeaders) {
 
   const userContext = (input.context && typeof input.context === 'string') ? input.context.slice(0, 500).trim() : '';
   try {
+    // 2048 tokens for the same reason as handleUrl — long recipes truncate at 1024.
     const raw = await callClaude([{
       role: 'user',
       content: [imageContent(input.base64, input.mediaType), { type: 'text', text: RECIPE_PROMPT(userContext) }],
-    }], env, 1024);
+    }], env, 2048);
     const parsed = parseJson(raw);
-    if (parsed.error) return jsonOk({ error: parsed.error }, corsHeaders);
+    if (parsed.error) {
+      // Include the empty-but-typed scalar/array fields so the client's
+      // `data.name || ''` / `data.ingredients?.length` style consumption
+      // doesn't blow up before reaching the error guard. Matches the
+      // happy-path shape minus the actual values.
+      return jsonOk({
+        error: parsed.error,
+        name: '',
+        ingredients: [],
+        notes: null,
+        url: null,
+      }, corsHeaders);
+    }
     return jsonOk({
       name: parsed.name || '',
       ingredients: Array.isArray(parsed.ingredients) ? parsed.ingredients : [],
@@ -844,6 +862,10 @@ async function handleCalendarPhoto(input, env, corsHeaders) {
       events,
       monthUncertain: parsed.monthUncertain === true,
       assumedMonth: parsed.assumedMonth || null,
+      // Calendar-photo events are one-shot (no RRULE in a photo); the client's
+      // `data.hadRecurring || false` guard turns undefined into false, but
+      // returning it explicitly documents the contract.
+      hadRecurring: false,
     }, corsHeaders);
   } catch {
     return jsonError('Could not extract events', 500, corsHeaders);
@@ -941,14 +963,15 @@ async function handleScan(input, env, corsHeaders) {
   if (!input?.base64 || !input?.mediaType) return jsonError('No image provided', 400, corsHeaders);
 
   const contextDate = input.contextDate || todayIso();
+  const userContext = (input.context && typeof input.context === 'string') ? input.context.slice(0, 500).trim() : '';
   try {
     const raw = await callClaude([{
       role: 'user',
       content: [
         imageContent(input.base64, input.mediaType),
-        { type: 'text', text: SCAN_PROMPT(contextDate) },
+        { type: 'text', text: SCAN_PROMPT(contextDate, userContext) },
       ],
-    }], env, 3000);
+    }], env, 4096);
     const parsed = parseJson(raw);
     return jsonOk({
       events: Array.isArray(parsed.events) ? parsed.events.filter(e => e.name && e.date) : [],
@@ -1021,7 +1044,10 @@ async function handleEmailMessage(message, env) {
     if (events.length === 0) return;
 
     const entry = { from, subject, events, receivedAt: Date.now(), processed: false };
-    await fetch(`${env.FIREBASE_DB_URL}/rundown/emailImports.json?auth=${env.FIREBASE_DB_SECRET}`, {
+    // Trim any trailing slash on FIREBASE_DB_URL so the joined path doesn't
+    // double-slash (e.g. https://x.firebaseio.com//rundown/...).
+    const baseUrl = (env.FIREBASE_DB_URL || '').replace(/\/$/, '');
+    await fetch(`${baseUrl}/rundown/emailImports.json?auth=${env.FIREBASE_DB_SECRET}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(entry),
