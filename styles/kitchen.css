@@ -862,3 +862,75 @@ button.rl-chip {
   justify-content: center;
   padding: var(--spacing-md) 0;
 }
+
+/* ============ Recipe Rating Sheet (rrs-*) ============ */
+.rrs-body {
+  padding: var(--spacing-md) var(--spacing-sm);
+  text-align: center;
+}
+
+.rrs-stars {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: var(--spacing-md);
+}
+
+.rrs-star {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 48px;
+  font-size: 44px;
+  line-height: 1;
+  user-select: none;
+}
+
+.rrs-star__glyph {
+  display: block;
+  pointer-events: none;
+  background: linear-gradient(to right, var(--accent) 50%, var(--border) 50%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rrs-star--full .rrs-star__glyph {
+  background: var(--accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.rrs-star--empty .rrs-star__glyph {
+  background: var(--border);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* half: keep the default gradient defined on .rrs-star__glyph */
+
+.rrs-star__half {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+}
+
+.rrs-star__half--left  { left: 0; }
+.rrs-star__half--right { right: 0; }
+
+.rrs-helper {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.rrs-footer {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-sm) 0 var(--spacing-md);
+}

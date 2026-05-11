@@ -1269,6 +1269,76 @@ function openFindRecipesSheet() {
   activateSheet(mount);
   document.getElementById('closeFindRecipes')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
+function openRecipeRatingSheet(recipeId) {
+  const recipe = recipes[recipeId];
+  if (!recipe) return;
+  const mount = document.getElementById('sheetMount');
+
+  if (!linkedPerson) {
+    showToast('Open this page from your personal link to rate recipes');
+    return;
+  }
+
+  const viewerId = linkedPerson.id;
+  let myRating = (recipe.ratings && recipe.ratings[viewerId]) || 0;
+
+  function renderStars(value) {
+    // 5 star slots, each with two tap zones (half / full).
+    return Array.from({ length: 5 }, (_, i) => {
+      const star = i + 1;
+      const filled = value >= star ? 'full' : (value >= star - 0.5 ? 'half' : 'empty');
+      return `
+        <span class="rrs-star rrs-star--${filled}">
+          <button class="rrs-star__half rrs-star__half--left" data-rrs-val="${star - 0.5}" type="button" aria-label="${star - 0.5} stars"></button>
+          <button class="rrs-star__half rrs-star__half--right" data-rrs-val="${star}" type="button" aria-label="${star} stars"></button>
+          <span class="rrs-star__glyph">★</span>
+        </span>`;
+    }).join('');
+  }
+
+  function render() {
+    mount.innerHTML = renderBottomSheet(`
+      ${renderFormSheetHeader({ title: `Rate ${recipe.name}`, closeId: 'rrs_close' })}
+      <div class="rrs-body">
+        <div class="rrs-stars" id="rrsStars">${renderStars(myRating)}</div>
+        <div class="rrs-helper">${myRating ? `Your rating: ${myRating}` : 'Tap a star to rate'}</div>
+      </div>
+      <div class="rrs-footer">
+        ${myRating ? `<button class="btn btn--ghost" id="rrsClear" type="button">Remove my rating</button>` : ''}
+      </div>
+    `);
+    activateSheet(mount);
+    bindStars();
+    document.getElementById('rrs_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    document.getElementById('rrsClear')?.addEventListener('click', async () => {
+      myRating = 0;
+      const ratings = { ...(recipe.ratings || {}) };
+      delete ratings[viewerId];
+      recipes[recipeId] = { ...recipe, ratings };
+      await writeKitchenRecipe(recipeId, { ...recipes[recipeId] });
+      mount.innerHTML = '';
+      renderActiveTab();
+      showToast('Rating removed');
+    });
+  }
+
+  function bindStars() {
+    mount.querySelectorAll('[data-rrs-val]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const val = parseFloat(btn.dataset.rrsVal);
+        myRating = val;
+        const ratings = { ...(recipe.ratings || {}), [viewerId]: val };
+        recipes[recipeId] = { ...recipe, ratings };
+        await writeKitchenRecipe(recipeId, { ...recipes[recipeId] });
+        mount.innerHTML = '';
+        renderActiveTab();
+        showToast('Rating saved');
+      });
+    });
+  }
+
+  render();
+}
 function openRecipeFilterSheet() {
   const mount = document.getElementById('sheetMount');
 
