@@ -453,6 +453,25 @@ function renderRecipesTab() {
     return [ratingChip, prepChip, lastChip].filter(Boolean).join('<span class="rl-chip-sep">·</span>');
   }
 
+  function buildRecipeCard(id, r, linkIcon, starFilled, starEmpty) {
+    return `
+      <article class="card rl-recipe-card" data-recipe-id="${esc(id)}">
+        ${buildRecipeCardThumb(r)}
+        <div class="rl-card-body">
+          <div class="rl-card-title">${esc(r.name)}</div>
+          <div class="rl-card-chips">${buildRecipeCardChips(r)}</div>
+        </div>
+        <div class="rl-card-actions">
+          <button class="btn-icon rl-fav-btn${r.isFavorite ? ' is-fav' : ''}"
+            data-fav-recipe="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}">
+            ${r.isFavorite ? starFilled : starEmpty}
+          </button>
+          ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"
+              class="btn-icon" aria-label="Open recipe link" data-recipe-link="${esc(id)}">${linkIcon}</a>` : ''}
+        </div>
+      </article>`;
+  }
+
   const content = document.getElementById('kitchenContent');
   let recipeEntries = Object.entries(recipes);
 
@@ -525,24 +544,29 @@ function renderRecipesTab() {
     (recipeFilter.sort !== 'alpha'       ? 1 : 0);
   const filterLabel = filterCount > 0 ? `Filter & Sort · ${filterCount}` : 'Filter & Sort';
 
-  const recipeLibHtml = recipeEntries.length > 0
-    ? recipeEntries.map(([id, r]) => `
-        <article class="card rl-recipe-card" data-recipe-id="${esc(id)}">
-          ${buildRecipeCardThumb(r)}
-          <div class="rl-card-body">
-            <div class="rl-card-title">${esc(r.name)}</div>
-            <div class="rl-card-chips">${buildRecipeCardChips(r)}</div>
-          </div>
-          <div class="rl-card-actions">
-            <button class="btn-icon rl-fav-btn${r.isFavorite ? ' is-fav' : ''}"
-              data-fav-recipe="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}">
-              ${r.isFavorite ? starFilled : starEmpty}
-            </button>
-            ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"
-                class="btn-icon" aria-label="Open recipe link" data-recipe-link="${esc(id)}">${linkIcon}</a>` : ''}
-          </div>
-        </article>`).join('')
-    : renderEmptyState('', 'No recipes yet', 'Tap "New recipe" to add your first.');
+  const recipeLibHtml = (() => {
+    if (recipeEntries.length > 0) {
+      return recipeEntries.map(([id, r]) => buildRecipeCard(id, r, linkIcon, starFilled, starEmpty)).join('');
+    }
+    const totalCount = Object.keys(recipes).length;
+    if (totalCount === 0) {
+      // Library is empty.
+      return renderEmptyState('', 'No recipes yet', 'Tap "New recipe" to add your first.');
+    }
+    // Library has recipes but the filter/search yields zero.
+    const hasSearch = !!recipeSearchQuery.trim();
+    const hasFilter = (recipeFilter.show !== 'all' || recipeFilter.prepBucket !== 'any' || recipeFilter.difficulty !== 'any' || recipeFilter.tags?.length);
+    const title = 'No recipes match';
+    let body;
+    if (hasSearch && hasFilter) body = 'Try clearing the search or adjusting filters.';
+    else if (hasSearch)         body = 'Try a different search term.';
+    else                        body = 'Try a different filter combination.';
+    const buttonLabel = hasSearch && hasFilter ? 'Clear search & filters'
+                      : hasSearch              ? 'Clear search'
+                      :                          'Clear filters';
+    return renderEmptyState('', title, body) +
+      `<div class="rl-empty-actions"><button class="btn btn--secondary" id="rlClearAll" type="button">${buttonLabel}</button></div>`;
+  })();
 
   const countLabel = recipeEntries.length === 1 ? '1 recipe' : `${recipeEntries.length} recipes`;
 
@@ -565,6 +589,18 @@ function renderRecipesTab() {
     </div>`;
 
   document.getElementById('recipeFilterBtn')?.addEventListener('click', openRecipeFilterSheet);
+
+  document.getElementById('rlClearAll')?.addEventListener('click', () => {
+    recipeSearchQuery = '';
+    recipeFilter = {
+      show: 'all',
+      prepBucket: 'any',
+      difficulty: 'any',
+      tags: [],
+      sort: 'alpha',
+    };
+    renderRecipesTab();
+  });
 
   const searchInput = document.getElementById('rlSearch');
   searchInput?.addEventListener('input', (e) => {

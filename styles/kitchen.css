@@ -837,3 +837,9 @@
   font-style: italic;
   padding: var(--spacing-xs) 0;
 }
+
+.rl-empty-actions {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-md) 0;
+}
