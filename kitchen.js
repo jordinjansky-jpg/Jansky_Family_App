@@ -316,23 +316,41 @@ async function renderMealsTab() {
     const dayNum = d.getDate();
     const dayMonth = MONTHS[d.getMonth()];
 
-    const plannedSlots = SLOT_ORDER.filter(s => plan[s]);
-    const slotsHtml = plannedSlots.length > 0
-      ? plannedSlots.map(s => {
-          const entry = plan[s];
-          const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.mealName || entry.customName || '');
-          const label = (s === 'school-lunch' || s === 'school-lunch-2')
-            ? getSchoolSlotLabel(s, plan)
-            : SLOT_LABELS[s];
-          return `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
-            ${buildSlotThumb(entry)}
-            <span class="day-block__slot-label">${esc(label)}</span>
-            <span class="day-block__slot-name">${esc(name)}</span>
-          </div>`;
-        }).join('')
-      : `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
-          <span class="day-block__slot-name day-block__slot-name--empty">Tap to plan</span>
-        </div>`;
+    // Order: planned non-dinner slots (in SLOT_ORDER), then Dinner always last.
+    const nonDinnerPlanned = SLOT_ORDER.filter(s => s !== 'dinner' && plan[s]);
+    const dinnerEntry = plan.dinner || null;
+
+    const slotRows = [];
+    for (const s of nonDinnerPlanned) {
+      const entry = plan[s];
+      const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.mealName || entry.customName || '');
+      const label = (s === 'school-lunch' || s === 'school-lunch-2')
+        ? getSchoolSlotLabel(s, plan)
+        : SLOT_LABELS[s];
+      slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
+        ${buildSlotThumb(entry)}
+        <span class="day-block__slot-label">${esc(label)}</span>
+        <span class="day-block__slot-name">${esc(name)}</span>
+      </div>`);
+    }
+
+    // Dinner row — always rendered. Empty state when not planned.
+    if (dinnerEntry) {
+      const dinnerName = dinnerEntry.recipeId ? (recipes[dinnerEntry.recipeId]?.name || 'Unknown') : (dinnerEntry.mealName || dinnerEntry.customName || '');
+      slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
+        ${buildSlotThumb(dinnerEntry)}
+        <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
+        <span class="day-block__slot-name">${esc(dinnerName)}</span>
+      </div>`);
+    } else {
+      slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
+        ${buildSlotThumb(null)}
+        <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
+        <span class="day-block__slot-name day-block__slot-name--empty">Plan dinner <span aria-hidden="true">›</span></span>
+      </div>`);
+    }
+
+    const slotsHtml = slotRows.join('');
 
     return `<div class="day-block">
       <div class="day-block__head${isToday ? ' day-block__head--today' : ''}">
