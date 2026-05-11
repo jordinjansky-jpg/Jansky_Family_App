@@ -1192,8 +1192,9 @@ function openRecipeDetailSheet(recipeId) {
           <div class="rd-ingredients" id="rdIngredients">${buildIngredientRows()}</div>
         </div>` : ''}
       <div class="sheet__footer">
-        ${hasIngredients ? `<button class="btn btn--primary" id="addToListBtn" type="button">Add to list</button>` : ''}
-        <button class="btn btn--ghost" id="planThisMealBtn" type="button">Plan this meal</button>
+        ${(recipe.steps?.length || recipe.notes) ? `<button class="btn btn--primary" id="startCookingBtn" type="button">Start cooking</button>` : ''}
+        ${hasIngredients ? `<button class="btn btn--secondary" id="addToListBtn" type="button">Add to list</button>` : ''}
+        <button class="btn btn--secondary" id="planThisMealBtn" type="button">Plan this meal</button>
       </div>`);
     activateSheet(mount);
     bindButtons();
@@ -1223,6 +1224,11 @@ function openRecipeDetailSheet(recipeId) {
       close();
       const tz = settings?.timezone || 'America/Chicago';
       openPlanMealSheet(todayKey(tz), 'dinner', recipeId);
+    });
+
+    document.getElementById('startCookingBtn')?.addEventListener('click', () => {
+      close();
+      openCookModeSheet({ ...recipe, id: recipeId });
     });
 
     document.getElementById('addToListBtn')?.addEventListener('click', () => {
