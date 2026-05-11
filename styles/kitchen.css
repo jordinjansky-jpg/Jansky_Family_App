@@ -624,3 +624,37 @@
   color: var(--text-faint);
   font-style: italic;
 }
+
+/* ============ School lunch confirm sheet (sl-*) ============ */
+.sl-confirm-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-md);
+}
+.sl-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 4px 0;
+  transition: opacity var(--t-fast);
+}
+.sl-confirm-row.is-unchecked { opacity: 0.4; }
+.sl-confirm-date {
+  width: 84px;
+  flex-shrink: 0;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sl-confirm-name {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--font-sm);
+  padding: 4px 8px;
+}
+.sl-confirm-name:focus { outline: none; border-color: var(--accent); }

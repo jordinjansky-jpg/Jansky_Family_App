@@ -1135,6 +1135,123 @@ function openRecipeFilterSheet() {
   });
 }
 
+async function runSchoolLunchImport(file) {
+  if (!file) return;
+  const mount = document.getElementById('sheetMount');
+
+  // Show a loading sheet immediately while we work
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header"><h2 class="sheet__title">Extracting school lunch menu…</h2></div>
+    <div class="sheet__content"><p style="color:var(--text-muted)">This usually takes 10–20 seconds.</p></div>
+  `);
+  activateSheet(mount);
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const res = await fetch(KITCHEN_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType: file.type || 'image/jpeg' } }),
+    });
+    const data = await res.json();
+    // Worker returns { days: [{ date, lunch1, lunch2, confidence }] }
+    // Expand each day into flat entries: lunch1 → school-lunch, lunch2 → school-lunch-2
+    const days = Array.isArray(data?.days) ? data.days : [];
+    const entries = [];
+    for (const d of days) {
+      if (d.date && d.lunch1) {
+        entries.push({ date: d.date, name: d.lunch1, slot: 'school-lunch' });
+        if (d.lunch2) {
+          entries.push({ date: d.date, name: d.lunch2, slot: 'school-lunch-2' });
+        }
+      }
+    }
+    if (!entries.length) {
+      mount.innerHTML = '';
+      showToast('Could not read the menu — try a clearer photo');
+      return;
+    }
+    openSchoolLunchConfirmSheet(entries);
+  } catch (err) {
+    console.error('school-lunch import failed', err);
+    mount.innerHTML = '';
+    showToast('Import failed — try again');
+  }
+}
+
+function openSchoolLunchConfirmSheet(entries) {
+  const mount = document.getElementById('sheetMount');
+  // entries: [{ date: 'YYYY-MM-DD', name: 'Crispy Chicken Sandwich', slot: 'school-lunch' | 'school-lunch-2' }]
+  const working = entries.map((e, i) => ({ ...e, checked: true, idx: i }));
+
+  function rows() {
+    return working.map(e => `
+      <div class="sl-confirm-row${e.checked ? '' : ' is-unchecked'}" data-idx="${e.idx}">
+        <button class="ral-check" data-toggle="${e.idx}" type="button" aria-label="${e.checked ? 'Skip' : 'Include'}">
+          ${e.checked
+            ? `<svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="var(--accent)"/><path d="M6.5 11l3 3 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+            : `<svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="var(--border)" stroke-width="1.5"/></svg>`}
+        </button>
+        <span class="sl-confirm-date">${esc(e.date)}</span>
+        <input class="sl-confirm-name" data-name="${e.idx}" type="text" value="${esc(e.name)}">
+      </div>`).join('');
+  }
+
+  function bindRows() {
+    mount.querySelectorAll('[data-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.toggle, 10);
+        const entry = working.find(e => e.idx === i);
+        if (entry) entry.checked = !entry.checked;
+        mount.querySelector('#sl_list').innerHTML = rows();
+        bindRows();
+      });
+    });
+    mount.querySelectorAll('[data-name]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const i = parseInt(inp.dataset.name, 10);
+        const entry = working.find(e => e.idx === i);
+        if (entry) entry.name = inp.value;
+      });
+    });
+  }
+
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: `Import ${entries.length} lunches`, closeId: 'sl_close' })}
+    <div class="sl-confirm-list" id="sl_list">${rows()}</div>
+    ${renderFormFooter({ saveLabel: `Import`, cancelId: 'sl_cancel', saveId: 'sl_save' })}
+  `);
+  activateSheet(mount);
+  bindRows();
+
+  document.getElementById('sl_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  document.getElementById('sl_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  document.getElementById('sl_save')?.addEventListener('click', async () => {
+    const accepted = working.filter(e => e.checked && e.name.trim() && e.date);
+    let count = 0;
+    for (const e of accepted) {
+      const dayPlan = await readKitchenPlan(e.date).catch(() => null) || {};
+      let target;
+      if (e.slot === 'school-lunch-2') {
+        target = dayPlan['school-lunch-2'] ? null : 'school-lunch-2';
+      } else {
+        target = !dayPlan['school-lunch'] ? 'school-lunch' : (!dayPlan['school-lunch-2'] ? 'school-lunch-2' : null);
+      }
+      if (!target) continue;
+      await writeKitchenPlanSlot(e.date, target, { customName: e.name.trim(), source: 'school-photo' });
+      count++;
+    }
+    mount.innerHTML = '';
+    await renderMealsTab();
+    showToast(`Imported ${count} lunch${count === 1 ? '' : 'es'}`);
+  });
+}
+
 function openKitchenAiToolsSheet() {
   const mount = document.getElementById('sheetMount');
   mount.innerHTML = renderBottomSheet(`
@@ -1155,7 +1272,29 @@ function openKitchenAiToolsSheet() {
   `);
   activateSheet(mount);
   document.getElementById('kait_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
-  // School lunch handlers wired in Task 9.
+
+  // Hidden file inputs for the three sources
+  const fileSources = {
+    photo:   { accept: 'image/*', capture: 'environment' },
+    gallery: { accept: 'image/*', capture: undefined },
+    file:    { accept: '.pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif', capture: undefined },
+  };
+  function openFilePicker(kind) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = fileSources[kind].accept;
+    if (fileSources[kind].capture) input.capture = fileSources[kind].capture;
+    input.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) runSchoolLunchImport(file);
+    };
+    input.click();
+  }
+
+  document.getElementById('kait_schoolPhoto')?.addEventListener('click', () => openFilePicker('photo'));
+  document.getElementById('kait_schoolGallery')?.addEventListener('click', () => openFilePicker('gallery'));
+  document.getElementById('kait_schoolFile')?.addEventListener('click', () => openFilePicker('file'));
+  // kait_schoolIcal handler wired in Task 12.
 }
 
 function openMealFabSheet() {
