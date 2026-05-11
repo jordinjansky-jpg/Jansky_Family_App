@@ -232,16 +232,35 @@
   font-size: var(--font-xs);
   color: var(--text-muted);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* Tappable rating chip — overrides button defaults */
+button.rl-chip {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .rl-chip--rating {
   color: var(--accent);
-  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.rl-chip--rating svg {
+  color: var(--accent);
 }
 
 .rl-chip--unrated {
   color: var(--text-faint);
-  font-style: italic;
+}
+
+.rl-chip--unrated svg {
+  color: var(--text-faint);
 }
 
 .rl-chip-sep {

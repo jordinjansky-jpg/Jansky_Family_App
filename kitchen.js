@@ -447,13 +447,16 @@ function renderRecipesTab() {
   }
 
   function buildRecipeCardChips(recipe) {
-    const ratingValue = recipe?.rating || 0;
+    const { avg } = avgRating(recipe, linkedPerson?.id);
+    const STAR_FILLED_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>`;
+    const STAR_EMPTY_SVG  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>`;
+
     let ratingChip;
-    if (ratingValue > 0) {
-      const stars = '★★★★★'.slice(0, ratingValue) + '☆☆☆☆☆'.slice(0, 5 - ratingValue);
-      ratingChip = `<span class="rl-chip rl-chip--rating">${stars}</span>`;
+    if (avg != null) {
+      const num = Number.isInteger(avg) ? `${avg}.0` : avg.toFixed(1);
+      ratingChip = `<button class="rl-chip rl-chip--rating" data-rate-recipe type="button" aria-label="Rating ${num} of 5">${STAR_FILLED_SVG}<span>${esc(num)}</span></button>`;
     } else {
-      ratingChip = `<span class="rl-chip rl-chip--unrated">Not rated</span>`;
+      ratingChip = `<button class="rl-chip rl-chip--unrated" data-rate-recipe type="button" aria-label="Not yet rated — tap to rate">${STAR_EMPTY_SVG}</button>`;
     }
     const prepChip = recipe?.prepTime ? `<span class="rl-chip">${esc(recipe.prepTime)}</span>` : '';
     const tz = settings?.timezone || 'America/Chicago';
@@ -462,7 +465,7 @@ function renderRecipesTab() {
     return [ratingChip, prepChip, lastChip].filter(Boolean).join('<span class="rl-chip-sep">·</span>');
   }
 
-  function buildRecipeCard(id, r, linkIcon, starFilled, starEmpty) {
+  function buildRecipeCard(id, r) {
     return `
       <article class="card rl-recipe-card" data-recipe-id="${esc(id)}">
         ${buildRecipeCardThumb(r)}
@@ -471,10 +474,6 @@ function renderRecipesTab() {
           <div class="rl-card-chips">${buildRecipeCardChips(r)}</div>
         </div>
         <div class="rl-card-actions">
-          <button class="btn-icon rl-fav-btn${r.isFavorite ? ' is-fav' : ''}"
-            data-fav-recipe="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}">
-            ${r.isFavorite ? starFilled : starEmpty}
-          </button>
           ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"
               class="btn-icon" aria-label="Open recipe link" data-recipe-link="${esc(id)}">${linkIcon}</a>` : ''}
         </div>
@@ -542,8 +541,6 @@ function renderRecipesTab() {
   });
 
   const linkIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
-  const starFilled = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-  const starEmpty = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
   const filterCount =
     (recipeFilter.show !== 'all'         ? 1 : 0) +
@@ -555,7 +552,7 @@ function renderRecipesTab() {
 
   const recipeLibHtml = (() => {
     if (recipeEntries.length > 0) {
-      return recipeEntries.map(([id, r]) => buildRecipeCard(id, r, linkIcon, starFilled, starEmpty)).join('');
+      return recipeEntries.map(([id, r]) => buildRecipeCard(id, r)).join('');
     }
     const totalCount = Object.keys(recipes).length;
     if (totalCount === 0) {
@@ -635,19 +632,18 @@ function renderRecipesTab() {
       card,
       () => openRecipeForm(id),
       (e) => {
-        if (e.target.closest('[data-recipe-link]') || e.target.closest('[data-fav-recipe]')) return;
+        if (e.target.closest('[data-recipe-link]') || e.target.closest('[data-rate-recipe]')) return;
         openRecipeDetailSheet(id);
       }
     );
   });
 
-  content.querySelectorAll('[data-fav-recipe]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.favRecipe;
-      const newFav = !recipes[id]?.isFavorite;
-      recipes[id] = { ...recipes[id], isFavorite: newFav };
-      await writeKitchenRecipe(id, { ...recipes[id] });
-      renderRecipesTab();
+  content.querySelectorAll('[data-rate-recipe]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('[data-recipe-id]');
+      const id = card?.dataset.recipeId;
+      if (id) openRecipeRatingSheet(id);
     });
   });
 }
