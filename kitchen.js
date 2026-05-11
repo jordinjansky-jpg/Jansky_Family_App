@@ -7,8 +7,10 @@ import { initFirebase, readSettings, writeSettings, readPeople, onConnectionChan
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
   pushKitchenItem, writeKitchenItem, pushKitchenStaple,
   writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe,
-  getDb
+  getDb,
+  readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync
 } from './shared/firebase.js';
+import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
   initOfflineBanner, showConfirm, showToast, renderFab,
@@ -18,7 +20,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
 import { todayKey, escapeHtml } from './shared/utils.js';
-import { resizeImageForUpload, renderConfirmRow } from './shared/ai-helpers.js';
+import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -111,7 +113,6 @@ let activeListId = null;
 let currentItems = {}; // last items snapshot, used by wand cleanup
 let itemsUnsub = null; // Firebase onValue unsubscribe for active list
 let keepAddFieldOpen = false; // true while user is in a multi-item add session
-let currentWeekStart = null; // Monday of the displayed week (Date object)
 let recipeFilter = { sort: 'alpha', filter: 'all' }; // alpha | recent; all | favorites
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -199,13 +200,19 @@ async function loadData() {
 function renderTabs() {
   const tabs = ['meals', 'recipes', 'lists'];
   const labels = { meals: 'Meals', recipes: 'Recipes', lists: 'Lists' };
+  const wandSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>`;
   document.getElementById('kitchenTabsMount').innerHTML = `
-    <nav class="tabs tabs--pill tabs--md" id="kitchenTabs">
-      ${tabs.map(t => `
-        <button class="tab${t === activeTab ? ' is-active' : ''}" data-tab="${t}" type="button">
-          ${esc(labels[t])}
-        </button>`).join('')}
-    </nav>`;
+    <div class="kitchen-tabs-row">
+      <nav class="tabs tabs--pill tabs--md" id="kitchenTabs">
+        ${tabs.map(t => `
+          <button class="tab${t === activeTab ? ' is-active' : ''}" data-tab="${t}" type="button">
+            ${esc(labels[t])}
+          </button>`).join('')}
+      </nav>
+      <button class="kitchen-aitools-btn" id="kitchenAiToolsBtn" type="button" aria-label="Kitchen AI tools">
+        ${wandSvg}
+      </button>
+    </div>`;
   document.getElementById('kitchenTabs')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-tab]');
     if (!btn) return;
@@ -215,6 +222,7 @@ function renderTabs() {
     renderActiveTab();
     bindFab();
   });
+  document.getElementById('kitchenAiToolsBtn')?.addEventListener('click', openKitchenAiToolsSheet);
 }
 
 function renderActiveTab() {
@@ -232,9 +240,7 @@ function bindFab() {
     if (activeTab === 'meals') {
       const tz = settings?.timezone || 'America/Chicago';
       const todayStr = todayKey(tz);
-      const weekStr = currentWeekStart ? dateKey(currentWeekStart) : todayStr;
-      const defaultDate = weekStr > todayStr ? weekStr : todayStr;
-      openPlanMealSheet(defaultDate, 'dinner');
+      openPlanMealSheet(todayStr, 'dinner');
     }
     else if (activeTab === 'recipes') openRecipeForm(null);
     else { if (!activeListId) openCreateListSheet(); else openItemAddField(); }
@@ -243,7 +249,7 @@ function bindFab() {
 
 // ── Meals tab helpers ──────────────────────────────────────────────────────────
 const SLOT_ORDER = ['breakfast', 'lunch', 'school-lunch', 'school-lunch-2', 'dinner', 'snack'];
-const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', 'school-lunch': 'School 1', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
+const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', school: 'School', 'school-lunch': 'School 1', 'school-lunch-2': 'School 2', dinner: 'Dinner', snack: 'Snack' };
 const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -263,18 +269,41 @@ function dateKey(d) {
   return `${y}-${m}-${day}`;
 }
 
+// Returns the display label for a school-lunch slot key given the day's plan.
+// SCHOOL when only one of the two is planned; SCHOOL 1 / SCHOOL 2 when both.
+function getSchoolSlotLabel(slotKey, dayPlan) {
+  const hasOne = !!dayPlan?.['school-lunch'];
+  const hasTwo = !!dayPlan?.['school-lunch-2'];
+  if (hasOne && hasTwo) {
+    return slotKey === 'school-lunch' ? 'School 1' : 'School 2';
+  }
+  return 'School';
+}
+
+// 32×32 thumb for a planned slot entry. Falls back to 🍴 placeholder.
+// `entry` is null for the always-on Dinner empty state (returns spacer).
+function buildSlotThumb(entry) {
+  if (!entry) {
+    return `<span class="day-block__slot-thumb day-block__slot-thumb--spacer" aria-hidden="true"></span>`;
+  }
+  const recipe = entry.recipeId ? recipes[entry.recipeId] : null;
+  if (recipe?.imageUrl) {
+    return `<img class="day-block__slot-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy">`;
+  }
+  return `<span class="day-block__slot-thumb day-block__slot-thumb--placeholder" aria-hidden="true">🍴</span>`;
+}
+
 async function renderMealsTab() {
   const content = document.getElementById('kitchenContent');
   const tz = settings?.timezone || 'America/Chicago';
   const todayStr = todayKey(tz);
 
-  if (!currentWeekStart) {
-    currentWeekStart = new Date();
-    currentWeekStart.setHours(0, 0, 0, 0);
-  }
+  // Rolling 7 days starting today — no pagination.
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(currentWeekStart);
+    const d = new Date(startDate);
     d.setDate(d.getDate() + i);
     return d;
   });
@@ -292,24 +321,49 @@ async function renderMealsTab() {
     const dayNum = d.getDate();
     const dayMonth = MONTHS[d.getMonth()];
 
-    const plannedSlots = SLOT_ORDER.filter(s => plan[s]);
-    const slotsHtml = plannedSlots.length > 0
-      ? plannedSlots.map(s => {
-          const entry = plan[s];
-          const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.mealName || entry.customName || '');
-          return `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
-            <span class="day-block__slot-label">${esc(SLOT_LABELS[s])}</span>
-            <span class="day-block__slot-name">${esc(name)}</span>
-          </div>`;
-        }).join('')
-      : `<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
-          <span class="day-block__slot-name day-block__slot-name--empty">Tap to plan</span>
-        </div>`;
+    // Order: planned non-dinner slots (in SLOT_ORDER), then Dinner always last.
+    const nonDinnerPlanned = SLOT_ORDER.filter(s => s !== 'dinner' && plan[s]);
+    const dinnerEntry = plan.dinner || null;
+
+    const slotRows = [];
+    for (const s of nonDinnerPlanned) {
+      const entry = plan[s];
+      const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.mealName || entry.customName || '');
+      const label = (s === 'school-lunch' || s === 'school-lunch-2')
+        ? getSchoolSlotLabel(s, plan)
+        : SLOT_LABELS[s];
+      slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
+        ${buildSlotThumb(entry)}
+        <span class="day-block__slot-label">${esc(label)}</span>
+        <span class="day-block__slot-name">${esc(name)}</span>
+      </div>`);
+    }
+
+    // Dinner row — always rendered. Empty state when not planned.
+    if (dinnerEntry) {
+      const dinnerName = dinnerEntry.recipeId ? (recipes[dinnerEntry.recipeId]?.name || 'Unknown') : (dinnerEntry.mealName || dinnerEntry.customName || '');
+      slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
+        ${buildSlotThumb(dinnerEntry)}
+        <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
+        <span class="day-block__slot-name">${esc(dinnerName)}</span>
+      </div>`);
+    } else {
+      slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
+        ${buildSlotThumb(null)}
+        <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
+        <span class="day-block__slot-name day-block__slot-name--empty">Plan dinner <span aria-hidden="true">›</span></span>
+      </div>`);
+    }
+
+    const slotsHtml = slotRows.join('');
 
     return `<div class="day-block">
       <div class="day-block__head${isToday ? ' day-block__head--today' : ''}">
-        <span>${dayName} ${dayMonth} ${dayNum}</span>
+        <span class="day-block__head-text">${dayName} ${dayMonth} ${dayNum}</span>
         ${isToday ? '<span class="day-block__today-pill">Today</span>' : ''}
+        <button class="day-block__add" data-add-date="${esc(dk)}" type="button" aria-label="Add a meal for ${dayName} ${dayMonth} ${dayNum}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
       </div>
       <div class="day-block__slots">${slotsHtml}</div>
     </div>`;
@@ -317,12 +371,8 @@ async function renderMealsTab() {
 
   content.innerHTML = `
     <div class="week-strip" id="weekStrip">
-      <div class="week-strip__track" id="weekTrack">
-        <div class="week-strip__week">${weekHtml}</div>
-      </div>
+      <div class="week-strip__week">${weekHtml}</div>
     </div>`;
-
-  bindWeekStripSwipe();
 
   content.querySelectorAll('.day-block__slot').forEach(slot => {
     slot.addEventListener('click', () => {
@@ -331,6 +381,15 @@ async function renderMealsTab() {
       const entry = planCache[dk]?.[s];
       if (entry) openSlotEditSheet(dk, s, entry);
       else openPlanMealSheet(dk, s);
+    });
+  });
+
+  content.querySelectorAll('[data-add-date]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dk = btn.dataset.addDate;
+      // Open Plan-a-meal with no slot pre-selected; user picks from picker.
+      openPlanMealSheet(dk, null);
     });
   });
 }
@@ -415,34 +474,27 @@ function renderRecipesTab() {
   });
 }
 
-function bindWeekStripSwipe() {
-  const strip = document.getElementById('weekStrip');
-  if (!strip) return;
-  let startX = 0, startY = 0, moved = false;
-  strip.addEventListener('touchstart', (e) => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    moved = false;
-  }, { passive: true });
-  strip.addEventListener('touchmove', () => { moved = true; }, { passive: true });
-  strip.addEventListener('touchend', async (e) => {
-    if (!moved) return;
-    const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-    const dir = dx < 0 ? 1 : -1;
-    currentWeekStart = new Date(currentWeekStart);
-    currentWeekStart.setDate(currentWeekStart.getDate() + dir * 7);
-    await renderMealsTab();
-  });
+// When user picks the virtual 'school' slot, resolve to the concrete
+// school-lunch or school-lunch-2 schema key based on what's free on the day.
+// Returns null when both slots are taken — caller should keep Save disabled.
+function resolveSchoolSlot(dateKey) {
+  const dayPlan = planCache[dateKey] || {};
+  if (!dayPlan['school-lunch']) return 'school-lunch';
+  if (!dayPlan['school-lunch-2']) return 'school-lunch-2';
+  return null;
 }
 
 function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   const mount = document.getElementById('sheetMount');
   let selectedRecipeId = preRecipeId;
-  const PLAN_SLOT_ORDER = SLOT_ORDER.filter(s => !s.startsWith('school'));
+  let secondOpen = false;
+  let secondRecipeId = null;
+  let secondTypedName = '';
+  // Picker offers a single 'School' option. Auto-allocation in handleSchoolSave()
+  // maps it to school-lunch or school-lunch-2 based on day state.
+  const PLAN_SLOT_ORDER = ['breakfast', 'lunch', 'school', 'dinner', 'snack'];
 
-  let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : 'dinner';
+  let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : (preSlot === null ? null : 'dinner');
 
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
@@ -488,7 +540,12 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     <div class="kp-slot-section">
       <span class="ef2-section-label">Slot</span>
       <nav class="tabs tabs--pill kp-slot-tabs" id="kp_slotPills">
-        ${PLAN_SLOT_ORDER.map(s => `<button class="tab${s === selectedSlot ? ' is-active' : ''}${planCache[preDate]?.[s] ? ' is-occupied' : ''}" data-slot="${esc(s)}" type="button">${esc(SLOT_LABELS[s])}</button>`).join('')}
+        ${PLAN_SLOT_ORDER.map(s => {
+  const isOccupied = s === 'school'
+    ? !!(planCache[preDate]?.['school-lunch'] && planCache[preDate]?.['school-lunch-2'])
+    : !!planCache[preDate]?.[s];
+  return `<button class="tab${s === selectedSlot ? ' is-active' : ''}${isOccupied ? ' is-occupied' : ''}" data-slot="${esc(s)}" type="button">${esc(SLOT_LABELS[s])}</button>`;
+}).join('')}
       </nav>
     </div>
     <div class="ef2-divider"></div>
@@ -506,7 +563,19 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
       </div>
     </div>
-    ${renderFormFooter({ saveLabel: 'Save', cancelId: 'kp_cancel', saveId: 'kp_save', disabled: !(preRecipeName || selectedRecipeId) })}`);
+    <div class="kp-second-school${selectedSlot === 'school' && (selectedRecipeId || preRecipeName) ? ' is-visible' : ''}" id="kp_secondSection">
+      <button class="ef2-add-chip${secondOpen ? ' is-active' : ''}" id="kp_addSecond" type="button">${secondOpen ? '− Remove second option' : '+ Plan a second School option'}</button>
+      <div class="kp-second-meal${secondOpen ? ' is-open' : ''}" id="kp_secondMealWrap">
+        <button class="kp-meal-select" id="kp_secondMealSelect" type="button">
+          <span id="kp_secondMealLabel">Choose a meal…</span>
+        </button>
+        <div class="kp-meal-dropdown is-open" id="kp_secondMealDropdown">
+          <input class="kp-search-input" id="kp_secondSearch" type="text" autocomplete="off" placeholder="Search…">
+          <div class="recipe-pick-list" id="kp_secondPick"></div>
+        </div>
+      </div>
+    </div>
+    ${renderFormFooter({ saveLabel: 'Save', cancelId: 'kp_cancel', saveId: 'kp_save', disabled: !selectedSlot || !(preRecipeName || selectedRecipeId) })}`);
   activateSheet(mount);
 
   const close = () => { mount.innerHTML = ''; };
@@ -534,6 +603,8 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     if (!tab) return;
     selectedSlot = tab.dataset.slot;
     document.getElementById('kp_slotPills').querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
+    syncSecondSchoolVisibility();
+    updateSaveBtn();
   });
 
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
@@ -545,7 +616,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
 
   function updateSaveBtn() {
     const val = document.getElementById('kp_search')?.value.trim();
-    document.getElementById('kp_save').disabled = !(val || selectedRecipeId);
+    document.getElementById('kp_save').disabled = !selectedSlot || !(val || selectedRecipeId);
   }
 
   function syncMealLabel(name) {
@@ -576,10 +647,55 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
         document.getElementById('recipePick').innerHTML = buildRecipeRows(document.getElementById('kp_search').value);
         bindPickRows();
         updateSaveBtn();
+        syncSecondSchoolVisibility();
       });
     });
   }
   bindPickRows();
+
+  function syncSecondSchoolVisibility() {
+    const section = document.getElementById('kp_secondSection');
+    const dayKey = document.getElementById('kp_day')?.value;
+    const dayPlan = planCache[dayKey] || {};
+    const otherSchoolFree = !(dayPlan['school-lunch'] && dayPlan['school-lunch-2']);
+    const show = selectedSlot === 'school' && (selectedRecipeId || document.getElementById('kp_search')?.value.trim()) && otherSchoolFree;
+    section?.classList.toggle('is-visible', show);
+  }
+
+  function bindSecondPickRows() {
+    document.getElementById('kp_secondPick')?.querySelectorAll('[data-recipe-pick]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.recipePick;
+        secondRecipeId = secondRecipeId === id ? null : id;
+        const name = secondRecipeId ? recipes[secondRecipeId]?.name || '' : '';
+        document.getElementById('kp_secondSearch').value = name;
+        document.getElementById('kp_secondMealLabel').textContent = name || 'Choose a meal…';
+        document.getElementById('kp_secondPick').innerHTML = buildRecipeRows(name);
+        bindSecondPickRows();
+      });
+    });
+  }
+
+  document.getElementById('kp_addSecond')?.addEventListener('click', () => {
+    secondOpen = !secondOpen;
+    document.getElementById('kp_addSecond').textContent = secondOpen ? '− Remove second option' : '+ Plan a second School option';
+    document.getElementById('kp_addSecond').classList.toggle('is-active', secondOpen);
+    document.getElementById('kp_secondMealWrap')?.classList.toggle('is-open', secondOpen);
+    if (secondOpen) {
+      document.getElementById('kp_secondPick').innerHTML = buildRecipeRows('');
+      bindSecondPickRows();
+    } else {
+      secondRecipeId = null;
+      secondTypedName = '';
+    }
+  });
+
+  document.getElementById('kp_secondSearch')?.addEventListener('input', (e) => {
+    secondRecipeId = null;
+    secondTypedName = e.target.value.trim();
+    document.getElementById('kp_secondPick').innerHTML = buildRecipeRows(e.target.value);
+    bindSecondPickRows();
+  });
 
   document.getElementById('kp_search')?.addEventListener('input', (e) => {
     selectedRecipeId = null;
@@ -587,32 +703,60 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
     bindPickRows();
     syncMealLabel(e.target.value.trim());
     updateSaveBtn();
+    syncSecondSchoolVisibility();
   });
 
   document.getElementById('kp_save')?.addEventListener('click', async () => {
     const day = document.getElementById('kp_day')?.value;
-    const slot = selectedSlot;
+    if (!day || !selectedSlot) return;
     const typed = document.getElementById('kp_search')?.value.trim();
-    if (!day || !slot || (!selectedRecipeId && !typed)) return;
+    if (!selectedRecipeId && !typed) return;
 
-    let data;
+    // Resolve concrete schema key (school virtual → school-lunch[-2]).
+    const concreteSlot = selectedSlot === 'school' ? resolveSchoolSlot(day) : selectedSlot;
+    if (!concreteSlot) {
+      showToast('Both school slots are full for this day');
+      return;
+    }
+
+    // First option write
+    let firstData;
     if (selectedRecipeId) {
-      data = { recipeId: selectedRecipeId, source: 'manual' };
+      firstData = { recipeId: selectedRecipeId, source: 'manual' };
     } else {
       const match = Object.entries(recipes).find(([, r]) => r.name.toLowerCase() === typed.toLowerCase());
       if (match) {
         selectedRecipeId = match[0];
-        data = { recipeId: match[0], source: 'manual' };
+        firstData = { recipeId: match[0], source: 'manual' };
       } else {
-        data = { customName: typed, source: 'manual' };
+        firstData = { customName: typed, source: 'manual' };
       }
     }
+    await writeKitchenPlanSlot(day, concreteSlot, firstData);
 
-    await writeKitchenPlanSlot(day, slot, data);
+    // Optional second option (only relevant for school slot, when secondOpen and the OTHER school slot is free).
+    if (selectedSlot === 'school' && secondOpen && (secondRecipeId || secondTypedName)) {
+      const secondSlot = concreteSlot === 'school-lunch' ? 'school-lunch-2' : 'school-lunch';
+      let secondData;
+      if (secondRecipeId) {
+        secondData = { recipeId: secondRecipeId, source: 'manual' };
+      } else {
+        const match = Object.entries(recipes).find(([, r]) => r.name.toLowerCase() === secondTypedName.toLowerCase());
+        secondData = match ? { recipeId: match[0], source: 'manual' } : { customName: secondTypedName, source: 'manual' };
+      }
+      await writeKitchenPlanSlot(day, secondSlot, secondData);
+    }
+
+    // Bump lastUsed on chosen recipes
     if (selectedRecipeId) {
       await writeKitchenRecipe(selectedRecipeId, { ...recipes[selectedRecipeId], lastUsed: firebase.database.ServerValue.TIMESTAMP });
       recipes[selectedRecipeId].lastUsed = Date.now();
     }
+    if (secondRecipeId) {
+      await writeKitchenRecipe(secondRecipeId, { ...recipes[secondRecipeId], lastUsed: firebase.database.ServerValue.TIMESTAMP });
+      recipes[secondRecipeId].lastUsed = Date.now();
+    }
+
     mount.innerHTML = '';
     await renderMealsTab();
     showToast('Meal planned');
@@ -636,7 +780,12 @@ function openSlotEditSheet(dk, slot, entry) {
         <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
       </div>
       <div class="task-detail__chips">
-        <span class="chip">${esc(SLOT_LABELS[slot] || slot)}</span>
+        ${(() => {
+          const labelOverride = (slot === 'school-lunch' || slot === 'school-lunch-2')
+            ? getSchoolSlotLabel(slot, planCache[dk] || {})
+            : SLOT_LABELS[slot] || slot;
+          return `<span class="chip">${esc(labelOverride)}</span>`;
+        })()}
         <span class="chip">${esc(dayLabel)}</span>
       </div>
       <div class="me-detail__chips">
@@ -985,6 +1134,348 @@ function openRecipeFilterSheet() {
     recipeFilter.sort = mount.querySelector('[data-rs].chip--active')?.dataset.rs || 'alpha';
     mount.innerHTML = '';
     renderRecipesTab();
+  });
+}
+
+async function runSchoolLunchImport(file) {
+  if (!file) return;
+  const mount = document.getElementById('sheetMount');
+
+  // Show a loading sheet immediately while we work
+  mount.innerHTML = renderBottomSheet(`
+    <div class="sheet__header"><h2 class="sheet__title">Extracting school lunch menu…</h2></div>
+    <div class="sheet__content"><p style="color:var(--text-muted)">This usually takes 10–20 seconds.</p></div>
+  `);
+  activateSheet(mount);
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const res = await fetch(KITCHEN_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType: file.type || 'image/jpeg' } }),
+    });
+    const data = await res.json();
+    // Worker returns { days: [{ date, lunch1, lunch2, confidence }] }
+    // Expand each day into flat entries: lunch1 → school-lunch, lunch2 → school-lunch-2
+    let days = Array.isArray(data?.days) ? data.days : [];
+
+    function buildAndOpen(resolvedDays) {
+      const entries = [];
+      for (const d of resolvedDays) {
+        if (d.date && d.lunch1) {
+          entries.push({ date: d.date, name: d.lunch1, slot: 'school-lunch' });
+          if (d.lunch2) {
+            entries.push({ date: d.date, name: d.lunch2, slot: 'school-lunch-2' });
+          }
+        }
+      }
+      if (!entries.length) {
+        mount.innerHTML = '';
+        showToast('Could not read the menu — try a clearer photo');
+        return;
+      }
+      openSchoolLunchConfirmSheet(entries);
+    }
+
+    if (data?.monthUncertain) {
+      mount.innerHTML = '';
+      openMonthClarificationSheet(data.assumedMonth, (yearMonth) => {
+        const remapped = days.map(d => d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)
+          ? { ...d, date: `${yearMonth}-${d.date.slice(8, 10)}` }
+          : d);
+        buildAndOpen(remapped);
+      });
+    } else {
+      buildAndOpen(days);
+    }
+  } catch (err) {
+    console.error('school-lunch import failed', err);
+    mount.innerHTML = '';
+    showToast('Import failed — try again');
+  }
+}
+
+function openSchoolLunchConfirmSheet(entries) {
+  const mount = document.getElementById('sheetMount');
+  // entries: [{ date: 'YYYY-MM-DD', name: 'Crispy Chicken Sandwich', slot: 'school-lunch' | 'school-lunch-2' }]
+  const working = entries.map((e, i) => ({ ...e, checked: true, idx: i }));
+
+  function rows() {
+    return working.map(e => `
+      <div class="sl-confirm-row${e.checked ? '' : ' is-unchecked'}" data-idx="${e.idx}">
+        <button class="ral-check" data-toggle="${e.idx}" type="button" aria-label="${e.checked ? 'Skip' : 'Include'}">
+          ${e.checked
+            ? `<svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="var(--accent)"/><path d="M6.5 11l3 3 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+            : `<svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="var(--border)" stroke-width="1.5"/></svg>`}
+        </button>
+        <span class="sl-confirm-date">${esc(e.date)}</span>
+        <input class="sl-confirm-name" data-name="${e.idx}" type="text" value="${esc(e.name)}">
+      </div>`).join('');
+  }
+
+  function bindRows() {
+    mount.querySelectorAll('[data-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.toggle, 10);
+        const entry = working.find(e => e.idx === i);
+        if (entry) entry.checked = !entry.checked;
+        mount.querySelector('#sl_list').innerHTML = rows();
+        bindRows();
+      });
+    });
+    mount.querySelectorAll('[data-name]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const i = parseInt(inp.dataset.name, 10);
+        const entry = working.find(e => e.idx === i);
+        if (entry) entry.name = inp.value;
+      });
+    });
+  }
+
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: `Import ${entries.length} lunches`, closeId: 'sl_close' })}
+    <div class="sl-confirm-list" id="sl_list">${rows()}</div>
+    ${renderFormFooter({ saveLabel: `Import`, cancelId: 'sl_cancel', saveId: 'sl_save' })}
+  `);
+  activateSheet(mount);
+  bindRows();
+
+  document.getElementById('sl_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  document.getElementById('sl_cancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  document.getElementById('sl_save')?.addEventListener('click', async () => {
+    const accepted = working.filter(e => e.checked && e.name.trim() && e.date);
+    let count = 0;
+    for (const e of accepted) {
+      const dayPlan = await readKitchenPlan(e.date).catch(() => null) || {};
+      let target;
+      if (e.slot === 'school-lunch-2') {
+        target = dayPlan['school-lunch-2'] ? null : 'school-lunch-2';
+      } else {
+        target = !dayPlan['school-lunch'] ? 'school-lunch' : (!dayPlan['school-lunch-2'] ? 'school-lunch-2' : null);
+      }
+      if (!target) continue;
+      await writeKitchenPlanSlot(e.date, target, { customName: e.name.trim(), source: 'school-photo' });
+      count++;
+    }
+    mount.innerHTML = '';
+    await renderMealsTab();
+    showToast(`Imported ${count} lunch${count === 1 ? '' : 'es'}`);
+  });
+}
+
+async function syncOneFeed(personId) {
+  const feed = (await readSchoolLunchFeeds())?.[personId];
+  if (!feed?.url) return;
+  const tz = settings?.timezone || 'America/Chicago';
+  const todayStr = todayKey(tz);
+  let lastError = null;
+  let icsText = null;
+  try {
+    const res = await fetch(feed.url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    icsText = await res.text();
+  } catch (err) {
+    lastError = err?.message || 'Fetch failed';
+    await writeSchoolLunchFeedSync(personId, { lastSync: Date.now(), lastError });
+    return;
+  }
+
+  let mapped = [];
+  try {
+    const events = parseIcs(icsText);
+    // Read current plan for the window
+    const days = [];
+    const day0 = new Date(todayStr + 'T00:00:00');
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(day0);
+      d.setDate(d.getDate() + i);
+      days.push(dateKey(d));
+    }
+    const planByDate = {};
+    for (const dk of days) {
+      planByDate[dk] = await readKitchenPlan(dk).catch(() => null) || {};
+    }
+    mapped = mapEventsToPlan(events, planByDate, todayStr);
+  } catch (err) {
+    lastError = err?.message || 'Parse failed';
+    await writeSchoolLunchFeedSync(personId, { lastSync: Date.now(), lastError });
+    return;
+  }
+
+  let written = 0;
+  const conflicts = {};
+  for (const m of mapped) {
+    if (!m.target) {
+      conflicts[m.date] = m.conflictType || 'unknown';
+      continue;
+    }
+    await writeKitchenPlanSlot(m.date, m.target, { customName: m.summary, source: 'ical' });
+    written++;
+  }
+  await writeSchoolLunchFeedSync(personId, {
+    lastSync: Date.now(),
+    lastError: null,
+    conflicts: Object.keys(conflicts).length ? conflicts : null,
+  });
+  const conflictCount = Object.keys(conflicts).length;
+  showToast(
+    conflictCount
+      ? `Synced ${written}; ${conflictCount} conflict${conflictCount === 1 ? '' : 's'} skipped`
+      : `Synced ${written} lunch${written === 1 ? '' : 'es'}`
+  );
+  await renderMealsTab();
+}
+
+async function openSchoolLunchIcalSheet() {
+  const mount = document.getElementById('sheetMount');
+  const feeds = (await readSchoolLunchFeeds()) || {};
+
+  function rowsHtml() {
+    const peopleById = Object.fromEntries(people.map(p => [p.id, p]));
+    const entries = Object.entries(feeds);
+    if (!entries.length) return `<div class="sli-empty">No feeds yet. Tap "+ Add a feed" to start.</div>`;
+    return entries.map(([personId, f]) => {
+      const person = peopleById[personId];
+      const host = (() => { try { return new URL(f.url).hostname.replace(/^www\./, ''); } catch { return f.url; } })();
+      const lastSync = f.lastSync ? new Date(f.lastSync).toLocaleString() : 'Never';
+      const conflictCount = f.conflicts ? Object.keys(f.conflicts).length : 0;
+      const conflictChip = conflictCount
+        ? `<span class="sli-conflicts">${conflictCount} conflict${conflictCount === 1 ? '' : 's'}</span>`
+        : '';
+      return `<div class="sli-row" data-person="${esc(personId)}">
+        <div class="sli-row__title">${esc(person?.name || 'Unknown')} · ${esc(host)} ${conflictChip}</div>
+        <div class="sli-row__meta">Last sync: ${esc(lastSync)}${f.lastError ? ` · <span class="sli-err">${esc(f.lastError)}</span>` : ''}</div>
+        <div class="sli-row__actions">
+          <button class="chip" data-sync="${esc(personId)}" type="button">Sync now</button>
+          <button class="chip" data-edit="${esc(personId)}" type="button">Edit URL</button>
+          <button class="chip" data-remove="${esc(personId)}" type="button">Remove</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function render() {
+    mount.innerHTML = renderBottomSheet(`
+      ${renderFormSheetHeader({ title: 'School lunch iCal feeds', closeId: 'sli_close' })}
+      <div class="sli-list" id="sli_list">${rowsHtml()}</div>
+      <div class="sli-add-row">
+        <button class="btn btn--ghost btn--full" id="sli_add" type="button">+ Add a feed</button>
+      </div>
+    `);
+    activateSheet(mount);
+    bindRowActions();
+    document.getElementById('sli_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    document.getElementById('sli_add')?.addEventListener('click', () => openFeedEdit(null));
+  }
+
+  function bindRowActions() {
+    mount.querySelectorAll('[data-sync]').forEach(b => b.addEventListener('click', async () => {
+      await syncOneFeed(b.dataset.sync);
+      const fresh = (await readSchoolLunchFeeds()) || {};
+      Object.assign(feeds, fresh);
+      for (const k of Object.keys(feeds)) if (!fresh[k]) delete feeds[k];
+      render();
+    }));
+    mount.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openFeedEdit(b.dataset.edit)));
+    mount.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
+      const personId = b.dataset.remove;
+      const ok = await showConfirm({ title: 'Remove this feed?', confirmLabel: 'Remove', danger: true });
+      if (!ok) return;
+      await removeSchoolLunchFeed(personId);
+      delete feeds[personId];
+      render();
+    }));
+  }
+
+  function openFeedEdit(existingPersonId) {
+    const existing = existingPersonId ? feeds[existingPersonId] : null;
+    const subMount = mount;
+    subMount.innerHTML = renderBottomSheet(`
+      ${renderFormSheetHeader({ title: existing ? 'Edit feed' : 'Add a feed', closeId: 'slie_close' })}
+      <label class="field">
+        <span class="field__label">Person</span>
+        <select class="field__input" id="slie_person" ${existingPersonId ? 'disabled' : ''}>
+          ${people.map(p => `<option value="${esc(p.id)}" ${p.id === existingPersonId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Feed URL</span>
+        <input class="field__input" id="slie_url" type="url" placeholder="https://..." value="${esc(existing?.url || '')}" autocomplete="off">
+      </label>
+      ${renderFormFooter({ saveLabel: existing ? 'Save' : 'Add', cancelId: 'slie_cancel', saveId: 'slie_save' })}
+    `);
+    activateSheet(subMount);
+    document.getElementById('slie_close')?.addEventListener('click', () => render());
+    document.getElementById('slie_cancel')?.addEventListener('click', () => render());
+    document.getElementById('slie_save')?.addEventListener('click', async () => {
+      const pid = document.getElementById('slie_person')?.value;
+      const url = document.getElementById('slie_url')?.value.trim();
+      if (!pid || !url) return;
+      const data = {
+        url,
+        addedAt: existing?.addedAt || Date.now(),
+        addedBy: existing?.addedBy || pid,
+      };
+      await writeSchoolLunchFeed(pid, data);
+      feeds[pid] = { ...(feeds[pid] || {}), ...data };
+      render();
+    });
+  }
+
+  render();
+}
+
+function openKitchenAiToolsSheet() {
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: 'Kitchen AI tools', closeId: 'kait_close' })}
+    <div class="kait-section">
+      <div class="kait-section__label">SCHOOL LUNCH</div>
+      <div class="kait-grid">
+        <button class="btn btn--secondary" id="kait_schoolPhoto" type="button">📷 Take photo</button>
+        <button class="btn btn--secondary" id="kait_schoolGallery" type="button">🖼 From gallery</button>
+        <button class="btn btn--secondary" id="kait_schoolFile" type="button">📄 Upload file</button>
+        <button class="btn btn--secondary" id="kait_schoolIcal" type="button">🔗 iCal feed</button>
+      </div>
+    </div>
+    <div class="kait-section">
+      <div class="kait-section__label">RECIPES</div>
+      <div class="kait-soon">Coming in the next Kitchen update</div>
+    </div>
+  `);
+  activateSheet(mount);
+  document.getElementById('kait_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  // Hidden file inputs for the three sources
+  const fileSources = {
+    photo:   { accept: 'image/*', capture: 'environment' },
+    gallery: { accept: 'image/*', capture: undefined },
+    file:    { accept: '.pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif', capture: undefined },
+  };
+  function openFilePicker(kind) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = fileSources[kind].accept;
+    if (fileSources[kind].capture) input.capture = fileSources[kind].capture;
+    input.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) runSchoolLunchImport(file);
+    };
+    input.click();
+  }
+
+  document.getElementById('kait_schoolPhoto')?.addEventListener('click', () => openFilePicker('photo'));
+  document.getElementById('kait_schoolGallery')?.addEventListener('click', () => openFilePicker('gallery'));
+  document.getElementById('kait_schoolFile')?.addEventListener('click', () => openFilePicker('file'));
+  document.getElementById('kait_schoolIcal')?.addEventListener('click', () => {
+    document.getElementById('sheetMount').innerHTML = '';
+    openSchoolLunchIcalSheet();
   });
 }
 

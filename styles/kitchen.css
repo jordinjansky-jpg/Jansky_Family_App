@@ -3,23 +3,15 @@
 
 /* ============ Tabs ============ */
 #kitchenTabsMount {
-  padding: var(--spacing-sm) 0 0;
+  /* padding moved into .kitchen-tabs-row */
 }
 
 /* ============ Week strip (Meals tab) ============ */
 .week-strip {
-  overflow-x: hidden;
-  touch-action: pan-y;
-  user-select: none;
-}
-
-.week-strip__track {
-  display: flex;
-  transition: transform var(--t-base);
+  /* Static container — no pagination, no swipe. */
 }
 
 .week-strip__week {
-  min-width: 100%;
   padding: var(--spacing-md) 0;
   display: flex;
   flex-direction: column;
@@ -42,16 +34,23 @@
   align-items: center;
   gap: var(--spacing-xs);
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .day-block__head--today {
-  color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.day-block__head-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .day-block__today-pill {
   font-size: var(--font-xs);
   font-weight: 700;
-  background: var(--accent-soft);
+  background: var(--surface);
   color: var(--accent-ink);
   border-radius: var(--radius-full);
   padding: 1px 8px;
@@ -59,22 +58,66 @@
   text-transform: uppercase;
 }
 
+.day-block__add {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.day-block__head--today .day-block__add {
+  color: var(--accent-ink);
+}
+
+.day-block__add:active {
+  background: var(--surface-2);
+}
+
 .day-block__slots {
   padding: var(--spacing-xs) 0;
 }
 
 .day-block__slot {
-  padding: 4px var(--spacing-md);
+  padding: 6px var(--spacing-md);
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  min-height: 32px;
+  min-height: 44px;
   cursor: pointer;
   transition: background var(--t-fast);
 }
 
 .day-block__slot:active {
   background: var(--surface-2);
+}
+
+.day-block__slot-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  font-size: 18px;
+}
+
+.day-block__slot-thumb--spacer {
+  background: transparent;
+}
+
+.day-block__slot-thumb--placeholder {
+  /* surface-2 background + emoji centered, inherited from .day-block__slot-thumb */
 }
 
 .day-block__slot-label {
@@ -91,11 +134,14 @@
   font-size: var(--font-sm);
   color: var(--text);
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .day-block__slot-name--empty {
-  color: var(--text-faint);
-  font-style: italic;
+  color: var(--accent-ink);
+  font-style: normal;
 }
 
 .day-block__slot-school {
@@ -511,3 +557,158 @@
   flex: 1;
   min-width: 0;
 }
+
+/* ============ Plan-a-meal: second school option ============ */
+.kp-second-school { display: none; }
+.kp-second-school.is-visible { display: block; padding-top: var(--spacing-sm); }
+.kp-second-meal { display: none; padding-top: var(--spacing-xs); }
+.kp-second-meal.is-open { display: block; }
+
+/* ============ Plan-a-meal: slot pills (occupied state) ============ */
+.kp-slot-tabs .tab.is-occupied {
+  opacity: 0.45;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+/* ============ Kitchen tabs row + AI Tools wand button ============ */
+.kitchen-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0 0;
+}
+
+.kitchen-tabs-row .tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.kitchen-aitools-btn {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  flex-shrink: 0;
+}
+
+.kitchen-aitools-btn:hover,
+.kitchen-aitools-btn:focus-visible {
+  color: var(--accent);
+  background: var(--surface-2);
+  outline: none;
+}
+
+/* ============ Kitchen AI Tools sheet (kait-*) ============ */
+.kait-section {
+  padding-top: var(--spacing-md);
+}
+
+.kait-section__label {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+.kait-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.kait-soon {
+  font-size: var(--font-sm);
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* ============ School lunch confirm sheet (sl-*) ============ */
+.sl-confirm-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-md);
+}
+.sl-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 4px 0;
+  transition: opacity var(--t-fast);
+}
+.sl-confirm-row.is-unchecked { opacity: 0.4; }
+.sl-confirm-date {
+  width: 84px;
+  flex-shrink: 0;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sl-confirm-name {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--font-sm);
+  padding: 4px 8px;
+}
+
+/* ============ iCal Feed Setup Sheet ============ */
+.sli-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+}
+.sli-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--spacing-lg) 0;
+  font-size: var(--font-sm);
+}
+.sli-row {
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+.sli-row__title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.sli-row__meta {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin: 2px 0 var(--spacing-sm);
+}
+.sli-err { color: var(--danger); }
+.sli-row__actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+.sli-add-row {
+  padding: var(--spacing-md) 0 var(--spacing-sm);
+}
+.sli-conflicts {
+  display: inline-block;
+  margin-left: var(--spacing-xs);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--danger);
+  background: var(--surface);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+}
+.sl-confirm-name:focus { outline: none; border-color: var(--accent); }

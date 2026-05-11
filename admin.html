@@ -4748,18 +4748,6 @@
           <div class="imports-scan-list">
             <div class="imports-scan-item">
               <div class="imports-scan-item__hd">
-                <span class="imports-scan-item__title">School Lunch Menu</span>
-                <button class="btn-icon" id="slPhotoBtn" type="button" aria-label="Import school lunch menu">${CAMERA_SVG}</button>
-                <input type="file" id="slCamera" accept="image/*" capture="environment" hidden>
-                <input type="file" id="slGallery" accept="image/*" hidden>
-                <input type="file" id="slFiles" accept="application/pdf,.pdf,image/*" hidden>
-              </div>
-              <p class="form-hint">Upload the school's monthly lunch PDF or photo. Menus appear in the Kitchen meal plan.</p>
-              <div id="schoolLunchStatus"></div>
-              <button class="btn btn--ghost btn--sm" id="clearSchoolLunchBtn" type="button" style="margin-top:var(--spacing-sm)">Clear all school lunches</button>
-            </div>
-            <div class="imports-scan-item">
-              <div class="imports-scan-item__hd">
                 <span class="imports-scan-item__title">Task Scanner</span>
                 <button class="btn-icon" id="tsPhotoBtn" type="button" aria-label="Scan document for tasks">${CAMERA_SVG}</button>
                 <input type="file" id="tsCamera" accept="image/*" capture="environment" hidden>
@@ -4836,75 +4824,6 @@
       bindCalendarsTab();
       if (!KITCHEN_WORKER_URL) return;
 
-      // ── School Lunch ──
-      const onSchoolLunch = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const statusEl = main.querySelector('#schoolLunchStatus');
-        if (statusEl) statusEl.innerHTML = `<div class="ai-loading"><div class="ai-loading__spinner"></div>Parsing lunch menu…</div>`;
-        try {
-          const { base64, mediaType } = await resizeImageForUpload(file);
-          const resp = await fetch(KITCHEN_WORKER_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'schoolLunch', input: { base64, mediaType, context: adminPhotoContext } }),
-          });
-          const data = await resp.json();
-          if (data.error || !data.days?.length) {
-            if (statusEl) statusEl.innerHTML = `
-              <p style="color:var(--text-muted);font-size:var(--font-sm)">No lunch items found — try a clearer photo or PDF.</p>
-              <button class="btn btn--secondary btn--sm" id="slRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
-            statusEl?.querySelector('#slRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
-            return;
-          }
-          if (data.monthUncertain) {
-            openMonthClarificationSheet(data.assumedMonth, (yearMonth) => {
-              const remapped = data.days.map(d => d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)
-                ? { ...d, date: `${yearMonth}-${d.date.slice(8, 10)}` }
-                : d);
-              renderSchoolLunchConfirm(remapped, statusEl);
-            });
-          } else {
-            renderSchoolLunchConfirm(data.days, statusEl);
-          }
-        } catch (err) {
-          if (statusEl) statusEl.innerHTML = `
-            <p style="color:var(--text-muted);font-size:var(--font-sm)">Something went wrong.</p>
-            <p style="color:var(--text-muted);font-size:var(--font-xs)">${esc(err?.message) || 'Check your connection.'}</p>
-            <button class="btn btn--secondary btn--sm" id="slRetry" style="margin-top:var(--spacing-sm)">Try again</button>`;
-          statusEl?.querySelector('#slRetry')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
-        }
-        e.target.value = '';
-      };
-      main.querySelector('#slPhotoBtn')?.addEventListener('click', () =>
-        openAdminPhotoSource({ camera: '#slCamera', gallery: '#slGallery', files: '#slFiles' }, 'Import from'));
-      main.querySelector('#slCamera')?.addEventListener('change', onSchoolLunch);
-      main.querySelector('#slGallery')?.addEventListener('change', onSchoolLunch);
-      main.querySelector('#slFiles')?.addEventListener('change', onSchoolLunch);
-
-      main.querySelector('#clearSchoolLunchBtn')?.addEventListener('click', async () => {
-        const btn = main.querySelector('#clearSchoolLunchBtn');
-        btn.disabled = true;
-        btn.textContent = 'Clearing…';
-        try {
-          const db = firebase.database();
-          const snap = await db.ref('rundown/kitchen/plan').once('value');
-          const plan = snap.val() || {};
-          const dels = [];
-          for (const [date, slots] of Object.entries(plan)) {
-            if (slots?.['school-lunch'])   dels.push(db.ref(`rundown/kitchen/plan/${date}/school-lunch`).remove());
-            if (slots?.['school-lunch-2']) dels.push(db.ref(`rundown/kitchen/plan/${date}/school-lunch-2`).remove());
-          }
-          await Promise.all(dels);
-          const statusEl = main.querySelector('#schoolLunchStatus');
-          if (statusEl) statusEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-sm)">Cleared ${dels.length} school lunch entries.</p>`;
-        } catch {
-          const statusEl = main.querySelector('#schoolLunchStatus');
-          if (statusEl) statusEl.innerHTML = `<p style="color:var(--danger)">Error clearing lunches.</p>`;
-        }
-        btn.disabled = false;
-        btn.textContent = 'Clear all school lunches';
-      });
-
       // ── Task Scanner ──
       const onTaskScan = async (e) => {
         const file = e.target.files?.[0];
@@ -4946,73 +4865,7 @@
       main.querySelector('#emailImportsRefresh')?.addEventListener('click', loadEmailImports);
     }
 
-    function renderSchoolLunchConfirm(days, statusEl) {
-      if (!statusEl) return;
-
-      const formatLunchDate = (d) => {
-        if (!d) return d;
-        const [y, m, day] = d.split('-');
-        return new Date(+y, +m - 1, +day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      };
-
-      const enriched = days.map((d, i) => ({
-        ...d,
-        _label: formatLunchDate(d.date),
-        _sub: d.lunch2 ? `${d.lunch1} · ${d.lunch2}` : d.lunch1,
-      }));
-
-      const rows = enriched.map((d, i) => renderConfirmRow(d, {
-        labelKey: '_label',
-        subKey: '_sub',
-        confidenceKey: 'confidence',
-        key: i,
-      })).join('');
-
-      statusEl.innerHTML = `
-        <div class="confirm-list" id="slItems">${rows}</div>
-        <div class="admin-form__actions mt-md">
-          <button class="btn btn--secondary btn--sm" id="slCancel">Cancel</button>
-          <button class="btn btn--primary btn--sm" id="slSave">Import ${days.length} day${days.length !== 1 ? 's' : ''}</button>
-        </div>`;
-
-      const list = statusEl.querySelector('#slItems');
-      const saveBtn = statusEl.querySelector('#slSave');
-
-      function updateBtn() {
-        const n = list.querySelectorAll('.confirm-row:not(.is-deselected)').length;
-        saveBtn.textContent = `Import ${n} day${n !== 1 ? 's' : ''}`;
-        saveBtn.disabled = n === 0;
-      }
-
-      list.addEventListener('click', (e) => {
-        const row = e.target.closest('.confirm-row');
-        if (!row) return;
-        row.classList.toggle('is-deselected');
-        updateBtn();
-      });
-
-      statusEl.querySelector('#slCancel')?.addEventListener('click', () => { statusEl.innerHTML = ''; });
-
-      saveBtn.addEventListener('click', async () => {
-        const selected = [...list.querySelectorAll('.confirm-row:not(.is-deselected)')]
-          .map(row => days[+row.dataset.key]);
-        if (!selected.length) { statusEl.innerHTML = ''; return; }
-        saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
-        try {
-          const db = firebase.database();
-          for (const d of selected) {
-            await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch`).set({ mealName: d.lunch1, source: 'school' });
-            if (d.lunch2) await db.ref(`rundown/kitchen/plan/${d.date}/school-lunch-2`).set({ mealName: d.lunch2, source: 'school' });
-          }
-          statusEl.innerHTML = `<span style="color:var(--success);font-size:var(--font-sm)">${selected.length} day${selected.length !== 1 ? 's' : ''} imported.</span>`;
-        } catch (err) {
-          saveBtn.disabled = false;
-          saveBtn.textContent = `Import ${selected.length} day${selected.length !== 1 ? 's' : ''}`;
-        }
-      });
-    }
-
-    function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
+function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
       if (!statusEl) return;
 
       const formatDueDate = (d) => {
