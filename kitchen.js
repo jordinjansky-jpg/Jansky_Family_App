@@ -484,8 +484,11 @@ function renderRecipesTab() {
   let recipeEntries = Object.entries(recipes);
 
   // SHOW
-  if (recipeFilter.show === 'favorites') {
-    recipeEntries = recipeEntries.filter(([, r]) => r.isFavorite);
+  if (recipeFilter.show === 'top-rated') {
+    recipeEntries = recipeEntries.filter(([, r]) => {
+      const { avg } = avgRating(r, linkedPerson?.id);
+      return avg != null && avg >= 4.0;
+    });
   } else if (recipeFilter.show === 'never-cooked') {
     recipeEntries = recipeEntries.filter(([, r]) => !r.lastUsed);
   }
@@ -1365,7 +1368,7 @@ function openRecipeFilterSheet() {
 
   const showOpts = [
     { v: 'all',          l: 'All' },
-    { v: 'favorites',    l: 'Favorites' },
+    { v: 'top-rated',    l: 'Top rated' },
     { v: 'never-cooked', l: 'Never cooked' },
   ];
   const prepOpts = [
