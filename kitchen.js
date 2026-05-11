@@ -94,6 +94,25 @@ function formatPrepBucket(prepTimeStr) {
 // Worker URL — set when Cloudflare Worker is deployed
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
+// Download a remote image URL and convert to a data URL via the existing
+// image resizer. Returns the data URL on success, or the original URL
+// on failure (so save still works even if conversion fails).
+// Used to convert TikTok/CDN time-signed URLs into permanent data URLs.
+async function urlToDataUrl(imageUrl) {
+  if (!imageUrl || imageUrl.startsWith('data:')) return imageUrl;
+  try {
+    const res = await fetch(imageUrl, { mode: 'cors' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const file = new File([blob], 'recipe.jpg', { type: blob.type || 'image/jpeg' });
+    const { base64, mediaType } = await resizeImageForUpload(file, 800);
+    return `data:${mediaType};base64,${base64}`;
+  } catch (err) {
+    console.warn('urlToDataUrl failed:', err);
+    return imageUrl;
+  }
+}
+
 // Activate a sheet: animate it in and close on overlay click
 function activateSheet(mount, onClose) {
   requestAnimationFrame(() => {
@@ -2058,6 +2077,9 @@ function openRecipeForm(recipeId, onSave = null) {
       <button class="ef2-icon-btn" id="kr_photo" type="button" aria-label="Import from photo">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
+      ${(existing?.imageUrl && !existing.imageUrl.startsWith('data:')) ? `<button class="ef2-icon-btn" id="kr_refreshImage" type="button" aria-label="Refresh image (current URL may have expired)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+      </button>` : ''}
     </div>
 
     <div class="kr-section kr-meta-row">
@@ -2236,7 +2258,16 @@ function openRecipeForm(recipeId, onSave = null) {
       if (data.notes && !document.getElementById('recipeNotes').value) {
         document.getElementById('recipeNotes').value = data.notes;
       }
-      if (data.imageUrl && !imageUrl) imageUrl = data.imageUrl;
+      if (data.imageUrl && !imageUrl) {
+        imageUrl = data.imageUrl;
+        // Fire-and-forget persistence: convert the (likely time-signed) URL
+        // to a data URL so it survives expiration. Updates `imageUrl` in
+        // place; the save handler will pick up the data URL when the user
+        // submits the form.
+        urlToDataUrl(data.imageUrl).then(persistent => {
+          if (persistent && persistent !== data.imageUrl) imageUrl = persistent;
+        }).catch(() => { /* keep remote URL as fallback */ });
+      }
       if (data.prepTime && !document.getElementById('recipePrepTime')?.value)
         document.getElementById('recipePrepTime').value = data.prepTime;
       if (data.servings && !document.getElementById('recipeServings')?.value)
@@ -2365,6 +2396,24 @@ function openRecipeForm(recipeId, onSave = null) {
       if (!imageUrl) imageUrl = `data:image/jpeg;base64,${base64}`;
       runImport('screenshot', { base64, mediaType, context: krPhotoContext });
     });
+  });
+
+  document.getElementById('kr_refreshImage')?.addEventListener('click', async () => {
+    const btn = document.getElementById('kr_refreshImage');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+    const current = existing?.imageUrl;
+    if (!current) return;
+    try {
+      const fresh = await urlToDataUrl(current);
+      if (fresh && fresh !== current) {
+        imageUrl = fresh;
+        showToast('Image refreshed — Save to keep');
+      } else {
+        showToast('Could not refresh image');
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    }
   });
 
   document.getElementById('kr_save')?.addEventListener('click', async () => {
