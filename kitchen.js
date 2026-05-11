@@ -423,6 +423,29 @@ async function renderMealsTab() {
 }
 
 function renderRecipesTab() {
+  function buildRecipeCardThumb(recipe) {
+    if (recipe?.imageUrl) {
+      return `<img class="rl-card-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy">`;
+    }
+    return `<span class="rl-card-thumb rl-card-thumb--placeholder" aria-hidden="true">🍴</span>`;
+  }
+
+  function buildRecipeCardChips(recipe) {
+    const ratingValue = recipe?.rating || 0;
+    let ratingChip;
+    if (ratingValue > 0) {
+      const stars = '★★★★★'.slice(0, ratingValue) + '☆☆☆☆☆'.slice(0, 5 - ratingValue);
+      ratingChip = `<span class="rl-chip rl-chip--rating">${stars}</span>`;
+    } else {
+      ratingChip = `<span class="rl-chip rl-chip--unrated">Not rated</span>`;
+    }
+    const prepChip = recipe?.prepTime ? `<span class="rl-chip">${esc(recipe.prepTime)}</span>` : '';
+    const tz = settings?.timezone || 'America/Chicago';
+    const todayStr = todayKey(tz);
+    const lastChip = `<span class="rl-chip">${esc(formatLastCooked(recipe?.lastUsed, tz, todayStr))}</span>`;
+    return [ratingChip, prepChip, lastChip].filter(Boolean).join('<span class="rl-chip-sep">·</span>');
+  }
+
   const content = document.getElementById('kitchenContent');
   let recipeEntries = Object.entries(recipes);
   if (recipeFilter.filter === 'favorites') recipeEntries = recipeEntries.filter(([, r]) => r.isFavorite);
@@ -447,11 +470,10 @@ function renderRecipesTab() {
   const recipeLibHtml = recipeEntries.length > 0
     ? recipeEntries.map(([id, r]) => `
         <article class="card rl-recipe-card" data-recipe-id="${esc(id)}">
-          <div class="card__body rl-card-body">
-            <div class="card__title">${esc(r.name)}</div>
-            <div class="card__meta">
-              ${r.ingredients?.length ? `${r.ingredients.length} ingredient${r.ingredients.length !== 1 ? 's' : ''}` : 'No ingredients'}
-            </div>
+          ${buildRecipeCardThumb(r)}
+          <div class="rl-card-body">
+            <div class="rl-card-title">${esc(r.name)}</div>
+            <div class="rl-card-chips">${buildRecipeCardChips(r)}</div>
           </div>
           <div class="rl-card-actions">
             <button class="btn-icon rl-fav-btn${r.isFavorite ? ' is-fav' : ''}"
