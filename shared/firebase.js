@@ -836,7 +836,7 @@ export async function readSchoolLunchFeeds() {
 }
 
 export async function writeSchoolLunchFeed(personId, data) {
-  return writeData(`kitchen/schoolLunchFeeds/${personId}`, data);
+  return updateData(`kitchen/schoolLunchFeeds/${personId}`, data);
 }
 
 export async function removeSchoolLunchFeed(personId) {
