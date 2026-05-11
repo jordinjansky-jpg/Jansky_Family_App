@@ -247,7 +247,23 @@ function jsonError(msg, status, corsHeaders) {
 }
 
 function cleanHtml(html) {
-  return html
+  // Preserve JSON-LD structured data — recipe sites (Budget Bytes, AllRecipes,
+  // Food Network, etc.) expose schema.org Recipe metadata via
+  // <script type="application/ld+json"> which has prepTime / cookTime / yield /
+  // nutrition etc. in machine-readable form. Stripping it before the LLM sees
+  // the page would force Claude to reverse-engineer those fields from prose.
+  const jsonLdBlocks = [];
+  const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = jsonLdRegex.exec(html)) !== null) {
+    const body = m[1].trim();
+    if (body) jsonLdBlocks.push(body);
+  }
+  const jsonLdPrefix = jsonLdBlocks.length
+    ? `JSON-LD STRUCTURED DATA (machine-readable; use these fields when present):\n${jsonLdBlocks.join('\n---\n').slice(0, 8000)}\n\nPAGE TEXT:\n`
+    : '';
+
+  const cleaned = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<svg[\s\S]*?<\/svg>/gi, '')
@@ -258,6 +274,8 @@ function cleanHtml(html) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 15000);
+
+  return jsonLdPrefix + cleaned;
 }
 
 // Retries on HTTP 529 (overloaded) up to 3 times with exponential backoff.
@@ -716,7 +734,16 @@ async function handleUrl(url, env, corsHeaders) {
     if (parsed.error && !ingredients.length && !parsed.name) {
       return partialResp({ name: fallbackTitle });
     }
-    return jsonOk({ url, name, ingredients, notes, imageUrl: ogImage }, corsHeaders);
+    return jsonOk({
+      url,
+      name,
+      ingredients,
+      notes,
+      imageUrl: ogImage,
+      prepTime:   parsed.prepTime   || null,
+      servings:   parsed.servings   || null,
+      difficulty: parsed.difficulty || null,
+    }, corsHeaders);
   } catch {
     return partialResp({ name: fallbackTitle });
   }
@@ -738,6 +765,9 @@ async function handleScreenshot(input, env, corsHeaders) {
       ingredients: Array.isArray(parsed.ingredients) ? parsed.ingredients : [],
       notes: parsed.notes || '',
       url: null,
+      prepTime:   parsed.prepTime   || null,
+      servings:   parsed.servings   || null,
+      difficulty: parsed.difficulty || null,
     }, corsHeaders);
   } catch {
     return jsonError('Could not extract recipe', 500, corsHeaders);
