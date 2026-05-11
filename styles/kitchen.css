@@ -1160,3 +1160,14 @@ button.rl-chip {
   font-size: var(--font-sm);
   color: var(--text);
 }
+
+/* ── Meals tab controls row (meals-controls) ─────────────────────────────── */
+.meals-controls {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--spacing-sm) 0;
+}
+
+.mh-open-btn {
+  font-size: var(--font-xs);
+}

@@ -431,9 +431,14 @@ async function renderMealsTab() {
   }).join('');
 
   content.innerHTML = `
+    <div class="meals-controls">
+      <button class="chip mh-open-btn" id="mhOpenBtn" type="button">History ›</button>
+    </div>
     <div class="week-strip" id="weekStrip">
       <div class="week-strip__week">${weekHtml}</div>
     </div>`;
+
+  document.getElementById('mhOpenBtn')?.addEventListener('click', openMealHistorySheet);
 
   content.querySelectorAll('.day-block__slot').forEach(slot => {
     slot.addEventListener('click', () => {
