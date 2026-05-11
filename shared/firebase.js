@@ -828,3 +828,22 @@ export async function removeIcalFeed(id) {
 export async function writeIcalFeedLastSync(id, ts) {
   return writeData(`icalFeeds/${id}/lastSync`, ts);
 }
+
+// ─── Kitchen: School Lunch Feeds ──────────────────────────────────────────────
+
+export async function readSchoolLunchFeeds() {
+  return readOnce('kitchen/schoolLunchFeeds');
+}
+
+export async function writeSchoolLunchFeed(personId, data) {
+  return writeData(`kitchen/schoolLunchFeeds/${personId}`, data);
+}
+
+export async function removeSchoolLunchFeed(personId) {
+  return removeData(`kitchen/schoolLunchFeeds/${personId}`);
+}
+
+export async function writeSchoolLunchFeedSync(personId, payload) {
+  // payload: { lastSync: number, lastError: string|null, conflicts?: object }
+  return updateData(`kitchen/schoolLunchFeeds/${personId}`, payload);
+}
