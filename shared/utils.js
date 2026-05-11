@@ -304,3 +304,26 @@ export function formatLastCooked(timestamp, timezone, todayStr) {
   if (days < 365) return `${Math.floor(days / 30)}mo ago`;
   return 'Over a year ago';
 }
+
+/**
+ * Compute the displayed rating for a recipe.
+ * Returns { avg, count, mine } where avg is null if no ratings exist.
+ * 'mine' is the current viewer's rating (or null), kept separate for
+ * the popup display but never shown alongside others' scores.
+ */
+export function avgRating(recipe, viewerPersonId) {
+  if (!recipe) return { avg: null, count: 0, mine: null };
+  const ratings = recipe.ratings || {};
+  const ids = Object.keys(ratings);
+  if (ids.length > 0) {
+    const sum = ids.reduce((acc, id) => acc + (Number(ratings[id]) || 0), 0);
+    const avg = sum / ids.length;
+    const mine = viewerPersonId && (viewerPersonId in ratings) ? Number(ratings[viewerPersonId]) : null;
+    return { avg, count: ids.length, mine };
+  }
+  // Legacy fallback: pre-multi-person ratings stored as recipe.rating (single number)
+  if (typeof recipe.rating === 'number' && recipe.rating > 0) {
+    return { avg: recipe.rating, count: 1, mine: null };
+  }
+  return { avg: null, count: 0, mine: null };
+}
