@@ -3709,7 +3709,10 @@
   border-top: 1px solid var(--border);
   margin-top: var(--spacing-sm);
 }
-.sheet__footer .btn { flex: 1; }
+/* min-width: 0 lets flex children shrink below content width so 3-button
+   footers (e.g. recipe detail) don't overflow the sheet's right edge; tighter
+   horizontal padding keeps the labels readable inside the smaller cells. */
+.sheet__footer .btn { flex: 1 1 0; min-width: 0; padding-left: 12px; padding-right: 12px; }
 
 /* ── Event Form v2 ─────────────────────────────────────────────── */
 .ef2-title-row {
