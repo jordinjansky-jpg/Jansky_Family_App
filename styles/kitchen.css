@@ -181,20 +181,71 @@
   cursor: pointer;
   display: flex;
   align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.rl-card-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  font-size: 24px;
+}
+
+.rl-card-thumb--placeholder {
+  /* surface-2 + 🍴 centered — inherited from .rl-card-thumb */
 }
 
 .rl-card-body {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-/* Recipe names are the whole value of the card — wrap to two lines instead of
-   the single-line ellipsis that .card__title applies globally. */
-.rl-card-body .card__title {
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+
+.rl-card-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rl-card-chips {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rl-chip {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.rl-chip--rating {
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.rl-chip--unrated {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.rl-chip-sep {
+  color: var(--text-faint);
 }
 
 .rl-card-actions {
@@ -712,3 +763,83 @@
   padding: 1px 8px;
 }
 .sl-confirm-name:focus { outline: none; border-color: var(--accent); }
+
+/* ============ Recipes — Search ============ */
+.rl-search-row {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) 0;
+  background: var(--bg);
+}
+
+.rl-search-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rl-search-icon {
+  position: absolute;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.rl-search-input {
+  flex: 1;
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--font-md);
+  padding: 10px 36px 10px 38px;
+  outline: none;
+  transition: border-color var(--t-fast);
+}
+
+.rl-search-input::placeholder { color: var(--text-faint); }
+.rl-search-input:focus { border-color: var(--accent); }
+
+.rl-search-clear {
+  position: absolute;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+}
+.rl-search-clear:active { background: var(--surface-2); }
+
+/* Suppress browser-default clear UI on type="search" */
+.rl-search-input::-webkit-search-decoration,
+.rl-search-input::-webkit-search-cancel-button,
+.rl-search-input::-webkit-search-results-button,
+.rl-search-input::-webkit-search-results-decoration { -webkit-appearance: none; }
+
+.filter-section__hint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--spacing-xs) 0;
+}
+
+.rl-empty-actions {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-md) 0;
+}
