@@ -2695,6 +2695,10 @@ function renderItemsArea(items) {
       () => toggleItem(id)
     );
   });
+
+  // Fire-and-forget. Categorize uncategorized items in the background; render
+  // updates naturally when Firebase pushes the new category values.
+  healUncategorizedItems(activeListId, items).catch(err => console.warn('heal pass failed', err));
 }
 
 function renderShoppingCard(id, item, isChecked) {
@@ -3538,6 +3542,30 @@ async function dedupIngredientsAi(existing, incoming) {
     return data;
   } catch (err) {
     return null;
+  }
+}
+
+const _healPassLog = new Map(); // listId → lastPassTimestamp
+
+async function healUncategorizedItems(listId, items) {
+  if (!listId || !items) return;
+  const now = Date.now();
+  const last = _healPassLog.get(listId) || 0;
+  if (now - last < 60_000) return; // debounce: max one pass per minute per list
+  _healPassLog.set(listId, now);
+
+  // Find items that need re-categorization. Skip checked items (don't waste
+  // Worker calls on completed groceries).
+  const candidates = Object.entries(items)
+    .filter(([, it]) => it && it.name && !it.checked)
+    .filter(([, it]) => !it.category || it.category === '' || it.category === 'OTHER' || it.category === 'Other')
+    .slice(0, 10);
+
+  if (candidates.length === 0) return;
+
+  for (const [itemId, item] of candidates) {
+    // categorizeItem already silently writes to Firebase; no toast/UI noise.
+    await categorizeItem(listId, itemId, item.name).catch(() => { /* keep current category */ });
   }
 }
 
