@@ -2512,23 +2512,29 @@ function renderListsTab() {
   const WAND_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
   const CAM_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
 
+  const activeCount = Object.values(currentItems || {}).filter(it => !it.checked).length;
+  const totalCount = Object.values(currentItems || {}).length;
+  const countChip = (() => {
+    if (totalCount === 0) return '';
+    if (activeCount === 0) return '<span class="list-switcher__count list-switcher__count--clear">· clear ✓</span>';
+    return `<span class="list-switcher__count">· ${activeCount} left</span>`;
+  })();
+
   content.innerHTML = `
     <div class="list-switcher">
       <div class="list-switcher__tabs">
         ${listIds.map(id => {
           const l = lists[id];
           const icon = l.icon ? `<span class="tab--list-icon" data-bg-color="${esc(l.color || DEFAULT_LIST_COLOR)}">${esc(l.icon)}</span>` : '';
+          const isActive = id === activeListId;
           return `
-          <button class="tab${id === activeListId ? ' is-active' : ''} tab--list"
+          <button class="tab${isActive ? ' is-active' : ''} tab--list"
                   data-list-id="${esc(id)}" type="button">
-            ${icon}${esc(l.name)}
+            ${icon}${esc(l.name)}${isActive ? countChip : ''}
           </button>`;
         }).join('')}
       </div>
       <div class="list-switcher__actions">
-        <button class="btn-icon" id="addListBtn" aria-label="New list" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
         <button class="btn-icon" id="manageListBtn" aria-label="Manage list" type="button">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>
@@ -2557,7 +2563,6 @@ function renderListsTab() {
       subscribeListItems();
       return;
     }
-    if (e.target.closest('#addListBtn')) { openCreateListSheet(); return; }
     if (e.target.closest('#manageListBtn')) { openManageListSheet(); return; }
   });
 
@@ -2571,7 +2576,25 @@ function renderListsTab() {
 function subscribeListItems() {
   if (itemsUnsub) { itemsUnsub(); itemsUnsub = null; }
   if (!activeListId) { renderItemsArea({}); return; }
-  itemsUnsub = onKitchenItems(activeListId, (items) => renderItemsArea(items || {}));
+  itemsUnsub = onKitchenItems(activeListId, (items) => {
+    renderItemsArea(items || {});
+    updateListCountChip();
+  });
+}
+
+function updateListCountChip() {
+  const activeBtn = document.querySelector('.list-switcher .tab--list.is-active');
+  if (!activeBtn) return;
+  activeBtn.querySelectorAll('.list-switcher__count').forEach(el => el.remove());
+  const activeCount = Object.values(currentItems || {}).filter(it => !it.checked).length;
+  const totalCount = Object.values(currentItems || {}).length;
+  if (totalCount === 0) return;
+  const chip = document.createElement('span');
+  chip.className = activeCount === 0
+    ? 'list-switcher__count list-switcher__count--clear'
+    : 'list-switcher__count';
+  chip.textContent = activeCount === 0 ? '· clear ✓' : `· ${activeCount} left`;
+  activeBtn.appendChild(chip);
 }
 
 function renderItemsArea(items) {

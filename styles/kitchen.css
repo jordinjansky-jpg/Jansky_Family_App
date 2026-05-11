@@ -954,3 +954,15 @@ button.rl-chip {
   justify-content: center;
   padding: var(--spacing-sm) 0 var(--spacing-md);
 }
+
+/* ============ List switcher count chip ============ */
+.list-switcher__count {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.list-switcher__count--clear {
+  color: var(--accent-ink);
+}
