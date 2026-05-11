@@ -340,3 +340,14 @@ export function parseSteps(notes) {
     .filter(Boolean)
     .slice(0, 30);
 }
+
+// Generate a 20-char alphanumeric token for share-list URLs.
+// Math.random is acceptable for the threat model — these links should
+// not be shared on public surfaces, and revoking is one click. Uses a
+// confusion-free alphabet (no I, O, 0, 1, l, o).
+export function generateShareToken() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < 20; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
