@@ -19,7 +19,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderChipPicker, bindChipPicker,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
-import { todayKey, escapeHtml } from './shared/utils.js';
+import { todayKey, escapeHtml, formatLastCooked } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -61,6 +61,34 @@ function scaleQty(qtyStr, factor) {
   const scaled = parsed.amount * factor;
   const fmt = formatFraction(scaled);
   return parsed.unit ? `${fmt} ${parsed.unit}` : fmt;
+}
+
+// Parse a prep-time string into minutes for filter bucketing only.
+// Returns null when the string is empty/unrecognizable — the caller treats
+// null as "exclude from any specific bucket" rather than "include in <30".
+function formatPrepBucket(prepTimeStr) {
+  if (!prepTimeStr || typeof prepTimeStr !== 'string') return null;
+  const s = prepTimeStr.toLowerCase().trim();
+  if (!s) return null;
+
+  let total = 0;
+  let matched = false;
+
+  // Hours: "1h", "1 hr", "1 hour", "1 hours"
+  const hr = s.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hour|hours)\b/);
+  if (hr) { total += parseFloat(hr[1]) * 60; matched = true; }
+
+  // Minutes: "30m", "30 min", "30 mins", "30 minutes"
+  const mn = s.match(/(\d+(?:\.\d+)?)\s*(?:m\b|min|mins|minute|minutes)/);
+  if (mn) { total += parseFloat(mn[1]); matched = true; }
+
+  // Bare number (no unit): treat as minutes
+  if (!matched) {
+    const bare = s.match(/^(\d+(?:\.\d+)?)$/);
+    if (bare) { total = parseFloat(bare[1]); matched = true; }
+  }
+
+  return matched && total > 0 ? Math.round(total) : null;
 }
 
 // Worker URL — set when Cloudflare Worker is deployed

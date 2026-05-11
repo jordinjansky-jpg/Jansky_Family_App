@@ -277,3 +277,30 @@ export function debounce(fn, ms) {
   debounced.cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
   return debounced;
 }
+
+/**
+ * Format a "last cooked" timestamp as a human-readable relative phrase.
+ * Uses the family timezone for day comparisons so the day count matches
+ * what the user perceives, not the device's local time.
+ */
+export function formatLastCooked(timestamp, timezone, todayStr) {
+  if (!timestamp) return 'Never cooked';
+
+  const lastDate = new Date(timestamp);
+  const lastKey = lastDate.toLocaleDateString('en-CA', { timeZone: timezone || 'America/Chicago' });
+  if (lastKey === todayStr) return 'Cooked today';
+
+  const today = new Date(todayStr + 'T00:00:00');
+  const last  = new Date(lastKey  + 'T00:00:00');
+  const diffMs = today.getTime() - last.getTime();
+  const days = Math.round(diffMs / 86400000);
+
+  if (days <= 0) return 'Cooked today';
+  if (days === 1) return 'Cooked yesterday';
+  if (days < 7)   return `${days}d ago`;
+  if (days < 14)  return 'Last week';
+  if (days < 28)  return `${Math.floor(days / 7)}w ago`;
+  if (days < 60)  return 'Last month';
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return 'Over a year ago';
+}
