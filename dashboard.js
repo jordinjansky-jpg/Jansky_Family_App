@@ -1,9 +1,9 @@
 import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
-import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet } from './shared/components.js';
+import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
-import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce, normalizePlanSlot, pickWinner } from './shared/utils.js';
+import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce, normalizePlanSlot, pickWinner, scaleQty } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
@@ -1752,6 +1752,59 @@ function openMealDetailSheet(planEntry, slot) {
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
 
   document.getElementById('mdClose')?.addEventListener('click', closeTaskSheet);
+
+  // Servings stepper — scale the ingredient quantities in-place when the
+  // user adjusts servings. Mirrors the Recipes-tab detail behavior.
+  if (meal) {
+    const baseServings = meal.servings || null;
+    let currentServings = (typeof planEntry?.servings === 'number' && planEntry.servings > 0)
+      ? planEntry.servings
+      : baseServings;
+    const rebuildIngredients = () => {
+      const wrap = document.getElementById('mdIngredients');
+      if (!wrap || !baseServings) return;
+      const factor = currentServings / baseServings;
+      wrap.innerHTML = (meal.ingredients || []).filter(i => (i?.name || i)?.trim()).map(i =>
+        typeof i === 'string'
+          ? `<span class="rd-ing-qty"></span><span class="rd-ing-name">${esc(i)}</span>`
+          : `<span class="rd-ing-qty">${esc(scaleQty(i.qty || '', factor) || '')}</span><span class="rd-ing-name">${esc(i.name || '')}</span>`
+      ).join('');
+    };
+    document.getElementById('mdServingsDown')?.addEventListener('click', () => {
+      if (currentServings <= 1) return;
+      currentServings--;
+      const valEl = document.getElementById('mdServingsVal');
+      if (valEl) valEl.textContent = currentServings;
+      rebuildIngredients();
+    });
+    document.getElementById('mdServingsUp')?.addEventListener('click', () => {
+      currentServings++;
+      const valEl = document.getElementById('mdServingsVal');
+      if (valEl) valEl.textContent = currentServings;
+      rebuildIngredients();
+    });
+  }
+
+  // Start cooking — immersive step-by-step. Closes this sheet first so the
+  // cook UI takes the whole bottom-sheet area cleanly.
+  document.getElementById('mdStartCooking')?.addEventListener('click', () => {
+    if (!meal) return;
+    closeTaskSheet();
+    setTimeout(() => {
+      openCookMode({ ...meal, id: planEntry.recipeId }, {
+        mount: taskSheetMount,
+        onComplete: async (r) => {
+          if (r.id && recipes[r.id]) {
+            await writeKitchenRecipe(r.id, { ...recipes[r.id], lastUsed: Date.now() });
+            recipes[r.id].lastUsed = Date.now();
+          }
+        },
+        onExit: () => render(),
+        showToast,
+      });
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+    }, 320);
+  });
 
   document.getElementById('mdAddToList')?.addEventListener('click', () => {
     if (!meal) return;

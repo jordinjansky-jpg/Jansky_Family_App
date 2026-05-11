@@ -176,6 +176,103 @@ export function formatMinutes(min) {
 }
 
 /**
+ * Parse a recipe ingredient quantity string into { amount: number, unit: string }.
+ * Handles "1 1/2 cups", "1/2 cup", "2.5 lbs", "8" — returns null if unparseable.
+ */
+export function parseQtyAmount(str) {
+  if (!str) return null;
+  const s = str.trim();
+  let m;
+  m = s.match(/^(\d+)\s+(\d+)\/(\d+)(.*)/);
+  if (m) return { amount: parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]), unit: m[4].trim() };
+  m = s.match(/^(\d+)\/(\d+)(.*)/);
+  if (m) return { amount: parseInt(m[1]) / parseInt(m[2]), unit: m[3].trim() };
+  m = s.match(/^(\d*\.?\d+)(.*)/);
+  if (m) return { amount: parseFloat(m[1]), unit: m[2].trim() };
+  return null;
+}
+
+/**
+ * Format a decimal number as a kitchen-friendly fraction ("1 1/2", "3/4")
+ * snapping to common cooking fractions to avoid odd values like "0.625 cup".
+ */
+export function formatFraction(n) {
+  if (n <= 0) return '0';
+  const whole = Math.floor(n);
+  const frac = n - whole;
+  if (frac < 0.03) return String(whole || '0');
+  if (frac > 0.97) return String(whole + 1);
+  const fracs = [[1,8],[1,6],[1,4],[1,3],[3,8],[1,2],[5,8],[2,3],[3,4],[7,8]];
+  let best = fracs[0], bestDist = Infinity;
+  for (const [num, den] of fracs) {
+    const d = Math.abs(frac - num / den);
+    if (d < bestDist) { bestDist = d; best = [num, den]; }
+  }
+  const fracStr = `${best[0]}/${best[1]}`;
+  return whole ? `${whole} ${fracStr}` : fracStr;
+}
+
+/**
+ * Scale a recipe quantity string by a multiplier ("2 cups" * 1.5 → "3 cups").
+ * Returns the original string when it can't be parsed.
+ */
+export function scaleQty(qtyStr, factor) {
+  if (!qtyStr || factor === 1) return qtyStr;
+  const parsed = parseQtyAmount(qtyStr);
+  if (!parsed || !parsed.amount) return qtyStr;
+  const scaled = parsed.amount * factor;
+  const fmt = formatFraction(scaled);
+  return parsed.unit ? `${fmt} ${parsed.unit}` : fmt;
+}
+
+/**
+ * Format minutes for a recipe time display: "25 min" / "1 hr 15 min".
+ * Verbose because it lives in user-facing meal contexts where compact ("1h")
+ * is too dense. Returns '' for null/0/negative.
+ */
+export function formatRecipeTime(mins) {
+  if (!mins || mins <= 0) return '';
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60); const r = mins % 60;
+  return r > 0 ? `${h} hr ${r} min` : `${h} hr`;
+}
+
+/**
+ * Parse a freeform recipe time string ("30 min" / "1h 30m" / "1 hr") into
+ * total minutes. Returns null when unparseable. Reused by chip rendering,
+ * filter buckets, and the detail-sheet times block.
+ */
+export function parseRecipeTimeToMinutes(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const s = timeStr.toLowerCase().trim();
+  if (!s) return null;
+  let total = 0;
+  let matched = false;
+  const hr = s.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hour|hours)\b/);
+  if (hr) { total += parseFloat(hr[1]) * 60; matched = true; }
+  const mn = s.match(/(\d+(?:\.\d+)?)\s*(?:m\b|min|mins|minute|minutes)/);
+  if (mn) { total += parseFloat(mn[1]); matched = true; }
+  if (!matched) {
+    const bare = s.match(/^(\d+(?:\.\d+)?)$/);
+    if (bare) { total = parseFloat(bare[1]); matched = true; }
+  }
+  return matched && total > 0 ? Math.round(total) : null;
+}
+
+/**
+ * Compute total time (prep + cook) in minutes for a recipe. Falls back to
+ * whichever side is set when only one is populated. Returns null when
+ * neither parses.
+ */
+export function recipeTotalTime(recipe) {
+  if (!recipe) return null;
+  const p = parseRecipeTimeToMinutes(recipe.prepTime);
+  const c = parseRecipeTimeToMinutes(recipe.cookTime);
+  if (!p && !c) return null;
+  return (p || 0) + (c || 0);
+}
+
+/**
  * Format a date key for display (e.g., "Mon, Apr 2").
  */
 export function formatDateShort(dateKey) {

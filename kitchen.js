@@ -17,97 +17,13 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderBottomSheet, renderEmptyState, renderAddMenu, renderSkeleton, renderErrorState,
   renderFormFooter, renderFormSheetHeader,
   renderChipPicker, bindChipPicker,
-  renderColorButton, initColorButton, applyDataColors
+  renderColorButton, initColorButton, applyDataColors,
+  openCookMode
 } from './shared/components.js';
-import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner } from './shared/utils.js';
+import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
-
-// ── Fraction helpers (servings scaler) ────────────────────────────────────────
-function parseQtyAmount(str) {
-  if (!str) return null;
-  const s = str.trim();
-  let m;
-  m = s.match(/^(\d+)\s+(\d+)\/(\d+)(.*)/);
-  if (m) return { amount: parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]), unit: m[4].trim() };
-  m = s.match(/^(\d+)\/(\d+)(.*)/);
-  if (m) return { amount: parseInt(m[1]) / parseInt(m[2]), unit: m[3].trim() };
-  m = s.match(/^(\d*\.?\d+)(.*)/);
-  if (m) return { amount: parseFloat(m[1]), unit: m[2].trim() };
-  return null;
-}
-
-function formatFraction(n) {
-  if (n <= 0) return '0';
-  const whole = Math.floor(n);
-  const frac = n - whole;
-  if (frac < 0.03) return String(whole || '0');
-  if (frac > 0.97) return String(whole + 1);
-  const fracs = [[1,8],[1,6],[1,4],[1,3],[3,8],[1,2],[5,8],[2,3],[3,4],[7,8]];
-  let best = fracs[0], bestDist = Infinity;
-  for (const [num, den] of fracs) {
-    const d = Math.abs(frac - num / den);
-    if (d < bestDist) { bestDist = d; best = [num, den]; }
-  }
-  const fracStr = `${best[0]}/${best[1]}`;
-  return whole ? `${whole} ${fracStr}` : fracStr;
-}
-
-function scaleQty(qtyStr, factor) {
-  if (!qtyStr || factor === 1) return qtyStr;
-  const parsed = parseQtyAmount(qtyStr);
-  if (!parsed || !parsed.amount) return qtyStr;
-  const scaled = parsed.amount * factor;
-  const fmt = formatFraction(scaled);
-  return parsed.unit ? `${fmt} ${parsed.unit}` : fmt;
-}
-
-// Parse a prep-time string into minutes for filter bucketing only.
-// Returns null when the string is empty/unrecognizable — the caller treats
-// null as "exclude from any specific bucket" rather than "include in <30".
-function formatPrepBucket(prepTimeStr) {
-  if (!prepTimeStr || typeof prepTimeStr !== 'string') return null;
-  const s = prepTimeStr.toLowerCase().trim();
-  if (!s) return null;
-
-  let total = 0;
-  let matched = false;
-
-  // Hours: "1h", "1 hr", "1 hour", "1 hours"
-  const hr = s.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hour|hours)\b/);
-  if (hr) { total += parseFloat(hr[1]) * 60; matched = true; }
-
-  // Minutes: "30m", "30 min", "30 mins", "30 minutes"
-  const mn = s.match(/(\d+(?:\.\d+)?)\s*(?:m\b|min|mins|minute|minutes)/);
-  if (mn) { total += parseFloat(mn[1]); matched = true; }
-
-  // Bare number (no unit): treat as minutes
-  if (!matched) {
-    const bare = s.match(/^(\d+(?:\.\d+)?)$/);
-    if (bare) { total = parseFloat(bare[1]); matched = true; }
-  }
-
-  return matched && total > 0 ? Math.round(total) : null;
-}
-
-// Render a minute-count as a short human string ("25 min", "1 hr 15 min").
-function formatMinutes(mins) {
-  if (!mins || mins <= 0) return '';
-  if (mins < 60) return `${mins} min`;
-  const h = Math.floor(mins / 60); const r = mins % 60;
-  return r > 0 ? `${h} hr ${r} min` : `${h} hr`;
-}
-
-// Compute the recipe's total time from prep + cook. Falls back to whichever
-// one is present when only one side is set. Returns null when neither parses.
-function recipeTotalTime(recipe) {
-  if (!recipe) return null;
-  const p = formatPrepBucket(recipe.prepTime);
-  const c = formatPrepBucket(recipe.cookTime);
-  if (!p && !c) return null;
-  return (p || 0) + (c || 0);
-}
 
 // Worker URL — set when Cloudflare Worker is deployed
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
@@ -547,7 +463,7 @@ function renderRecipesTab() {
     // until dinner". Falls back to whichever side is populated when only one
     // is set, so single-time recipes still display.
     const totalMins = recipeTotalTime(recipe);
-    const timeChip = totalMins ? `<span class="rl-chip">${esc(formatMinutes(totalMins))}</span>` : '';
+    const timeChip = totalMins ? `<span class="rl-chip">${esc(formatRecipeTime(totalMins))}</span>` : '';
     const tz = settings?.timezone || 'America/Chicago';
     const todayStr = todayKey(tz);
     const lastChip = `<span class="rl-chip">${esc(formatLastCooked(recipe?.lastUsed, tz, todayStr))}</span>`;
@@ -1271,85 +1187,20 @@ async function openWhoVotesPrompt() {
 }
 async function openCookModeSheet(recipe) {
   if (!recipe) return;
-  const stepList = (recipe.steps && recipe.steps.length) ? recipe.steps : parseSteps(recipe.notes);
-  if (stepList.length === 0) { showToast('No steps to cook — add steps in the recipe form'); return; }
-
   const mount = document.getElementById('sheetMount');
-  let current = 0;
-  let wakeLock = null;
-  let ingredientsOpen = false;
-
-  // Request screen wake-lock; silent on denial.
-  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* silent */ }
-
-  function renderIngredientPanel() {
-    if (!ingredientsOpen) return '';
-    const rows = (recipe.ingredients || []).map(ing => `
-      <div class="cook-ing-row">
-        <span class="cook-ing-qty">${esc(ing.qty || '')}</span>
-        <span class="cook-ing-name">${esc(ing.name || '')}</span>
-      </div>`).join('');
-    return `<div class="cook-ing-panel"><div class="cook-ing-panel__title">Ingredients</div>${rows}</div>`;
-  }
-
-  function renderDots() {
-    return stepList.map((_, i) => {
-      const cls = i < current ? 'is-done' : (i === current ? 'is-current' : '');
-      return `<span class="cook-dot ${cls}"></span>`;
-    }).join('');
-  }
-
-  function render() {
-    const isLast = current === stepList.length - 1;
-    const isFirst = current === 0;
-    mount.innerHTML = `
-      <div class="cook-mode" id="cookMode">
-        <div class="cook-mode__topbar">
-          <button class="ef2-icon-btn" id="cook_back" type="button" aria-label="Back">←</button>
-          <div class="cook-mode__title">Cook · ${esc(recipe.name || '')}</div>
-          <button class="ef2-icon-btn" id="cook_close" type="button" aria-label="Close">✕</button>
-        </div>
-        <div class="cook-mode__body">
-          <div class="cook-mode__progress">Step ${current + 1} of ${stepList.length}</div>
-          <div class="cook-mode__step">${esc(stepList[current])}</div>
-          <button class="btn btn--ghost" id="cook_toggleIng" type="button">${ingredientsOpen ? 'Hide' : 'Show'} ingredients</button>
-          ${renderIngredientPanel()}
-        </div>
-        <div class="cook-mode__nav">
-          <button class="btn btn--secondary" id="cook_prev" type="button"${isFirst ? ' disabled' : ''}>‹ Prev</button>
-          <div class="cook-mode__dots">${renderDots()}</div>
-          <button class="btn btn--primary" id="cook_next" type="button">${isLast ? 'Done' : 'Next ›'}</button>
-        </div>
-      </div>`;
-
-    document.getElementById('cook_close')?.addEventListener('click', exit);
-    document.getElementById('cook_back')?.addEventListener('click', exit);
-    document.getElementById('cook_toggleIng')?.addEventListener('click', () => {
-      ingredientsOpen = !ingredientsOpen;
-      render();
-    });
-    document.getElementById('cook_prev')?.addEventListener('click', () => {
-      if (current > 0) { current--; render(); }
-    });
-    document.getElementById('cook_next')?.addEventListener('click', async () => {
-      if (current < stepList.length - 1) { current++; render(); return; }
-      // Done — bump lastUsed and exit.
-      if (recipe.id && recipes[recipe.id]) {
-        await writeKitchenRecipe(recipe.id, { ...recipes[recipe.id], lastUsed: Date.now() });
-        recipes[recipe.id].lastUsed = Date.now();
+  await openCookMode(recipe, {
+    mount,
+    onComplete: async (r) => {
+      // Mark recipe as cooked (bump lastUsed) so it falls down the "never
+      // cooked" filter and the "last cooked" chip updates.
+      if (r.id && recipes[r.id]) {
+        await writeKitchenRecipe(r.id, { ...recipes[r.id], lastUsed: Date.now() });
+        recipes[r.id].lastUsed = Date.now();
       }
-      showToast('Recipe complete');
-      exit();
-    });
-  }
-
-  function exit() {
-    wakeLock?.release?.().catch(() => { /* silent */ });
-    mount.innerHTML = '';
-    renderActiveTab();
-  }
-
-  render();
+    },
+    onExit: () => renderActiveTab(),
+    showToast,
+  });
 }
 
 async function openMealHistorySheet() {
@@ -1480,13 +1331,13 @@ function openRecipeDetailSheet(recipeId) {
   }
 
   function buildTimesAndServings() {
-    const prepMins = formatPrepBucket(recipe.prepTime);
-    const cookMins = formatPrepBucket(recipe.cookTime);
+    const prepMins = parseRecipeTimeToMinutes(recipe.prepTime);
+    const cookMins = parseRecipeTimeToMinutes(recipe.cookTime);
     const totalMins = (prepMins || 0) + (cookMins || 0);
     const cells = [];
     if (recipe.prepTime) cells.push(`<div class="rd-time-cell"><span class="rd-time-label">Prep</span><span class="rd-time-val">${esc(recipe.prepTime)}</span></div>`);
     if (recipe.cookTime) cells.push(`<div class="rd-time-cell"><span class="rd-time-label">Cook</span><span class="rd-time-val">${esc(recipe.cookTime)}</span></div>`);
-    if (prepMins && cookMins) cells.push(`<div class="rd-time-cell rd-time-cell--total"><span class="rd-time-label">Total</span><span class="rd-time-val">${esc(formatMinutes(totalMins))}</span></div>`);
+    if (prepMins && cookMins) cells.push(`<div class="rd-time-cell rd-time-cell--total"><span class="rd-time-label">Total</span><span class="rd-time-val">${esc(formatRecipeTime(totalMins))}</span></div>`);
     const timesHtml = cells.length ? `<div class="rd-times">${cells.join('')}</div>` : '';
     const servingsHtml = baseServings ? `
       <div class="rd-servings-row">

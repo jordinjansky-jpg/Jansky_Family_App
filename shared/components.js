@@ -2,7 +2,7 @@
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 
-import { escapeHtml, formatDateShort } from './utils.js';
+import { escapeHtml, formatDateShort, parseRecipeTimeToMinutes, formatRecipeTime, scaleQty, parseSteps } from './utils.js';
 import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig, applyTaskDisplayPrefs, applyTextSize } from './theme.js';
 import { normalizeTaskGrouping } from './state.js';
 
@@ -4206,74 +4206,245 @@ export function renderMealPlanSheet({ date, slot = 'dinner', library = {}, curre
  *   #mdEdit click      → open meal editor (only if !readonly && !isSchool)
  *   #mdRemove click    → remove this slot from plan (only if !readonly && !isSchool)
  */
+/**
+ * Open the immersive step-by-step Cook Mode for a recipe. Caller provides
+ * the mount element + optional callbacks; this function owns wake-lock,
+ * step navigation, ingredients toggle, and final cleanup.
+ *
+ * @param {object} recipe   Must have at least .name and either .steps[] or
+ *                          .notes (the latter falls back to parseSteps()).
+ * @param {object} opts
+ * @param {HTMLElement} opts.mount       Element to render into.
+ * @param {Function}    [opts.onComplete] Fires when user taps Done.
+ * @param {Function}    [opts.onExit]     Fires when sheet closes (any reason).
+ * @param {(s:string)=>void} [opts.showToast] Optional toast function for the
+ *                                            "no steps" / "complete" messages.
+ */
+export async function openCookMode(recipe, { mount, onComplete, onExit, showToast } = {}) {
+  if (!recipe || !mount) return;
+  const stepList = (recipe.steps && recipe.steps.length) ? recipe.steps : parseSteps(recipe.notes);
+  if (stepList.length === 0) { showToast?.('No steps to cook — add steps in the recipe form'); return; }
+
+  let current = 0;
+  let wakeLock = null;
+  let ingredientsOpen = false;
+
+  // Request screen wake-lock; silent on denial.
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* silent */ }
+
+  function renderIngredientPanel() {
+    if (!ingredientsOpen) return '';
+    const rows = (recipe.ingredients || []).map(ing => `
+      <div class="cook-ing-row">
+        <span class="cook-ing-qty">${esc(ing.qty || '')}</span>
+        <span class="cook-ing-name">${esc(ing.name || '')}</span>
+      </div>`).join('');
+    return `<div class="cook-ing-panel"><div class="cook-ing-panel__title">Ingredients</div>${rows}</div>`;
+  }
+
+  function renderDots() {
+    return stepList.map((_, i) => {
+      const cls = i < current ? 'is-done' : (i === current ? 'is-current' : '');
+      return `<span class="cook-dot ${cls}"></span>`;
+    }).join('');
+  }
+
+  function render() {
+    const isLast = current === stepList.length - 1;
+    const isFirst = current === 0;
+    mount.innerHTML = `
+      <div class="cook-mode" id="cookMode">
+        <div class="cook-mode__topbar">
+          <button class="ef2-icon-btn" id="cook_back" type="button" aria-label="Back">←</button>
+          <div class="cook-mode__title">Cook · ${esc(recipe.name || '')}</div>
+          <button class="ef2-icon-btn" id="cook_close" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="cook-mode__body">
+          <div class="cook-mode__progress">Step ${current + 1} of ${stepList.length}</div>
+          <div class="cook-mode__step">${esc(stepList[current])}</div>
+          <button class="btn btn--ghost" id="cook_toggleIng" type="button">${ingredientsOpen ? 'Hide' : 'Show'} ingredients</button>
+          ${renderIngredientPanel()}
+        </div>
+        <div class="cook-mode__nav">
+          <button class="btn btn--secondary" id="cook_prev" type="button"${isFirst ? ' disabled' : ''}>‹ Prev</button>
+          <div class="cook-mode__dots">${renderDots()}</div>
+          <button class="btn btn--primary" id="cook_next" type="button">${isLast ? 'Done' : 'Next ›'}</button>
+        </div>
+      </div>`;
+    document.getElementById('cook_close')?.addEventListener('click', exit);
+    document.getElementById('cook_back')?.addEventListener('click', exit);
+    document.getElementById('cook_toggleIng')?.addEventListener('click', () => {
+      ingredientsOpen = !ingredientsOpen;
+      render();
+    });
+    document.getElementById('cook_prev')?.addEventListener('click', () => {
+      if (current > 0) { current--; render(); }
+    });
+    document.getElementById('cook_next')?.addEventListener('click', () => {
+      if (current < stepList.length - 1) { current++; render(); return; }
+      onComplete?.(recipe);
+      showToast?.('Recipe complete');
+      exit();
+    });
+  }
+
+  function exit() {
+    wakeLock?.release?.().catch(() => { /* silent */ });
+    mount.innerHTML = '';
+    onExit?.();
+  }
+
+  render();
+}
+
+// Inline SVG constants used by renderMealDetailSheet's headerActions.
+const MD_CLOSE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const MD_LINK_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+const MD_PENCIL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+const MD_TRASH_SVG  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+
+/**
+ * Render the meal detail sheet — used by the Dashboard dinner widget, the
+ * Calendar day sheet, and Kid mode. Mirrors the Recipes tab detail layout
+ * (hero, times block, stars, chef + family notes, scaled ingredients) plus
+ * the slot-aware action buttons (Change meal, Remove from plan).
+ *
+ * Visual presentation is identical across pages; only the bound actions
+ * differ. The caller wires the buttons it cares about — IDs are stable:
+ *   mdClose, mdEdit, mdStartCooking, mdAddToList, mdChange, mdRemove,
+ *   mdServingsDown, mdServingsUp, mdStars, mdHero (the <img>).
+ */
 export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = '') {
   if (!meal) return `<p class="text-muted" style="padding:var(--spacing-md)">Meal not found.</p>`;
 
-  const SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
   const isSchool = planEntry?.source === 'school';
   const hasIngredients = (meal.ingredients || []).filter(i => (i?.name || i)?.trim()).length > 0;
+  const hasSteps = Array.isArray(meal.steps) && meal.steps.length > 0;
 
-  const CLOSE_SVG   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-  const LINK_SVG    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
-  const LIST_SVG    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
-  const SWAP_SVG    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
-  const PENCIL_SVG  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const TRASH_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-  const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+  // Source domain pulled from meal.url for the "from foo.com" sub-row.
+  let sourceDomain = '';
+  if (meal.url) { try { sourceDomain = new URL(meal.url).hostname.replace(/^www\./, ''); } catch {} }
 
-  const chips = [];
-  if (slot && SLOT_LABELS[slot]) chips.push(`<span class="chip">${esc(SLOT_LABELS[slot])}</span>`);
-  if (meal.prepTime) chips.push(`<span class="chip">${esc(meal.prepTime)}</span>`);
-  if (isSchool) chips.push(`<span class="chip">School</span>`);
-  (meal.tags || []).forEach(t => chips.push(`<span class="chip">${esc(t)}</span>`));
+  // Times block — same layout as the Recipes tab. Computes total minutes
+  // from prep + cook and renders only the cells that have data.
+  const prepMins = parseRecipeTimeToMinutes(meal.prepTime);
+  const cookMins = parseRecipeTimeToMinutes(meal.cookTime);
+  const totalMins = (prepMins || 0) + (cookMins || 0);
+  const timeCells = [];
+  if (meal.prepTime) timeCells.push(`<div class="rd-time-cell"><span class="rd-time-label">Prep</span><span class="rd-time-val">${esc(meal.prepTime)}</span></div>`);
+  if (meal.cookTime) timeCells.push(`<div class="rd-time-cell"><span class="rd-time-label">Cook</span><span class="rd-time-val">${esc(meal.cookTime)}</span></div>`);
+  if (prepMins && cookMins) timeCells.push(`<div class="rd-time-cell rd-time-cell--total"><span class="rd-time-label">Total</span><span class="rd-time-val">${esc(formatRecipeTime(totalMins))}</span></div>`);
+  const timesHtml = timeCells.length ? `<div class="rd-times">${timeCells.join('')}</div>` : '';
 
-  const ingrHtml = hasIngredients
-    ? `<div class="me-detail__section">
-        <span class="me-detail__section-label">Ingredients</span>
-        <ul class="me-detail__ingredients">
-          ${meal.ingredients.filter(i => (i?.name || i)?.trim()).map(i =>
-            typeof i === 'string'
-              ? `<li><span>${esc(i)}</span></li>`
-              : `<li>${i.qty ? `<span class="me-detail__ing-qty">${esc(i.qty)}</span>` : ''}<span>${esc(i.name || '')}</span></li>`
-          ).join('')}
-        </ul>
-       </div>`
-    : '';
+  // Servings stepper + ingredient scaling. Use planEntry.servings (set when
+  // the user adjusted servings on the recipe-detail sheet before planning)
+  // if present, else fall back to the recipe's saved servings.
+  const baseServings = meal.servings || null;
+  const startServings = (typeof planEntry?.servings === 'number' && planEntry.servings > 0)
+    ? planEntry.servings
+    : baseServings;
+  // Readonly callers (calendar day sheet, kid mode) get a static "Serves N"
+  // label instead of an interactive stepper, since they can't persist
+  // anything anyway.
+  const servingsHtml = baseServings ? (readonly
+    ? `<div class="rd-servings-row"><span class="rd-servings-label">Servings</span><span class="rd-stepper-val">${startServings}</span></div>`
+    : `<div class="rd-servings-row">
+      <span class="rd-servings-label">Servings</span>
+      <div class="rd-serves-stepper">
+        <button class="rd-stepper-btn" id="mdServingsDown" type="button" aria-label="Fewer servings">−</button>
+        <span class="rd-stepper-val" id="mdServingsVal">${startServings}</span>
+        <span class="rd-stepper-unit">servings</span>
+        <button class="rd-stepper-btn" id="mdServingsUp" type="button" aria-label="More servings">+</button>
+      </div>
+    </div>`) : '';
 
-  const notesHtml = meal.notes
-    ? `<div class="me-detail__section">
-        <span class="me-detail__section-label">Notes</span>
-        <p class="me-detail__notes">${esc(meal.notes)}</p>
-       </div>`
-    : '';
+  const timesBlock = (timesHtml || servingsHtml) ? `<div class="rd-times-block">${timesHtml}${servingsHtml}</div>` : '';
 
-  let actions = '';
-  if (!isSchool) {
-    actions += `<div class="ef2-divider"></div><div class="task-detail__action-list">`;
-    if (meal.url) {
-      actions += `<a class="task-detail__action-row" id="mdLink" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer">${LINK_SVG}<span>Open recipe</span>${CHEVRON_SVG}</a>`;
+  // Stars row — read-only display (no inline editing). Tap opens the rating
+  // sheet on the dashboard; readonly callers (calendar, kid mode) just see
+  // the value with no rating action.
+  // viewerPersonId isn't available in this shared layer, so use the
+  // recipe.rating fallback as the displayed value when ratings[] is empty.
+  const ratings = (meal && meal.ratings && typeof meal.ratings === 'object') ? Object.values(meal.ratings).filter(v => typeof v === 'number' && v > 0) : [];
+  const avg = ratings.length ? (ratings.reduce((s, v) => s + v, 0) / ratings.length) : (typeof meal.rating === 'number' && meal.rating > 0 ? meal.rating : null);
+  const starsHtml = (() => {
+    if (avg == null) {
+      if (readonly) return '';
+      const emptyStars = Array.from({ length: 5 }, () => `<span class="rd-star rd-star--empty">★</span>`).join('');
+      return `<button class="rd-stars-btn rd-stars-btn--empty" id="mdStars" type="button" aria-label="Not rated — tap to rate"><span class="rd-stars-visual">${emptyStars}</span></button>`;
     }
-    if (hasIngredients && !readonly) {
-      actions += `<button class="task-detail__action-row" id="mdAddToList" type="button">${LIST_SVG}<span>Add ingredients to list</span>${CHEVRON_SVG}</button>`;
-    }
-    if (!readonly) {
-      actions += `<button class="task-detail__action-row" id="mdChange" type="button">${SWAP_SVG}<span>Change meal</span>${CHEVRON_SVG}</button>`;
-      actions += `<button class="task-detail__action-row" id="mdEdit" type="button">${PENCIL_SVG}<span>Edit meal</span>${CHEVRON_SVG}</button>`;
-      actions += `<button class="task-detail__action-row task-detail__action-row--muted" id="mdRemove" type="button">${TRASH_SVG}<span>Remove from plan</span></button>`;
-    }
-    actions += `</div>`;
+    const numText = Number.isInteger(avg) ? `${avg}.0` : avg.toFixed(1);
+    const stars = Array.from({ length: 5 }, (_, i) => {
+      const slot2 = i + 1;
+      const kind = avg >= slot2 ? 'full' : (avg >= slot2 - 0.5 ? 'half' : 'empty');
+      return `<span class="rd-star rd-star--${kind}">★</span>`;
+    }).join('');
+    const tag = readonly ? 'span' : 'button';
+    const attrs = readonly ? '' : `id="mdStars" type="button" aria-label="Rating ${numText} of 5 — tap to rate"`;
+    return `<${tag} class="rd-stars-btn"${readonly ? '' : ' ' + attrs}><span class="rd-stars-visual">${stars}</span><span class="rd-stars-num">${esc(numText)}</span></${tag}>`;
+  })();
+
+  // Render scaled ingredients from a server-side closure (factor at render
+  // time). Re-renders happen in JS when the stepper fires.
+  const factor = (baseServings && startServings) ? (startServings / baseServings) : 1;
+  const ingrRows = (meal.ingredients || []).filter(i => (i?.name || i)?.trim()).map(i =>
+    typeof i === 'string'
+      ? `<span class="rd-ing-qty"></span><span class="rd-ing-name">${esc(i)}</span>`
+      : `<span class="rd-ing-qty">${esc(scaleQty(i.qty || '', factor) || '')}</span><span class="rd-ing-name">${esc(i.name || '')}</span>`
+  ).join('');
+
+  // Footer buttons — built dynamically based on capabilities. Order mirrors
+  // the Recipes tab (Cook → List → Plan-or-Change) so muscle memory transfers.
+  const footerButtons = [];
+  if (!readonly && (hasSteps || meal.notes)) {
+    footerButtons.push(`<button class="btn btn--primary" id="mdStartCooking" type="button">Start cooking</button>`);
+  }
+  if (!readonly && hasIngredients) {
+    footerButtons.push(`<button class="btn btn--secondary" id="mdAddToList" type="button">Add to list</button>`);
+  }
+  if (!readonly && !isSchool) {
+    footerButtons.push(`<button class="btn btn--secondary" id="mdChange" type="button">Change meal</button>`);
   }
 
-  return `<div class="task-detail-sheet">
+  // Header icons — same set as the Recipes tab, scoped to what makes sense
+  // here. The trash icon is "Remove from plan" rather than "Delete recipe"
+  // (different scope — explicit aria label keeps that clear). Edit pencil
+  // opens the recipe edit form so the user can rename, re-tag, etc.
+  const headerActions = [];
+  if (meal.url) headerActions.push(`<a class="ef2-icon-btn" id="mdLink" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open recipe">${MD_LINK_SVG}</a>`);
+  if (!readonly && !isSchool) {
+    headerActions.push(`<button class="ef2-icon-btn" id="mdEdit" type="button" aria-label="Edit recipe">${MD_PENCIL_SVG}</button>`);
+    headerActions.push(`<button class="ef2-icon-btn" id="mdRemove" type="button" aria-label="Remove from plan">${MD_TRASH_SVG}</button>`);
+  }
+  headerActions.push(`<button class="ef2-icon-btn" id="mdClose" type="button" aria-label="Close">${MD_CLOSE_SVG}</button>`);
+
+  return `
+    ${meal.imageUrl ? `<div class="rd-hero"><img id="mdHero" src="${esc(meal.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="this.parentElement.remove()"/></div>` : ''}
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(meal.name)}</h2>
-      <button class="ef2-icon-btn" id="mdClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
+      <div class="rf-header-actions">${headerActions.join('')}</div>
     </div>
-    ${chips.length ? `<div class="task-detail__chips">${chips.join('')}</div>` : ''}
-    ${ingrHtml}
-    ${notesHtml}
-    ${actions}
-  </div>`;
+    ${timesBlock}
+    ${(sourceDomain || starsHtml) ? `<div class="rd-source-row">
+      ${sourceDomain ? `<span class="rd-source">from ${esc(sourceDomain)}</span>` : '<span></span>'}
+      <div class="rd-stars">${starsHtml}</div>
+    </div>` : ''}
+    ${meal.notes ? `
+      <details class="rd-chef-notes" open>
+        <summary class="rd-chef-notes__label">Chef's notes</summary>
+        <p class="rd-chef-notes__body">${esc(meal.notes)}</p>
+      </details>` : ''}
+    ${meal.familyNotes ? `
+      <details class="rd-chef-notes rd-chef-notes--family" open>
+        <summary class="rd-chef-notes__label">Family notes</summary>
+        <p class="rd-chef-notes__body">${esc(meal.familyNotes)}</p>
+      </details>` : ''}
+    ${hasIngredients ? `
+      <div class="me-detail__section">
+        ${!baseServings ? '<span class="me-detail__section-label">Ingredients</span>' : ''}
+        <div class="rd-ingredients" id="mdIngredients">${ingrRows}</div>
+      </div>` : ''}
+    ${footerButtons.length ? `<div class="sheet__footer">${footerButtons.join('')}</div>` : ''}`;
 }
 
 /**
