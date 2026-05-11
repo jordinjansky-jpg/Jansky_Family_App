@@ -3,7 +3,7 @@ import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPerson
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
-import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce } from './shared/utils.js';
+import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce, normalizePlanSlot, pickWinner } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
@@ -305,9 +305,10 @@ async function render() {
   if (settings?.ambientStrip ?? true) {
     const weatherData = await fetchWeather(viewDate, settings);
     lastWeatherData = weatherData;
-    const dinnerPlan = viewMeals?.dinner;
-    const dinnerEntry = dinnerPlan?.recipeId ? recipes[dinnerPlan.recipeId] : null;
-    const dinnerName = dinnerEntry?.name || dinnerPlan?.customName || null;
+    const dinnerOptions = normalizePlanSlot(viewMeals?.dinner);
+    const dinnerWinner = pickWinner(dinnerOptions);
+    const dinnerEntry = dinnerWinner?.recipeId ? recipes[dinnerWinner.recipeId] : null;
+    const dinnerName = dinnerEntry?.name || dinnerWinner?.customName || null;
 
     // Weather tile
     let weatherValue = '—° · Set location';
@@ -817,12 +818,12 @@ function bindEvents() {
       startX = e.clientX; startY = e.clientY;
       const which = tile.dataset.tileAction;
       if (which !== 'dinner') return;
-      const dinnerPlan = viewMeals?.dinner;
-      if (!dinnerPlan?.recipeId && !dinnerPlan?.customName) return;
+      const dinnerWinnerLP = pickWinner(normalizePlanSlot(viewMeals?.dinner));
+      if (!dinnerWinnerLP?.recipeId && !dinnerWinnerLP?.customName) return;
       pressTimer = setTimeout(() => {
         didLongPress = true;
         pressTimer = null;
-        openMealDetailSheet(dinnerPlan, 'dinner');
+        openMealDetailSheet(dinnerWinnerLP, 'dinner');
       }, settings?.longPressMs ?? 800);
     });
 
@@ -840,9 +841,9 @@ function bindEvents() {
       if (didLongPress) { didLongPress = false; return; }
       const which = tile.dataset.tileAction;
       if (which === 'dinner') {
-        const dinnerPlan = viewMeals?.dinner;
-        if (dinnerPlan?.recipeId || dinnerPlan?.customName) {
-          openMealDetailSheet(dinnerPlan, 'dinner');
+        const dinnerWinnerClick = pickWinner(normalizePlanSlot(viewMeals?.dinner));
+        if (dinnerWinnerClick?.recipeId || dinnerWinnerClick?.customName) {
+          openMealDetailSheet(dinnerWinnerClick, 'dinner');
         } else {
           openMealPlanSheet('dinner');
         }

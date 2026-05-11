@@ -327,3 +327,58 @@ export function avgRating(recipe, viewerPersonId) {
   }
   return { avg: null, count: 0, mine: null };
 }
+
+// Parse a recipe's notes field into an ordered list of step strings.
+// Used as the fallback for Cook mode when recipe.steps[] is absent.
+// Splits on newlines, strips leading bullets/numbers, drops empty lines,
+// caps at 30 steps (defensive — most recipes have under 15).
+export function parseSteps(notes) {
+  if (!notes || typeof notes !== 'string') return [];
+  return notes
+    .split(/\r?\n/)
+    .map(line => line.replace(/^\s*(?:\d+[.)]|[-•*])\s+/, '').trim())
+    .filter(Boolean)
+    .slice(0, 30);
+}
+
+// Generate a 20-char alphanumeric token for share-list URLs.
+// Math.random is acceptable for the threat model — these links should
+// not be shared on public surfaces, and revoking is one click. Uses a
+// confusion-free alphabet (no I, O, 0, 1, l, o).
+export function generateShareToken() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < 20; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+// Convert a stored kitchenPlan slot value (legacy single object OR new
+// array shape) into an array. Always returns an array; missing slot
+// returns [].
+export function normalizePlanSlot(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  return [raw];
+}
+
+// Given an array of meal options with votes maps, return the winning
+// option. Ties broken by earliest addedAt. Returns null when the array
+// is empty.
+export function pickWinner(options) {
+  if (!Array.isArray(options) || options.length === 0) return null;
+  if (options.length === 1) return options[0];
+  let bestIdx = 0;
+  let bestScore = -1;
+  let bestAddedAt = Infinity;
+  for (let i = 0; i < options.length; i++) {
+    const opt = options[i];
+    const score = opt?.votes ? Object.keys(opt.votes).length : 0;
+    const addedAt = opt?.addedAt || 0;
+    if (score > bestScore || (score === bestScore && addedAt < bestAddedAt)) {
+      bestIdx = i;
+      bestScore = score;
+      bestAddedAt = addedAt;
+    }
+  }
+  return options[bestIdx];
+}

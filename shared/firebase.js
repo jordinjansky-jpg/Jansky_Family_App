@@ -745,8 +745,33 @@ export async function readAllKitchenPlan() {
   return readOnce('kitchen/plan');
 }
 
+/** Read plan slots for a date range (inclusive). Returns { [dateKey]: planObj }
+ * where missing dates are omitted. Used by the Meal History view. */
+export async function readKitchenPlanRange(startDate, endDate) {
+  const start = startDate instanceof Date ? startDate : new Date(startDate);
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
+  const day = new Date(start);
+  day.setHours(0, 0, 0, 0);
+  const lastDay = new Date(end);
+  lastDay.setHours(0, 0, 0, 0);
+  const out = {};
+  while (day <= lastDay) {
+    const y = day.getFullYear();
+    const m = String(day.getMonth() + 1).padStart(2, '0');
+    const d = String(day.getDate()).padStart(2, '0');
+    const dk = `${y}-${m}-${d}`;
+    const plan = await readKitchenPlan(dk).catch(() => null);
+    if (plan) out[dk] = plan;
+    day.setDate(day.getDate() + 1);
+  }
+  return out;
+}
+
 export async function writeKitchenPlanSlot(dateKey, slot, data) {
-  return writeData(`kitchen/plan/${dateKey}/${slot}`, data);
+  // Always store as an array so the schema is one shape going forward.
+  // Single-element arrays for the common case; lazy migration on read.
+  const value = Array.isArray(data) ? data : [data];
+  return writeData(`kitchen/plan/${dateKey}/${slot}`, value);
 }
 
 export async function removeKitchenPlanSlot(dateKey, slot) {
@@ -773,6 +798,28 @@ export async function removeKitchenList(id) {
     [`kitchen/items/${id}`]: null,
   };
   return multiUpdate(updates);
+}
+
+export async function writeKitchenListShareToken(listId, tokenObj) {
+  return writeData(`kitchen/lists/${listId}/shareToken`, tokenObj);
+}
+
+export async function removeKitchenListShareToken(listId) {
+  return removeData(`kitchen/lists/${listId}/shareToken`);
+}
+
+// Read a list + its items by validating the URL token. Used by
+// share-list.html — anonymous-read path (no auth). Returns null if the
+// list doesn't exist OR the token doesn't match.
+export async function readListByToken(listId, token) {
+  await ready();
+  const listSnap = await ref(`kitchen/lists/${listId}`).once('value');
+  const list = listSnap.val();
+  if (!list) return null;
+  if (!list.shareToken || list.shareToken.token !== token) return null;
+  const itemsSnap = await ref(`kitchen/items/${listId}`).once('value');
+  const items = itemsSnap.val() || {};
+  return { list, items };
 }
 
 // ─── Kitchen: Items ───────────────────────────────────────────────────────────
