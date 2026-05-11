@@ -506,11 +506,9 @@ function renderRecipesTab() {
         <span class="rl-count">${esc(countLabel)}</span>
         <button class="chip rl-filter-btn${filterCount > 0 ? ' chip--active' : ''}" id="recipeFilterBtn" type="button">${filterLabel} &#9662;</button>
       </div>
-      <button class="chip rl-find-btn" id="findRecipesBtn" type="button">Find ideas online &#x2197;</button>
       <div id="recipeLibrary">${recipeLibHtml}</div>
     </div>`;
 
-  document.getElementById('findRecipesBtn')?.addEventListener('click', openFindRecipesSheet);
   document.getElementById('recipeFilterBtn')?.addEventListener('click', openRecipeFilterSheet);
 
   const searchInput = document.getElementById('rlSearch');
@@ -1526,7 +1524,11 @@ function openKitchenAiToolsSheet() {
     </div>
     <div class="kait-section">
       <div class="kait-section__label">RECIPES</div>
-      <div class="kait-soon">Coming in the next Kitchen update</div>
+      <div class="kait-grid">
+        <button class="btn btn--secondary" id="kait_recipeUrl" type="button">🔗 Import from URL</button>
+        <button class="btn btn--secondary" id="kait_recipePhoto" type="button">📷 Import from photo</button>
+        <button class="btn btn--secondary" id="kait_recipeFind" type="button">🔎 Find ideas online</button>
+      </div>
     </div>
   `);
   activateSheet(mount);
@@ -1556,6 +1558,25 @@ function openKitchenAiToolsSheet() {
   document.getElementById('kait_schoolIcal')?.addEventListener('click', () => {
     document.getElementById('sheetMount').innerHTML = '';
     openSchoolLunchIcalSheet();
+  });
+
+  document.getElementById('kait_recipeUrl')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openRecipeForm(null);
+    // Focus the URL field after the form is mounted
+    setTimeout(() => document.getElementById('recipeUrl')?.focus(), 50);
+  });
+
+  document.getElementById('kait_recipePhoto')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openRecipeForm(null);
+    // Trigger the photo-source picker via the existing camera button
+    setTimeout(() => document.getElementById('kr_photo')?.click(), 50);
+  });
+
+  document.getElementById('kait_recipeFind')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openFindRecipesSheet();
   });
 }
 
