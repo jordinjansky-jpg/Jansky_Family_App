@@ -63,11 +63,10 @@
         <div class="add-person-form" id="addPersonForm">
           <div class="form-group">
             <label class="form-label" for="personName">Name</label>
-            <input type="text" id="personName" placeholder="e.g., Jordin">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Color</label>
-            <div class="color-grid" id="personColorGrid"></div>
+            <div class="setup-name-row">
+              <input type="text" id="personName" placeholder="e.g., Jordin">
+              <button class="setup-avatar-trigger" id="setupAvatarBtn" type="button" title="Customize avatar"><span id="setupAvatarPreview"></span></button>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Role</label>
@@ -171,7 +170,7 @@
     import { getTimezoneOptions, detectTimezone, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { getPresets, getColorPalette, applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
-    import { applyDataColors, showConfirm } from './shared/components.js';
+    import { applyDataColors, showConfirm, renderPersonAvatar, openAvatarEditor } from './shared/components.js';
 
     // --- State ---
     let currentStep = 1;
@@ -272,11 +271,37 @@
     };
 
     // --- People ---
+    // Pending avatar state for the "add person" form (resets after each add)
+    let pendingColor = null;
+    let pendingInitials = '';
+    let pendingAvatarUrl = '';
+
+    function nextAutoColor() {
+      const used = people.map(p => p.color);
+      return colorPalette.find(c => !used.includes(c)) || colorPalette[0];
+    }
+
+    function pendingPerson() {
+      return {
+        name: document.getElementById('personName')?.value || '',
+        color: pendingColor || nextAutoColor(),
+        initials: pendingInitials,
+        avatarUrl: pendingAvatarUrl,
+      };
+    }
+
+    function refreshPendingAvatar() {
+      const slot = document.getElementById('setupAvatarPreview');
+      if (!slot) return;
+      slot.innerHTML = renderPersonAvatar(pendingPerson(), { size: 'lg' });
+      applyDataColors(slot);
+    }
+
     function renderPeopleList() {
       const list = document.getElementById('peopleList');
       list.innerHTML = people.map((p, i) => `
         <div class="person-card">
-          <div class="person-card__color" data-bg-color="${p.color}"></div>
+          ${renderPersonAvatar(p, { size: 'md' })}
           <div class="person-card__info">
             <div class="person-card__name">${esc(p.name)}</div>
             <div class="person-card__role">${esc(p.role)}</div>
@@ -287,25 +312,27 @@
       applyDataColors(list);
 
       document.getElementById('peopleNext').disabled = people.length === 0;
-      renderPersonColorGrid();
+      refreshPendingAvatar();
     }
 
-    function renderPersonColorGrid() {
-      const grid = document.getElementById('personColorGrid');
-      const usedColors = people.map(p => p.color);
-      grid.innerHTML = colorPalette.map(c => {
-        const used = usedColors.includes(c);
-        const sel = selectedColor === c ? ' selected' : '';
-        const usedCls = used ? ' color-swatch--used' : '';
-        return `<div class="color-swatch color-swatch--positioned${sel}${usedCls}" data-bg-color="${c}" ${used ? '' : `onclick="selectColor('${c}')"`}></div>`;
-      }).join('');
-      applyDataColors(grid);
-    }
+    // Tap the avatar trigger → open the shared Avatar editor (color / initials / photo)
+    document.getElementById('setupAvatarBtn')?.addEventListener('click', () => {
+      openAvatarEditor({
+        initialColor: pendingColor || nextAutoColor(),
+        initialInitials: pendingInitials,
+        initialAvatarUrl: pendingAvatarUrl,
+        name: document.getElementById('personName')?.value || '',
+        onChange: ({ color, initials, photo }) => {
+          if (color !== undefined) pendingColor = color;
+          if (initials !== undefined) pendingInitials = initials;
+          if (photo !== undefined) pendingAvatarUrl = photo;
+          refreshPendingAvatar();
+        },
+      });
+    });
 
-    window.selectColor = function(color) {
-      selectedColor = color;
-      renderPersonColorGrid();
-    };
+    // Name input → keep the avatar's derived initials in sync
+    document.getElementById('personName')?.addEventListener('input', refreshPendingAvatar);
 
     window.selectRole = function(role) {
       selectedRole = role;
@@ -318,16 +345,14 @@
       const nameInput = document.getElementById('personName');
       const name = nameInput.value.trim();
       if (!name) { nameInput.focus(); return; }
-      if (!selectedColor) {
-        // Auto-select first available color
-        const usedColors = people.map(p => p.color);
-        selectedColor = colorPalette.find(c => !usedColors.includes(c)) || colorPalette[0];
-      }
+      const color = pendingColor || nextAutoColor();
 
       const person = {
         name,
-        color: selectedColor,
-        role: selectedRole
+        color,
+        role: selectedRole,
+        initials: pendingInitials || null,
+        avatarUrl: pendingAvatarUrl || null,
       };
 
       if (selectedRole === 'child') {
@@ -346,7 +371,9 @@
 
       people.push(person);
       nameInput.value = '';
-      selectedColor = null;
+      pendingColor = null;
+      pendingInitials = '';
+      pendingAvatarUrl = '';
       selectedRole = 'adult';
       document.querySelectorAll('.role-btn').forEach(b => {
         b.classList.toggle('selected', b.dataset.role === 'adult');

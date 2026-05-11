@@ -1088,11 +1088,13 @@
   border-radius: 50%;
   border: 2px solid var(--pill-color);
 }
-/* Edge-initial variant: photo replaces the small initial badge */
+/* Edge-initial variant: photo fills the slot like the tab/pill — not a circle.
+   The 4px colored strip still draws on the left via the parent's ::before. */
 .task-card__avatar-edge--initial .task-card__avatar-img {
   width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  align-self: stretch;
+  border-radius: 0;
+  object-fit: cover;
 }
 
 /* Event tab — same flush tab treatment */
