@@ -1774,38 +1774,70 @@ function openRecipeRatingSheet(recipeId) {
   }
 
   const viewerId = linkedPerson.id;
-  let myRating = (recipe.ratings && recipe.ratings[viewerId]) || 0;
+  const savedRating = (recipe.ratings && recipe.ratings[viewerId]) || 0;
+  // pendingRating is the *uncommitted* value driven by tap/drag. It only writes
+  // to Firebase on Submit, so users can preview half-stars without losing the
+  // sheet on the first touch.
+  let pendingRating = savedRating;
 
-  function renderStars(value) {
-    // 5 star slots, each with two tap zones (half / full).
+  function buildStarsHtml(value) {
     return Array.from({ length: 5 }, (_, i) => {
       const star = i + 1;
       const filled = value >= star ? 'full' : (value >= star - 0.5 ? 'half' : 'empty');
-      return `
-        <span class="rrs-star rrs-star--${filled}">
-          <button class="rrs-star__half rrs-star__half--left" data-rrs-val="${star - 0.5}" type="button" aria-label="${star - 0.5} stars"></button>
-          <button class="rrs-star__half rrs-star__half--right" data-rrs-val="${star}" type="button" aria-label="${star} stars"></button>
-          <span class="rrs-star__glyph">★</span>
-        </span>`;
+      return `<span class="rrs-star rrs-star--${filled}" data-rrs-star="${star}"><span class="rrs-star__glyph">★</span></span>`;
     }).join('');
+  }
+
+  // Re-render only the stars + helper, preserving drag state and footer.
+  function updateStarsUI() {
+    const stars = document.getElementById('rrsStars');
+    if (stars) stars.innerHTML = buildStarsHtml(pendingRating);
+    const helper = document.getElementById('rrsHelper');
+    if (helper) helper.textContent = pendingRating ? `Your rating: ${pendingRating}` : 'Tap or drag to rate';
+    const submit = document.getElementById('rrsSubmit');
+    if (submit) submit.disabled = !pendingRating || pendingRating === savedRating;
+  }
+
+  // Map an absolute pointer X coordinate to a half-star rating (0.5–5.0).
+  function xToRating(clientX) {
+    const stars = document.getElementById('rrsStars');
+    if (!stars) return pendingRating;
+    const rect = stars.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / rect.width;
+    const halves = Math.ceil(ratio * 10); // 1..10
+    return Math.max(0.5, Math.min(5, halves * 0.5));
   }
 
   function render() {
     mount.innerHTML = renderBottomSheet(`
       ${renderFormSheetHeader({ title: `Rate ${recipe.name}`, closeId: 'rrs_close' })}
       <div class="rrs-body">
-        <div class="rrs-stars" id="rrsStars">${renderStars(myRating)}</div>
-        <div class="rrs-helper">${myRating ? `Your rating: ${myRating}` : 'Tap a star to rate'}</div>
+        <div class="rrs-stars" id="rrsStars" role="slider" tabindex="0" aria-valuemin="0.5" aria-valuemax="5" aria-valuenow="${pendingRating || 0}" aria-label="Recipe rating">${buildStarsHtml(pendingRating)}</div>
+        <div class="rrs-helper" id="rrsHelper">${pendingRating ? `Your rating: ${pendingRating}` : 'Tap or drag to rate'}</div>
       </div>
       <div class="rrs-footer">
-        ${myRating ? `<button class="btn btn--ghost" id="rrsClear" type="button">Remove my rating</button>` : ''}
+        ${savedRating ? `<button class="btn btn--ghost" id="rrsClear" type="button">Remove rating</button>` : ''}
+        <button class="btn btn--primary" id="rrsSubmit" type="button" ${(!pendingRating || pendingRating === savedRating) ? 'disabled' : ''}>${savedRating ? 'Update' : 'Submit'}</button>
       </div>
     `);
     activateSheet(mount);
-    bindStars();
+    bindHandlers();
+  }
+
+  function bindHandlers() {
     document.getElementById('rrs_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+    document.getElementById('rrsSubmit')?.addEventListener('click', async () => {
+      if (!pendingRating) return;
+      const ratings = { ...(recipe.ratings || {}), [viewerId]: pendingRating };
+      recipes[recipeId] = { ...recipe, ratings };
+      await writeKitchenRecipe(recipeId, { ...recipes[recipeId] });
+      mount.innerHTML = '';
+      renderActiveTab();
+      showToast('Rating saved');
+    });
+
     document.getElementById('rrsClear')?.addEventListener('click', async () => {
-      myRating = 0;
       const ratings = { ...(recipe.ratings || {}) };
       delete ratings[viewerId];
       recipes[recipeId] = { ...recipe, ratings };
@@ -1814,21 +1846,31 @@ function openRecipeRatingSheet(recipeId) {
       renderActiveTab();
       showToast('Rating removed');
     });
-  }
 
-  function bindStars() {
-    mount.querySelectorAll('[data-rrs-val]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const val = parseFloat(btn.dataset.rrsVal);
-        myRating = val;
-        const ratings = { ...(recipe.ratings || {}), [viewerId]: val };
-        recipes[recipeId] = { ...recipe, ratings };
-        await writeKitchenRecipe(recipeId, { ...recipes[recipeId] });
-        mount.innerHTML = '';
-        renderActiveTab();
-        showToast('Rating saved');
-      });
+    // Pointer-based tap + drag handling. Single listener on the stars
+    // container — captures pointerdown / pointermove / pointerup so the value
+    // updates live as the user swipes across the row.
+    const stars = document.getElementById('rrsStars');
+    if (!stars) return;
+    let dragging = false;
+    const onMove = (e) => {
+      if (!dragging) return;
+      pendingRating = xToRating(e.clientX);
+      stars.setAttribute('aria-valuenow', String(pendingRating));
+      updateStarsUI();
+      e.preventDefault();
+    };
+    stars.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      stars.setPointerCapture?.(e.pointerId);
+      pendingRating = xToRating(e.clientX);
+      stars.setAttribute('aria-valuenow', String(pendingRating));
+      updateStarsUI();
+      e.preventDefault();
     });
+    stars.addEventListener('pointermove', onMove);
+    stars.addEventListener('pointerup',   () => { dragging = false; });
+    stars.addEventListener('pointercancel', () => { dragging = false; });
   }
 
   render();

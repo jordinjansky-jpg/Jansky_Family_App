@@ -902,6 +902,8 @@ button.rl-chip {
   justify-content: center;
   gap: 4px;
   margin-bottom: var(--spacing-md);
+  touch-action: none; /* let pointer drag drive the rating, not page-scroll */
+  cursor: pointer;
 }
 
 .rrs-star {
@@ -912,6 +914,7 @@ button.rl-chip {
   font-size: 44px;
   line-height: 1;
   user-select: none;
+  pointer-events: none; /* the parent .rrs-stars owns all pointer events */
 }
 
 .rrs-star__glyph {
@@ -960,8 +963,10 @@ button.rl-chip {
 .rrs-footer {
   display: flex;
   justify-content: center;
+  gap: var(--spacing-sm);
   padding: var(--spacing-sm) 0 var(--spacing-md);
 }
+.rrs-footer .btn { flex: 1; max-width: 200px; }
 
 /* ============ List switcher count chip ============ */
 .list-switcher__count {
