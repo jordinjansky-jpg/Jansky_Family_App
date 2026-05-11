@@ -1129,16 +1129,55 @@ Person-specific behavior is limited to: title = person's name, saved filter pers
 
 ### 6.10 Kitchen (`kitchen.html`, 1.3+1.7)
 
-**Purpose:** Combined home for meal planning and shared shopping lists — supersedes the standalone 1.3 Meals and 1.7 Shopping backlog items.
+**Purpose:** Combined home for meal planning, recipe library, and shared shopping lists — supersedes the standalone 1.3 Meals and 1.7 Shopping backlog items.
+
+**Identity:** Kitchen reads `?person=Name` like Dashboard does and resolves a `linkedPerson` from `people`. Used for rating attribution and (future) other per-person concerns.
 
 **Layout:**
-- Header: `Kitchen` + top-level Tabs: `Meals | Recipes | Lists`.
-- **Meals tab:** 7-day forward look (today + 6 days). One row per day; tap a row → meal picker sheet (`openPlanMealSheet`) with recipe library autocomplete and slot selector. FAB: plan a meal. School-lunch slots display below the main meal row when set.
-- **Recipes tab:** recipe library. Each recipe: `.card.card--recipe` with name, source chip, prep/serves metadata. Tap → recipe detail sheet (hero image, two-column ingredients, metadata chips). FAB: add recipe (URL import or manual). Wand button triggers AI deep-clean (cleanList Worker handler: dedup, rename, re-categorize).
-- **Lists tab:** shared shopping lists. Each list is its own sub-view. List rows: `.card.card--shopping`, checkbox in leading slot, strikethrough + sink on check. FAB: add item. Bulk-add FAB (add many items quickly). AI auto-categorize on add. Tap-and-hold → delete prompt.
-- Meal library management (edit/archive saved recipes) lives in the recipe detail sheet, not in Admin.
+- Header: standard `Kitchen` header + bell + settings.
+- Tabs row: `Meals | Recipes | Lists` (left-aligned, pill style) + a right-aligned **AI Tools wand button** (magic-wand icon). Wand opens the global `openKitchenAiToolsSheet` — a single sheet that owns every AI-driven action grouped into SCHOOL LUNCH / RECIPES / LISTS sections.
 
-**Kid view:** read-only Tonight's Dinner tile; optional shopping peek for lists marked kid-visible.
+**Meals tab:**
+- Rolling 7 days starting today. No swipe pagination, no arrows, no week label — the day rows carry the dates.
+- Each day-block: header row (`Mon May 11` + today pill when applicable + right-aligned `+` icon-button to add any slot via the picker) + one always-present **Dinner row** (planned name or `Plan dinner ›` empty-state CTA) + non-dinner planned slots inline (Breakfast / Lunch / Snack / School).
+- Today's day-header has `--accent-soft` background.
+- Slot row: 32×32 thumbnail (recipe `imageUrl` or 🍴 placeholder) + slot label + meal name. School-lunch slot labels are dynamic — `SCHOOL` when only one is planned, `SCHOOL 1` / `SCHOOL 2` when both.
+- `History ›` chip above the week strip opens `openMealHistorySheet` — last 30 days of dinners grouped by Monday-anchored week; tap a row with `recipeId` opens recipe detail.
+- FAB: opens Plan-a-meal for today/dinner. Per-day `+` opens Plan-a-meal with no slot pre-selected. Plan-a-meal picker includes a single `School` option that auto-allocates to `school-lunch` or `school-lunch-2`. When School slot is chosen, a `+ Plan a second School option` chip stacks an inline second meal-select.
+- **Multi-option meal voting:** `kitchenPlan/{date}/{slot}` is stored as an array of options. Lazy-migrate via `normalizePlanSlot` on read. Slot-edit sheet renders vote cards when array length ≥ 2 (per-person thumbs-up; `Lock in` collapses to single winner; `Remove` drops an option; cap at 3 options per slot). Day-block renders the winner via `pickWinner` plus a `+N` badge when multiple options exist.
+
+**Recipes tab:**
+- Sticky search input at top filters the library on every keystroke.
+- Library cards: 56×56 leading thumbnail + recipe name + chip line: rating (filled `★` icon + numeric avg from `recipe.ratings`, or empty `☆` when unrated) · prep time · last-cooked (`formatLastCooked`). Tap a card → recipe detail. Tap the rating chip → opens a half-star rating popup (tap-left-half / tap-right-half precision; auto-saves; `Remove my rating` clears the viewer's score).
+- **Filter & Sort sheet (5 dimensions):** Show (All / Top rated / Never cooked), Prep time bucket, Difficulty, Tags (multi-select with AND across), Sort by. Tag chips render from tags actually present in the library; empty state hint when none.
+- **Ratings model:** `recipe.ratings: { [personId]: number }` — per-person scores; display is the average. Legacy `recipe.rating` (single number) is read as a fallback. Individual scores are never surfaced; only the average is shown.
+- **Recipe detail sheet:** hero image (recipe.imageUrl, falls back to remove-on-error), title row with link icon (`recipe.url`) and play icon (`recipe.videoUrl`, when present), meta chips (Prep / Cook when both present, otherwise unlabeled · Serves N · Difficulty), star summary that opens the rating popup, scalable servings stepper, two-column ingredients grid, footer with primary `Start cooking` button (renders when steps or notes present) + secondary `Plan this meal` + `Add to list`.
+- **Cook mode:** full-viewport sheet (`openCookModeSheet`). Steps come from `recipe.steps[]` first, fall back to `parseSteps(recipe.notes)` (splits on newlines, strips bullets). Wake-lock on entry (silent on denial). Step text large, progress dots, Prev/Next, `Show ingredients` toggle reveals a slide-down panel mid-cook. `Done` updates `recipe.lastUsed`.
+- **AI Tools sheet — RECIPES section:** `Import from URL` (opens recipe form with URL field focused), `Import from photo` (opens recipe form and clicks photo picker), `Find ideas online` (8-site bookmark drawer), `What can I make?` (textarea-driven AI suggestions via `recipeSuggest` Worker handler; saved suggestions become stub recipes).
+- **Recipe URL dedup:** on blur of the URL field in the recipe form, normalize the URL (lowercase scheme + host, strip trailing slash + query + hash) and check against existing recipes. Match → confirm-prompt to open existing or save anyway.
+- **Recipe URL import metadata extraction:** the Worker (`handleUrl`) preserves JSON-LD `application/ld+json` blocks before HTML cleanup and asks Claude for `prepTime` / `cookTime` / `totalTime` / `servings` / `difficulty` / `tags` (from `recipeCategory` / `recipeCuisine` / `keywords`) / `videoUrl` (from VideoObject). Client auto-opens the `+ Cook time` and `+ Tags` disclosure chips when imported. Image URLs from time-signed CDNs (TikTok etc.) are converted to permanent data URLs via `urlToDataUrl` on import; a `Refresh image` icon button on the edit form re-fetches via the Worker when an existing recipe's URL has expired. Image failures fall back to the 🍴 placeholder via `onerror`.
+
+**Lists tab:**
+- List-switcher row: list icon + name + `· N left` count chip (active items; `· clear ✓` when all checked; hidden when empty) + `⋮` overflow.
+- `⋮` opens `openListActionsMenu` with six actions: `+ New list`, `Add from staples`, `Rename / change icon`, `Copy as text`, `Clear checked items`, `Delete list` (visually separated as the danger action).
+- Items area: `.card.card--shopping` rows, checkbox in leading slot, strikethrough + sink on check. Category headers hide when the only visible category is `OTHER` (single category) — multi-category lists show all headers.
+- Empty state: `Your list is empty.` + `+ Add from staples` primary CTA (when staples exist) or `Save your basics as staples first` link (when none) + `Or tap the + to add an item.` helper.
+- **Self-healing categorization:** on every `renderItemsArea` call, items with null/empty/`OTHER` category are silently re-categorized via the `categorizeItem` Worker handler. Debounced to one pass per 60s per `activeListId`; capped at 10 items per pass; checked items skipped.
+- FAB: opens inline `Add items…` field (focused). Bulk-add via `openBulkAddSheet`.
+- **AI Tools sheet — LISTS section:** `Auto-categorize` (runs `runListCleanup` — dedup, rename, re-categorize via `cleanList` Worker handler), `Photo → list` (opens photo source picker, runs `photoToList` Worker handler).
+
+**AI Tools sheet — SCHOOL LUNCH section:**
+- `Take photo` / `From gallery` / `Upload file` — feed the existing `schoolLunch` Worker handler; surface a confirm sheet with date + name fields per row; writes to `kitchenPlan/{date}/school-lunch[-2]` via auto-allocation (slot 1 first, slot 2 if taken).
+- `iCal feed` — per-person school-lunch feed setup (URL + sync-now + edit + remove). Schema: `rundown/kitchen/schoolLunchFeeds/{personId}: { url, lastSync, lastError, conflicts? }`. Client-side fetcher in `shared/kitchen-ical.js` (parseIcs + mapEventsToPlan); conflicts surface as a count chip. Also manageable from Admin → AI Imports → "School Lunch Feeds" section, sibling to the existing Calendar Feeds.
+
+**Worker handlers consumed:**
+- `categorize` / `cleanList` / `mergeQty` / `dedupIngredients` — list cleanup primitives
+- `url` / `screenshot` — recipe import (URL or photo)
+- `schoolLunch` — school-lunch menu OCR
+- `photoToList` — list-from-photo OCR
+- `recipeSuggest` — AI 'What can I make?' suggestions
+
+**Kid view:** read-only Tonight's Dinner tile (Dashboard ambient row); optional shopping peek for lists marked kid-visible (future).
 **Kiosk:** prominent tile in kiosk More menu; meals section in day-column view.
 
 ### 6.11 Activities (new page, 1.6)
