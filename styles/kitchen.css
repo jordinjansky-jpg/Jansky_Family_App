@@ -1363,3 +1363,15 @@ button.rl-chip {
   text-align: center;
   padding: var(--spacing-md) 0;
 }
+
+/* Multi-option voting badge — shown next to slot name when >1 option exists */
+.day-block__multi-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-full);
+  padding: 1px 6px;
+}

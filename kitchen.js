@@ -20,7 +20,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderChipPicker, bindChipPicker,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
-import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, generateShareToken } from './shared/utils.js';
+import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, generateShareToken, normalizePlanSlot, pickWinner } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -385,29 +385,37 @@ async function renderMealsTab() {
 
     // Order: planned non-dinner slots (in SLOT_ORDER), then Dinner always last.
     const nonDinnerPlanned = SLOT_ORDER.filter(s => s !== 'dinner' && plan[s]);
-    const dinnerEntry = plan.dinner || null;
+    const dinnerOptions = normalizePlanSlot(plan.dinner);
+    const dinnerWinner = pickWinner(dinnerOptions);
 
     const slotRows = [];
     for (const s of nonDinnerPlanned) {
-      const entry = plan[s];
-      const name = entry.recipeId ? (recipes[entry.recipeId]?.name || 'Unknown') : (entry.mealName || entry.customName || '');
+      const optionsForSlot = normalizePlanSlot(plan[s]);
+      if (optionsForSlot.length === 0) continue;
+      const winner = pickWinner(optionsForSlot);
+      const isMulti = optionsForSlot.length > 1;
+      const rawName = winner.recipeId ? (recipes[winner.recipeId]?.name || 'Unknown') : (winner.mealName || winner.customName || '');
+      const safeName = esc(rawName);
+      const multiBadge = isMulti ? ` <span class="day-block__multi-badge">+${optionsForSlot.length - 1}</span>` : '';
       const label = (s === 'school-lunch' || s === 'school-lunch-2')
         ? getSchoolSlotLabel(s, plan)
         : SLOT_LABELS[s];
       slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
-        ${buildSlotThumb(entry)}
+        ${buildSlotThumb(winner)}
         <span class="day-block__slot-label">${esc(label)}</span>
-        <span class="day-block__slot-name">${esc(name)}</span>
+        <span class="day-block__slot-name">${safeName}${multiBadge}</span>
       </div>`);
     }
 
     // Dinner row — always rendered. Empty state when not planned.
-    if (dinnerEntry) {
-      const dinnerName = dinnerEntry.recipeId ? (recipes[dinnerEntry.recipeId]?.name || 'Unknown') : (dinnerEntry.mealName || dinnerEntry.customName || '');
+    if (dinnerWinner) {
+      const dinnerName = dinnerWinner.recipeId ? (recipes[dinnerWinner.recipeId]?.name || 'Unknown') : (dinnerWinner.mealName || dinnerWinner.customName || '');
+      const dinnerIsMulti = dinnerOptions.length > 1;
+      const dinnerMultiBadge = dinnerIsMulti ? ` <span class="day-block__multi-badge">+${dinnerOptions.length - 1}</span>` : '';
       slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
-        ${buildSlotThumb(dinnerEntry)}
+        ${buildSlotThumb(dinnerWinner)}
         <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
-        <span class="day-block__slot-name">${esc(dinnerName)}</span>
+        <span class="day-block__slot-name">${esc(dinnerName)}${dinnerMultiBadge}</span>
       </div>`);
     } else {
       slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
