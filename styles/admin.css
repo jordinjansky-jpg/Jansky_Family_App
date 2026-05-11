@@ -1508,3 +1508,15 @@
   border-radius: 50%;
   display: inline-block;
 }
+
+/* School lunch feed row badges */
+.sli-err { color: var(--danger); font-size: var(--font-xs); }
+.sli-conflicts-badge {
+  display: inline-block;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--danger);
+  background: var(--surface);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+}
