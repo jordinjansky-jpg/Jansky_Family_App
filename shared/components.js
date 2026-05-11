@@ -2510,10 +2510,18 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
   };
 
   const sheetTitle = personOpts ? 'My Settings' : familyOpts ? 'App Defaults' : 'Device Theme';
-  const html = renderBottomSheet(`<div class="task-detail-sheet">
-    ${richMode
+  // In person mode, the header shows the live avatar (tap to edit). In family/device modes
+  // it stays a flat color picker since there's no person to embody.
+  const headerHtml = personOpts
+    ? `<div class="dt-sheet-header"><h3 class="admin-form__title">${esc(sheetTitle)}</h3>
+        <button class="dt-avatar-trigger" id="dt_avatarBtn" type="button" title="Edit avatar">
+          <span id="dt_avatarPreview">${renderPersonAvatar({ name: personOpts.person?.name, color: currentAccent, initials: personOpts.person?.initials, avatarUrl: personOpts.person?.avatarUrl }, { size: 'md' })}</span>
+        </button></div>`
+    : richMode
       ? `<div class="dt-sheet-header"><h3 class="admin-form__title">${esc(sheetTitle)}</h3>${renderColorButton(currentAccent, 'dt_accentPicker')}</div>`
-      : `<h3 class="admin-form__title">${esc(sheetTitle)}</h3>`}
+      : `<h3 class="admin-form__title">${esc(sheetTitle)}</h3>`;
+  const html = renderBottomSheet(`<div class="task-detail-sheet">
+    ${headerHtml}
     <div class="dt-section">
       <label class="form-label">Theme</label>
       <div class="dt-themes">
@@ -2618,12 +2626,47 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     });
   });
 
-  // Accent color button — sets person.color (person mode), family theme accent (family mode), or device accent
+  // Accent color button — family/device modes only. In person mode, the avatar
+  // trigger replaces it (color is one of three things the avatar owns now).
   initColorButton(mountEl.querySelector('#dt_accentPicker')?.closest('.cpick-wrap'), async (color) => {
     activeAccent = color;
     if (personOpts) personOpts.person.color = color;
     applyAndSave();
   });
+
+  // Person mode: avatar trigger → openAvatarEditor → mirror changes onto the
+  // person record and trigger applyAndSave on each tweak (live).
+  if (personOpts) {
+    const refreshDtAvatar = () => {
+      const slot = mountEl.querySelector('#dt_avatarPreview');
+      if (!slot) return;
+      slot.innerHTML = renderPersonAvatar({
+        name: personOpts.person.name,
+        color: activeAccent,
+        initials: personOpts.person.initials,
+        avatarUrl: personOpts.person.avatarUrl,
+      }, { size: 'md' });
+      applyDataColors(slot);
+    };
+    mountEl.querySelector('#dt_avatarBtn')?.addEventListener('click', () => {
+      openAvatarEditor({
+        initialColor: activeAccent,
+        initialInitials: personOpts.person.initials || '',
+        initialAvatarUrl: personOpts.person.avatarUrl || '',
+        name: personOpts.person.name || '',
+        onChange: ({ color, initials, photo }) => {
+          if (color !== undefined) {
+            activeAccent = color;
+            personOpts.person.color = color;
+          }
+          if (initials !== undefined) personOpts.person.initials = initials || null;
+          if (photo !== undefined) personOpts.person.avatarUrl = photo || null;
+          refreshDtAvatar();
+          applyAndSave();
+        },
+      });
+    });
+  }
 
   // Apply a pref change in two phases so the UI can re-render instantly:
   //   1. Mutate the in-memory object (synchronous) — the dashboard's `settings`

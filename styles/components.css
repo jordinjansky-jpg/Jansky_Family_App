@@ -117,6 +117,17 @@
   margin-bottom: var(--spacing-sm);
 }
 .dt-sheet-header .admin-form__title { margin-bottom: 0; }
+.dt-avatar-trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dt-avatar-trigger:active { transform: scale(0.94); }
 .dt-section {
   margin-bottom: var(--spacing-md);
 }
@@ -1210,8 +1221,9 @@
   background: var(--pill-color);
 }
 
-/* Edge + initial — colored strip + a soft tinted area behind the initial,
-   so the letter sits on a known background instead of the raw cell tint. */
+/* Edge + initial — narrow colored strip with a small initial centered beside it.
+   No background tint — initial sits on the cell. Higher font weight + size +
+   subtle inverse text-shadow give it definition against any cell color. */
 .task-card__avatar-edge--initial {
   --pill-color: var(--person-color, var(--accent));
   width: 28px;
@@ -1222,11 +1234,7 @@
   align-self: stretch;
   flex-shrink: 0;
   position: relative;
-  background: color-mix(in srgb, var(--pill-color) 15%, transparent);
   overflow: hidden;
-}
-[data-theme="dark"] .task-card__avatar-edge--initial {
-  background: color-mix(in srgb, var(--pill-color) 25%, transparent);
 }
 .task-card__avatar-edge--initial::before {
   content: '';
@@ -1234,10 +1242,16 @@
   left: 0; top: 0; bottom: 0;
   width: 4px;
   background: var(--pill-color);
-  z-index: 1;
 }
 .task-card__avatar-edge--initial .task-card__avatar-initial {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--text);
+  /* Inverse halo: light theme uses a soft white halo, dark theme a soft dark one.
+     Keeps the letter legible on any cell tint without painting a background. */
+  text-shadow:
+    0 0 2px var(--surface),
+    0 0 3px var(--surface);
 }
 
 /* ── Time-of-day section header (sections mode + kid page) ── */
