@@ -20,7 +20,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
 import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner } from './shared/utils.js';
-import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
+import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -93,25 +93,6 @@ function formatPrepBucket(prepTimeStr) {
 
 // Worker URL — set when Cloudflare Worker is deployed
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
-
-// Download a remote image URL and convert to a data URL via the existing
-// image resizer. Returns the data URL on success, or the original URL
-// on failure (so save still works even if conversion fails).
-// Used to convert TikTok/CDN time-signed URLs into permanent data URLs.
-async function urlToDataUrl(imageUrl) {
-  if (!imageUrl || imageUrl.startsWith('data:')) return imageUrl;
-  try {
-    const res = await fetch(imageUrl, { mode: 'cors' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const file = new File([blob], 'recipe.jpg', { type: blob.type || 'image/jpeg' });
-    const { base64, mediaType } = await resizeImageForUpload(file, 800);
-    return `data:${mediaType};base64,${base64}`;
-  } catch (err) {
-    console.warn('urlToDataUrl failed:', err);
-    return imageUrl;
-  }
-}
 
 // Activate a sheet: animate it in and close on overlay click
 function activateSheet(mount, onClose) {
