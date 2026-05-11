@@ -2563,7 +2563,7 @@ function renderListsTab() {
       subscribeListItems();
       return;
     }
-    if (e.target.closest('#manageListBtn')) { openManageListSheet(); return; }
+    if (e.target.closest('#manageListBtn')) { openListActionsMenu(); return; }
   });
 
   document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
@@ -2842,10 +2842,7 @@ function openManageListSheet() {
         ${renderColorButton(initialColor, 'km_iconColor')}
       </div>
     </div>
-    <div class="me-detail__chips">
-      <button class="chip" id="km_copyBtn" type="button">Copy list</button>
-      <button class="chip" id="km_clearBtn" type="button">Clear checked</button>
-    </div>`);
+`);
   activateSheet(mount);
   applyDataColors(mount);
 
@@ -2891,21 +2888,6 @@ function openManageListSheet() {
     renderListsTab();
   });
 
-  document.getElementById('km_copyBtn')?.addEventListener('click', () => {
-    copyListAsText();
-    close();
-  });
-
-  document.getElementById('km_clearBtn')?.addEventListener('click', async () => {
-    const confirmed = await showConfirm({ title: 'Remove all checked items?', confirmLabel: 'Clear' });
-    if (!confirmed) return;
-    const checkedCards = document.querySelectorAll('.card--shopping.is-checked');
-    for (const card of checkedCards) {
-      await removeKitchenItem(activeListId, card.dataset.itemId);
-    }
-    close();
-  });
-
   document.getElementById('km_deleteBtn')?.addEventListener('click', async () => {
     const itemCount = document.querySelectorAll('.card--shopping').length;
     const msg = itemCount > 0
@@ -2919,6 +2901,68 @@ function openManageListSheet() {
     if (activeListId) localStorage.setItem('dr-kitchen-active-list', activeListId);
     else localStorage.removeItem('dr-kitchen-active-list');
     close();
+    renderListsTab();
+  });
+}
+
+function openListActionsMenu() {
+  if (!activeListId || !lists[activeListId]) return;
+  const list = lists[activeListId];
+  const mount = document.getElementById('sheetMount');
+  mount.innerHTML = renderBottomSheet(`
+    ${renderFormSheetHeader({ title: `${list.name} actions`, closeId: 'lam_close' })}
+    <div class="lam-actions">
+      <button class="lam-action" id="lam_newList" type="button">+ New list</button>
+      <button class="lam-action" id="lam_staples" type="button">Add from staples</button>
+      <button class="lam-action" id="lam_rename" type="button">Rename / change icon</button>
+      <button class="lam-action" id="lam_copy" type="button">Copy as text</button>
+      <button class="lam-action" id="lam_clear" type="button">Clear checked items</button>
+      <div class="lam-divider"></div>
+      <button class="lam-action lam-action--danger" id="lam_delete" type="button">Delete list</button>
+    </div>
+  `);
+  activateSheet(mount);
+
+  document.getElementById('lam_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  document.getElementById('lam_newList')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openCreateListSheet();
+  });
+  document.getElementById('lam_staples')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openStaplesSheet();
+  });
+  document.getElementById('lam_rename')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openManageListSheet();
+  });
+  document.getElementById('lam_copy')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    copyListAsText();
+  });
+  document.getElementById('lam_clear')?.addEventListener('click', async () => {
+    mount.innerHTML = '';
+    const confirmed = await showConfirm({ title: 'Remove all checked items?', confirmLabel: 'Clear' });
+    if (!confirmed) return;
+    const checkedCards = document.querySelectorAll('.card--shopping.is-checked');
+    for (const card of checkedCards) {
+      await removeKitchenItem(activeListId, card.dataset.itemId);
+    }
+  });
+  document.getElementById('lam_delete')?.addEventListener('click', async () => {
+    mount.innerHTML = '';
+    const itemCount = Object.keys(currentItems || {}).length;
+    const msg = itemCount > 0
+      ? `Delete "${list.name}"? It has ${itemCount} item${itemCount !== 1 ? 's' : ''}.`
+      : `Delete "${list.name}"?`;
+    const confirmed = await showConfirm({ title: msg, confirmLabel: 'Delete', danger: true });
+    if (!confirmed) return;
+    await removeKitchenList(activeListId);
+    delete lists[activeListId];
+    activeListId = Object.keys(lists)[0] || null;
+    if (activeListId) localStorage.setItem('dr-kitchen-active-list', activeListId);
+    else localStorage.removeItem('dr-kitchen-active-list');
     renderListsTab();
   });
 }

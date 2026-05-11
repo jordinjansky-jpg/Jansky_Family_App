@@ -966,3 +966,34 @@ button.rl-chip {
 .list-switcher__count--clear {
   color: var(--accent-ink);
 }
+
+/* ============ List Actions Menu (overflow sheet) ============ */
+.lam-actions {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-sm) 0;
+}
+.lam-action {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px var(--spacing-md);
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: var(--font-md);
+  cursor: pointer;
+}
+.lam-action:hover,
+.lam-action:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+.lam-action--danger {
+  color: var(--danger);
+}
+.lam-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--spacing-sm) 0;
+}
