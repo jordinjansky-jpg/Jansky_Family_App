@@ -48,7 +48,6 @@ Return JSON:
   "cookTime":  "cook time only, short string e.g. '30 min', or null",
   "totalTime": "total time (prep+cook), short string e.g. '45 min', or null. If the source gives only one time, put it here.",
   "servings":  integer number of servings or null,
-  "difficulty": "Easy", "Medium", or "Hard" based on technique complexity, or null,
   "tags": ["array of short lowercase strings (max 6) from recipeCategory/recipeCuisine/keywords; empty array if none"],
   "videoUrl": "URL to the recipe video (YouTube embed, Vimeo, or direct mp4), or null",
   "error": "reason if no recipe at all, else null"
@@ -790,7 +789,6 @@ async function handleUrl(input, env, corsHeaders) {
       cookTime:   parsed.cookTime   || null,
       totalTime:  parsed.totalTime  || null,
       servings:   parsed.servings   || null,
-      difficulty: parsed.difficulty || null,
       tags:       Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6).filter(t => typeof t === 'string' && t.trim()) : [],
       videoUrl:   typeof parsed.videoUrl === 'string' && parsed.videoUrl.startsWith('http') ? parsed.videoUrl : null,
     }, corsHeaders);
@@ -832,7 +830,6 @@ async function handleScreenshot(input, env, corsHeaders) {
       cookTime:   parsed.cookTime   || null,
       totalTime:  parsed.totalTime  || null,
       servings:   parsed.servings   || null,
-      difficulty: parsed.difficulty || null,
       tags:       Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6).filter(t => typeof t === 'string' && t.trim()) : [],
       videoUrl:   typeof parsed.videoUrl === 'string' && parsed.videoUrl.startsWith('http') ? parsed.videoUrl : null,
     }, corsHeaders);

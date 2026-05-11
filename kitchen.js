@@ -164,7 +164,6 @@ let keepAddFieldOpen = false; // true while user is in a multi-item add session
 let recipeFilter = {
   show: 'all',          // 'all' | 'favorites' | 'never-cooked'
   prepBucket: 'any',    // 'any' | 'lt-30' | '30-60' | 'gt-60'
-  difficulty: 'any',    // 'any' | 'Easy' | 'Medium' | 'Hard'
   tags: [],             // [] = no tag filter; else AND across these tag strings
   sort: 'alpha',        // 'alpha' | 'recent' | 'quickest' | 'last-cooked' | 'highest-rated'
 };
@@ -536,11 +535,6 @@ function renderRecipesTab() {
     });
   }
 
-  // DIFFICULTY
-  if (recipeFilter.difficulty !== 'any') {
-    recipeEntries = recipeEntries.filter(([, r]) => r.difficulty === recipeFilter.difficulty);
-  }
-
   // TAGS (AND across selected tags)
   if (recipeFilter.tags?.length) {
     recipeEntries = recipeEntries.filter(([, r]) => {
@@ -580,7 +574,6 @@ function renderRecipesTab() {
   const filterCount =
     (recipeFilter.show !== 'all'         ? 1 : 0) +
     (recipeFilter.prepBucket !== 'any'   ? 1 : 0) +
-    (recipeFilter.difficulty !== 'any'   ? 1 : 0) +
     (recipeFilter.tags?.length           ? 1 : 0) +
     (recipeFilter.sort !== 'alpha'       ? 1 : 0);
   const filterLabel = filterCount > 0 ? `Filter & Sort · ${filterCount}` : 'Filter & Sort';
@@ -596,7 +589,7 @@ function renderRecipesTab() {
     }
     // Library has recipes but the filter/search yields zero.
     const hasSearch = !!recipeSearchQuery.trim();
-    const hasFilter = (recipeFilter.show !== 'all' || recipeFilter.prepBucket !== 'any' || recipeFilter.difficulty !== 'any' || recipeFilter.tags?.length);
+    const hasFilter = (recipeFilter.show !== 'all' || recipeFilter.prepBucket !== 'any' || recipeFilter.tags?.length);
     const title = 'No recipes match';
     let body;
     if (hasSearch && hasFilter) body = 'Try clearing the search or adjusting filters.';
@@ -636,7 +629,6 @@ function renderRecipesTab() {
     recipeFilter = {
       show: 'all',
       prepBucket: 'any',
-      difficulty: 'any',
       tags: [],
       sort: 'alpha',
     };
@@ -695,6 +687,7 @@ function resolveSchoolSlot(dateKey) {
 
 function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   const appendMode = opts.appendMode === true;
+  const preServings = (typeof opts.servings === 'number' && opts.servings > 0) ? opts.servings : null;
   const mount = document.getElementById('sheetMount');
   let selectedRecipeId = preRecipeId;
   let secondOpen = false;
@@ -942,6 +935,10 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       } else {
         firstData = { customName: typed, source: 'manual' };
       }
+    }
+    // Carry user-adjusted servings from the recipe detail's calculator (only when this recipe was prefilled).
+    if (preServings && selectedRecipeId === preRecipeId) {
+      firstData.servings = preServings;
     }
     // If appendMode and the slot already has options, append (with 3-option cap).
     const existingOptions = normalizePlanSlot(planCache[day]?.[concreteSlot]);
@@ -1401,29 +1398,33 @@ function openRecipeDetailSheet(recipeId) {
     ).join('');
   }
 
-  function buildServingsRow() {
-    if (!baseServings) return '';
-    return `
+  function buildTimesAndServings() {
+    const prepMins = formatPrepBucket(recipe.prepTime);
+    const cookMins = formatPrepBucket(recipe.cookTime);
+    const totalMins = (prepMins || 0) + (cookMins || 0);
+    const fmt = (m) => {
+      if (!m) return '';
+      if (m < 60) return `${m} min`;
+      const h = Math.floor(m / 60); const r = m % 60;
+      return r > 0 ? `${h} hr ${r} min` : `${h} hr`;
+    };
+    const cells = [];
+    if (recipe.prepTime) cells.push(`<div class="rd-time-cell"><span class="rd-time-label">Prep</span><span class="rd-time-val">${esc(recipe.prepTime)}</span></div>`);
+    if (recipe.cookTime) cells.push(`<div class="rd-time-cell"><span class="rd-time-label">Cook</span><span class="rd-time-val">${esc(recipe.cookTime)}</span></div>`);
+    if (prepMins && cookMins) cells.push(`<div class="rd-time-cell rd-time-cell--total"><span class="rd-time-label">Total</span><span class="rd-time-val">${esc(fmt(totalMins))}</span></div>`);
+    const timesHtml = cells.length ? `<div class="rd-times">${cells.join('')}</div>` : '';
+    const servingsHtml = baseServings ? `
       <div class="rd-servings-row">
-        <span class="rd-servings-label">Ingredients</span>
+        <span class="rd-servings-label">Servings</span>
         <div class="rd-serves-stepper">
           <button class="rd-stepper-btn" id="rdServingsDown" type="button" aria-label="Fewer servings">−</button>
           <span class="rd-stepper-val" id="rdServingsVal">${currentServings}</span>
           <span class="rd-stepper-unit">servings</span>
           <button class="rd-stepper-btn" id="rdServingsUp" type="button" aria-label="More servings">+</button>
         </div>
-      </div>`;
-  }
-
-  function buildMetaChips() {
-    // Label prep / cook explicitly only when both are present, to disambiguate.
-    const bothTimes = recipe.prepTime && recipe.cookTime;
-    return [
-      recipe.prepTime   ? `<span class="rd-meta-chip">${bothTimes ? 'Prep ' : ''}${esc(recipe.prepTime)}</span>` : '',
-      recipe.cookTime   ? `<span class="rd-meta-chip">${bothTimes ? 'Cook ' : ''}${esc(recipe.cookTime)}</span>` : '',
-      baseServings      ? `<span class="rd-meta-chip">Serves ${baseServings}</span>` : '',
-      recipe.difficulty ? `<span class="rd-meta-chip">${esc(recipe.difficulty)}</span>` : '',
-    ].filter(Boolean).join('');
+      </div>` : '';
+    if (!timesHtml && !servingsHtml) return '';
+    return `<div class="rd-times-block">${timesHtml}${servingsHtml}</div>`;
   }
 
   function buildStars() {
@@ -1443,7 +1444,7 @@ function openRecipeDetailSheet(recipeId) {
   const hasIngredients = (recipe.ingredients?.length || 0) > 0;
 
   function render() {
-    const metaChips = buildMetaChips();
+    const timesBlock = buildTimesAndServings();
     mount.innerHTML = renderBottomSheet(`
       ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="this.parentElement.remove()"/></div>` : ''}
       <div class="sheet__header">
@@ -1456,7 +1457,7 @@ function openRecipeDetailSheet(recipeId) {
           <button class="ef2-icon-btn" id="closeRecipeDetail" aria-label="Close" type="button">${CLOSE_SVG}</button>
         </div>
       </div>
-      ${metaChips ? `<div class="rd-meta">${metaChips}</div>` : ''}
+      ${timesBlock}
       <div class="rd-source-row">
         ${sourceDomain ? `<span class="rd-source">from ${esc(sourceDomain)}</span>` : '<span></span>'}
         <div class="rd-stars">${buildStars()}</div>
@@ -1468,8 +1469,7 @@ function openRecipeDetailSheet(recipeId) {
         </details>` : ''}
       ${hasIngredients ? `
         <div class="me-detail__section">
-          ${buildServingsRow()}
-          ${!baseServings ? '<span class="me-detail__section-label">Ingredients</span>' : ''}
+          <span class="me-detail__section-label">Ingredients</span>
           <div class="rd-ingredients" id="rdIngredients">${buildIngredientRows()}</div>
         </div>` : ''}
       <div class="sheet__footer">
@@ -1504,7 +1504,7 @@ function openRecipeDetailSheet(recipeId) {
     document.getElementById('planThisMealBtn')?.addEventListener('click', () => {
       close();
       const tz = settings?.timezone || 'America/Chicago';
-      openPlanMealSheet(todayKey(tz), 'dinner', recipeId);
+      openPlanMealSheet(todayKey(tz), 'dinner', recipeId, { servings: currentServings });
     });
 
     document.getElementById('startCookingBtn')?.addEventListener('click', () => {
@@ -1845,7 +1845,6 @@ function openRecipeFilterSheet() {
   const work = {
     show: recipeFilter.show,
     prepBucket: recipeFilter.prepBucket,
-    difficulty: recipeFilter.difficulty,
     tags: [...(recipeFilter.tags || [])],
     sort: recipeFilter.sort,
   };
@@ -1860,12 +1859,6 @@ function openRecipeFilterSheet() {
     { v: 'lt-30', l: '< 30 min' },
     { v: '30-60', l: '30–60 min' },
     { v: 'gt-60', l: '> 60 min' },
-  ];
-  const diffOpts = [
-    { v: 'any',    l: 'Any' },
-    { v: 'Easy',   l: 'Easy' },
-    { v: 'Medium', l: 'Medium' },
-    { v: 'Hard',   l: 'Hard' },
   ];
   const sortOpts = [
     { v: 'alpha',          l: 'A–Z' },
@@ -1901,10 +1894,6 @@ function openRecipeFilterSheet() {
       <div class="filter-chips">${chipRow(prepOpts, 'prepBucket')}</div>
     </div>
     <div class="filter-section">
-      <div class="filter-section__label">DIFFICULTY</div>
-      <div class="filter-chips">${chipRow(diffOpts, 'difficulty')}</div>
-    </div>
-    <div class="filter-section">
       <div class="filter-section__label">TAGS</div>
       <div class="filter-chips" id="rfTags">${tagsHtml()}</div>
     </div>
@@ -1916,7 +1905,7 @@ function openRecipeFilterSheet() {
   `);
   activateSheet(mount);
 
-  // Single-select chip groups (show / prepBucket / difficulty / sort)
+  // Single-select chip groups (show / prepBucket / sort)
   mount.querySelectorAll('[data-rf-key]').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.rfKey;
@@ -2517,7 +2506,6 @@ function openRecipeForm(recipeId, onSave = null) {
   let imageUrl = existing?.imageUrl || '';
   let videoUrl = existing?.videoUrl || '';
   const tagsOpen = existing?.tags?.length ? ' is-open' : '';
-  const cookTimeOpen = existing?.cookTime ? ' is-open' : '';
   const stepsOpen = (existing?.steps?.length) ? ' is-open' : '';
 
   function normalizeRecipeUrl(url) {
@@ -2593,18 +2581,14 @@ function openRecipeForm(recipeId, onSave = null) {
           value="${esc(existing?.prepTime || '')}" autocomplete="off">
       </label>
       <label class="field">
+        <span class="field__label">Cook time</span>
+        <input id="recipeCookTime" type="text" class="field__input" placeholder="45 min"
+          value="${esc(existing?.cookTime || '')}" autocomplete="off">
+      </label>
+      <label class="field">
         <span class="field__label">Serves</span>
         <input id="recipeServings" type="number" inputmode="numeric" class="field__input" min="1" max="99" placeholder="4"
           value="${existing?.servings || ''}" autocomplete="off">
-      </label>
-      <label class="field">
-        <span class="field__label">Difficulty</span>
-        ${renderChipPicker({
-          pickerId: 'recipeDifficultyPicker',
-          hiddenId: 'recipeDifficulty',
-          options: [{ value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }],
-          value: existing?.difficulty || '',
-        })}
       </label>
     </div>
 
@@ -2630,7 +2614,6 @@ function openRecipeForm(recipeId, onSave = null) {
 
     <div class="ef2-secondary-row">
       <button class="ef2-add-chip${tagsOpen ? ' is-active' : ''}" id="kr_tagsChip" type="button">+ Tags</button>
-      <button class="ef2-add-chip${cookTimeOpen ? ' is-active' : ''}" id="kr_cookTimeChip" type="button">+ Cook time</button>
       <button class="ef2-add-chip${stepsOpen ? ' is-active' : ''}" id="kr_stepsChip" type="button">+ Steps</button>
     </div>
 
@@ -2639,14 +2622,6 @@ function openRecipeForm(recipeId, onSave = null) {
         <span class="field__label">Tags</span>
         <input id="recipeTags" type="text" class="field__input" placeholder="Italian, quick, vegetarian…"
           value="${esc((existing?.tags || []).join(', '))}" autocomplete="off">
-      </label>
-    </div>
-
-    <div class="ef2-field-reveal${cookTimeOpen}" id="kr_cookTimeReveal">
-      <label class="field">
-        <span class="field__label">Cook time</span>
-        <input id="recipeCookTime" type="text" class="field__input" placeholder="45 min"
-          value="${esc(existing?.cookTime || '')}" autocomplete="off">
       </label>
     </div>
 
@@ -2665,10 +2640,7 @@ function openRecipeForm(recipeId, onSave = null) {
     e.target.style.height = '0'; e.target.style.height = e.target.scrollHeight + 'px';
   });
 
-  // Difficulty chip picker
-  bindChipPicker({ pickerId: 'recipeDifficultyPicker', hiddenId: 'recipeDifficulty' });
-
-  // Tags / Cook time disclosure chips
+  // Tags / Steps disclosure chips
   document.getElementById('kr_tagsChip')?.addEventListener('click', () => {
     const chip = document.getElementById('kr_tagsChip');
     const reveal = document.getElementById('kr_tagsReveal');
@@ -2676,14 +2648,6 @@ function openRecipeForm(recipeId, onSave = null) {
     reveal.classList.toggle('is-open');
     chip.classList.toggle('is-active', opening);
     if (opening) document.getElementById('recipeTags')?.focus();
-  });
-  document.getElementById('kr_cookTimeChip')?.addEventListener('click', () => {
-    const chip = document.getElementById('kr_cookTimeChip');
-    const reveal = document.getElementById('kr_cookTimeReveal');
-    const opening = !reveal.classList.contains('is-open');
-    reveal.classList.toggle('is-open');
-    chip.classList.toggle('is-active', opening);
-    if (opening) document.getElementById('recipeCookTime')?.focus();
   });
   document.getElementById('kr_stepsChip')?.addEventListener('click', () => {
     const reveal = document.getElementById('kr_stepsReveal');
@@ -2790,23 +2754,10 @@ function openRecipeForm(recipeId, onSave = null) {
       const prepFallback = data.prepTime || data.totalTime;
       if (prepFallback && !document.getElementById('recipePrepTime')?.value)
         document.getElementById('recipePrepTime').value = prepFallback;
-      if (data.cookTime && !document.getElementById('recipeCookTime')?.value) {
+      if (data.cookTime && !document.getElementById('recipeCookTime')?.value)
         document.getElementById('recipeCookTime').value = data.cookTime;
-        // Open the +Cook time disclosure chip so the user sees what was imported.
-        document.getElementById('kr_cookTimeChip')?.classList.add('is-active');
-        document.getElementById('kr_cookTimeReveal')?.classList.add('is-open');
-      }
       if (data.servings && !document.getElementById('recipeServings')?.value)
         document.getElementById('recipeServings').value = data.servings;
-      if (data.difficulty && !document.getElementById('recipeDifficulty')?.value) {
-        document.getElementById('recipeDifficulty').value = data.difficulty;
-        // Sync chip-picker visual state since setting hidden input value alone
-        // doesn't update the chips. Match by data-val.
-        const picker = document.getElementById('recipeDifficultyPicker');
-        picker?.querySelectorAll('.tab').forEach(t => {
-          t.classList.toggle('is-active', t.dataset.val === data.difficulty);
-        });
-      }
       if (data.tags?.length && !document.getElementById('recipeTags')?.value) {
         document.getElementById('recipeTags').value = data.tags.join(', ');
         // Open the +Tags disclosure chip so the imported tags are visible.
@@ -3020,7 +2971,6 @@ function openRecipeForm(recipeId, onSave = null) {
       prepTime: document.getElementById('recipePrepTime')?.value.trim() || null,
       cookTime: document.getElementById('recipeCookTime')?.value.trim() || null,
       servings: parseInt(document.getElementById('recipeServings')?.value, 10) || null,
-      difficulty: document.getElementById('recipeDifficulty')?.value || null,
       tags: tags.length ? tags : null,
       steps: steps.length ? steps : null,
       imageUrl: imageUrl || null,
