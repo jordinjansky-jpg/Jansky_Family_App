@@ -19,7 +19,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderChipPicker, bindChipPicker,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
-import { todayKey, escapeHtml, formatLastCooked } from './shared/utils.js';
+import { todayKey, escapeHtml, formatLastCooked, avgRating } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -94,6 +94,25 @@ function formatPrepBucket(prepTimeStr) {
 // Worker URL — set when Cloudflare Worker is deployed
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
+// Download a remote image URL and convert to a data URL via the existing
+// image resizer. Returns the data URL on success, or the original URL
+// on failure (so save still works even if conversion fails).
+// Used to convert TikTok/CDN time-signed URLs into permanent data URLs.
+async function urlToDataUrl(imageUrl) {
+  if (!imageUrl || imageUrl.startsWith('data:')) return imageUrl;
+  try {
+    const res = await fetch(imageUrl, { mode: 'cors' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const file = new File([blob], 'recipe.jpg', { type: blob.type || 'image/jpeg' });
+    const { base64, mediaType } = await resizeImageForUpload(file, 800);
+    return `data:${mediaType};base64,${base64}`;
+  } catch (err) {
+    console.warn('urlToDataUrl failed:', err);
+    return imageUrl;
+  }
+}
+
 // Activate a sheet: animate it in and close on overlay click
 function activateSheet(mount, onClose) {
   requestAnimationFrame(() => {
@@ -135,6 +154,7 @@ initFirebase();
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let settings, people = [];
+let linkedPerson = null; // resolved from ?person=Name query param
 let recipes = {}, lists = {}, staples = {}, planCache = {};
 let activeTab = localStorage.getItem('dr-kitchen-tab') || 'meals';
 let activeListId = null;
@@ -156,6 +176,12 @@ async function init() {
     readSettings().catch(() => null),
     readPeople().then(obj => obj ? Object.entries(obj).map(([id, p]) => ({ id, ...p })) : []),
   ]);
+
+  // Resolve ?person=Name query param
+  const personParam = new URLSearchParams(window.location.search).get('person');
+  if (personParam) {
+    linkedPerson = people.find(p => p.name.toLowerCase() === personParam.toLowerCase()) || null;
+  }
 
   // Phase 2: apply family theme from Firebase
   applyTheme(resolveTheme(settings?.theme));
@@ -432,19 +458,24 @@ async function renderMealsTab() {
 function renderRecipesTab() {
   function buildRecipeCardThumb(recipe) {
     if (recipe?.imageUrl) {
-      return `<img class="rl-card-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy">`;
+      // onerror swaps the broken img for the placeholder span when the
+      // URL fails to load (TikTok CDN URLs are time-signed and expire).
+      return `<img class="rl-card-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy" onerror="this.outerHTML='&lt;span class=&quot;rl-card-thumb rl-card-thumb--placeholder&quot; aria-hidden=&quot;true&quot;&gt;\\ud83c\\udf74&lt;/span&gt;'">`;
     }
     return `<span class="rl-card-thumb rl-card-thumb--placeholder" aria-hidden="true">🍴</span>`;
   }
 
   function buildRecipeCardChips(recipe) {
-    const ratingValue = recipe?.rating || 0;
+    const { avg } = avgRating(recipe, linkedPerson?.id);
+    const STAR_FILLED_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>`;
+    const STAR_EMPTY_SVG  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>`;
+
     let ratingChip;
-    if (ratingValue > 0) {
-      const stars = '★★★★★'.slice(0, ratingValue) + '☆☆☆☆☆'.slice(0, 5 - ratingValue);
-      ratingChip = `<span class="rl-chip rl-chip--rating">${stars}</span>`;
+    if (avg != null) {
+      const num = Number.isInteger(avg) ? `${avg}.0` : avg.toFixed(1);
+      ratingChip = `<button class="rl-chip rl-chip--rating" data-rate-recipe type="button" aria-label="Rating ${num} of 5">${STAR_FILLED_SVG}<span>${esc(num)}</span></button>`;
     } else {
-      ratingChip = `<span class="rl-chip rl-chip--unrated">Not rated</span>`;
+      ratingChip = `<button class="rl-chip rl-chip--unrated" data-rate-recipe type="button" aria-label="Not yet rated — tap to rate">${STAR_EMPTY_SVG}</button>`;
     }
     const prepChip = recipe?.prepTime ? `<span class="rl-chip">${esc(recipe.prepTime)}</span>` : '';
     const tz = settings?.timezone || 'America/Chicago';
@@ -453,7 +484,7 @@ function renderRecipesTab() {
     return [ratingChip, prepChip, lastChip].filter(Boolean).join('<span class="rl-chip-sep">·</span>');
   }
 
-  function buildRecipeCard(id, r, linkIcon, starFilled, starEmpty) {
+  function buildRecipeCard(id, r) {
     return `
       <article class="card rl-recipe-card" data-recipe-id="${esc(id)}">
         ${buildRecipeCardThumb(r)}
@@ -462,10 +493,6 @@ function renderRecipesTab() {
           <div class="rl-card-chips">${buildRecipeCardChips(r)}</div>
         </div>
         <div class="rl-card-actions">
-          <button class="btn-icon rl-fav-btn${r.isFavorite ? ' is-fav' : ''}"
-            data-fav-recipe="${esc(id)}" type="button" aria-label="${r.isFavorite ? 'Unfavorite' : 'Favorite'}">
-            ${r.isFavorite ? starFilled : starEmpty}
-          </button>
           ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"
               class="btn-icon" aria-label="Open recipe link" data-recipe-link="${esc(id)}">${linkIcon}</a>` : ''}
         </div>
@@ -476,8 +503,11 @@ function renderRecipesTab() {
   let recipeEntries = Object.entries(recipes);
 
   // SHOW
-  if (recipeFilter.show === 'favorites') {
-    recipeEntries = recipeEntries.filter(([, r]) => r.isFavorite);
+  if (recipeFilter.show === 'top-rated') {
+    recipeEntries = recipeEntries.filter(([, r]) => {
+      const { avg } = avgRating(r, linkedPerson?.id);
+      return avg != null && avg >= 4.0;
+    });
   } else if (recipeFilter.show === 'never-cooked') {
     recipeEntries = recipeEntries.filter(([, r]) => !r.lastUsed);
   }
@@ -533,8 +563,6 @@ function renderRecipesTab() {
   });
 
   const linkIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
-  const starFilled = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-  const starEmpty = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
   const filterCount =
     (recipeFilter.show !== 'all'         ? 1 : 0) +
@@ -546,7 +574,7 @@ function renderRecipesTab() {
 
   const recipeLibHtml = (() => {
     if (recipeEntries.length > 0) {
-      return recipeEntries.map(([id, r]) => buildRecipeCard(id, r, linkIcon, starFilled, starEmpty)).join('');
+      return recipeEntries.map(([id, r]) => buildRecipeCard(id, r)).join('');
     }
     const totalCount = Object.keys(recipes).length;
     if (totalCount === 0) {
@@ -626,19 +654,18 @@ function renderRecipesTab() {
       card,
       () => openRecipeForm(id),
       (e) => {
-        if (e.target.closest('[data-recipe-link]') || e.target.closest('[data-fav-recipe]')) return;
+        if (e.target.closest('[data-recipe-link]') || e.target.closest('[data-rate-recipe]')) return;
         openRecipeDetailSheet(id);
       }
     );
   });
 
-  content.querySelectorAll('[data-fav-recipe]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.favRecipe;
-      const newFav = !recipes[id]?.isFavorite;
-      recipes[id] = { ...recipes[id], isFavorite: newFav };
-      await writeKitchenRecipe(id, { ...recipes[id] });
-      renderRecipesTab();
+  content.querySelectorAll('[data-rate-recipe]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('[data-recipe-id]');
+      const id = card?.dataset.recipeId;
+      if (id) openRecipeRatingSheet(id);
     });
   });
 }
@@ -685,6 +712,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null) {
   function buildRecipeRows(filter) {
     const lc = filter?.toLowerCase() || '';
     const all = Object.entries(recipes).sort((a, b) => {
+      // Legacy isFavorite sort — field no longer exposed by rating UI but retained for backward compatibility
       if (a[1].isFavorite !== b[1].isFavorite) return a[1].isFavorite ? -1 : 1;
       return a[1].name.localeCompare(b[1].name);
     });
@@ -1030,10 +1058,18 @@ function openRecipeDetailSheet(recipeId) {
     ].filter(Boolean).join('');
   }
 
-  function buildStars(current) {
-    return Array.from({ length: 5 }, (_, i) =>
-      `<button class="rd-star${i < current ? ' rd-star--filled' : ''}" data-star="${i + 1}" type="button" aria-label="${i + 1} star">★</button>`
-    ).join('');
+  function buildStars() {
+    const { avg } = avgRating(recipe, linkedPerson?.id);
+    if (avg == null) {
+      return `<button class="rd-stars-btn rd-stars-btn--empty" id="rdStarsBtn" type="button" aria-label="Not rated — tap to rate"><span class="rd-stars-empty">☆☆☆☆☆</span></button>`;
+    }
+    const numText = Number.isInteger(avg) ? `${avg}.0` : avg.toFixed(1);
+    // Render avg as half-precision visual + numeric
+    const fullStars = Math.floor(avg);
+    const hasHalf = (avg - fullStars) >= 0.5;
+    const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
+    const visual = '★'.repeat(fullStars) + (hasHalf ? '½' : '') + '☆'.repeat(emptyStars);
+    return `<button class="rd-stars-btn" id="rdStarsBtn" type="button" aria-label="Rating ${numText} of 5 — tap to rate"><span class="rd-stars-visual">${visual}</span><span class="rd-stars-num">${esc(numText)}</span></button>`;
   }
 
   const hasIngredients = (recipe.ingredients?.length || 0) > 0;
@@ -1041,7 +1077,7 @@ function openRecipeDetailSheet(recipeId) {
   function render() {
     const metaChips = buildMetaChips();
     mount.innerHTML = renderBottomSheet(`
-      ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy"/></div>` : ''}
+      ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="this.parentElement.remove()"/></div>` : ''}
       <div class="sheet__header">
         <h2 class="sheet__title">${esc(recipe.name)}</h2>
         <div class="rf-header-actions">
@@ -1054,7 +1090,7 @@ function openRecipeDetailSheet(recipeId) {
       ${metaChips ? `<div class="rd-meta">${metaChips}</div>` : ''}
       <div class="rd-source-row">
         ${sourceDomain ? `<span class="rd-source">from ${esc(sourceDomain)}</span>` : '<span></span>'}
-        <div class="rd-stars" id="rdStars">${buildStars(recipe.rating || 0)}</div>
+        <div class="rd-stars">${buildStars()}</div>
       </div>
       ${recipe.notes ? `
         <details class="rd-chef-notes" open>
@@ -1090,15 +1126,9 @@ function openRecipeDetailSheet(recipeId) {
       document.getElementById('rdIngredients').innerHTML = buildIngredientRows();
     });
 
-    document.getElementById('rdStars')?.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-star]');
-      if (!btn) return;
-      const star = parseInt(btn.dataset.star, 10);
-      const newRating = recipe.rating === star ? 0 : star;
-      recipe.rating = newRating;
-      recipes[recipeId] = recipe;
-      document.getElementById('rdStars').innerHTML = buildStars(newRating);
-      await writeKitchenRecipe(recipeId, { ...recipe });
+    document.getElementById('rdStarsBtn')?.addEventListener('click', () => {
+      close();
+      openRecipeRatingSheet(recipeId);
     });
 
     document.getElementById('planThisMealBtn')?.addEventListener('click', () => {
@@ -1264,6 +1294,76 @@ function openFindRecipesSheet() {
   activateSheet(mount);
   document.getElementById('closeFindRecipes')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
+function openRecipeRatingSheet(recipeId) {
+  const recipe = recipes[recipeId];
+  if (!recipe) return;
+  const mount = document.getElementById('sheetMount');
+
+  if (!linkedPerson) {
+    showToast('Open this page from your personal link to rate recipes');
+    return;
+  }
+
+  const viewerId = linkedPerson.id;
+  let myRating = (recipe.ratings && recipe.ratings[viewerId]) || 0;
+
+  function renderStars(value) {
+    // 5 star slots, each with two tap zones (half / full).
+    return Array.from({ length: 5 }, (_, i) => {
+      const star = i + 1;
+      const filled = value >= star ? 'full' : (value >= star - 0.5 ? 'half' : 'empty');
+      return `
+        <span class="rrs-star rrs-star--${filled}">
+          <button class="rrs-star__half rrs-star__half--left" data-rrs-val="${star - 0.5}" type="button" aria-label="${star - 0.5} stars"></button>
+          <button class="rrs-star__half rrs-star__half--right" data-rrs-val="${star}" type="button" aria-label="${star} stars"></button>
+          <span class="rrs-star__glyph">★</span>
+        </span>`;
+    }).join('');
+  }
+
+  function render() {
+    mount.innerHTML = renderBottomSheet(`
+      ${renderFormSheetHeader({ title: `Rate ${recipe.name}`, closeId: 'rrs_close' })}
+      <div class="rrs-body">
+        <div class="rrs-stars" id="rrsStars">${renderStars(myRating)}</div>
+        <div class="rrs-helper">${myRating ? `Your rating: ${myRating}` : 'Tap a star to rate'}</div>
+      </div>
+      <div class="rrs-footer">
+        ${myRating ? `<button class="btn btn--ghost" id="rrsClear" type="button">Remove my rating</button>` : ''}
+      </div>
+    `);
+    activateSheet(mount);
+    bindStars();
+    document.getElementById('rrs_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    document.getElementById('rrsClear')?.addEventListener('click', async () => {
+      myRating = 0;
+      const ratings = { ...(recipe.ratings || {}) };
+      delete ratings[viewerId];
+      recipes[recipeId] = { ...recipe, ratings };
+      await writeKitchenRecipe(recipeId, { ...recipes[recipeId] });
+      mount.innerHTML = '';
+      renderActiveTab();
+      showToast('Rating removed');
+    });
+  }
+
+  function bindStars() {
+    mount.querySelectorAll('[data-rrs-val]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const val = parseFloat(btn.dataset.rrsVal);
+        myRating = val;
+        const ratings = { ...(recipe.ratings || {}), [viewerId]: val };
+        recipes[recipeId] = { ...recipe, ratings };
+        await writeKitchenRecipe(recipeId, { ...recipes[recipeId] });
+        mount.innerHTML = '';
+        renderActiveTab();
+        showToast('Rating saved');
+      });
+    });
+  }
+
+  render();
+}
 function openRecipeFilterSheet() {
   const mount = document.getElementById('sheetMount');
 
@@ -1288,7 +1388,7 @@ function openRecipeFilterSheet() {
 
   const showOpts = [
     { v: 'all',          l: 'All' },
-    { v: 'favorites',    l: 'Favorites' },
+    { v: 'top-rated',    l: 'Top rated' },
     { v: 'never-cooked', l: 'Never cooked' },
   ];
   const prepOpts = [
@@ -1978,6 +2078,9 @@ function openRecipeForm(recipeId, onSave = null) {
       <button class="ef2-icon-btn" id="kr_photo" type="button" aria-label="Import from photo">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
+      ${(existing?.imageUrl && !existing.imageUrl.startsWith('data:')) ? `<button class="ef2-icon-btn" id="kr_refreshImage" type="button" aria-label="Refresh image (current URL may have expired)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+      </button>` : ''}
     </div>
 
     <div class="kr-section kr-meta-row">
@@ -2156,7 +2259,16 @@ function openRecipeForm(recipeId, onSave = null) {
       if (data.notes && !document.getElementById('recipeNotes').value) {
         document.getElementById('recipeNotes').value = data.notes;
       }
-      if (data.imageUrl && !imageUrl) imageUrl = data.imageUrl;
+      if (data.imageUrl && !imageUrl) {
+        imageUrl = data.imageUrl;
+        // Fire-and-forget persistence: convert the (likely time-signed) URL
+        // to a data URL so it survives expiration. Updates `imageUrl` in
+        // place; the save handler will pick up the data URL when the user
+        // submits the form.
+        urlToDataUrl(data.imageUrl).then(persistent => {
+          if (persistent && persistent !== data.imageUrl) imageUrl = persistent;
+        }).catch(() => { /* keep remote URL as fallback */ });
+      }
       if (data.prepTime && !document.getElementById('recipePrepTime')?.value)
         document.getElementById('recipePrepTime').value = data.prepTime;
       if (data.servings && !document.getElementById('recipeServings')?.value)
@@ -2287,6 +2399,24 @@ function openRecipeForm(recipeId, onSave = null) {
     });
   });
 
+  document.getElementById('kr_refreshImage')?.addEventListener('click', async () => {
+    const btn = document.getElementById('kr_refreshImage');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+    const current = existing?.imageUrl;
+    if (!current) return;
+    try {
+      const fresh = await urlToDataUrl(current);
+      if (fresh && fresh !== current) {
+        imageUrl = fresh;
+        showToast('Image refreshed — Save to keep');
+      } else {
+        showToast('Could not refresh image');
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    }
+  });
+
   document.getElementById('kr_save')?.addEventListener('click', async () => {
     const name = document.getElementById('recipeName')?.value.trim();
     if (!name) {
@@ -2304,7 +2434,6 @@ function openRecipeForm(recipeId, onSave = null) {
       notes: document.getElementById('recipeNotes')?.value.trim() || null,
       source: existing?.source || 'manual',
       ingredients,
-      isFavorite: existing?.isFavorite || false,
       lastUsed: existing?.lastUsed || null,
       prepTime: document.getElementById('recipePrepTime')?.value.trim() || null,
       cookTime: document.getElementById('recipeCookTime')?.value.trim() || null,
