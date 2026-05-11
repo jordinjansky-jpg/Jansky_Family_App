@@ -46,8 +46,6 @@ One-page "this week" PDF for the fridge — kids physically check off as the wee
 **Reading log** · No deps · Cost: $0
 Per-kid reading minutes. Daily check-in, weekly streak, monthly leaderboard. Schema: `rundown/reading/{personId}/{YYYY-MM-DD}: minutes`. Could integrate with Activities later (in MEDIUM) but ships standalone first.
 
-**Form Polish parking lot** — 2 remaining items from the 2026-05-09 form review (custom badge SVG icons + badge two-step wizard). Full list at the bottom of this file.
-
 ---
 
 ## MEDIUM
@@ -120,15 +118,6 @@ Family members opt-in share location. Map view shows where everyone is. Could in
 
 ---
 
-## Form Polish parking lot
-
-**Context:** Form review on 2026-05-09 ([superpowers/specs/2026-05-09-form-review.md](superpowers/specs/2026-05-09-form-review.md)) surfaced both polish gaps AND feature-shaped items. The polish work shipped via the Form System Initiative. The items below are the last two that haven't shipped yet — each is low-effort polish on the badge form.
-
-- **Custom badge icons (SVG)** · Medium · Small library of built-in SVG icons (trophy, star, fire, lightning, leaf, etc.) plus optional upload. Replaces or augments the current emoji-only badge identity. Adds real visual differentiation between badges.
-- **Badge two-step wizard** · Medium · Step 1: name + icon. Step 2: trigger + reward. Reduces cognitive load on a dense form.
-
----
-
 ## Explicitly passed (not coming back to roadmap)
 
 Items considered and dropped. Listed so they don't accidentally creep back in.
@@ -139,7 +128,9 @@ Items considered and dropped. Listed so they don't accidentally creep back in.
 - Babysitter mode, audio messages, packing lists (out of current scope)
 - Family quick-select chip on Task/Event forms (takes space, rarely needed)
 - Recipe image preview in form (not needed)
-- Badge preview card and Reward shop-card preview (low value — replaced by Custom badge SVG icons)
+- Badge preview card and Reward shop-card preview (low value)
+- Custom badge SVG icons (emoji works; differentiation comes from name + description, not vector vs emoji)
+- Badge two-step wizard (after the form-polish labels + trigger hint, the single screen scans in 2 seconds; wizard would add friction)
 - Pricing-help calc extended to Task points (now behind the scenes)
 - Meal Plan default-list extension (keep form short)
 - Recipe form name-above-link reorder (most recipes added via URL)
