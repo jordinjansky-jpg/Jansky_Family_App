@@ -518,18 +518,27 @@ button.rl-chip {
 }
 
 .rd-stars-visual {
-  font-size: 20px;
-  letter-spacing: 1px;
+  display: inline-flex;
+  gap: 1px;
 }
 
 .rd-stars-num {
   font-size: var(--font-sm);
 }
 
-.rd-stars-empty {
-  font-size: 20px;
-  letter-spacing: 1px;
+/* Individual star glyph — full / half (gradient) / empty.
+   Same pattern as the rating sheet so the summary and the editor agree. */
+.rd-star {
+  font-size: 18px;
+  line-height: 1;
+  background: linear-gradient(to right, var(--accent) 50%, var(--border) 50%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
+.rd-star--full  { background: var(--accent); -webkit-background-clip: text; background-clip: text; }
+.rd-star--empty { background: var(--border); -webkit-background-clip: text; background-clip: text; }
+/* half: keeps the default gradient declared on .rd-star */
 
 /* ── Servings stepper row (above ingredients) ── */
 .rd-servings-row {
