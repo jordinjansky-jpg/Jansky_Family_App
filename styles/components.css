@@ -1091,8 +1091,9 @@
 /* Edge-initial variant: photo fills the slot like the tab/pill — not a circle.
    The 4px colored strip still draws on the left via the parent's ::before. */
 .task-card__avatar-edge--initial .task-card__avatar-img {
-  width: 20px;
+  width: 24px;
   align-self: stretch;
+  margin-left: 4px;
   border-radius: 0;
   object-fit: cover;
 }
@@ -1209,9 +1210,11 @@
   background: var(--pill-color);
 }
 
-/* Edge + initial — strip with small initial centered in the area beside it */
+/* Edge + initial — colored strip + a soft tinted area behind the initial,
+   so the letter sits on a known background instead of the raw cell tint. */
 .task-card__avatar-edge--initial {
-  width: 24px;
+  --pill-color: var(--person-color, var(--accent));
+  width: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1219,6 +1222,11 @@
   align-self: stretch;
   flex-shrink: 0;
   position: relative;
+  background: color-mix(in srgb, var(--pill-color) 15%, transparent);
+  overflow: hidden;
+}
+[data-theme="dark"] .task-card__avatar-edge--initial {
+  background: color-mix(in srgb, var(--pill-color) 25%, transparent);
 }
 .task-card__avatar-edge--initial::before {
   content: '';
@@ -1226,9 +1234,10 @@
   left: 0; top: 0; bottom: 0;
   width: 4px;
   background: var(--pill-color);
+  z-index: 1;
 }
 .task-card__avatar-edge--initial .task-card__avatar-initial {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 /* ── Time-of-day section header (sections mode + kid page) ── */
