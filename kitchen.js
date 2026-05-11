@@ -2562,13 +2562,6 @@ function renderListsTab() {
         </button>
       </div>
     </div>
-    <div class="list-toolbar">
-      <button class="chip" id="staplesTopBtn" type="button">Add from staples</button>
-      <div class="list-icon-group">
-        <button class="list-camera-btn" id="listCameraBtn" type="button" aria-label="Add from photo">${CAM_SVG}</button>
-        <button class="list-wand-btn" id="listCleanupBtn" type="button" aria-label="Clean up list with AI" title="Clean up list" disabled>${WAND_SVG}</button>
-      </div>
-    </div>
     <div id="itemAddMount"></div>
     <div id="listItemsArea" class="list-content"></div>`;
 
@@ -2587,8 +2580,6 @@ function renderListsTab() {
   });
 
   document.getElementById('staplesTopBtn')?.addEventListener('click', openStaplesSheet);
-  document.getElementById('listCameraBtn')?.addEventListener('click', openListPhotoSourceSheet);
-  document.getElementById('listCleanupBtn')?.addEventListener('click', () => runListCleanup(currentItems));
 
   subscribeListItems();
 }
