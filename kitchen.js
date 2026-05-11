@@ -2054,6 +2054,17 @@ function openRecipeForm(recipeId, onSave = null) {
   const tagsOpen = existing?.tags?.length ? ' is-open' : '';
   const cookTimeOpen = existing?.cookTime ? ' is-open' : '';
 
+  function normalizeRecipeUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    try {
+      const u = new URL(url.trim());
+      let path = u.pathname.replace(/\/$/, '');
+      return `${u.protocol.toLowerCase()}//${u.host.toLowerCase()}${path}`;
+    } catch {
+      return url.trim().toLowerCase();
+    }
+  }
+
   const mount = document.getElementById('sheetMount');
   const INGREDIENT_LIST_ID = 'kr_ingredient_datalist';
 
@@ -2377,7 +2388,39 @@ function openRecipeForm(recipeId, onSave = null) {
     runImport('url', url);
   }
   document.getElementById('recipeUrl')?.addEventListener('paste', () => setTimeout(maybeAutoImportUrl, 50));
-  document.getElementById('recipeUrl')?.addEventListener('blur', maybeAutoImportUrl);
+  document.getElementById('recipeUrl')?.addEventListener('blur', async () => {
+    const typed = normalizeRecipeUrl(document.getElementById('recipeUrl')?.value);
+    if (!typed) {
+      maybeAutoImportUrl();
+      return;
+    }
+    const editingId = recipeId || null;
+    const match = Object.entries(recipes).find(([id, r]) => {
+      if (id === editingId) return false;
+      return normalizeRecipeUrl(r.url || '') === typed;
+    });
+    if (!match) {
+      maybeAutoImportUrl();
+      return;
+    }
+    const [matchedId, matchedRecipe] = match;
+    const ageDays = matchedRecipe.createdAt
+      ? Math.floor((Date.now() - matchedRecipe.createdAt) / 86_400_000)
+      : null;
+    const ageText = ageDays === null ? '' : ageDays === 0 ? 'today' : ageDays === 1 ? 'yesterday' : `${ageDays} days ago`;
+    const titleText = `You already have "${matchedRecipe.name}"${ageText ? ` (added ${ageText})` : ''}`;
+    const messageText = 'Open the existing recipe, or save a new one with different content?';
+    const confirmed = await showConfirm({
+      title: titleText,
+      message: messageText,
+      confirmLabel: 'Open existing',
+      cancelLabel: 'Save anyway',
+    });
+    if (confirmed) {
+      close();
+      openRecipeDetailSheet(matchedId);
+    }
+  });
 
   // "Change" button → re-expand collapsed URL field
   document.getElementById('recipeUrlEdit')?.addEventListener('click', () => {
