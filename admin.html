@@ -69,8 +69,11 @@
       readAllAchievements, writeAchievement, deleteAchievement,
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
       readBank, writeBankToken, removeBankToken,
-      readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed
+      readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed,
+      readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync,
+      readKitchenPlan, writeKitchenPlanSlot
     } from './shared/firebase.js';
+    import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
     import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
@@ -145,6 +148,7 @@
     let allBankData = {};
     let achievementDefsObj = (await readAchievementDefs()) || {};
     let icalFeedsObj = (await readIcalFeeds()) || {};
+    let schoolLunchFeedsObj = (await readSchoolLunchFeeds()) || {};
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -1125,6 +1129,45 @@
     }
 
     const ICAL_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>`;
+    const SYNC_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`;
+
+    // ══════════════════════════════════════════
+    // School Lunch Feeds tab
+    // ══════════════════════════════════════════
+
+    function renderSchoolLunchFeedsTab() {
+      const feeds = Object.entries(schoolLunchFeedsObj);
+
+      let html = `<div class="admin-filters admin-filters--row">
+        <button class="btn btn--primary btn--sm" id="addSchoolLunchFeedBtn" type="button">+ Add School Lunch</button>
+      </div>`;
+
+      if (feeds.length === 0) {
+        html += `<div class="admin-empty">No school lunch feeds yet. Add an iCal URL to auto-import a child's school menu.</div>`;
+        return html;
+      }
+
+      html += `<div class="admin-list" id="schoolLunchFeedList">`;
+      for (const [personId, feed] of feeds) {
+        const person = peopleObj[personId];
+        if (!person) continue;
+        const host = (() => { try { return new URL(feed.url).hostname.replace(/^www\./, ''); } catch { return feed.url || ''; } })();
+        const conflictCount = feed.conflicts ? Object.keys(feed.conflicts).length : 0;
+        const conflictBadge = conflictCount ? ` · <span class="sli-conflicts-badge">${conflictCount} conflict${conflictCount === 1 ? '' : 's'}</span>` : '';
+        const errorBadge = feed.lastError ? ` · <span class="sli-err">${esc(feed.lastError)}</span>` : '';
+        const syncLabel = feed.lastSync ? `Synced ${formatLastSync(feed.lastSync)}` : 'Never synced';
+        const syncBtn = `<button class="admin-row-action" data-sync-person="${personId}" type="button" aria-label="Sync now" title="Sync now" data-no-row-click>${SYNC_SVG}</button>`;
+        html += renderAdminRow({
+          icon: `<div class="admin-ical-icon">${ICAL_SVG}</div>`,
+          primary: `${esc(person.name)} · ${esc(host)}`,
+          secondary: `${syncLabel}${errorBadge}${conflictBadge}`,
+          dataAttrs: `data-school-feed-person="${personId}"`,
+          trailing: syncBtn,
+        });
+      }
+      html += `</div>`;
+      return html;
+    }
 
     function formatLastSync(ts) {
       if (!ts) return 'never';
@@ -1274,6 +1317,149 @@
         const row = e.target.closest('[data-feed-id]');
         if (row) openIcalFeedSheet(row.dataset.feedId);
       });
+    }
+
+    function openSchoolLunchFeedSheet(existingPersonId) {
+      const existing = existingPersonId ? (schoolLunchFeedsObj[existingPersonId] || {}) : null;
+      const isEdit = !!existingPersonId;
+      const pa = peopleArray();
+
+      const ownerChips = pa.map(p => {
+        const isSel = isEdit && p.id === existingPersonId;
+        const state = isSel ? ' data-state="primary"' : '';
+        const disabled = isEdit && !isSel ? ' disabled style="opacity:0.4;pointer-events:none"' : '';
+        return `<button type="button" class="ef2-person-chip" data-person-id="${p.id}"${state}${disabled} style="--chip-color:${p.color}">${esc(p.name)}</button>`;
+      }).join('');
+
+      const mount = document.getElementById('taskSheetMount');
+      mount.innerHTML = renderBottomSheet(`
+        <div class="tf-form">
+          <div class="tf-title-row">
+            <span class="ef2-section-label">${isEdit ? 'Edit feed' : 'Add school lunch feed'}</span>
+          </div>
+          <div class="ef2-divider"></div>
+          <div class="ef2-for-section">
+            <span class="ef2-section-label">iCal URL</span>
+            <input type="url" id="slf_url" class="if-url-input" placeholder="https://… or webcal://…" value="${esc(existing?.url || '')}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="ef2-divider"></div>
+          <div class="ef2-for-section">
+            <span class="ef2-section-label">For</span>
+            <div class="ef2-person-chips" id="slf_person">${ownerChips || '<span style="font-size:var(--font-sm);color:var(--text-faint)">No people yet</span>'}</div>
+          </div>
+          <div class="sheet__footer">
+            ${isEdit ? `<button class="btn btn--danger" id="slf_delete" type="button">Delete</button>` : ''}
+            <button class="btn btn--secondary" id="slf_cancel" type="button">Cancel</button>
+            <button class="btn btn--primary" id="slf_save" type="button">${isEdit ? 'Save' : 'Add'}</button>
+          </div>
+        </div>
+      `);
+
+      requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+      document.getElementById('bottomSheet')?.addEventListener('click', e => { if (e.target.id === 'bottomSheet') closeAdminSheet(); });
+
+      if (!isEdit) {
+        mount.querySelector('#slf_person')?.addEventListener('click', e => {
+          const chip = e.target.closest('.ef2-person-chip');
+          if (!chip) return;
+          mount.querySelectorAll('#slf_person .ef2-person-chip').forEach(c => c.dataset.state = '');
+          chip.dataset.state = 'primary';
+        });
+      }
+
+      mount.querySelector('#slf_cancel')?.addEventListener('click', closeAdminSheet);
+
+      mount.querySelector('#slf_save')?.addEventListener('click', async () => {
+        const url = mount.querySelector('#slf_url')?.value.trim();
+        if (!url) { showToast('URL is required'); return; }
+        const pid = isEdit
+          ? existingPersonId
+          : mount.querySelector('#slf_person .ef2-person-chip[data-state="primary"]')?.dataset.personId;
+        if (!pid) { showToast('Pick a person first'); return; }
+
+        const data = {
+          url,
+          addedAt: existing?.addedAt || Date.now(),
+          addedBy: existing?.addedBy || pid,
+        };
+        await writeSchoolLunchFeed(pid, data);
+        schoolLunchFeedsObj[pid] = { ...(schoolLunchFeedsObj[pid] || {}), ...data };
+        closeAdminSheet();
+        render();
+      });
+
+      if (isEdit) {
+        mount.querySelector('#slf_delete')?.addEventListener('click', async () => {
+          const ok = await showConfirm('Delete this school lunch feed? Imported lunches will remain until you manually remove them.');
+          if (!ok) return;
+          await removeSchoolLunchFeed(existingPersonId);
+          delete schoolLunchFeedsObj[existingPersonId];
+          closeAdminSheet();
+          render();
+        });
+      }
+    }
+
+    async function syncSchoolLunchFeedFromAdmin(personId) {
+      const fresh = (await readSchoolLunchFeeds()) || {};
+      const feed = fresh[personId];
+      if (!feed?.url) { showToast('No feed URL'); return; }
+      const tz = settings?.timezone || 'America/Chicago';
+      const todayStr = todayKey(tz);
+      showToast('Syncing…');
+
+      let lastError = null;
+      let icsText = null;
+      try {
+        const res = await fetch(feed.url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        icsText = await res.text();
+      } catch (err) {
+        lastError = err?.message || 'Fetch failed';
+        await writeSchoolLunchFeedSync(personId, { lastSync: Date.now(), lastError });
+        schoolLunchFeedsObj[personId] = { ...feed, lastSync: Date.now(), lastError };
+        render();
+        return;
+      }
+
+      let mapped = [];
+      try {
+        const events = parseIcs(icsText);
+        const day0 = new Date(todayStr + 'T00:00:00');
+        const days = [];
+        for (let i = 0; i < 30; i++) {
+          const d = new Date(day0);
+          d.setDate(d.getDate() + i);
+          days.push(d.toISOString().slice(0, 10));
+        }
+        const planByDate = {};
+        for (const dk of days) planByDate[dk] = await readKitchenPlan(dk).catch(() => null) || {};
+        mapped = mapEventsToPlan(events, planByDate, todayStr);
+      } catch (err) {
+        lastError = err?.message || 'Parse failed';
+        await writeSchoolLunchFeedSync(personId, { lastSync: Date.now(), lastError });
+        schoolLunchFeedsObj[personId] = { ...feed, lastSync: Date.now(), lastError };
+        render();
+        return;
+      }
+
+      let written = 0;
+      const conflicts = {};
+      for (const m of mapped) {
+        if (!m.target) { conflicts[m.date] = m.conflictType || 'unknown'; continue; }
+        await writeKitchenPlanSlot(m.date, m.target, { customName: m.summary, source: 'ical' });
+        written++;
+      }
+      const synced = {
+        lastSync: Date.now(),
+        lastError: null,
+        conflicts: Object.keys(conflicts).length ? conflicts : null,
+      };
+      await writeSchoolLunchFeedSync(personId, synced);
+      schoolLunchFeedsObj[personId] = { ...feed, ...synced };
+      const conflictCount = Object.keys(conflicts).length;
+      showToast(conflictCount ? `Synced ${written}; ${conflictCount} conflict${conflictCount === 1 ? '' : 's'} skipped` : `Synced ${written} lunch${written === 1 ? '' : 'es'}`);
+      render();
     }
 
     function openEventsFilterSheet() {
@@ -4743,6 +4929,14 @@
         </div>
 
         <div class="imports-group">
+          <p class="imports-group__label">School Lunch Feeds</p>
+          <p class="imports-group__hint">Per-child iCal feeds (Nutrislice etc.) that import lunch menus into the Kitchen Meals tab.</p>
+          <div class="imports-connected">
+            ${renderSchoolLunchFeedsTab()}
+          </div>
+        </div>
+
+        <div class="imports-group">
           <p class="imports-group__label">Scan &amp; Import</p>
           <p class="imports-group__hint">Trigger a one-time import right now.</p>
           <div class="imports-scan-list">
@@ -4822,6 +5016,21 @@
 
     function bindAiImportsTab() {
       bindCalendarsTab();
+
+      // ── School Lunch Feeds ──
+      main.querySelector('#addSchoolLunchFeedBtn')?.addEventListener('click', () => openSchoolLunchFeedSheet(null));
+      main.querySelector('#schoolLunchFeedList')?.addEventListener('click', e => {
+        if (e.target.closest('[data-no-row-click]')) return;
+        const row = e.target.closest('[data-school-feed-person]');
+        if (row) openSchoolLunchFeedSheet(row.dataset.schoolFeedPerson);
+      });
+      main.querySelectorAll('[data-sync-person]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          syncSchoolLunchFeedFromAdmin(btn.dataset.syncPerson);
+        });
+      });
+
       if (!KITCHEN_WORKER_URL) return;
 
       // ── Task Scanner ──
