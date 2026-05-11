@@ -1018,6 +1018,7 @@ function openRecipeDetailSheet(recipeId) {
   const PENCIL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
   const TRASH_SVG  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
   const CLOSE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const PLAY_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
 
   let sourceDomain = '';
   if (recipe.url) { try { sourceDomain = new URL(recipe.url).hostname.replace(/^www\./, ''); } catch {} }
@@ -1084,6 +1085,7 @@ function openRecipeDetailSheet(recipeId) {
       <div class="sheet__header">
         <h2 class="sheet__title">${esc(recipe.name)}</h2>
         <div class="rf-header-actions">
+          ${recipe.videoUrl ? `<a class="ef2-icon-btn" href="${esc(recipe.videoUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Watch video">${PLAY_SVG}</a>` : ''}
           ${recipe.url ? `<a class="ef2-icon-btn" href="${esc(recipe.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open recipe">${LINK_SVG}</a>` : ''}
           <button class="ef2-icon-btn rf-delete-btn" id="deleteRecipeBtn" aria-label="Delete" type="button">${TRASH_SVG}</button>
           <button class="ef2-icon-btn" id="editRecipeBtn" aria-label="Edit" type="button">${PENCIL_SVG}</button>
@@ -2028,6 +2030,7 @@ function openRecipeForm(recipeId, onSave = null) {
   const existing = recipeId ? recipes[recipeId] : null;
   const ingredients = existing?.ingredients ? [...existing.ingredients] : [];
   let imageUrl = existing?.imageUrl || '';
+  let videoUrl = existing?.videoUrl || '';
   const tagsOpen = existing?.tags?.length ? ' is-open' : '';
   const cookTimeOpen = existing?.cookTime ? ' is-open' : '';
 
@@ -2300,6 +2303,7 @@ function openRecipeForm(recipeId, onSave = null) {
         document.getElementById('kr_tagsChip')?.classList.add('is-active');
         document.getElementById('kr_tagsReveal')?.classList.add('is-open');
       }
+      if (data.videoUrl && !videoUrl) videoUrl = data.videoUrl;
       if (data.ingredients?.length) {
         ingredients.length = 0;
         data.ingredients.forEach(ing => {
@@ -2475,6 +2479,7 @@ function openRecipeForm(recipeId, onSave = null) {
       difficulty: document.getElementById('recipeDifficulty')?.value || null,
       tags: tags.length ? tags : null,
       imageUrl: imageUrl || null,
+      videoUrl: videoUrl || null,
     };
 
     if (recipeId) {
