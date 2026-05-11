@@ -1469,6 +1469,95 @@ function openAddToListReviewSheet(recipe, currentServings, baseServings) {
 
 // pickList removed — list selection is now inline in openAddToListReviewSheet
 
+function openAiSuggestSheet() {
+  const mount = document.getElementById('sheetMount');
+  let pantry = '';
+  let suggestions = null;
+  let loading = false;
+
+  function render() {
+    mount.innerHTML = renderBottomSheet(`
+      ${renderFormSheetHeader({ title: 'What can I make?', closeId: 'sug_close' })}
+      ${suggestions === null ? `
+        <p class="sug-hint">List what you have on hand</p>
+        <textarea id="sug_pantry" class="sug-textarea" placeholder="e.g. chicken thighs, rice, broccoli, soy sauce, ginger" autofocus>${esc(pantry)}</textarea>
+        <div class="sug-footer">
+          <button class="btn btn--primary" id="sug_go" type="button"${loading || pantry.trim().split(/\s+/).filter(Boolean).length < 2 ? ' disabled' : ''}>
+            ${loading ? 'Thinking…' : 'Suggest recipes'}
+          </button>
+        </div>
+      ` : `
+        <div class="sug-results">
+          ${suggestions.length === 0
+            ? `<div class="sug-empty">No suggestions — try different ingredients.</div>`
+            : suggestions.map((s, i) => `
+              <div class="sug-card" data-sug-idx="${i}">
+                <div class="sug-card__title">${esc(s.name)}</div>
+                <div class="sug-card__body">${esc(s.description)}</div>
+                ${s.tags?.length ? `<div class="sug-card__tags">${s.tags.map(t => `<span class="sug-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+                <button class="btn btn--secondary btn--sm" data-sug-save="${i}" type="button">Save to library</button>
+              </div>`).join('')}
+        </div>
+        <div class="sug-footer">
+          <button class="btn btn--ghost" id="sug_back" type="button">Try different ingredients</button>
+        </div>
+      `}
+    `);
+    activateSheet(mount);
+
+    document.getElementById('sug_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    document.getElementById('sug_back')?.addEventListener('click', () => { suggestions = null; render(); });
+
+    document.getElementById('sug_pantry')?.addEventListener('input', (e) => {
+      pantry = e.target.value;
+      const btn = document.getElementById('sug_go');
+      if (btn) btn.disabled = pantry.trim().split(/\s+/).filter(Boolean).length < 2;
+    });
+
+    document.getElementById('sug_go')?.addEventListener('click', async () => {
+      loading = true;
+      render();
+      try {
+        const res = await fetch(KITCHEN_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'recipeSuggest', input: { pantry } }),
+        });
+        const data = await res.json();
+        suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
+      } catch (err) {
+        console.warn('recipeSuggest failed', err);
+        suggestions = [];
+      }
+      loading = false;
+      render();
+    });
+
+    mount.querySelectorAll('[data-sug-save]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const i = parseInt(btn.dataset.sugSave, 10);
+        const s = suggestions[i];
+        if (!s) return;
+        const newRecipe = {
+          name: s.name,
+          notes: s.description,
+          tags: s.tags?.length ? s.tags : null,
+          ingredients: [],
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          source: 'ai-suggest',
+        };
+        const id = await pushKitchenRecipe(newRecipe);
+        recipes[id] = { ...newRecipe, createdAt: Date.now() };
+        showToast(`Saved "${s.name}" — fill in ingredients later`);
+        btn.disabled = true;
+        btn.textContent = 'Saved ✓';
+      });
+    });
+  }
+
+  render();
+}
+
 function openFindRecipesSheet() {
   const mount = document.getElementById('sheetMount');
   mount.innerHTML = renderBottomSheet(`
@@ -1997,6 +2086,7 @@ function openKitchenAiToolsSheet() {
         <button class="btn btn--secondary" id="kait_recipeUrl" type="button">🔗 Import from URL</button>
         <button class="btn btn--secondary" id="kait_recipePhoto" type="button">📷 Import from photo</button>
         <button class="btn btn--secondary" id="kait_recipeFind" type="button">🔎 Find ideas online</button>
+        <button class="btn btn--secondary" id="kait_recipeSuggest" type="button">💡 What can I make?</button>
       </div>
     </div>
     <div class="kait-section">
@@ -2054,6 +2144,11 @@ function openKitchenAiToolsSheet() {
   document.getElementById('kait_recipeFind')?.addEventListener('click', () => {
     mount.innerHTML = '';
     openFindRecipesSheet();
+  });
+
+  document.getElementById('kait_recipeSuggest')?.addEventListener('click', () => {
+    mount.innerHTML = '';
+    openAiSuggestSheet();
   });
 
   document.getElementById('kait_listClean')?.addEventListener('click', () => {
