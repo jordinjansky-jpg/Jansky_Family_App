@@ -2653,10 +2653,25 @@ function renderItemsArea(items) {
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
+  // Compute distinct visible categories for header visibility rule
+  const distinctCats = new Set(
+    Object.values(unchecked).map(([, it]) => it.category || 'Other')
+  );
+  const multipleCategories = distinctCats.size >= 2;
+
+  // Helper to normalize 'OTHER' and 'Other' as the same category
+  const isOtherCategory = (cat) => cat.toUpperCase() === 'OTHER';
+
   let html = '';
 
   for (const cat of sortedCats) {
-    html += `<div class="shopping-category-label">${esc(cat)}</div>`;
+    // Category header renders only when:
+    // 1. There are 2+ distinct visible categories, OR
+    // 2. The single visible category is NOT 'Other'/'OTHER'
+    const shouldShowHeader = multipleCategories || !isOtherCategory(cat);
+    if (shouldShowHeader) {
+      html += `<div class="shopping-category-label">${esc(cat)}</div>`;
+    }
     for (const [id, item] of byCategory[cat]) {
       html += renderShoppingCard(id, item, false);
     }
