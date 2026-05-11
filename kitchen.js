@@ -18,7 +18,7 @@ import { renderHeader, renderNavBar, initNavMore, initBell,
   renderColorButton, initColorButton, applyDataColors
 } from './shared/components.js';
 import { todayKey, escapeHtml } from './shared/utils.js';
-import { resizeImageForUpload, renderConfirmRow } from './shared/ai-helpers.js';
+import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -1161,22 +1161,37 @@ async function runSchoolLunchImport(file) {
     const data = await res.json();
     // Worker returns { days: [{ date, lunch1, lunch2, confidence }] }
     // Expand each day into flat entries: lunch1 → school-lunch, lunch2 → school-lunch-2
-    const days = Array.isArray(data?.days) ? data.days : [];
-    const entries = [];
-    for (const d of days) {
-      if (d.date && d.lunch1) {
-        entries.push({ date: d.date, name: d.lunch1, slot: 'school-lunch' });
-        if (d.lunch2) {
-          entries.push({ date: d.date, name: d.lunch2, slot: 'school-lunch-2' });
+    let days = Array.isArray(data?.days) ? data.days : [];
+
+    function buildAndOpen(resolvedDays) {
+      const entries = [];
+      for (const d of resolvedDays) {
+        if (d.date && d.lunch1) {
+          entries.push({ date: d.date, name: d.lunch1, slot: 'school-lunch' });
+          if (d.lunch2) {
+            entries.push({ date: d.date, name: d.lunch2, slot: 'school-lunch-2' });
+          }
         }
       }
+      if (!entries.length) {
+        mount.innerHTML = '';
+        showToast('Could not read the menu — try a clearer photo');
+        return;
+      }
+      openSchoolLunchConfirmSheet(entries);
     }
-    if (!entries.length) {
+
+    if (data?.monthUncertain) {
       mount.innerHTML = '';
-      showToast('Could not read the menu — try a clearer photo');
-      return;
+      openMonthClarificationSheet(data.assumedMonth, (yearMonth) => {
+        const remapped = days.map(d => d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)
+          ? { ...d, date: `${yearMonth}-${d.date.slice(8, 10)}` }
+          : d);
+        buildAndOpen(remapped);
+      });
+    } else {
+      buildAndOpen(days);
     }
-    openSchoolLunchConfirmSheet(entries);
   } catch (err) {
     console.error('school-lunch import failed', err);
     mount.innerHTML = '';
