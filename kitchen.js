@@ -7,8 +7,10 @@ import { initFirebase, readSettings, writeSettings, readPeople, onConnectionChan
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
   pushKitchenItem, writeKitchenItem, pushKitchenStaple,
   writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe,
-  getDb
+  getDb,
+  readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync
 } from './shared/firebase.js';
+import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { renderHeader, renderNavBar, initNavMore, initBell,
   initOfflineBanner, showConfirm, showToast, renderFab,
@@ -1267,6 +1269,168 @@ function openSchoolLunchConfirmSheet(entries) {
   });
 }
 
+async function syncOneFeed(personId) {
+  const feed = (await readSchoolLunchFeeds())?.[personId];
+  if (!feed?.url) return;
+  const tz = settings?.timezone || 'America/Chicago';
+  const todayStr = todayKey(tz);
+  let lastError = null;
+  let icsText = null;
+  try {
+    const res = await fetch(feed.url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    icsText = await res.text();
+  } catch (err) {
+    lastError = err?.message || 'Fetch failed';
+    await writeSchoolLunchFeedSync(personId, { lastSync: Date.now(), lastError });
+    return;
+  }
+
+  let mapped = [];
+  try {
+    const events = parseIcs(icsText);
+    // Read current plan for the window
+    const days = [];
+    const day0 = new Date(todayStr + 'T00:00:00');
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(day0);
+      d.setDate(d.getDate() + i);
+      days.push(dateKey(d));
+    }
+    const planByDate = {};
+    for (const dk of days) {
+      planByDate[dk] = await readKitchenPlan(dk).catch(() => null) || {};
+    }
+    mapped = mapEventsToPlan(events, planByDate, todayStr);
+  } catch (err) {
+    lastError = err?.message || 'Parse failed';
+    await writeSchoolLunchFeedSync(personId, { lastSync: Date.now(), lastError });
+    return;
+  }
+
+  let written = 0;
+  const conflicts = {};
+  for (const m of mapped) {
+    if (!m.target) {
+      conflicts[m.date] = m.conflictType || 'unknown';
+      continue;
+    }
+    await writeKitchenPlanSlot(m.date, m.target, { customName: m.summary, source: 'ical' });
+    written++;
+  }
+  await writeSchoolLunchFeedSync(personId, {
+    lastSync: Date.now(),
+    lastError: null,
+    conflicts: Object.keys(conflicts).length ? conflicts : null,
+  });
+  const conflictCount = Object.keys(conflicts).length;
+  showToast(
+    conflictCount
+      ? `Synced ${written}; ${conflictCount} conflict${conflictCount === 1 ? '' : 's'} skipped`
+      : `Synced ${written} lunch${written === 1 ? '' : 'es'}`
+  );
+  await renderMealsTab();
+}
+
+async function openSchoolLunchIcalSheet() {
+  const mount = document.getElementById('sheetMount');
+  const feeds = (await readSchoolLunchFeeds()) || {};
+
+  function rowsHtml() {
+    const peopleById = Object.fromEntries(people.map(p => [p.id, p]));
+    const entries = Object.entries(feeds);
+    if (!entries.length) return `<div class="sli-empty">No feeds yet. Tap "+ Add a feed" to start.</div>`;
+    return entries.map(([personId, f]) => {
+      const person = peopleById[personId];
+      const host = (() => { try { return new URL(f.url).hostname.replace(/^www\./, ''); } catch { return f.url; } })();
+      const lastSync = f.lastSync ? new Date(f.lastSync).toLocaleString() : 'Never';
+      const conflictCount = f.conflicts ? Object.keys(f.conflicts).length : 0;
+      const conflictChip = conflictCount
+        ? `<span class="sli-conflicts">${conflictCount} conflict${conflictCount === 1 ? '' : 's'}</span>`
+        : '';
+      return `<div class="sli-row" data-person="${esc(personId)}">
+        <div class="sli-row__title">${esc(person?.name || 'Unknown')} · ${esc(host)} ${conflictChip}</div>
+        <div class="sli-row__meta">Last sync: ${esc(lastSync)}${f.lastError ? ` · <span class="sli-err">${esc(f.lastError)}</span>` : ''}</div>
+        <div class="sli-row__actions">
+          <button class="chip" data-sync="${esc(personId)}" type="button">Sync now</button>
+          <button class="chip" data-edit="${esc(personId)}" type="button">Edit URL</button>
+          <button class="chip" data-remove="${esc(personId)}" type="button">Remove</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function render() {
+    mount.innerHTML = renderBottomSheet(`
+      ${renderFormSheetHeader({ title: 'School lunch iCal feeds', closeId: 'sli_close' })}
+      <div class="sli-list" id="sli_list">${rowsHtml()}</div>
+      <div class="sli-add-row">
+        <button class="btn btn--ghost btn--full" id="sli_add" type="button">+ Add a feed</button>
+      </div>
+    `);
+    activateSheet(mount);
+    bindRowActions();
+    document.getElementById('sli_close')?.addEventListener('click', () => { mount.innerHTML = ''; });
+    document.getElementById('sli_add')?.addEventListener('click', () => openFeedEdit(null));
+  }
+
+  function bindRowActions() {
+    mount.querySelectorAll('[data-sync]').forEach(b => b.addEventListener('click', async () => {
+      await syncOneFeed(b.dataset.sync);
+      const fresh = (await readSchoolLunchFeeds()) || {};
+      Object.assign(feeds, fresh);
+      for (const k of Object.keys(feeds)) if (!fresh[k]) delete feeds[k];
+      render();
+    }));
+    mount.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openFeedEdit(b.dataset.edit)));
+    mount.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
+      const personId = b.dataset.remove;
+      const ok = await showConfirm({ title: 'Remove this feed?', confirmLabel: 'Remove', danger: true });
+      if (!ok) return;
+      await removeSchoolLunchFeed(personId);
+      delete feeds[personId];
+      render();
+    }));
+  }
+
+  function openFeedEdit(existingPersonId) {
+    const existing = existingPersonId ? feeds[existingPersonId] : null;
+    const subMount = mount;
+    subMount.innerHTML = renderBottomSheet(`
+      ${renderFormSheetHeader({ title: existing ? 'Edit feed' : 'Add a feed', closeId: 'slie_close' })}
+      <label class="field">
+        <span class="field__label">Person</span>
+        <select class="field__input" id="slie_person" ${existingPersonId ? 'disabled' : ''}>
+          ${people.map(p => `<option value="${esc(p.id)}" ${p.id === existingPersonId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Feed URL</span>
+        <input class="field__input" id="slie_url" type="url" placeholder="https://..." value="${esc(existing?.url || '')}" autocomplete="off">
+      </label>
+      ${renderFormFooter({ saveLabel: existing ? 'Save' : 'Add', cancelId: 'slie_cancel', saveId: 'slie_save' })}
+    `);
+    activateSheet(subMount);
+    document.getElementById('slie_close')?.addEventListener('click', () => render());
+    document.getElementById('slie_cancel')?.addEventListener('click', () => render());
+    document.getElementById('slie_save')?.addEventListener('click', async () => {
+      const pid = document.getElementById('slie_person')?.value;
+      const url = document.getElementById('slie_url')?.value.trim();
+      if (!pid || !url) return;
+      const data = {
+        url,
+        addedAt: existing?.addedAt || Date.now(),
+        addedBy: existing?.addedBy || pid,
+      };
+      await writeSchoolLunchFeed(pid, data);
+      feeds[pid] = { ...(feeds[pid] || {}), ...data };
+      render();
+    });
+  }
+
+  render();
+}
+
 function openKitchenAiToolsSheet() {
   const mount = document.getElementById('sheetMount');
   mount.innerHTML = renderBottomSheet(`
@@ -1309,7 +1473,10 @@ function openKitchenAiToolsSheet() {
   document.getElementById('kait_schoolPhoto')?.addEventListener('click', () => openFilePicker('photo'));
   document.getElementById('kait_schoolGallery')?.addEventListener('click', () => openFilePicker('gallery'));
   document.getElementById('kait_schoolFile')?.addEventListener('click', () => openFilePicker('file'));
-  // kait_schoolIcal handler wired in Task 12.
+  document.getElementById('kait_schoolIcal')?.addEventListener('click', () => {
+    document.getElementById('sheetMount').innerHTML = '';
+    openSchoolLunchIcalSheet();
+  });
 }
 
 function openMealFabSheet() {
