@@ -49,6 +49,36 @@ export async function resizeImageForUpload(file, maxPx = 1092) {
 }
 
 /**
+ * Convert a Worker-supplied { imageData (base64), imageMediaType } pair into
+ * a resized data URL via the existing image resizer. Returns null when the
+ * payload is missing or conversion fails — caller decides the fallback.
+ *
+ * This is the preferred way to handle Worker-fetched recipe images: the
+ * Worker downloads og:images server-side (no CORS issues), the client
+ * resizes them down to the canonical 800px max before persisting.
+ *
+ * @param {string} base64
+ * @param {string} mediaType
+ * @param {number} [maxPx=800]
+ * @returns {Promise<string|null>}
+ */
+export async function base64ToDataUrl(base64, mediaType, maxPx = 800) {
+  if (!base64 || !mediaType) return null;
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mediaType });
+    const file = new File([blob], 'image.jpg', { type: mediaType });
+    const resized = await resizeImageForUpload(file, maxPx);
+    return `data:${resized.mediaType};base64,${resized.base64}`;
+  } catch (err) {
+    console.warn('base64ToDataUrl failed:', err);
+    return null;
+  }
+}
+
+/**
  * Download a remote image URL and convert it to a self-contained data URL via
  * the existing image resizer. Used to convert TikTok/CDN time-signed URLs
  * (which expire) into permanent data URLs that survive in the database.

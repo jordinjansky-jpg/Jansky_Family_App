@@ -820,6 +820,69 @@ button.rl-chip {
 }
 .sl-confirm-name:focus { outline: none; border-color: var(--accent); }
 
+/* Helper text shown on the recipe edit form's URL field when the link has
+   failed to refresh twice or more — points the user at the cleanup action. */
+.kr-url-dead-hint {
+  font-size: var(--font-xs);
+  color: var(--accent);
+  margin: var(--spacing-xs) 0 0;
+  line-height: 1.4;
+}
+
+/* ============ Recipes — Attention banner + broken-recipes sheet ============ */
+.rl-attn-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: 10px 12px;
+  margin: var(--spacing-sm) 0 0;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-md);
+  text-align: left;
+  color: var(--text);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+.rl-attn-banner:active { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.rl-attn-banner__icon { display: inline-flex; color: var(--accent); flex-shrink: 0; }
+.rl-attn-banner__label { flex: 1; line-height: 1.3; }
+.rl-attn-banner__chev { color: var(--text-faint); font-size: 18px; font-weight: 500; }
+
+.brs-intro {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin: 0 0 var(--spacing-md);
+  line-height: 1.4;
+}
+.brs-list { display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.brs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+.brs-row:active { background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
+.brs-row__thumb {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.brs-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.brs-row__name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brs-row__hint { font-size: var(--font-xs); color: var(--text-muted); }
+.brs-row__chev { color: var(--text-faint); font-size: 18px; }
+
 /* ============ Recipes — Search ============ */
 .rl-search-row {
   position: sticky;

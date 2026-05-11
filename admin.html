@@ -83,7 +83,7 @@
     import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
     import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
     import { clearWeatherCache, geocodeLocation } from './shared/weather.js';
-    import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl } from './shared/ai-helpers.js';
+    import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
     const MSG_POSITIVE = ['Awesome Job!','Super Star','Great Teamwork','Above & Beyond',
@@ -4868,16 +4868,23 @@
             if ((!recipe.ingredients || recipe.ingredients.length === 0) && data.ingredients?.length) {
               patch.ingredients = data.ingredients.filter(i => i.name).map(i => ({ name: i.name, qty: i.qty || null }));
             }
-            // imageUrl: refresh when current is a non-data URL (CDN URLs from
-            // TikTok / sites are time-signed and expire). Always persist as a
-            // data URL so it survives forever.
-            const needsImageRefresh = data.imageUrl && (!recipe.imageUrl || !recipe.imageUrl.startsWith('data:'));
+            // imageUrl: refresh when current is a non-data URL (CDN URLs are
+            // time-signed and expire). Prefer Worker-supplied base64 (server-
+            // side fetch, no CORS); fall back to client fetch via urlToDataUrl
+            // when only imageUrl is present (older Worker).
+            const needsImageRefresh = !recipe.imageUrl || !recipe.imageUrl.startsWith('data:');
             if (needsImageRefresh) {
-              const persistent = await urlToDataUrl(data.imageUrl);
+              let persistent = null;
+              if (data.imageData && data.imageMediaType) {
+                persistent = await base64ToDataUrl(data.imageData, data.imageMediaType);
+              } else if (data.imageUrl) {
+                persistent = await urlToDataUrl(data.imageUrl);
+              }
               // Only patch if the conversion produced a data URL — storing
               // another short-lived CDN URL would just expire again.
               if (persistent && persistent.startsWith('data:')) {
                 patch.imageUrl = persistent;
+                patch.imageRefreshFails = null; // success clears the counter
               }
             }
             if (Object.keys(patch).length) {
