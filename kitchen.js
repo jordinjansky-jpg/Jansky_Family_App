@@ -1070,7 +1070,16 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     selectedSlot = tab.dataset.slot;
     document.getElementById('kp_slotPills').querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
     const modeSection = document.getElementById('kp_modeSection');
-    if (modeSection) modeSection.style.display = (selectedSlot === 'school') ? 'none' : '';
+    modeSection?.classList.toggle('is-hidden', selectedSlot === 'school');
+    // School slot: force back to single mode so a half-filled Vote-mode
+    // setup doesn't silently no-op on save.
+    if (selectedSlot === 'school' && mealMode === 'vote') {
+      mealMode = 'single';
+      document.getElementById('kp_mealSection')?.classList.remove('is-hidden');
+      document.getElementById('kp_voteSection')?.classList.add('is-hidden');
+      document.getElementById('kp_modeTabs')?.querySelectorAll('.tab').forEach(t =>
+        t.classList.toggle('is-active', t.dataset.mode === 'single'));
+    }
     syncSecondSchoolVisibility();
     updateSaveBtn();
   });

@@ -1256,6 +1256,10 @@ button.rl-chip {
   padding: var(--spacing-md) 0 0;
 }
 
+.kp-mode-section.is-hidden {
+  display: none;
+}
+
 .kp-mode-tabs .tab {
   flex: 1;
 }
