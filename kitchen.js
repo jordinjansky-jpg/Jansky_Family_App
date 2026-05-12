@@ -1199,6 +1199,32 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   document.getElementById('kp_save')?.addEventListener('click', async () => {
     const day = document.getElementById('kp_day')?.value;
     if (!day || !selectedSlot) return;
+
+    // ===== Vote mode branch =====
+    if (mealMode === 'vote' && selectedSlot !== 'school') {
+      const voteSlot = selectedSlot;
+      const filled = candidates
+        .filter(c => c.selectedRecipeId || c.typedName.trim())
+        .map(c => {
+          const base = {
+            source: 'manual',
+            addedBy: linkedPerson?.id || (people[0]?.id ?? null),
+            addedAt: Date.now(),
+            votes: {},
+          };
+          if (c.selectedRecipeId) return { ...base, recipeId: c.selectedRecipeId };
+          return { ...base, customName: c.typedName.trim() };
+        });
+      if (filled.length === 0) return; // Save button should be disabled, but guard anyway
+      await writeKitchenPlanSlot(day, voteSlot, filled);
+      planCache[day] = { ...planCache[day], [voteSlot]: filled };
+      mount.innerHTML = '';
+      await renderMealsTab();
+      showToast(filled.length === 1 ? 'Meal saved' : `${filled.length} options saved`);
+      return;
+    }
+
+    // ===== Single mode branch (unchanged) =====
     const typed = document.getElementById('kp_search')?.value.trim();
     if (!selectedRecipeId && !typed) return;
 
