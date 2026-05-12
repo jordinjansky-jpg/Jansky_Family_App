@@ -832,7 +832,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     const thumb = r.imageUrl
       ? `<img class="recipe-pick__thumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`
       : `<span class="recipe-pick__thumb recipe-pick__thumb--placeholder" aria-hidden="true">🍴</span>`;
-    return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-cand-pick="${rowIdx}:${esc(id)}" type="button">
+    return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-cand-pick-row="${rowIdx}" data-cand-pick-id="${esc(id)}" type="button">
       ${thumb}
       <span class="recipe-pick__name">${esc(r.name)}</span>
       ${isSelected ? '<span class="recipe-pick__check">&#10003;</span>' : ''}
@@ -976,10 +976,10 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     });
 
     // Recipe selection.
-    document.querySelectorAll('[data-cand-pick]').forEach(btn => {
+    document.querySelectorAll('[data-cand-pick-id]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const [iStr, id] = btn.dataset.candPick.split(':');
-        const i = parseInt(iStr, 10);
+        const i = parseInt(btn.dataset.candPickRow, 10);
+        const id = btn.dataset.candPickId;
         candidates[i].selectedRecipeId = id;
         candidates[i].typedName = recipes[id]?.name || '';
         // Collapse this row's dropdown + update label.
