@@ -901,7 +901,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       <div class="kp-cand-list" id="kp_candList">
         ${candidates.map((_, i) => buildCandidateRow(i)).join('')}
       </div>
-      <button class="ef2-add-chip" id="kp_addCand" type="button"${candidates.length >= 3 ? ' style="display:none"' : ''}>+ Add option ${candidates.length + 1}</button>
+      <button class="ef2-add-chip${candidates.length >= 3 ? ' is-hidden' : ''}" id="kp_addCand" type="button">+ Add option ${candidates.length + 1}</button>
     </div>
     <div class="kp-second-school${selectedSlot === 'school' && (selectedRecipeId || preRecipeName) ? ' is-visible' : ''}" id="kp_secondSection">
       <button class="ef2-add-chip${secondOpen ? ' is-active' : ''}" id="kp_addSecond" type="button">${secondOpen ? '− Remove second option' : '+ Plan a second School option'}</button>
@@ -940,7 +940,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       <div class="kp-cand-list" id="kp_candList">
         ${candidates.map((_, i) => buildCandidateRow(i)).join('')}
       </div>
-      <button class="ef2-add-chip" id="kp_addCand" type="button"${candidates.length >= 3 ? ' style="display:none"' : ''}>+ Add option ${candidates.length + 1}</button>`;
+      <button class="ef2-add-chip${candidates.length >= 3 ? ' is-hidden' : ''}" id="kp_addCand" type="button">+ Add option ${candidates.length + 1}</button>`;
     if (wasHidden) wrap.classList.add('is-hidden');
     wireCandidateRows();
     updateSaveBtn();
