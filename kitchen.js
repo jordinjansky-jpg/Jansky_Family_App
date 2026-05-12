@@ -173,7 +173,7 @@ async function init() {
     getTheme:     () => settings?.theme,
     personOpts:   linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
     currentPage:  'kitchen',
-    onPageRender: () => render(),
+    onPageRender: () => { renderTabs(); renderActiveTab(); },
   });
   initOfflineBanner(onConnectionChange);
 
