@@ -2944,6 +2944,10 @@
 }
 .card--meal__school-icon svg { width: 16px; height: 16px; }
 .card--meal--school { opacity: 0.65; pointer-events: none; cursor: default; }
+.card--meal__name--voting {
+  color: var(--accent-ink);
+  font-weight: 500;
+}
 
 /* ── Meal editor sheet ── */
 .me-editor-header {

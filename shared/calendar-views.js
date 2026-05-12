@@ -1,7 +1,7 @@
 // calendar-views.js — Pure render functions for calendar week/day/month views.
 // No DOM access. Returns HTML strings. Import into calendar.html.
 
-import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT } from './utils.js';
+import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT, normalizePlanSlot } from './utils.js';
 import { renderEventPill, renderEventBubble } from './components.js';
 import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries } from './state.js';
 
@@ -301,20 +301,32 @@ export function renderDayView(opts) {
   for (const slot of SLOTS) {
     const plan = dayMeals?.[slot];
     if (!plan) continue;
-    const recipe = plan.recipeId ? recipes[plan.recipeId] : null;
-    const mealName = recipe?.name || plan.customName || null;
-    if (!mealName) continue;
-    const isSchool = plan.source === 'school';
-    const schoolIcon = isSchool
-      ? `<span class="card--meal__school-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M3 22V8l9-6 9 6v14M10 22v-6h4v6"/></svg></span>`
-      : '';
-    mealsHtml += `<button class="card--meal${isSchool ? ' card--meal--school' : ''}"
-                          data-meal-id="${esc(plan.recipeId || '')}" data-slot="${esc(slot)}"
-                          type="button"${isSchool ? ' aria-disabled="true"' : ''}>
-      ${schoolIcon}
-      <span class="card--meal__name">${esc(mealName)}</span>
-      <span class="card--meal__slot">${esc(SLOT_LABELS[slot])}</span>
-    </button>`;
+    const options = normalizePlanSlot(plan);
+    if (options.length === 0) continue;
+    if (options.length > 1) {
+      // Voting in progress — single row showing count, tappable to open vote sheet
+      mealsHtml += `<button class="card--meal card--meal--voting" data-vote-slot="${esc(slot)}" type="button">
+        <span class="card--meal__name card--meal__name--voting">&#x1F44D; Vote &middot; ${options.length} options</span>
+        <span class="card--meal__slot">${esc(SLOT_LABELS[slot] || slot)}</span>
+      </button>`;
+    } else {
+      // Single option — existing rendering
+      const singlePlan = options[0];
+      const recipe = singlePlan.recipeId ? recipes[singlePlan.recipeId] : null;
+      const mealName = recipe?.name || singlePlan.customName || singlePlan.mealName || null;
+      if (!mealName) continue;
+      const isSchool = singlePlan.source === 'school';
+      const schoolIcon = isSchool
+        ? `<span class="card--meal__school-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M3 22V8l9-6 9 6v14M10 22v-6h4v6"/></svg></span>`
+        : '';
+      mealsHtml += `<button class="card--meal${isSchool ? ' card--meal--school' : ''}"
+                            data-meal-id="${esc(singlePlan.recipeId || '')}" data-slot="${esc(slot)}"
+                            type="button"${isSchool ? ' aria-disabled="true"' : ''}>
+        ${schoolIcon}
+        <span class="card--meal__name">${esc(mealName)}</span>
+        <span class="card--meal__slot">${esc(SLOT_LABELS[slot] || slot)}</span>
+      </button>`;
+    }
   }
   if (mealsHtml) {
     mealsHtml = `<div class="cal-day__section">
