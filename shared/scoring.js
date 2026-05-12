@@ -337,6 +337,36 @@ export function periodGrade(allSnapshots, personId, startDate, endDate) {
 }
 
 /**
+ * Sum estimated minutes for completed tasks owned by `personId` in the date range [startDate, endDate].
+ * Used in the scoreboard drilldown for "X h Y min contributed" stat.
+ *
+ * @param {string} personId
+ * @param {object} schedule - Full schedule map { dateKey: { entryKey: entry } }
+ * @param {object} completions - All completions { entryKey: completion }
+ * @param {object} tasks - All tasks by id
+ * @param {string} startDate - YYYY-MM-DD inclusive
+ * @param {string} endDate - YYYY-MM-DD inclusive
+ * @param {function} addDaysFn - util.addDays (passed in to keep scoring.js pure)
+ * @returns {number} total minutes contributed (integer)
+ */
+export function timeContributed(personId, schedule, completions, tasks, startDate, endDate, addDaysFn) {
+  let total = 0;
+  let cur = startDate;
+  while (cur <= endDate) {
+    const dayEntries = schedule[cur] || {};
+    for (const [k, e] of Object.entries(dayEntries)) {
+      if (e.ownerId !== personId) continue;
+      if (!completions[k]) continue;
+      const task = tasks[e.taskId];
+      if (!task) continue;
+      total += (task.estMin || 0);
+    }
+    cur = addDaysFn(cur, 1);
+  }
+  return total;
+}
+
+/**
  * Aggregate grade across all people for a given period.
  * Sums earned/possible across each person's per-period grade.
  *

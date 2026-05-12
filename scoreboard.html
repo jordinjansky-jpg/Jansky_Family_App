@@ -45,7 +45,7 @@
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade, timeContributed } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -160,22 +160,6 @@
     }
 
     /** Calculate total time contributed over the rolling 7 days for a person. */
-    function weeklyTime(personId) {
-      let totalMin = 0;
-      let current = addDays(today, -6);
-      while (current <= today) {
-        const dayEntries = schedule[current] || {};
-        for (const [k, e] of Object.entries(dayEntries)) {
-          if (e.ownerId === personId && isComplete(k, comps)) {
-            const task = tasks[e.taskId];
-            if (task) totalMin += (task.estMin || 0);
-          }
-        }
-        current = addDays(current, 1);
-      }
-      return totalMin;
-    }
-
     /** Get per-category breakdown for a person over a date range. */
     function categoryBreakdown(personId, startDate, endDate) {
       const catTotals = {}; // catKey -> { earned, possible, label, icon }
@@ -698,6 +682,12 @@
         : `<div class="sb-drilldown__summary">
             <span class="sb-drilldown__stats">No tasks ${periodLabels[selectedPeriod].toLowerCase()}</span>
           </div>`;
+
+      // Time contributed for the active period
+      const contribMin = timeContributed(personId, schedule, comps, tasks, dStart, dEnd, addDays);
+      if (contribMin > 0) {
+        html += `<div class="sb-drilldown__contrib">${formatMinutes(contribMin)} contributed</div>`;
+      }
 
       // Category breakdown
       if (catKeys.length > 0) {
