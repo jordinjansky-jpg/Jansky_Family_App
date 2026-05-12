@@ -1310,3 +1310,51 @@ button.rl-chip {
   font-size: var(--font-sm);
   margin: 0;
 }
+
+/* ── Vote-mode candidate rows (Task 3) ── */
+.kp-cand-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.kp-cand-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.kp-cand-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kp-cand-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.kp-cand-remove {
+  background: transparent;
+  border: 0;
+  font-size: var(--font-lg);
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.kp-cand-remove:hover {
+  color: var(--text);
+}
+
+.kp-cand-mealname {
+  flex: 1;
+  text-align: left;
+}

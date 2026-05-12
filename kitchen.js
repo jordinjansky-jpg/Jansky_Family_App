@@ -767,6 +767,13 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : (preSlot === null ? null : 'dinner');
   let mealMode = 'single'; // 'single' | 'vote'
 
+  // Vote-mode candidate state. Each entry: { selectedRecipeId, typedName }.
+  // Starts with 2 empty rows. Single mode ignores this.
+  let candidates = [
+    { selectedRecipeId: null, typedName: '' },
+    { selectedRecipeId: null, typedName: '' },
+  ];
+
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
     return `${DAY_ABBR[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
@@ -795,6 +802,50 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     if (entries.length === 0 && lc) return `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`;
     if (entries.length === 0) return `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
     return entries.map(([id, r]) => buildPickRow(id, r)).join('');
+  }
+
+  function buildCandidateRow(i) {
+    const c = candidates[i];
+    const labelName = c.selectedRecipeId
+      ? (recipes[c.selectedRecipeId]?.name || '')
+      : (c.typedName || '');
+    const placeholder = `Option ${i + 1}`;
+    return `
+      <div class="kp-cand-row" data-cand-idx="${i}">
+        <div class="kp-cand-head">
+          <span class="kp-cand-label">${esc(placeholder)}</span>
+          ${candidates.length > 2 ? `<button class="kp-cand-remove" data-cand-remove="${i}" type="button" aria-label="Remove option">&times;</button>` : ''}
+        </div>
+        <button class="kp-meal-select${labelName ? ' has-value' : ''}" data-cand-select="${i}" type="button">
+          <span class="kp-cand-mealname">${esc(labelName || 'Choose a meal…')}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="kp-meal-dropdown" data-cand-dropdown="${i}">
+          <input class="kp-search-input" data-cand-search="${i}" type="text" autocomplete="off" placeholder="Search…" value="${esc(c.typedName || labelName)}">
+          <div class="recipe-pick-list" data-cand-list="${i}">${buildCandRecipeRows(c.typedName || labelName, i)}</div>
+        </div>
+      </div>`;
+  }
+
+  function buildCandPickRow(rowIdx, id, r) {
+    const isSelected = candidates[rowIdx].selectedRecipeId === id;
+    const thumb = r.imageUrl
+      ? `<img class="recipe-pick__thumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`
+      : `<span class="recipe-pick__thumb recipe-pick__thumb--placeholder" aria-hidden="true">🍴</span>`;
+    return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-cand-pick="${rowIdx}:${esc(id)}" type="button">
+      ${thumb}
+      <span class="recipe-pick__name">${esc(r.name)}</span>
+      ${isSelected ? '<span class="recipe-pick__check">&#10003;</span>' : ''}
+    </button>`;
+  }
+
+  function buildCandRecipeRows(filter, rowIdx) {
+    const lc = filter?.toLowerCase() || '';
+    const all = Object.entries(recipes).sort((a, b) => a[1].name.localeCompare(b[1].name));
+    const entries = lc ? all.filter(([, r]) => r.name.toLowerCase().includes(lc)) : all;
+    if (entries.length === 0 && lc) return `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`;
+    if (entries.length === 0) return `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
+    return entries.map(([id, r]) => buildCandPickRow(rowIdx, id, r)).join('');
   }
 
   const preRecipeName = preRecipeId ? (recipes[preRecipeId]?.name || '') : '';
@@ -846,8 +897,11 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       </div>
     </div>
     <div class="kp-vote-section is-hidden" id="kp_voteSection">
-      <span class="ef2-section-label">Candidates</span>
-      <p class="kp-vote-placeholder">Vote mode coming in next task.</p>
+      <span class="ef2-section-label">Candidates (max 3)</span>
+      <div class="kp-cand-list" id="kp_candList">
+        ${candidates.map((_, i) => buildCandidateRow(i)).join('')}
+      </div>
+      <button class="ef2-add-chip" id="kp_addCand" type="button"${candidates.length >= 3 ? ' style="display:none"' : ''}>+ Add option ${candidates.length + 1}</button>
     </div>
     <div class="kp-second-school${selectedSlot === 'school' && (selectedRecipeId || preRecipeName) ? ' is-visible' : ''}" id="kp_secondSection">
       <button class="ef2-add-chip${secondOpen ? ' is-active' : ''}" id="kp_addSecond" type="button">${secondOpen ? '− Remove second option' : '+ Plan a second School option'}</button>
@@ -875,6 +929,70 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     document.getElementById('kp_voteSection')?.classList.toggle('is-hidden', mealMode === 'single');
     updateSaveBtn();
   });
+
+  // Helper: re-render only the vote section (preserves single-mode state).
+  function rerenderVoteSection() {
+    const wrap = document.getElementById('kp_voteSection');
+    if (!wrap) return;
+    const wasHidden = wrap.classList.contains('is-hidden');
+    wrap.innerHTML = `
+      <span class="ef2-section-label">Candidates (max 3)</span>
+      <div class="kp-cand-list" id="kp_candList">
+        ${candidates.map((_, i) => buildCandidateRow(i)).join('')}
+      </div>
+      <button class="ef2-add-chip" id="kp_addCand" type="button"${candidates.length >= 3 ? ' style="display:none"' : ''}>+ Add option ${candidates.length + 1}</button>`;
+    if (wasHidden) wrap.classList.add('is-hidden');
+    wireCandidateRows();
+    updateSaveBtn();
+  }
+
+  function wireCandidateRows() {
+    // Toggle dropdown open on select-button tap.
+    document.querySelectorAll('[data-cand-select]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.candSelect, 10);
+        const dd = document.querySelector(`[data-cand-dropdown="${i}"]`);
+        // Close other dropdowns
+        document.querySelectorAll('[data-cand-dropdown]').forEach(d => {
+          if (d !== dd) d.classList.remove('is-open');
+        });
+        dd.classList.toggle('is-open');
+        if (dd.classList.contains('is-open')) {
+          setTimeout(() => document.querySelector(`[data-cand-search="${i}"]`)?.focus(), 50);
+        }
+      });
+    });
+
+    // Search input filters this row's list.
+    document.querySelectorAll('[data-cand-search]').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const i = parseInt(inp.dataset.candSearch, 10);
+        const val = e.target.value.trim();
+        candidates[i].typedName = val;
+        candidates[i].selectedRecipeId = null;
+        document.querySelector(`[data-cand-list="${i}"]`).innerHTML = buildCandRecipeRows(val, i);
+        updateSaveBtn();
+      });
+    });
+
+    // Recipe selection.
+    document.querySelectorAll('[data-cand-pick]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const [iStr, id] = btn.dataset.candPick.split(':');
+        const i = parseInt(iStr, 10);
+        candidates[i].selectedRecipeId = id;
+        candidates[i].typedName = recipes[id]?.name || '';
+        // Collapse this row's dropdown + update label.
+        document.querySelector(`[data-cand-dropdown="${i}"]`).classList.remove('is-open');
+        const mealNameSpan = document.querySelector(`[data-cand-select="${i}"] .kp-cand-mealname`);
+        if (mealNameSpan) mealNameSpan.textContent = recipes[id]?.name || '';
+        document.querySelector(`[data-cand-select="${i}"]`)?.classList.add('has-value');
+        updateSaveBtn();
+      });
+    });
+  }
+
+  wireCandidateRows();
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kp_close')?.addEventListener('click', close);
@@ -954,8 +1072,16 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   });
 
   function updateSaveBtn() {
-    const val = document.getElementById('kp_search')?.value.trim();
-    document.getElementById('kp_save').disabled = !selectedSlot || !(val || selectedRecipeId);
+    let canSave = false;
+    if (mealMode === 'single') {
+      const val = document.getElementById('kp_search')?.value.trim();
+      canSave = !!(selectedSlot && (val || selectedRecipeId));
+    } else {
+      // Vote mode: at least one candidate must have a selection.
+      canSave = !!selectedSlot && candidates.some(c => c.selectedRecipeId || c.typedName.trim());
+    }
+    const btn = document.getElementById('kp_save');
+    if (btn) btn.disabled = !canSave;
   }
 
   function syncMealLabel(name) {
