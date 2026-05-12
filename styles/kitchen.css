@@ -435,35 +435,6 @@ button.rl-chip {
 .kp-second-school { display: none; }
 .kp-second-school.is-visible { display: block; padding-top: var(--spacing-sm); }
 
-/* Plan-a-meal occupied-slot notice — surfaces existing options + an inline
-   toggle when the selected slot already has 1+ planned meals. Empty when
-   slot is free (no notice rendered). */
-.kp-occupied-notice:empty { display: none; }
-.kp-occupied-notice {
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  margin: 0 0 var(--spacing-sm);
-}
-.kp-occupied-notice__line {
-  margin: 0 0 var(--spacing-xs);
-  font-size: var(--font-sm);
-  color: var(--text);
-  line-height: 1.4;
-}
-.kp-occupied-notice__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-sm);
-}
-.kp-occupied-notice__label {
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-.kp-occupied-notice__row.is-disabled .kp-occupied-notice__label { opacity: 0.7; }
 .kp-second-meal { display: none; padding-top: var(--spacing-xs); }
 .kp-second-meal.is-open { display: block; }
 

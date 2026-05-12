@@ -898,7 +898,6 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       </nav>
     </div>
     <div class="ef2-divider"></div>
-    <div class="kp-occupied-notice" id="kp_occupiedNotice"></div>
     <div class="kp-meal-section${mealMode === 'vote' ? ' is-hidden' : ''}" id="kp_mealSection">
       <div class="kp-meal-header">
         <span class="ef2-section-label">Meal</span>
@@ -1089,47 +1088,8 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     const modeSection = document.getElementById('kp_modeSection');
     if (modeSection) modeSection.style.display = (selectedSlot === 'school') ? 'none' : '';
     syncSecondSchoolVisibility();
-    renderOccupiedNotice();
     updateSaveBtn();
   });
-
-  // Occupied-slot notice: when the user picks a slot that already has 1+
-  // planned meals, surface the current options AND a toggle to save the new
-  // pick as ANOTHER option for voting (vs. silently replacing). Default off
-  // matches the historical behavior for slots with one existing meal; for
-  // slots with active voting (2+ options) the default flips on to protect
-  // votes-in-progress. School slot has its own dual-option flow below and
-  // isn't covered here.
-  function renderOccupiedNotice() {
-    const mount = document.getElementById('kp_occupiedNotice');
-    if (!mount) return;
-    if (!selectedSlot || selectedSlot === 'school') { mount.innerHTML = ''; return; }
-    const day = document.getElementById('kp_day')?.value || preDate;
-    const existing = normalizePlanSlot(planCache[day]?.[selectedSlot]);
-    if (existing.length === 0) { mount.innerHTML = ''; return; }
-    const names = existing.map(o => o.recipeId ? (recipes[o.recipeId]?.name || 'Unknown') : (o.customName || o.mealName || ''));
-    const atCap = existing.length >= 3;
-    // Default-on when voting already in progress; otherwise default-off.
-    const defaultOn = existing.length >= 2;
-    // If appendMode was explicitly requested via opts (e.g. tapped "+ Add
-    // another option" from the slot-edit sheet) start with the toggle on.
-    const startChecked = appendMode || defaultOn;
-    const noteCopy = existing.length === 1
-      ? `Already planned: <strong>${esc(names[0])}</strong>`
-      : `Voting in progress: <strong>${esc(names.join(', '))}</strong>`;
-    mount.innerHTML = `
-      <p class="kp-occupied-notice__line">${noteCopy}</p>
-      <div class="kp-occupied-notice__row${atCap ? ' is-disabled' : ''}">
-        <span class="kp-occupied-notice__label">${atCap ? '3 options already — vote on these first' : (existing.length === 1 ? 'Save as another option for voting' : 'Save as another option (keep votes)')}</span>
-        <label class="form-toggle">
-          <input type="checkbox" id="kp_voteToggle"${startChecked && !atCap ? ' checked' : ''}${atCap ? ' disabled' : ''}>
-          <span class="form-toggle__track"></span>
-        </label>
-      </div>
-    `;
-  }
-  renderOccupiedNotice();
-  document.getElementById('kp_day')?.addEventListener('change', renderOccupiedNotice);
 
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
     const day = document.getElementById('kp_day')?.value || preDate;
@@ -1295,14 +1255,10 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       firstData.servings = preServings;
     }
     // Append vs replace decision:
-    // - If the occupied-notice toggle is present and checked → append
-    // - Else if appendMode was explicitly passed (legacy entry-points) → append
-    // - Else → replace (existing behavior for the common "change the planned
-    //   meal" case)
+    // appendMode = true only when explicitly opened via "+ Add another option"
+    // (slot-edit sheet). Otherwise single-mode always replaces the slot.
     // Cap at 3 options total either way.
-    const toggleEl = document.getElementById('kp_voteToggle');
-    const userAsksAppend = toggleEl ? toggleEl.checked : false;
-    const shouldAppend = userAsksAppend || appendMode;
+    const shouldAppend = appendMode;
     const existingOptions = normalizePlanSlot(planCache[day]?.[concreteSlot]);
     // Protect votes-in-progress: replacing 2+ options requires confirmation
     // since it discards everyone's votes.
