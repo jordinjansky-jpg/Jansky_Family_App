@@ -1151,7 +1151,52 @@ Person-specific behavior is limited to: title = person's name, saved filter pers
 - Slot row: 32×32 thumbnail (recipe `imageUrl` or 🍴 placeholder) + slot label + meal name. School-lunch slot labels are dynamic — `SCHOOL` when only one is planned, `SCHOOL 1` / `SCHOOL 2` when both. School nudge rows render once even when both `school-lunch` and `school-lunch-2` slots are empty (no double-rendering).
 - `History ›` chip above the week strip opens `openMealHistorySheet` — last 30 days of dinners grouped by Monday-anchored week; tap a row with `recipeId` opens recipe detail.
 - FAB: opens Plan-a-meal for today/dinner. Per-day `+` opens Plan-a-meal with no slot pre-selected. Plan-a-meal picker includes a single `School` option that auto-allocates to `school-lunch` or `school-lunch-2`. When School slot is chosen, a `+ Plan a second School option` chip stacks an inline second meal-select.
-- **Multi-option meal voting:** `kitchenPlan/{date}/{slot}` is stored as an array of options. Lazy-migrate via `normalizePlanSlot` on read. Slot-edit sheet renders vote cards when array length ≥ 2 (per-person thumbs-up; `Lock in` collapses to single winner; `Remove` drops an option; cap at 3 options per slot). Day-block renders the winner via `pickWinner` plus a `+N` badge when multiple options exist.
+- **Multi-option meal voting:** `kitchenPlan/{date}/{slot}` is stored as an array of options. Lazy-migrate via `normalizePlanSlot` on read. See sub-sections below for the Plan-a-meal Single/Vote modes, the unified voting display rule, and the shared vote sheet.
+
+### Plan-a-meal: Single / Vote modes
+
+The Plan-a-meal sheet has two modes selected via a segmented control at
+the top:
+
+- **Single meal** (default): the existing one-meal flow.
+- **Set up a vote**: a stack of 2-3 candidate rows. Each row is an
+  independent meal picker (search + recipe list + custom-name fallback).
+  `+ Add option 3` chip appears when both initial rows are filled; `×`
+  per row removes (min 2). Save commits the array of filled candidates.
+
+The segmented control is hidden when **School** is the selected slot —
+school keeps its own dual-pick flow because the two school slots are
+distinct slot keys, not vote options.
+
+When opened on a slot that already has 2-3 voting options, Plan-a-meal
+redirects to the vote sheet with a toast (`This slot has a vote in
+progress — opening vote sheet.`). When opened with explicit
+`initialMode: 'vote'` + `initialCandidates: [...]` from the vote sheet's
+`+ Add another option` flow, Plan-a-meal pre-fills the candidate rows.
+
+### Voting display rule
+
+Wherever a slot's content is summarized (dashboard tile, Meals tab row,
+calendar day sheet), voting state shows a single consistent indicator:
+
+- 1 option (or no voting): meal name, unchanged.
+- 2-3 options: `👍 Vote · N options`.
+
+Per-option names are not shown in summaries — recipe names are routinely
+too long to fit two side-by-side on a phone tile. The vote sheet itself
+is the only surface that lists candidates with their tallies.
+
+### Vote sheet
+
+A shared `openVoteSheet({ ... })` opener in `shared/components.js` is
+called from every entry point: kitchen Meals tab, dashboard dinner tile,
+calendar day sheet. No more navigating to `kitchen.html` to vote.
+
+The sheet self-labels as `Vote — {Slot} · {Day}` in its header. The
+`+ Add another option` chip is promoted to a full-width primary button
+when only 2 options are visible (to encourage adding a 3rd before voting
+begins). Lock-in is gated by `showConfirm` to prevent accidental
+single-tap commits.
 
 **Recipes tab:**
 - Sticky search input at top filters the library on every keystroke.
