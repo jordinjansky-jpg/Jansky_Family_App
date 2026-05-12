@@ -341,3 +341,29 @@
   font-size: var(--font-xs);
   padding: 2px 6px;
 }
+
+/* ── Rank chip ── */
+.card--score__rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 2px 6px;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* Leader gets a subtle gold ring + brighter rank chip */
+.card--score--leader {
+  box-shadow: 0 0 0 1.5px var(--grade-a) inset;
+}
+
+.card--score--leader .card--score__rank {
+  color: var(--grade-a);
+  background: color-mix(in srgb, var(--grade-a) 20%, transparent);
+}

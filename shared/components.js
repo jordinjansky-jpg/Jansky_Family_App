@@ -1855,7 +1855,7 @@ export function renderSectionHead(title, meta, options = {}) {
  * @param {number} liveBalance - Computed reward balance for this person
  * @param {string} badgeIcons - Concatenated emoji icons for earned achievements (up to 5)
  */
-export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
+export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank) {
   const metaParts = [
     b.streak.current > 0 ? `${b.streak.current}d streak` : null,
     `${liveBalance.toLocaleString()} pts`,
@@ -1871,9 +1871,16 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
     : `<span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
        <span class="card--score__pct">${esc(active.percentage)}%</span>`;
 
-  return `<button class="card card--score" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
+  const rankChip = rank
+    ? `<span class="card--score__rank">#${esc(rank)}</span>`
+    : '';
+
+  const goldRing = rank === 1 ? ' card--score--leader' : '';
+
+  return `<button class="card card--score${goldRing}" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
     <div class="card__leading">
       ${renderPersonAvatar(b.person, { size: 'md' })}
+      ${rankChip}
     </div>
     <div class="card__body">
       <div class="card__title">${esc(b.person.name)}</div>

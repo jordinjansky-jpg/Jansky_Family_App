@@ -308,6 +308,25 @@
         : 'year';
       board.sort((a, b) => b[gradeKey].percentage - a[gradeKey].percentage);
 
+      // Assign ranks. Ties share rank; subsequent ranks skip (1, 1, 3, 4 — standard "competition" ranking).
+      {
+        let lastPct = null;
+        let lastRank = 0;
+        for (let i = 0; i < board.length; i++) {
+          const pct = board[i][gradeKey].percentage;
+          const possible = board[i][gradeKey].possible;
+          if (possible === 0) {
+            board[i].rank = null; // No tasks → no rank
+          } else if (pct === lastPct) {
+            board[i].rank = lastRank;
+          } else {
+            board[i].rank = i + 1;
+            lastPct = pct;
+            lastRank = i + 1;
+          }
+        }
+      }
+
       let html = '';
 
       // ── Family score banner ──
@@ -366,7 +385,7 @@
       for (const b of board) {
         const active = b[gradeKey];
         const gd = gradeDisplay(active.percentage);
-        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons);
+        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank);
       }
       html += `</div>`;
 
