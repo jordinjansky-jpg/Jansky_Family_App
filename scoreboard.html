@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge, renderSendMessageSheet, bindSendMessageSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -807,6 +807,12 @@
         ${grade.earned > 0 ? `<span class="sb-drilldown__balance-delta">+${grade.earned} pts earned ${esc(periodLabels[selectedPeriod].toLowerCase())}</span>` : ''}
       </div>`;
 
+      // ── Send Kudos button (Pass 3) ──
+      html += `<button class="sb-kudos-btn" type="button" id="ddKudos">
+        <span class="sb-kudos-btn__icon" aria-hidden="true">👏</span>
+        <span class="sb-kudos-btn__label">Send kudos to ${esc(person.name)}</span>
+      </button>`;
+
       // Needs attention — Missed and Late only
       html += renderSectionHead(`Needs Attention`);
       const attentionOrder = ['Missed', 'Late'];
@@ -852,6 +858,30 @@
           });
         }
         document.getElementById('ddClose')?.addEventListener('click', closeDrilldown);
+        document.getElementById('ddKudos')?.addEventListener('click', () => {
+          // Mount the kudos sheet as a new overlay on top of the drilldown
+          const kudosMount = document.createElement('div');
+          kudosMount.id = 'kudosMount';
+          document.body.appendChild(kudosMount);
+          kudosMount.innerHTML = renderSendMessageSheet(people, personId, sbRewards || {});
+          // The renderSendMessageSheet wraps in renderBottomSheet which has class .bottom-sheet-overlay.
+          // Activate it now (renderBottomSheet starts without the .active class).
+          requestAnimationFrame(() => {
+            const overlay = kudosMount.querySelector('.bottom-sheet-overlay');
+            overlay?.classList.add('active');
+          });
+          // Bind with writeMessage + writeBankToken from firebase.js (already imported)
+          bindSendMessageSheet(kudosMount, writeMessage, linkedPerson?.name || 'Family', writeBankToken, () => sbRewards || {});
+          // bindSendMessageSheet clears kudosMount.innerHTML on cancel/send/overlay-click.
+          // We also need to remove the empty mount element itself afterwards. Use a MutationObserver.
+          const obs = new MutationObserver(() => {
+            if (!kudosMount.innerHTML) {
+              kudosMount.remove();
+              obs.disconnect();
+            }
+          });
+          obs.observe(kudosMount, { childList: true, subtree: false });
+        });
       });
     }
 
