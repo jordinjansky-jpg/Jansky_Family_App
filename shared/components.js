@@ -5061,6 +5061,12 @@ export function openVoteSheet({
         return;
       }
       await onWriteOptions(remaining);
+      // Going from voting (2+) down to single-meal (1) — the slot is no longer
+      // in a vote state, so the vote sheet has nothing left to show. Close it
+      // so the caller's underlying re-render is visible to the user. (For 3 → 2,
+      // the caller re-opens openVoteSheet in place, so this close is overridden
+      // by the new mount content — harmless either way.)
+      if (remaining.length === 1) onClose();
     });
   });
 }
