@@ -336,6 +336,17 @@ export function periodGrade(allSnapshots, personId, startDate, endDate) {
   return aggregateSnapshots(snaps);
 }
 
+/**
+ * Aggregate grade across all people for a given period.
+ * Sums earned/possible across each person's per-period grade.
+ *
+ * @param {Array} perPersonGrades - Array of { earned, possible, percentage } objects (one per person)
+ * @returns {object} aggregated { earned, possible, percentage, grade }
+ */
+export function familyGrade(perPersonGrades) {
+  return aggregateSnapshots(perPersonGrades);
+}
+
 // ── Rollover ──
 
 /**

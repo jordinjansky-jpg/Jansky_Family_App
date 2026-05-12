@@ -45,7 +45,7 @@
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -309,6 +309,44 @@
       board.sort((a, b) => b[gradeKey].percentage - a[gradeKey].percentage);
 
       let html = '';
+
+      // ── Family score banner ──
+      const familyAgg = familyGrade(board.map(b => b[gradeKey]));
+      const familyGd = familyAgg.possible > 0 ? gradeDisplay(familyAgg.percentage) : null;
+
+      // Family trend: this period vs. prior period of same length (week vs. last week, etc.)
+      let familyTrendDir = null;
+      if (selectedPeriod === 'week' || selectedPeriod === 'month') {
+        const priorRanges = {
+          week:  [addDays(today, -13), addDays(today, -7)],
+          month: [addDays(today, -59), addDays(today, -30)],
+        };
+        const [ps, pe] = priorRanges[selectedPeriod];
+        const priorAgg = familyGrade(board.map(b => periodGrade(snapshots, b.person.id, ps, pe)));
+        if (familyAgg.possible > 0 && priorAgg.possible > 0) {
+          const diff = familyAgg.percentage - priorAgg.percentage;
+          if (diff > 2) familyTrendDir = 'up';
+          else if (diff < -2) familyTrendDir = 'down';
+        }
+      }
+
+      const periodLabelMap = { today: 'today', week: 'this week', month: 'this month', year: 'this year' };
+      const trendArrowFamily = (dir) => {
+        if (!dir) return '';
+        const points = dir === 'up'
+          ? '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>'
+          : '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>';
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${points}</svg>`;
+      };
+
+      if (familyGd) {
+        html += `<div class="sb-family-banner">
+          <span class="sb-family-banner__label">Family</span>
+          <span class="sb-family-banner__grade grade-badge grade-badge--${esc(familyGd.tier)} grade-badge--sm">${esc(familyGd.grade)}</span>
+          <span class="sb-family-banner__period">${periodLabelMap[selectedPeriod]}</span>
+          ${trendArrowFamily(familyTrendDir)}
+        </div>`;
+      }
 
       // ── Period tabs ──
       const periods = [
