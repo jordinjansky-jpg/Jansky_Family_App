@@ -6008,4 +6008,12 @@ label.ef2-icon-btn  { cursor: pointer; }
   padding: 0 var(--spacing-sm);
   text-align: right;
 }
+
+/* Vote sheet — add-another CTA wrapper */
+.vote-add-another {
+  padding: var(--spacing-md);
+}
+.vote-add-another .btn--block {
+  width: 100%;
+}
 .rf-adv-input:focus { outline: none; border-color: var(--accent); }

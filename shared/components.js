@@ -4994,13 +4994,17 @@ export function openVoteSheet({
   mount.innerHTML = renderBottomSheet(`
     <div class="task-detail-sheet">
       <div class="sheet__header">
-        <h2 class="sheet__title">${esc(slotLabel)} &middot; ${esc(dayLabel)}</h2>
+        <h2 class="sheet__title">Vote &mdash; ${esc(slotLabel)} &middot; ${esc(dayLabel)}</h2>
         <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
       </div>
       <div class="vote-cards">
         ${options.map((opt, i) => buildCard(opt, i)).join('')}
       </div>
-      ${options.length < 3 ? `<div class="me-detail__chips"><button class="chip" id="addAnotherOption" type="button">+ Add another option</button></div>` : ''}
+      ${options.length < 3 ? `
+        <div class="vote-add-another">
+          <button class="${options.length === 2 ? 'btn btn--primary btn--block' : 'chip'}" id="addAnotherOption" type="button">+ Add another option</button>
+        </div>
+      ` : ''}
     </div>`);
   requestAnimationFrame(() => {
     const sheet = document.getElementById('bottomSheet');
