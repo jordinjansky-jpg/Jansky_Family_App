@@ -454,6 +454,11 @@ button.rl-chip {
 .kitchen-tabs-row .tabs {
   flex: 1;
   min-width: 0;
+  /* Override the default 16px margin-bottom on .tabs — in a flex row with
+     align-items: center, that margin throws off vertical alignment with
+     the AI tools button next to it (the nav box ends up top-anchored
+     while the button centers cleanly). */
+  margin-bottom: 0;
 }
 
 .kitchen-aitools-btn {
