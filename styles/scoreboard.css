@@ -2,49 +2,6 @@
 /* scoreboard.css — Scoreboard page styles (Phase 5) */
 /* Component classes (tabs, card--score, etc.) live in components.css */
 
-/* ── Grades table (inside .card.grades-card) ── */
-.grades-card {
-  padding: 0;
-  overflow: hidden;
-  display: block;
-  margin-bottom: var(--spacing-lg);
-  min-height: 0;
-}
-
-.grades-header {
-  display: grid;
-  grid-template-columns: 1.5fr repeat(4, 1fr);
-  padding: var(--spacing-xs) var(--spacing-md);
-  border-bottom: 1px solid var(--border);
-  font-size: var(--font-xs);
-  color: var(--text-faint);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.grades-row {
-  display: grid;
-  grid-template-columns: 1.5fr repeat(4, 1fr);
-  align-items: center;
-  padding: var(--spacing-xs) var(--spacing-md);
-  border-bottom: 1px solid var(--border);
-  min-width: 320px;
-}
-
-.grades-row:last-child { border-bottom: none; }
-
-.grades-cell { text-align: center; }
-
-.grades-cell--name {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  text-align: left;
-  font-size: var(--font-sm);
-  font-weight: 500;
-}
-
 /* ── sb-mini-dot (retained — utility, not a component class) ── */
 .sb-mini-dot {
   width: 10px;

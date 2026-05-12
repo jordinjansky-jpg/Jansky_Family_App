@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -415,35 +415,6 @@
           html += `</div>`;
         }
       }
-
-      // ── All Grades table ──
-      html += renderSectionHead('All Grades');
-      html += `<div class="card grades-card">
-        <div class="grades-header">
-          <span class="grades-cell grades-cell--name"></span>
-          <span class="grades-cell">Today</span>
-          <span class="grades-cell">Week</span>
-          <span class="grades-cell">Month</span>
-          <span class="grades-cell">12 Mo</span>
-        </div>`;
-      for (const b of board) {
-        const tdG = gradeDisplay(b.today.percentage);
-        const wkG = gradeDisplay(b.week.percentage);
-        const moG = gradeDisplay(b.month.percentage);
-        const yrG = gradeDisplay(b.year.percentage);
-        html += `<div class="grades-row">
-          <span class="grades-cell grades-cell--name">
-            <span class="sb-mini-dot" style="--person-color: ${esc(b.person.color)}; background: var(--person-color)"></span>
-            ${esc(b.person.name)}
-          </span>
-          <span class="grades-cell">${renderGradeBadge(tdG.grade, tdG.tier)}</span>
-          <span class="grades-cell">${renderGradeBadge(wkG.grade, wkG.tier)}</span>
-          <span class="grades-cell">${renderGradeBadge(moG.grade, moG.tier)}</span>
-          <span class="grades-cell">${renderGradeBadge(yrG.grade, yrG.tier)}</span>
-        </div>`;
-      }
-      html += `</div>`;
-
 
       main.innerHTML = html;
       applyDataColors(main);
