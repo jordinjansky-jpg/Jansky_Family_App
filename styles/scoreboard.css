@@ -367,3 +367,11 @@
   color: var(--grade-a);
   background: color-mix(in srgb, var(--grade-a) 20%, transparent);
 }
+
+/* ── Time-to-grade hint ── */
+.card--score__hint {
+  font-size: var(--font-xs);
+  color: var(--accent);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}

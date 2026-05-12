@@ -1855,7 +1855,7 @@ export function renderSectionHead(title, meta, options = {}) {
  * @param {number} liveBalance - Computed reward balance for this person
  * @param {string} badgeIcons - Concatenated emoji icons for earned achievements (up to 5)
  */
-export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank) {
+export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hint) {
   const metaParts = [
     b.streak.current > 0 ? `${b.streak.current}d streak` : null,
     `${liveBalance.toLocaleString()} pts`,
@@ -1863,6 +1863,10 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank) {
 
   const badgeRow = badgeIcons
     ? `<div class="card--score__badges">${badgeIcons}</div>`
+    : '';
+
+  const hintRow = hint
+    ? `<div class="card--score__hint">${esc(hint)}</div>`
     : '';
 
   const isEmpty = active.possible === 0;
@@ -1886,6 +1890,7 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank) {
       <div class="card__title">${esc(b.person.name)}</div>
       <div class="card__meta">${esc(metaParts)}</div>
       ${badgeRow}
+      ${hintRow}
     </div>
     <div class="card__trailing">
       ${trailing}

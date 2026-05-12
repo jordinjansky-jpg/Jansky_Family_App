@@ -232,6 +232,53 @@
       return weeks;
     }
 
+    /**
+     * Compute the smallest number of remaining tasks that would lift this person
+     * across the next grade tier boundary today. Returns a hint string or null.
+     */
+    function tasksToNextGrade(personId) {
+      const td = todayScore(personId);
+      if (td.possible === 0) return null;
+      if (td.percentage >= 97) return null; // Already A+
+
+      // Find the next grade-tier minimum above the current percentage
+      const tiers = [97, 93, 90, 87, 83, 80, 77, 73, 70, 67, 63, 60];
+      const nextMin = [...tiers].reverse().find(t => t > td.percentage);
+      if (!nextMin) return null;
+
+      // Collect remaining tasks (scheduled today for this person, not completed)
+      const dayEntries = schedule[today] || {};
+      const remaining = [];
+      for (const [k, e] of Object.entries(dayEntries)) {
+        if (e.ownerId !== personId) continue;
+        if (comps[k]) continue; // already completed
+        const task = tasks[e.taskId];
+        if (!task) continue;
+        const cat = task.category ? cats[task.category] : null;
+        if (cat?.isEvent) continue;
+        if (task.exempt) continue;
+        remaining.push(basePoints(task, settings?.difficultyMultipliers));
+      }
+      if (remaining.length === 0) return null;
+
+      // Greedy: sort by points desc, accumulate until next tier crossed
+      remaining.sort((a, b) => b - a);
+      let earned = td.earned;
+      const possible = td.possible;
+      let count = 0;
+      for (const pts of remaining) {
+        earned += pts;
+        count += 1;
+        const pct = Math.round((earned / possible) * 100);
+        if (pct >= nextMin) {
+          const gd = gradeDisplay(pct);
+          const word = count === 1 ? 'task' : 'tasks';
+          return `${count} more ${word} → ${gd.grade}`;
+        }
+      }
+      return null;
+    }
+
     // ── Period selector state ──
     let selectedPeriod = linkedPerson?.prefs?.scoreboard?.period || 'week'; // 'today' | 'week' | 'month' | 'year'
 
@@ -385,7 +432,8 @@
       for (const b of board) {
         const active = b[gradeKey];
         const gd = gradeDisplay(active.percentage);
-        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank);
+        const hint = selectedPeriod === 'today' ? tasksToNextGrade(b.person.id) : null;
+        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank, hint);
       }
       html += `</div>`;
 
