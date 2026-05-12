@@ -3714,6 +3714,27 @@
    horizontal padding keeps the labels readable inside the smaller cells. */
 .sheet__footer .btn { flex: 1 1 0; min-width: 0; padding-left: 12px; padding-right: 12px; }
 
+/* Customize-sheet collapsible section (used for "set once, forget" prefs
+   like the Navigation buttons editor). */
+.dt-collapsible { padding: 0; }
+.dt-collapsible__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  padding: var(--spacing-sm) 0;
+}
+.dt-collapsible__summary::-webkit-details-marker { display: none; }
+.dt-collapsible__chev {
+  color: var(--text-muted);
+  transition: transform var(--t-fast);
+  flex-shrink: 0;
+}
+.dt-collapsible[open] .dt-collapsible__chev { transform: rotate(180deg); }
+
 /* ── Customize sheet: Navigation buttons drag-drop list ───────────────── */
 .nav-edit-list {
   list-style: none;
