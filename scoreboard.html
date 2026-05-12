@@ -444,22 +444,6 @@
       }
       html += `</div>`;
 
-      // ── Balance summary — one tappable row per person linking to rewards.html ──
-      const chevron = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
-      html += renderSectionHead('Balances');
-      html += `<div class="card sb-balances">`;
-      for (const b of board) {
-        html += `<button class="list-row sb-balance-row" type="button" data-href="rewards.html?person=${encodeURIComponent(b.person.name)}">
-          ${renderPersonAvatar(b.person, { size: 'md' })}
-          <span class="list-row__label">${esc(b.person.name)}</span>
-          <div class="sb-balance-row__right">
-            <span class="sb-balance-row__pts">${b.liveBalance.toLocaleString()} pts</span>
-            ${b.week.earned > 0 ? `<span class="sb-balance-row__delta">+${b.week.earned} this wk</span>` : ''}
-          </div>
-          <span class="list-row__trailing">${chevron}</span>
-        </button>`;
-      }
-      html += `</div>`;
 
       main.innerHTML = html;
       applyDataColors(main);
@@ -481,11 +465,6 @@
           }
           render();
         });
-      }
-
-      // Balance rows — navigate to rewards.html for that person
-      for (const row of document.querySelectorAll('.sb-balance-row[data-href]')) {
-        row.addEventListener('click', () => { location.href = row.dataset.href; });
       }
 
       // Grade cards — single click opens drilldown (no long-press needed: no competing tap action)

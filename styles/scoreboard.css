@@ -60,53 +60,6 @@
   margin-left: var(--spacing-xs);
 }
 
-/* ── Balance summary rows ── */
-.sb-balances {
-  display: block;
-  padding: 0;
-  overflow: hidden;
-  margin-bottom: var(--spacing-lg);
-  min-height: 0;
-}
-
-.sb-balance-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--t-fast);
-}
-
-.sb-balance-row:last-child { border-bottom: none; }
-.sb-balance-row:hover { background: var(--surface-2); }
-
-.sb-balance-row__right {
-  margin-left: auto;
-  text-align: right;
-}
-
-.sb-balance-row__pts {
-  font-size: var(--font-sm);
-  font-weight: 600;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.sb-balance-row__delta {
-  display: block;
-  font-size: var(--font-xs);
-  color: var(--success);
-  font-variant-numeric: tabular-nums;
-}
-
 /* ── Drilldown sheet ── */
 .sb-drilldown { padding: 0; }
 
