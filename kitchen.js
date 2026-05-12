@@ -743,6 +743,17 @@ function resolveSchoolSlot(dateKey) {
 }
 
 function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
+  // ===== Early redirect: if slot is already in vote state, jump to vote sheet =====
+  if (preSlot && preSlot !== 'school' && !opts.appendMode) {
+    const existing = normalizePlanSlot(planCache[preDate]?.[preSlot]);
+    if (existing.length >= 2) {
+      showToast('This slot has a vote in progress — opening vote sheet.');
+      openSlotEditSheet(preDate, preSlot, existing[0]);
+      return;
+    }
+  }
+
+  // ===== Normal opener flow =====
   const appendMode = opts.appendMode === true;
   const preServings = (typeof opts.servings === 'number' && opts.servings > 0) ? opts.servings : null;
   const mount = document.getElementById('sheetMount');
@@ -763,6 +774,22 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     { selectedRecipeId: null, typedName: '' },
     { selectedRecipeId: null, typedName: '' },
   ];
+
+  // If appendMode, switch to Vote mode and pre-fill with existing slot options.
+  if (appendMode && preSlot && preSlot !== 'school') {
+    const existing = normalizePlanSlot(planCache[preDate]?.[preSlot]);
+    if (existing.length >= 1) {
+      mealMode = 'vote';
+      candidates = existing.map(opt => ({
+        selectedRecipeId: opt.recipeId || null,
+        typedName: opt.recipeId ? '' : (opt.customName || opt.mealName || ''),
+      }));
+      // Append one empty row if we have fewer than 3 to leave room for the new option.
+      if (candidates.length < 3) {
+        candidates.push({ selectedRecipeId: null, typedName: '' });
+      }
+    }
+  }
 
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
@@ -845,8 +872,8 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     ${selectedSlot !== 'school' ? `
       <div class="kp-mode-section" id="kp_modeSection">
         <nav class="tabs tabs--pill kp-mode-tabs" id="kp_modeTabs" role="tablist">
-          <button class="tab is-active" data-mode="single" type="button">Single meal</button>
-          <button class="tab" data-mode="vote" type="button">Set up a vote</button>
+          <button class="tab${mealMode === 'single' ? ' is-active' : ''}" data-mode="single" type="button">Single meal</button>
+          <button class="tab${mealMode === 'vote' ? ' is-active' : ''}" data-mode="vote" type="button">Set up a vote</button>
         </nav>
       </div>
       <div class="ef2-divider"></div>
@@ -872,7 +899,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     </div>
     <div class="ef2-divider"></div>
     <div class="kp-occupied-notice" id="kp_occupiedNotice"></div>
-    <div class="kp-meal-section" id="kp_mealSection">
+    <div class="kp-meal-section${mealMode === 'vote' ? ' is-hidden' : ''}" id="kp_mealSection">
       <div class="kp-meal-header">
         <span class="ef2-section-label">Meal</span>
         <button class="btn btn--ghost btn--sm" id="kp_createRecipe" type="button">+ New recipe</button>
@@ -886,7 +913,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
         <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
       </div>
     </div>
-    <div class="kp-vote-section is-hidden" id="kp_voteSection">
+    <div class="kp-vote-section${mealMode === 'single' ? ' is-hidden' : ''}" id="kp_voteSection">
       <span class="ef2-section-label">Candidates (max 3)</span>
       <div class="kp-cand-list" id="kp_candList">
         ${candidates.map((_, i) => buildCandidateRow(i)).join('')}
@@ -911,10 +938,32 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   document.getElementById('kp_modeTabs')?.addEventListener('click', (e) => {
     const tab = e.target.closest('[data-mode]');
     if (!tab) return;
+    const prevMode = mealMode;
     mealMode = tab.dataset.mode;
+
+    // Going single → vote: if there's a current single-mode selection, seed row 1.
+    if (prevMode === 'single' && mealMode === 'vote') {
+      const val = document.getElementById('kp_search')?.value.trim();
+      if (selectedRecipeId) {
+        candidates[0] = { selectedRecipeId, typedName: recipes[selectedRecipeId]?.name || '' };
+      } else if (val) {
+        candidates[0] = { selectedRecipeId: null, typedName: val };
+      }
+      rerenderVoteSection();
+    }
+
+    // Going vote → single: discard candidates silently (spec §1).
+    if (prevMode === 'vote' && mealMode === 'single') {
+      candidates = [
+        { selectedRecipeId: null, typedName: '' },
+        { selectedRecipeId: null, typedName: '' },
+      ];
+      // No DOM changes needed in single mode — the search input still holds prior value.
+    }
+
+    // Toggle tab active state and section visibility.
     document.getElementById('kp_modeTabs').querySelectorAll('.tab').forEach(t =>
       t.classList.toggle('is-active', t === tab));
-    // Toggle visibility of meal-section vs vote-section.
     document.getElementById('kp_mealSection')?.classList.toggle('is-hidden', mealMode === 'vote');
     document.getElementById('kp_voteSection')?.classList.toggle('is-hidden', mealMode === 'single');
     updateSaveBtn();
@@ -1008,6 +1057,9 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
 
   wireCandidateRows();
   wireAddRemoveCandidates();
+  // Sync Save button state to actual mealMode/candidates — important when sheet
+  // opens in Vote mode (appendMode) with pre-filled candidates.
+  updateSaveBtn();
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kp_close')?.addEventListener('click', close);
