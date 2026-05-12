@@ -297,6 +297,25 @@ Verified at 412×915: family banner renders with correct trend arrow on week/mon
 
 ---
 
+## Pass 3 — Shipped 2026-05-12
+
+Commits on main:
+- `4503d94` — feat(scoreboard): drilldown header has inline grade badge + family comparison
+- `26372d0` — feat(scoreboard): time contributed stat in drilldown
+- `101f405` — feat(scoreboard): achievement gallery in drilldown
+- `dda632e` — feat(scoreboard): Send Kudos CTA reuses message sheet
+- `4a3ad26` — feat(scoreboard): tappable Needs Attention with Mark Late-Done
+
+Verified at 412×915: drilldown header shows inline B+ badge next to name and "+X vs family" subtitle. "2h 19m contributed" line renders under summary. Achievement gallery shows 6 unlocked badges in 3-col grid (sorted by recency) + "Closest to unlock" section with dimmed locked badges and progress text. "Send kudos to NAME" button opens existing `renderSendMessageSheet` preselected to that person. Missed/Late rows are now `<button>` elements; tap opens action sheet with Mark Late-Done that writes the same completion shape as dashboard's late-credit path.
+
+**Findings during execution:**
+- `renderSendMessageSheet` already accepted `preselectedPersonId` — no signature change needed.
+- Used `type: 'bonus'` for kudos messages so `calculateBalance` credits the points natively (no scoring.js change).
+- Drilldown does not have a `loadData()` helper; Mark Late-Done falls back to `location.reload()`. Future polish pass could refactor.
+- Family banner tap-to-open contribution sheet was deferred from Pass 2 and remains deferred — not implemented in Pass 3.
+
+---
+
 ## Pass 4 — Insights & Heatmap
 
 **Goal:** Replace the broken sparkline with a heatmap that tells a real story. Surface insight rows in Highlights to drive return visits.
