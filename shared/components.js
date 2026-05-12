@@ -744,6 +744,40 @@ function bindNavTabsSection(mountEl, personOpts, onApply, currentPage) {
     });
   }
 
+  // Document-level move/up listeners so the drag survives even when the
+  // user's finger drifts off the small grip handle (very common on touch
+  // devices). Local pointerdown on the handle still gates the start so
+  // accidental sheet-scroll drags aren't intercepted.
+  function onMove(e) {
+    if (!dragging) return;
+    const dy = e.clientY - startY;
+    const rowHeight = dragging.offsetHeight || 44;
+    const moveBy = Math.round(dy / rowHeight);
+    const newIdx = Math.max(0, Math.min(list.children.length - 1, originalIndex + moveBy));
+    const currentIdx = Array.from(list.children).indexOf(dragging);
+    if (newIdx !== currentIdx) {
+      const before = list.children[newIdx];
+      if (newIdx < currentIdx) list.insertBefore(dragging, before);
+      else list.insertBefore(dragging, before.nextSibling);
+      updateBadges();
+    }
+    e.preventDefault();
+  }
+
+  async function onUp() {
+    if (!dragging) return;
+    const row = dragging;
+    row.classList.remove('is-dragging');
+    dragging = null;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    const newTabs = Array.from(list.children).slice(0, 3).map(r => r.dataset.page);
+    await writeNavTabsPref(personOpts, newTabs);
+    document.dispatchEvent(new CustomEvent('dr-nav-tabs-changed', { detail: { tabs: newTabs } }));
+    if (onApply) onApply();
+  }
+
   list.querySelectorAll('.nav-edit-row').forEach(row => {
     const handle = row.querySelector('.nav-edit-handle');
     handle?.addEventListener('pointerdown', (e) => {
@@ -751,38 +785,13 @@ function bindNavTabsSection(mountEl, personOpts, onApply, currentPage) {
       startY = e.clientY;
       originalIndex = Array.from(list.children).indexOf(row);
       row.classList.add('is-dragging');
+      // Move/up listeners are document-wide so finger-drift doesn't
+      // disconnect the drag. Capture stays as a defense-in-depth fallback.
       handle.setPointerCapture?.(e.pointerId);
+      document.addEventListener('pointermove',   onMove);
+      document.addEventListener('pointerup',     onUp);
+      document.addEventListener('pointercancel', onUp);
       e.preventDefault();
-    });
-    handle?.addEventListener('pointermove', (e) => {
-      if (dragging !== row) return;
-      const dy = e.clientY - startY;
-      const rowHeight = row.offsetHeight || 44;
-      const moveBy = Math.round(dy / rowHeight);
-      const newIdx = Math.max(0, Math.min(list.children.length - 1, originalIndex + moveBy));
-      const currentIdx = Array.from(list.children).indexOf(row);
-      if (newIdx !== currentIdx) {
-        const before = list.children[newIdx];
-        if (newIdx < currentIdx) list.insertBefore(row, before);
-        else list.insertBefore(row, before.nextSibling);
-        updateBadges();
-      }
-    });
-    handle?.addEventListener('pointerup', async () => {
-      if (dragging !== row) return;
-      row.classList.remove('is-dragging');
-      dragging = null;
-      const newTabs = Array.from(list.children).slice(0, 3).map(r => r.dataset.page);
-      await writeNavTabsPref(personOpts, newTabs);
-      // Each page listens for this event and re-renders its nav bar + re-wires
-      // the More handler. Decouples this component from page-specific init.
-      document.dispatchEvent(new CustomEvent('dr-nav-tabs-changed', { detail: { tabs: newTabs } }));
-      if (onApply) onApply();
-    });
-    handle?.addEventListener('pointercancel', () => {
-      if (dragging !== row) return;
-      row.classList.remove('is-dragging');
-      dragging = null;
     });
   });
 }
