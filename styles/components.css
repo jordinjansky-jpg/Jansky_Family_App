@@ -2944,6 +2944,10 @@
 }
 .card--meal__school-icon svg { width: 16px; height: 16px; }
 .card--meal--school { opacity: 0.65; pointer-events: none; cursor: default; }
+.card--meal__name--voting {
+  color: var(--accent-ink);
+  font-weight: 500;
+}
 
 /* ── Meal editor sheet ── */
 .me-editor-header {
@@ -6003,5 +6007,13 @@ label.ef2-icon-btn  { cursor: pointer; }
   font-size: var(--font-sm);
   padding: 0 var(--spacing-sm);
   text-align: right;
+}
+
+/* Vote sheet — add-another CTA wrapper */
+.vote-add-another {
+  padding: var(--spacing-md);
+}
+.vote-add-another .btn--block {
+  width: 100%;
 }
 .rf-adv-input:focus { outline: none; border-color: var(--accent); }

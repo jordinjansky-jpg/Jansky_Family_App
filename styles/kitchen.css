@@ -435,35 +435,6 @@ button.rl-chip {
 .kp-second-school { display: none; }
 .kp-second-school.is-visible { display: block; padding-top: var(--spacing-sm); }
 
-/* Plan-a-meal occupied-slot notice — surfaces existing options + an inline
-   toggle when the selected slot already has 1+ planned meals. Empty when
-   slot is free (no notice rendered). */
-.kp-occupied-notice:empty { display: none; }
-.kp-occupied-notice {
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  margin: 0 0 var(--spacing-sm);
-}
-.kp-occupied-notice__line {
-  margin: 0 0 var(--spacing-xs);
-  font-size: var(--font-sm);
-  color: var(--text);
-  line-height: 1.4;
-}
-.kp-occupied-notice__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-sm);
-}
-.kp-occupied-notice__label {
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-.kp-occupied-notice__row.is-disabled .kp-occupied-notice__label { opacity: 0.7; }
 .kp-second-meal { display: none; padding-top: var(--spacing-xs); }
 .kp-second-meal.is-open { display: block; }
 
@@ -1278,4 +1249,102 @@ button.rl-chip {
 .who-cancel {
   display: block;
   margin: 0 auto;
+}
+
+/* Plan-a-meal: Single / Vote mode segmented control */
+.kp-mode-section {
+  padding: var(--spacing-md) 0 0;
+}
+
+.kp-mode-section.is-hidden {
+  display: none;
+}
+
+.kp-mode-tabs .tab {
+  flex: 1;
+}
+
+/* Vote-mode container (filled out in Task 3) */
+.kp-vote-section {
+  padding: var(--spacing-md) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.kp-vote-section.is-hidden {
+  display: none;
+}
+
+.kp-meal-section.is-hidden {
+  display: none;
+}
+
+.kp-vote-placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  margin: 0;
+}
+
+/* ── Vote-mode candidate rows (Task 3) ── */
+.kp-cand-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.kp-cand-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.kp-cand-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kp-cand-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.kp-cand-remove {
+  background: transparent;
+  border: 0;
+  font-size: var(--font-lg);
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.kp-cand-remove:hover {
+  color: var(--text);
+}
+
+.kp-cand-mealname {
+  flex: 1;
+  text-align: left;
+}
+
+/* ── Voting-state slot row ─────────────────────────────────────────── */
+
+.day-block__slot--voting .day-block__slot-name {
+  color: var(--accent-ink);
+  font-weight: 500;
+}
+
+.day-block__slot-thumb--vote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  font-size: var(--font-md);
 }

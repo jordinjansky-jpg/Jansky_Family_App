@@ -1,6 +1,6 @@
 // cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted)
 import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
-import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode } from './shared/components.js';
+import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
@@ -308,13 +308,10 @@ async function render() {
     const weatherData = await fetchWeather(viewDate, settings);
     lastWeatherData = weatherData;
     const dinnerOptions = normalizePlanSlot(viewMeals?.dinner);
-    const dinnerWinner = pickWinner(dinnerOptions);
+    const dinnerIsMulti = dinnerOptions.length > 1;
+    const dinnerWinner = dinnerIsMulti ? null : pickWinner(dinnerOptions);
     const dinnerEntry = dinnerWinner?.recipeId ? recipes[dinnerWinner.recipeId] : null;
     const dinnerName = dinnerEntry?.name || dinnerWinner?.customName || null;
-    // Multi-option = voting in progress. Show a sub-line so it's visible at a
-    // glance; tap behavior (further down) routes to Kitchen so the user lands
-    // somewhere with the full per-option visibility + vote sheet.
-    const dinnerIsMulti = dinnerOptions.length > 1;
 
     // Weather tile
     let weatherValue = '—° · Set location';
@@ -338,20 +335,23 @@ async function render() {
 
     // Dinner tile — empty state uses verb form ("Plan dinner") + chevron via the
     // tile's built-in empty-action affordance so the tap target reads as actionable
-    // rather than as static status. Multi-option dinners get an accent-colored
-    // sub-line announcing the vote (rendered as a sibling of value, not inside
-    // it, to escape the line-clamp's overflow:hidden).
+    // rather than as static status. Vote state hides the individual candidate
+    // names and shows generic copy instead (spec §2) — the vote sheet opens
+    // inline on tap. Multi-option dinners get an accent-colored sub-line
+    // announcing the vote (rendered as a sibling of value, not inside it, to
+    // escape the line-clamp's overflow:hidden).
     const dinnerSub = dinnerIsMulti
       ? `&#x1F44D; Vote &middot; ${dinnerOptions.length} options`
       : '';
     const dinnerTile = renderDashboardTile({
       label: 'Dinner',
-      value: dinnerName || 'Plan dinner',
+      // Vote state hides winner name — show generic copy instead. Spec §2.
+      value: dinnerIsMulti ? 'Tonight\'s dinner' : (dinnerName || 'Plan dinner'),
       sub: dinnerSub,
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>',
       iconColor: 'var(--ambient-dinner-fg)',
       action: 'dinner',
-      empty: !dinnerName
+      empty: !dinnerIsMulti && !dinnerName
     });
 
     html += `<div class="dashboard-tiles">${weatherTile}${dinnerTile}</div>`;
@@ -854,12 +854,8 @@ function bindEvents() {
       const which = tile.dataset.tileAction;
       if (which === 'dinner') {
         const dinnerOpts = normalizePlanSlot(viewMeals?.dinner);
-        // Multi-option = voting in progress. Route to Kitchen so the user
-        // lands on the Meals tab where each option is visible and the vote
-        // sheet is one tap away.
         if (dinnerOpts.length > 1) {
-          const personParam = linkedPerson ? `?person=${encodeURIComponent(linkedPerson.name)}` : '';
-          location.href = `kitchen.html${personParam}`;
+          await openVoteSheetForDinner(dinnerOpts);
           return;
         }
         const dinnerWinnerClick = pickWinner(dinnerOpts);
@@ -1532,6 +1528,58 @@ function openRecipeForm(recipeId = null, onSave = null) {
       closeTaskSheet();
       if (onSave) { onSave(newId); } else { render(); }
     }
+  });
+}
+
+// ── openVoteSheetForDinner ────────────────────────────────────────────────────
+// Wraps the shared openVoteSheet for the dashboard dinner tile. Opens the vote
+// sheet inline (no navigation). Writes update in-memory viewMeals for in-place
+// sheet re-render; full dashboard refresh on lock-in or remove.
+async function openVoteSheetForDinner(options) {
+  const slot = 'dinner';
+  const slotLabel = 'Dinner';
+  const d = new Date(today + 'T12:00:00');
+  const dayLabel = `${DAY_NAMES[d.getDay()].slice(0, 3)} ${d.getDate()}`;
+
+  // Resolve viewer id — mirrors kitchen.js logic.
+  let viewerId = linkedPerson?.id || null;
+  if (!viewerId) {
+    const cached = sessionStorage.getItem('dr-kitchen-voter-id');
+    if (cached && people.find(p => p.id === cached)) viewerId = cached;
+  }
+
+  openVoteSheet({
+    mount: taskSheetMount,
+    dk: today, slot, slotLabel, dayLabel,
+    options,
+    recipes, people,
+    viewerId,
+    showToast, showConfirm,
+    onWriteOptions: async (newOpts) => {
+      await writeKitchenPlanSlot(today, slot, newOpts);
+      // Update in-memory cache so re-renders reflect fresh vote state.
+      if (viewMeals) viewMeals.dinner = newOpts;
+      if (newOpts.length > 1) {
+        // Vote toggle or option-removed-but-still-multi: re-render the sheet in place.
+        openVoteSheetForDinner(newOpts);
+      } else {
+        // Lock-in or remove-to-1: refresh the dashboard. openVoteSheet calls
+        // onClose() right after this resolves, which clears the mount.
+        await loadData();
+        render();
+      }
+    },
+    onRemoveSlot: async () => {
+      await removeKitchenPlanSlot(today, slot);
+      await loadData();
+      render();
+    },
+    onAddAnother: () => {
+      // Inline Plan-a-meal on dashboard is deferred for v1 — redirect to Kitchen.
+      const personParam = linkedPerson ? `?person=${encodeURIComponent(linkedPerson.name)}` : '';
+      location.href = `kitchen.html${personParam}`;
+    },
+    onClose: () => { taskSheetMount.innerHTML = ''; },
   });
 }
 

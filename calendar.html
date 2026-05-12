@@ -40,10 +40,10 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet, openVoteSheet } from './shared/components.js';
     import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
-    import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml } from './shared/utils.js';
+    import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml, normalizePlanSlot } from './shared/utils.js';
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
@@ -421,14 +421,22 @@
         });
       });
 
-      // Meal cards
+      // Meal cards — voting rows and single-meal rows
       main.querySelectorAll('.card--meal:not(.card--meal--school)').forEach(card => {
         card.addEventListener('click', () => {
-          const recipeId = card.dataset.mealId;
-          const slot = card.dataset.slot;
-          const plan = allMeals[viewDay]?.[slot];
-          if (!plan) return;
-          openCalMealDetailSheet(plan, slot);
+          const slot = card.dataset.voteSlot || card.dataset.slot;
+          if (!slot) return;
+          const rawPlan = allMeals[viewDay]?.[slot];
+          if (!rawPlan) return;
+          const options = normalizePlanSlot(rawPlan);
+          if (options.length > 1) {
+            // Voting in progress — open vote sheet inline
+            openVoteSheetForSlot(viewDay, slot, options);
+          } else {
+            // Single meal — show detail sheet
+            const planEntry = options[0] || rawPlan;
+            openCalMealDetailSheet(planEntry, slot);
+          }
         });
       });
 
@@ -1471,6 +1479,56 @@
       requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
       const overlay = document.getElementById('bottomSheet');
       overlay?.addEventListener('click', e => { if (e.target === overlay) taskSheetMount.innerHTML = ''; });
+    }
+
+    const CAL_VOTE_SLOT_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
+
+    async function openVoteSheetForSlot(dk, slot, options) {
+      // Build a short day label: "Mon 12"
+      const d = new Date(dk + 'T12:00:00');
+      const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
+
+      // Resolve viewer id — mirrors dashboard.js / kitchen.js logic
+      let viewerId = linkedPerson?.id || null;
+      if (!viewerId) {
+        const cached = sessionStorage.getItem('dr-kitchen-voter-id');
+        if (cached && people.find(p => p.id === cached)) viewerId = cached;
+      }
+
+      openVoteSheet({
+        mount: taskSheetMount,
+        dk, slot,
+        slotLabel: CAL_VOTE_SLOT_LABELS[slot] || slot,
+        dayLabel,
+        options,
+        recipes, people,
+        viewerId,
+        showToast, showConfirm,
+        onWriteOptions: async (newOpts) => {
+          await writeKitchenPlanSlot(dk, slot, newOpts);
+          // Sync local cache
+          if (!allMeals[dk]) allMeals[dk] = {};
+          allMeals[dk][slot] = newOpts;
+          if (newOpts.length > 1) {
+            // Still multi-option — re-render the vote sheet in place
+            openVoteSheetForSlot(dk, slot, newOpts);
+          } else {
+            // Locked in or reduced to 1 — refresh calendar
+            await loadData();
+            render({ preserveScroll: true, animate: false });
+          }
+        },
+        onRemoveSlot: async () => {
+          await removeKitchenPlanSlot(dk, slot);
+          await loadData();
+          render({ preserveScroll: true, animate: false });
+        },
+        onAddAnother: () => {
+          location.href = 'kitchen.html';
+        },
+        onClose: () => { taskSheetMount.innerHTML = ''; },
+      });
     }
 
     function openCalMealPlanSheet(preSlot = 'dinner') {
