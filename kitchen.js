@@ -331,7 +331,11 @@ function getSchoolSlotLabel(slotKey, dayPlan) {
 
 // 32×32 thumb for a planned slot entry. Falls back to 🍴 placeholder.
 // `entry` is null for the always-on Dinner empty state (returns spacer).
-function buildSlotThumb(entry) {
+// Pass { voteGlyph: true } as second arg to render the thumbs-up vote indicator.
+function buildSlotThumb(entry, { voteGlyph = false } = {}) {
+  if (voteGlyph) {
+    return `<span class="day-block__slot-thumb day-block__slot-thumb--vote" aria-hidden="true">&#x1F44D;</span>`;
+  }
   if (!entry) {
     return `<span class="day-block__slot-thumb day-block__slot-thumb--spacer" aria-hidden="true"></span>`;
   }
@@ -395,21 +399,13 @@ async function renderMealsTab() {
         ? getSchoolSlotLabel(s, plan)
         : SLOT_LABELS[s];
       if (hasPlanned) {
-        // Multi-option slots render each option as its own numbered row
-        // (Dinner 1 / Dinner 2) so users can SEE there's voting happening
-        // without having to tap into a sheet first. Tap any row → opens the
-        // slot-edit sheet which handles the voting UI for the whole slot.
+        // Voting in progress — single consistent indicator, no per-option names.
         if (optionsForSlot.length > 1) {
-          optionsForSlot.forEach((opt, idx) => {
-            const rawName = opt.recipeId ? (recipes[opt.recipeId]?.name || 'Unknown') : (opt.mealName || opt.customName || '');
-            const voteCount = Object.keys(opt.votes || {}).length;
-            const voteChip = voteCount > 0 ? ` <span class="day-block__vote-chip">&#x1F44D; ${voteCount}</span>` : '';
-            slotRows.push(`<div class="day-block__slot day-block__slot--option" data-date="${esc(dk)}" data-slot="${esc(s)}">
-              ${buildSlotThumb(opt)}
-              <span class="day-block__slot-label">${esc(label)} ${idx + 1}</span>
-              <span class="day-block__slot-name">${esc(rawName)}${voteChip}</span>
-            </div>`);
-          });
+          slotRows.push(`<div class="day-block__slot day-block__slot--voting" data-date="${esc(dk)}" data-slot="${esc(s)}">
+            ${buildSlotThumb(null, { voteGlyph: true })}
+            <span class="day-block__slot-label">${esc(label)}</span>
+            <span class="day-block__slot-name day-block__slot-name--voting">&#x1F44D; Vote &middot; ${optionsForSlot.length} options</span>
+          </div>`);
         } else {
           const winner = optionsForSlot[0];
           const rawName = winner.recipeId ? (recipes[winner.recipeId]?.name || 'Unknown') : (winner.mealName || winner.customName || '');
@@ -430,20 +426,14 @@ async function renderMealsTab() {
     }
 
     // Dinner row — always last, follows slotNudge.dinner for empty state.
-    // Multi-option dinner renders one row per option (Dinner 1 / Dinner 2)
-    // so voting is discoverable without tapping into a sheet.
+    // Voting in progress — single consistent indicator, no per-option names.
     const dinnerOptions = normalizePlanSlot(plan.dinner);
     if (dinnerOptions.length > 1) {
-      dinnerOptions.forEach((opt, idx) => {
-        const rawName = opt.recipeId ? (recipes[opt.recipeId]?.name || 'Unknown') : (opt.mealName || opt.customName || '');
-        const voteCount = Object.keys(opt.votes || {}).length;
-        const voteChip = voteCount > 0 ? ` <span class="day-block__vote-chip">&#x1F44D; ${voteCount}</span>` : '';
-        slotRows.push(`<div class="day-block__slot day-block__slot--option" data-date="${esc(dk)}" data-slot="dinner">
-          ${buildSlotThumb(opt)}
-          <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)} ${idx + 1}</span>
-          <span class="day-block__slot-name">${esc(rawName)}${voteChip}</span>
-        </div>`);
-      });
+      slotRows.push(`<div class="day-block__slot day-block__slot--voting" data-date="${esc(dk)}" data-slot="dinner">
+        ${buildSlotThumb(null, { voteGlyph: true })}
+        <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
+        <span class="day-block__slot-name day-block__slot-name--voting">&#x1F44D; Vote &middot; ${dinnerOptions.length} options</span>
+      </div>`);
     } else if (dinnerOptions.length === 1) {
       const dinnerWinner = dinnerOptions[0];
       const dinnerName = dinnerWinner.recipeId ? (recipes[dinnerWinner.recipeId]?.name || 'Unknown') : (dinnerWinner.mealName || dinnerWinner.customName || '');

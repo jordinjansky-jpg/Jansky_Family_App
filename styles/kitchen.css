@@ -1358,3 +1358,18 @@ button.rl-chip {
   flex: 1;
   text-align: left;
 }
+
+/* ── Voting-state slot row ─────────────────────────────────────────── */
+
+.day-block__slot--voting .day-block__slot-name {
+  color: var(--accent-ink);
+  font-weight: 500;
+}
+
+.day-block__slot-thumb--vote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  font-size: var(--font-md);
+}
