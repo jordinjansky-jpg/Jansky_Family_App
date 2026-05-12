@@ -1336,10 +1336,86 @@ Themes redefine color tokens at `:root[data-theme="sage"]` etc. Never redefine s
 - Dark surfaces: `#141413` bg, `#1d1d1b` surface. Warm neutrals, not pure grayscale.
 - Accent remains the same hue; lightens slightly in dark (`color-mix(in srgb, accent 75%, white 25%)`).
 
-### 10.4 User customization
-- Theme: preset picker in Settings → Appearance.
-- Density: Settings → Appearance → `Comfortable` (default) / `Compact`. Compact reduces card min-height by 8px and padding by 4px; nothing else.
-- Owner colors: set per person in People detail → Profile → Color (swatch picker, 10 options).
+### 10.4 The Customize menu
+
+Every page surfaces user-level preferences through a single shared sheet titled **"Customize"**, opened from the bottom nav's **More → Customize**. This is the one place a user changes how the app looks and behaves *for themselves* — separate from Admin, which edits **family-wide app defaults** (members, tasks, rewards, feeds, PIN, etc.).
+
+The rule of thumb: **if changing the setting would affect what data IS or affect AI / automation behavior, it's Admin. If it only affects how the user sees or organizes the data, it's Customize.**
+
+#### Audience and storage
+
+Customize is **personal**:
+
+- **Linked person** (`?person=Name` URL param resolved against the people roster) → writes to `rundown/people/{id}/prefs/customize/...`. Settings follow the person across devices.
+- **No linked person** (wall tablet, shared kiosk, anonymous visitor) → writes to device `localStorage` under `dr-customize-*` keys. Settings stick to that physical device.
+
+The Customize UI is identical in both modes — the storage destination switches automatically. Admin defaults remain the fallback for unconfigured settings.
+
+#### Structure
+
+The sheet is a vertical list of two layers:
+
+1. **Universal section** (always rendered) — preferences that apply everywhere.
+2. **`{Current page}` section** (rendered only when the user is on a page that has one) — preferences that only apply to this page.
+
+There is no "switch pages from inside Customize" affordance. Customize follows the user's current page; to customize Calendar, navigate to Calendar first.
+
+#### What lives in Universal
+
+Top-to-bottom order:
+
+- **Theme presets** — flat, always visible. Per-person.
+- **Text Size** — flat, always visible. Per-person.
+- **Task cards / Grouping / Display toggles** — *only when on Home*. Each is its own collapsible (closed by default). Stays in Universal context visually, but functionally a Home-page section nested under the universal area.
+- **Navigation buttons** — collapsible, closed by default. The editor lets the user pick which 3 pages occupy nav slots 2, 3, and 4. Slot 1 (Home) and slot 5 (More) are locked.
+
+Avatar editing is the top-right action of the sheet header in person mode: tapping the avatar opens the full editor (color + initials + photo). In device mode (no linked person), the header instead shows a flat accent-color picker.
+
+#### Nav buttons editor
+
+- Available pages: Kitchen, Calendar, Scoreboard, Rewards, Tracker (5 candidates for 3 slots).
+- Drag handle on each row (left-aligned grip icon). Drag to reorder.
+- Top 3 rows are tagged "Slot 2", "Slot 3", "Slot 4". The remaining rows are tagged "In More" and automatically populate the More menu.
+- Reordering broadcasts a `dr-nav-tabs-changed` DOM event; each page's `initBottomNav` listener re-paints the nav bar + More handler in place.
+- Pointer events: `pointerdown` on the grip starts the drag; `pointermove` + `pointerup` listen on `document` so the drag survives the user's finger drifting off the small handle.
+- Storage default: `['kitchen', 'scoreboard', 'rewards']` (matches the historical nav order).
+
+#### Page sections
+
+Currently populated:
+
+- **Home** — Task cards picker, Grouping (Minimal / Grouped / Focus), Show on task cards toggles (AM-PM icons, Estimated duration, Point value).
+- **Kitchen** — Kitchen tabs (which sub-tabs are visible), Meals tab (Days shown 3/7/14 + Show empty slots as nudges per-slot), Recipes tab (Default sort + Card density).
+
+Reserved (no settings yet, section omitted):
+- Calendar, Scoreboard, Rewards, Tracker.
+
+#### Collapsibility
+
+Inside a page section, **each setting (or closely-related group) is its own `<details>` collapsible**, closed by default. Rationale: page-specific settings are "set once, forget" — the sheet should read as a tidy list of headings on open, not a wall of toggles. The user expands what they want to change.
+
+Closely-related settings group under one collapsible:
+
+- Kitchen "Meals tab" contains both **Days shown** and **Show empty slots as nudges** (both affect Meals tab presentation).
+- Kitchen "Recipes tab" contains **Default sort** and **Card density** (both affect Recipes tab).
+- Home "Show on task cards" contains the AM-PM / Duration / Points toggles (all three are "what shows on a task card" knobs).
+
+Standalone settings (no related siblings) get their own collapsible — e.g., Kitchen "Kitchen tabs", Home "Task cards", Home "Grouping".
+
+**What stays flat (uncollapsed):** Theme presets and Text Size. Both are 1-row controls, both are high-frequency. Wrapping them in collapsibles would cost ~30px of chrome per row for no payoff. Anything taller than 2 rows or in the "set once" category gets a collapsible.
+
+#### Visual pattern
+
+The shared component is `.dt-collapsible`:
+
+- Summary row: section label (left) + chevron icon (right).
+- Chevron rotates 180° when open.
+- Custom `list-style: none` to suppress the default disclosure marker.
+- Nested variant (`.dt-collapsible--nested`) adds a 1px top border so a stack of collapsibles inside a page section reads as discrete tappable rows.
+
+#### Avatar bug (resolved 2026-05-11)
+
+Pre-2026-05-11, Kitchen and Rewards called the More menu helper with `personOpts: undefined` regardless of whether a linked person was present, so their Customize sheet showed the flat color picker instead of the rich avatar UI everywhere else. The fix was mechanical — all pages now mirror Dashboard's call shape (`personOpts: linkedPerson ? { person, writePerson, displayDefaults } : undefined`). Going forward: every new page that adds Customize support must pass `personOpts` when a person is linked, falling through to `undefined` (which triggers device-local mode) otherwise. `familyOpts` is intentionally **not** wired through the More menu — that path is reserved for Admin's internal app-defaults editor (which currently doesn't exist as a separate UI but the contract is preserved for future use).
 
 ---
 
@@ -1635,6 +1711,7 @@ When porting an existing form (task, recipe, person, reward, list, etc.) to the 
 
 | Date | Change | Reason |
 |---|---|---|
+| 2026-05-11 | §10.4 rewritten from scratch as **"The Customize menu"** — documents the unified personal-preferences sheet shipped across every page. Sections cover: entry point (More → Customize), audience + dual storage (linkedPerson → Firebase person record; no linkedPerson → device localStorage), Universal vs Page-specific layer split, the Nav buttons editor (slots 2/3/4 user-pickable from Kitchen/Calendar/Scoreboard/Rewards/Tracker; Home + More locked; drag-drop with document-level pointer listeners), the per-setting/per-group `<details>` collapsibility rule ("set once, forget" prefs collapsed by default; small high-frequency controls like Theme + Text Size stay flat), and the Customize-vs-Admin boundary rule of thumb (changes-what-data-IS → Admin; changes-how-user-sees-it → Customize). Records the Kitchen + Rewards avatar bug (pre-fix they didn't pass `personOpts`) and the contract going forward (every page wires the same `personOpts` shape; `familyOpts` is not wired through More). The pre-existing single-paragraph §10.4 mentioning a "Settings → Appearance" path was outdated — that route never existed in the shipped product. | The Customize sheet replaces an ad-hoc "Theme" entry in More that diverged across pages (Dashboard showed avatar editor; Kitchen + Rewards showed a flat color picker; etc.). Unifying it under one shared component (`openDeviceThemeSheet` + the new `initBottomNav` wrapper) gave every page the same avatar UI, same theme presets, same text-size, same nav-buttons editor, plus a place to hang page-specific settings (currently populated for Home and Kitchen). Per-person storage means a parent's customizations don't leak to a spouse's view; per-device fallback covers the wall tablet + shared kiosk case. Without docs the new conventions (auto-expand-current-page-only, drag-drop survives finger-drift via document listeners, the collapsibility rule for tall vs short settings) would drift on the next page that wires a section. |
 | 2026-05-10 | **Form-system initiative complete** — Phase 0 (§5.23 v2 spec) → Phase 5 (a11y polish) all shipped. Primitives table now reads ✅ shipped for `renderFormFooter`, `renderFormSheetHeader`, `renderDateInput`+`bindDateInput`, `renderTimeInput`, `renderChipPicker`+`bindChipPicker`, `renderEmojiPicker`+`bindEmojiPicker`, `renderColorButton`+`initColorButton` (pre-existing), `renderSwitchToggle`, `renderHelperText`. Sub-sheet helpers: `openIcalUrlSubsheet`, `openEventPhotoSourceSheet`, `openRepeatSubsheet`. Three rows still mark deferred items: `renderPersonChips` (needs state-machine extraction), `renderInlineReveal` (YAGNI — `ef2-field-reveal` works inline), `renderFormSubSheet` (replaced by per-flavor sub-sheet helpers). | All forms now compose from `fs-*` primitives where applicable: sticky `fs-footer` on every form sheet, `fs-date-btn` pill replaces every primary raw `<input type="date">` exposure, chip-active is solid border + accent color (no solid-black-fill), focus rings suppressed on text inputs inside form sheets, disabled-save state synced between header ✓ and footer Save when title empty, emoji picker has ARIA radio semantics + 36px color swatches + `inputmode` attributes for proper mobile keyboard. Ran in one session, ~30+ commits, SW v183 → v206. The form review's `2026-05-09-form-review.md` items with clear UX impact are all addressed; remaining feature-shaped items (Family chip, avatar upload, badge wizard, etc.) are parked in ROADMAP. |
 | 2026-04-19 | v1.0 initial spec | Design audit + rework planning |
 | 2026-04-24 | §6.9 person-mode parity rule + mount-point shell parity; §12 added three non-negotiables (no `!linkedPerson` core-control gates, no `header-height` on wrapper padding, single-gutter rule) | Phase 1 + 1.5 shipped with `!linkedPerson` hiding bell/overflow/filter chip and a missing `#fabMount` in `person.html`; also surfaced double-counted header-height and double horizontal gutter after the card density pass. Codifying so future work doesn't regress. |
