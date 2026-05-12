@@ -744,7 +744,7 @@ function resolveSchoolSlot(dateKey) {
 
 function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   // ===== Early redirect: if slot is already in vote state, jump to vote sheet =====
-  if (preSlot && preSlot !== 'school' && !opts.appendMode) {
+  if (preSlot && preSlot !== 'school' && !opts.initialCandidates) {
     const existing = normalizePlanSlot(planCache[preDate]?.[preSlot]);
     if (existing.length >= 2) {
       showToast('This slot has a vote in progress — opening vote sheet.');
@@ -754,7 +754,6 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   }
 
   // ===== Normal opener flow =====
-  const appendMode = opts.appendMode === true;
   const preServings = (typeof opts.servings === 'number' && opts.servings > 0) ? opts.servings : null;
   const mount = document.getElementById('sheetMount');
   let selectedRecipeId = preRecipeId;
@@ -766,30 +765,15 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   const PLAN_SLOT_ORDER = ['breakfast', 'lunch', 'school', 'dinner', 'snack'];
 
   let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : (preSlot === null ? null : 'dinner');
-  let mealMode = 'single'; // 'single' | 'vote'
+  let mealMode = opts.initialMode || 'single'; // 'single' | 'vote'
 
   // Vote-mode candidate state. Each entry: { selectedRecipeId, typedName }.
-  // Starts with 2 empty rows. Single mode ignores this.
-  let candidates = [
+  // Starts with 2 empty rows unless pre-filled via opts.initialCandidates.
+  // Single mode ignores this.
+  let candidates = opts.initialCandidates || [
     { selectedRecipeId: null, typedName: '' },
     { selectedRecipeId: null, typedName: '' },
   ];
-
-  // If appendMode, switch to Vote mode and pre-fill with existing slot options.
-  if (appendMode && preSlot && preSlot !== 'school') {
-    const existing = normalizePlanSlot(planCache[preDate]?.[preSlot]);
-    if (existing.length >= 1) {
-      mealMode = 'vote';
-      candidates = existing.map(opt => ({
-        selectedRecipeId: opt.recipeId || null,
-        typedName: opt.recipeId ? '' : (opt.customName || opt.mealName || ''),
-      }));
-      // Append one empty row if we have fewer than 3 to leave room for the new option.
-      if (candidates.length < 3) {
-        candidates.push({ selectedRecipeId: null, typedName: '' });
-      }
-    }
-  }
 
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
@@ -1057,7 +1041,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   wireCandidateRows();
   wireAddRemoveCandidates();
   // Sync Save button state to actual mealMode/candidates — important when sheet
-  // opens in Vote mode (appendMode) with pre-filled candidates.
+  // opens in Vote mode with pre-filled candidates (initialMode/initialCandidates).
   updateSaveBtn();
 
   const close = () => { mount.innerHTML = ''; };
@@ -1254,15 +1238,11 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     if (preServings && selectedRecipeId === preRecipeId) {
       firstData.servings = preServings;
     }
-    // Append vs replace decision:
-    // appendMode = true only when explicitly opened via "+ Add another option"
-    // (slot-edit sheet). Otherwise single-mode always replaces the slot.
-    // Cap at 3 options total either way.
-    const shouldAppend = appendMode;
+    // Single mode always replaces the slot.
     const existingOptions = normalizePlanSlot(planCache[day]?.[concreteSlot]);
     // Protect votes-in-progress: replacing 2+ options requires confirmation
     // since it discards everyone's votes.
-    if (!shouldAppend && existingOptions.length >= 2) {
+    if (existingOptions.length >= 2) {
       const ok = await showConfirm({
         title: 'Replace voting options?',
         message: `This will remove all ${existingOptions.length} options and any votes cast. Continue?`,
@@ -1271,19 +1251,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       });
       if (!ok) return;
     }
-    let finalArray;
-    if (shouldAppend && existingOptions.length > 0) {
-      const stamped = {
-        ...firstData,
-        addedAt: Date.now(),
-        addedBy: linkedPerson?.id || null,
-      };
-      finalArray = [...existingOptions, stamped];
-      if (finalArray.length > 3) finalArray = finalArray.slice(0, 3);
-    } else {
-      finalArray = [firstData];
-    }
-    await writeKitchenPlanSlot(day, concreteSlot, finalArray);
+    await writeKitchenPlanSlot(day, concreteSlot, [firstData]);
 
     // Optional second option (only relevant for school slot, when secondOpen and the OTHER school slot is free).
     if (selectedSlot === 'school' && secondOpen && (secondRecipeId || secondTypedName)) {
@@ -1471,7 +1439,19 @@ function openSlotEditSheet(dk, slot, entry) {
         },
         onAddAnother: () => {
           mount.innerHTML = '';
-          openPlanMealSheet(dk, slot, null, { appendMode: true });
+          // Build candidates from existing options + one empty row.
+          const existing = normalizePlanSlot(planCache[dk]?.[slot]);
+          const preCandidates = existing.map(o => ({
+            selectedRecipeId: o.recipeId || null,
+            typedName: o.recipeId ? '' : (o.customName || o.mealName || ''),
+          }));
+          if (preCandidates.length < 3) {
+            preCandidates.push({ selectedRecipeId: null, typedName: '' });
+          }
+          openPlanMealSheet(dk, slot, null, {
+            initialMode: 'vote',
+            initialCandidates: preCandidates,
+          });
         },
         onClose: () => { mount.innerHTML = ''; },
       });
