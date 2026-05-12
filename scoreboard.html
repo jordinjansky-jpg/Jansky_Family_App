@@ -639,10 +639,34 @@
           } else {
             status = 'Pending';
           }
-          const catIcon = task.category ? (cats[task.category]?.icon || '') : '';
-          taskDetails.push({ entryKey: k, name: task.name, catIcon, date: cur, pts, earned, status });
+          const cat = task.category ? cats[task.category] : null;
+          const catIcon = cat?.icon || '';
+          taskDetails.push({ entryKey: k, name: task.name, catIcon, date: cur, pts, earned, status, exempt: !!task.exempt, isEvent: !!cat?.isEvent });
         }
         cur = addDays(cur, 1);
+      }
+
+      // ── Task count (store-points-correct: excludes events + exempt) ──
+      const countable = taskDetails.filter(t => !t.exempt && !t.isEvent);
+      const tasksDone = countable.filter(t => t.status === 'Done' || t.status === 'Late').length;
+      const tasksTotal = countable.length;
+
+      // ── Store points actually earned this period (percentage × multiplier per day) ──
+      let periodStorePts = 0;
+      {
+        let cur2 = dStart;
+        while (cur2 <= dEnd && cur2 <= today) {
+          let dayPct = 0;
+          if (cur2 === today) {
+            dayPct = todayScore(personId).percentage || 0;
+          } else {
+            dayPct = snapshots[cur2]?.[personId]?.percentage || 0;
+          }
+          const mult = allMultipliers?.[cur2]?.[personId]?.multiplier || 1;
+          if (dayPct > 0) periodStorePts += dayPct * mult;
+          cur2 = addDays(cur2, 1);
+        }
+        periodStorePts = Math.round(periodStorePts);
       }
 
       // ── Category breakdown ──
@@ -677,7 +701,7 @@
         : '';
       html += grade.possible > 0
         ? `<div class="sb-drilldown__summary">
-            <span class="sb-drilldown__stats">${grade.earned}/${grade.possible} pts · ${grade.percentage}%${famCompare}</span>
+            <span class="sb-drilldown__stats">${tasksDone}/${tasksTotal} tasks · ${grade.percentage}%${famCompare}</span>
           </div>`
         : `<div class="sb-drilldown__summary">
             <span class="sb-drilldown__stats">No tasks ${periodLabels[selectedPeriod].toLowerCase()}</span>
@@ -804,7 +828,7 @@
       html += renderSectionHead('Balance');
       html += `<div class="sb-drilldown__balance-summary">
         <span class="sb-drilldown__balance-big">${currentBalance.toLocaleString()}</span><span class="sb-drilldown__balance-unit">pts</span>
-        ${grade.earned > 0 ? `<span class="sb-drilldown__balance-delta">+${grade.earned} pts earned ${esc(periodLabels[selectedPeriod].toLowerCase())}</span>` : ''}
+        ${periodStorePts > 0 ? `<span class="sb-drilldown__balance-delta">+${periodStorePts.toLocaleString()} pts earned ${esc(periodLabels[selectedPeriod].toLowerCase())}</span>` : ''}
       </div>`;
 
       // ── Send Kudos button (Pass 3) ──
@@ -833,7 +857,6 @@
           html += `<button class="sb-drilldown__task sb-drilldown__task--tappable" type="button" data-entry-key="${esc(item.entryKey || '')}" data-status="${esc(item.status)}">
             <span class="sb-drilldown__task-name">${item.catIcon ? esc(item.catIcon) + ' ' : ''}${esc(item.name)}</span>
             <span class="sb-drilldown__task-date">${formatDateShort(item.date)}</span>
-            <span class="sb-drilldown__task-pts">${item.earned}/${item.pts}</span>
           </button>`;
         }
         html += `</div>`;
