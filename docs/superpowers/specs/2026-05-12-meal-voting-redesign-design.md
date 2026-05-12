@@ -20,7 +20,7 @@ The fix is to **make voting a first-class mode of Plan-a-meal**, surface vote st
 1. Setting up a vote takes one trip through Plan-a-meal — pick all candidates in the same sheet, save once.
 2. Vote state is recognizable at a glance from any slot summary, with one consistent visual.
 3. Tapping a voting slot from anywhere goes straight to the vote sheet — no navigational detour.
-4. The school slot's dual-pick UX folds into the same general mechanism (no per-slot special case in Plan-a-meal).
+4. School slot's existing dual-pick UX stays untouched — risk avoidance over consolidation.
 
 ## Non-goals
 
@@ -86,14 +86,11 @@ The meal section is replaced with a stack of **candidate rows**:
 - **Existing single-meal slot + tap to edit**: opens in Single mode with that meal pre-selected (today's behavior). Toggling to Vote mode pre-fills row 1 with the existing meal and leaves row 2 empty.
 - **Existing voting slot + tap to edit**: this goes through the Slot-edit vote sheet, not Plan-a-meal (see §3). Plan-a-meal isn't an entry point for in-progress votes.
 
-### School slot
+### School slot — unchanged
 
-The hardcoded `kp_addSecond` / "Plan a second School option" UX is **removed**. School folds into the standard Vote mode:
+School keeps its existing dual-pick UX entirely as-is. The `kp_addSecond` / "Plan a second School option" branch stays. The Single / Vote segmented control **does not appear** when School is the selected slot — School is its own thing (two real slot keys: `school-lunch` and `school-lunch-2`, not one slot with multiple options) and folding it into Vote mode would conflate "plan both school meals for the day" with "vote on what to eat." Keeping school separate avoids confusion and risk of regression in the auto-allocation logic.
 
-- Picking the **School** slot pill auto-flips the sheet to Vote mode (because school always has two real slot keys: `school-lunch` and `school-lunch-2`).
-- The candidate rows are labeled `School Option 1` / `School Option 2` and the `+ Add option 3` chip is suppressed (school is dual-only, not voting).
-- On save, candidates write to `school-lunch` and `school-lunch-2` respectively (preserving current auto-allocation logic).
-- Single mode is hidden when School is the selected slot — the segmented control either disappears or School locks the toggle to Vote-shape. Implementation choice deferred to the plan; the segmented control hiding entirely is the leaner option.
+Implementation: when the slot picker selects School, the Single/Vote toggle is hidden and the existing school flow renders unchanged.
 
 ### Removal of the occupied-notice toggle
 
@@ -173,8 +170,11 @@ The Kitchen page wraps this and threads `planCache` updates + `renderMealsTab()`
 Removed code paths once this ships:
 
 - `kp_occupiedNotice` block in `openPlanMealSheet` (and its CSS).
-- `kp_addSecond` / "Plan a second School option" branch in `openPlanMealSheet`.
 - `appendMode` option on `openPlanMealSheet` — slot-edit's `+ Add another option` opens Plan-a-meal in Vote mode with existing options pre-loaded instead of using a hidden flag.
+
+Kept as-is (do not touch):
+
+- `kp_addSecond` / "Plan a second School option" branch — School slot stays on its existing flow, unrelated to general voting.
 
 What stays:
 
@@ -208,7 +208,7 @@ Files touched (estimate, refined in implementation plan):
 - `dashboard.js` — dinner tile: hide winner name in vote state; tap routes to vote sheet (not `kitchen.html`).
 - `shared/components.js` — extract `openVoteSheet({ dk, slot, options, recipes, people, viewerId, onChange })` from the multi-option branch of `openSlotEditSheet`. Both kitchen.js and dashboard.js call this.
 - `calendar.html` — day-sheet meals rendering uses new display rule; voting taps open the new shared vote sheet.
-- `styles/kitchen.css` — vote-mode candidate row styles; school dual-row styles consolidated with general vote rows; remove `.kp-occupied-notice-*` and `.kp-second-school` rules.
+- `styles/kitchen.css` — vote-mode candidate row styles; remove `.kp-occupied-notice-*` rules. `.kp-second-school` rules stay (school flow unchanged).
 - `styles/dashboard.css` — minor sub-line tweak if existing CSS doesn't already match.
 - `docs/DESIGN.md` §6.10 — update Kitchen Plan-a-meal description; add a §6.10.x "Voting" sub-section documenting the indicator and entry points.
 
