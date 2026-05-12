@@ -3714,8 +3714,10 @@
    horizontal padding keeps the labels readable inside the smaller cells. */
 .sheet__footer .btn { flex: 1 1 0; min-width: 0; padding-left: 12px; padding-right: 12px; }
 
-/* Customize-sheet collapsible section (used for "set once, forget" prefs
-   like the Navigation buttons editor). */
+/* Customize-sheet collapsible section. Top-level sections (Nav buttons)
+   and nested sub-sections inside a page section (Kitchen tabs, Meals tab,
+   Recipes tab — "set once, forget" prefs) use the same pattern so the
+   sheet feels consistent. */
 .dt-collapsible { padding: 0; }
 .dt-collapsible__summary {
   display: flex;
@@ -3734,6 +3736,16 @@
   flex-shrink: 0;
 }
 .dt-collapsible[open] .dt-collapsible__chev { transform: rotate(180deg); }
+
+/* Nested collapsibles inside a page section get a divider line between
+   them so the list reads as discrete tappable rows. */
+.dt-collapsible--nested {
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  padding-bottom: var(--spacing-xs);
+}
+.dt-collapsible--nested:first-of-type { margin-top: var(--spacing-sm); }
+.dt-collapsible--nested .dt-collapsible__summary { padding: var(--spacing-xs) 0; }
 
 /* ── Customize sheet: Navigation buttons drag-drop list ───────────────── */
 .nav-edit-list {

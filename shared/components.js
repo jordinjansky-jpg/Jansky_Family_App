@@ -803,55 +803,69 @@ function bindNavTabsSection(mountEl, personOpts, onApply, currentPage) {
 
 // Renderer for the Kitchen-specific Customize section. Only shown when
 // currentPage === 'kitchen'. Bind via bindKitchenCustomizeSection().
+// Each setting (or closely-related group) is its own <details> collapsible
+// so the page section reads as a tidy list of headings until the user
+// opens one to tweak it. All closed by default — "set once, forget."
 function renderKitchenCustomizeSection(personOpts) {
   const prefs = readKitchenCustomize(personOpts);
   const slotLabels = { breakfast: 'Breakfast', lunch: 'Lunch', school: 'School', dinner: 'Dinner', snack: 'Snack' };
   const sortLabels = { alpha: 'A–Z', recent: 'Recent', quickest: 'Quickest', 'last-cooked': 'Last cooked', 'highest-rated': 'Top rated' };
+  const chev = `<svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
   return `<div class="dt-section dt-section--page">
     <label class="form-label">Kitchen</label>
     <p class="form-hint mt-xs">Settings that only apply to this page.</p>
 
-    <div class="form-group mt-sm">
-      <label class="form-label form-label--sub">Show empty slots as nudges</label>
-      <p class="form-hint mt-xs">Active slots show as "Plan ___" on the day cards even when empty. Inactive slots only appear when planned.</p>
-      ${Object.entries(slotLabels).map(([k, label]) => `
-        <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(label)}</span>
-          <label class="form-toggle"><input type="checkbox" data-kc-slot="${esc(k)}"${prefs.slotNudge[k] ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-        </div>
-      `).join('')}
-    </div>
-
-    <div class="form-group mt-md">
-      <label class="form-label form-label--sub">Days shown on Meals tab</label>
-      <div class="segmented-control" id="dt_kcDaysShown">
-        ${[3, 7, 14].map(d => `<button type="button" class="segmented-btn${prefs.daysShown === d ? ' segmented-btn--active' : ''}" data-days="${d}">${d}</button>`).join('')}
-      </div>
-    </div>
-
-    <div class="form-group mt-md">
-      <label class="form-label form-label--sub">Default recipes sort</label>
-      <div class="dt-themes" id="dt_kcRecipesSort">
-        ${Object.entries(sortLabels).map(([k, label]) => `<button class="dt-theme-btn${prefs.recipesSort === k ? ' dt-theme-btn--active' : ''}" data-sort="${esc(k)}" type="button">${esc(label)}</button>`).join('')}
-      </div>
-    </div>
-
-    <div class="form-group mt-md">
-      <label class="form-label form-label--sub">Recipe card density</label>
-      <div class="segmented-control" id="dt_kcCardDensity">
-        <button type="button" class="segmented-btn${prefs.cardDensity === 'roomy'   ? ' segmented-btn--active' : ''}" data-density="roomy">Roomy</button>
-        <button type="button" class="segmented-btn${prefs.cardDensity === 'compact' ? ' segmented-btn--active' : ''}" data-density="compact">Compact</button>
-      </div>
-    </div>
-
-    <div class="form-group mt-md">
-      <label class="form-label form-label--sub">Kitchen tabs</label>
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Kitchen tabs</span>${chev}
+      </summary>
       <p class="form-hint mt-xs">Hide tabs you don't use. Always keeps at least one visible.</p>
       ${['meals', 'recipes', 'lists'].map(t => `
         <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(t.charAt(0).toUpperCase() + t.slice(1))}</span>
           <label class="form-toggle"><input type="checkbox" data-kc-tab="${esc(t)}"${prefs.tabs.includes(t) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
         </div>
       `).join('')}
-    </div>
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Meals tab</span>${chev}
+      </summary>
+      <div class="form-group mt-sm">
+        <label class="form-label form-label--sub">Days shown</label>
+        <div class="segmented-control" id="dt_kcDaysShown">
+          ${[3, 7, 14].map(d => `<button type="button" class="segmented-btn${prefs.daysShown === d ? ' segmented-btn--active' : ''}" data-days="${d}">${d}</button>`).join('')}
+        </div>
+      </div>
+      <div class="form-group mt-md">
+        <label class="form-label form-label--sub">Show empty slots as nudges</label>
+        <p class="form-hint mt-xs">Active slots show as "Plan ___" on the day cards even when empty.</p>
+        ${Object.entries(slotLabels).map(([k, label]) => `
+          <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(label)}</span>
+            <label class="form-toggle"><input type="checkbox" data-kc-slot="${esc(k)}"${prefs.slotNudge[k] ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+          </div>
+        `).join('')}
+      </div>
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Recipes tab</span>${chev}
+      </summary>
+      <div class="form-group mt-sm">
+        <label class="form-label form-label--sub">Default sort</label>
+        <div class="dt-themes" id="dt_kcRecipesSort">
+          ${Object.entries(sortLabels).map(([k, label]) => `<button class="dt-theme-btn${prefs.recipesSort === k ? ' dt-theme-btn--active' : ''}" data-sort="${esc(k)}" type="button">${esc(label)}</button>`).join('')}
+        </div>
+      </div>
+      <div class="form-group mt-md">
+        <label class="form-label form-label--sub">Card density</label>
+        <div class="segmented-control" id="dt_kcCardDensity">
+          <button type="button" class="segmented-btn${prefs.cardDensity === 'roomy'   ? ' segmented-btn--active' : ''}" data-density="roomy">Roomy</button>
+          <button type="button" class="segmented-btn${prefs.cardDensity === 'compact' ? ' segmented-btn--active' : ''}" data-density="compact">Compact</button>
+        </div>
+      </div>
+    </details>
   </div>`;
 }
 
@@ -2908,34 +2922,49 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     <div class="dt-section dt-section--page">
       <label class="form-label">Home</label>
       <p class="form-hint mt-xs">Settings that only apply to this page.</p>
-      <div class="form-group mt-sm">
-        <label class="form-label form-label--sub">Task Cards</label>
+
+      <details class="dt-collapsible dt-collapsible--nested">
+        <summary class="dt-collapsible__summary">
+          <span class="form-label form-label--sub">Task cards</span>
+          <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
         <div class="av-picker" id="dt_avatarStyle">
           ${['tab','circle','edge','edge-initial','hidden'].map(style => `<button type="button" class="av-card${currentAvatarStyle === style ? ' av-card--active' : ''}" data-style="${style}">${avatarPreviewHtml(style)}<span class="av-label">${avatarStyleLabels[style]}</span></button>`).join('')}
         </div>
         <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Grouped/Focus modes.</p>
-      </div>
-      <div class="form-group mt-md">
-        <label class="form-label form-label--sub">Grouping</label>
+      </details>
+
+      <details class="dt-collapsible dt-collapsible--nested">
+        <summary class="dt-collapsible__summary">
+          <span class="form-label form-label--sub">Grouping</span>
+          <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
         <div class="segmented-control" id="dt_taskGrouping">
           <button type="button" class="segmented-btn${currentTaskGrouping === 'minimal' ? ' segmented-btn--active' : ''}" data-grouping="minimal">Minimal</button>
           <button type="button" class="segmented-btn${currentTaskGrouping === 'grouped' ? ' segmented-btn--active' : ''}" data-grouping="grouped">Grouped</button>
           <button type="button" class="segmented-btn${currentTaskGrouping === 'focus'   ? ' segmented-btn--active' : ''}" data-grouping="focus">Focus</button>
         </div>
         <p class="form-hint mt-xs">Grouped = per-person, with each person's Completed at the end. Focus = per-person, with one shared Completed at the bottom.</p>
-      </div>
-      <div class="dt-toggle-row mt-md">
-        <span class="dt-toggle-row__label">Show AM/PM icons</span>
-        <label class="form-toggle"><input type="checkbox" id="dt_showTodIcons"${resolveDisp('showTodIcons', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-      </div>
-      <div class="dt-toggle-row">
-        <span class="dt-toggle-row__label">Estimated duration</span>
-        <label class="form-toggle"><input type="checkbox" id="dt_showDuration"${resolveDisp('showDuration', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-      </div>
-      <div class="dt-toggle-row">
-        <span class="dt-toggle-row__label">Point value</span>
-        <label class="form-toggle"><input type="checkbox" id="dt_showPoints"${resolveDisp('showPoints', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
-      </div>
+      </details>
+
+      <details class="dt-collapsible dt-collapsible--nested">
+        <summary class="dt-collapsible__summary">
+          <span class="form-label form-label--sub">Show on task cards</span>
+          <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div class="dt-toggle-row">
+          <span class="dt-toggle-row__label">AM/PM icons</span>
+          <label class="form-toggle"><input type="checkbox" id="dt_showTodIcons"${resolveDisp('showTodIcons', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+        <div class="dt-toggle-row">
+          <span class="dt-toggle-row__label">Estimated duration</span>
+          <label class="form-toggle"><input type="checkbox" id="dt_showDuration"${resolveDisp('showDuration', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+        <div class="dt-toggle-row">
+          <span class="dt-toggle-row__label">Point value</span>
+          <label class="form-toggle"><input type="checkbox" id="dt_showPoints"${resolveDisp('showPoints', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+      </details>
     </div>` : ''}
     ${!familyOpts && currentPage === 'kitchen' ? renderKitchenCustomizeSection(personOpts) : ''}
     <div class="admin-form__actions mt-md">
