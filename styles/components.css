@@ -1,4 +1,5 @@
 /* v2 */
+/* cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted) */
 /* components.css — Shared UI components */
 /* ============ Buttons ============ */
 .btn {

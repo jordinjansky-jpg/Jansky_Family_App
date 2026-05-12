@@ -1,4 +1,5 @@
 // components.js — Reusable UI rendering functions (v2)
+// cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted)
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 

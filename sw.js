@@ -9,6 +9,7 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v251 (2026-05-12) — Cache-bust: Cloudflare Pages corrupted blob storage on the first deploy of 4362d05 — 6 files modified in that commit (this file, dashboard.js, kitchen.js, shared/components.js, styles/components.css, styles/kitchen.css) were returning 500 with empty body because subsequent deploys dedup-matched the bad hash. Bumping cache + adding a comment to each of the 6 to force fresh content hashes + re-upload.
 // v235 (2026-05-11) — Remove share-list feature (overflow menu entry, openShareListSheet, share-list.html, .shr-/.share- CSS, shared/firebase.js exports, shared/utils.js generateShareToken). User asked to remove since it wasn't a feature they wanted.
 // v234 (2026-05-11) — SP4 Kitchen new features: recipe URL dedup; Cook mode (steps[] + full-viewport sheet + wake-lock); meal history sheet (30-day dinners by week); AI 'What can I make?' suggest sheet (new recipeSuggest Worker handler); multi-option meal voting (kitchenPlan schema migrates to array shape via normalizePlanSlot — lazy backfill).
 // v233 (2026-05-11) — SP3 Lists tab polish: '· N left' chip on switcher, overflow action menu, AI Tools LISTS section, inline wand/camera removed, 'Add from staples' empty-state CTA, self-healing categorization, hide noise OTHER-only category header.
@@ -408,7 +409,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v250';
+const CACHE_NAME = 'family-hub-v251';
 
 const APP_SHELL = [
   '/',

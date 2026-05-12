@@ -1,4 +1,5 @@
 // kitchen.js — Kitchen page: meal planning + shopping lists
+// cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted)
 import { initFirebase, readSettings, writeSettings, readPeople, writePerson, onConnectionChange,
   onAllMessages, writeMessage, markMessageSeen, removeMessage,
   writeBankToken, markBankTokenUsed, removeBankToken, readBank, writeMultiplier,
