@@ -594,23 +594,26 @@
         html += `</div>`;
       }
 
-      // Weekly trend sparkline
-      html += renderSectionHead('Weekly Trend');
-      html += `<div class="sb-sparkline sb-sparkline--labeled">`;
-      const sparkFull = ['3 wks ago', '2 wks ago', 'Last wk', 'This wk'];
-      const sparkShort = ['-3w', '-2w', 'Last', 'Now'];
-      for (let i = 0; i < history.length; i++) {
-        const h = history[i];
-        const pct = h.possible > 0 ? h.percentage : 0;
-        const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
-        html += `<div class="sb-spark-col">
-          <div class="sb-spark-bar" title="${sparkFull[i]}: ${pct}%">
-            <div class="sb-spark-fill sb-spark-fill--${esc(tier)}" style="height:${Math.max(pct, 4)}%"></div>
-          </div>
-          <span class="sb-spark-label">${sparkShort[i]}</span>
-        </div>`;
+      // Weekly trend sparkline — hidden when fewer than 2 weeks have data
+      const weeksWithData = history.filter(h => h.possible > 0).length;
+      if (weeksWithData >= 2) {
+        html += renderSectionHead('Weekly Trend');
+        html += `<div class="sb-sparkline sb-sparkline--labeled">`;
+        const sparkFull = ['3 wks ago', '2 wks ago', 'Last wk', 'This wk'];
+        const sparkShort = ['-3w', '-2w', 'Last', 'Now'];
+        for (let i = 0; i < history.length; i++) {
+          const h = history[i];
+          const pct = h.possible > 0 ? h.percentage : 0;
+          const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
+          html += `<div class="sb-spark-col">
+            <div class="sb-spark-bar" title="${sparkFull[i]}: ${pct}%">
+              <div class="sb-spark-fill sb-spark-fill--${esc(tier)}" style="height:${Math.max(pct, 4)}%"></div>
+            </div>
+            <span class="sb-spark-label">${sparkShort[i]}</span>
+          </div>`;
+        }
+        html += `</div>`;
       }
-      html += `</div>`;
 
       // Streak
       const flameSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
