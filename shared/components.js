@@ -3,7 +3,7 @@
 // These functions return HTML strings or create DOM elements.
 // Pages call these functions and insert results into the DOM.
 
-import { escapeHtml, formatDateShort, parseRecipeTimeToMinutes, formatRecipeTime, scaleQty, parseSteps } from './utils.js';
+import { escapeHtml, formatDateShort, parseRecipeTimeToMinutes, formatRecipeTime, scaleQty, parseSteps, pickWinner } from './utils.js';
 import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig, applyTaskDisplayPrefs, applyTextSize } from './theme.js';
 import { normalizeTaskGrouping } from './state.js';
 
@@ -4930,4 +4930,128 @@ export function renderRepeatSheet(rule) {
     <button class="btn btn--ghost" id="rptCancel" type="button">Cancel</button>
     <button class="btn btn--primary" id="rptDone" type="button">Done</button>
   </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// openVoteSheet — multi-option meal voting sheet
+// ---------------------------------------------------------------------------
+// Opens the multi-option voting sheet for a meal slot. Caller supplies all
+// state + callbacks since this function has zero side effects of its own.
+//
+// Args:
+//   mount         — DOM element to render into (the sheet host)
+//   dk            — date key, 'YYYY-MM-DD'
+//   slot          — slot key, 'breakfast' | 'lunch' | 'dinner' | 'snack' | ...
+//   slotLabel     — display label for the slot ('Dinner', 'School Lunch', etc.)
+//   dayLabel      — display label for the date ('Wed 13')
+//   options       — array of slot options (the vote candidates)
+//   recipes       — id → recipe lookup
+//   people        — array of people (for voter chips)
+//   viewerId      — current voter id, or null
+//   showToast     — toast fn from caller
+//   showConfirm   — confirm fn from caller (for lock-in gate)
+//   onWriteOptions(newOptions) — async — caller persists + updates its cache
+//   onRemoveSlot()             — async — caller removes the slot entirely
+//   onAddAnother()             — caller opens Plan-a-meal in Vote mode pre-filled
+//   onClose()                  — caller resets state, re-renders
+//
+// Returns: nothing.
+export function openVoteSheet({
+  mount, dk, slot, slotLabel, dayLabel,
+  options, recipes, people,
+  viewerId,
+  showToast, showConfirm,
+  onWriteOptions, onRemoveSlot, onAddAnother, onClose,
+}) {
+  const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+  function buildCard(opt, i) {
+    const name = opt.recipeId
+      ? (recipes[opt.recipeId]?.name || 'Unknown')
+      : (opt.mealName || opt.customName || '');
+    const voteIds = Object.keys(opt.votes || {});
+    const voteCount = voteIds.length;
+    const voterNames = voteIds
+      .map(id => people.find(p => p.id === id)?.name)
+      .filter(Boolean);
+    const winnerCls = (pickWinner(options) === opt) ? ' vote-card--winner' : '';
+    return `
+      <div class="vote-card${winnerCls}" data-vote-idx="${i}">
+        <div class="vote-card__title">${esc(name)}${winnerCls ? ' <span class="vote-card__crown">&#x1F3C6;</span>' : ''}</div>
+        <div class="vote-card__row">
+          ${voterNames.length
+            ? voterNames.map(n => `<span class="vote-chip">${esc(n)}</span>`).join('')
+            : '<span class="vote-card__nobody">No votes yet</span>'}
+          <button class="btn btn--ghost btn--sm" data-vote-toggle="${i}" type="button">&#x1F44D; ${voteCount}</button>
+        </div>
+        <div class="vote-card__actions">
+          <button class="btn btn--secondary btn--sm" data-vote-lock="${i}" type="button">Lock in</button>
+          <button class="btn btn--ghost btn--sm" data-vote-remove="${i}" type="button">Remove</button>
+        </div>
+      </div>`;
+  }
+
+  mount.innerHTML = renderBottomSheet(`
+    <div class="task-detail-sheet">
+      <div class="sheet__header">
+        <h2 class="sheet__title">${esc(slotLabel)} &middot; ${esc(dayLabel)}</h2>
+        <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
+      </div>
+      <div class="vote-cards">
+        ${options.map((opt, i) => buildCard(opt, i)).join('')}
+      </div>
+      ${options.length < 3 ? `<div class="me-detail__chips"><button class="chip" id="addAnotherOption" type="button">+ Add another option</button></div>` : ''}
+    </div>`);
+  requestAnimationFrame(() => {
+    const sheet = document.getElementById('bottomSheet');
+    sheet?.classList.add('active');
+    sheet?.addEventListener('click', (e) => {
+      if (e.target === sheet) onClose();
+    });
+  });
+
+  document.getElementById('slotClose')?.addEventListener('click', onClose);
+  document.getElementById('addAnotherOption')?.addEventListener('click', onAddAnother);
+
+  mount.querySelectorAll('[data-vote-toggle]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!viewerId) return;
+      const i = parseInt(btn.dataset.voteToggle, 10);
+      const opt = options[i];
+      const votes = { ...(opt.votes || {}) };
+      if (votes[viewerId]) delete votes[viewerId];
+      else votes[viewerId] = 1;
+      const next = [...options];
+      next[i] = { ...opt, votes };
+      await onWriteOptions(next);
+    });
+  });
+
+  mount.querySelectorAll('[data-vote-lock]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const i = parseInt(btn.dataset.voteLock, 10);
+      const winner = options[i];
+      const name = winner.recipeId
+        ? (recipes[winner.recipeId]?.name || 'this meal')
+        : (winner.mealName || winner.customName || 'this meal');
+      const ok = await showConfirm({ message: `Lock in ${name}? Other options will be removed.`, confirmLabel: 'Lock in', cancelLabel: 'Cancel' });
+      if (!ok) return;
+      await onWriteOptions([winner]);
+      onClose();
+      showToast('Winner locked in');
+    });
+  });
+
+  mount.querySelectorAll('[data-vote-remove]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const i = parseInt(btn.dataset.voteRemove, 10);
+      const remaining = options.filter((_, idx) => idx !== i);
+      if (remaining.length === 0) {
+        await onRemoveSlot();
+        onClose();
+        return;
+      }
+      await onWriteOptions(remaining);
+    });
+  });
 }
