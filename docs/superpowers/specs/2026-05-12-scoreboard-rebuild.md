@@ -285,6 +285,18 @@ Mark Late-Done writes a completion with `isLate: true` and `pointsOverride: past
 
 ---
 
+## Pass 2 — Shipped 2026-05-12
+
+Commits on main:
+- `1b6b792` — feat(scoreboard): family score banner above period tabs
+- `9a79820` — feat(scoreboard): rank chips on hero cards with leader gold ring
+- `df8ac95` — feat(scoreboard): time-to-grade hint on Today tab hero cards
+- `f750c8e` — feat(scoreboard): hero cards have three tap zones
+
+Verified at 412×915: family banner renders with correct trend arrow on week/month; rank chips visible (#1 with green ring using `--grade-a` not literal gold); time-to-grade hints fire on Today tab (e.g. "1 more task → C"); all three click zones routed correctly (card body → drilldown, balance pts → rewards.html?person=…, grade badge → cycles week→month→year→today→week, period tab click clears per-card overrides).
+
+---
+
 ## Pass 4 — Insights & Heatmap
 
 **Goal:** Replace the broken sparkline with a heatmap that tells a real story. Surface insight rows in Highlights to drive return visits.
