@@ -943,56 +943,81 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       <button class="ef2-add-chip${candidates.length >= 3 ? ' is-hidden' : ''}" id="kp_addCand" type="button">+ Add option ${candidates.length + 1}</button>`;
     if (wasHidden) wrap.classList.add('is-hidden');
     wireCandidateRows();
+    wireAddRemoveCandidates();
     updateSaveBtn();
   }
 
   function wireCandidateRows() {
+    const voteSection = document.getElementById('kp_voteSection');
+    if (!voteSection) return;
+
     // Toggle dropdown open on select-button tap.
-    document.querySelectorAll('[data-cand-select]').forEach(btn => {
+    voteSection.querySelectorAll('[data-cand-select]').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = parseInt(btn.dataset.candSelect, 10);
-        const dd = document.querySelector(`[data-cand-dropdown="${i}"]`);
+        const dd = voteSection.querySelector(`[data-cand-dropdown="${i}"]`);
         // Close other dropdowns
-        document.querySelectorAll('[data-cand-dropdown]').forEach(d => {
+        voteSection.querySelectorAll('[data-cand-dropdown]').forEach(d => {
           if (d !== dd) d.classList.remove('is-open');
         });
         dd.classList.toggle('is-open');
         if (dd.classList.contains('is-open')) {
-          setTimeout(() => document.querySelector(`[data-cand-search="${i}"]`)?.focus(), 50);
+          setTimeout(() => voteSection.querySelector(`[data-cand-search="${i}"]`)?.focus(), 50);
         }
       });
     });
 
     // Search input filters this row's list.
-    document.querySelectorAll('[data-cand-search]').forEach(inp => {
+    voteSection.querySelectorAll('[data-cand-search]').forEach(inp => {
       inp.addEventListener('input', (e) => {
         const i = parseInt(inp.dataset.candSearch, 10);
         const val = e.target.value.trim();
         candidates[i].typedName = val;
         candidates[i].selectedRecipeId = null;
-        document.querySelector(`[data-cand-list="${i}"]`).innerHTML = buildCandRecipeRows(val, i);
+        voteSection.querySelector(`[data-cand-list="${i}"]`).innerHTML = buildCandRecipeRows(val, i);
         updateSaveBtn();
       });
     });
 
     // Recipe selection.
-    document.querySelectorAll('[data-cand-pick-id]').forEach(btn => {
+    voteSection.querySelectorAll('[data-cand-pick-id]').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = parseInt(btn.dataset.candPickRow, 10);
         const id = btn.dataset.candPickId;
         candidates[i].selectedRecipeId = id;
         candidates[i].typedName = recipes[id]?.name || '';
         // Collapse this row's dropdown + update label.
-        document.querySelector(`[data-cand-dropdown="${i}"]`).classList.remove('is-open');
-        const mealNameSpan = document.querySelector(`[data-cand-select="${i}"] .kp-cand-mealname`);
+        voteSection.querySelector(`[data-cand-dropdown="${i}"]`).classList.remove('is-open');
+        const mealNameSpan = voteSection.querySelector(`[data-cand-select="${i}"] .kp-cand-mealname`);
         if (mealNameSpan) mealNameSpan.textContent = recipes[id]?.name || '';
-        document.querySelector(`[data-cand-select="${i}"]`)?.classList.add('has-value');
+        voteSection.querySelector(`[data-cand-select="${i}"]`)?.classList.add('has-value');
         updateSaveBtn();
       });
     });
   }
 
+  function wireAddRemoveCandidates() {
+    const voteSection = document.getElementById('kp_voteSection');
+    if (!voteSection) return;
+
+    voteSection.querySelector('#kp_addCand')?.addEventListener('click', () => {
+      if (candidates.length >= 3) return;
+      candidates.push({ selectedRecipeId: null, typedName: '' });
+      rerenderVoteSection();
+    });
+
+    voteSection.querySelectorAll('[data-cand-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.candRemove, 10);
+        if (candidates.length <= 2) return; // min 2 in Vote mode
+        candidates.splice(i, 1);
+        rerenderVoteSection();
+      });
+    });
+  }
+
   wireCandidateRows();
+  wireAddRemoveCandidates();
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kp_close')?.addEventListener('click', close);
