@@ -18,7 +18,9 @@ Vanilla JS family task manager evolving into a Skylight-style family hub. No fra
 git push origin main
 
 # Deploy Worker — NOT auto-deployed, must run separately
-npx wrangler deploy workers/kitchen-import.js
+# wrangler.toml lives in workers/ (kept out of repo root so Cloudflare Pages
+# doesn't auto-detect it via its BETA wrangler-config scan).
+npx wrangler deploy --config workers/wrangler.toml
 # PowerShell may block npx — use cmd.exe or Cloudflare dashboard editor instead
 
 # Local dev server
