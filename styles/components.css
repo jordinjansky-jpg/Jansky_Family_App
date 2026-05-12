@@ -2707,6 +2707,24 @@
   word-break: break-word;
 }
 .dashboard-tile--empty .dashboard-tile__value { color: var(--text-muted); font-weight: 500; }
+/* Optional sub-line under the tile value — currently used by the dinner tile
+   when voting is active ("Vote · 2 options"). Sibling of the value, NOT
+   nested, so the value's overflow:hidden line-clamp doesn't clip it. When a
+   sub is present, the value clamps to 1 line so total tile height stays
+   roughly consistent. */
+.dashboard-tile__sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.2;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dashboard-tile__content:has(.dashboard-tile__sub) .dashboard-tile__value {
+  -webkit-line-clamp: 1;
+}
 /* Chevron after the value on empty + tappable tiles — signals the tile is an
    action, not just a status. Inline so it sits next to the text, not below it
    (the value's webkit-box treatment would push a content::after to a new line). */
