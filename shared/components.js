@@ -3665,7 +3665,7 @@ export function getWeatherGlyph(key) {
  * iconColor: CSS color string applied to --tile-icon-color.
  * empty: bool — dims the value text.
  */
-export function renderDashboardTile({ label = '', value = '', icon = '', iconColor = '', action = '', empty = false } = {}) {
+export function renderDashboardTile({ label = '', value = '', sub = '', icon = '', iconColor = '', action = '', empty = false } = {}) {
   const actionAttrs = action ? ` data-tile-action="${esc(action)}"` : '';
   const emptyClass = empty ? ' dashboard-tile--empty' : '';
   const iconStyle = iconColor ? ` style="--tile-icon-color: ${esc(iconColor)}"` : '';
@@ -3674,6 +3674,7 @@ export function renderDashboardTile({ label = '', value = '', icon = '', iconCol
     <div class="dashboard-tile__content">
       <div class="dashboard-tile__label">${esc(label)}</div>
       <div class="dashboard-tile__value">${value}</div>
+      ${sub ? `<div class="dashboard-tile__sub">${sub}</div>` : ''}
     </div>
   </div>`;
 }

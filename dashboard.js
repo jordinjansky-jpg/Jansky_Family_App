@@ -310,6 +310,10 @@ async function render() {
     const dinnerWinner = pickWinner(dinnerOptions);
     const dinnerEntry = dinnerWinner?.recipeId ? recipes[dinnerWinner.recipeId] : null;
     const dinnerName = dinnerEntry?.name || dinnerWinner?.customName || null;
+    // Multi-option = voting in progress. Show a sub-line so it's visible at a
+    // glance; tap behavior (further down) routes to Kitchen so the user lands
+    // somewhere with the full per-option visibility + vote sheet.
+    const dinnerIsMulti = dinnerOptions.length > 1;
 
     // Weather tile
     let weatherValue = '—° · Set location';
@@ -333,10 +337,16 @@ async function render() {
 
     // Dinner tile — empty state uses verb form ("Plan dinner") + chevron via the
     // tile's built-in empty-action affordance so the tap target reads as actionable
-    // rather than as static status.
+    // rather than as static status. Multi-option dinners get an accent-colored
+    // sub-line announcing the vote (rendered as a sibling of value, not inside
+    // it, to escape the line-clamp's overflow:hidden).
+    const dinnerSub = dinnerIsMulti
+      ? `&#x1F44D; Vote &middot; ${dinnerOptions.length} options`
+      : '';
     const dinnerTile = renderDashboardTile({
       label: 'Dinner',
       value: dinnerName || 'Plan dinner',
+      sub: dinnerSub,
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>',
       iconColor: 'var(--ambient-dinner-fg)',
       action: 'dinner',
@@ -842,7 +852,16 @@ function bindEvents() {
       if (didLongPress) { didLongPress = false; return; }
       const which = tile.dataset.tileAction;
       if (which === 'dinner') {
-        const dinnerWinnerClick = pickWinner(normalizePlanSlot(viewMeals?.dinner));
+        const dinnerOpts = normalizePlanSlot(viewMeals?.dinner);
+        // Multi-option = voting in progress. Route to Kitchen so the user
+        // lands on the Meals tab where each option is visible and the vote
+        // sheet is one tap away.
+        if (dinnerOpts.length > 1) {
+          const personParam = linkedPerson ? `?person=${encodeURIComponent(linkedPerson.name)}` : '';
+          location.href = `kitchen.html${personParam}`;
+          return;
+        }
+        const dinnerWinnerClick = pickWinner(dinnerOpts);
         if (dinnerWinnerClick?.recipeId || dinnerWinnerClick?.customName) {
           openMealDetailSheet(dinnerWinnerClick, 'dinner');
         } else {

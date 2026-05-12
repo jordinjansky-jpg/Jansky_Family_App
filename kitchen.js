@@ -18,7 +18,8 @@ import { renderHeader, renderNavBar, initNavMore, initBottomNav, initBell,
   renderFormFooter, renderFormSheetHeader,
   renderChipPicker, bindChipPicker,
   renderColorButton, initColorButton, applyDataColors,
-  openCookMode, readKitchenCustomize
+  openCookMode, readKitchenCustomize,
+  renderMealDetailSheet
 } from './shared/components.js';
 import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
@@ -393,16 +394,30 @@ async function renderMealsTab() {
         ? getSchoolSlotLabel(s, plan)
         : SLOT_LABELS[s];
       if (hasPlanned) {
-        const winner = pickWinner(optionsForSlot);
-        const isMulti = optionsForSlot.length > 1;
-        const rawName = winner.recipeId ? (recipes[winner.recipeId]?.name || 'Unknown') : (winner.mealName || winner.customName || '');
-        const safeName = esc(rawName);
-        const multiBadge = isMulti ? ` <span class="day-block__multi-badge">+${optionsForSlot.length - 1}</span>` : '';
-        slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
-          ${buildSlotThumb(winner)}
-          <span class="day-block__slot-label">${esc(label)}</span>
-          <span class="day-block__slot-name">${safeName}${multiBadge}</span>
-        </div>`);
+        // Multi-option slots render each option as its own numbered row
+        // (Dinner 1 / Dinner 2) so users can SEE there's voting happening
+        // without having to tap into a sheet first. Tap any row → opens the
+        // slot-edit sheet which handles the voting UI for the whole slot.
+        if (optionsForSlot.length > 1) {
+          optionsForSlot.forEach((opt, idx) => {
+            const rawName = opt.recipeId ? (recipes[opt.recipeId]?.name || 'Unknown') : (opt.mealName || opt.customName || '');
+            const voteCount = Object.keys(opt.votes || {}).length;
+            const voteChip = voteCount > 0 ? ` <span class="day-block__vote-chip">&#x1F44D; ${voteCount}</span>` : '';
+            slotRows.push(`<div class="day-block__slot day-block__slot--option" data-date="${esc(dk)}" data-slot="${esc(s)}">
+              ${buildSlotThumb(opt)}
+              <span class="day-block__slot-label">${esc(label)} ${idx + 1}</span>
+              <span class="day-block__slot-name">${esc(rawName)}${voteChip}</span>
+            </div>`);
+          });
+        } else {
+          const winner = optionsForSlot[0];
+          const rawName = winner.recipeId ? (recipes[winner.recipeId]?.name || 'Unknown') : (winner.mealName || winner.customName || '');
+          slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
+            ${buildSlotThumb(winner)}
+            <span class="day-block__slot-label">${esc(label)}</span>
+            <span class="day-block__slot-name">${esc(rawName)}</span>
+          </div>`);
+        }
       } else {
         const nudgeLabel = `Plan ${(SLOT_LABELS[s] || s).toLowerCase()}`;
         slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
@@ -414,16 +429,27 @@ async function renderMealsTab() {
     }
 
     // Dinner row — always last, follows slotNudge.dinner for empty state.
+    // Multi-option dinner renders one row per option (Dinner 1 / Dinner 2)
+    // so voting is discoverable without tapping into a sheet.
     const dinnerOptions = normalizePlanSlot(plan.dinner);
-    const dinnerWinner = pickWinner(dinnerOptions);
-    if (dinnerWinner) {
+    if (dinnerOptions.length > 1) {
+      dinnerOptions.forEach((opt, idx) => {
+        const rawName = opt.recipeId ? (recipes[opt.recipeId]?.name || 'Unknown') : (opt.mealName || opt.customName || '');
+        const voteCount = Object.keys(opt.votes || {}).length;
+        const voteChip = voteCount > 0 ? ` <span class="day-block__vote-chip">&#x1F44D; ${voteCount}</span>` : '';
+        slotRows.push(`<div class="day-block__slot day-block__slot--option" data-date="${esc(dk)}" data-slot="dinner">
+          ${buildSlotThumb(opt)}
+          <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)} ${idx + 1}</span>
+          <span class="day-block__slot-name">${esc(rawName)}${voteChip}</span>
+        </div>`);
+      });
+    } else if (dinnerOptions.length === 1) {
+      const dinnerWinner = dinnerOptions[0];
       const dinnerName = dinnerWinner.recipeId ? (recipes[dinnerWinner.recipeId]?.name || 'Unknown') : (dinnerWinner.mealName || dinnerWinner.customName || '');
-      const dinnerIsMulti = dinnerOptions.length > 1;
-      const dinnerMultiBadge = dinnerIsMulti ? ` <span class="day-block__multi-badge">+${dinnerOptions.length - 1}</span>` : '';
       slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
         ${buildSlotThumb(dinnerWinner)}
         <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
-        <span class="day-block__slot-name">${esc(dinnerName)}${dinnerMultiBadge}</span>
+        <span class="day-block__slot-name">${esc(dinnerName)}</span>
       </div>`);
     } else if (kPrefs.slotNudge.dinner) {
       slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
@@ -793,6 +819,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
       </nav>
     </div>
     <div class="ef2-divider"></div>
+    <div class="kp-occupied-notice" id="kp_occupiedNotice"></div>
     <div class="kp-meal-section">
       <div class="kp-meal-header">
         <span class="ef2-section-label">Meal</span>
@@ -848,8 +875,47 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     selectedSlot = tab.dataset.slot;
     document.getElementById('kp_slotPills').querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
     syncSecondSchoolVisibility();
+    renderOccupiedNotice();
     updateSaveBtn();
   });
+
+  // Occupied-slot notice: when the user picks a slot that already has 1+
+  // planned meals, surface the current options AND a toggle to save the new
+  // pick as ANOTHER option for voting (vs. silently replacing). Default off
+  // matches the historical behavior for slots with one existing meal; for
+  // slots with active voting (2+ options) the default flips on to protect
+  // votes-in-progress. School slot has its own dual-option flow below and
+  // isn't covered here.
+  function renderOccupiedNotice() {
+    const mount = document.getElementById('kp_occupiedNotice');
+    if (!mount) return;
+    if (!selectedSlot || selectedSlot === 'school') { mount.innerHTML = ''; return; }
+    const day = document.getElementById('kp_day')?.value || preDate;
+    const existing = normalizePlanSlot(planCache[day]?.[selectedSlot]);
+    if (existing.length === 0) { mount.innerHTML = ''; return; }
+    const names = existing.map(o => o.recipeId ? (recipes[o.recipeId]?.name || 'Unknown') : (o.customName || o.mealName || ''));
+    const atCap = existing.length >= 3;
+    // Default-on when voting already in progress; otherwise default-off.
+    const defaultOn = existing.length >= 2;
+    // If appendMode was explicitly requested via opts (e.g. tapped "+ Add
+    // another option" from the slot-edit sheet) start with the toggle on.
+    const startChecked = appendMode || defaultOn;
+    const noteCopy = existing.length === 1
+      ? `Already planned: <strong>${esc(names[0])}</strong>`
+      : `Voting in progress: <strong>${esc(names.join(', '))}</strong>`;
+    mount.innerHTML = `
+      <p class="kp-occupied-notice__line">${noteCopy}</p>
+      <div class="kp-occupied-notice__row${atCap ? ' is-disabled' : ''}">
+        <span class="kp-occupied-notice__label">${atCap ? '3 options already — vote on these first' : (existing.length === 1 ? 'Save as another option for voting' : 'Save as another option (keep votes)')}</span>
+        <label class="form-toggle">
+          <input type="checkbox" id="kp_voteToggle"${startChecked && !atCap ? ' checked' : ''}${atCap ? ' disabled' : ''}>
+          <span class="form-toggle__track"></span>
+        </label>
+      </div>
+    `;
+  }
+  renderOccupiedNotice();
+  document.getElementById('kp_day')?.addEventListener('change', renderOccupiedNotice);
 
   document.getElementById('kp_createRecipe')?.addEventListener('click', () => {
     const day = document.getElementById('kp_day')?.value || preDate;
@@ -980,10 +1046,29 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     if (preServings && selectedRecipeId === preRecipeId) {
       firstData.servings = preServings;
     }
-    // If appendMode and the slot already has options, append (with 3-option cap).
+    // Append vs replace decision:
+    // - If the occupied-notice toggle is present and checked → append
+    // - Else if appendMode was explicitly passed (legacy entry-points) → append
+    // - Else → replace (existing behavior for the common "change the planned
+    //   meal" case)
+    // Cap at 3 options total either way.
+    const toggleEl = document.getElementById('kp_voteToggle');
+    const userAsksAppend = toggleEl ? toggleEl.checked : false;
+    const shouldAppend = userAsksAppend || appendMode;
     const existingOptions = normalizePlanSlot(planCache[day]?.[concreteSlot]);
+    // Protect votes-in-progress: replacing 2+ options requires confirmation
+    // since it discards everyone's votes.
+    if (!shouldAppend && existingOptions.length >= 2) {
+      const ok = await showConfirm({
+        title: 'Replace voting options?',
+        message: `This will remove all ${existingOptions.length} options and any votes cast. Continue?`,
+        confirmLabel: 'Replace',
+        danger: true,
+      });
+      if (!ok) return;
+    }
     let finalArray;
-    if (appendMode && existingOptions.length > 0) {
+    if (shouldAppend && existingOptions.length > 0) {
       const stamped = {
         ...firstData,
         addedAt: Date.now(),
@@ -1037,58 +1122,109 @@ function openSlotEditSheet(dk, slot, entry) {
     renderMultiOption(options);
   }
 
-  // ============ Single-option render (existing behavior) ============
+  // ============ Single-option render (rich rd-* component) ============
+  // Uses the shared renderMealDetailSheet so the slot-edit experience
+  // matches the Recipes-tab detail and the Dashboard dinner widget. For
+  // customName meals (typed-not-saved), we synthesize a minimal meal object
+  // so the sheet still renders rather than falling through to "Meal not
+  // found." The synthetic object has no ingredients/notes/steps so those
+  // sections (and their footer buttons) naturally hide.
   function renderSingleOption(opt) {
-    const recipe = opt.recipeId ? recipes[opt.recipeId] : null;
-    const name = recipe?.name || opt.mealName || opt.customName || '';
-    const hasIngredients = (recipe?.ingredients || []).filter(i => (i?.name || i)?.trim()).length > 0;
-    const d = new Date(dk + 'T12:00:00');
-    const dayLabel = `${DAY_ABBR[d.getDay()]} ${d.getDate()}`;
+    const meal = opt.recipeId
+      ? recipes[opt.recipeId]
+      : { name: opt.mealName || opt.customName || '(no name)' };
 
-    const CLOSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-
-    mount.innerHTML = renderBottomSheet(`
-      <div class="task-detail-sheet">
-        <div class="sheet__header">
-          <h2 class="sheet__title">${esc(name)}</h2>
-          <button class="ef2-icon-btn" id="slotClose" type="button" aria-label="Close">${CLOSE_SVG}</button>
-        </div>
-        <div class="task-detail__chips">
-          ${(() => {
-            const labelOverride = (slot === 'school-lunch' || slot === 'school-lunch-2')
-              ? getSchoolSlotLabel(slot, planCache[dk] || {})
-              : SLOT_LABELS[slot] || slot;
-            return `<span class="chip">${esc(labelOverride)}</span>`;
-          })()}
-          <span class="chip">${esc(dayLabel)}</span>
-        </div>
-        <div class="me-detail__chips">
-          ${hasIngredients ? `<button class="chip" id="slotAddToListBtn" type="button">Add to list</button>` : ''}
-          <button class="chip" id="changeSlotMeal" type="button">Change meal</button>
-          <button class="chip" id="removeSlotMeal" type="button">Remove</button>
-          ${options.length < 3 ? `<button class="chip" id="addAnotherOption" type="button">+ Add another option</button>` : ''}
-        </div>
-      </div>`);
+    mount.innerHTML = renderBottomSheet(renderMealDetailSheet(meal, opt, false, slot));
     activateSheet(mount);
 
-    document.getElementById('slotClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
-    document.getElementById('slotAddToListBtn')?.addEventListener('click', async () => {
+    document.getElementById('mdClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+    // Servings stepper — only present when the recipe has a base servings
+    // count. Mirrors Dashboard's openMealDetailSheet behavior (the carry-into
+    // -plan-slot persistence isn't needed here since we're already in a
+    // planned slot; the stepper just scales the displayed ingredient list).
+    if (meal?.servings) {
+      const baseServings = meal.servings;
+      let currentServings = (typeof opt.servings === 'number' && opt.servings > 0) ? opt.servings : baseServings;
+      const rebuildIngredients = () => {
+        const wrap = document.getElementById('mdIngredients');
+        if (!wrap) return;
+        const factor = currentServings / baseServings;
+        wrap.innerHTML = (meal.ingredients || []).filter(i => (i?.name || i)?.trim()).map(i =>
+          typeof i === 'string'
+            ? `<span class="rd-ing-qty"></span><span class="rd-ing-name">${esc(i)}</span>`
+            : `<span class="rd-ing-qty">${esc(scaleQty(i.qty || '', factor) || '')}</span><span class="rd-ing-name">${esc(i.name || '')}</span>`
+        ).join('');
+      };
+      document.getElementById('mdServingsDown')?.addEventListener('click', () => {
+        if (currentServings <= 1) return;
+        currentServings--;
+        const valEl = document.getElementById('mdServingsVal');
+        if (valEl) valEl.textContent = currentServings;
+        rebuildIngredients();
+      });
+      document.getElementById('mdServingsUp')?.addEventListener('click', () => {
+        currentServings++;
+        const valEl = document.getElementById('mdServingsVal');
+        if (valEl) valEl.textContent = currentServings;
+        rebuildIngredients();
+      });
+    }
+
+    // Start cooking — only renders when the recipe has steps or notes
+    // (the shared component gates the button on those).
+    document.getElementById('mdStartCooking')?.addEventListener('click', () => {
+      if (!opt.recipeId) return;
+      const recipe = recipes[opt.recipeId];
+      if (!recipe) return;
+      mount.innerHTML = '';
+      openCookMode({ ...recipe, id: opt.recipeId }, {
+        mount,
+        onComplete: async (r) => {
+          if (r.id && recipes[r.id]) {
+            await writeKitchenRecipe(r.id, { ...recipes[r.id], lastUsed: Date.now() });
+            recipes[r.id].lastUsed = Date.now();
+          }
+        },
+        onExit: () => renderActiveTab(),
+        showToast,
+      });
+    });
+
+    document.getElementById('mdAddToList')?.addEventListener('click', async () => {
+      const recipe = opt.recipeId ? recipes[opt.recipeId] : null;
+      if (!recipe) return;
       mount.innerHTML = '';
       await addRecipeIngredientsToList(recipe);
     });
-    document.getElementById('changeSlotMeal')?.addEventListener('click', () => {
+
+    document.getElementById('mdChange')?.addEventListener('click', () => {
       mount.innerHTML = '';
       openPlanMealSheet(dk, slot, opt.recipeId || null);
     });
-    document.getElementById('removeSlotMeal')?.addEventListener('click', async () => {
+
+    // mdEdit opens the recipe edit form; re-opens this slot sheet on save so
+    // the user is back where they started after editing.
+    document.getElementById('mdEdit')?.addEventListener('click', () => {
+      if (!opt.recipeId) return;
+      mount.innerHTML = '';
+      openRecipeForm(opt.recipeId, () => openSlotEditSheet(dk, slot, opt));
+    });
+
+    // mdRemove is "Remove from plan" here (slot context) — not "Delete recipe."
+    document.getElementById('mdRemove')?.addEventListener('click', async () => {
       await removeKitchenPlanSlot(dk, slot);
       mount.innerHTML = '';
       await renderMealsTab();
       showToast('Meal removed');
     });
-    document.getElementById('addAnotherOption')?.addEventListener('click', () => {
+
+    // Stars: tap → opens rating sheet for the underlying recipe (no-op for
+    // customName meals).
+    document.getElementById('mdStars')?.addEventListener('click', () => {
+      if (!opt.recipeId) return;
       mount.innerHTML = '';
-      openPlanMealSheet(dk, slot, null, { appendMode: true });
+      openRecipeRatingSheet(opt.recipeId);
     });
   }
 
