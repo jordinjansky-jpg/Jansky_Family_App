@@ -1856,10 +1856,10 @@ export function renderSectionHead(title, meta, options = {}) {
  * @param {string} badgeIcons - Concatenated emoji icons for earned achievements (up to 5)
  */
 export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hint) {
-  const metaParts = [
-    b.streak.current > 0 ? `${b.streak.current}d streak` : null,
-    `${liveBalance.toLocaleString()} pts`,
-  ].filter(Boolean).join(' · ');
+  const streakPart = b.streak.current > 0 ? `${b.streak.current}d streak` : null;
+  const balanceLabel = `${liveBalance.toLocaleString()} pts`;
+
+  const metaPrefix = streakPart ? `${esc(streakPart)} · ` : '';
 
   const badgeRow = badgeIcons
     ? `<div class="card--score__badges">${badgeIcons}</div>`
@@ -1872,8 +1872,10 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hi
   const isEmpty = active.possible === 0;
   const trailing = isEmpty
     ? `<span class="card--score__empty">No tasks today</span>`
-    : `<span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
-       <span class="card--score__pct">${esc(active.percentage)}%</span>`;
+    : `<button class="card--score__badge-btn" type="button" data-action="cycle-period" aria-label="Cycle period">
+         <span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
+         <span class="card--score__pct">${esc(active.percentage)}%</span>
+       </button>`;
 
   const rankChip = rank
     ? `<span class="card--score__rank">#${esc(rank)}</span>`
@@ -1881,21 +1883,21 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hi
 
   const goldRing = rank === 1 ? ' card--score--leader' : '';
 
-  return `<button class="card card--score${goldRing}" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
+  return `<div class="card card--score${goldRing}" role="button" tabindex="0" data-person-id="${esc(b.person.id)}" data-action="drilldown" style="--owner-color: ${esc(b.person.color)}">
     <div class="card__leading">
       ${renderPersonAvatar(b.person, { size: 'md' })}
       ${rankChip}
     </div>
     <div class="card__body">
       <div class="card__title">${esc(b.person.name)}</div>
-      <div class="card__meta">${esc(metaParts)}</div>
+      <div class="card__meta">${metaPrefix}<button class="card--score__balance-btn" type="button" data-action="rewards" aria-label="View rewards for ${esc(b.person.name)}">${esc(balanceLabel)}</button></div>
       ${badgeRow}
       ${hintRow}
     </div>
     <div class="card__trailing">
       ${trailing}
     </div>
-  </button>`;
+  </div>`;
 }
 
 /**

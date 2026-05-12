@@ -281,6 +281,9 @@
 
     // ── Period selector state ──
     let selectedPeriod = linkedPerson?.prefs?.scoreboard?.period || 'week'; // 'today' | 'week' | 'month' | 'year'
+    // Per-card period overrides for the badge cycle interaction.
+    // Map<personId, 'today' | 'week' | 'month' | 'year'>
+    const cardPeriods = new Map();
 
     // ── Check achievements for all people (covers adults who only use non-kid pages) ──
     {
@@ -339,6 +342,14 @@
     });
 
     // ── Render ──
+
+    function cyclePeriod(personId) {
+      const order = ['today', 'week', 'month', 'year'];
+      const cur = cardPeriods.get(personId) || selectedPeriod;
+      const next = order[(order.indexOf(cur) + 1) % order.length];
+      cardPeriods.set(personId, next);
+      render();
+    }
 
     function render() {
       const main = document.getElementById('mainContent');
@@ -430,9 +441,10 @@
       // ── Grade cards (hero leaderboard) ──
       html += `<div class="card-stack">`;
       for (const b of board) {
-        const active = b[gradeKey];
+        const effectivePeriod = cardPeriods.get(b.person.id) || selectedPeriod;
+        const active = b[effectivePeriod];
         const gd = gradeDisplay(active.percentage);
-        const hint = selectedPeriod === 'today' ? tasksToNextGrade(b.person.id) : null;
+        const hint = effectivePeriod === 'today' ? tasksToNextGrade(b.person.id) : null;
         html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank, hint);
       }
       html += `</div>`;
@@ -533,6 +545,7 @@
       for (const btn of document.querySelectorAll('.tab[data-period]')) {
         btn.addEventListener('click', () => {
           selectedPeriod = btn.dataset.period;
+          cardPeriods.clear(); // reset per-card overrides on global period change
           if (linkedPerson) {
             const prefs = { ...(linkedPerson.prefs || {}), scoreboard: { period: selectedPeriod } };
             linkedPerson.prefs = prefs;
@@ -543,9 +556,34 @@
         });
       }
 
-      // Grade cards — single click opens drilldown (no long-press needed: no competing tap action)
+      // Hero cards — three click zones: drilldown / rewards / cycle-period
       for (const card of document.querySelectorAll('.card--score[data-person-id]')) {
-        card.addEventListener('click', () => openDrilldown(card.dataset.personId));
+        // Outer click → drilldown (only when not on an inner button)
+        card.addEventListener('click', (e) => {
+          const inner = e.target.closest('[data-action]');
+          if (!inner || inner === card) {
+            openDrilldown(card.dataset.personId);
+            return;
+          }
+          const action = inner.dataset.action;
+          if (action === 'rewards') {
+            e.stopPropagation();
+            const name = card.querySelector('.card__title')?.textContent || '';
+            location.href = `rewards.html?person=${encodeURIComponent(name.trim())}`;
+          } else if (action === 'cycle-period') {
+            e.stopPropagation();
+            cyclePeriod(card.dataset.personId);
+          } else if (action === 'drilldown') {
+            openDrilldown(card.dataset.personId);
+          }
+        });
+        // Keyboard support for the div-role-button outer
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openDrilldown(card.dataset.personId);
+          }
+        });
       }
     }
 
