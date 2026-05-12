@@ -1865,6 +1865,12 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
     ? `<div class="card--score__badges">${badgeIcons}</div>`
     : '';
 
+  const isEmpty = active.possible === 0;
+  const trailing = isEmpty
+    ? `<span class="card--score__empty">No tasks today</span>`
+    : `<span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
+       <span class="card--score__pct">${esc(active.percentage)}%</span>`;
+
   return `<button class="card card--score" data-person-id="${esc(b.person.id)}" type="button" style="--owner-color: ${esc(b.person.color)}">
     <div class="card__leading">
       ${renderPersonAvatar(b.person, { size: 'md' })}
@@ -1875,8 +1881,7 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons) {
       ${badgeRow}
     </div>
     <div class="card__trailing">
-      <span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
-      <span class="card--score__pct">${esc(active.percentage)}%</span>
+      ${trailing}
     </div>
   </button>`;
 }

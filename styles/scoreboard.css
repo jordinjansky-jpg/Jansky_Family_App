@@ -389,3 +389,11 @@
 .sb-cat-bar-fill--d-plus, .sb-cat-bar-fill--d, .sb-cat-bar-fill--d-minus,
 .sb-cat-bar-fill--f, .sb-cat-bar-fill--none { background: var(--grade-f); }
 .sb-cat-pct { font-size: var(--font-xs); color: var(--text-faint); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── Hero card empty state ── */
+.card--score__empty {
+  font-size: var(--font-xs);
+  color: var(--text-faint);
+  text-align: right;
+  line-height: 1.2;
+}
