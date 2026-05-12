@@ -1250,8 +1250,16 @@ function openSlotEditSheet(dk, slot, entry) {
           await writeKitchenPlanSlot(dk, slot, newOpts);
           planCache[dk] = { ...planCache[dk], [slot]: newOpts };
           opts = newOpts;
-          // Re-render in place — the sheet rebuilds itself on each write.
-          renderMultiOption(newOpts);
+          if (newOpts.length > 1) {
+            // Vote toggle or option-removed-but-still-multi: re-render in place.
+            renderMultiOption(newOpts);
+          } else {
+            // Lock-in or remove-to-1: close the vote sheet and refresh Meals tab.
+            // For lock-in, openVoteSheet also calls onClose() and showToast() after
+            // this resolves; the redundant mount clear is harmless.
+            mount.innerHTML = '';
+            await renderMealsTab();
+          }
         },
         onRemoveSlot: async () => {
           await removeKitchenPlanSlot(dk, slot);

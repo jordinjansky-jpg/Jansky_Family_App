@@ -5034,7 +5034,12 @@ export function openVoteSheet({
       const name = winner.recipeId
         ? (recipes[winner.recipeId]?.name || 'this meal')
         : (winner.mealName || winner.customName || 'this meal');
-      const ok = await showConfirm({ message: `Lock in ${name}? Other options will be removed.`, confirmLabel: 'Lock in', cancelLabel: 'Cancel' });
+      const ok = await showConfirm({
+        title: `Lock in ${name}?`,
+        message: 'Other options will be removed.',
+        confirmLabel: 'Lock in',
+        cancelLabel: 'Cancel',
+      });
       if (!ok) return;
       await onWriteOptions([winner]);
       onClose();
