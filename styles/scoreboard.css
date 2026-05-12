@@ -360,12 +360,12 @@
 
 /* Leader gets a subtle gold ring + brighter rank chip */
 .card--score--leader {
-  box-shadow: 0 0 0 1.5px var(--grade-a) inset;
+  box-shadow: 0 0 0 1.5px var(--gold) inset;
 }
 
 .card--score--leader .card--score__rank {
-  color: var(--grade-a);
-  background: color-mix(in srgb, var(--grade-a) 20%, transparent);
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 20%, transparent);
 }
 
 /* ── Time-to-grade hint ── */

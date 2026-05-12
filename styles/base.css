@@ -40,6 +40,9 @@
   --grade-d: #e65100;
   --grade-f: #c62828;
 
+  /* Leaderboard medal — distinct from grade/person palette */
+  --gold: #b8860b;
+
   /* Layout */
   --nav-height: 68px;
   --header-height: 64px;
@@ -202,6 +205,8 @@
   --grade-c: #e8c55a;
   --grade-d: #e88a4a;
   --grade-f: #e06060;
+  /* Leaderboard medal — distinct from grade/person palette on dark surfaces */
+  --gold: #e5b83c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -238,6 +243,8 @@
     --grade-c: #e8c55a;
     --grade-d: #e88a4a;
     --grade-f: #e06060;
+    /* Leaderboard medal — keep in sync with [data-theme="dark"] above */
+    --gold: #e5b83c;
   }
 }
 
