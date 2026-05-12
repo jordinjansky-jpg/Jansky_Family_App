@@ -711,8 +711,13 @@ function renderNavTabsSection(personOpts) {
     ...tabs.map(id => ALL.find(p => p.id === id)).filter(Boolean),
     ...ALL.filter(p => !tabs.includes(p.id)),
   ];
-  return `<div class="dt-section">
-    <label class="form-label">Navigation buttons</label>
+  // <details> collapsed by default — this is a "set once" preference, so
+  // it shouldn't take up vertical space on every Customize open.
+  return `<details class="dt-section dt-collapsible">
+    <summary class="dt-collapsible__summary">
+      <span class="form-label">Navigation buttons</span>
+      <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+    </summary>
     <p class="form-hint mt-xs">Top 3 appear in the bottom nav. The rest live under More. Drag to reorder.</p>
     <ul class="nav-edit-list" id="dt_navEdit">
       ${ordered.map((p, i) => `
@@ -725,7 +730,7 @@ function renderNavTabsSection(personOpts) {
         </li>
       `).join('')}
     </ul>
-  </div>`;
+  </details>`;
 }
 
 function bindNavTabsSection(mountEl, personOpts, onApply, currentPage) {
@@ -801,7 +806,7 @@ function bindNavTabsSection(mountEl, personOpts, onApply, currentPage) {
 function renderKitchenCustomizeSection(personOpts) {
   const prefs = readKitchenCustomize(personOpts);
   const slotLabels = { breakfast: 'Breakfast', lunch: 'Lunch', school: 'School', dinner: 'Dinner', snack: 'Snack' };
-  const sortLabels = { alpha: 'A–Z', recent: 'Recently added', quickest: 'Quickest first', 'last-cooked': 'Last cooked', 'highest-rated': 'Highest rated' };
+  const sortLabels = { alpha: 'A–Z', recent: 'Recent', quickest: 'Quickest', 'last-cooked': 'Last cooked', 'highest-rated': 'Top rated' };
   return `<div class="dt-section dt-section--page">
     <label class="form-label">Kitchen</label>
     <p class="form-hint mt-xs">Settings that only apply to this page.</p>
@@ -2898,15 +2903,20 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         </div>
       </div>` : ''}
     </div>
-    ${richExtras ? `
-    <div class="dt-section">
-      <label class="form-label">Task Cards</label>
-      <div class="av-picker" id="dt_avatarStyle">
-        ${['tab','circle','edge','edge-initial','hidden'].map(style => `<button type="button" class="av-card${currentAvatarStyle === style ? ' av-card--active' : ''}" data-style="${style}">${avatarPreviewHtml(style)}<span class="av-label">${avatarStyleLabels[style]}</span></button>`).join('')}
-      </div>
-      <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Grouped/Focus modes.</p>
+    ${!familyOpts ? renderNavTabsSection(personOpts) : ''}
+    ${richExtras && currentPage === 'home' ? `
+    <div class="dt-section dt-section--page">
+      <label class="form-label">Home</label>
+      <p class="form-hint mt-xs">Settings that only apply to this page.</p>
       <div class="form-group mt-sm">
-        <label class="form-label">Grouping</label>
+        <label class="form-label form-label--sub">Task Cards</label>
+        <div class="av-picker" id="dt_avatarStyle">
+          ${['tab','circle','edge','edge-initial','hidden'].map(style => `<button type="button" class="av-card${currentAvatarStyle === style ? ' av-card--active' : ''}" data-style="${style}">${avatarPreviewHtml(style)}<span class="av-label">${avatarStyleLabels[style]}</span></button>`).join('')}
+        </div>
+        <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Grouped/Focus modes.</p>
+      </div>
+      <div class="form-group mt-md">
+        <label class="form-label form-label--sub">Grouping</label>
         <div class="segmented-control" id="dt_taskGrouping">
           <button type="button" class="segmented-btn${currentTaskGrouping === 'minimal' ? ' segmented-btn--active' : ''}" data-grouping="minimal">Minimal</button>
           <button type="button" class="segmented-btn${currentTaskGrouping === 'grouped' ? ' segmented-btn--active' : ''}" data-grouping="grouped">Grouped</button>
@@ -2914,7 +2924,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         </div>
         <p class="form-hint mt-xs">Grouped = per-person, with each person's Completed at the end. Focus = per-person, with one shared Completed at the bottom.</p>
       </div>
-      <div class="dt-toggle-row mt-sm">
+      <div class="dt-toggle-row mt-md">
         <span class="dt-toggle-row__label">Show AM/PM icons</span>
         <label class="form-toggle"><input type="checkbox" id="dt_showTodIcons"${resolveDisp('showTodIcons', true) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
       </div>
@@ -2927,7 +2937,6 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         <label class="form-toggle"><input type="checkbox" id="dt_showPoints"${resolveDisp('showPoints', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
       </div>
     </div>` : ''}
-    ${!familyOpts ? renderNavTabsSection(personOpts) : ''}
     ${!familyOpts && currentPage === 'kitchen' ? renderKitchenCustomizeSection(personOpts) : ''}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
