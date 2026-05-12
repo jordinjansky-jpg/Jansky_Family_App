@@ -1279,3 +1279,39 @@ button.rl-chip {
   display: block;
   margin: 0 auto;
 }
+
+/* Plan-a-meal: Single / Vote mode segmented control */
+.kp-mode-section {
+  padding: var(--spacing-md) var(--spacing-md) 0;
+}
+
+.kp-mode-tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.kp-mode-tabs .tab {
+  flex: 1;
+}
+
+/* Vote-mode container (filled out in Task 3) */
+.kp-vote-section {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.kp-vote-section.is-hidden {
+  display: none;
+}
+
+.kp-meal-section.is-hidden {
+  display: none;
+}
+
+.kp-vote-placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  margin: 0;
+}

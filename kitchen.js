@@ -765,6 +765,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   const PLAN_SLOT_ORDER = ['breakfast', 'lunch', 'school', 'dinner', 'snack'];
 
   let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : (preSlot === null ? null : 'dinner');
+  let mealMode = 'single'; // 'single' | 'vote'
 
   function formatDateLabel(dk) {
     const d = new Date(dk + 'T12:00:00');
@@ -800,6 +801,15 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
 
   mount.innerHTML = renderBottomSheet(`
     ${renderFormSheetHeader({ title: 'Plan a meal', closeId: 'kp_close' })}
+    ${selectedSlot !== 'school' ? `
+      <div class="kp-mode-section" id="kp_modeSection">
+        <nav class="tabs tabs--pill kp-mode-tabs" id="kp_modeTabs" role="tablist">
+          <button class="tab is-active" data-mode="single" type="button">Single meal</button>
+          <button class="tab" data-mode="vote" type="button">Set up a vote</button>
+        </nav>
+      </div>
+      <div class="ef2-divider"></div>
+    ` : ''}
     <div class="kp-day-section">
       <span class="ef2-section-label">Day</span>
       <div class="kp-date-wrap">
@@ -821,7 +831,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     </div>
     <div class="ef2-divider"></div>
     <div class="kp-occupied-notice" id="kp_occupiedNotice"></div>
-    <div class="kp-meal-section">
+    <div class="kp-meal-section" id="kp_mealSection">
       <div class="kp-meal-header">
         <span class="ef2-section-label">Meal</span>
         <button class="btn btn--ghost btn--sm" id="kp_createRecipe" type="button">+ New recipe</button>
@@ -834,6 +844,10 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
         <input class="kp-search-input" id="kp_search" type="text" autocomplete="off" placeholder="Search…" value="${esc(preRecipeName)}">
         <div class="recipe-pick-list" id="recipePick">${buildRecipeRows(preRecipeName)}</div>
       </div>
+    </div>
+    <div class="kp-vote-section is-hidden" id="kp_voteSection">
+      <span class="ef2-section-label">Candidates</span>
+      <p class="kp-vote-placeholder">Vote mode coming in next task.</p>
     </div>
     <div class="kp-second-school${selectedSlot === 'school' && (selectedRecipeId || preRecipeName) ? ' is-visible' : ''}" id="kp_secondSection">
       <button class="ef2-add-chip${secondOpen ? ' is-active' : ''}" id="kp_addSecond" type="button">${secondOpen ? '− Remove second option' : '+ Plan a second School option'}</button>
@@ -849,6 +863,18 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     </div>
     ${renderFormFooter({ saveLabel: 'Save', cancelId: 'kp_cancel', saveId: 'kp_save', disabled: !selectedSlot || !(preRecipeName || selectedRecipeId) })}`);
   activateSheet(mount);
+
+  document.getElementById('kp_modeTabs')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-mode]');
+    if (!tab) return;
+    mealMode = tab.dataset.mode;
+    document.getElementById('kp_modeTabs').querySelectorAll('.tab').forEach(t =>
+      t.classList.toggle('is-active', t === tab));
+    // Toggle visibility of meal-section vs vote-section.
+    document.getElementById('kp_mealSection')?.classList.toggle('is-hidden', mealMode === 'vote');
+    document.getElementById('kp_voteSection')?.classList.toggle('is-hidden', mealMode === 'single');
+    updateSaveBtn();
+  });
 
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kp_close')?.addEventListener('click', close);
@@ -875,6 +901,8 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     if (!tab) return;
     selectedSlot = tab.dataset.slot;
     document.getElementById('kp_slotPills').querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
+    const modeSection = document.getElementById('kp_modeSection');
+    if (modeSection) modeSection.style.display = (selectedSlot === 'school') ? 'none' : '';
     syncSecondSchoolVisibility();
     renderOccupiedNotice();
     updateSaveBtn();
