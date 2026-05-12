@@ -3714,6 +3714,77 @@
    horizontal padding keeps the labels readable inside the smaller cells. */
 .sheet__footer .btn { flex: 1 1 0; min-width: 0; padding-left: 12px; padding-right: 12px; }
 
+/* ── Customize sheet: Navigation buttons drag-drop list ───────────────── */
+.nav-edit-list {
+  list-style: none;
+  margin: var(--spacing-sm) 0 0;
+  padding: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.nav-edit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 10px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--font-sm);
+  touch-action: none;
+}
+.nav-edit-row:last-child { border-bottom: none; }
+.nav-edit-row.is-dragging { opacity: 0.5; background: var(--surface-2); }
+.nav-edit-row--in-nav { background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.nav-edit-handle {
+  color: var(--text-muted);
+  cursor: grab;
+  display: inline-flex;
+  padding: 4px;
+  margin: -4px;
+  touch-action: none;
+  user-select: none;
+}
+.nav-edit-handle:active { cursor: grabbing; }
+.nav-edit-label { flex: 1; font-weight: 500; }
+.nav-edit-status {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+}
+.nav-edit-row--in-nav .nav-edit-status {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* Page-specific Customize section header — slightly distinct so it reads as
+   "page settings" vs. universal. */
+.dt-section--page {
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+/* Subsection label inside a dt-section (used for grouped controls in the
+   Kitchen page section). */
+.form-label--sub {
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+/* Compact recipe-card density — tighter thumbnail + reduced padding. */
+.rl-wrap--compact .rl-recipe-card { padding: 8px 10px; }
+.rl-wrap--compact .rl-card-thumb { width: 40px; height: 40px; font-size: 22px; }
+.rl-wrap--compact .rl-card-title { font-size: var(--font-sm); }
+.rl-wrap--compact .rl-card-chips { display: none; }
+
 /* ── Recipe-detail (rd-*) ─ shared by Kitchen Recipes tab, Dashboard meal
    widget, Calendar meal slot, and Kid mode meal preview. ─────────────── */
 .rd-hero {

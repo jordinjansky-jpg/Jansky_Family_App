@@ -74,7 +74,7 @@
       readKitchenPlan, writeKitchenPlanSlot
     } from './shared/firebase.js';
     import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -161,10 +161,15 @@
       title: 'Admin',
       subtitle: settings?.appName || 'Daily Rundown',
     });
-    document.getElementById('navMount').innerHTML = renderNavBar(null);
-    initNavMore(document.getElementById('taskSheetMount'), () => settings?.theme, undefined,
-      { settings, writeSettings, displayDefaults: settings },
-      () => render());
+    initBottomNav({
+      navMount:     document.getElementById('navMount'),
+      activePage:   null,
+      sheetMount:   document.getElementById('taskSheetMount'),
+      getTheme:     () => settings?.theme,
+      personOpts:   undefined,
+      currentPage:  'admin',
+      onPageRender: () => render(),
+    });
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);

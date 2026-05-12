@@ -1,5 +1,5 @@
 import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
-import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode } from './shared/components.js';
+import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
@@ -143,15 +143,16 @@ function getTodayFilterChipHtml() {
   });
 }
 
-// 5-tab bottom nav with More → shared initNavMore (matches every other page).
-document.getElementById('navMount').innerHTML = renderNavBar('home', { onMoreClick: true });
-initNavMore(
-  document.getElementById('taskSheetMount'),
-  () => settings?.theme,
-  linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
-  linkedPerson ? undefined : { settings, writeSettings, displayDefaults: settings },
-  () => render()
-);
+// 5-tab bottom nav — user-customizable, Customize sheet shared everywhere.
+initBottomNav({
+  navMount:     document.getElementById('navMount'),
+  activePage:   'home',
+  sheetMount:   document.getElementById('taskSheetMount'),
+  getTheme:     () => settings?.theme,
+  personOpts:   linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
+  currentPage:  'home',
+  onPageRender: () => render(),
+});
 
 // FAB (primary add action)
 document.getElementById('fabMount').innerHTML = renderFab({ id: 'fabAdd', label: 'Add' });
