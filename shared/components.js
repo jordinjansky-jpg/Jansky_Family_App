@@ -2175,6 +2175,26 @@ export function renderGradeBadge(grade, tier) {
   return `<span class="grade-badge grade-badge--${tier}" aria-label="Grade: ${grade}">${grade}</span>`;
 }
 
+/**
+ * Render a single achievement badge tile (unlocked or locked).
+ * Locked tiles are dimmed and show a progress hint underneath.
+ *
+ * @param {object} def - Achievement definition { icon, label, description, ... }
+ * @param {object} state - { unlocked: boolean, unlockedAt?: number, hint?: string }
+ * @returns {string} HTML
+ */
+export function renderAchievementBadge(def, state) {
+  const lockedClass = state.unlocked ? '' : ' achievement-badge--locked';
+  const subline = state.unlocked
+    ? (state.unlockedAt ? new Date(state.unlockedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '')
+    : (state.hint || '');
+  return `<div class="achievement-badge${lockedClass}" title="${esc(def.description || def.label || '')}">
+    <span class="achievement-badge__icon">${esc(def.icon || '🏆')}</span>
+    <span class="achievement-badge__label">${esc(def.label || '')}</span>
+    ${subline ? `<span class="achievement-badge__sub">${esc(subline)}</span>` : ''}
+  </div>`;
+}
+
 // ── Calendar event helpers (private) ──────────────────────────
 
 /** Format "HH:MM" 24h to "3:30pm" */

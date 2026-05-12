@@ -40,12 +40,12 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade, timeContributed } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade, timeContributed, achievementProgress } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -706,6 +706,58 @@
           </div>`;
         }
         html += `</div>`;
+      }
+
+      // ── Achievement gallery (Pass 3) ──
+      {
+        const personAchievements = allAchievementsData?.[personId] || {};
+        const unlockedEntries = Object.entries(personAchievements)
+          .filter(([, a]) => !a.revoked)
+          .map(([key, a]) => ({ key, def: activeDefs[key], unlockedAt: a.unlockedAt }))
+          .filter(e => e.def)
+          .sort((a, b) => (b.unlockedAt || 0) - (a.unlockedAt || 0))
+          .slice(0, 6);
+
+        // Build context for progress computation (mirrors checkNewAchievements call site)
+        const pStreak = streaks[personId] || { current: 0, best: 0 };
+        const personMsgsForCtx = allMessages?.[personId] || {};
+        const personAnchorForCtx = allAnchors?.[personId] || null;
+        const { totalEarned } = calculateBalance(personId, allSnapshots, personMsgsForCtx, personAnchorForCtx, allMultipliers, tz);
+        const progressContext = {
+          streak: pStreak.current,
+          bestStreak: pStreak.best,
+          totalEarned,
+          tasksCompleted: 0,
+          perfectDays: 0,
+          hasRedeemed: Object.values(personMsgsForCtx).some(m => m.type === 'redemption-approved'),
+        };
+
+        const lockedCandidates = Object.entries(activeDefs)
+          .filter(([key]) => !personAchievements[key] || personAchievements[key].revoked)
+          .map(([key, def]) => ({ key, def, prog: achievementProgress(def, progressContext) }))
+          .filter(e => e.prog && e.prog.progressPct > 0)
+          .sort((a, b) => b.prog.progressPct - a.prog.progressPct)
+          .slice(0, 3);
+
+        if (unlockedEntries.length > 0 || lockedCandidates.length > 0) {
+          html += renderSectionHead('Achievements');
+          if (unlockedEntries.length > 0) {
+            html += `<div class="sb-achievements">`;
+            for (const e of unlockedEntries) {
+              html += renderAchievementBadge(e.def, { unlocked: true, unlockedAt: e.unlockedAt });
+            }
+            html += `</div>`;
+          }
+
+          if (lockedCandidates.length > 0) {
+            html += `<div class="sb-achievements__label">Closest to unlock</div>`;
+            html += `<div class="sb-achievements sb-achievements--locked">`;
+            for (const e of lockedCandidates) {
+              html += renderAchievementBadge(e.def, { unlocked: false, hint: e.prog.hint });
+            }
+            html += `</div>`;
+          }
+        }
       }
 
       // Weekly trend sparkline — hidden when fewer than 2 weeks have data

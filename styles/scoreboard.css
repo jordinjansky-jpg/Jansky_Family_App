@@ -439,3 +439,57 @@
   margin-bottom: var(--spacing-sm);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Achievement gallery (drilldown, Pass 3) ── */
+.sb-achievements {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.sb-achievements__label {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  padding: var(--spacing-xs) 0;
+}
+
+.achievement-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  min-height: 80px;
+}
+
+.achievement-badge__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.achievement-badge__label {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.achievement-badge__sub {
+  font-size: 10px;
+  color: var(--text-faint);
+  line-height: 1.2;
+}
+
+.achievement-badge--locked {
+  opacity: 0.55;
+}
+
+.achievement-badge--locked .achievement-badge__icon {
+  filter: grayscale(70%);
+}

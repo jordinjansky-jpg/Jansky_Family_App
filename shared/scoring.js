@@ -629,6 +629,43 @@ export function checkNewAchievements(context) {
 }
 
 /**
+ * Compute progress toward a single achievement definition. Returns null if the
+ * achievement isn't stat-based (e.g. manual-only) or already unlocked.
+ *
+ * @param {object} def - Achievement definition with { condition: { stat, threshold }, conditionType }
+ * @param {object} context - Same context shape consumed by checkNewAchievements:
+ *   { streak, bestStreak, totalEarned, perfectDays, tasksCompleted, gradeDay, gradeWeek, gradeMonth, hasRedeemed }
+ * @returns {object|null} { current, required, progressPct, hint } or null if N/A
+ */
+export function achievementProgress(def, context) {
+  if (!def || !def.condition) return null;
+  if (def.conditionType === 'manual') return null;
+  const { stat, threshold } = def.condition;
+  let current = 0;
+  let hint = '';
+  switch (stat) {
+    case 'streak':         current = context.streak ?? 0; hint = `${current}/${threshold} day streak`; break;
+    case 'bestStreak':     current = context.bestStreak ?? 0; hint = `${current}/${threshold} best streak`; break;
+    case 'totalEarned':    current = context.totalEarned ?? 0; hint = `${current.toLocaleString()}/${threshold.toLocaleString()} pts earned`; break;
+    case 'tasksCompleted': current = context.tasksCompleted ?? 0; hint = `${current}/${threshold} tasks`; break;
+    case 'perfectDays':    current = context.perfectDays ?? 0; hint = `${current}/${threshold} perfect days`; break;
+    case 'firstRedemption':
+      current = context.hasRedeemed ? 1 : 0;
+      hint = current ? 'unlocked' : 'redeem a reward';
+      return { current, required: 1, progressPct: current * 100, hint };
+    case 'gradeDay':
+    case 'gradeWeek':
+    case 'gradeMonth':
+      hint = `reach ${threshold} grade`;
+      return { current: 0, required: 1, progressPct: 0, hint };
+    default:
+      return null;
+  }
+  const progressPct = Math.min(100, Math.round((current / threshold) * 100));
+  return { current, required: threshold, progressPct, hint };
+}
+
+/**
  * Find the highest-damage penalized task for penalty removal.
  *
  * @param {object} completions - all completions
