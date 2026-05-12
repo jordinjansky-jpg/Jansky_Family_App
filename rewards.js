@@ -7,7 +7,7 @@ import { initFirebase, readSettings, writeSettings, readPeople, readRewards, rea
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
-import { renderNavBar, initNavMore, renderHeader, initBell, initOfflineBanner,
+import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
   openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
@@ -69,7 +69,6 @@ async function init() {
       'afterbegin',
       '<div id="personChipMount"></div>'
     );
-    document.getElementById('navMount').innerHTML = renderNavBar('rewards');
     document.getElementById('fabMount').innerHTML = renderFab();
     initBell(() => people, () => rewardsObj || {}, onAllMessages, {
       writeMessageFn: writeMessage,
@@ -82,9 +81,15 @@ async function init() {
       writeMultiplierFn: writeMultiplier,
       getTodayFn: () => todayKey(settings?.timezone),
     });
-    initNavMore(document.getElementById('sheetMount'), () => settings?.theme, undefined,
-      { settings, writeSettings, displayDefaults: settings },
-      () => render());
+    initBottomNav({
+      navMount:     document.getElementById('navMount'),
+      activePage:   'rewards',
+      sheetMount:   document.getElementById('sheetMount'),
+      getTheme:     () => settings?.theme,
+      personOpts:   viewerPerson ? { person: viewerPerson, writePerson, displayDefaults: settings } : undefined,
+      currentPage:  'rewards',
+      onPageRender: () => render(),
+    });
     initOfflineBanner(onConnectionChange);
   } else {
     document.getElementById('headerMount').innerHTML = renderKidHeader();

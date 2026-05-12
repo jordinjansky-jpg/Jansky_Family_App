@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, renderHeader, renderEmptyState, renderErrorState, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderGradeBadge, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -97,11 +97,15 @@
       title: 'Scoreboard',
       showBell: true,
     });
-    document.getElementById('navMount').innerHTML = renderNavBar('scoreboard');
-    initNavMore(document.getElementById('drilldownMount'), () => settings?.theme,
-      linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
-      { settings, writeSettings, displayDefaults: settings },
-      () => render());
+    initBottomNav({
+      navMount:     document.getElementById('navMount'),
+      activePage:   'scoreboard',
+      sheetMount:   document.getElementById('drilldownMount'),
+      getTheme:     () => settings?.theme,
+      personOpts:   linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
+      currentPage:  'scoreboard',
+      onPageRender: () => render(),
+    });
 
     // ── Connection status + Offline/Online banner ──
     initOfflineBanner(onConnectionChange);

@@ -464,12 +464,35 @@ const NAV_ITEMS = [
  * Person-link mode: the page rewrites href values after render (existing behavior).
  */
 export function renderNavBar(activePage, options = {}) {
-  const items = [
-    { page: 'home',       href: 'index.html',      label: 'Home',    svg: `<path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path>` },
-    { page: 'kitchen',    href: 'kitchen.html',    label: 'Kitchen', svg: `<path d="M3 2v7a3 3 0 0 0 6 0V2"/><path d="M6 9v13"/><path d="M14 2v20"/><path d="M18 2c-2 2-3 4-3 7s1 4 3 4v9"/>` },
-    { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores',  svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
-    { page: 'rewards',    href: 'rewards.html',    label: 'Rewards', svg: `<path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>` },
-  ];
+  // Slot 1 (Home) and slot 5 (More) are locked. Slots 2/3/4 are user-pickable
+  // from the Customize sheet. `options.tabs` is the user's pick (array of 3
+  // page IDs); falls back to defaults when omitted (initial page-load before
+  // we know who's linked).
+  const PAGE_DEFS = {
+    home:       { page: 'home',       href: 'index.html',      label: 'Home',    svg: `<path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path>` },
+    kitchen:    { page: 'kitchen',    href: 'kitchen.html',    label: 'Kitchen', svg: `<path d="M3 2v7a3 3 0 0 0 6 0V2"/><path d="M6 9v13"/><path d="M14 2v20"/><path d="M18 2c-2 2-3 4-3 7s1 4 3 4v9"/>` },
+    calendar:   { page: 'calendar',   href: 'calendar.html',   label: 'Calendar', svg: `<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>` },
+    scoreboard: { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores',  svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
+    rewards:    { page: 'rewards',    href: 'rewards.html',    label: 'Rewards', svg: `<path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>` },
+    tracker:    { page: 'tracker',    href: 'tracker.html',    label: 'Tracker', svg: `<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>` },
+  };
+  // Build a user-pick-or-default ordered list of the 3 middle slots, then wrap
+  // with Home up front. When the caller doesn't pass tabs explicitly, fall
+  // back to whatever's saved in localStorage (covers pages that haven't been
+  // migrated to initBottomNav yet so the user's choice still applies).
+  let userTabs = Array.isArray(options.tabs) && options.tabs.length === 3 ? options.tabs : null;
+  if (!userTabs) {
+    try {
+      const raw = JSON.parse(localStorage.getItem('dr-customize-navTabs') || 'null');
+      if (Array.isArray(raw) && raw.length === 3) userTabs = raw;
+    } catch { /* */ }
+  }
+  if (!userTabs) userTabs = DEFAULT_NAV_TABS;
+  const middleTabs = userTabs.map(id => PAGE_DEFS[id]).filter(Boolean);
+  // If the user's stored selection has dropped an unknown page (e.g. we
+  // renamed a page), fall through to defaults for the missing slots.
+  while (middleTabs.length < 3) middleTabs.push(PAGE_DEFS[DEFAULT_NAV_TABS[middleTabs.length]]);
+  const items = [PAGE_DEFS.home, ...middleTabs.slice(0, 3)];
   const mainPages = new Set(items.map(i => i.page));
   const moreActive = activePage && !mainPages.has(activePage);
   const personHome = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('dr-person-home') : null;
@@ -517,20 +540,50 @@ export function renderNavBar(activePage, options = {}) {
  * @param {object} [familyOpts] - { settings, writeSettings, displayDefaults } for family-defaults mode
  * @param {Function} [onApply] - called after a theme/pref change so the page can re-render
  */
-export function initNavMore(sheetMount, getTheme, personOpts, familyOpts, onApply) {
+/**
+ * One-call bottom-nav setup: renders the nav bar with user's preferred tabs
+ * and wires the More menu. Also listens for nav-tab changes (fired when the
+ * Customize sheet reorders) and re-renders both the bar and the More handler.
+ *
+ * Replaces the two-step pattern (renderNavBar + initNavMore) every page used
+ * to do separately. Pages just call this once.
+ */
+export function initBottomNav({ navMount, activePage, sheetMount, getTheme, personOpts, currentPage, onPageRender }) {
+  function paint() {
+    const tabs = readNavTabsPref(personOpts);
+    if (navMount) navMount.innerHTML = renderNavBar(activePage, { tabs, onMoreClick: true });
+    initNavMore(sheetMount, getTheme, personOpts, undefined, () => { onPageRender?.(); }, { currentPage });
+  }
+  paint();
+  document.addEventListener('dr-nav-tabs-changed', paint);
+}
+
+export function initNavMore(sheetMount, getTheme, personOpts, familyOpts, onApply, opts = {}) {
+  const currentPage = opts.currentPage || location.pathname.split('/').pop().replace('.html', '').replace('index', 'home');
   const _svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">${p}</svg>`;
-  const items = [
-    { id: 'admin',    label: 'Admin',    icon: _svg('<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>') },
-    { id: 'calendar', label: 'Calendar', icon: _svg('<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>') },
-    { id: 'tracker',  label: 'Tracker',  icon: _svg('<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>') },
-    { id: 'theme',    label: 'Theme',    icon: _svg('<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>') },
-  ];
+  const ALL_PAGES = {
+    kitchen:    { id: 'kitchen',    label: 'Kitchen',  href: 'kitchen.html',    icon: _svg('<path d="M3 11h18M3 11V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v5M3 11v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8"></path>') },
+    calendar:   { id: 'calendar',   label: 'Calendar', href: 'calendar.html',   icon: _svg('<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>') },
+    scoreboard: { id: 'scoreboard', label: 'Scores',   href: 'scoreboard.html', icon: _svg('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>') },
+    rewards:    { id: 'rewards',    label: 'Rewards',  href: 'rewards.html',    icon: _svg('<polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>') },
+    tracker:    { id: 'tracker',    label: 'Tracker',  href: 'tracker.html',    icon: _svg('<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>') },
+    admin:      { id: 'admin',      label: 'Admin',    href: 'admin.html',      icon: _svg('<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>') },
+  };
+  const customizeItem = { id: 'customize', label: 'Customize', icon: _svg('<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>') };
+
+  // Resolve the user's nav choice (which 3 pages occupy slots 2/3/4) so we can
+  // surface the *other* pages in More. Defaults match the historical nav order.
+  const navTabs = readNavTabsPref(personOpts);
+  // "Pages not in user's nav" + Admin + Customize, deduped against the current
+  // page (no point linking to where you already are).
+  const overflowPages = Object.values(ALL_PAGES).filter(p =>
+    !navTabs.includes(p.id) && p.id !== currentPage && p.id !== 'admin'
+  );
+  const items = [...overflowPages, ALL_PAGES.admin, customizeItem];
 
   function openMoreSheet() {
-    const currentPage = location.pathname.split('/').pop().replace('.html', '');
-    const filtered = items.filter(item => item.id !== currentPage);
     sheetMount.innerHTML = renderBottomSheet(
-      `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(filtered)}`
+      `<h3 class="sheet-section-title">More</h3>${renderOverflowMenu(items)}`
     );
     requestAnimationFrame(() => {
       const sheet = document.getElementById('bottomSheet');
@@ -544,15 +597,307 @@ export function initNavMore(sheetMount, getTheme, personOpts, familyOpts, onAppl
       if (!row) return;
       sheetMount.innerHTML = '';
       const id = row.dataset.itemId;
-      if (id === 'admin')    location.href = 'admin.html';
-      if (id === 'calendar') location.href = 'calendar.html';
-      if (id === 'tracker')  location.href = 'tracker.html';
-      if (id === 'theme')    openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, onApply, personOpts, familyOpts);
+      const page = ALL_PAGES[id];
+      if (page)               { location.href = page.href; return; }
+      if (id === 'customize') openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, onApply, personOpts, familyOpts, { currentPage });
     });
   }
 
   document.getElementById('navMore')?.addEventListener('click', openMoreSheet);
   document.getElementById('headerAdmin')?.addEventListener('click', () => { location.href = 'admin.html'; });
+}
+
+// Default nav tabs (matches existing nav order). slots[0..2] map to the middle
+// three slots of the 5-slot bar; Home is locked to slot 1, More to slot 5.
+export const DEFAULT_NAV_TABS = ['kitchen', 'scoreboard', 'rewards'];
+
+// Read the user's preferred nav tabs from person.prefs.customize.navTabs (if
+// linkedPerson) or device localStorage (if not). Falls back to defaults.
+export function readNavTabsPref(personOpts) {
+  let raw = null;
+  if (personOpts?.person?.prefs?.customize?.navTabs) {
+    raw = personOpts.person.prefs.customize.navTabs;
+  } else {
+    try { raw = JSON.parse(localStorage.getItem('dr-customize-navTabs') || 'null'); } catch { /* */ }
+  }
+  if (!Array.isArray(raw) || raw.length !== 3) return [...DEFAULT_NAV_TABS];
+  const valid = raw.filter(id => ['kitchen','calendar','scoreboard','rewards','tracker'].includes(id));
+  if (valid.length !== 3 || new Set(valid).size !== 3) return [...DEFAULT_NAV_TABS];
+  return valid;
+}
+
+// Write nav tabs to person (if linkedPerson) or localStorage. Mirrors the read
+// path's branching logic so the same UI works in both contexts.
+export async function writeNavTabsPref(personOpts, tabs) {
+  if (personOpts?.writePerson && personOpts?.person) {
+    const next = {
+      ...personOpts.person,
+      prefs: {
+        ...(personOpts.person.prefs || {}),
+        customize: {
+          ...((personOpts.person.prefs || {}).customize || {}),
+          navTabs: tabs,
+        },
+      },
+    };
+    await personOpts.writePerson(personOpts.person.id, next);
+    personOpts.person = next;
+  } else {
+    try { localStorage.setItem('dr-customize-navTabs', JSON.stringify(tabs)); } catch { /* */ }
+  }
+}
+
+// ── Kitchen Customize prefs (per-person OR device-local) ──────────────────
+const KITCHEN_PREFS_DEFAULT = {
+  slotNudge:    { breakfast: false, lunch: false, school: false, dinner: true, snack: false },
+  daysShown:    7,
+  recipesSort:  'alpha',
+  cardDensity:  'roomy',
+  tabs:         ['meals', 'recipes', 'lists'],
+};
+
+export function readKitchenCustomize(personOpts) {
+  let raw = null;
+  if (personOpts?.person?.prefs?.customize?.kitchen) {
+    raw = personOpts.person.prefs.customize.kitchen;
+  } else {
+    try { raw = JSON.parse(localStorage.getItem('dr-customize-kitchen') || 'null'); } catch { /* */ }
+  }
+  if (!raw || typeof raw !== 'object') return { ...KITCHEN_PREFS_DEFAULT, slotNudge: { ...KITCHEN_PREFS_DEFAULT.slotNudge } };
+  return {
+    slotNudge:   { ...KITCHEN_PREFS_DEFAULT.slotNudge, ...(raw.slotNudge || {}) },
+    daysShown:   [3, 7, 14].includes(raw.daysShown) ? raw.daysShown : KITCHEN_PREFS_DEFAULT.daysShown,
+    recipesSort: typeof raw.recipesSort === 'string' ? raw.recipesSort : KITCHEN_PREFS_DEFAULT.recipesSort,
+    cardDensity: ['compact', 'roomy'].includes(raw.cardDensity) ? raw.cardDensity : KITCHEN_PREFS_DEFAULT.cardDensity,
+    tabs:        Array.isArray(raw.tabs) ? raw.tabs.filter(t => ['meals','recipes','lists'].includes(t)) : [...KITCHEN_PREFS_DEFAULT.tabs],
+  };
+}
+
+export async function writeKitchenCustomize(personOpts, patch) {
+  const current = readKitchenCustomize(personOpts);
+  const next = { ...current, ...patch };
+  if (personOpts?.writePerson && personOpts?.person) {
+    const nextPerson = {
+      ...personOpts.person,
+      prefs: {
+        ...(personOpts.person.prefs || {}),
+        customize: {
+          ...((personOpts.person.prefs || {}).customize || {}),
+          kitchen: next,
+        },
+      },
+    };
+    await personOpts.writePerson(personOpts.person.id, nextPerson);
+    personOpts.person = nextPerson;
+  } else {
+    try { localStorage.setItem('dr-customize-kitchen', JSON.stringify(next)); } catch { /* */ }
+  }
+}
+
+// Renderer for the "Navigation buttons" section in Customize. Drag-drop list
+// of all 5 main pages; the top 3 occupy nav slots 2/3/4. Caller binds via
+// bindNavTabsSection() after the sheet mounts.
+function renderNavTabsSection(personOpts) {
+  const ALL = [
+    { id: 'kitchen',    label: 'Kitchen'  },
+    { id: 'calendar',   label: 'Calendar' },
+    { id: 'scoreboard', label: 'Scores'   },
+    { id: 'rewards',    label: 'Rewards'  },
+    { id: 'tracker',    label: 'Tracker'  },
+  ];
+  const tabs = readNavTabsPref(personOpts);
+  // Order: user's 3 picks first (in their nav slot order), then the rest.
+  const ordered = [
+    ...tabs.map(id => ALL.find(p => p.id === id)).filter(Boolean),
+    ...ALL.filter(p => !tabs.includes(p.id)),
+  ];
+  return `<div class="dt-section">
+    <label class="form-label">Navigation buttons</label>
+    <p class="form-hint mt-xs">Top 3 appear in the bottom nav. The rest live under More. Drag to reorder.</p>
+    <ul class="nav-edit-list" id="dt_navEdit">
+      ${ordered.map((p, i) => `
+        <li class="nav-edit-row${i < 3 ? ' nav-edit-row--in-nav' : ''}" data-page="${p.id}">
+          <span class="nav-edit-handle" aria-label="Drag to reorder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+          </span>
+          <span class="nav-edit-label">${esc(p.label)}</span>
+          <span class="nav-edit-status">${i < 3 ? `Slot ${i + 2}` : 'In More'}</span>
+        </li>
+      `).join('')}
+    </ul>
+  </div>`;
+}
+
+function bindNavTabsSection(mountEl, personOpts, onApply, currentPage) {
+  const list = mountEl.querySelector('#dt_navEdit');
+  if (!list) return;
+  let dragging = null;
+  let startY = 0;
+  let originalIndex = 0;
+
+  function updateBadges() {
+    Array.from(list.children).forEach((row, i) => {
+      const isInNav = i < 3;
+      row.classList.toggle('nav-edit-row--in-nav', isInNav);
+      const statusEl = row.querySelector('.nav-edit-status');
+      if (statusEl) statusEl.textContent = isInNav ? `Slot ${i + 2}` : 'In More';
+    });
+  }
+
+  list.querySelectorAll('.nav-edit-row').forEach(row => {
+    const handle = row.querySelector('.nav-edit-handle');
+    handle?.addEventListener('pointerdown', (e) => {
+      dragging = row;
+      startY = e.clientY;
+      originalIndex = Array.from(list.children).indexOf(row);
+      row.classList.add('is-dragging');
+      handle.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    });
+    handle?.addEventListener('pointermove', (e) => {
+      if (dragging !== row) return;
+      const dy = e.clientY - startY;
+      const rowHeight = row.offsetHeight || 44;
+      const moveBy = Math.round(dy / rowHeight);
+      const newIdx = Math.max(0, Math.min(list.children.length - 1, originalIndex + moveBy));
+      const currentIdx = Array.from(list.children).indexOf(row);
+      if (newIdx !== currentIdx) {
+        const before = list.children[newIdx];
+        if (newIdx < currentIdx) list.insertBefore(row, before);
+        else list.insertBefore(row, before.nextSibling);
+        updateBadges();
+      }
+    });
+    handle?.addEventListener('pointerup', async () => {
+      if (dragging !== row) return;
+      row.classList.remove('is-dragging');
+      dragging = null;
+      const newTabs = Array.from(list.children).slice(0, 3).map(r => r.dataset.page);
+      await writeNavTabsPref(personOpts, newTabs);
+      // Each page listens for this event and re-renders its nav bar + re-wires
+      // the More handler. Decouples this component from page-specific init.
+      document.dispatchEvent(new CustomEvent('dr-nav-tabs-changed', { detail: { tabs: newTabs } }));
+      if (onApply) onApply();
+    });
+    handle?.addEventListener('pointercancel', () => {
+      if (dragging !== row) return;
+      row.classList.remove('is-dragging');
+      dragging = null;
+    });
+  });
+}
+
+// Renderer for the Kitchen-specific Customize section. Only shown when
+// currentPage === 'kitchen'. Bind via bindKitchenCustomizeSection().
+function renderKitchenCustomizeSection(personOpts) {
+  const prefs = readKitchenCustomize(personOpts);
+  const slotLabels = { breakfast: 'Breakfast', lunch: 'Lunch', school: 'School', dinner: 'Dinner', snack: 'Snack' };
+  const sortLabels = { alpha: 'A–Z', recent: 'Recently added', quickest: 'Quickest first', 'last-cooked': 'Last cooked', 'highest-rated': 'Highest rated' };
+  return `<div class="dt-section dt-section--page">
+    <label class="form-label">Kitchen</label>
+    <p class="form-hint mt-xs">Settings that only apply to this page.</p>
+
+    <div class="form-group mt-sm">
+      <label class="form-label form-label--sub">Show empty slots as nudges</label>
+      <p class="form-hint mt-xs">Active slots show as "Plan ___" on the day cards even when empty. Inactive slots only appear when planned.</p>
+      ${Object.entries(slotLabels).map(([k, label]) => `
+        <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(label)}</span>
+          <label class="form-toggle"><input type="checkbox" data-kc-slot="${esc(k)}"${prefs.slotNudge[k] ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="form-group mt-md">
+      <label class="form-label form-label--sub">Days shown on Meals tab</label>
+      <div class="segmented-control" id="dt_kcDaysShown">
+        ${[3, 7, 14].map(d => `<button type="button" class="segmented-btn${prefs.daysShown === d ? ' segmented-btn--active' : ''}" data-days="${d}">${d}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="form-group mt-md">
+      <label class="form-label form-label--sub">Default recipes sort</label>
+      <div class="dt-themes" id="dt_kcRecipesSort">
+        ${Object.entries(sortLabels).map(([k, label]) => `<button class="dt-theme-btn${prefs.recipesSort === k ? ' dt-theme-btn--active' : ''}" data-sort="${esc(k)}" type="button">${esc(label)}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="form-group mt-md">
+      <label class="form-label form-label--sub">Recipe card density</label>
+      <div class="segmented-control" id="dt_kcCardDensity">
+        <button type="button" class="segmented-btn${prefs.cardDensity === 'roomy'   ? ' segmented-btn--active' : ''}" data-density="roomy">Roomy</button>
+        <button type="button" class="segmented-btn${prefs.cardDensity === 'compact' ? ' segmented-btn--active' : ''}" data-density="compact">Compact</button>
+      </div>
+    </div>
+
+    <div class="form-group mt-md">
+      <label class="form-label form-label--sub">Kitchen tabs</label>
+      <p class="form-hint mt-xs">Hide tabs you don't use. Always keeps at least one visible.</p>
+      ${['meals', 'recipes', 'lists'].map(t => `
+        <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(t.charAt(0).toUpperCase() + t.slice(1))}</span>
+          <label class="form-toggle"><input type="checkbox" data-kc-tab="${esc(t)}"${prefs.tabs.includes(t) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function bindKitchenCustomizeSection(mountEl, personOpts, onApply) {
+  if (!mountEl.querySelector('.dt-section--page')) return;
+  const refire = () => { if (onApply) onApply(); };
+
+  // Slot nudge toggles
+  mountEl.querySelectorAll('[data-kc-slot]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const prefs = readKitchenCustomize(personOpts);
+      prefs.slotNudge[input.dataset.kcSlot] = input.checked;
+      await writeKitchenCustomize(personOpts, { slotNudge: prefs.slotNudge });
+      refire();
+    });
+  });
+
+  // Days shown segmented
+  mountEl.querySelectorAll('#dt_kcDaysShown .segmented-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      mountEl.querySelectorAll('#dt_kcDaysShown .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+      btn.classList.add('segmented-btn--active');
+      await writeKitchenCustomize(personOpts, { daysShown: parseInt(btn.dataset.days, 10) });
+      refire();
+    });
+  });
+
+  // Recipes sort
+  mountEl.querySelectorAll('#dt_kcRecipesSort .dt-theme-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      mountEl.querySelectorAll('#dt_kcRecipesSort .dt-theme-btn').forEach(b => b.classList.remove('dt-theme-btn--active'));
+      btn.classList.add('dt-theme-btn--active');
+      await writeKitchenCustomize(personOpts, { recipesSort: btn.dataset.sort });
+      refire();
+    });
+  });
+
+  // Card density
+  mountEl.querySelectorAll('#dt_kcCardDensity .segmented-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      mountEl.querySelectorAll('#dt_kcCardDensity .segmented-btn').forEach(b => b.classList.remove('segmented-btn--active'));
+      btn.classList.add('segmented-btn--active');
+      await writeKitchenCustomize(personOpts, { cardDensity: btn.dataset.density });
+      refire();
+    });
+  });
+
+  // Tab visibility — guard against turning off the last tab.
+  mountEl.querySelectorAll('[data-kc-tab]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const allInputs = Array.from(mountEl.querySelectorAll('[data-kc-tab]'));
+      const enabled = allInputs.filter(i => i.checked).map(i => i.dataset.kcTab);
+      if (enabled.length === 0) {
+        input.checked = true; // revert — must keep at least one
+        return;
+      }
+      await writeKitchenCustomize(personOpts, { tabs: enabled });
+      refire();
+    });
+  });
 }
 
 /**
@@ -2460,7 +2805,8 @@ export function renderOfflineBanner(message) {
  * personOpts: { person, writePerson, displayDefaults }
  * familyOpts: { settings, writeSettings, displayDefaults }
  */
-export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, familyOpts) {
+export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, familyOpts, opts = {}) {
+  const currentPage = opts.currentPage || null;
   const presets = getPresets();
   const colorPalette = getColorPalette();
   const richMode = !!personOpts || !!familyOpts;
@@ -2509,7 +2855,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     return `<div class="av-preview">${inner[style] || inner.tab}</div>`;
   };
 
-  const sheetTitle = personOpts ? 'My Settings' : familyOpts ? 'App Defaults' : 'Device Theme';
+  const sheetTitle = familyOpts ? 'App Defaults' : 'Customize';
   // In person mode, the header shows the live avatar (tap to edit). In family/device modes
   // it stays a flat color picker since there's no person to embody.
   const headerHtml = personOpts
@@ -2572,6 +2918,8 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         <label class="form-toggle"><input type="checkbox" id="dt_showPoints"${resolveDisp('showPoints', false) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
       </div>
     </div>` : ''}
+    ${!familyOpts ? renderNavTabsSection(personOpts) : ''}
+    ${!familyOpts && currentPage === 'kitchen' ? renderKitchenCustomizeSection(personOpts) : ''}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>
@@ -2579,6 +2927,10 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
 
   mountEl.innerHTML = html;
   applyDataColors(mountEl);
+
+  // Universal nav-buttons editor + page-specific section bindings.
+  bindNavTabsSection(mountEl, personOpts, onApply, currentPage);
+  if (currentPage === 'kitchen') bindKitchenCustomizeSection(mountEl, personOpts, onApply);
 
   requestAnimationFrame(() => {
     const overlay = document.getElementById('bottomSheet');

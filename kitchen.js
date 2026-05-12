@@ -1,5 +1,5 @@
 // kitchen.js — Kitchen page: meal planning + shopping lists
-import { initFirebase, readSettings, writeSettings, readPeople, onConnectionChange,
+import { initFirebase, readSettings, writeSettings, readPeople, writePerson, onConnectionChange,
   onAllMessages, writeMessage, markMessageSeen, removeMessage,
   writeBankToken, markBankTokenUsed, removeBankToken, readBank, writeMultiplier,
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
@@ -12,13 +12,13 @@ import { initFirebase, readSettings, writeSettings, readPeople, onConnectionChan
 } from './shared/firebase.js';
 import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
-import { renderHeader, renderNavBar, initNavMore, initBell,
+import { renderHeader, renderNavBar, initNavMore, initBottomNav, initBell,
   initOfflineBanner, showConfirm, showToast, renderFab,
   renderBottomSheet, renderEmptyState, renderAddMenu, renderSkeleton, renderErrorState,
   renderFormFooter, renderFormSheetHeader,
   renderChipPicker, bindChipPicker,
   renderColorButton, initColorButton, applyDataColors,
-  openCookMode
+  openCookMode, readKitchenCustomize
 } from './shared/components.js';
 import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
@@ -150,6 +150,12 @@ async function init() {
     linkedPerson = people.find(p => p.name.toLowerCase() === personParam.toLowerCase()) || null;
   }
 
+  // Seed Recipes sort from user's Customize → Kitchen pref. (recipeFilter is
+  // initialized at module load before linkedPerson is known, so we patch it
+  // here once linkedPerson resolution is done.)
+  const kPrefs = readKitchenCustomize(linkedPerson ? { person: linkedPerson } : undefined);
+  recipeFilter.sort = kPrefs.recipesSort;
+
   // Phase 2: apply family theme from Firebase
   applyTheme(resolveTheme(settings?.theme));
 
@@ -159,11 +165,16 @@ async function init() {
     showBell: true,
   });
 
-  // Nav
-  document.getElementById('navMount').innerHTML = renderNavBar('kitchen');
-  initNavMore(document.getElementById('sheetMount'), () => settings?.theme, undefined,
-    { settings, writeSettings, displayDefaults: settings },
-    () => render());
+  // Nav — user-customizable tab order + Customize sheet.
+  initBottomNav({
+    navMount:     document.getElementById('navMount'),
+    activePage:   'kitchen',
+    sheetMount:   document.getElementById('sheetMount'),
+    getTheme:     () => settings?.theme,
+    personOpts:   linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
+    currentPage:  'kitchen',
+    onPageRender: () => render(),
+  });
   initOfflineBanner(onConnectionChange);
 
   // Bell
@@ -226,7 +237,15 @@ async function loadData() {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 function renderTabs() {
-  const tabs = ['meals', 'recipes', 'lists'];
+  // User-customizable tab visibility — fall back to all-3 if prefs missing.
+  const kPrefs = readKitchenCustomize(linkedPerson ? { person: linkedPerson } : undefined);
+  const tabs = ['meals', 'recipes', 'lists'].filter(t => kPrefs.tabs.includes(t));
+  if (tabs.length === 0) tabs.push('meals'); // safety net
+  // If activeTab was hidden, fall back to the first visible tab.
+  if (!tabs.includes(activeTab)) {
+    activeTab = tabs[0];
+    localStorage.setItem('dr-kitchen-tab', activeTab);
+  }
   const labels = { meals: 'Meals', recipes: 'Recipes', lists: 'Lists' };
   const wandSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>`;
   document.getElementById('kitchenTabsMount').innerHTML = `
@@ -326,11 +345,12 @@ async function renderMealsTab() {
   const tz = settings?.timezone || 'America/Chicago';
   const todayStr = todayKey(tz);
 
-  // Rolling 7 days starting today — no pagination.
+  // Rolling N-day window — N is user-customizable (3 / 7 / 14).
+  const kPrefs = readKitchenCustomize(linkedPerson ? { person: linkedPerson } : undefined);
   const startDate = new Date();
   startDate.setHours(0, 0, 0, 0);
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
+  const weekDays = Array.from({ length: kPrefs.daysShown }, (_, i) => {
     const d = new Date(startDate);
     d.setDate(d.getDate() + i);
     return d;
@@ -349,31 +369,53 @@ async function renderMealsTab() {
     const dayNum = d.getDate();
     const dayMonth = MONTHS[d.getMonth()];
 
-    // Order: planned non-dinner slots (in SLOT_ORDER), then Dinner always last.
-    const nonDinnerPlanned = SLOT_ORDER.filter(s => s !== 'dinner' && plan[s]);
-    const dinnerOptions = normalizePlanSlot(plan.dinner);
-    const dinnerWinner = pickWinner(dinnerOptions);
-
+    // Slot rows: a slot renders when (a) it's planned, OR (b) the user
+    // configured it to nudge in Customize → Kitchen → Show empty slots.
+    // Dinner stays special-cased last so it always sits at the bottom.
     const slotRows = [];
-    for (const s of nonDinnerPlanned) {
+    const renderedSchool = new Set();
+    for (const s of SLOT_ORDER) {
+      if (s === 'dinner') continue;
       const optionsForSlot = normalizePlanSlot(plan[s]);
-      if (optionsForSlot.length === 0) continue;
-      const winner = pickWinner(optionsForSlot);
-      const isMulti = optionsForSlot.length > 1;
-      const rawName = winner.recipeId ? (recipes[winner.recipeId]?.name || 'Unknown') : (winner.mealName || winner.customName || '');
-      const safeName = esc(rawName);
-      const multiBadge = isMulti ? ` <span class="day-block__multi-badge">+${optionsForSlot.length - 1}</span>` : '';
+      const hasPlanned = optionsForSlot.length > 0;
+      // Map school-lunch / school-lunch-2 back to the 'school' nudge key
+      // since slot prefs use the user-facing label, not the internal schema.
+      const nudgeKey = (s === 'school-lunch' || s === 'school-lunch-2') ? 'school' : s;
+      const shouldNudge = !hasPlanned && kPrefs.slotNudge[nudgeKey];
+      if (!hasPlanned && !shouldNudge) continue;
+      // Avoid double-rendering the school nudge when both school-lunch slots
+      // are empty — show one nudge row, not two.
+      if (shouldNudge && nudgeKey === 'school') {
+        if (renderedSchool.has('school')) continue;
+        renderedSchool.add('school');
+      }
       const label = (s === 'school-lunch' || s === 'school-lunch-2')
         ? getSchoolSlotLabel(s, plan)
         : SLOT_LABELS[s];
-      slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
-        ${buildSlotThumb(winner)}
-        <span class="day-block__slot-label">${esc(label)}</span>
-        <span class="day-block__slot-name">${safeName}${multiBadge}</span>
-      </div>`);
+      if (hasPlanned) {
+        const winner = pickWinner(optionsForSlot);
+        const isMulti = optionsForSlot.length > 1;
+        const rawName = winner.recipeId ? (recipes[winner.recipeId]?.name || 'Unknown') : (winner.mealName || winner.customName || '');
+        const safeName = esc(rawName);
+        const multiBadge = isMulti ? ` <span class="day-block__multi-badge">+${optionsForSlot.length - 1}</span>` : '';
+        slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
+          ${buildSlotThumb(winner)}
+          <span class="day-block__slot-label">${esc(label)}</span>
+          <span class="day-block__slot-name">${safeName}${multiBadge}</span>
+        </div>`);
+      } else {
+        const nudgeLabel = `Plan ${(SLOT_LABELS[s] || s).toLowerCase()}`;
+        slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="${esc(s)}">
+          ${buildSlotThumb(null)}
+          <span class="day-block__slot-label">${esc(label)}</span>
+          <span class="day-block__slot-name day-block__slot-name--empty">${esc(nudgeLabel)} <span aria-hidden="true">›</span></span>
+        </div>`);
+      }
     }
 
-    // Dinner row — always rendered. Empty state when not planned.
+    // Dinner row — always last, follows slotNudge.dinner for empty state.
+    const dinnerOptions = normalizePlanSlot(plan.dinner);
+    const dinnerWinner = pickWinner(dinnerOptions);
     if (dinnerWinner) {
       const dinnerName = dinnerWinner.recipeId ? (recipes[dinnerWinner.recipeId]?.name || 'Unknown') : (dinnerWinner.mealName || dinnerWinner.customName || '');
       const dinnerIsMulti = dinnerOptions.length > 1;
@@ -383,7 +425,7 @@ async function renderMealsTab() {
         <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
         <span class="day-block__slot-name">${esc(dinnerName)}${dinnerMultiBadge}</span>
       </div>`);
-    } else {
+    } else if (kPrefs.slotNudge.dinner) {
       slotRows.push(`<div class="day-block__slot" data-date="${esc(dk)}" data-slot="dinner">
         ${buildSlotThumb(null)}
         <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
@@ -596,8 +638,9 @@ function renderRecipesTab() {
     </button>`;
   })();
 
+  const kPrefsRender = readKitchenCustomize(linkedPerson ? { person: linkedPerson } : undefined);
   content.innerHTML = `
-    <div class="rl-wrap">
+    <div class="rl-wrap rl-wrap--${esc(kPrefsRender.cardDensity)}">
       ${flaggedBanner}
       <div class="rl-search-row">
         <div class="rl-search-input-wrap">
