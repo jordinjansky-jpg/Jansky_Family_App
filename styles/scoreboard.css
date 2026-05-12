@@ -419,3 +419,13 @@
 .card--score[role="button"] {
   cursor: pointer;
 }
+
+/* ── Drilldown header polish (Pass 3) ── */
+.sb-drilldown__inline-grade {
+  margin-left: 2px;
+}
+
+.sb-drilldown__fam-cmp {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

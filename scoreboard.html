@@ -607,6 +607,27 @@
         : selectedPeriod === 'month' ? monthlyGrade(personId)
         : yearGrade(personId);
       const gd = gradeDisplay(grade.percentage);
+
+      // Family average for the same period — used for "+3 vs family" comparison
+      let familyAvgPct = null;
+      {
+        const ps = selectedPeriod === 'today' ? today : (selectedPeriod === 'week' ? addDays(today, -6) : (selectedPeriod === 'month' ? addDays(today, -29) : y12Start));
+        const perPerson = people.map(p => {
+          if (p.id === personId) return null;
+          if (selectedPeriod === 'today') {
+            return todayScore(p.id);
+          }
+          const pastSnaps = collectSnapshots(snapshots, p.id, ps, addDays(today, -1));
+          const todayLive = todayScore(p.id);
+          const all = [...pastSnaps];
+          if (todayLive.possible > 0 && selectedPeriod !== 'today') all.push(todayLive);
+          return aggregateSnapshots(all);
+        }).filter(Boolean);
+        const fam = aggregateSnapshots(perPerson);
+        if (fam.possible > 0) familyAvgPct = fam.percentage;
+      }
+      const familyDiff = (familyAvgPct !== null && grade.possible > 0) ? grade.percentage - familyAvgPct : null;
+
       const streak = streaks[personId] || { current: 0, best: 0 };
       const personMsgs = allMessages?.[personId] || {};
       const personAnchor = allAnchors?.[personId] || null;
@@ -652,21 +673,31 @@
       // ── Build sheet HTML ──
       let html = `<div class="sb-drilldown">`;
 
-      // Header
+      // Header — name with inline grade badge
+      const inlineBadge = grade.possible > 0
+        ? `<span class="grade-badge grade-badge--${esc(gd.tier)} grade-badge--sm sb-drilldown__inline-grade">${esc(gd.grade)}</span>`
+        : '';
       html += `<div class="sb-drilldown__header" style="--owner-color: ${esc(person.color)}">
         <div class="avatar" style="--person-color: ${esc(person.color)}">${esc((person.name || '?')[0].toUpperCase())}</div>
         <span class="sb-drilldown__name">${esc(person.name)}</span>
+        ${inlineBadge}
         <span class="sb-drilldown__period">${periodLabels[selectedPeriod]}</span>
         <button class="ef2-icon-btn" id="ddClose" aria-label="Close" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>`;
 
-      // Summary row
-      html += `<div class="sb-drilldown__summary">
-        <span class="grade-badge grade-badge--${esc(gd.tier)} grade-badge--lg">${esc(gd.grade)}</span>
-        <span class="sb-drilldown__stats">${grade.earned}/${grade.possible} pts · ${grade.percentage}%</span>
-      </div>`;
+      // Summary row — stats inline, no large duplicate badge (badge moved to header)
+      const famCompare = familyDiff !== null
+        ? ` · <span class="sb-drilldown__fam-cmp">${familyDiff >= 0 ? '+' : ''}${familyDiff} vs family</span>`
+        : '';
+      html += grade.possible > 0
+        ? `<div class="sb-drilldown__summary">
+            <span class="sb-drilldown__stats">${grade.earned}/${grade.possible} pts · ${grade.percentage}%${famCompare}</span>
+          </div>`
+        : `<div class="sb-drilldown__summary">
+            <span class="sb-drilldown__stats">No tasks ${periodLabels[selectedPeriod].toLowerCase()}</span>
+          </div>`;
 
       // Category breakdown
       if (catKeys.length > 0) {
