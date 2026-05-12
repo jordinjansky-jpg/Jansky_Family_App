@@ -997,6 +997,12 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
         candidates[i].typedName = val;
         candidates[i].selectedRecipeId = null;
         voteSection.querySelector(`[data-cand-list="${i}"]`).innerHTML = buildCandRecipeRows(val, i);
+        // Mirror recipe-pick path: keep the collapsed-button label + has-value
+        // class in sync with the typed name so the row visually reflects state.
+        const selectBtn = voteSection.querySelector(`[data-cand-select="${i}"]`);
+        const mealNameSpan = selectBtn?.querySelector('.kp-cand-mealname');
+        if (mealNameSpan) mealNameSpan.textContent = val || 'Choose a meal…';
+        selectBtn?.classList.toggle('has-value', !!val);
         updateSaveBtn();
       });
     });
