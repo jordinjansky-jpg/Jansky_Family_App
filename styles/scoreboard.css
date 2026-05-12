@@ -521,3 +521,62 @@
 .sb-kudos-btn__icon {
   font-size: 1.1rem;
 }
+
+/* ── Tappable Needs Attention rows (Pass 3) ── */
+.sb-drilldown__task--tappable {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-sm);
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.sb-drilldown__task--tappable:last-child { border-bottom: none; }
+.sb-drilldown__task--tappable:hover { background: var(--surface-2); }
+.sb-drilldown__task--tappable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ── Late-Done action sheet (Pass 3) ── */
+.sb-late-action {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.sb-late-action__title {
+  font-size: var(--font-md);
+  font-weight: 700;
+}
+
+.sb-late-action__sub {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+.sb-late-action__btn {
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sb-late-action__btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}

@@ -39,7 +39,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, writeCompletion, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge, renderSendMessageSheet, bindSendMessageSheet } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
@@ -640,7 +640,7 @@
             status = 'Pending';
           }
           const catIcon = task.category ? (cats[task.category]?.icon || '') : '';
-          taskDetails.push({ name: task.name, catIcon, date: cur, pts, earned, status });
+          taskDetails.push({ entryKey: k, name: task.name, catIcon, date: cur, pts, earned, status });
         }
         cur = addDays(cur, 1);
       }
@@ -830,11 +830,11 @@
         html += `<div class="sb-drilldown__group">
           <div class="sb-drilldown__group-label ${statusClass}">${status} (${items.length})</div>`;
         for (const item of items) {
-          html += `<div class="sb-drilldown__task">
+          html += `<button class="sb-drilldown__task sb-drilldown__task--tappable" type="button" data-entry-key="${esc(item.entryKey || '')}" data-status="${esc(item.status)}">
             <span class="sb-drilldown__task-name">${item.catIcon ? esc(item.catIcon) + ' ' : ''}${esc(item.name)}</span>
             <span class="sb-drilldown__task-date">${formatDateShort(item.date)}</span>
             <span class="sb-drilldown__task-pts">${item.earned}/${item.pts}</span>
-          </div>`;
+          </button>`;
         }
         html += `</div>`;
       }
@@ -882,6 +882,16 @@
           });
           obs.observe(kudosMount, { childList: true, subtree: false });
         });
+
+        // Needs Attention rows — tap opens action sheet
+        for (const row of document.querySelectorAll('.sb-drilldown__task--tappable')) {
+          const entryKey = row.dataset.entryKey;
+          const status = row.dataset.status;
+          if (!entryKey) continue;
+          row.addEventListener('click', () => {
+            openLateActionSheet(entryKey, status);
+          });
+        }
       });
     }
 
@@ -893,6 +903,44 @@
           document.getElementById('drilldownMount').innerHTML = '';
         }, 300);
       }
+    }
+
+    function openLateActionSheet(entryKey, status) {
+      let entry = null;
+      for (const day of Object.keys(schedule)) {
+        if (schedule[day]?.[entryKey]) { entry = schedule[day][entryKey]; break; }
+      }
+      if (!entry) return;
+      const task = tasks[entry.taskId];
+      if (!task) return;
+
+      const overlayEl = document.createElement('div');
+      overlayEl.id = 'lateActionOverlay';
+      overlayEl.className = 'bottom-sheet-overlay';
+      overlayEl.innerHTML = `<div class="bottom-sheet">
+        <div class="sb-late-action">
+          <div class="sb-late-action__title">${esc(task.name)}</div>
+          <div class="sb-late-action__sub">Status: ${esc(status)}</div>
+          <button class="sb-late-action__btn sb-late-action__btn--primary" id="ddLateDone" type="button">Mark Late-Done</button>
+          <button class="sb-late-action__btn" id="ddLateCancel" type="button">Cancel</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlayEl);
+      requestAnimationFrame(() => overlayEl.classList.add('active'));
+
+      const close = () => overlayEl.remove();
+      overlayEl.addEventListener('click', (e) => { if (e.target === overlayEl) close(); });
+      document.getElementById('ddLateCancel').addEventListener('click', close);
+      document.getElementById('ddLateDone').addEventListener('click', async () => {
+        await writeCompletion(entryKey, {
+          completedAt: firebase.database.ServerValue.TIMESTAMP,
+          completedBy: 'scoreboard',
+          pointsOverride: settings?.pastDueCreditPct ?? 75,
+          isLate: true,
+        });
+        close();
+        location.reload();
+      });
     }
 
     // ── Init ──
