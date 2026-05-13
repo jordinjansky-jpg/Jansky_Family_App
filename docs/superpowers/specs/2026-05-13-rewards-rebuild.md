@@ -235,7 +235,26 @@ Verified at 412×915. Shop cards now show a green "Instant" or blue "Approval ne
 
 Plans are written one pass at a time, just before executing, so each plan can incorporate context from completed prior passes.
 
-- Pass 1: [docs/superpowers/plans/2026-05-13-rewards-pass-1.md](../plans/2026-05-13-rewards-pass-1.md)
-- Pass 2: TBD (write after Pass 1 ships)
-- Pass 3: TBD (write after Pass 2 ships)
-- Pass 4: TBD (write after Pass 3 ships)
+- Pass 1: [docs/superpowers/plans/2026-05-13-rewards-pass-1.md](../plans/2026-05-13-rewards-pass-1.md) — shipped
+- Pass 2: [docs/superpowers/plans/2026-05-13-rewards-pass-2.md](../plans/2026-05-13-rewards-pass-2.md) — shipped
+- Pass 3: [docs/superpowers/plans/2026-05-13-rewards-pass-3.md](../plans/2026-05-13-rewards-pass-3.md) — shipped
+- Pass 4: [docs/superpowers/plans/2026-05-13-rewards-pass-4.md](../plans/2026-05-13-rewards-pass-4.md) — shipped
+
+---
+
+## Pass 4 — Shipped 2026-05-13
+
+Commits on main:
+- `05031a1` — feat(rewards): bank groups duplicate tokens, tap to expand
+- `a045b2b` — feat(rewards): tappable history rows open detail sheet
+- `8ae86c9` — feat(rewards): approval pending items get full-card visual weight
+- `a41938d` — refactor(rewards): single openFilterSheet helper, two callers
+
+Verified at 412×915. Active bank tokens sharing rewardId/rewardType collapse into a single row with `×N` count chip and tap-to-expand. History rows on both the History tab and Approvals' Recent list are now buttons that open a detail sheet (verified live: clicking "Used: Special Snack" showed title + reward reference + timestamp + Close). Pending approval rows wear a full filled-card treatment with the requester's color as a 4px left accent, full-size Approve / Deny buttons, and a clear who/cost/reward/actions layout. Shop + History filter sheets now share a single `openFilterSheet(cfg)` helper — behavior unchanged, code reduced.
+
+**Findings:**
+- The bank-group key sanitization (`replace(/[^a-zA-Z0-9_-]/g, '_')`) is mildly defensive; Firebase keys are alphanumeric so it's likely a no-op but cheap insurance.
+- `renderHistoryRow` is now a `<button>`. Callers that don't bind a tap handler get a visually-identical button with no interaction — backward-compatible.
+- `openFilterSheet` is generic enough that future filter sheets (e.g. an admin reward-form filter) can reuse it without changes.
+
+The 4-pass rewards rebuild is complete.
