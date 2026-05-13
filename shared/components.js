@@ -678,18 +678,12 @@ export async function writeKitchenCustomize(personOpts, patch) {
   const current = readKitchenCustomize(personOpts);
   const next = { ...current, ...patch };
   if (personOpts?.writePerson && personOpts?.person) {
-    const nextPerson = {
-      ...personOpts.person,
-      prefs: {
-        ...(personOpts.person.prefs || {}),
-        customize: {
-          ...((personOpts.person.prefs || {}).customize || {}),
-          kitchen: next,
-        },
-      },
-    };
-    await personOpts.writePerson(personOpts.person.id, nextPerson);
-    personOpts.person = nextPerson;
+    // Mutate prefs IN PLACE so external references to the same person object
+    // (e.g. kitchen.js linkedPerson) see the update on the next render.
+    if (!personOpts.person.prefs) personOpts.person.prefs = {};
+    if (!personOpts.person.prefs.customize) personOpts.person.prefs.customize = {};
+    personOpts.person.prefs.customize.kitchen = next;
+    await personOpts.writePerson(personOpts.person.id, personOpts.person);
   } else {
     try { localStorage.setItem('dr-customize-kitchen', JSON.stringify(next)); } catch { /* */ }
   }
