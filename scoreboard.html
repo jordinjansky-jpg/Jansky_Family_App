@@ -417,22 +417,35 @@
       }
       html += `</div>`;
 
-      // ── Highlights ──
+      // ── Highlights — priority queue, max 3 rows, hide when zero candidates ──
       {
         const trendSvg = (dir) => dir === 'up'
           ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`
           : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>`;
+        const flameSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
+        const checkSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
 
-        const hlRows = [];
+        const candidates = [];
 
-        // Streak leader (≥3 days)
-        const streakLeader = board.reduce((best, b) => (!best || b.streak.current > best.streak.current) ? b : best, null);
-        if (streakLeader?.streak.current >= 3) {
-          const flameSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
-          hlRows.push(`<div class="sb-highlight-row">${flameSvg} ${esc(streakLeader.person.name)} is on a ${streakLeader.streak.current}-day streak</div>`);
+        // Priority 3: perfect-day-today / all-done-today
+        const withTasks = board.filter(b => b.today.possible > 0);
+        const allDone = withTasks.length > 0 && withTasks.every(b => b.today.percentage === 100);
+        if (allDone && board.length > 1) {
+          candidates.push({ priority: 3, html: `<div class="sb-highlight-row">${checkSvg} Everyone finished today</div>` });
+        } else {
+          const perfect = board.find(b => b.today.possible > 0 && b.today.percentage === 100);
+          if (perfect && board.length > 1) {
+            candidates.push({ priority: 3, html: `<div class="sb-highlight-row">${checkSvg} ${esc(perfect.person.name)} is at 100% today</div>` });
+          }
         }
 
-        // Most improved week-over-week (≥5%)
+        // Priority 2: streak-leader (≥3 days)
+        const streakLeader = board.reduce((best, b) => (!best || b.streak.current > best.streak.current) ? b : best, null);
+        if (streakLeader?.streak.current >= 3) {
+          candidates.push({ priority: 2, html: `<div class="sb-highlight-row">${flameSvg} ${esc(streakLeader.person.name)} is on a ${streakLeader.streak.current}-day streak</div>` });
+        }
+
+        // Priority 5: most-improved week-over-week (≥5%)
         let mostImproved = null; let bestDiff = 5;
         for (const b of board) {
           if (b.lastWeek.possible === 0 || b.week.possible === 0) continue;
@@ -440,23 +453,16 @@
           if (diff > bestDiff) { bestDiff = diff; mostImproved = b; }
         }
         if (mostImproved) {
-          hlRows.push(`<div class="sb-highlight-row">${trendSvg('up')} ${esc(mostImproved.person.name)} is up ${Math.round(bestDiff)}% from last week</div>`);
+          candidates.push({ priority: 5, html: `<div class="sb-highlight-row">${trendSvg('up')} ${esc(mostImproved.person.name)} is up ${Math.round(bestDiff)}% from last week</div>` });
         }
 
-        // All done today / someone at 100%
-        const withTasks = board.filter(b => b.today.possible > 0);
-        const allDone = withTasks.length > 0 && withTasks.every(b => b.today.percentage === 100);
-        const perfect = board.find(b => b.today.possible > 0 && b.today.percentage === 100);
-        const checkSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
-        if (allDone && board.length > 1) {
-          hlRows.push(`<div class="sb-highlight-row">${checkSvg} Everyone finished today</div>`);
-        } else if (perfect && board.length > 1) {
-          hlRows.push(`<div class="sb-highlight-row">${checkSvg} ${esc(perfect.person.name)} is at 100% today</div>`);
-        }
+        // Sort by priority (lower = higher rank), take top 3
+        candidates.sort((a, b) => a.priority - b.priority);
+        const top = candidates.slice(0, 3);
 
-        if (hlRows.length > 0) {
+        if (top.length > 0) {
           html += renderSectionHead('Highlights');
-          html += `<div class="card sb-highlights">${hlRows.join('')}</div>`;
+          html += `<div class="card sb-highlights">${top.map(c => c.html).join('')}</div>`;
         }
       }
 
