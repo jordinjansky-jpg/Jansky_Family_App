@@ -311,8 +311,7 @@
       const personMsgs = allMessages?.[p.id] || {};
       const personAnchor = allAnchors?.[p.id] || null;
       const { balance } = calculateBalance(p.id, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
-      const todayMult = allMultipliers?.[today]?.[p.id]?.multiplier || 1;
-      const liveBalance = Math.round(balance + (td.percentage || 0) * todayMult);
+      const liveBalance = Math.round(balance);
       const personAchievements = allAchievementsData?.[p.id] || {};
       const badgeIcons = Object.entries(personAchievements)
         .filter(([, a]) => !a.revoked)
@@ -616,8 +615,7 @@
       const personMsgs = allMessages?.[personId] || {};
       const personAnchor = allAnchors?.[personId] || null;
       const { balance } = calculateBalance(personId, allSnapshots, personMsgs, personAnchor, allMultipliers, tz);
-      const todayMult = allMultipliers?.[today]?.[personId]?.multiplier || 1;
-      const currentBalance = Math.round(balance + (todayScore(personId).percentage || 0) * todayMult);
+      const currentBalance = Math.round(balance);
 
       // Gather task-level detail for this person in the period
       const taskDetails = [];
