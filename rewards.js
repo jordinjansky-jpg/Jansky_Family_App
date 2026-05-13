@@ -1,5 +1,5 @@
 import { initFirebase, readSettings, writeSettings, readPeople, readRewards, readAllMessages,
-  readAllBalanceAnchors, readAllSnapshots, readBank, readMultipliers,
+  readAllBalanceAnchors, readAllSnapshots, readAllStreaks, readBank, readMultipliers,
   writeFyiMessage, writeMessage, markMessageSeen, writeBankToken,
   markBankTokenUsed, removeBankToken, onConnectionChange, pushReward,
   writeReward, archiveReward, removeReward,
@@ -28,7 +28,7 @@ const tabParam = params.get('tab');
 const isKidMode = !!kidName;
 
 // ── State ──
-let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers;
+let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks;
 let people = [];
 let activePerson = null;
 let viewerPerson = null; // the person whose perspective owns this session (theme, etc.)
@@ -37,9 +37,9 @@ let shopFilter = { type: 'all', sort: 'cost', search: '' };
 let historyFilter = { type: 'all' };
 
 async function loadData() {
-  [settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers] = await Promise.all([
+  [settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks] = await Promise.all([
     readSettings(), readPeople(), readRewards(),
-    readAllMessages(), readAllBalanceAnchors(), readAllSnapshots(), readMultipliers()
+    readAllMessages(), readAllBalanceAnchors(), readAllSnapshots(), readMultipliers(), readAllStreaks()
   ]);
   people = Object.entries(peopleObj || {}).map(([id, p]) => ({ id, ...p }));
 
@@ -288,6 +288,19 @@ function renderShopTab() {
   if (shopFilter.sort === 'cost') visible.sort((a, b) => (a.pointCost || 0) - (b.pointCost || 0));
   else visible.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
+  // Precompute streak + per-reward redemption count for eligibility checks.
+  // Previously renderRewardCard was called with streak=0/redemptionCount=0 default,
+  // silently bypassing streakRequirement and maxRedemptions.
+  const personStreak = allStreaks?.[activePerson.id]?.current || 0;
+  const personMessages = allMessages?.[activePerson.id] || {};
+  const redemptionCountByReward = {};
+  for (const msg of Object.values(personMessages)) {
+    if (!msg.rewardId) continue;
+    if (msg.type === 'redemption-approved' || msg.type === 'reward-used') {
+      redemptionCountByReward[msg.rewardId] = (redemptionCountByReward[msg.rewardId] || 0) + 1;
+    }
+  }
+
   let html = `<div class="rewards-filter-bar">
     <input type="search" class="form-input rewards-search" id="shopSearch" placeholder="Search rewards…" value="${esc(shopFilter.search)}">
     ${renderFilterSortChip('shopFilterBtn', getShopFilterCount())}
@@ -296,7 +309,11 @@ function renderShopTab() {
   if (visible.length === 0) {
     html += renderEmptyState('', 'No rewards yet', 'Ask a parent to add some in Admin.');
   } else {
-    html += visible.map(r => renderRewardCard(r, balance, { showGet: true })).join('');
+    html += visible.map(r => renderRewardCard(r, balance, {
+      showGet: true,
+      streak: personStreak,
+      redemptionCount: redemptionCountByReward[r.id] || 0,
+    })).join('');
   }
   return html;
 }
@@ -1417,8 +1434,8 @@ function openRewardForm(rewardId = null) {
 }
 
 async function refreshData() {
-  [rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers] = await Promise.all([
-    readRewards(), readAllMessages(), readAllBalanceAnchors(), readAllSnapshots(), readMultipliers()
+  [rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks] = await Promise.all([
+    readRewards(), readAllMessages(), readAllBalanceAnchors(), readAllSnapshots(), readMultipliers(), readAllStreaks()
   ]);
 }
 
