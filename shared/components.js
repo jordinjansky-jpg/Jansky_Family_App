@@ -695,6 +695,62 @@ export async function writeKitchenCustomize(personOpts, patch) {
   }
 }
 
+// ── Rewards Customize prefs (per-person OR device-local) ─────────────────
+const REWARDS_PREFS_DEFAULT = {
+  tabs: ['shop', 'bank', 'history', 'approvals'],
+  shopSort: 'cost',
+  cardDensity: 'roomy',
+  showFamilyBanner: true,
+  cardShow: {
+    approvalLabel: true,
+    description: true,
+    stockBadge: true,
+    streakBadge: true,
+    progressBar: true,
+  },
+};
+
+export function readRewardsCustomize(personOpts) {
+  let raw = null;
+  if (personOpts?.person?.prefs?.customize?.rewards) {
+    raw = personOpts.person.prefs.customize.rewards;
+  } else {
+    try { raw = JSON.parse(localStorage.getItem('dr-customize-rewards') || 'null'); } catch { /* */ }
+  }
+  if (!raw || typeof raw !== 'object') return {
+    ...REWARDS_PREFS_DEFAULT,
+    cardShow: { ...REWARDS_PREFS_DEFAULT.cardShow },
+  };
+  return {
+    tabs:             Array.isArray(raw.tabs) ? raw.tabs.filter(t => ['shop','bank','history','approvals'].includes(t)) : [...REWARDS_PREFS_DEFAULT.tabs],
+    shopSort:         ['name', 'cost', 'closest'].includes(raw.shopSort) ? raw.shopSort : REWARDS_PREFS_DEFAULT.shopSort,
+    cardDensity:      ['roomy', 'compact'].includes(raw.cardDensity) ? raw.cardDensity : REWARDS_PREFS_DEFAULT.cardDensity,
+    showFamilyBanner: raw.showFamilyBanner !== false,
+    cardShow:         { ...REWARDS_PREFS_DEFAULT.cardShow, ...(raw.cardShow || {}) },
+  };
+}
+
+export async function writeRewardsCustomize(personOpts, patch) {
+  const current = readRewardsCustomize(personOpts);
+  const next = { ...current, ...patch };
+  if (personOpts?.writePerson && personOpts?.person) {
+    const nextPerson = {
+      ...personOpts.person,
+      prefs: {
+        ...(personOpts.person.prefs || {}),
+        customize: {
+          ...((personOpts.person.prefs || {}).customize || {}),
+          rewards: next,
+        },
+      },
+    };
+    await personOpts.writePerson(personOpts.person.id, nextPerson);
+    personOpts.person = nextPerson;
+  } else {
+    try { localStorage.setItem('dr-customize-rewards', JSON.stringify(next)); } catch { /* */ }
+  }
+}
+
 // Renderer for the "Navigation buttons" section in Customize. Drag-drop list
 // of all 5 main pages; the top 3 occupy nav slots 2/3/4. Caller binds via
 // bindNavTabsSection() after the sheet mounts.
@@ -926,6 +982,126 @@ function bindKitchenCustomizeSection(mountEl, personOpts, onApply) {
       await writeKitchenCustomize(personOpts, { tabs: enabled });
       refire();
     });
+  });
+}
+
+function renderRewardsCustomizeSection(personOpts) {
+  const prefs = readRewardsCustomize(personOpts);
+  const sortLabels = { name: 'A–Z', cost: 'Cost', closest: 'Closest to affordable' };
+  const chev = `<svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
+  return `<div class="dt-section dt-section--page">
+    <label class="form-label">Rewards</label>
+    <p class="form-hint mt-xs">Settings that only apply to this page.</p>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Rewards tabs</span>${chev}
+      </summary>
+      <p class="form-hint mt-xs">Hide tabs you don't use. Always keeps at least one visible.</p>
+      ${[
+        { id: 'shop',      label: 'Shop' },
+        { id: 'bank',      label: 'Bank' },
+        { id: 'history',   label: 'History' },
+        { id: 'approvals', label: 'Approve' },
+      ].map(t => `
+        <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(t.label)}</span>
+          <label class="form-toggle"><input type="checkbox" data-rc-tab="${esc(t.id)}"${prefs.tabs.includes(t.id) ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+      `).join('')}
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Shop tab</span>${chev}
+      </summary>
+      <div class="form-group mt-sm">
+        <label class="form-label form-label--sub">Default sort</label>
+        <div class="dt-themes" id="dt_rcShopSort">
+          ${Object.entries(sortLabels).map(([k, label]) => `<button class="dt-theme-btn${prefs.shopSort === k ? ' dt-theme-btn--active' : ''}" data-sort="${esc(k)}" type="button">${esc(label)}</button>`).join('')}
+        </div>
+      </div>
+      <div class="form-group mt-md">
+        <label class="form-label form-label--sub">Card density</label>
+        <div class="segmented-control" id="dt_rcCardDensity">
+          <button type="button" class="segmented-btn${prefs.cardDensity === 'roomy'   ? ' segmented-btn--active' : ''}" data-density="roomy">Roomy</button>
+          <button type="button" class="segmented-btn${prefs.cardDensity === 'compact' ? ' segmented-btn--active' : ''}" data-density="compact">Compact</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Show on reward cards</span>${chev}
+      </summary>
+      ${[
+        { key: 'approvalLabel', label: 'Instant / Approval label' },
+        { key: 'description',   label: 'Description line' },
+        { key: 'stockBadge',    label: 'Stock count badge' },
+        { key: 'streakBadge',   label: 'Streak badge' },
+        { key: 'progressBar',   label: 'Progress bar' },
+      ].map(t => `
+        <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(t.label)}</span>
+          <label class="form-toggle"><input type="checkbox" data-rc-show="${esc(t.key)}"${prefs.cardShow[t.key] ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+      `).join('')}
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Family banner</span>${chev}
+      </summary>
+      <div class="dt-toggle-row"><span class="dt-toggle-row__label">Show family balance summary</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_rcFamBanner"${prefs.showFamilyBanner ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+      <p class="form-hint mt-xs">Hidden automatically in kid mode and single-person families.</p>
+    </details>
+  </div>`;
+}
+
+function bindRewardsCustomizeSection(mountEl, personOpts, onApply) {
+  if (!mountEl.querySelector('.dt-section--page')) return;
+  const refire = () => { if (onApply) onApply(); };
+
+  mountEl.querySelectorAll('[data-rc-tab]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const checked = Array.from(mountEl.querySelectorAll('[data-rc-tab]:checked')).map(i => i.dataset.rcTab);
+      if (checked.length === 0) { input.checked = true; return; }
+      await writeRewardsCustomize(personOpts, { tabs: checked });
+      refire();
+    });
+  });
+
+  mountEl.querySelectorAll('#dt_rcShopSort [data-sort]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      mountEl.querySelectorAll('#dt_rcShopSort [data-sort]').forEach(b => b.classList.remove('dt-theme-btn--active'));
+      btn.classList.add('dt-theme-btn--active');
+      await writeRewardsCustomize(personOpts, { shopSort: btn.dataset.sort });
+      refire();
+    });
+  });
+
+  mountEl.querySelectorAll('#dt_rcCardDensity [data-density]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      mountEl.querySelectorAll('#dt_rcCardDensity [data-density]').forEach(b => b.classList.remove('segmented-btn--active'));
+      btn.classList.add('segmented-btn--active');
+      await writeRewardsCustomize(personOpts, { cardDensity: btn.dataset.density });
+      refire();
+    });
+  });
+
+  mountEl.querySelectorAll('[data-rc-show]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const key = input.dataset.rcShow;
+      const current = readRewardsCustomize(personOpts).cardShow;
+      const cardShow = { ...current, [key]: input.checked };
+      await writeRewardsCustomize(personOpts, { cardShow });
+      refire();
+    });
+  });
+
+  mountEl.querySelector('#dt_rcFamBanner')?.addEventListener('change', async (e) => {
+    await writeRewardsCustomize(personOpts, { showFamilyBanner: e.target.checked });
+    refire();
   });
 }
 
@@ -1911,7 +2087,18 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hi
  *   redemptionCount: number of times already redeemed (for stock check)
  */
 export function renderRewardCard(reward, balance, opts = {}) {
-  const { showGet = false, streak = 0, redemptionCount = 0 } = opts;
+  const {
+    showGet = false,
+    streak = 0,
+    redemptionCount = 0,
+    show = {},
+    density = 'roomy',
+  } = opts;
+  const showApprovalLabel = show.approvalLabel !== false;
+  const showDescription   = show.description !== false;
+  const showStockBadge    = show.stockBadge !== false;
+  const showStreakBadge   = show.streakBadge !== false;
+  const showProgressBar   = show.progressBar !== false;
   const canAfford = balance >= reward.pointCost;
   const meetsStreak = streak >= (reward.streakRequirement || 0);
   const stockOk = !reward.maxRedemptions || redemptionCount < reward.maxRedemptions;
@@ -1924,22 +2111,22 @@ export function renderRewardCard(reward, balance, opts = {}) {
   // Gated on showGet so the admin/bank reuses of renderRewardCard don't see it.
   const isFunctional = reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal';
   const isInstant = isFunctional || reward.approvalRequired === false;
-  if (showGet) {
+  if (showGet && showApprovalLabel) {
     badges += isInstant
       ? `<span class="chip chip--instant">Instant</span>`
       : `<span class="chip chip--approval">Approval needed</span>`;
   }
-  if (reward.streakRequirement) {
+  if (reward.streakRequirement && showStreakBadge) {
     if (meetsStreak) {
       badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak ✓</span>`;
     } else {
       badges += `<span class="chip chip--lock">Unlocks at ${reward.streakRequirement}-day streak (you're at ${streak})</span>`;
     }
   }
-  if (reward.maxRedemptions && stockOk) {
+  if (reward.maxRedemptions && stockOk && showStockBadge) {
     badges += `<span class="chip chip--muted">${reward.maxRedemptions - redemptionCount} left</span>`;
   }
-  if (!stockOk) {
+  if (!stockOk && showStockBadge) {
     badges += `<span class="chip chip--muted">Out of stock</span>`;
   }
   if (reward.expiresAt && notExpired) {
@@ -1949,16 +2136,17 @@ export function renderRewardCard(reward, balance, opts = {}) {
 
   const costChipClass = canAfford ? 'chip--success' : 'chip--muted';
   const dimClass = canGet || !showGet ? '' : ' card--dim';
+  const densityClass = density === 'compact' ? ' card--reward--compact' : '';
   const iconBg = reward.iconColor ? ` data-bg-color="${esc(reward.iconColor)}"` : '';
-  return `<div class="card card--reward${dimClass}" data-reward-id="${esc(reward.id)}">
+  return `<div class="card card--reward${dimClass}${densityClass}" data-reward-id="${esc(reward.id)}">
     <div class="card__leading">
       <span class="icon-tile"${iconBg}>${esc(reward.icon || '🎁')}</span>
     </div>
     <div class="card__body">
       <div class="card__title">${esc(reward.name)}</div>
-      ${reward.description ? `<div class="card--reward__desc">${esc(reward.description)}</div>` : ''}
+      ${reward.description && showDescription ? `<div class="card--reward__desc">${esc(reward.description)}</div>` : ''}
       ${badges ? `<div class="card__badges">${badges}</div>` : ''}
-      <div class="reward-progress"><div class="reward-progress__bar" data-progress="${progress}"></div></div>
+      ${showProgressBar ? `<div class="reward-progress"><div class="reward-progress__bar" data-progress="${progress}"></div></div>` : ''}
       ${!canAfford && showGet ? `<div class="card__hint">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
     </div>
     ${showGet ? `<div class="card__trailing card__trailing--reward">
@@ -3119,6 +3307,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
       </details>
     </div>` : ''}
     ${!familyOpts && currentPage === 'kitchen' ? renderKitchenCustomizeSection(personOpts) : ''}
+    ${!familyOpts && currentPage === 'rewards' ? renderRewardsCustomizeSection(personOpts) : ''}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>
@@ -3130,6 +3319,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
   // Universal nav-buttons editor + page-specific section bindings.
   bindNavTabsSection(mountEl, personOpts, onApply, currentPage);
   if (currentPage === 'kitchen') bindKitchenCustomizeSection(mountEl, personOpts, onApply);
+  if (currentPage === 'rewards') bindRewardsCustomizeSection(mountEl, personOpts, onApply);
 
   requestAnimationFrame(() => {
     const overlay = document.getElementById('bottomSheet');
