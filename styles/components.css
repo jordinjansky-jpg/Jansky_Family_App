@@ -2514,6 +2514,23 @@
 }
 .btn-icon__dot.is-hidden { display: none; animation: none; }
 
+/* Count-state dot — expands to fit a number badge (Rewards Feature L) */
+.btn-icon__dot--count {
+  width: auto;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  color: white;
+  background: var(--danger);
+  top: 6px;
+  right: 4px;
+}
+
 @keyframes bellDotPulse {
   0%   { transform: scale(0.6); opacity: 0; }
   60%  { transform: scale(1.15); opacity: 1; }

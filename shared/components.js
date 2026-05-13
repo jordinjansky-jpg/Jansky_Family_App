@@ -4061,6 +4061,13 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
     const dot = document.getElementById('headerBellDot');
     if (dot) {
       dot.classList.toggle('is-hidden', count === 0);
+      if (count > 0) {
+        dot.textContent = count > 99 ? '99+' : String(count);
+        dot.classList.add('btn-icon__dot--count');
+      } else {
+        dot.textContent = '';
+        dot.classList.remove('btn-icon__dot--count');
+      }
       return;
     }
     const bell = document.getElementById('headerBell');
