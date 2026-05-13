@@ -112,8 +112,6 @@
   margin-top: var(--spacing-sm);
   margin-bottom: var(--spacing-sm);
 }
-/* 4-tab row: reduce font so "Approvals" fits on narrow phones with Plus Jakarta Sans */
-.rewards-tabs .tab { font-size: var(--font-xs); }
 
 /* ============ Filter chip bar ============ */
 .rewards-filter-bar {
@@ -245,4 +243,19 @@
 
 .person-switcher-row__check {
   color: var(--accent);
+}
+
+/* ── Sparkline label (Pass 2) ── */
+.rewards-trend-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.rewards-trend__label {
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }

@@ -239,7 +239,10 @@ function renderBalanceZone() {
       <div class="rewards-balance__name">${esc(activePerson.name)}</div>
       <div class="rewards-balance__amount">${balance.toLocaleString()}<span class="rewards-balance__unit">pts</span></div>
     </div>
-    ${renderTrendLine(activePerson.id)}
+    <div class="rewards-trend-wrap">
+      ${renderTrendLine(activePerson.id)}
+      <div class="rewards-trend__label">30-day balance</div>
+    </div>
   </div>`;
 }
 
@@ -269,7 +272,7 @@ function renderTabsHtml() {
     { id: 'shop', label: 'Shop' },
     { id: 'bank', label: 'Bank' },
     { id: 'history', label: 'History' },
-    ...(showApprovals ? [{ id: 'approvals', label: 'Approvals' }] : []),
+    ...(showApprovals ? [{ id: 'approvals', label: 'Approve' }] : []),
   ];
   return `<div class="tabs tabs--pill rewards-tabs" role="tablist">
     ${tabs.map(t => `<button class="tab${activeTab === t.id ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === t.id}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
