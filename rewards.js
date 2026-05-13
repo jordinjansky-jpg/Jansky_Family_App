@@ -228,9 +228,16 @@ function renderApprovalsBanner() {
 }
 
 function renderTabsHtml() {
-  const tabs = isKidMode
-    ? [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }]
-    : [{ id: 'shop', label: 'Shop' }, { id: 'bank', label: 'Bank' }, { id: 'history', label: 'History' }, { id: 'approvals', label: 'Approvals' }];
+  // Approvals tab is for adults only — gate on viewer role AND not in kid-mode URL.
+  // viewerPerson is set once on first load (the page's "owner") so this is stable
+  // across in-page person switches.
+  const showApprovals = !isKidMode && viewerPerson?.role !== 'child';
+  const tabs = [
+    { id: 'shop', label: 'Shop' },
+    { id: 'bank', label: 'Bank' },
+    { id: 'history', label: 'History' },
+    ...(showApprovals ? [{ id: 'approvals', label: 'Approvals' }] : []),
+  ];
   return `<div class="tabs tabs--pill rewards-tabs" role="tablist">
     ${tabs.map(t => `<button class="tab${activeTab === t.id ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === t.id}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
   </div>`;
@@ -239,6 +246,10 @@ function renderTabsHtml() {
 function renderActiveTab() {
   const content = document.getElementById('rewardsContent');
   if (!content) return;
+  // Guard: ?tab=approvals in a kid-mode URL or as a child viewer falls back to shop.
+  if (activeTab === 'approvals' && (isKidMode || viewerPerson?.role === 'child')) {
+    activeTab = 'shop';
+  }
   if (activeTab === 'shop')           content.innerHTML = renderShopTab();
   else if (activeTab === 'bank')      { content.innerHTML = renderSkeleton('list'); loadAndRenderBankTab(); }
   else if (activeTab === 'history')   { content.innerHTML = renderHistoryTab(); }
