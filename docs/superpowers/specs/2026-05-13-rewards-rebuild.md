@@ -153,6 +153,23 @@ Recommend (a) for Pass 2. Defer (b) to a future pass if the tab still feels cram
 
 ---
 
+## Pass 2 — Shipped 2026-05-13
+
+Commits on main:
+- `c792281` — feat(rewards): person switcher is now a chip + bottom sheet
+- `6a4e285` — feat(rewards): rename tab to Approve + sparkline label + drop font-xs
+- `354037b` — feat(rewards): family banner echoes scoreboard pattern (adult mode)
+- `6cbe710` — feat(bell): show pending count, not just a dot
+
+Verified at 412×915. Header chip with avatar + name + chevron replaces the native `<select>` (and selection persists to localStorage). Tab row reads "Shop / Bank / History / Approve" at native font size — `.rewards-tabs` font-xs override removed. Sparkline gains a "30-DAY BALANCE" label below. Family banner renders between approvals banner and tabs in adult mode showing "Family · NNN pts in circulation · trend-arrow". Bell badge now shows a numeric count (verified via DevTools injection — visible red "3" appeared on the bell when class added).
+
+**Findings:**
+- `addDays` had to be imported into rewards.js — previously only `todayKey` + `formatDateShort` were used.
+- The family banner sits at `viewerPerson.role !== 'child'` plus `!isKidMode` plus `people.length > 1` — three gates.
+- Bell badge change is global (affects every page mounting the v2 header). No visual regressions observed.
+
+---
+
 ## Pass 3 — Shop Polish
 
 **Goal:** Shop tab feels like a catalog, not a settings list.
