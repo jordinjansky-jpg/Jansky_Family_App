@@ -309,3 +309,19 @@
   border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
   white-space: normal; /* allow text wrap on narrow cards */
 }
+
+/* ── Bank group row (Pass 4) ── */
+.bank-group__items {
+  margin-left: var(--spacing-md);
+  border-left: 2px solid var(--border);
+  padding-left: var(--spacing-sm);
+}
+
+.bank-group__expand {
+  cursor: pointer;
+}
+
+.bank-group__expand--open {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}

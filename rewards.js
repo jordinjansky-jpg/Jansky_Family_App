@@ -842,15 +842,61 @@ async function loadAndRenderBankTab() {
   if (activeTokens.length === 0 && usedTokens.length === 0) {
     html += renderEmptyState('🎒', 'No saved rewards', 'Redeem something from the Shop to save it here.');
   } else {
-    activeTokens.forEach(([tokenId, token]) => {
-      const reward = rewardsObj?.[token.rewardId] || {};
-      html += renderBankTokenEl(tokenId, token, {
-        showUse: true,
-        isAdult,
-        approvalRequired: reward.approvalRequired !== false,
-        description: reward?.description || ''
-      });
-    });
+    // Group active tokens by rewardId (custom) or rewardType (functional).
+    // Each group becomes one row with a count chip; tap expands to instances.
+    const groups = new Map();
+    for (const [tokenId, token] of activeTokens) {
+      const key = token.rewardId || token.rewardType || 'unknown';
+      if (!groups.has(key)) {
+        const reward = token.rewardId ? rewardsObj?.[token.rewardId] : null;
+        groups.set(key, {
+          tokens: [],
+          rewardName: token.rewardName || reward?.name || 'Reward',
+          rewardIcon: token.rewardIcon || reward?.icon || '🎁',
+          rewardType: token.rewardType || 'custom',
+          description: reward?.description || '',
+          approvalRequired: reward?.approvalRequired !== false,
+        });
+      }
+      groups.get(key).tokens.push([tokenId, token]);
+    }
+
+    for (const [groupKey, group] of groups) {
+      if (group.tokens.length === 1) {
+        const [tokenId, token] = group.tokens[0];
+        html += renderBankTokenEl(tokenId, token, {
+          showUse: true,
+          isAdult,
+          approvalRequired: group.approvalRequired,
+          description: group.description,
+        });
+      } else {
+        const safeKey = String(groupKey).replace(/[^a-zA-Z0-9_-]/g, '_');
+        html += `<div class="card card--reward bank-group" data-group-key="${esc(safeKey)}">
+          <div class="card__leading">
+            <span class="icon-tile">${esc(group.rewardIcon)}</span>
+          </div>
+          <div class="card__body">
+            <div class="card__title">${esc(group.rewardName)}</div>
+            ${group.description ? `<div class="card--reward__desc">${esc(group.description)}</div>` : ''}
+            <div class="card__meta">${group.tokens.length} saved</div>
+          </div>
+          <div class="card__trailing">
+            <button class="chip bank-group__expand" data-group-key="${esc(safeKey)}" type="button" aria-expanded="false">×${group.tokens.length}</button>
+          </div>
+        </div>
+        <div class="bank-group__items" id="bankGroup_${esc(safeKey)}" hidden>`;
+        for (const [tokenId, token] of group.tokens) {
+          html += renderBankTokenEl(tokenId, token, {
+            showUse: true,
+            isAdult,
+            approvalRequired: group.approvalRequired,
+            description: '',
+          });
+        }
+        html += `</div>`;
+      }
+    }
 
     if (usedTokens.length > 0) {
       html += `<button class="rewards-show-more" id="bankUsedToggle" type="button">Show ${usedTokens.length} used</button>
@@ -898,6 +944,18 @@ function bindBankTabContent(personBank, isAdult) {
       const usedCount = Object.values(personBank).filter(t => t.used).length;
       this.textContent = list.hidden ? `Show ${usedCount} used` : 'Hide used';
     }
+  });
+
+  document.querySelectorAll('.bank-group__expand').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const groupKey = btn.dataset.groupKey;
+      const list = document.getElementById(`bankGroup_${groupKey}`);
+      if (!list) return;
+      list.hidden = !list.hidden;
+      btn.setAttribute('aria-expanded', list.hidden ? 'false' : 'true');
+      btn.classList.toggle('bank-group__expand--open', !list.hidden);
+    });
   });
 
   document.querySelectorAll('.bank-use-btn').forEach(btn => {
