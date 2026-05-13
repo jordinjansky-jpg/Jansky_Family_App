@@ -1920,6 +1920,15 @@ export function renderRewardCard(reward, balance, opts = {}) {
   const progress = Math.min(100, Math.round((balance / Math.max(reward.pointCost, 1)) * 100));
 
   let badges = '';
+  // Instant vs approval-needed tag (Pass 3) — appears first in the badges row.
+  // Gated on showGet so the admin/bank reuses of renderRewardCard don't see it.
+  const isFunctional = reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal';
+  const isInstant = isFunctional || reward.approvalRequired === false;
+  if (showGet) {
+    badges += isInstant
+      ? `<span class="chip chip--instant">Instant</span>`
+      : `<span class="chip chip--approval">Approval needed</span>`;
+  }
   if (reward.streakRequirement) {
     const needed = reward.streakRequirement - streak;
     badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak${!meetsStreak ? ` · need ${needed} more` : ''}</span>`;

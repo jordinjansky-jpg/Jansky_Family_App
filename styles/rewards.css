@@ -288,3 +288,16 @@
   margin-left: auto;
   color: var(--text-muted);
 }
+
+/* ── Reward type tags (Pass 3) ── */
+.chip.chip--instant {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+}
+
+.chip.chip--approval {
+  background: color-mix(in srgb, var(--info) 18%, transparent);
+  color: var(--info);
+  border: 1px solid color-mix(in srgb, var(--info) 35%, transparent);
+}
