@@ -558,26 +558,16 @@
         });
       }
 
-      // Hero cards — three click zones: drilldown / rewards / cycle-period
+      // Hero cards — two click zones: card body → drilldown; grade badge → cycle period
       for (const card of document.querySelectorAll('.card--score[data-person-id]')) {
-        // Outer click → drilldown (only when not on an inner button)
         card.addEventListener('click', (e) => {
           const inner = e.target.closest('[data-action]');
-          if (!inner || inner === card) {
-            openDrilldown(card.dataset.personId);
-            return;
-          }
-          const action = inner.dataset.action;
-          if (action === 'rewards') {
-            e.stopPropagation();
-            const name = card.querySelector('.card__title')?.textContent || '';
-            location.href = `rewards.html?person=${encodeURIComponent(name.trim())}`;
-          } else if (action === 'cycle-period') {
+          if (inner && inner !== card && inner.dataset.action === 'cycle-period') {
             e.stopPropagation();
             cyclePeriod(card.dataset.personId);
-          } else if (action === 'drilldown') {
-            openDrilldown(card.dataset.personId);
+            return;
           }
+          openDrilldown(card.dataset.personId);
         });
         // Keyboard support for the div-role-button outer
         card.addEventListener('keydown', (e) => {

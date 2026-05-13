@@ -376,8 +376,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Inner click zones on hero card ── */
-.card--score__balance-btn,
+/* ── Inner click zone on hero card — grade badge cycles period ── */
 .card--score__badge-btn {
   background: none;
   border: none;
@@ -387,30 +386,12 @@
   color: inherit;
   cursor: pointer;
   text-align: inherit;
-}
-
-.card--score__balance-btn {
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration-line: underline;
-  text-decoration-style: dotted;
-  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  text-underline-offset: 2px;
-}
-
-.card--score__balance-btn:hover,
-.card--score__balance-btn:focus-visible {
-  text-decoration-color: var(--accent);
-}
-
-.card--score__badge-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-xs);
 }
 
 .card--score__badge-btn:focus-visible,
-.card--score__balance-btn:focus-visible,
 .card--score:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

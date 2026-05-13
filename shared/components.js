@@ -1890,7 +1890,7 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hi
     </div>
     <div class="card__body">
       <div class="card__title">${esc(b.person.name)}</div>
-      <div class="card__meta">${metaPrefix}<button class="card--score__balance-btn" type="button" data-action="rewards" aria-label="View rewards for ${esc(b.person.name)}">${esc(balanceLabel)}</button></div>
+      <div class="card__meta">${metaPrefix}${esc(balanceLabel)}</div>
       ${badgeRow}
       ${hintRow}
     </div>
