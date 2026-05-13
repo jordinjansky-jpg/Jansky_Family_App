@@ -754,7 +754,7 @@ async function loadAndRenderBankTab() {
       for (const { kid, bank } of kidBanks) {
         const kidActive = Object.entries(bank).filter(([, t]) => !t.used);
         if (kidActive.length === 0) continue;
-        html += `<div class="rewards-section-heading" style="margin-top: 20px;">${esc(kid.name)}'s Bank</div>`;
+        html += `<div class="rewards-section-heading rewards-section-heading--spaced">${esc(kid.name)}'s Bank</div>`;
         kidActive.forEach(([tokenId, token]) => {
           html += renderBankTokenEl(tokenId, token, { showUse: false });
         });
@@ -814,6 +814,8 @@ async function handleUseToken(tokenId, rewardType, tokenName, rewardId, rewardIc
     await refreshData();
     render();
   } else {
+    // Refresh allMessages so we don't miss a recent use-request from another tab/device.
+    allMessages = await readAllMessages();
     // Guard against duplicate use-request for the same token
     const alreadyPending = Object.values(allMessages?.[activePerson.id] || {}).some(m =>
       m.type === 'use-request' && !m.seen && m.bankTokenId === tokenId);

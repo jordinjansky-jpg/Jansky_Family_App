@@ -146,3 +146,8 @@
   flex: 1;
   min-width: 0;
 }
+
+/* Kids-bank section heading spacing (Pass 1 fix — replaces inline style) */
+.rewards-section-heading--spaced {
+  margin-top: var(--spacing-lg);
+}
