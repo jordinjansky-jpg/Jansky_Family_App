@@ -9,7 +9,7 @@ import { applyTheme, resolveTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
-  renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
+  renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderHistoryDetailSheet, renderApprovalRow,
   openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
   renderDateInput, bindDateInput, renderSwitchToggle,
   renderColorButton, initColorButton, renderPersonAvatar, renderFormFooter
@@ -535,7 +535,8 @@ function renderHistoryTab() {
   const allowedTypes = isKidMode ? KID_HISTORY_TYPES : ADULT_HISTORY_TYPES;
 
   const raw = allMessages?.[activePerson.id] || {};
-  let entries = Object.values(raw)
+  let entries = Object.entries(raw)
+    .map(([id, msg]) => ({ ...msg, id, personId: activePerson.id }))
     .filter(msg => allowedTypes.has(msg.type) && matchesHistoryGroup(msg.type, historyFilter.type))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
@@ -569,7 +570,8 @@ function bindHistoryTab() {
     const tz = settings?.timezone || 'UTC';
     const allowedTypes = isKidMode ? KID_HISTORY_TYPES : ADULT_HISTORY_TYPES;
     const raw = allMessages?.[activePerson.id] || {};
-    const entries = Object.values(raw)
+    const entries = Object.entries(raw)
+      .map(([id, msg]) => ({ ...msg, id, personId: activePerson.id }))
       .filter(msg => allowedTypes.has(msg.type) && matchesHistoryGroup(msg.type, historyFilter.type))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     const remaining = entries.slice(50);
@@ -582,6 +584,40 @@ function bindHistoryTab() {
       this.before(fragment.firstChild);
     }
     this.remove();
+    // Bind tap handlers on newly-appended rows
+    document.querySelectorAll('.history-row--tappable:not([data-bound])').forEach(row => {
+      row.dataset.bound = '1';
+      row.addEventListener('click', () => {
+        const msgId = row.dataset.msgId;
+        const personId = row.dataset.personId;
+        if (!msgId || !personId) return;
+        openHistoryDetail(msgId, personId);
+      });
+    });
+  });
+
+  function openHistoryDetail(msgId, personId) {
+    const msg = allMessages?.[personId]?.[msgId];
+    if (!msg) return;
+    const reward = msg.rewardId ? rewardsObj?.[msg.rewardId] : null;
+    const tz = settings?.timezone || 'UTC';
+    const mount = document.getElementById('sheetMount');
+    mount.innerHTML = renderHistoryDetailSheet({ ...msg, id: msgId, personId }, reward, tz);
+    requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+    document.getElementById('bottomSheet')?.addEventListener('click', e => {
+      if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+    });
+    document.getElementById('historyDetailClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
+  }
+
+  document.querySelectorAll('.history-row--tappable').forEach(row => {
+    row.dataset.bound = '1';
+    row.addEventListener('click', () => {
+      const msgId = row.dataset.msgId;
+      const personId = row.dataset.personId;
+      if (!msgId || !personId) return;
+      openHistoryDetail(msgId, personId);
+    });
   });
 }
 
@@ -642,9 +678,9 @@ function renderApprovalsTab() {
   const resolvedTypes = ['redemption-approved', 'redemption-denied', 'use-approved', 'use-denied'];
   const recentItems = [];
   for (const [personId, msgs] of Object.entries(allMessages || {})) {
-    for (const [, msg] of Object.entries(msgs || {})) {
+    for (const [msgId, msg] of Object.entries(msgs || {})) {
       if (resolvedTypes.includes(msg.type) && Date.now() - (msg.createdAt || 0) < THIRTY_DAYS) {
-        recentItems.push({ msg, personId });
+        recentItems.push({ msg: { ...msg, id: msgId, personId }, personId });
       }
     }
   }
@@ -703,6 +739,25 @@ function bindApprovalsTab() {
       const msgId = row?.dataset.msgId || '';
       const personId = row?.dataset.personId || '';
       handleDeny(msgId, personId);
+    });
+  });
+
+  document.querySelectorAll('#approvalsRecentList .history-row--tappable').forEach(row => {
+    row.addEventListener('click', () => {
+      const msgId = row.dataset.msgId;
+      const personId = row.dataset.personId;
+      if (!msgId || !personId) return;
+      const msg = allMessages?.[personId]?.[msgId];
+      if (!msg) return;
+      const reward = msg.rewardId ? rewardsObj?.[msg.rewardId] : null;
+      const tz = settings?.timezone || 'UTC';
+      const mount = document.getElementById('sheetMount');
+      mount.innerHTML = renderHistoryDetailSheet({ ...msg, id: msgId, personId }, reward, tz);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+      });
+      document.getElementById('historyDetailClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
     });
   });
 }

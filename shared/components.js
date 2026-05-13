@@ -2046,12 +2046,47 @@ export function renderHistoryRow(entry, tz) {
 
   const icon = historyTypeIcon(entry.type);
 
-  return `<div class="history-row">
+  return `<button class="history-row history-row--tappable" type="button" data-msg-id="${esc(entry.id || '')}" data-person-id="${esc(entry.personId || '')}" data-msg-type="${esc(entry.type)}">
     <span class="history-row__icon">${icon}</span>
     <span class="history-row__label">${esc(entry.title || entry.type)}</span>
     ${amountStr ? `<span class="history-row__amount ${amountClass}">${amountStr}</span>` : ''}
     <span class="history-row__date">${date}</span>
-  </div>`;
+  </button>`;
+}
+
+/**
+ * Render the detail sheet for a history entry.
+ * @param {Object} entry  - Full message: id, personId, type, title, body, amount, createdAt, rewardId?
+ * @param {Object|null} reward - The reward record if applicable
+ * @param {string} tz
+ */
+export function renderHistoryDetailSheet(entry, reward, tz) {
+  const isPositive = (entry.amount || 0) > 0;
+  const amountStr = entry.amount
+    ? `${isPositive ? '+' : ''}${Math.round(entry.amount).toLocaleString()} pts`
+    : '';
+  const amountClass = isPositive ? 'history-detail__amount--pos' : (entry.amount < 0 ? 'history-detail__amount--neg' : '');
+  const date = entry.createdAt
+    ? new Date(entry.createdAt).toLocaleString('en-US', { timeZone: tz, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
+  const icon = historyTypeIcon(entry.type);
+
+  return renderBottomSheet(`
+    <div class="history-detail">
+      <div class="history-detail__header">
+        <span class="history-detail__icon">${icon}</span>
+        <div class="history-detail__title">${esc(entry.title || entry.type)}</div>
+      </div>
+      ${amountStr ? `<div class="history-detail__amount ${amountClass}">${amountStr}</div>` : ''}
+      ${entry.body ? `<div class="history-detail__body">${esc(entry.body)}</div>` : ''}
+      ${reward ? `<div class="history-detail__reward">
+        <span class="history-detail__reward-label">Reward:</span>
+        <span>${esc(reward.icon || '🎁')} ${esc(reward.name || 'Reward')}</span>
+      </div>` : ''}
+      <div class="history-detail__date">${date}</div>
+      <button class="btn btn--secondary" id="historyDetailClose" type="button">Close</button>
+    </div>
+  `);
 }
 
 /**
