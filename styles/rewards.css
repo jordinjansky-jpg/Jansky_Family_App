@@ -301,3 +301,11 @@
   color: var(--info);
   border: 1px solid color-mix(in srgb, var(--info) 35%, transparent);
 }
+
+/* ── Streak-locked chip (Pass 3 — Feature K) ── */
+.chip.chip--lock {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  white-space: normal; /* allow text wrap on narrow cards */
+}

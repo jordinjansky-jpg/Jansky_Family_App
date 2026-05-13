@@ -1930,8 +1930,11 @@ export function renderRewardCard(reward, balance, opts = {}) {
       : `<span class="chip chip--approval">Approval needed</span>`;
   }
   if (reward.streakRequirement) {
-    const needed = reward.streakRequirement - streak;
-    badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak${!meetsStreak ? ` · need ${needed} more` : ''}</span>`;
+    if (meetsStreak) {
+      badges += `<span class="chip chip--muted">${reward.streakRequirement}-day streak ✓</span>`;
+    } else {
+      badges += `<span class="chip chip--lock">Unlocks at ${reward.streakRequirement}-day streak (you're at ${streak})</span>`;
+    }
   }
   if (reward.maxRedemptions && stockOk) {
     badges += `<span class="chip chip--muted">${reward.maxRedemptions - redemptionCount} left</span>`;
