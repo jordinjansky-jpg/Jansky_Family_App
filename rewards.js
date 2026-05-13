@@ -12,7 +12,7 @@ import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initO
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderApprovalRow,
   openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
   renderDateInput, bindDateInput, renderSwitchToggle,
-  renderColorButton, initColorButton, renderPersonAvatar
+  renderColorButton, initColorButton, renderPersonAvatar, renderFormFooter
 } from './shared/components.js';
 import { todayKey, formatDateShort } from './shared/utils.js';
 
@@ -383,7 +383,8 @@ function openShopFilterSheet() {
     { v: 'functional', l: 'Functional' }, { v: 'bounties', l: 'Bounties' }
   ];
   const sortOpts = [{ v: 'name', l: 'Name' }, { v: 'cost', l: 'Cost' }];
-  const html = `<div id="shopFilterSheet">
+  const html = `<div class="fs-body">
+    <h3 class="sheet-section-title">Filter rewards</h3>
     <div class="filter-section"><div class="filter-section__label">Type</div>
       <div class="filter-chips">
         ${typeOpts.map(o => `<button class="chip${shopFilter.type === o.v ? ' chip--active' : ''}" data-filter-type="${o.v}" type="button">${o.l}</button>`).join('')}
@@ -394,8 +395,8 @@ function openShopFilterSheet() {
         ${sortOpts.map(o => `<button class="chip${shopFilter.sort === o.v ? ' chip--active' : ''}" data-filter-sort="${o.v}" type="button">${o.l}</button>`).join('')}
       </div>
     </div>
-    <button class="btn btn--primary btn--full" id="shopFilterApply" type="button">Apply</button>
-  </div>`;
+  </div>
+  ${renderFormFooter({ saveLabel: 'Apply', saveId: 'shopFilterApply', cancelId: 'shopFilterCancel' })}`;
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
@@ -412,6 +413,7 @@ function openShopFilterSheet() {
     const content = document.getElementById('rewardsContent');
     if (content) { content.innerHTML = renderShopTab(); applyDataColors(content); bindShopTab(); }
   });
+  mount.querySelector('#shopFilterCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
 
 // ── History tab ──
@@ -482,14 +484,15 @@ function openHistoryFilterSheet() {
     { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' }, { v: 'uses', l: 'Uses' }
   ];
   const opts = isKidMode ? kidOpts : adultOpts;
-  const html = `<div id="historyFilterSheet">
+  const html = `<div class="fs-body">
+    <h3 class="sheet-section-title">Filter history</h3>
     <div class="filter-section"><div class="filter-section__label">Type</div>
       <div class="filter-chips">
         ${opts.map(o => `<button class="chip${historyFilter.type === o.v ? ' chip--active' : ''}" data-history-filter-type="${o.v}" type="button">${o.l}</button>`).join('')}
       </div>
     </div>
-    <button class="btn btn--primary btn--full" id="historyFilterApply" type="button">Apply</button>
-  </div>`;
+  </div>
+  ${renderFormFooter({ saveLabel: 'Apply', saveId: 'historyFilterApply', cancelId: 'historyFilterCancel' })}`;
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
@@ -506,6 +509,7 @@ function openHistoryFilterSheet() {
     const content = document.getElementById('rewardsContent');
     if (content) { content.innerHTML = renderHistoryTab(); bindHistoryTab(); }
   });
+  mount.querySelector('#historyFilterCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
 
 // ── Approvals tab ──
