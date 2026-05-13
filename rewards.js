@@ -435,7 +435,7 @@ function renderHistoryTab() {
   </div>`;
 
   if (entries.length === 0) {
-    html += '<div class="empty-state"><p>No history yet.</p></div>';
+    html += renderEmptyState('📜', 'No history yet', 'Activity will appear here as you earn and spend points.');
     return html;
   }
 
@@ -544,7 +544,7 @@ function renderApprovalsTab() {
   // Render pending section
   let html = `<div class="rewards-section-heading">Pending</div>`;
   if (pendingItems.length === 0) {
-    html += `<div class="empty-state"><p>No pending approvals.</p></div>`;
+    html += renderEmptyState('✅', 'No pending approvals', "You're all caught up.");
   } else {
     html += pendingItems.map(({ msgId, msg, personId }) => {
       const person = people.find(p => p.id === personId) || null;
@@ -729,7 +729,7 @@ async function loadAndRenderBankTab() {
 
   let html = '';
   if (activeTokens.length === 0 && usedTokens.length === 0) {
-    html += '<div class="empty-state"><p>No saved rewards yet.</p></div>';
+    html += renderEmptyState('🎒', 'No saved rewards', 'Redeem something from the Shop to save it here.');
   } else {
     activeTokens.forEach(([tokenId, token]) => {
       const reward = rewardsObj?.[token.rewardId] || {};

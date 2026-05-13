@@ -1992,6 +1992,29 @@ export function renderBankToken(tokenId, token, opts = {}) {
 }
 
 /**
+ * Return an SVG icon string for a history/message type.
+ * Replaces the previous emoji-keyed map (CLAUDE.md rule — no emoji in chrome).
+ */
+export function historyTypeIcon(type) {
+  const icons = {
+    'redemption-request':  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>',
+    'redemption-approved': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
+    'redemption-denied':   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    'reward-used':         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/></svg>',
+    'bonus':               '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    'deduction':           '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>',
+    'fyi':                 '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  };
+  // Aliases — use-* variants share visuals with redemption-* counterparts
+  icons['use-request']  = icons['redemption-request'];
+  icons['use-approved'] = icons['redemption-approved'];
+  icons['use-denied']   = icons['redemption-denied'];
+  icons['task-skip-used'] = icons['reward-used'];
+  icons['penalty-removed'] = icons['reward-used'];
+  return icons[type] || '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>';
+}
+
+/**
  * Render a history row (balance message entry).
  * @param {Object} entry  - Message record { title?, type, amount?, createdAt }
  * @param {string} tz     - Timezone for date formatting
@@ -2007,19 +2030,7 @@ export function renderHistoryRow(entry, tz) {
     ? new Date(entry.createdAt).toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric' })
     : '';
 
-  const typeIcons = {
-    'redemption-request': '🎁',
-    'redemption-approved': '✅',
-    'redemption-denied': '❌',
-    'use-request': '🎁',
-    'use-approved': '✅',
-    'use-denied': '❌',
-    'reward-used': '🎁',
-    'bonus': '⭐',
-    'deduction': '📉',
-    'fyi': 'ℹ️',
-  };
-  const icon = typeIcons[entry.type] || '•';
+  const icon = historyTypeIcon(entry.type);
 
   return `<div class="history-row">
     <span class="history-row__icon">${icon}</span>
