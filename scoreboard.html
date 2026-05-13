@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, writeCompletion, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge, renderSendMessageSheet, bindSendMessageSheet, renderHeatmap } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge, renderSendMessageSheet, bindSendMessageSheet, renderHeatmap, readScoreboardCustomize } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, weekStart, weekStartForDay, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -249,7 +249,12 @@
     }
 
     // ── Period selector state ──
-    let selectedPeriod = linkedPerson?.prefs?.scoreboard?.period || 'week'; // 'today' | 'week' | 'month' | 'year'
+    let selectedPeriod = (() => {
+      // Priority: legacy per-link saved period > customize default > 'week'
+      if (linkedPerson?.prefs?.scoreboard?.period) return linkedPerson.prefs.scoreboard.period;
+      const cust = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
+      return cust.defaultPeriod || 'week';
+    })(); // 'today' | 'week' | 'month' | 'year'
     // Per-card period overrides for the badge cycle interaction.
     // Map<personId, 'today' | 'week' | 'month' | 'year'>
     const cardPeriods = new Map();
@@ -384,7 +389,8 @@
         return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${points}</svg>`;
       };
 
-      if (familyGd) {
+      const customPrefsForBanner = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
+      if (familyGd && customPrefsForBanner.showFamilyBanner) {
         html += `<div class="sb-family-banner">
           <span class="sb-family-banner__label">Family</span>
           <span class="sb-family-banner__grade grade-badge grade-badge--${esc(familyGd.tier)} grade-badge--sm">${esc(familyGd.grade)}</span>
@@ -407,17 +413,20 @@
       html += `</nav>`;
 
       // ── Grade cards (hero leaderboard) ──
+      const cardCustomPrefs = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
       html += `<div class="card-stack">`;
       for (const b of board) {
         const effectivePeriod = cardPeriods.get(b.person.id) || selectedPeriod;
         const active = b[effectivePeriod];
         const gd = gradeDisplay(active.percentage);
         const hint = effectivePeriod === 'today' ? tasksToNextGrade(b.person.id) : null;
-        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank, hint);
+        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank, hint, cardCustomPrefs.cardShow);
       }
       html += `</div>`;
 
       // ── Highlights — priority queue, max 3 rows, hide when zero candidates ──
+      const customPrefsForHL = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
+      if (customPrefsForHL.sections.highlights) {
       {
         const trendSvg = (dir) => dir === 'up'
           ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`
@@ -493,9 +502,11 @@
           html += `<div class="card sb-highlights">${top.map(c => c.html).join('')}</div>`;
         }
       }
+      } // end if customPrefsForHL.sections.highlights
 
       // ── Category Leaders (2+ people only) ──
-      if (board.length >= 2) {
+      const customPrefsForCL = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
+      if (board.length >= 2 && customPrefsForCL.sections.categoryLeaders) {
         const clDates = { today: [today, today], week: [addDays(today, -6), today], month: [addDays(today, -29), today], year: [y12Start, today] };
         const [clStart, clEnd] = clDates[selectedPeriod];
         const allCatData = {};
@@ -700,7 +711,8 @@
       </div>`;
 
       // Summary row — stats inline, no large duplicate badge (badge moved to header)
-      const famCompare = familyDiff !== null
+      const customPrefsForDD = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
+      const famCompare = (familyDiff !== null && customPrefsForDD.drilldown.familyCompare)
         ? ` · <span class="sb-drilldown__fam-cmp">${familyDiff >= 0 ? '+' : ''}${familyDiff} vs family</span>`
         : '';
       html += grade.possible > 0
@@ -713,7 +725,7 @@
 
       // Time contributed for the active period
       const contribMin = timeContributed(personId, schedule, comps, tasks, dStart, dEnd, addDays);
-      if (contribMin > 0) {
+      if (contribMin > 0 && customPrefsForDD.drilldown.timeContributed) {
         html += `<div class="sb-drilldown__contrib">${formatMinutes(contribMin)} contributed</div>`;
       }
 
@@ -767,7 +779,7 @@
           .sort((a, b) => b.prog.progressPct - a.prog.progressPct)
           .slice(0, 3);
 
-        if (unlockedEntries.length > 0 || lockedCandidates.length > 0) {
+        if ((unlockedEntries.length > 0 || lockedCandidates.length > 0) && customPrefsForDD.drilldown.achievementGallery) {
           html += renderSectionHead('Achievements');
           if (unlockedEntries.length > 0) {
             html += `<div class="sb-achievements">`;
@@ -789,8 +801,10 @@
       }
 
       // ── Last 90 days heatmap (Pass 4) — replaces sparkline ──
-      html += renderSectionHead('Last 90 days');
-      html += renderHeatmap(snapshots, personId, today, todayScore(personId), addDays, weekStartForDay, gradeTier);
+      if (customPrefsForDD.drilldown.heatmap) {
+        html += renderSectionHead('Last 90 days');
+        html += renderHeatmap(snapshots, personId, today, todayScore(personId), addDays, weekStartForDay, gradeTier);
+      }
 
       // Streak
       const flameSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
@@ -819,10 +833,12 @@
       </div>`;
 
       // ── Send Kudos button (Pass 3) ──
-      html += `<button class="sb-kudos-btn" type="button" id="ddKudos">
-        <span class="sb-kudos-btn__icon" aria-hidden="true">👏</span>
-        <span class="sb-kudos-btn__label">Send kudos to ${esc(person.name)}</span>
-      </button>`;
+      if (customPrefsForDD.drilldown.kudosButton) {
+        html += `<button class="sb-kudos-btn" type="button" id="ddKudos">
+          <span class="sb-kudos-btn__icon" aria-hidden="true">👏</span>
+          <span class="sb-kudos-btn__label">Send kudos to ${esc(person.name)}</span>
+        </button>`;
+      }
 
       // Needs attention — Missed and Late only
       html += renderSectionHead(`Needs Attention`);
