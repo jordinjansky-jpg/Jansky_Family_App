@@ -18,26 +18,6 @@
 
 
 
-/* ── View-as inline selector (header actions area) ── */
-.rewards-view-as {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.rewards-view-as__select {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: var(--font-sm);
-  padding: 2px var(--spacing-xs);
-  cursor: pointer;
-  max-width: 120px;
-  text-align: center;
-}
 
 /* ============ Rewards page — Balance Header ============ */
 .rewards-balance-zone {
@@ -171,4 +151,98 @@
   line-height: 1.4;
   text-align: center;
   margin: var(--spacing-sm) var(--spacing-md);
+}
+
+/* ── Person switcher chip (Pass 2 — replaces native <select>) ── */
+.rewards-view-as-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rewards-view-as-chip:hover,
+.rewards-view-as-chip:focus-visible {
+  background: var(--surface-3);
+  outline: none;
+}
+
+.rewards-view-as-chip__avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--person-color, var(--accent));
+  color: white;
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.rewards-view-as-chip__name {
+  white-space: nowrap;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rewards-view-as-chip svg {
+  color: var(--text-muted);
+}
+
+/* ── Person switcher bottom-sheet rows ── */
+.person-switcher-list {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.person-switcher-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.person-switcher-row:last-child { border-bottom: none; }
+.person-switcher-row:hover { background: var(--surface-2); }
+.person-switcher-row.is-active { background: var(--accent-soft); }
+
+.person-switcher-row__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--person-color, var(--accent));
+  color: white;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.person-switcher-row__name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.person-switcher-row__check {
+  color: var(--accent);
 }
