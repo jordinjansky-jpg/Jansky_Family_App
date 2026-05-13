@@ -388,8 +388,23 @@ function renderShopTab() {
     return true;
   }).map(([id, r]) => ({ id, ...r }));
 
-  if (shopFilter.sort === 'cost') visible.sort((a, b) => (a.pointCost || 0) - (b.pointCost || 0));
-  else visible.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  if (shopFilter.sort === 'cost') {
+    visible.sort((a, b) => (a.pointCost || 0) - (b.pointCost || 0));
+  } else if (shopFilter.sort === 'closest') {
+    // Closest-to-affordable: affordable items first (highest cost descending —
+    // 'just barely afford' at top), then unaffordable items by gap ascending
+    // ('almost there' at top of the unaffordable group).
+    visible.sort((a, b) => {
+      const gapA = (a.pointCost || 0) - balance;
+      const gapB = (b.pointCost || 0) - balance;
+      if (gapA <= 0 && gapB > 0) return -1;
+      if (gapA > 0 && gapB <= 0) return 1;
+      if (gapA <= 0 && gapB <= 0) return (b.pointCost || 0) - (a.pointCost || 0);
+      return gapA - gapB;
+    });
+  } else {
+    visible.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
 
   // Precompute streak + per-reward redemption count for eligibility checks.
   // Previously renderRewardCard was called with streak=0/redemptionCount=0 default,
@@ -474,7 +489,11 @@ function openShopFilterSheet() {
     { v: 'all', l: 'All Types' }, { v: 'custom', l: 'Custom' },
     { v: 'functional', l: 'Functional' }, { v: 'bounties', l: 'Bounties' }
   ];
-  const sortOpts = [{ v: 'name', l: 'Name' }, { v: 'cost', l: 'Cost' }];
+  const sortOpts = [
+    { v: 'name', l: 'Name' },
+    { v: 'cost', l: 'Cost' },
+    { v: 'closest', l: 'Closest to affordable' },
+  ];
   const html = `<div class="fs-body">
     <h3 class="sheet-section-title">Filter rewards</h3>
     <div class="filter-section"><div class="filter-section__label">Type</div>
