@@ -736,7 +736,8 @@ async function loadAndRenderBankTab() {
       html += renderBankTokenEl(tokenId, token, {
         showUse: true,
         isAdult,
-        approvalRequired: reward.approvalRequired !== false
+        approvalRequired: reward.approvalRequired !== false,
+        description: reward?.description || ''
       });
     });
 
@@ -744,7 +745,11 @@ async function loadAndRenderBankTab() {
       html += `<button class="rewards-show-more" id="bankUsedToggle" type="button">Show ${usedTokens.length} used</button>
         <div id="bankUsedList" hidden>`;
       usedTokens.forEach(([tokenId, token]) => {
-        html += renderBankTokenEl(tokenId, token, { showUse: false });
+        const reward = rewardsObj?.[token.rewardId] || {};
+        html += renderBankTokenEl(tokenId, token, {
+          showUse: false,
+          description: reward?.description || ''
+        });
       });
       html += '</div>';
     }
@@ -760,7 +765,11 @@ async function loadAndRenderBankTab() {
         if (kidActive.length === 0) continue;
         html += `<div class="rewards-section-heading rewards-section-heading--spaced">${esc(kid.name)}'s Bank</div>`;
         kidActive.forEach(([tokenId, token]) => {
-          html += renderBankTokenEl(tokenId, token, { showUse: false });
+          const reward = rewardsObj?.[token.rewardId] || {};
+          html += renderBankTokenEl(tokenId, token, {
+            showUse: false,
+            description: reward?.description || ''
+          });
         });
       }
     }
@@ -989,6 +998,7 @@ function openIntentSheet(reward, rewardId) {
       <div class="is-preview">
         <span class="is-preview__icon">${esc(reward.icon || '🎁')}</span>
       </div>
+      ${reward.description ? `<div class="intent-sheet__desc">${esc(reward.description)}</div>` : ''}
       <div class="me-detail__chips">
         <button class="chip" id="is_save" type="button">Save to bank</button>
         <button class="chip" id="is_useNow" type="button">Use now</button>

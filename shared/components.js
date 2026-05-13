@@ -1944,6 +1944,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
     </div>
     <div class="card__body">
       <div class="card__title">${esc(reward.name)}</div>
+      ${reward.description ? `<div class="card--reward__desc">${esc(reward.description)}</div>` : ''}
       ${badges ? `<div class="card__badges">${badges}</div>` : ''}
       <div class="reward-progress"><div class="reward-progress__bar" data-progress="${progress}"></div></div>
       ${!canAfford && showGet ? `<div class="card__hint">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
@@ -1962,7 +1963,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
  * @param {Object} opts         - { showUse, isAdult, approvalRequired }
  */
 export function renderBankToken(tokenId, token, opts = {}) {
-  const { showUse = true, isAdult = false, approvalRequired = true } = opts;
+  const { showUse = true, isAdult = false, approvalRequired = true, description = '' } = opts;
   const isFunctional = token.rewardType === 'task-skip' || token.rewardType === 'penalty-removal';
   const canUseInstant = isAdult || isFunctional || !approvalRequired;
   const typeLabel = token.rewardType === 'task-skip' ? 'Task Skip'
@@ -1977,6 +1978,7 @@ export function renderBankToken(tokenId, token, opts = {}) {
     <div class="card__body">
       <div class="card__title">${typeLabel}</div>
       <div class="card__meta">Saved ${acquired}</div>
+      ${description ? `<div class="card--reward__desc">${esc(description)}</div>` : ''}
     </div>
     ${showUse ? `<div class="card__trailing">
       <button class="btn btn--sm btn--primary bank-use-btn"

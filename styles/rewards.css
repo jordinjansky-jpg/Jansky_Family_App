@@ -151,3 +151,24 @@
 .rewards-section-heading--spaced {
   margin-top: var(--spacing-lg);
 }
+
+/* ── Reward description line (Pass 1 — Feature M) ── */
+.card--reward__desc {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-top: 2px;
+  /* Clamp to 2 lines on the card to keep card heights uniform */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.intent-sheet__desc {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  line-height: 1.4;
+  text-align: center;
+  margin: var(--spacing-sm) var(--spacing-md);
+}
