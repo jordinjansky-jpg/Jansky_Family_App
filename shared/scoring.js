@@ -701,3 +701,101 @@ export function findHighestDamagePenalty(completions, schedule, tasks, settings,
 
   return best;
 }
+
+/**
+ * Determine if a person's streak is at risk today.
+ * Fires when: current streak ≥ 5, has incomplete tasks today, local time past 6pm.
+ *
+ * @param {string} personId
+ * @param {object} schedule - { dateKey: { entryKey: entry } }
+ * @param {object} completions - { entryKey: completion }
+ * @param {object} streak - { current, best }
+ * @param {string} todayKey - YYYY-MM-DD
+ * @param {string} tz - family timezone
+ * @returns {object|null} { incompleteCount, currentStreak } or null
+ */
+export function streakAtRisk(personId, schedule, completions, streak, todayKey, tz) {
+  if (!streak || streak.current < 5) return null;
+
+  // Local hour check — past 6pm only
+  const nowHour = new Date().toLocaleString('en-US', { timeZone: tz || 'UTC', hour: 'numeric', hour12: false });
+  if (parseInt(nowHour, 10) < 18) return null;
+
+  const dayEntries = schedule[todayKey] || {};
+  let incomplete = 0;
+  for (const [k, e] of Object.entries(dayEntries)) {
+    if (e.ownerId !== personId) continue;
+    if (completions[k]) continue;
+    incomplete += 1;
+  }
+  if (incomplete === 0) return null;
+  return { incompleteCount: incomplete, currentStreak: streak.current };
+}
+
+/**
+ * Compute day-of-week performance pattern from snapshots.
+ * Returns null if fewer than 21 days of data, or delta < 10% between best/worst day.
+ *
+ * @param {object} allSnapshots
+ * @param {string} personId
+ * @returns {object|null} { bestDay, bestPct, worstDay, worstPct, delta } or null
+ */
+export function dayOfWeekPattern(allSnapshots, personId) {
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const buckets = Array(7).fill(null).map(() => ({ sum: 0, count: 0 }));
+  let totalSnaps = 0;
+  if (allSnapshots) {
+    for (const [dateKey, people] of Object.entries(allSnapshots)) {
+      const snap = people?.[personId];
+      if (!snap || snap.possible === 0) continue;
+      const d = new Date(`${dateKey}T00:00:00Z`);
+      const dow = d.getUTCDay();
+      buckets[dow].sum += snap.percentage;
+      buckets[dow].count += 1;
+      totalSnaps += 1;
+    }
+  }
+  if (totalSnaps < 21) return null;
+
+  let bestIdx = -1, worstIdx = -1;
+  let bestAvg = -1, worstAvg = 101;
+  for (let i = 0; i < 7; i++) {
+    if (buckets[i].count < 2) continue;
+    const avg = buckets[i].sum / buckets[i].count;
+    if (avg > bestAvg) { bestAvg = avg; bestIdx = i; }
+    if (avg < worstAvg) { worstAvg = avg; worstIdx = i; }
+  }
+  if (bestIdx === -1 || worstIdx === -1 || bestIdx === worstIdx) return null;
+  const delta = Math.round(bestAvg - worstAvg);
+  if (delta < 10) return null;
+  return { bestDay: DAYS[bestIdx], bestPct: Math.round(bestAvg), worstDay: DAYS[worstIdx], worstPct: Math.round(worstAvg), delta };
+}
+
+/**
+ * Detect personal best: this month's perfect-day count exceeds every prior month's count.
+ * Requires this month to have ≥2 perfect days and at least 1 prior month with data.
+ *
+ * @param {object} allSnapshots
+ * @param {string} personId
+ * @param {string} todayKey - YYYY-MM-DD
+ * @returns {object|null} { count, monthLabel } or null
+ */
+export function personalBest(allSnapshots, personId, todayKey) {
+  if (!allSnapshots) return null;
+  const byMonth = {};
+  for (const [dateKey, people] of Object.entries(allSnapshots)) {
+    const snap = people?.[personId];
+    if (!snap || snap.possible === 0 || snap.percentage !== 100) continue;
+    const month = dateKey.slice(0, 7);
+    byMonth[month] = (byMonth[month] || 0) + 1;
+  }
+  const thisMonth = todayKey.slice(0, 7);
+  const thisCount = byMonth[thisMonth] || 0;
+  if (thisCount < 2) return null;
+  const priorMonths = Object.keys(byMonth).filter(m => m !== thisMonth);
+  if (priorMonths.length < 1) return null;
+  const priorMax = Math.max(...priorMonths.map(m => byMonth[m]));
+  if (thisCount <= priorMax) return null;
+  const monthLabel = new Date(`${thisMonth}-15T00:00:00Z`).toLocaleString('en-US', { month: 'long' });
+  return { count: thisCount, monthLabel };
+}
