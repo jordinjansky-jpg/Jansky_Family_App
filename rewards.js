@@ -483,48 +483,95 @@ function bindShopTab() {
   });
 }
 
-function openShopFilterSheet() {
+/**
+ * Generic filter sheet opener. Sections are chip groups; Apply collects active
+ * values and calls onApply(values).
+ *
+ * @param {Object} cfg
+ * @param {string} cfg.title — sheet section title
+ * @param {string} cfg.saveId — DOM id for Apply button
+ * @param {string} cfg.cancelId — DOM id for Cancel button
+ * @param {Array}  cfg.sections — [{ label, name, opts: [{v,l}], current }]
+ * @param {Function} cfg.onApply — (values) => void; values keyed by section.name
+ */
+function openFilterSheet(cfg) {
   const mount = document.getElementById('sheetMount');
-  const typeOpts = [
-    { v: 'all', l: 'All Types' }, { v: 'custom', l: 'Custom' },
-    { v: 'functional', l: 'Functional' }, { v: 'bounties', l: 'Bounties' }
-  ];
-  const sortOpts = [
-    { v: 'name', l: 'Name' },
-    { v: 'cost', l: 'Cost' },
-    { v: 'closest', l: 'Closest to affordable' },
-  ];
+  const sectionsHtml = cfg.sections.map(section => `
+    <div class="filter-section">
+      <div class="filter-section__label">${esc(section.label)}</div>
+      <div class="filter-chips">
+        ${section.opts.map(o => `<button class="chip${section.current === o.v ? ' chip--active' : ''}" data-section="${esc(section.name)}" data-value="${esc(o.v)}" type="button">${esc(o.l)}</button>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
   const html = `<div class="fs-body">
-    <h3 class="sheet-section-title">Filter rewards</h3>
-    <div class="filter-section"><div class="filter-section__label">Type</div>
-      <div class="filter-chips">
-        ${typeOpts.map(o => `<button class="chip${shopFilter.type === o.v ? ' chip--active' : ''}" data-filter-type="${o.v}" type="button">${o.l}</button>`).join('')}
-      </div>
-    </div>
-    <div class="filter-section"><div class="filter-section__label">Sort by</div>
-      <div class="filter-chips">
-        ${sortOpts.map(o => `<button class="chip${shopFilter.sort === o.v ? ' chip--active' : ''}" data-filter-sort="${o.v}" type="button">${o.l}</button>`).join('')}
-      </div>
-    </div>
+    <h3 class="sheet-section-title">${esc(cfg.title)}</h3>
+    ${sectionsHtml}
   </div>
-  ${renderFormFooter({ saveLabel: 'Apply', saveId: 'shopFilterApply', cancelId: 'shopFilterCancel' })}`;
+  ${renderFormFooter({ saveLabel: 'Apply', saveId: cfg.saveId, cancelId: cfg.cancelId })}`;
+
   mount.innerHTML = renderBottomSheet(html);
   requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
     if (e.target.id === 'bottomSheet') mount.innerHTML = '';
   });
-  mount.querySelectorAll('[data-filter-type]').forEach(b =>
-    b.addEventListener('click', () => { mount.querySelectorAll('[data-filter-type]').forEach(x => x.classList.remove('chip--active')); b.classList.add('chip--active'); }));
-  mount.querySelectorAll('[data-filter-sort]').forEach(b =>
-    b.addEventListener('click', () => { mount.querySelectorAll('[data-filter-sort]').forEach(x => x.classList.remove('chip--active')); b.classList.add('chip--active'); }));
-  mount.querySelector('#shopFilterApply')?.addEventListener('click', () => {
-    shopFilter.type = mount.querySelector('[data-filter-type].chip--active')?.dataset.filterType || 'all';
-    shopFilter.sort = mount.querySelector('[data-filter-sort].chip--active')?.dataset.filterSort || 'name';
-    mount.innerHTML = '';
-    const content = document.getElementById('rewardsContent');
-    if (content) { content.innerHTML = renderShopTab(); applyDataColors(content); bindShopTab(); }
+
+  // Wire up chip click — single-select per section
+  mount.querySelectorAll('[data-section]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const section = btn.dataset.section;
+      mount.querySelectorAll(`[data-section="${section}"]`).forEach(x => x.classList.remove('chip--active'));
+      btn.classList.add('chip--active');
+    });
   });
-  mount.querySelector('#shopFilterCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  mount.querySelector(`#${cfg.cancelId}`)?.addEventListener('click', () => { mount.innerHTML = ''; });
+
+  mount.querySelector(`#${cfg.saveId}`)?.addEventListener('click', () => {
+    const values = {};
+    for (const section of cfg.sections) {
+      const active = mount.querySelector(`[data-section="${section.name}"].chip--active`);
+      values[section.name] = active?.dataset.value || section.current;
+    }
+    mount.innerHTML = '';
+    cfg.onApply(values);
+  });
+}
+
+function openShopFilterSheet() {
+  openFilterSheet({
+    title: 'Filter rewards',
+    saveId: 'shopFilterApply',
+    cancelId: 'shopFilterCancel',
+    sections: [
+      {
+        label: 'Type',
+        name: 'type',
+        current: shopFilter.type,
+        opts: [
+          { v: 'all', l: 'All Types' }, { v: 'custom', l: 'Custom' },
+          { v: 'functional', l: 'Functional' }, { v: 'bounties', l: 'Bounties' },
+        ],
+      },
+      {
+        label: 'Sort by',
+        name: 'sort',
+        current: shopFilter.sort,
+        opts: [
+          { v: 'name', l: 'Name' },
+          { v: 'cost', l: 'Cost' },
+          { v: 'closest', l: 'Closest to affordable' },
+        ],
+      },
+    ],
+    onApply: (values) => {
+      shopFilter.type = values.type;
+      shopFilter.sort = values.sort;
+      const content = document.getElementById('rewardsContent');
+      if (content) { content.innerHTML = renderShopTab(); applyDataColors(content); bindShopTab(); }
+    },
+  });
 }
 
 // ── History tab ──
@@ -622,41 +669,31 @@ function bindHistoryTab() {
 }
 
 function openHistoryFilterSheet() {
-  const mount = document.getElementById('sheetMount');
   const adultOpts = [
     { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' },
-    { v: 'uses', l: 'Uses' }, { v: 'bonuses', l: 'Bonuses' }, { v: 'deductions', l: 'Deductions' }
+    { v: 'uses', l: 'Uses' }, { v: 'bonuses', l: 'Bonuses' }, { v: 'deductions', l: 'Deductions' },
   ];
   const kidOpts = [
-    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' }, { v: 'uses', l: 'Uses' }
+    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' }, { v: 'uses', l: 'Uses' },
   ];
-  const opts = isKidMode ? kidOpts : adultOpts;
-  const html = `<div class="fs-body">
-    <h3 class="sheet-section-title">Filter history</h3>
-    <div class="filter-section"><div class="filter-section__label">Type</div>
-      <div class="filter-chips">
-        ${opts.map(o => `<button class="chip${historyFilter.type === o.v ? ' chip--active' : ''}" data-history-filter-type="${o.v}" type="button">${o.l}</button>`).join('')}
-      </div>
-    </div>
-  </div>
-  ${renderFormFooter({ saveLabel: 'Apply', saveId: 'historyFilterApply', cancelId: 'historyFilterCancel' })}`;
-  mount.innerHTML = renderBottomSheet(html);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
-  document.getElementById('bottomSheet')?.addEventListener('click', e => {
-    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+  openFilterSheet({
+    title: 'Filter history',
+    saveId: 'historyFilterApply',
+    cancelId: 'historyFilterCancel',
+    sections: [
+      {
+        label: 'Type',
+        name: 'type',
+        current: historyFilter.type,
+        opts: isKidMode ? kidOpts : adultOpts,
+      },
+    ],
+    onApply: (values) => {
+      historyFilter.type = values.type;
+      const content = document.getElementById('rewardsContent');
+      if (content) { content.innerHTML = renderHistoryTab(); bindHistoryTab(); }
+    },
   });
-  mount.querySelectorAll('[data-history-filter-type]').forEach(b =>
-    b.addEventListener('click', () => {
-      mount.querySelectorAll('[data-history-filter-type]').forEach(x => x.classList.remove('chip--active'));
-      b.classList.add('chip--active');
-    }));
-  mount.querySelector('#historyFilterApply')?.addEventListener('click', () => {
-    historyFilter.type = mount.querySelector('[data-history-filter-type].chip--active')?.dataset.historyFilterType || 'all';
-    mount.innerHTML = '';
-    const content = document.getElementById('rewardsContent');
-    if (content) { content.innerHTML = renderHistoryTab(); bindHistoryTab(); }
-  });
-  mount.querySelector('#historyFilterCancel')?.addEventListener('click', () => { mount.innerHTML = ''; });
 }
 
 // ── Approvals tab ──
