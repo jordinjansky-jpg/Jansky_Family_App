@@ -14,7 +14,7 @@ import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initO
   renderDateInput, bindDateInput, renderSwitchToggle,
   renderColorButton, initColorButton, renderPersonAvatar, renderFormFooter
 } from './shared/components.js';
-import { todayKey, formatDateShort } from './shared/utils.js';
+import { todayKey, formatDateShort, addDays } from './shared/utils.js';
 
 await initFirebase();
 applyTheme(resolveTheme());
@@ -144,6 +144,7 @@ function render() {
   document.getElementById('app').innerHTML =
     renderBalanceZone() +
     renderApprovalsBanner() +
+    renderFamilyBanner() +
     renderTabsHtml() +
     `<div id="rewardsContent"></div>`;
   renderActiveTab();
@@ -206,6 +207,61 @@ function getBalance(personId) {
   const tz = settings?.timezone || 'UTC';
   const result = calculateBalance(personId, allSnapshots, msgs, anchor, allMultipliers, tz);
   return Math.round(result?.balance ?? result ?? 0);
+}
+
+/** Sum spendable balance across all people. Used for adult-mode banner. */
+function familyTotalBalance() {
+  let total = 0;
+  for (const p of people) {
+    total += getBalance(p.id);
+  }
+  return total;
+}
+
+/** Approximate week-over-week change for the family. */
+function familyBalanceTrendDirection() {
+  const tz = settings?.timezone || 'UTC';
+  const today = todayKey(tz);
+  let last7 = 0, prior7 = 0;
+  for (const p of people) {
+    if (!allSnapshots) continue;
+    let cur = addDays(today, -6);
+    while (cur <= today) {
+      const pct = allSnapshots[cur]?.[p.id]?.percentage || 0;
+      const mult = allMultipliers?.[cur]?.[p.id]?.multiplier || 1;
+      last7 += pct * mult;
+      cur = addDays(cur, 1);
+    }
+    let cur2 = addDays(today, -13);
+    while (cur2 <= addDays(today, -7)) {
+      const pct = allSnapshots[cur2]?.[p.id]?.percentage || 0;
+      const mult = allMultipliers?.[cur2]?.[p.id]?.multiplier || 1;
+      prior7 += pct * mult;
+      cur2 = addDays(cur2, 1);
+    }
+  }
+  if (last7 === 0 || prior7 === 0) return null;
+  const diff = ((last7 - prior7) / prior7) * 100;
+  if (diff > 5) return 'up';
+  if (diff < -5) return 'down';
+  return null;
+}
+
+/** Render the family-banner HTML; empty string when conditions aren't met. */
+function renderFamilyBanner() {
+  if (isKidMode || people.length < 2 || viewerPerson?.role === 'child') return '';
+  const familyTotal = familyTotalBalance();
+  const trendDir = familyBalanceTrendDirection();
+  const trendArrow = trendDir === 'up'
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>'
+    : trendDir === 'down'
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
+    : '';
+  return `<div class="rewards-family-banner">
+    <span class="rewards-family-banner__label">Family</span>
+    <span class="rewards-family-banner__amount">${familyTotal.toLocaleString()} pts in circulation</span>
+    ${trendArrow}
+  </div>`;
 }
 
 function renderTrendLine(personId) {
