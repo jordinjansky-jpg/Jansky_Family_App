@@ -193,6 +193,21 @@ Verified at 412×915. Header chip with avatar + name + chevron replaces the nati
 
 ---
 
+## Pass 3 — Shipped 2026-05-13
+
+Commits on main:
+- `61510ff` — feat(rewards): instant vs approval-needed tag on reward cards
+- `46dec81` — feat(rewards): streak unlock preview message (Feature K)
+- `fb0773c` — feat(rewards): sort by closest-to-affordable (Feature N)
+
+Verified at 412×915. Shop cards now show a green "Instant" or blue "Approval needed" tag as the first badge — confirmed Task Skip + Remove Penalty got green, all custom rewards got blue. Streak-gated rewards (if any exist) now show "Unlocks at N-day streak (you're at M)" with a warning-tone chip; unlocked rewards show "N-day streak ✓". The Shop filter sheet gained a "Closest to affordable" sort chip; verified live with Jordin (2,081 pts) — affordables sort top-down by cost descending (Yes Day 1,500 → Movie Theater 350 → ... → YouTube 50), then unaffordables by gap ascending.
+
+**Findings:**
+- The richer "tinted icon background" mentioned in the spec as a Pass 3 nice-to-have was deferred. `data-bg-color` + `applyDataColors` already exists; tinting is a focused future add.
+- All Pass 3 changes are additive — no existing behavior changed.
+
+---
+
 ## Pass 4 — Bank / History / Approvals Polish
 
 **Goal:** The non-Shop tabs match Shop's quality bar.
