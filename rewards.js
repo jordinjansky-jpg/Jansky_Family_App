@@ -1247,8 +1247,11 @@ function openIntentSheet(reward, rewardId) {
   const BANK_SVG    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
   const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
 
+  const LIGHTNING_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+  const BAG_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`;
+
   mount.innerHTML = renderBottomSheet(`
-    <div class="task-detail-sheet">
+    <div class="task-detail-sheet intent-sheet">
       <div class="sheet__header">
         <div class="is-header">
           <h2 class="sheet__title">${esc(reward.name)}</h2>
@@ -1260,9 +1263,21 @@ function openIntentSheet(reward, rewardId) {
         <span class="is-preview__icon">${esc(reward.icon || '🎁')}</span>
       </div>
       ${reward.description ? `<div class="intent-sheet__desc">${esc(reward.description)}</div>` : ''}
-      <div class="me-detail__chips">
-        <button class="chip" id="is_save" type="button">Save to bank</button>
-        <button class="chip" id="is_useNow" type="button">Use now</button>
+      <div class="intent-sheet__options">
+        <button class="intent-sheet__option" id="is_useNow" type="button">
+          <span class="intent-sheet__option-icon intent-sheet__option-icon--primary">${LIGHTNING_SVG}</span>
+          <span class="intent-sheet__option-body">
+            <span class="intent-sheet__option-title">Use now</span>
+            <span class="intent-sheet__option-desc">Redeem this reward right away</span>
+          </span>
+        </button>
+        <button class="intent-sheet__option" id="is_save" type="button">
+          <span class="intent-sheet__option-icon">${BAG_SVG}</span>
+          <span class="intent-sheet__option-body">
+            <span class="intent-sheet__option-title">Save for later</span>
+            <span class="intent-sheet__option-desc">Add to your Bank, use anytime</span>
+          </span>
+        </button>
       </div>
     </div>
   `);
