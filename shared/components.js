@@ -734,18 +734,12 @@ export async function writeRewardsCustomize(personOpts, patch) {
   const current = readRewardsCustomize(personOpts);
   const next = { ...current, ...patch };
   if (personOpts?.writePerson && personOpts?.person) {
-    const nextPerson = {
-      ...personOpts.person,
-      prefs: {
-        ...(personOpts.person.prefs || {}),
-        customize: {
-          ...((personOpts.person.prefs || {}).customize || {}),
-          rewards: next,
-        },
-      },
-    };
-    await personOpts.writePerson(personOpts.person.id, nextPerson);
-    personOpts.person = nextPerson;
+    // Mutate prefs IN PLACE so external references to the same person object
+    // (e.g. rewards.js viewerPerson) see the update on the next render.
+    if (!personOpts.person.prefs) personOpts.person.prefs = {};
+    if (!personOpts.person.prefs.customize) personOpts.person.prefs.customize = {};
+    personOpts.person.prefs.customize.rewards = next;
+    await personOpts.writePerson(personOpts.person.id, personOpts.person);
   } else {
     try { localStorage.setItem('dr-customize-rewards', JSON.stringify(next)); } catch { /* */ }
   }
