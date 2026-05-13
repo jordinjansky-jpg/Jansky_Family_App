@@ -40,12 +40,12 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, writeCompletion, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge, renderSendMessageSheet, bindSendMessageSheet } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge, renderSendMessageSheet, bindSendMessageSheet, renderHeatmap } from './shared/components.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
-    import { todayKey, weekStart, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
+    import { todayKey, weekStart, weekStartForDay, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade, timeContributed, achievementProgress } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, gradeTier, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade, timeContributed, achievementProgress } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -199,21 +199,6 @@
       if (diff > 2) return 'up';
       if (diff < -2) return 'down';
       return 'same';
-    }
-
-    /** Get last 4 rolling-7-day windows for sparkline. */
-    function weeklyHistory(personId) {
-      const weeks = [];
-      for (let i = 3; i >= 0; i--) {
-        if (i === 0) {
-          weeks.push(weeklyGrade(personId));
-        } else {
-          const ws = addDays(today, -(i * 7 + 6));
-          const we = addDays(today, -(i * 7));
-          weeks.push(periodGrade(snapshots, personId, ws, we));
-        }
-      }
-      return weeks;
     }
 
     /**
@@ -673,9 +658,6 @@
         (a, b) => breakdown[b].possible - breakdown[a].possible
       );
 
-      // ── Weekly sparkline (last 4 weeks) ──
-      const history = weeklyHistory(personId);
-
       // ── Build sheet HTML ──
       let html = `<div class="sb-drilldown">`;
 
@@ -782,26 +764,9 @@
         }
       }
 
-      // Weekly trend sparkline — hidden when fewer than 2 weeks have data
-      const weeksWithData = history.filter(h => h.possible > 0).length;
-      if (weeksWithData >= 2) {
-        html += renderSectionHead('Weekly Trend');
-        html += `<div class="sb-sparkline sb-sparkline--labeled">`;
-        const sparkFull = ['3 wks ago', '2 wks ago', 'Last wk', 'This wk'];
-        const sparkShort = ['-3w', '-2w', 'Last', 'Now'];
-        for (let i = 0; i < history.length; i++) {
-          const h = history[i];
-          const pct = h.possible > 0 ? h.percentage : 0;
-          const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
-          html += `<div class="sb-spark-col">
-            <div class="sb-spark-bar" title="${sparkFull[i]}: ${pct}%">
-              <div class="sb-spark-fill sb-spark-fill--${esc(tier)}" style="height:${Math.max(pct, 4)}%"></div>
-            </div>
-            <span class="sb-spark-label">${sparkShort[i]}</span>
-          </div>`;
-        }
-        html += `</div>`;
-      }
+      // ── Last 90 days heatmap (Pass 4) — replaces sparkline ──
+      html += renderSectionHead('Last 90 days');
+      html += renderHeatmap(snapshots, personId, today, todayScore(personId), addDays, weekStartForDay, gradeTier);
 
       // Streak
       const flameSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;

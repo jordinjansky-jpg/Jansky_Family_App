@@ -580,3 +580,33 @@
   color: var(--on-accent);
   border-color: var(--accent);
 }
+
+/* ── 90-day heatmap (Pass 4) ── */
+.sb-heatmap {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 3px;
+  padding: var(--spacing-sm) 0;
+  width: 100%;
+  min-height: 110px;
+}
+
+.sb-heatmap-cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 2px;
+  background: var(--border);
+  display: block;
+  cursor: default;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sb-heatmap-cell--a-plus, .sb-heatmap-cell--a, .sb-heatmap-cell--a-minus { background: var(--grade-a); }
+.sb-heatmap-cell--b-plus, .sb-heatmap-cell--b, .sb-heatmap-cell--b-minus { background: var(--grade-b); }
+.sb-heatmap-cell--c-plus, .sb-heatmap-cell--c, .sb-heatmap-cell--c-minus { background: var(--grade-c); }
+.sb-heatmap-cell--d-plus, .sb-heatmap-cell--d, .sb-heatmap-cell--d-minus { background: var(--grade-d); }
+.sb-heatmap-cell--f { background: var(--grade-f); }
+.sb-heatmap-cell--empty { background: var(--surface-2); opacity: 0.5; }
+.sb-heatmap-cell--future { background: transparent; }

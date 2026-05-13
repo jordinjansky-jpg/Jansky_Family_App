@@ -2195,6 +2195,56 @@ export function renderAchievementBadge(def, state) {
   </div>`;
 }
 
+/**
+ * Render a GitHub-contributions-style heatmap for a person's daily grades.
+ * 13 columns (weeks) × 7 rows (days). Each cell colored by grade tier.
+ *
+ * @param {object} snapshots - { dateKey: { personId: snapshot } }
+ * @param {string} personId
+ * @param {string} todayKey - YYYY-MM-DD today in family tz
+ * @param {object} todayLive - Live today score { earned, possible, percentage, grade } from todayScore()
+ * @param {function} addDaysFn
+ * @param {function} weekStartForDayFn - util.weekStartForDay (Sunday start)
+ * @param {function} gradeTierFn - scoring.gradeTier
+ * @returns {string} HTML
+ */
+export function renderHeatmap(snapshots, personId, todayKey, todayLive, addDaysFn, weekStartForDayFn, gradeTierFn) {
+  const WEEKS = 13;
+  const todaySun = weekStartForDayFn(todayKey, 0); // Sunday of this week
+  const startSun = addDaysFn(todaySun, -7 * (WEEKS - 1));
+
+  let html = '<div class="sb-heatmap" role="img" aria-label="90-day grade heatmap">';
+  // Column-major iteration: col 0 days first (Sun→Sat), then col 1, etc.
+  // CSS uses grid-auto-flow: column so source order matches visual layout.
+  for (let col = 0; col < WEEKS; col++) {
+    for (let row = 0; row < 7; row++) {
+      const date = addDaysFn(startSun, col * 7 + row);
+      const isFuture = date > todayKey;
+      let tier, title;
+      if (isFuture) {
+        tier = 'future';
+        title = '';
+      } else if (date === todayKey) {
+        const pct = todayLive.possible > 0 ? todayLive.percentage : null;
+        tier = pct !== null ? gradeTierFn(pct) : 'empty';
+        title = pct !== null ? `${date}: ${todayLive.grade} (${pct}%)` : `${date}: no tasks`;
+      } else {
+        const snap = snapshots[date]?.[personId];
+        if (snap?.percentage !== undefined && snap.possible > 0) {
+          tier = gradeTierFn(snap.percentage);
+          title = `${date}: ${snap.grade} (${snap.percentage}%)`;
+        } else {
+          tier = 'empty';
+          title = `${date}: no tasks`;
+        }
+      }
+      html += `<span class="sb-heatmap-cell sb-heatmap-cell--${tier}" title="${title}"></span>`;
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
 // ── Calendar event helpers (private) ──────────────────────────
 
 /** Format "HH:MM" 24h to "3:30pm" */
