@@ -739,6 +739,65 @@ export async function writeRewardsCustomize(personOpts, patch) {
   }
 }
 
+const SCOREBOARD_PREFS_DEFAULT = {
+  defaultPeriod: 'week',
+  showFamilyBanner: true,
+  cardShow: {
+    rankChip: true,
+    leaderRing: true,
+    badgeIcons: true,
+    timeToGrade: true,
+  },
+  sections: {
+    highlights: true,
+    categoryLeaders: true,
+  },
+  drilldown: {
+    familyCompare: true,
+    timeContributed: true,
+    achievementGallery: true,
+    heatmap: true,
+    kudosButton: true,
+  },
+};
+
+export function readScoreboardCustomize(personOpts) {
+  let raw = null;
+  if (personOpts?.person?.prefs?.customize?.scoreboard) {
+    raw = personOpts.person.prefs.customize.scoreboard;
+  } else {
+    try { raw = JSON.parse(localStorage.getItem('dr-customize-scoreboard') || 'null'); } catch { /* */ }
+  }
+  if (!raw || typeof raw !== 'object') return {
+    ...SCOREBOARD_PREFS_DEFAULT,
+    cardShow: { ...SCOREBOARD_PREFS_DEFAULT.cardShow },
+    sections: { ...SCOREBOARD_PREFS_DEFAULT.sections },
+    drilldown: { ...SCOREBOARD_PREFS_DEFAULT.drilldown },
+  };
+  return {
+    defaultPeriod:    ['today', 'week', 'month', 'year'].includes(raw.defaultPeriod) ? raw.defaultPeriod : SCOREBOARD_PREFS_DEFAULT.defaultPeriod,
+    showFamilyBanner: raw.showFamilyBanner !== false,
+    cardShow:         { ...SCOREBOARD_PREFS_DEFAULT.cardShow, ...(raw.cardShow || {}) },
+    sections:         { ...SCOREBOARD_PREFS_DEFAULT.sections, ...(raw.sections || {}) },
+    drilldown:        { ...SCOREBOARD_PREFS_DEFAULT.drilldown, ...(raw.drilldown || {}) },
+  };
+}
+
+export async function writeScoreboardCustomize(personOpts, patch) {
+  const current = readScoreboardCustomize(personOpts);
+  const next = { ...current, ...patch };
+  if (personOpts?.writePerson && personOpts?.person) {
+    // Mutate prefs IN PLACE so external references (scoreboard.html linkedPerson)
+    // see the update on the next render.
+    if (!personOpts.person.prefs) personOpts.person.prefs = {};
+    if (!personOpts.person.prefs.customize) personOpts.person.prefs.customize = {};
+    personOpts.person.prefs.customize.scoreboard = next;
+    await personOpts.writePerson(personOpts.person.id, personOpts.person);
+  } else {
+    try { localStorage.setItem('dr-customize-scoreboard', JSON.stringify(next)); } catch { /* */ }
+  }
+}
+
 // Renderer for the "Navigation buttons" section in Customize. Drag-drop list
 // of all 5 main pages; the top 3 occupy nav slots 2/3/4. Caller binds via
 // bindNavTabsSection() after the sheet mounts.
@@ -1089,6 +1148,136 @@ function bindRewardsCustomizeSection(mountEl, personOpts, onApply) {
 
   mountEl.querySelector('#dt_rcFamBanner')?.addEventListener('change', async (e) => {
     await writeRewardsCustomize(personOpts, { showFamilyBanner: e.target.checked });
+    refire();
+  });
+}
+
+function renderScoreboardCustomizeSection(personOpts) {
+  const prefs = readScoreboardCustomize(personOpts);
+  const periodLabels = { today: 'Today', week: 'Week', month: 'Month', year: 'Year' };
+  const chev = `<svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
+  return `<div class="dt-section dt-section--page">
+    <label class="form-label">Scoreboard</label>
+    <p class="form-hint mt-xs">Settings that only apply to this page.</p>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Default period</span>${chev}
+      </summary>
+      <div class="segmented-control mt-sm" id="dt_scDefaultPeriod">
+        ${Object.entries(periodLabels).map(([k, label]) => `<button type="button" class="segmented-btn${prefs.defaultPeriod === k ? ' segmented-btn--active' : ''}" data-period="${esc(k)}">${esc(label)}</button>`).join('')}
+      </div>
+      <p class="form-hint mt-xs">Which period the leaderboard opens with on page load.</p>
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Show on hero cards</span>${chev}
+      </summary>
+      ${[
+        { key: 'rankChip',    label: 'Rank chip (#1, #2, ...)' },
+        { key: 'leaderRing',  label: 'Gold ring on leader' },
+        { key: 'badgeIcons',  label: 'Achievement badge icons' },
+        { key: 'timeToGrade', label: 'Time-to-grade hint (Today tab)' },
+      ].map(t => `
+        <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(t.label)}</span>
+          <label class="form-toggle"><input type="checkbox" data-sc-card="${esc(t.key)}"${prefs.cardShow[t.key] ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+      `).join('')}
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Page sections</span>${chev}
+      </summary>
+      ${[
+        { key: 'highlights',      label: 'Highlights row' },
+        { key: 'categoryLeaders', label: 'Category Leaders' },
+      ].map(t => `
+        <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(t.label)}</span>
+          <label class="form-toggle"><input type="checkbox" data-sc-section="${esc(t.key)}"${prefs.sections[t.key] ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+      `).join('')}
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Drilldown</span>${chev}
+      </summary>
+      ${[
+        { key: 'familyCompare',      label: 'Family-avg comparison' },
+        { key: 'timeContributed',    label: 'Time contributed' },
+        { key: 'achievementGallery', label: 'Achievement gallery' },
+        { key: 'heatmap',            label: '90-day heatmap' },
+        { key: 'kudosButton',        label: 'Send Kudos button' },
+      ].map(t => `
+        <div class="dt-toggle-row"><span class="dt-toggle-row__label">${esc(t.label)}</span>
+          <label class="form-toggle"><input type="checkbox" data-sc-drill="${esc(t.key)}"${prefs.drilldown[t.key] ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+        </div>
+      `).join('')}
+    </details>
+
+    <details class="dt-collapsible dt-collapsible--nested">
+      <summary class="dt-collapsible__summary">
+        <span class="form-label form-label--sub">Family banner</span>${chev}
+      </summary>
+      <div class="dt-toggle-row"><span class="dt-toggle-row__label">Show family balance summary</span>
+        <label class="form-toggle"><input type="checkbox" id="dt_scFamBanner"${prefs.showFamilyBanner ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+      </div>
+    </details>
+  </div>`;
+}
+
+function bindScoreboardCustomizeSection(mountEl, personOpts, onApply) {
+  if (!mountEl.querySelector('.dt-section--page')) return;
+  const refire = () => { if (onApply) onApply(); };
+
+  // Default period
+  mountEl.querySelectorAll('#dt_scDefaultPeriod [data-period]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      mountEl.querySelectorAll('#dt_scDefaultPeriod [data-period]').forEach(b => b.classList.remove('segmented-btn--active'));
+      btn.classList.add('segmented-btn--active');
+      await writeScoreboardCustomize(personOpts, { defaultPeriod: btn.dataset.period });
+      refire();
+    });
+  });
+
+  // Card-show toggles
+  mountEl.querySelectorAll('[data-sc-card]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const key = input.dataset.scCard;
+      const current = readScoreboardCustomize(personOpts).cardShow;
+      const cardShow = { ...current, [key]: input.checked };
+      await writeScoreboardCustomize(personOpts, { cardShow });
+      refire();
+    });
+  });
+
+  // Sections toggles
+  mountEl.querySelectorAll('[data-sc-section]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const key = input.dataset.scSection;
+      const current = readScoreboardCustomize(personOpts).sections;
+      const sections = { ...current, [key]: input.checked };
+      await writeScoreboardCustomize(personOpts, { sections });
+      refire();
+    });
+  });
+
+  // Drilldown toggles
+  mountEl.querySelectorAll('[data-sc-drill]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const key = input.dataset.scDrill;
+      const current = readScoreboardCustomize(personOpts).drilldown;
+      const drilldown = { ...current, [key]: input.checked };
+      await writeScoreboardCustomize(personOpts, { drilldown });
+      refire();
+    });
+  });
+
+  // Family banner
+  mountEl.querySelector('#dt_scFamBanner')?.addEventListener('change', async (e) => {
+    await writeScoreboardCustomize(personOpts, { showFamilyBanner: e.target.checked });
     refire();
   });
 }
@@ -2019,17 +2208,21 @@ export function renderSectionHead(title, meta, options = {}) {
  * @param {number} liveBalance - Computed reward balance for this person
  * @param {string} badgeIcons - Concatenated emoji icons for earned achievements (up to 5)
  */
-export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hint) {
+export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hint, cardShow) {
+  const showRankChip    = !cardShow || cardShow.rankChip !== false;
+  const showLeaderRing  = !cardShow || cardShow.leaderRing !== false;
+  const showBadgeIcons  = !cardShow || cardShow.badgeIcons !== false;
+  const showTimeToGrade = !cardShow || cardShow.timeToGrade !== false;
   const streakPart = b.streak.current > 0 ? `${b.streak.current}d streak` : null;
   const balanceLabel = `${liveBalance.toLocaleString()} pts`;
 
   const metaPrefix = streakPart ? `${esc(streakPart)} · ` : '';
 
-  const badgeRow = badgeIcons
+  const badgeRow = (badgeIcons && showBadgeIcons)
     ? `<div class="card--score__badges">${badgeIcons}</div>`
     : '';
 
-  const hintRow = hint
+  const hintRow = (hint && showTimeToGrade)
     ? `<div class="card--score__hint">${esc(hint)}</div>`
     : '';
 
@@ -2041,11 +2234,11 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hi
          <span class="card--score__pct">${esc(active.percentage)}%</span>
        </button>`;
 
-  const rankChip = rank
+  const rankChip = (rank && showRankChip)
     ? `<span class="card--score__rank">#${esc(rank)}</span>`
     : '';
 
-  const goldRing = rank === 1 ? ' card--score--leader' : '';
+  const goldRing = (rank === 1 && showLeaderRing) ? ' card--score--leader' : '';
 
   return `<div class="card card--score${goldRing}" role="button" tabindex="0" data-person-id="${esc(b.person.id)}" data-action="drilldown" style="--owner-color: ${esc(b.person.color)}">
     <div class="card__leading">
@@ -3296,6 +3489,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     </div>` : ''}
     ${!familyOpts && currentPage === 'kitchen' ? renderKitchenCustomizeSection(personOpts) : ''}
     ${!familyOpts && currentPage === 'rewards' ? renderRewardsCustomizeSection(personOpts) : ''}
+    ${!familyOpts && currentPage === 'scoreboard' ? renderScoreboardCustomizeSection(personOpts) : ''}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>
@@ -3308,6 +3502,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
   bindNavTabsSection(mountEl, personOpts, onApply, currentPage);
   if (currentPage === 'kitchen') bindKitchenCustomizeSection(mountEl, personOpts, onApply);
   if (currentPage === 'rewards') bindRewardsCustomizeSection(mountEl, personOpts, onApply);
+  if (currentPage === 'scoreboard') bindScoreboardCustomizeSection(mountEl, personOpts, onApply);
 
   requestAnimationFrame(() => {
     const overlay = document.getElementById('bottomSheet');
