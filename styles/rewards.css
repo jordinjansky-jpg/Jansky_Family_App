@@ -397,3 +397,69 @@
   font-size: var(--font-xs);
   color: var(--text-faint);
 }
+
+/* ── Pending approval card (Pass 4 — visual weight) ── */
+.card--approval-pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-left: 4px solid var(--owner-color, var(--accent));
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+.card--approval-pending .approval-row__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.card--approval-pending .approval-row__who {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.card--approval-pending .approval-row__name {
+  font-weight: 600;
+  font-size: var(--font-md);
+}
+
+.card--approval-pending .approval-row__cost {
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.card--approval-pending .approval-row__reward {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-sm);
+}
+
+.card--approval-pending .approval-row__reward-icon {
+  font-size: 1.25rem;
+}
+
+.card--approval-pending .approval-row__reward-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card--approval-pending .approval-row__actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.card--approval-pending .approval-row__actions .btn {
+  flex: 1;
+}

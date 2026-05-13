@@ -2102,20 +2102,22 @@ export function renderApprovalRow(msgId, msg, person, reward) {
   const intentClass = intent === 'use-now' ? 'chip--accent' : 'chip--muted';
   const cost = Math.abs(msg.amount || reward?.pointCost || 0);
 
-  return `<div class="approval-row" data-msg-id="${esc(msgId)}" data-person-id="${esc(person?.id || '')}" data-reward-id="${esc(msg.rewardId || '')}" data-intent="${esc(intent)}">
-    <div class="approval-row__who">
-      ${renderPersonAvatar(person, { size: 'sm' })}
-      <span class="approval-row__name">${esc(person?.name || '?')}</span>
+  return `<div class="approval-row card--approval-pending" data-msg-id="${esc(msgId)}" data-person-id="${esc(person?.id || '')}" data-reward-id="${esc(msg.rewardId || '')}" data-intent="${esc(intent)}" style="--owner-color: ${esc(person?.color || 'var(--accent)')}">
+    <div class="approval-row__header">
+      <div class="approval-row__who">
+        ${renderPersonAvatar(person, { size: 'sm' })}
+        <span class="approval-row__name">${esc(person?.name || '?')}</span>
+      </div>
+      <div class="approval-row__cost">${cost.toLocaleString()} pts</div>
     </div>
     <div class="approval-row__reward">
-      <span>${esc(reward?.icon || '🎁')}</span>
-      <span>${esc(reward?.name || msg.title || 'Reward')}</span>
+      <span class="approval-row__reward-icon">${esc(reward?.icon || '🎁')}</span>
+      <span class="approval-row__reward-name">${esc(reward?.name || msg.title || 'Reward')}</span>
       <span class="chip ${intentClass}">${intentLabel}</span>
     </div>
-    <div class="approval-row__cost">${cost.toLocaleString()} pts</div>
     <div class="approval-row__actions">
-      <button class="btn btn--sm btn--primary approval-approve-btn" data-msg-id="${esc(msgId)}" type="button">Approve</button>
-      <button class="btn btn--sm btn--danger approval-deny-btn" data-msg-id="${esc(msgId)}" type="button">Deny</button>
+      <button class="btn btn--primary approval-approve-btn" data-msg-id="${esc(msgId)}" type="button">Approve</button>
+      <button class="btn btn--ghost approval-deny-btn" data-msg-id="${esc(msgId)}" type="button">Deny</button>
     </div>
   </div>`;
 }
