@@ -534,3 +534,21 @@
 .card--approval-pending .approval-row__actions .btn {
   flex: 1;
 }
+
+/* ── Compact reward card density (Customize → Card density) ── */
+.card--reward--compact {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  gap: var(--spacing-sm);
+}
+
+.card--reward--compact .icon-tile {
+  font-size: 1.5rem;
+}
+
+.card--reward--compact .card--reward__desc {
+  display: none;
+}
+
+.card--reward--compact .reward-progress {
+  height: 2px;
+}

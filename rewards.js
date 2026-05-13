@@ -12,7 +12,8 @@ import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initO
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderHistoryDetailSheet, renderApprovalRow,
   openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
   renderDateInput, bindDateInput, renderSwitchToggle,
-  renderColorButton, initColorButton, renderPersonAvatar, renderFormFooter
+  renderColorButton, initColorButton, renderPersonAvatar, renderFormFooter,
+  readRewardsCustomize,
 } from './shared/components.js';
 import { todayKey, formatDateShort, addDays } from './shared/utils.js';
 
@@ -62,6 +63,8 @@ async function loadData() {
 async function init() {
   document.getElementById('rewardsContent').innerHTML = renderSkeleton('card-grid');
   await loadData();
+  // Apply user's preferred default Shop sort
+  shopFilter.sort = readRewardsCustomize(viewerPerson ? { person: viewerPerson } : null).shopSort;
   applyTheme(resolveTheme(settings?.theme));
   if (viewerPerson?.theme?.preset) applyTheme(viewerPerson.theme);
 
@@ -249,6 +252,8 @@ function familyBalanceTrendDirection() {
 
 /** Render the family-banner HTML; empty string when conditions aren't met. */
 function renderFamilyBanner() {
+  const prefs = readRewardsCustomize(viewerPerson ? { person: viewerPerson } : null);
+  if (!prefs.showFamilyBanner) return '';
   if (isKidMode || people.length < 2 || viewerPerson?.role === 'child') return '';
   const familyTotal = familyTotalBalance();
   const trendDir = familyBalanceTrendDirection();
@@ -324,12 +329,16 @@ function renderTabsHtml() {
   // viewerPerson is set once on first load (the page's "owner") so this is stable
   // across in-page person switches.
   const showApprovals = !isKidMode && viewerPerson?.role !== 'child';
-  const tabs = [
+  const allTabs = [
     { id: 'shop', label: 'Shop' },
     { id: 'bank', label: 'Bank' },
     { id: 'history', label: 'History' },
     ...(showApprovals ? [{ id: 'approvals', label: 'Approve' }] : []),
   ];
+  // Apply user's customize visibility filter (keeps at least one tab)
+  const prefs = readRewardsCustomize(viewerPerson ? { person: viewerPerson } : null);
+  const visibleTabs = allTabs.filter(t => prefs.tabs.includes(t.id));
+  const tabs = visibleTabs.length > 0 ? visibleTabs : allTabs.slice(0, 1);
   return `<div class="tabs tabs--pill rewards-tabs" role="tablist">
     ${tabs.map(t => `<button class="tab${activeTab === t.id ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === t.id}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
   </div>`;
@@ -341,6 +350,11 @@ function renderActiveTab() {
   // Guard: ?tab=approvals in a kid-mode URL or as a child viewer falls back to shop.
   if (activeTab === 'approvals' && (isKidMode || viewerPerson?.role === 'child')) {
     activeTab = 'shop';
+  }
+  // If the user has hidden the current active tab via Customize, fall back to the first visible
+  const prefsForGuard = readRewardsCustomize(viewerPerson ? { person: viewerPerson } : null);
+  if (!prefsForGuard.tabs.includes(activeTab)) {
+    activeTab = prefsForGuard.tabs[0] || 'shop';
   }
   if (activeTab === 'shop')           content.innerHTML = renderShopTab();
   else if (activeTab === 'bank')      { content.innerHTML = renderSkeleton('list'); loadAndRenderBankTab(); }
@@ -427,10 +441,13 @@ function renderShopTab() {
   if (visible.length === 0) {
     html += renderEmptyState('', 'No rewards yet', 'Ask a parent to add some in Admin.');
   } else {
+    const cardPrefs = readRewardsCustomize(viewerPerson ? { person: viewerPerson } : null);
     html += visible.map(r => renderRewardCard(r, balance, {
       showGet: true,
       streak: personStreak,
       redemptionCount: redemptionCountByReward[r.id] || 0,
+      show: cardPrefs.cardShow,
+      density: cardPrefs.cardDensity,
     })).join('');
   }
   return html;
