@@ -405,7 +405,27 @@ New candidate (priority 6):
 
 Plans are written one pass at a time, just before executing, so each plan can incorporate context from completed prior passes.
 
-- Pass 1: [docs/superpowers/plans/2026-05-12-scoreboard-pass-1.md](../plans/2026-05-12-scoreboard-pass-1.md)
-- Pass 2: TBD (write after Pass 1 ships)
-- Pass 3: TBD (write after Pass 2 ships)
-- Pass 4: TBD (write after Pass 3 ships)
+- Pass 1: [docs/superpowers/plans/2026-05-12-scoreboard-pass-1.md](../plans/2026-05-12-scoreboard-pass-1.md) — shipped
+- Pass 2: [docs/superpowers/plans/2026-05-12-scoreboard-pass-2.md](../plans/2026-05-12-scoreboard-pass-2.md) — shipped
+- Pass 3: [docs/superpowers/plans/2026-05-12-scoreboard-pass-3.md](../plans/2026-05-12-scoreboard-pass-3.md) — shipped
+- Pass 4: [docs/superpowers/plans/2026-05-12-scoreboard-pass-4.md](../plans/2026-05-12-scoreboard-pass-4.md) — shipped
+
+---
+
+## Pass 4 — Shipped 2026-05-12
+
+Commits on main:
+- `449fd9b` — feat(scoreboard): 90-day heatmap replaces weekly-trend sparkline
+- `3c68269` — refactor(scoreboard): Highlights uses priority queue
+- `57062f1` — feat(scoreboard): streak-at-risk + day-of-week + personal-best insights
+
+Verified at 412×915: heatmap renders as 13×7 grid in drilldown; empty cells muted, future transparent, grade tiers correctly colored. Highlights priority queue confirmed working — observed in dev data: P3 perfect-day, P5 most-improved, and P7 day-of-week-pattern rendered in priority order ("Elijah peaks on Suns (80%), dips on Mons (57%)"). Streak-at-risk and personal-best did not fire in this snapshot but the helper conditions are well-defined.
+
+**Mid-execution change of scope:** rewards page balance "spacing fix" turned out to be a `textContent` artifact — the `.rewards-balance__unit` already has `margin-left: 4px` and renders correctly. Dropped from Task 4 with no fix needed.
+
+**Findings:**
+- Heatmap is column-major in source (loops `for col → for row`) to match CSS `grid-auto-flow: column`. The earlier doc note about row-major iteration was wrong; implementer correctly used column-major.
+- `streakAtRisk` uses local-tz hour parsing on page load. Doesn't auto-update through the evening — the user must refresh after 6pm to see the warning. Acceptable for v1; if engagement plateaus, revisit with a periodic refresh.
+- `dayOfWeekPattern` requires 21+ days of snapshot history per person AND ≥2 datapoints per day-of-week AND a ≥10% best/worst delta. Will not fire for newer accounts; that's by design (avoids noisy false-positive insights).
+
+The 4-pass scoreboard rebuild is complete.
