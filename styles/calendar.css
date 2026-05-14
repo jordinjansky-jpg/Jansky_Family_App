@@ -983,3 +983,35 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   padding: 4px 10px;
   min-height: 28px;
 }
+
+/* ── Event quick-actions menu (Pass 2) ── */
+.quick-actions-sheet {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.quick-actions-sheet__title {
+  font-size: var(--font-md);
+  font-weight: 700;
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--spacing-xs);
+}
+
+.quick-actions-sheet__btn {
+  padding: var(--spacing-md);
+  font-size: var(--font-md);
+  text-align: left;
+  background: var(--surface-2);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.quick-actions-sheet__btn:hover { background: var(--surface-3); }
+.quick-actions-sheet__btn--danger { color: var(--danger); }
+.quick-actions-sheet__btn--cancel { background: none; text-align: center; color: var(--text-muted); }

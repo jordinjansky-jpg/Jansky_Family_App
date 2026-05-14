@@ -147,8 +147,8 @@ export function renderWeekView(opts) {
 
     // All-day pills (simple list)
     let allDayHtml = '';
-    for (const [, evt] of allDayEvents) {
-      allDayHtml += renderEventPill(evt, people);
+    for (const [id, evt] of allDayEvents) {
+      allDayHtml += `<div class="cal-week__event-allday" data-event-id="${esc(id)}">${renderEventPill(evt, people)}</div>`;
     }
 
     // Timed events — compact time grid
@@ -224,8 +224,8 @@ export function renderDayView(opts) {
     eventsHtml += `<div class="cal-day__section">
       <div class="cal-day__section-header cal-day__section-header--sticky">Events</div>`;
     // All-day pills
-    for (const [, evt] of allDayEvents) {
-      eventsHtml += renderEventPill(evt, people);
+    for (const [id, evt] of allDayEvents) {
+      eventsHtml += `<div class="cal-day__event-allday" data-event-id="${esc(id)}">${renderEventPill(evt, people)}</div>`;
     }
     // Timed events — same compact time grid as week view, slightly larger scale for day view
     eventsHtml += buildTimeGrid(timedEvents, people, { scale: 2, minHeight: 32 });

@@ -419,44 +419,8 @@
         render();
       });
 
-      main.querySelectorAll('.event-bubble[data-event-id]').forEach(btn => {
-        let pressTimer = null;
-        let didLongPress = false;
-        btn.addEventListener('pointerdown', () => {
-          didLongPress = false;
-          pressTimer = setTimeout(() => {
-            didLongPress = true;
-            openEventDetailSheet(btn.dataset.eventId);
-          }, settings?.longPressMs ?? 800);
-        });
-        btn.addEventListener('pointerup', () => {
-          clearTimeout(pressTimer);
-          if (!didLongPress) openEventDetailSheet(btn.dataset.eventId);
-        });
-        btn.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
-        btn.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
-        btn.addEventListener('contextmenu', (e) => e.preventDefault());
-      });
-
-      // Timed event pills in day view (wrapper divs carry data-event-id)
-      main.querySelectorAll('[data-event-id]:not(.event-bubble)').forEach(pill => {
-        let pressTimer = null;
-        let didLongPress = false;
-        pill.addEventListener('pointerdown', () => {
-          didLongPress = false;
-          pressTimer = setTimeout(() => {
-            didLongPress = true;
-            openEventDetailSheet(pill.dataset.eventId);
-          }, settings?.longPressMs ?? 800);
-        });
-        pill.addEventListener('pointerup', () => {
-          clearTimeout(pressTimer);
-          if (!didLongPress) openEventDetailSheet(pill.dataset.eventId);
-        });
-        pill.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
-        pill.addEventListener('pointercancel', () => { clearTimeout(pressTimer); });
-        pill.addEventListener('contextmenu', (e) => e.preventDefault());
-      });
+      // Event pill gesture handling (tap → detail, long-press → quick actions) is
+      // handled by the delegated attachEventGestures() handler wired at init time.
 
       main.querySelectorAll('.cal-day__task').forEach(row => {
         bindTaskRowGesture(row, {
@@ -2435,12 +2399,95 @@
     }
 
     // ══════════════════════════════════════════
+    // Event quick-actions sheet (long-press on any event pill)
+    // ══════════════════════════════════════════
+
+    function openEventQuickActions(eventId) {
+      const baseEventId = eventId.includes('__rpt_') ? eventId.split('__rpt_')[0] : eventId;
+      const event = events[baseEventId];
+      if (!event) return;
+      const sheet = `<div class="quick-actions-sheet">
+        <div class="quick-actions-sheet__title">${escapeHtml(event.name)}</div>
+        <button class="quick-actions-sheet__btn" data-action="edit" type="button">Edit</button>
+        <button class="quick-actions-sheet__btn" data-action="duplicate" type="button">Duplicate</button>
+        <button class="quick-actions-sheet__btn quick-actions-sheet__btn--danger" data-action="delete" type="button">Delete</button>
+        <button class="quick-actions-sheet__btn quick-actions-sheet__btn--cancel" id="qaCancel" type="button">Cancel</button>
+      </div>`;
+      taskSheetMount.innerHTML = renderBottomSheet(sheet);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+        if (e.target.id === 'bottomSheet') taskSheetMount.innerHTML = '';
+      });
+      document.getElementById('qaCancel')?.addEventListener('click', () => { taskSheetMount.innerHTML = ''; });
+      taskSheetMount.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const action = btn.dataset.action;
+          taskSheetMount.innerHTML = '';
+          if (action === 'edit') {
+            openEventForm(baseEventId);
+          } else if (action === 'duplicate') {
+            const copy = { ...event, name: event.name + ' (copy)' };
+            delete copy.id;
+            const newId = await pushEvent(copy);
+            events[newId] = { ...copy, id: newId };
+            render();
+            showToast('Event duplicated');
+          } else if (action === 'delete') {
+            if (await showConfirm({ title: `Delete "${event.name}"?`, danger: true, confirmLabel: 'Delete' })) {
+              await removeEvent(baseEventId);
+              delete events[baseEventId];
+              render();
+              showToast('Event deleted');
+            }
+          }
+        });
+      });
+    }
+
+    // ══════════════════════════════════════════
+    // Delegated event gesture handler (tap → detail, long-press → quick actions)
+    // ══════════════════════════════════════════
+
+    let evtPressTimer = null;
+    let evtPressDidLong = false;
+    function attachEventGestures() {
+      const root = document.body;
+      root.addEventListener('click', (e) => {
+        if (evtPressDidLong) { evtPressDidLong = false; return; }
+        const evtEl = e.target.closest('[data-event-id]');
+        if (!evtEl) return;
+        // Skip cell-level taps — those navigate to day view via their own handler
+        if (evtEl.matches('.cal-grid__cell')) return;
+        e.stopPropagation();
+        openEventDetailSheet(evtEl.dataset.eventId);
+      }, { capture: true });
+
+      root.addEventListener('pointerdown', (e) => {
+        const evtEl = e.target.closest('[data-event-id]');
+        if (!evtEl || evtEl.matches('.cal-grid__cell')) return;
+        if (evtPressTimer) clearTimeout(evtPressTimer);
+        evtPressDidLong = false;
+        evtPressTimer = setTimeout(() => {
+          evtPressDidLong = true;
+          navigator.vibrate?.(20);
+          openEventQuickActions(evtEl.dataset.eventId);
+        }, 800);
+      });
+      const cancelLong = () => { if (evtPressTimer) { clearTimeout(evtPressTimer); evtPressTimer = null; } };
+      root.addEventListener('pointerup', cancelLong);
+      root.addEventListener('pointercancel', cancelLong);
+      root.addEventListener('pointermove', cancelLong);
+    }
+
+    // ══════════════════════════════════════════
     // Initial load
     // ══════════════════════════════════════════
 
     await loadData();
     await migrateEventCategories();
     render();
+    let __evtGesturesAttached = false;
+    if (!__evtGesturesAttached) { attachEventGestures(); __evtGesturesAttached = true; }
   </script>
   <script src="/shared/dev-banner.js"></script>
 </body>
