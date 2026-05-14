@@ -1681,9 +1681,14 @@
     // ══════════════════════════════════════════
 
     function openEventDetailSheet(eventId) {
-      const event = events[eventId];
+      // Recurring events get virtual IDs like "abc123__rpt_2026-05-20" for each
+      // occurrence. Resolve to the parent ID for edit/delete; keep the occurrence
+      // date for display purposes.
+      const baseEventId = eventId.includes('__rpt_') ? eventId.split('__rpt_')[0] : eventId;
+      const occurrenceDate = eventId.includes('__rpt_') ? eventId.split('__rpt_')[1] : null; // reserved for Pass 2
+      const event = events[baseEventId];
       if (!event) return;
-      const html = renderEventDetailSheet(eventId, event, people);
+      const html = renderEventDetailSheet(baseEventId, event, people);
       taskSheetMount.innerHTML = renderBottomSheet(html);
       applyDataColors(taskSheetMount);
 
@@ -1698,17 +1703,17 @@
 
       document.getElementById('eventEdit')?.addEventListener('click', () => {
         closeTaskSheet();
-        setTimeout(() => openEventForm(eventId), 320);
+        setTimeout(() => openEventForm(baseEventId), 320);
       });
 
       document.getElementById('eventDelete')?.addEventListener('click', async () => {
         if (!await showConfirm({ title: 'Delete this event?', danger: true })) return;
-        await removeEvent(eventId);
-        delete events[eventId];
+        await removeEvent(baseEventId);
+        delete events[baseEventId];
         const updates = {};
         for (const [dk, dayEntries] of Object.entries(allSchedule)) {
           for (const [ek, entry] of Object.entries(dayEntries || {})) {
-            if (entry.type === 'event' && entry.eventId === eventId) {
+            if (entry.type === 'event' && entry.eventId === baseEventId) {
               updates[`schedule/${dk}/${ek}`] = null;
             }
           }

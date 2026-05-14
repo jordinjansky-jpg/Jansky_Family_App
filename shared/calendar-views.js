@@ -120,7 +120,7 @@ export function renderWeekView(opts) {
     const isPast = dk < today;
 
     // Events for this day
-    let dayEvents = getEventsForDate(events, dk);
+    let dayEvents = getEventsForDate(events, dk, addDays);
     dayEvents = filterEventsByPerson(dayEvents, activePerson);
     const sortedEvents = sortEvents(dayEvents);
 
@@ -201,7 +201,7 @@ export function renderDayView(opts) {
   const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {} } = opts;
 
   // Events section
-  let dayEvents = getEventsForDate(events, dateKey);
+  let dayEvents = getEventsForDate(events, dateKey, addDays);
   dayEvents = filterEventsByPerson(dayEvents, activePerson);
   const sortedEvents = sortEvents(dayEvents);
 
@@ -375,7 +375,7 @@ export function renderMonthView(opts) {
     const isPast = dk < today;
 
     // Events
-    let dayEvents = getEventsForDate(events, dk);
+    let dayEvents = getEventsForDate(events, dk, addDays);
     dayEvents = filterEventsByPerson(dayEvents, activePerson);
     const sortedEvents = sortEvents(dayEvents);
 

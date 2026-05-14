@@ -277,14 +277,22 @@ export function filterEventsByPerson(events, personId) {
  * Get events for a specific date.
  * @param {object} events - { eventId: eventObject }
  * @param {string} dateKey - YYYY-MM-DD
+ * @param {function|null} addDaysFn - optional util.addDays; when provided, recurring events are expanded
  * @returns {object} filtered events for that date
  */
-export function getEventsForDate(events, dateKey) {
+export function getEventsForDate(events, dateKey, addDaysFn = null) {
   if (!events) return {};
   const result = {};
   for (const [id, event] of Object.entries(events)) {
     if (event.date === dateKey) {
       result[id] = event;
+      continue;
+    }
+    if (event.repeat && event.repeat.type && event.repeat.type !== 'none' && addDaysFn) {
+      const occurrences = expandEventRepeats(event, id, dateKey, dateKey, addDaysFn);
+      for (const [vid, vev] of occurrences) {
+        result[vid] = vev;
+      }
     }
   }
   return result;
@@ -309,15 +317,123 @@ export function sortEvents(events) {
  * @param {object} events - { eventId: eventObject }
  * @param {string} startKey - YYYY-MM-DD
  * @param {string} endKey - YYYY-MM-DD
+ * @param {function|null} addDaysFn - optional util.addDays; when provided, recurring events are expanded
  * @returns {object} filtered events
  */
-export function getEventsForRange(events, startKey, endKey) {
+export function getEventsForRange(events, startKey, endKey, addDaysFn = null) {
   if (!events) return {};
   const result = {};
   for (const [id, event] of Object.entries(events)) {
     if (event.date >= startKey && event.date <= endKey) {
       result[id] = event;
     }
+    if (event.repeat && event.repeat.type && event.repeat.type !== 'none' && addDaysFn) {
+      const occurrences = expandEventRepeats(event, id, startKey, endKey, addDaysFn);
+      for (const [vid, vev] of occurrences) {
+        if (vid !== id) result[vid] = vev;
+      }
+    }
   }
   return result;
+}
+
+/**
+ * Expand a single event's repeat rule into individual occurrences within
+ * [startDate, endDate]. Each occurrence is a virtual event carrying the
+ * parent event's data with the occurrence date.
+ *
+ * The original (event.date) is always included if it falls in range — the
+ * repeat rule adds only subsequent occurrences.
+ *
+ * Virtual IDs follow the pattern `${parentId}__rpt_${YYYY-MM-DD}`.
+ *
+ * @param {object} event - { date, repeat?, ... }
+ * @param {string} eventId
+ * @param {string} startDate - YYYY-MM-DD inclusive
+ * @param {string} endDate - YYYY-MM-DD inclusive
+ * @param {function} addDaysFn - util.addDays (passed in to keep state.js pure)
+ * @returns {Array<[string, object]>} array of [virtualId, virtualEvent] pairs
+ */
+export function expandEventRepeats(event, eventId, startDate, endDate, addDaysFn) {
+  const out = [];
+  if (!event || !event.date) return out;
+
+  if (event.date >= startDate && event.date <= endDate) {
+    out.push([eventId, event]);
+  }
+
+  const rule = event.repeat;
+  if (!rule || !rule.type || rule.type === 'none') return out;
+
+  const endType = rule.end?.type || 'never';
+  const endDateRule = rule.end?.date || null;
+  const endCount = rule.end?.count || null;
+
+  const DOW = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'];
+  const dateToDOW = (dateKey) => {
+    const d = new Date(`${dateKey}T00:00:00Z`);
+    return DOW[d.getUTCDay()];
+  };
+
+  let cur = event.date;
+  let occurrences = 1;
+  let safety = 0;
+  while (safety++ < 5000) {
+    let next;
+    if (rule.type === 'daily') {
+      next = addDaysFn(cur, 1);
+    } else if (rule.type === 'weekly') {
+      const days = rule.days && rule.days.length > 0 ? new Set(rule.days) : null;
+      if (days) {
+        let probe = cur;
+        for (let i = 0; i < 7; i++) {
+          probe = addDaysFn(probe, 1);
+          if (days.has(dateToDOW(probe))) { next = probe; break; }
+        }
+        if (!next) next = addDaysFn(cur, 7);
+      } else {
+        next = addDaysFn(cur, 7);
+      }
+    } else if (rule.type === 'monthly') {
+      const [, , dayStr] = cur.split('-');
+      const targetDay = parseInt(dayStr, 10);
+      const d = new Date(`${cur}T00:00:00Z`);
+      const probe = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, targetDay));
+      next = probe.toISOString().slice(0, 10);
+    } else if (rule.type === 'yearly') {
+      const d = new Date(`${cur}T00:00:00Z`);
+      const probe = new Date(Date.UTC(d.getUTCFullYear() + 1, d.getUTCMonth(), d.getUTCDate()));
+      next = probe.toISOString().slice(0, 10);
+    } else if (rule.type === 'custom') {
+      const every = rule.every || 1;
+      const unit = rule.unit || 'days';
+      if (unit === 'days')        next = addDaysFn(cur, every);
+      else if (unit === 'weeks')  next = addDaysFn(cur, every * 7);
+      else if (unit === 'months') {
+        const d = new Date(`${cur}T00:00:00Z`);
+        const probe = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + every, d.getUTCDate()));
+        next = probe.toISOString().slice(0, 10);
+      } else if (unit === 'years') {
+        const d = new Date(`${cur}T00:00:00Z`);
+        const probe = new Date(Date.UTC(d.getUTCFullYear() + every, d.getUTCMonth(), d.getUTCDate()));
+        next = probe.toISOString().slice(0, 10);
+      } else break;
+    } else {
+      break;
+    }
+
+    if (!next || next <= cur) break;
+    cur = next;
+
+    if (cur > endDate) break;
+    if (endType === 'date' && endDateRule && cur > endDateRule) break;
+    occurrences += 1;
+    if (endType === 'count' && endCount && occurrences > endCount) break;
+
+    if (cur >= startDate && cur <= endDate) {
+      const virtual = { ...event, date: cur };
+      out.push([`${eventId}__rpt_${cur}`, virtual]);
+    }
+  }
+  return out;
 }
