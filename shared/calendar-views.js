@@ -161,18 +161,28 @@ export function renderWeekView(opts) {
       const task = tasks[entry.taskId] || { name: 'Unknown' };
       const person = people.find(p => p.id === entry.ownerId);
       const done = isComplete(entryKey, completions);
-      return `<label class="cal-week__task${done ? ' cal-week__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}">
-        <input type="checkbox" class="cal-week__task-check" ${done ? 'checked' : ''} data-entry-key="${entryKey}" data-date-key="${dk}">
+      const isPastDaily = dk < today && entry.rotationType === 'daily';
+      return `<div class="cal-week__task${done ? ' cal-week__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}">
+        <button class="cal-week__task-check${done ? ' cal-week__task-check--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button" aria-pressed="${done}"></button>
         ${person ? `<span class="cal-week__task-dot" data-bg-color="${person.color}"></span>` : ''}
         <span class="cal-week__task-name">${esc(task.name)}</span>
-      </label>`;
+      </div>`;
     }
 
+    const visibleRecurring = sortedRecurring.slice(0, maxPills);
+    const visibleDaily     = sortedDaily.slice(0, maxPills);
+    const overflowCount = (sortedRecurring.length - visibleRecurring.length)
+                        + (sortedDaily.length - visibleDaily.length);
+
     let recurringHtml = '';
-    for (const [entryKey, entry] of sortedRecurring) recurringHtml += taskRow(entryKey, entry);
+    for (const [entryKey, entry] of visibleRecurring) recurringHtml += taskRow(entryKey, entry);
 
     let dailyHtml = '';
-    for (const [entryKey, entry] of sortedDaily) dailyHtml += taskRow(entryKey, entry);
+    for (const [entryKey, entry] of visibleDaily) dailyHtml += taskRow(entryKey, entry);
+
+    const overflowRow = overflowCount > 0
+      ? `<div class="cal-week__task cal-week__task--overflow">+${overflowCount} more</div>`
+      : '';
 
     const dow = dayOfWeek(dk);
     const dayNum = parseInt(dk.split('-')[2], 10);
@@ -185,6 +195,7 @@ export function renderWeekView(opts) {
       <div class="cal-week__events">${eventsHtml}</div>
       ${recurringHtml ? `<div class="cal-week__tasks">${recurringHtml}</div>` : ''}
       ${dailyHtml ? `<div class="cal-week__tasks cal-week__tasks--daily">${dailyHtml}</div>` : ''}
+      ${overflowRow}
     </div>`;
   }).join('');
 
