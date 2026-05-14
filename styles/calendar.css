@@ -933,3 +933,42 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   letter-spacing: 0.02em;
   margin-top: 2px;
 }
+
+/* ── Month-cell compact event rows (Pass 2) ── */
+.cal-grid__event {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 1px 3px 1px 4px;
+  margin-top: 2px;
+  border-left: 2px solid var(--bg-color, var(--accent));
+  background: color-mix(in srgb, var(--bg-color, var(--accent)) 18%, transparent);
+  border-radius: 0 3px 3px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.cal-grid__event-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cal-grid__event-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.cal-grid__overflow {
+  font-size: 9px;
+  color: var(--text-muted);
+  padding: 1px 4px;
+  margin-top: 1px;
+  font-weight: 600;
+}

@@ -358,7 +358,6 @@ export function renderMonthView(opts) {
   const mEnd = monthEnd(mStart);
   const firstDow = dayOfWeek(mStart);
   const days = dateRange(mStart, mEnd);
-  const maxEventPills = 4;
 
   // Day-of-week headers respecting week start day
   const dowHeaders = [];
@@ -398,12 +397,20 @@ export function renderMonthView(opts) {
 
     const dayNum = parseInt(dk.split('-')[2], 10);
 
-    // Event pills (condensed for month cells)
+    // Event pills (compact for month cells — show names with owner-color accents)
+    const maxEventPills = 2;
     let eventsHtml = '';
     if (sortedEvents.length > 0) {
       const visible = sortedEvents.slice(0, maxEventPills);
       const overflow = sortedEvents.length - maxEventPills;
-      eventsHtml = visible.map(([, e]) => renderEventPill(e, people)).join('');
+      eventsHtml = visible.map(([id, e]) => {
+        const accentColor = e.color || (people.find(p => e.people?.includes(p.id))?.color) || '#5b7fd6';
+        const timeStr = !e.allDay && e.startTime ? e.startTime.replace(/:00$/, '') + ' ' : '';
+        return `<div class="cal-grid__event" data-event-id="${esc(id)}" data-bg-color="${esc(accentColor)}">
+          ${timeStr ? `<span class="cal-grid__event-time">${esc(timeStr)}</span>` : ''}
+          <span class="cal-grid__event-name">${esc(e.name)}</span>
+        </div>`;
+      }).join('');
       if (overflow > 0) eventsHtml += `<div class="cal-grid__overflow">+${overflow}</div>`;
     }
 
