@@ -1015,3 +1015,66 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
 .quick-actions-sheet__btn:hover { background: var(--surface-3); }
 .quick-actions-sheet__btn--danger { color: var(--danger); }
 .quick-actions-sheet__btn--cancel { background: none; text-align: center; color: var(--text-muted); }
+
+/* ── Day view time-axis grid (Pass 2) ── */
+.cal-day__time-axis {
+  position: relative;
+  width: 100%;
+  margin: var(--spacing-sm) 0;
+  border-top: 1px solid var(--border);
+  padding-left: 0; /* hour labels live in their own absolute layer */
+}
+
+.cal-day__hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-bottom: 1px solid var(--border);
+  height: 0;
+  pointer-events: none;
+}
+
+.cal-day__hour-label {
+  position: absolute;
+  left: 4px;
+  top: -8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--bg);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.cal-day__time-event {
+  position: absolute;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.cal-day__time-event .event-pill {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.cal-day__now-line {
+  position: absolute;
+  left: 56px;
+  right: 0;
+  height: 2px;
+  background: var(--danger);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.cal-day__now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}

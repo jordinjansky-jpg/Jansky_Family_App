@@ -78,6 +78,109 @@ function buildTimeGrid(timedEvents, people, { scale = 1.5, minHeight = 28, wrapp
 }
 
 /**
+ * Build a time-axis grid for the day view: hour labels on the left, hour
+ * dividers across, events absolutely positioned by their start/end times.
+ *
+ * Visible range adapts: clamps to [min(6am, earliest event), max(10pm, latest event)].
+ * Returns '' when no timed events to render.
+ *
+ * @param {Array} timedEvents - [[id, event], ...]
+ * @param {Array} people
+ * @param {string} todayKey
+ * @param {string} dateKey
+ */
+function buildTimeAxisGrid(timedEvents, people, todayKey, dateKey) {
+  if (timedEvents.length === 0) return '';
+
+  const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const fmtHour = (h) => {
+    const period = h < 12 || h === 24 ? 'AM' : 'PM';
+    const display = h === 0 || h === 24 ? 12 : (h > 12 ? h - 12 : h);
+    return `${display} ${period}`;
+  };
+
+  let minMin = 6 * 60;
+  let maxMin = 22 * 60;
+  for (const [, evt] of timedEvents) {
+    const s = toMin(evt.startTime);
+    const e = evt.endTime ? toMin(evt.endTime) : s + 30;
+    if (s < minMin) minMin = Math.max(0, Math.floor(s / 60) * 60);
+    if (e > maxMin) maxMin = Math.min(24 * 60, Math.ceil(e / 60) * 60);
+  }
+  const startHour = Math.floor(minMin / 60);
+  const endHour = Math.ceil(maxMin / 60);
+  const totalMin = (endHour - startHour) * 60;
+  const PX_PER_MIN = 0.9; // 54px per hour
+  const gridHeight = totalMin * PX_PER_MIN;
+
+  // Hour rows (one divider line per hour, label above)
+  let hoursHtml = '';
+  for (let h = startHour; h <= endHour; h++) {
+    const top = (h - startHour) * 60 * PX_PER_MIN;
+    hoursHtml += `<div class="cal-day__hour" style="top:${top}px"><span class="cal-day__hour-label">${fmtHour(h)}</span></div>`;
+  }
+
+  // Overlap / column assignment — same approach as buildTimeGrid
+  const parsed = timedEvents.map(([id, evt]) => {
+    const start = toMin(evt.startTime);
+    const end = evt.endTime ? toMin(evt.endTime) : start + 30;
+    return { id, evt, start, end };
+  });
+  parsed.sort((a, b) => a.start - b.start || a.end - b.end);
+  const groups = [];
+  let curGroup = [], groupEnd = 0;
+  for (const ev of parsed) {
+    if (curGroup.length > 0 && ev.start >= groupEnd) { groups.push(curGroup); curGroup = []; }
+    curGroup.push(ev);
+    groupEnd = Math.max(groupEnd, ev.end);
+  }
+  if (curGroup.length > 0) groups.push(curGroup);
+
+  const layout = new Map();
+  for (const group of groups) {
+    const cols = [];
+    for (const ev of group) {
+      let placed = false;
+      for (let ci = 0; ci < cols.length; ci++) {
+        if (ev.start >= cols[ci]) { cols[ci] = ev.end; layout.set(ev, { col: ci }); placed = true; break; }
+      }
+      if (!placed) { layout.set(ev, { col: cols.length }); cols.push(ev.end); }
+    }
+    const tc = cols.length;
+    for (const ev of group) layout.get(ev).totalCols = tc;
+  }
+
+  // Event blocks — absolute positioned by time
+  let eventsHtml = '';
+  for (const ev of parsed) {
+    const { col, totalCols } = layout.get(ev);
+    const top = (ev.start - startHour * 60) * PX_PER_MIN;
+    const height = Math.max((ev.end - ev.start) * PX_PER_MIN, 24);
+    const leftPct = (col / totalCols) * 100;
+    const widthPct = (1 / totalCols) * 100;
+    const pill = renderEventPill(ev.evt, people);
+    eventsHtml += `<div class="cal-day__time-event" data-event-id="${ev.id}" style="top:${top}px;height:${height}px;left:calc(${leftPct}% + 56px);width:calc(${widthPct}% - 56px)">${pill}</div>`;
+  }
+
+  // Current-time indicator — only when viewing today
+  let nowLineHtml = '';
+  if (dateKey === todayKey) {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    if (nowMin >= startHour * 60 && nowMin <= endHour * 60) {
+      const top = (nowMin - startHour * 60) * PX_PER_MIN;
+      nowLineHtml = `<div class="cal-day__now-line" style="top:${top}px"></div>`;
+    }
+  }
+
+  return `<div class="cal-day__time-axis" style="height:${gridHeight}px">
+    ${hoursHtml}
+    ${eventsHtml}
+    ${nowLineHtml}
+  </div>`;
+}
+
+/**
  * Render the week view.
  * @param {object} opts
  * @param {string} opts.weekStartDate - YYYY-MM-DD of the first day of the displayed week
@@ -227,8 +330,8 @@ export function renderDayView(opts) {
     for (const [id, evt] of allDayEvents) {
       eventsHtml += `<div class="cal-day__event-allday" data-event-id="${esc(id)}">${renderEventPill(evt, people)}</div>`;
     }
-    // Timed events — same compact time grid as week view, slightly larger scale for day view
-    eventsHtml += buildTimeGrid(timedEvents, people, { scale: 2, minHeight: 32 });
+    // Timed events — true time-axis grid with hour labels and current-time line
+    eventsHtml += buildTimeAxisGrid(timedEvents, people, today, dateKey);
     // Remaining events without startTime rendered as bubbles
     const untimed = sortedEvents.filter(([, e]) => !e.allDay && !e.startTime);
     for (const [eventId, event] of untimed) {
