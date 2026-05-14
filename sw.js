@@ -425,7 +425,8 @@
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
 // v182 (2026-05-14) — Agenda view added as new default mobile view (Pass 4 Task 1).
-const CACHE_NAME = 'family-hub-v304';
+// v183 (2026-05-14) — Solid color event blocks on week/day/agenda views (Pass 4 Task 2).
+const CACHE_NAME = 'family-hub-v305';
 
 const APP_SHELL = [
   '/',

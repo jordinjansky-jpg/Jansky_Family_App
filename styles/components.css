@@ -1759,30 +1759,28 @@
   margin-bottom: var(--spacing-xs);
   border-radius: var(--radius-md);
   border: none;
-  background: var(--surface);
-  border-left: 4px solid var(--event-color);
+  background: var(--event-color, var(--accent));
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   width: 100%;
   text-align: left;
   -webkit-tap-highlight-color: transparent;
 }
-.event-bubble {
-  background: color-mix(in srgb, var(--event-color) 10%, var(--surface));
-}
 .event-bubble:active { transform: scale(0.98); }
 .event-bubble__time {
   font-size: var(--font-xs);
   font-weight: 600;
-  color: var(--event-color);
+  color: rgba(255, 255, 255, 0.85);
 }
 .event-bubble__name {
   font-size: var(--font-md);
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
 }
 .event-bubble__location {
   font-size: var(--font-xs);
-  color: var(--text-faint);
+  color: rgba(255, 255, 255, 0.85);
 }
 .event-bubble__people {
   display: flex;
