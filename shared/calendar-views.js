@@ -3,7 +3,7 @@
 
 import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT, normalizePlanSlot } from './utils.js';
 import { renderEventPill, renderEventBubble } from './components.js';
-import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries } from './state.js';
+import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries, groupByFrequency } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -239,58 +239,49 @@ export function renderDayView(opts) {
     tasksHtml += `<div class="cal-day__section">
       <div class="cal-day__section-header cal-day__section-header--sticky">Tasks</div>`;
 
-    // Group by person
-    const byPerson = {};
-    for (const [key, entry] of Object.entries(filteredEntries)) {
-      const pid = entry.ownerId || '_unassigned';
-      if (!byPerson[pid]) byPerson[pid] = {};
-      byPerson[pid][key] = entry;
+    // DESIGN.md §6.2: Events → Monthly → Weekly → One-Time → Daily.
+    // Events are rendered in their own section above; here we render the 4
+    // non-event frequency groups in spec order.
+    const groups = groupByFrequency(filteredEntries, tasks, cats);
+    const groupOrder = [
+      { key: 'monthly', label: 'Monthly' },
+      { key: 'weekly',  label: 'Weekly' },
+      { key: 'once',    label: 'One-Time' },
+      { key: 'daily',   label: 'Daily' },
+    ];
+
+    function renderDayTaskRow(entryKey, entry) {
+      const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+      const cat = task.category ? cats[task.category] : null;
+      const done = isComplete(entryKey, completions);
+      const isPastDaily = dateKey < today && entry.rotationType === 'daily';
+      const todLabel = entry.timeOfDay === 'am' ? 'AM' : entry.timeOfDay === 'pm' ? 'PM' : '';
+      const doneClass = done ? ' cal-day__task--done' : '';
+      const checkClass = done ? 'cal-day__task-check cal-day__task-check--done' : 'cal-day__task-check';
+      const person = people.find(p => p.id === entry.ownerId);
+      const personDot = person ? `<span class="cal-day__task-dot" data-bg-color="${person.color}"></span>` : '';
+      return `<div class="cal-day__task${doneClass}" data-entry-key="${entryKey}" data-date-key="${dateKey}">
+        <button class="${checkClass}" data-entry-key="${entryKey}" data-date-key="${dateKey}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button"></button>
+        ${personDot}
+        ${todLabel ? `<span class="cal-day__task-tod">${todLabel}</span>` : ''}
+        <span class="cal-day__task-name">${esc(task.name)}</span>
+        ${cat?.icon ? `<span class="cal-day__task-icon">${cat.icon}</span>` : ''}
+      </div>`;
     }
 
-    // Render each person's section
-    const personOrder = people.filter(p => byPerson[p.id]).concat(
-      byPerson._unassigned ? [{ id: '_unassigned', name: 'Unassigned', color: '#999' }] : []
-    );
-
-    for (const person of personOrder) {
-      const personEntries = byPerson[person.id];
-      if (!personEntries) continue;
-      const sorted = sortEntries(personEntries, completions);
+    for (const { key, label } of groupOrder) {
+      const groupEntries = groups[key];
+      if (!groupEntries || Object.keys(groupEntries).length === 0) continue;
+      const sorted = sortEntries(groupEntries, completions, tasks, people, today);
       const incomplete = sorted.filter(([k]) => !isComplete(k, completions));
-      const completed = sorted.filter(([k]) => isComplete(k, completions));
-
-      tasksHtml += `<div class="cal-day__person">
-        <div class="cal-day__person-header" data-person-color="${person.color}">
-          <span class="cal-day__person-dot" data-bg-color="${person.color}"></span>
-          ${esc(person.name)}
-          <span class="cal-day__person-count">${completed.length}/${sorted.length}</span>
-        </div>`;
-
-      for (const [entryKey, entry] of incomplete) {
-        const task = tasks[entry.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-        const cat = task.category ? cats[task.category] : null;
-        const isPastDaily = dateKey < today && entry.rotationType === 'daily';
-        const todLabel = entry.timeOfDay === 'am' ? 'AM' : entry.timeOfDay === 'pm' ? 'PM' : '';
-        tasksHtml += `<div class="cal-day__task" data-entry-key="${entryKey}" data-date-key="${dateKey}">
-          <button class="cal-day__task-check" data-entry-key="${entryKey}" data-date-key="${dateKey}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button"></button>
-          ${todLabel ? `<span class="cal-day__task-tod">${todLabel}</span>` : ''}
-          <span class="cal-day__task-name">${esc(task.name)}</span>
-          ${cat?.icon ? `<span class="cal-day__task-icon">${cat.icon}</span>` : ''}
-        </div>`;
-      }
-
-      if (completed.length > 0) {
-        for (const [entryKey, entry] of completed) {
-          const task = tasks[entry.taskId] || { name: 'Unknown' };
-          tasksHtml += `<div class="cal-day__task cal-day__task--done" data-entry-key="${entryKey}" data-date-key="${dateKey}">
-            <button class="cal-day__task-check cal-day__task-check--done" data-entry-key="${entryKey}" data-date-key="${dateKey}" type="button"></button>
-            <span class="cal-day__task-name">${esc(task.name)}</span>
-          </div>`;
-        }
-      }
-
+      const completed  = sorted.filter(([k]) =>  isComplete(k, completions));
+      tasksHtml += `<div class="cal-day__freq-group">
+        <div class="cal-day__freq-label">${label}</div>`;
+      for (const [k, e] of incomplete) tasksHtml += renderDayTaskRow(k, e);
+      for (const [k, e] of completed)  tasksHtml += renderDayTaskRow(k, e);
       tasksHtml += `</div>`;
     }
+
     tasksHtml += `</div>`;
   }
 

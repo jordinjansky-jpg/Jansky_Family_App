@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v294 (2026-05-13) — Pass 1 — Calendar day view: group tasks by frequency
+//                     (Monthly → Weekly → One-Time → Daily) per DESIGN.md §6.2;
+//                     replaces per-person grouping; owner dot preserved on each row.
 // v275 (2026-05-13) — Pass 2 — Person switcher: replace native <select> with
 //                     avatar chip + bottom sheet; persist selection to localStorage.
 // v274 (2026-05-13) — Pass 1 — Feature M: surface reward descriptions on
@@ -421,7 +424,7 @@
 // v179 (2026-05-07) — Imports tab reorganized: Connected / Scan & Import / Review Queue sections; iCal feeds in Connected.
 // v180 (2026-05-07) — Imports layout reworked: section labels + border-top rhythm, no bordered cards, consistent admin list spacing.
 // v181 (2026-05-07) — iCal form: suppress URL focus chrome, chip scroll fix, primary/attending state machine, tf-rot-pill interval.
-const CACHE_NAME = 'family-hub-v293';
+const CACHE_NAME = 'family-hub-v294';
 
 const APP_SHELL = [
   '/',
