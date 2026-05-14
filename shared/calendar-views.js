@@ -3,7 +3,7 @@
 
 import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT, normalizePlanSlot } from './utils.js';
 import { renderEventPill, renderEventBubble } from './components.js';
-import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries, groupByFrequency } from './state.js';
+import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries, groupByFrequency, getEventsForRange } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -544,9 +544,9 @@ export function renderMonthView(opts) {
  * Render the calendar page header with view navigation.
  */
 export function renderCalendarNav(opts) {
-  const { currentView, viewLabel, isCurrentPeriod, weekStartDay, controlsHtml = '', subtitle = '', titleDateValue = '' } = opts;
+  const { currentView, viewLabel, isCurrentPeriod, weekStartDay, controlsHtml = '', subtitle = '', titleDateValue = '', navMode = 'period' } = opts;
 
-  return `<div class="cal-nav">
+  return `<div class="cal-nav${navMode === 'agenda' ? ' cal-nav--agenda' : ''}">
     <div class="cal-nav__row cal-nav__row--title">
       <button class="date-nav__btn" id="prevPeriod" type="button" title="Previous">&lsaquo;</button>
       <div class="cal-nav__center">
@@ -561,9 +561,10 @@ export function renderCalendarNav(opts) {
     </div>
     <div class="cal-nav__row cal-nav__row--controls">
       <div class="segmented-control cal-nav__view-seg" role="tablist" aria-label="View">
-        <button class="segmented-btn${currentView === 'week'  ? ' segmented-btn--active' : ''}" data-cal-view="week"  type="button" role="tab">Week</button>
-        <button class="segmented-btn${currentView === 'month' ? ' segmented-btn--active' : ''}" data-cal-view="month" type="button" role="tab">Month</button>
-        <button class="segmented-btn${currentView === 'day'   ? ' segmented-btn--active' : ''}" data-cal-view="day"   type="button" role="tab">Day</button>
+        <button class="segmented-btn${currentView === 'agenda' ? ' segmented-btn--active' : ''}" data-cal-view="agenda" type="button" role="tab">Agenda</button>
+        <button class="segmented-btn${currentView === 'week'   ? ' segmented-btn--active' : ''}" data-cal-view="week"   type="button" role="tab">Week</button>
+        <button class="segmented-btn${currentView === 'month'  ? ' segmented-btn--active' : ''}" data-cal-view="month"  type="button" role="tab">Month</button>
+        <button class="segmented-btn${currentView === 'day'    ? ' segmented-btn--active' : ''}" data-cal-view="day"    type="button" role="tab">Day</button>
       </div>
       <div class="cal-nav__controls">
         ${controlsHtml}
@@ -573,4 +574,117 @@ export function renderCalendarNav(opts) {
       </div>
     </div>
   </div>`;
+}
+
+/**
+ * Render the agenda view — a chronological scrollable list of upcoming events.
+ * - Range: from today through addDays(today, 60). Empty days hidden.
+ * - Each event renders as a card: time | name | location (if any) with a fat
+ *   person-color left stripe and a tinted background.
+ * - Date headers group events by day; today gets a "Today" pill.
+ * - Tap an event → opens the event detail sheet (handled by the existing
+ *   delegated event-gesture listener that looks for [data-event-id]).
+ *
+ * @param {object} opts - { today, events, people, activePerson }
+ */
+export function renderAgendaView(opts) {
+  const { today, events, people, activePerson } = opts;
+
+  // 60-day forward window.
+  const rangeEnd = addDays(today, 60);
+
+  // Expand recurring + multi-day occurrences in the window via existing path.
+  const expandedMap = getEventsForRange(events, today, rangeEnd, addDays);
+  const expanded = filterEventsByPerson(expandedMap, activePerson);
+
+  // Group by date, fanning multi-day events across each spanned day.
+  const byDate = new Map();
+  for (const [id, evt] of Object.entries(expanded)) {
+    const startDate = evt.date < today ? today : evt.date;
+    const endDate = evt.endDate || evt.date;
+    const finalEnd = endDate > rangeEnd ? rangeEnd : endDate;
+    let cur = startDate;
+    while (cur <= finalEnd) {
+      if (!byDate.has(cur)) byDate.set(cur, []);
+      byDate.get(cur).push([id, evt]);
+      cur = addDays(cur, 1);
+    }
+  }
+
+  // Sort each day chronologically: all-day first, then by startTime.
+  for (const [, items] of byDate) {
+    items.sort(([, a], [, b]) => {
+      if (a.allDay && !b.allDay) return -1;
+      if (!a.allDay && b.allDay) return 1;
+      return (a.startTime || '').localeCompare(b.startTime || '');
+    });
+  }
+
+  // Render sorted date groups.
+  const sortedDates = Array.from(byDate.keys()).sort();
+  if (sortedDates.length === 0) {
+    return `<div class="cal-agenda"><div class="cal-agenda__empty">
+      <div class="cal-agenda__empty-icon">📅</div>
+      <div class="cal-agenda__empty-title">Nothing on the calendar</div>
+      <div class="cal-agenda__empty-body">Events in the next 60 days will appear here.</div>
+    </div></div>`;
+  }
+
+  let html = `<div class="cal-agenda">`;
+  for (const dk of sortedDates) {
+    const items = byDate.get(dk);
+    const d = new Date(`${dk}T00:00:00Z`);
+    const monthName = MONTH_NAMES[d.getUTCMonth()];
+    const dayNum = d.getUTCDate();
+    const dowName = DAY_NAMES_FULL[d.getUTCDay()];
+    const todayPill = dk === today ? ` <span class="cal-agenda__today-pill">Today</span>` : '';
+    html += `<div class="cal-agenda__date" data-date="${esc(dk)}">
+      <span class="cal-agenda__date-dow">${dowName}</span>
+      <span class="cal-agenda__date-num">${monthName} ${dayNum}</span>
+      ${todayPill}
+    </div>`;
+    for (const [id, evt] of items) {
+      html += renderAgendaEvent(id, evt, people);
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderAgendaEvent(id, event, people) {
+  const personColor = event.color
+    || (people.find(p => event.people?.includes(p.id))?.color)
+    || '#5b7fd6';
+  const isMulti = (event.people || []).length > 1;
+  const otherColors = isMulti
+    ? (event.people || [])
+        .map(pid => people.find(p => p.id === pid)?.color)
+        .filter(Boolean)
+    : [];
+
+  let timeStr;
+  if (event.allDay) timeStr = 'All day';
+  else if (event.startTime && event.endTime) timeStr = `${event.startTime} – ${event.endTime}`;
+  else if (event.startTime) timeStr = event.startTime;
+  else timeStr = '';
+
+  // Multi-day badge for events that span more than one day
+  const startDate = event.date;
+  const endDate = event.endDate || event.date;
+  const spans = endDate > startDate;
+  const spanBadge = spans ? `<span class="cal-agenda__event-span">${esc(startDate)} – ${esc(endDate)}</span>` : '';
+
+  const peopleBadges = isMulti
+    ? `<div class="cal-agenda__event-people">${otherColors.map(c => `<span class="cal-agenda__event-dot" data-bg-color="${esc(c)}"></span>`).join('')}</div>`
+    : '';
+
+  return `<button class="cal-agenda__event" data-event-id="${esc(id)}" data-bg-color="${esc(personColor)}" type="button">
+    <div class="cal-agenda__event-time">${esc(timeStr)}</div>
+    <div class="cal-agenda__event-body">
+      <div class="cal-agenda__event-name">${esc(event.name || 'Untitled event')}</div>
+      ${event.location ? `<div class="cal-agenda__event-loc">${esc(event.location)}</div>` : ''}
+      ${spanBadge}
+    </div>
+    ${peopleBadges}
+  </button>`;
 }

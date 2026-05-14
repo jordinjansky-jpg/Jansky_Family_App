@@ -46,7 +46,7 @@
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
-    import { renderWeekView, renderDayView, renderMonthView, renderCalendarNav } from './shared/calendar-views.js';
+    import { renderWeekView, renderDayView, renderMonthView, renderCalendarNav, renderAgendaView } from './shared/calendar-views.js';
     import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
@@ -87,7 +87,7 @@
     let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
     let density = calPrefs.density || calDefaults.density || 'snug';
     let showDailyInWeek = calPrefs.showDailyInWeek ?? calDefaults.showDailyInWeek ?? true;
-    const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'week';
+    const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'agenda';
 
     // ── Person link mode ──
     const personParam = new URLSearchParams(window.location.search).get('person');
@@ -193,8 +193,11 @@
         return;
       }
 
-      // Week or Month view
-      if (currentView === 'week') {
+      // Agenda, Week, or Month view — compute nav label + period state
+      if (currentView === 'agenda') {
+        navLabel = 'Upcoming';
+        isCurrentPeriod = true; // no prev/next concept for agenda
+      } else if (currentView === 'week') {
         const weekEnd = addDays(viewWeekStart, 6);
         const m1 = MONTH_NAMES[monthNumber(viewWeekStart) - 1];
         const m2 = monthNumber(viewWeekStart) !== monthNumber(weekEnd) ? ' – ' + MONTH_NAMES[monthNumber(weekEnd) - 1] : '';
@@ -235,13 +238,17 @@
       // near the currently-visible period, not 1970).
       const titleDateValue = currentView === 'week' ? viewWeekStart
         : currentView === 'month' ? `${viewMonth}-01`
+        : currentView === 'agenda' ? today
         : viewDay;
 
-      let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml, subtitle: navSubtitle, titleDateValue });
+      const navMode = currentView === 'agenda' ? 'agenda' : 'period';
+      let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml, subtitle: navSubtitle, titleDateValue, navMode });
       html += renderPersonFilter(people, activePerson);
 
       html += `<div class="${enterCls} ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
-      if (currentView === 'week') {
+      if (currentView === 'agenda') {
+        html += renderAgendaView({ today, events, people, activePerson });
+      } else if (currentView === 'week') {
         html += renderWeekView({
           weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, showDailyInWeek
         });
