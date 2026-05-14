@@ -335,6 +335,7 @@
           render();
         });
       });
+      document.getElementById('calSearchBtn')?.addEventListener('click', openCalendarSearchSheet);
 
       // Inline density toggle
       main.querySelectorAll('[data-ctl-density]').forEach(btn => btn.addEventListener('click', () => {
@@ -2433,6 +2434,80 @@
 
       localStorage.setItem('dr-events-migrated', 'true');
     }
+
+    // ══════════════════════════════════════════
+    // Calendar search sheet (Pass 3)
+    // ══════════════════════════════════════════
+
+    function openCalendarSearchSheet() {
+        const sheet = `<div class="cal-search">
+          <div class="cal-search__header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="calSearchInput" placeholder="Search events…" autocomplete="off" autofocus>
+            <button id="calSearchClose" class="ef2-icon-btn" type="button" aria-label="Close">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="cal-search__results" id="calSearchResults">
+            <div class="cal-search__empty">Type to search across all events.</div>
+          </div>
+        </div>`;
+        taskSheetMount.innerHTML = renderBottomSheet(sheet);
+        requestAnimationFrame(() => {
+          document.getElementById('bottomSheet')?.classList.add('active');
+          document.getElementById('calSearchInput')?.focus();
+        });
+        document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
+          if (e.target.id === 'bottomSheet') taskSheetMount.innerHTML = '';
+        });
+        document.getElementById('calSearchClose')?.addEventListener('click', () => { taskSheetMount.innerHTML = ''; });
+
+        const input = document.getElementById('calSearchInput');
+        const results = document.getElementById('calSearchResults');
+        const renderResults = (query) => {
+          const q = query.trim().toLowerCase();
+          if (!q) {
+            results.innerHTML = `<div class="cal-search__empty">Type to search across all events.</div>`;
+            return;
+          }
+          const matches = Object.entries(events).filter(([, e]) => {
+            const haystack = `${e.name || ''} ${e.location || ''} ${e.notes || ''}`.toLowerCase();
+            return haystack.includes(q);
+          });
+          matches.sort(([, a], [, b]) => (a.date || '').localeCompare(b.date || ''));
+          if (matches.length === 0) {
+            results.innerHTML = `<div class="cal-search__empty">No events match "${escapeHtml(query)}".</div>`;
+            return;
+          }
+          const byDate = new Map();
+          for (const [id, evt] of matches) {
+            const dk = evt.date || '';
+            if (!byDate.has(dk)) byDate.set(dk, []);
+            byDate.get(dk).push([id, evt]);
+          }
+          let html = '';
+          for (const [dk, items] of byDate) {
+            html += `<div class="cal-search__date">${escapeHtml(formatDateLong(dk))}</div>`;
+            for (const [id, evt] of items) {
+              const timeStr = !evt.allDay && evt.startTime ? evt.startTime.replace(/:00$/, '') : (evt.allDay ? 'All day' : '');
+              const locStr = evt.location ? ` · ${escapeHtml(evt.location)}` : '';
+              html += `<button class="cal-search__result" data-event-id="${escapeHtml(id)}" type="button">
+                <span class="cal-search__result-name">${escapeHtml(evt.name || '(untitled)')}</span>
+                <span class="cal-search__result-meta">${escapeHtml(timeStr)}${locStr}</span>
+              </button>`;
+            }
+          }
+          results.innerHTML = html;
+          results.querySelectorAll('.cal-search__result').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const eventId = btn.dataset.eventId;
+              taskSheetMount.innerHTML = '';
+              setTimeout(() => openEventDetailSheet(eventId), 200);
+            });
+          });
+        };
+        input.addEventListener('input', (e) => renderResults(e.target.value));
+      }
 
     // ══════════════════════════════════════════
     // Event quick-actions sheet (long-press on any event pill)
