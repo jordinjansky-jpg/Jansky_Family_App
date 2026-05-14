@@ -890,3 +890,46 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   flex-shrink: 0;
   background: var(--person-color, var(--accent));
 }
+
+/* ── Calendar nav title button + date jump (Pass 1) ── */
+.cal-nav__title-btn {
+  position: relative;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cal-nav__title-btn:hover,
+.cal-nav__title-btn:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.cal-nav__title-date-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Subtitle under the period label */
+.cal-nav__subtitle {
+  display: block;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}

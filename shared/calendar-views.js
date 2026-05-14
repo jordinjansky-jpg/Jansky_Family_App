@@ -434,7 +434,7 @@ export function renderMonthView(opts) {
  * Render the calendar page header with view navigation.
  */
 export function renderCalendarNav(opts) {
-  const { currentView, viewLabel, isCurrentPeriod, weekStartDay, controlsHtml = '' } = opts;
+  const { currentView, viewLabel, isCurrentPeriod, weekStartDay, controlsHtml = '', subtitle = '', titleDateValue = '' } = opts;
   const switchLabel = currentView === 'week' ? 'Month' : 'Week';
   // Monoline SVG icons — all 16×16, 1.5px stroke, consistent visual weight
   const switchIcon = currentView === 'week'
@@ -445,7 +445,11 @@ export function renderCalendarNav(opts) {
     <div class="cal-nav__row">
       <button class="date-nav__btn" id="prevPeriod" type="button" title="Previous">&lsaquo;</button>
       <div class="cal-nav__center">
-        <span class="cal-nav__label">${viewLabel}</span>
+        <button class="cal-nav__title-btn" id="calTitleBtn" type="button" aria-label="Jump to date">
+          <span class="cal-nav__label">${viewLabel}</span>
+          <input type="date" id="calTitleDateInput" class="cal-nav__title-date-input" value="${esc(titleDateValue)}" aria-hidden="true" tabindex="-1">
+        </button>
+        ${subtitle ? `<span class="cal-nav__subtitle">${esc(subtitle)}</span>` : ''}
         ${!isCurrentPeriod ? `<button class="cal-today-link" id="goToday" type="button">Today</button>` : ''}
       </div>
       <button class="date-nav__btn" id="nextPeriod" type="button" title="Next">&rsaquo;</button>

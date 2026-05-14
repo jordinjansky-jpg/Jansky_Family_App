@@ -172,7 +172,9 @@
           </div>
           <div class="cal-day-header__meta">
             ${prog.total > 0 ? `<span>${prog.done}/${prog.total}</span>` : ''}
-            <button class="date-nav__btn" id="backToWeek" type="button" title="Back to week">&times;</button>
+            <button class="date-nav__btn" id="backToWeek" type="button" title="Back" aria-label="Back">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
           </div>
         </div>`;
 
@@ -218,7 +220,24 @@
           <button class="cal-controls__toggle${showDailyInWeek ? ' active' : ''}" data-ctl-daily="${showDailyInWeek ? 'false' : 'true'}" type="button" title="${showDailyInWeek ? 'Hide daily tasks' : 'Show daily tasks'}">
             ${dailyIcon}
           </button>` : '';
-      let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml });
+      // Compute small subtitle under the period label
+      let navSubtitle = '';
+      if (currentView === 'week') {
+        const weekEndKey = addDays(viewWeekStart, 6);
+        navSubtitle = `${formatDateShort(viewWeekStart)} – ${formatDateShort(weekEndKey)}`;
+      } else if (currentView === 'day') {
+        // formatDateLong returns 'Wednesday, May 13, 2026' — keep just the day-of-week
+        const longLabel = formatDateLong(viewDay);
+        navSubtitle = longLabel.split(',')[0] || '';
+      }
+
+      // Date the title's hidden date picker should default to (so the picker opens
+      // near the currently-visible period, not 1970).
+      const titleDateValue = currentView === 'week' ? viewWeekStart
+        : currentView === 'month' ? `${viewMonth}-01`
+        : viewDay;
+
+      let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml, subtitle: navSubtitle, titleDateValue });
       html += renderPersonFilter(people, activePerson);
 
       html += `<div class="${enterCls} ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
@@ -282,6 +301,27 @@
         if (currentView === 'week') viewWeekStart = weekStartForDay(today, weekStartDay);
         else viewMonth = today.substring(0, 7);
         render();
+      });
+
+      document.getElementById('calTitleDateInput')?.addEventListener('change', (e) => {
+        const newDate = e.target.value;
+        if (!newDate) return;
+        if (currentView === 'week') {
+          viewWeekStart = weekStartForDay(newDate, weekStartDay);
+        } else if (currentView === 'month') {
+          viewMonth = newDate.slice(0, 7);
+        } else {
+          viewDay = newDate;
+        }
+        render();
+      });
+
+      document.getElementById('calTitleBtn')?.addEventListener('click', (e) => {
+        const input = document.getElementById('calTitleDateInput');
+        if (input && e.target !== input) {
+          if (typeof input.showPicker === 'function') input.showPicker();
+          else input.click();
+        }
       });
 
       document.getElementById('viewSwitcher')?.addEventListener('click', () => {
