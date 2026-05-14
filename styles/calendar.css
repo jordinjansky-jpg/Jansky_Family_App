@@ -141,7 +141,7 @@
 .event-pill {
   padding: 4px 8px;
   border-radius: 6px;
-  background: var(--event-bg, var(--accent));
+  background: color-mix(in srgb, var(--event-bg, var(--accent)) 50%, var(--surface));
   color: #fff;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
   font-size: var(--font-xs);
@@ -165,7 +165,7 @@
 }
 /* Timed events — calendar-block style with left color bar */
 .event-pill--timed {
-  background: var(--event-bg, var(--accent));
+  background: color-mix(in srgb, var(--event-bg, var(--accent)) 50%, var(--surface));
   border-left: none;
   color: #fff;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
@@ -1260,7 +1260,7 @@
   gap: var(--spacing-md);
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--bg-color, var(--accent));
+  background: color-mix(in srgb, var(--event-color, var(--accent)) 50%, var(--surface));
   border: none;
   border-radius: var(--radius-md);
   color: #fff;

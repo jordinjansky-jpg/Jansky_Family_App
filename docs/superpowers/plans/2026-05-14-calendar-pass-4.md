@@ -496,3 +496,306 @@ EOF
 - BLOCKED
 
 Under 150 words.
+
+---
+
+## Task 2: Solid color-fill event blocks (week + day grid)
+
+**Goal:** Match the agenda's vibrant color identity — events on week and day grids become solid color blocks (like Skylight / Apple Calendar) instead of soft tints with a 3px stripe. Person color = block color. White text on the saturated person color. Multi-person stays as gradient blend.
+
+**Files (3):**
+- `styles/calendar.css` — rework `.event-pill`, `.event-pill--timed`, `.event-bubble` styles
+- `shared/components.js` — `renderEventBubble` (drop `event-bubble__time` opacity if needed) — but mostly CSS-only
+- `sw.js` — bump cache v304 → v305
+
+### Step 1 — Replace soft-tint `.event-pill` rules with solid-fill rules
+
+Currently in `styles/calendar.css` (lines 141-228 region) the pills use tint + stripe. We're swapping to solid color blocks.
+
+REPLACE these CSS rules:
+
+```css
+.event-pill {
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: white;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+```
+
+WITH:
+
+```css
+.event-pill {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--event-bg, var(--accent));
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+```
+
+REMOVE the `html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed)` rule entirely (lines 164-170) — we no longer want the tinted-when-not-vivid fallback. All themes get solid blocks.
+
+REPLACE `.event-pill--timed`:
+
+```css
+.event-pill--timed {
+  background: color-mix(in srgb, var(--event-bg) 15%, var(--surface)) !important;
+  border-left: 3px solid var(--event-bg);
+  color: var(--text);
+  flex-direction: column;
+  align-items: flex-start;
+  white-space: normal;
+  gap: 0;
+  padding: 3px 5px 3px 4px;
+}
+```
+
+WITH:
+
+```css
+.event-pill--timed {
+  background: var(--event-bg, var(--accent));
+  border-left: none;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  flex-direction: column;
+  align-items: flex-start;
+  white-space: normal;
+  gap: 1px;
+  padding: 4px 6px;
+}
+```
+
+REPLACE `.event-pill__time`:
+
+```css
+.event-pill__time {
+  font-size: var(--font-xs);
+  font-weight: 400;
+  opacity: 0.7;
+  line-height: 1.2;
+}
+```
+
+WITH:
+
+```css
+.event-pill__time {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.9;
+  line-height: 1.2;
+  color: #fff;
+}
+```
+
+REPLACE `.event-pill--multi.event-pill--timed`:
+
+```css
+.event-pill--multi.event-pill--timed {
+  border-left-width: 4px;
+  border-left-style: solid;
+  color: var(--text);
+  text-shadow: none;
+}
+```
+
+WITH:
+
+```css
+.event-pill--multi.event-pill--timed {
+  /* multi-person: gradient bg is set via inline style by applyDataColors */
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+```
+
+### Step 2 — Make multi-person all-day use full gradient
+
+The current `.event-pill--multi` rule applies to all-day multi-person pills (full color with text shadow). Keep it as is, but verify that `eventAllDayBg` in `components.js` returns the gradient that gets propagated by `applyDataColors`. No code change needed — the existing data-bg-color attribute already drives it.
+
+### Step 3 — Refresh `.event-bubble` (day view) to match
+
+Find `.event-bubble` in `styles/calendar.css`. The bubble already uses `--event-color` for backgrounds.
+
+Locate the rule (search `.event-bubble {`). REPLACE the bg/color rules so the bubble is a solid color block:
+
+```css
+.event-bubble {
+  background: var(--event-color, var(--accent));
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  /* keep everything else: padding, radius, layout, etc. */
+}
+```
+
+If the current `.event-bubble` rule already does this, leave it alone. If it uses `color-mix` or tint, replace.
+
+For `.event-bubble__time`: ensure it inherits color #fff with opacity 0.85. If it has `color: var(--text-muted)`, change to `color: rgba(255, 255, 255, 0.85)`.
+
+For `.event-bubble__location` and `.event-bubble__people`: same treatment — `color: rgba(255, 255, 255, 0.85)` for location text; dots already get an outline border.
+
+### Step 4 — Update agenda card to match (consistency)
+
+Per the existing implementation in `.cal-agenda__event`, the cards use a 16% tint + 5px stripe. To match the new vibrant solid look:
+
+REPLACE:
+
+```css
+.cal-agenda__event {
+  ...
+  background: color-mix(in srgb, var(--bg-color, var(--accent)) 16%, var(--surface));
+  border: none;
+  border-left: 5px solid var(--bg-color, var(--accent));
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--text);
+  ...
+}
+```
+
+WITH:
+
+```css
+.cal-agenda__event {
+  ...
+  background: var(--bg-color, var(--accent));
+  border: none;
+  border-radius: var(--radius-md);
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  ...
+}
+```
+
+And the hover state:
+
+```css
+.cal-agenda__event:hover,
+.cal-agenda__event:focus-visible {
+  background: color-mix(in srgb, var(--bg-color, var(--accent)) 24%, var(--surface));
+  outline: none;
+}
+```
+
+WITH:
+
+```css
+.cal-agenda__event:hover,
+.cal-agenda__event:focus-visible {
+  filter: brightness(1.1);
+  outline: none;
+}
+```
+
+And `.cal-agenda__event-time` (currently `color: var(--text-muted)`):
+
+REPLACE WITH:
+
+```css
+.cal-agenda__event-time {
+  flex-shrink: 0;
+  width: 64px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+  padding-top: 3px;
+}
+```
+
+And `.cal-agenda__event-name` (currently `color: var(--text)`):
+
+REPLACE WITH:
+
+```css
+.cal-agenda__event-name {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+```
+
+And `.cal-agenda__event-loc, .cal-agenda__event-span` (currently `color: var(--text-muted)`):
+
+REPLACE WITH:
+
+```css
+.cal-agenda__event-loc,
+.cal-agenda__event-span {
+  font-size: var(--font-xs);
+  color: rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+```
+
+### Step 5 — Bump cache
+
+In `sw.js`, change `const CACHE_NAME = 'family-hub-v304'` to `v305`.
+
+### Step 6 — Commit
+
+```bash
+git add styles/calendar.css sw.js
+git commit -m "$(cat <<'EOF'
+feat(calendar): solid color event blocks (Pass 4 Task 2)
+
+Events on week, day, and agenda views now render as full-color
+blocks using the person's color (instead of soft tints with a
+left stripe). Matches Skylight / Apple Calendar visual DNA.
+
+Single-person events: solid background = person color, white
+text with subtle text-shadow for contrast on lighter colors.
+Multi-person events: gradient blend (all-day) or solid (timed)
+with the same white-text treatment.
+
+This makes event identity instantly readable at a glance —
+the calendar finally looks like a calendar instead of a list
+of bordered cards.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Self-review checklist
+- 2 files modified (calendar.css, sw.js); components.js untouched unless `.event-bubble__time` needed JS-side change
+- `.event-pill` (all-day, week + month grids): solid bg, white text + shadow
+- `.event-pill--timed` (timed, week grid): solid bg, white text, NO left border (border-left: none)
+- `.event-pill__time` and time-inside-timed: white with 0.9 opacity
+- `.event-bubble` (day view, untimed): solid bg, white text
+- `.cal-agenda__event` (agenda view): solid bg, white text, drop 5px stripe (whole card is color)
+- Hover: filter brightness, not bg tint shift
+- Cache bumped v304 → v305
+- No `border-left` strips remaining on event variants
+- Verified: contrast OK on all 5 family colors (blue, purple, green, orange, default)
+
+### Report under 150 words
+- DONE — commit SHA
+- DONE_WITH_CONCERNS
+- NEEDS_CONTEXT
+- BLOCKED
+

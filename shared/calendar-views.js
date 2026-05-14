@@ -678,7 +678,7 @@ function renderAgendaEvent(id, event, people) {
     ? `<div class="cal-agenda__event-people">${otherColors.map(c => `<span class="cal-agenda__event-dot" data-bg-color="${esc(c)}"></span>`).join('')}</div>`
     : '';
 
-  return `<button class="cal-agenda__event" data-event-id="${esc(id)}" data-bg-color="${esc(personColor)}" type="button">
+  return `<button class="cal-agenda__event" data-event-id="${esc(id)}" data-event-color="${esc(personColor)}" type="button">
     <div class="cal-agenda__event-time">${esc(timeStr)}</div>
     <div class="cal-agenda__event-body">
       <div class="cal-agenda__event-name">${esc(event.name || 'Untitled event')}</div>

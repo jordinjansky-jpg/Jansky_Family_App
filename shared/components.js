@@ -2757,9 +2757,13 @@ export function renderEventPill(event, people = []) {
   }
 
   // All-day: solid or gradient blend (vivid) / soft tint (non-vivid)
+  // Multi-person bg is a CSS gradient — needs inline style via data-bg-color.
+  // Single-person bg is just a hex — let CSS color-mix handle it via --event-bg
+  // (set by data-event-bg) so we can blend with the surface for tonal control.
   const bg = eventAllDayBg(event, people);
   const barColor = event.color || '#5b7fd6';
-  return `<div class="event-pill${isMulti ? ' event-pill--multi' : ''}" data-bg-color="${esc(bg)}" data-event-bg="${esc(barColor)}">
+  const bgAttr = isMulti ? ` data-bg-color="${esc(bg)}"` : '';
+  return `<div class="event-pill${isMulti ? ' event-pill--multi' : ''}"${bgAttr} data-event-bg="${esc(barColor)}">
     <span class="event-pill__text">${esc(event.name)}</span>
     ${dotsHtml}
   </div>`;
