@@ -972,3 +972,14 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
   margin-top: 1px;
   font-weight: 600;
 }
+
+/* ── Cal nav segmented view switcher (Pass 2) ── */
+.cal-nav__view-seg {
+  flex-shrink: 0;
+}
+
+.cal-nav__view-seg .segmented-btn {
+  font-size: var(--font-xs);
+  padding: 4px 10px;
+  min-height: 28px;
+}

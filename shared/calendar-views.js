@@ -442,11 +442,6 @@ export function renderMonthView(opts) {
  */
 export function renderCalendarNav(opts) {
   const { currentView, viewLabel, isCurrentPeriod, weekStartDay, controlsHtml = '', subtitle = '', titleDateValue = '' } = opts;
-  const switchLabel = currentView === 'week' ? 'Month' : 'Week';
-  // Monoline SVG icons — all 16×16, 1.5px stroke, consistent visual weight
-  const switchIcon = currentView === 'week'
-    ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="5.5" y1="6" x2="5.5" y2="13.5"/><line x1="10.5" y1="6" x2="10.5" y2="13.5"/><line x1="1.5" y1="9.5" x2="14.5" y2="9.5"/></svg>`
-    : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="2" y1="13" x2="14" y2="13"/></svg>`;
 
   return `<div class="cal-nav">
     <div class="cal-nav__row">
@@ -461,7 +456,11 @@ export function renderCalendarNav(opts) {
       </div>
       <button class="date-nav__btn" id="nextPeriod" type="button" title="Next">&rsaquo;</button>
       <div class="cal-nav__controls">
-        <button class="cal-nav__view-btn" id="viewSwitcher" type="button" title="Switch to ${switchLabel}">${switchIcon}</button>
+        <div class="segmented-control cal-nav__view-seg" role="tablist" aria-label="View">
+          <button class="segmented-btn${currentView === 'week'  ? ' segmented-btn--active' : ''}" data-cal-view="week"  type="button" role="tab">Week</button>
+          <button class="segmented-btn${currentView === 'month' ? ' segmented-btn--active' : ''}" data-cal-view="month" type="button" role="tab">Month</button>
+          <button class="segmented-btn${currentView === 'day'   ? ' segmented-btn--active' : ''}" data-cal-view="day"   type="button" role="tab">Day</button>
+        </div>
         ${controlsHtml}
       </div>
     </div>

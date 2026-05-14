@@ -324,9 +324,16 @@
         }
       });
 
-      document.getElementById('viewSwitcher')?.addEventListener('click', () => {
-        currentView = currentView === 'week' ? 'month' : 'week';
-        render();
+      document.querySelectorAll('.cal-nav__view-seg [data-cal-view]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const view = btn.dataset.calView;
+          if (view === currentView) return;
+          currentView = view;
+          // When user picks Day from the switcher, default to today.
+          if (currentView === 'day') viewDay = today;
+          saveCalPrefs();
+          render();
+        });
       });
 
       // Inline density toggle
