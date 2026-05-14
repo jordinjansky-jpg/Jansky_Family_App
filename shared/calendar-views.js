@@ -547,7 +547,7 @@ export function renderCalendarNav(opts) {
   const { currentView, viewLabel, isCurrentPeriod, weekStartDay, controlsHtml = '', subtitle = '', titleDateValue = '' } = opts;
 
   return `<div class="cal-nav">
-    <div class="cal-nav__row">
+    <div class="cal-nav__row cal-nav__row--title">
       <button class="date-nav__btn" id="prevPeriod" type="button" title="Previous">&lsaquo;</button>
       <div class="cal-nav__center">
         <button class="cal-nav__title-btn" id="calTitleBtn" type="button" aria-label="Jump to date">
@@ -558,16 +558,18 @@ export function renderCalendarNav(opts) {
         ${!isCurrentPeriod ? `<button class="cal-today-link" id="goToday" type="button">Today</button>` : ''}
       </div>
       <button class="date-nav__btn" id="nextPeriod" type="button" title="Next">&rsaquo;</button>
+    </div>
+    <div class="cal-nav__row cal-nav__row--controls">
+      <div class="segmented-control cal-nav__view-seg" role="tablist" aria-label="View">
+        <button class="segmented-btn${currentView === 'week'  ? ' segmented-btn--active' : ''}" data-cal-view="week"  type="button" role="tab">Week</button>
+        <button class="segmented-btn${currentView === 'month' ? ' segmented-btn--active' : ''}" data-cal-view="month" type="button" role="tab">Month</button>
+        <button class="segmented-btn${currentView === 'day'   ? ' segmented-btn--active' : ''}" data-cal-view="day"   type="button" role="tab">Day</button>
+      </div>
       <div class="cal-nav__controls">
+        ${controlsHtml}
         <button class="cal-nav__icon-btn" id="calSearchBtn" type="button" aria-label="Search">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
-        <div class="segmented-control cal-nav__view-seg" role="tablist" aria-label="View">
-          <button class="segmented-btn${currentView === 'week'  ? ' segmented-btn--active' : ''}" data-cal-view="week"  type="button" role="tab">Week</button>
-          <button class="segmented-btn${currentView === 'month' ? ' segmented-btn--active' : ''}" data-cal-view="month" type="button" role="tab">Month</button>
-          <button class="segmented-btn${currentView === 'day'   ? ' segmented-btn--active' : ''}" data-cal-view="day"   type="button" role="tab">Day</button>
-        </div>
-        ${controlsHtml}
       </div>
     </div>
   </div>`;

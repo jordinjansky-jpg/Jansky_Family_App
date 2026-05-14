@@ -725,10 +725,9 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
     min-height: 0;
     border-width: 1.5px;
   }
-  .cal-nav__controls .cal-nav__view-btn,
   .cal-controls__toggle {
     width: 30px;
-    height: 24px;
+    height: 26px;
   }
 }
 
@@ -748,10 +747,12 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
     border-radius: var(--radius-md);
     order: var(--mobile-order, 0);
   }
-  /* Today card stands out — accent left border + subtle glow */
+  /* Today card stands out — accent LEFT stripe only, no all-around border */
   .cal-week__col--today {
+    border: 1px solid var(--border);
     border-left: 3px solid var(--accent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+    box-shadow: none;
+    background: color-mix(in srgb, var(--accent) 4%, var(--surface));
   }
   /* Past day cards faded */
   .cal-week__col--past {
@@ -823,47 +824,56 @@ html:not([data-colored-cells="true"]) .event-pill:not(.event-pill--timed) {
 }
 .person-pill--active .person-pill__dot { background: #fff !important; }
 
-/* ── Calendar nav stacked controls ── */
+/* ── Calendar nav controls (Pass 2-cleanup: 2-row layout) ── */
+.cal-nav__row--title {
+  /* Inherits from .cal-nav__row: flex row, center-aligned. Just adds explicit
+     hook for the title row's spacing without affecting the controls row. */
+}
+
+.cal-nav__row--controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+
 .cal-nav__controls {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
 }
-.cal-nav__controls .cal-nav__view-btn,
+
 .cal-controls__toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 26px;
-  border: 1.5px solid var(--border);
-  background: var(--surface);
-  color: var(--text-faint);
+  width: 32px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
   cursor: pointer;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   padding: 0;
   font-size: 0;
   line-height: 0;
 }
-.cal-nav__controls .cal-nav__view-btn {
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+
+.cal-controls__toggle:hover,
+.cal-controls__toggle:focus-visible {
+  background: var(--surface-2);
+  outline: none;
 }
-.cal-controls__toggle {
-  border-top: none;
-}
-.cal-controls__toggle:last-child {
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-.cal-nav__controls .cal-nav__view-btn:only-child {
-  border-radius: var(--radius-sm);
-}
+
 .cal-controls__toggle.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--accent);
 }
-.cal-controls__toggle svg,
-.cal-nav__controls .cal-nav__view-btn svg {
+
+.cal-controls__toggle svg {
   display: block;
 }
 
