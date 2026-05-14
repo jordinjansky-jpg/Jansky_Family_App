@@ -2952,6 +2952,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   <div class="ef2-secondary-row">
     <button class="ef2-add-chip${event.allDay ? ' is-active' : ''}" id="ef2_allDay" type="button">All day</button>
+    <button class="ef2-add-chip${event.endDate ? ' is-active' : ''}" id="ef2_endDateChip" type="button">${event.endDate ? '✓ Ends ' + esc(event.endDate) : '+ End date'}</button>
     <button class="ef2-add-chip${notesOpen ? ' is-active' : ''}" id="ef2_notesChip" type="button">+ Notes</button>
     <button class="ef2-add-chip${locOpen ? ' is-active' : ''}" id="ef2_locChip" type="button">+ Location</button>
     <button class="ef2-add-chip${urlOpen ? ' is-active' : ''}" id="ef2_urlChip" type="button">+ Link</button>

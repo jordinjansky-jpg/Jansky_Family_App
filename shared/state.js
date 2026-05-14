@@ -284,7 +284,8 @@ export function getEventsForDate(events, dateKey, addDaysFn = null) {
   if (!events) return {};
   const result = {};
   for (const [id, event] of Object.entries(events)) {
-    if (event.date === dateKey) {
+    const endDate = event.endDate || event.date;
+    if (event.date <= dateKey && dateKey <= endDate) {
       result[id] = event;
       continue;
     }
@@ -324,7 +325,9 @@ export function getEventsForRange(events, startKey, endKey, addDaysFn = null) {
   if (!events) return {};
   const result = {};
   for (const [id, event] of Object.entries(events)) {
-    if (event.date >= startKey && event.date <= endKey) {
+    const endDate = event.endDate || event.date;
+    // Range overlap: event spans [event.date, endDate]; we want [startKey, endKey].
+    if (event.date <= endKey && endDate >= startKey) {
       result[id] = event;
     }
     if (event.repeat && event.repeat.type && event.repeat.type !== 'none' && addDaysFn) {
@@ -357,6 +360,14 @@ export function getEventsForRange(events, startKey, endKey, addDaysFn = null) {
 export function expandEventRepeats(event, eventId, startDate, endDate, addDaysFn) {
   const out = [];
   if (!event || !event.date) return out;
+
+  // Preserve multi-day duration across occurrences
+  let durationDays = 0;
+  if (event.endDate && event.endDate > event.date) {
+    const start = new Date(`${event.date}T00:00:00Z`);
+    const end = new Date(`${event.endDate}T00:00:00Z`);
+    durationDays = Math.round((end - start) / 86400000);
+  }
 
   if (event.date >= startDate && event.date <= endDate) {
     out.push([eventId, event]);
@@ -432,6 +443,9 @@ export function expandEventRepeats(event, eventId, startDate, endDate, addDaysFn
 
     if (cur >= startDate && cur <= endDate) {
       const virtual = { ...event, date: cur };
+      if (durationDays > 0) {
+        virtual.endDate = addDaysFn(cur, durationDays);
+      }
       out.push([`${eventId}__rpt_${cur}`, virtual]);
     }
   }

@@ -1083,6 +1083,41 @@
         }
       });
 
+      // End-date chip — opens a native date picker, sets event.endDate
+      document.getElementById('ef2_endDateChip')?.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.style.position = 'absolute';
+        input.style.opacity = '0';
+        input.style.pointerEvents = 'auto';
+        const startDateInput = document.getElementById('ef2_date');
+        const startVal = startDateInput?.value || dateKey;
+        input.value = event.endDate || startVal;
+        input.min = startVal;
+        document.body.appendChild(input);
+        input.addEventListener('change', () => {
+          const newEnd = input.value;
+          if (newEnd && newEnd >= startVal && newEnd !== startVal) {
+            event.endDate = newEnd;
+            const chip = document.getElementById('ef2_endDateChip');
+            if (chip) {
+              chip.textContent = '✓ Ends ' + newEnd;
+              chip.classList.add('is-active');
+            }
+          } else {
+            delete event.endDate;
+            const chip = document.getElementById('ef2_endDateChip');
+            if (chip) {
+              chip.textContent = '+ End date';
+              chip.classList.remove('is-active');
+            }
+          }
+          input.remove();
+        });
+        if (typeof input.showPicker === 'function') input.showPicker();
+        else input.click();
+      });
+
       document.getElementById('ef2_notesChip')?.addEventListener('click', () => {
         const reveal = document.getElementById('ef2_notesReveal');
         const isOpen = reveal?.classList.contains('is-open');
@@ -1172,6 +1207,7 @@
           notes: formState.notes || null,
           url: formState.url || null,
           repeat: formState.repeat || null,
+          endDate: event.endDate || null,
           createdDate: existingEventId
             ? (events[existingEventId]?.createdDate || today)
             : today,
