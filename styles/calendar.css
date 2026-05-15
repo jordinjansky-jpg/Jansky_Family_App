@@ -455,23 +455,7 @@
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
 }
 .cal-grid__cell--today .cal-grid__day { color: var(--accent); font-weight: 800; }
-.cal-grid__cell--alldone {
-  background: color-mix(in srgb, var(--success) 8%, var(--surface));
-  border-color: color-mix(in srgb, var(--success) 20%, var(--border, var(--border)));
-}
-.cal-grid__cell--alldone::after {
-  content: '';
-  position: absolute;
-  top: 2px; right: 2px;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--success);
-  opacity: 0.7;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2.5 5.5L4.5 7.5L7.5 3.5' stroke='white' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-size: 8px 8px;
-}
 .cal-grid__cell--past { opacity: 0.5; }
-.cal-grid__cell--past-incomplete { opacity: 0.75; }
 .cal-grid__day {
   font-size: 11px;
   font-weight: 600;
@@ -505,33 +489,31 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Month compact mode: row of dots near the bottom of each cell. */
 .cal-grid__dots {
   display: flex;
-  gap: 2px;
-  margin-top: 1px;
+  align-items: center;
+  gap: 3px;
+  margin-top: auto;
+  padding: 2px 0 1px;
+  flex-wrap: wrap;
 }
-.cal-grid__event-dot {
-  width: 5px; height: 5px;
+.cal-grid__dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+.cal-grid__dots-more {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-faint);
+  margin-left: 2px;
 }
 .cal-grid__overflow {
   font-size: 10px;
   color: var(--text-faint);
 }
-.cal-grid__progress {
-  width: 85%;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--border);
-  margin-top: auto;
-}
-.cal-grid__progress-fill {
-  height: 100%;
-  border-radius: 1px;
-  background: var(--accent);
-  transition: width 0.3s ease;
-}
-.cal-grid__cell--alldone .cal-grid__progress-fill { background: var(--success); }
 
 /* ── View transitions ──
    .cal-view-enter is for intentional view changes (nav, view switch, person filter)

@@ -429,7 +429,8 @@
 // v184 (2026-05-14) — Tone down event block saturation to 72% mix with surface (less glaring).
 // v185 (2026-05-14) — Persistent avatar strip filter (Pass 4 Task 3): sticky, vertical avatar + name, ring on active.
 // v186 (2026-05-15) — De-task week + month views (Pass 4 Task 4): calendar is events-first; tasks remain on day view + Dashboard.
-const CACHE_NAME = 'family-hub-v308';
+// v187 (2026-05-15) — Month density toggle (Pass 4 Task 5): Compact dots ↔ Stacked titles (Apple pattern).
+const CACHE_NAME = 'family-hub-v309';
 
 const APP_SHELL = [
   '/',

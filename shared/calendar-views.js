@@ -401,7 +401,7 @@ export function renderDayView(opts) {
  * Render the month view grid.
  */
 export function renderMonthView(opts) {
-  const { viewMonth, today, events, people, activePerson, weekStartDay } = opts;
+  const { viewMonth, today, events, people, activePerson, weekStartDay, monthCompact = false } = opts;
   const mStart = `${viewMonth}-01`;
   const mEnd = monthEnd(mStart);
   const firstDow = dayOfWeek(mStart);
@@ -430,20 +430,31 @@ export function renderMonthView(opts) {
 
     const dayNum = parseInt(dk.split('-')[2], 10);
 
-    const maxEventPills = 2;
     let eventsHtml = '';
     if (sortedEvents.length > 0) {
-      const visible = sortedEvents.slice(0, maxEventPills);
-      const overflow = sortedEvents.length - maxEventPills;
-      eventsHtml = visible.map(([id, e]) => {
-        const accentColor = e.color || (people.find(p => e.people?.includes(p.id))?.color) || '#5b7fd6';
-        const timeStr = !e.allDay && e.startTime ? e.startTime.replace(/:00$/, '') + ' ' : '';
-        return `<div class="cal-grid__event" data-event-id="${esc(id)}" data-bg-color="${esc(accentColor)}">
-          ${timeStr ? `<span class="cal-grid__event-time">${esc(timeStr)}</span>` : ''}
-          <span class="cal-grid__event-name">${esc(e.name)}</span>
-        </div>`;
-      }).join('');
-      if (overflow > 0) eventsHtml += `<div class="cal-grid__overflow">+${overflow}</div>`;
+      if (monthCompact) {
+        const maxDots = 4;
+        const visible = sortedEvents.slice(0, maxDots);
+        const overflow = sortedEvents.length - maxDots;
+        const dots = visible.map(([, e]) => {
+          const accentColor = e.color || (people.find(p => e.people?.includes(p.id))?.color) || '#5b7fd6';
+          return `<span class="cal-grid__dot" data-bg-color="${esc(accentColor)}"></span>`;
+        }).join('');
+        eventsHtml = `<div class="cal-grid__dots">${dots}${overflow > 0 ? `<span class="cal-grid__dots-more">+${overflow}</span>` : ''}</div>`;
+      } else {
+        const maxEventPills = 2;
+        const visible = sortedEvents.slice(0, maxEventPills);
+        const overflow = sortedEvents.length - maxEventPills;
+        eventsHtml = visible.map(([id, e]) => {
+          const accentColor = e.color || (people.find(p => e.people?.includes(p.id))?.color) || '#5b7fd6';
+          const timeStr = !e.allDay && e.startTime ? e.startTime.replace(/:00$/, '') + ' ' : '';
+          return `<div class="cal-grid__event" data-event-id="${esc(id)}" data-bg-color="${esc(accentColor)}">
+            ${timeStr ? `<span class="cal-grid__event-time">${esc(timeStr)}</span>` : ''}
+            <span class="cal-grid__event-name">${esc(e.name)}</span>
+          </div>`;
+        }).join('');
+        if (overflow > 0) eventsHtml += `<div class="cal-grid__overflow">+${overflow}</div>`;
+      }
     }
 
     return `<button class="${cls}" data-date="${dk}" type="button">

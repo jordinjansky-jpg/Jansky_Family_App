@@ -86,6 +86,7 @@
     const calDefaults = settings?.calendarDefaults || {};
     let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
     let density = calPrefs.density || calDefaults.density || 'snug';
+    let monthCompact = calPrefs.monthCompact ?? calDefaults.monthCompact ?? false;
     const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'agenda';
 
     // ── Person link mode ──
@@ -212,10 +213,22 @@
       const densityIcon = density === 'cozy'
         ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>`
         : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="2" y1="13.5" x2="14" y2="13.5"/></svg>`;
-      const controlsHtml = currentView === 'week' ? `
+      // Month density: dots (compact) vs stacked names (current). Icon shows the OTHER mode.
+      const monthDensityIcon = monthCompact
+        ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>`
+        : `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="12" cy="8" r="1.5"/></svg>`;
+      let controlsHtml = '';
+      if (currentView === 'week') {
+        controlsHtml = `
           <button class="cal-controls__toggle${density === 'cozy' ? ' active' : ''}" data-ctl-density="${density === 'cozy' ? 'snug' : 'cozy'}" type="button" title="${density === 'cozy' ? 'Compact view' : 'Spacious view'}">
             ${densityIcon}
-          </button>` : '';
+          </button>`;
+      } else if (currentView === 'month') {
+        controlsHtml = `
+          <button class="cal-controls__toggle${monthCompact ? ' active' : ''}" data-ctl-month-compact="${monthCompact ? 'false' : 'true'}" type="button" title="${monthCompact ? 'Stacked titles' : 'Compact dots'}">
+            ${monthDensityIcon}
+          </button>`;
+      }
       // Compute small subtitle under the period label
       let navSubtitle = '';
       if (currentView === 'week') {
@@ -247,7 +260,7 @@
         });
       } else {
         html += renderMonthView({
-          viewMonth, today, events, people, activePerson, weekStartDay
+          viewMonth, today, events, people, activePerson, weekStartDay, monthCompact
         });
       }
       html += `</div>`;
@@ -341,6 +354,14 @@
       main.querySelectorAll('[data-ctl-density]').forEach(btn => btn.addEventListener('click', () => {
         density = btn.dataset.ctlDensity;
         calPrefs.density = density;
+        saveCalPrefs();
+        render();
+      }));
+
+      // Month compact toggle (dots vs stacked titles)
+      main.querySelectorAll('[data-ctl-month-compact]').forEach(btn => btn.addEventListener('click', () => {
+        monthCompact = btn.dataset.ctlMonthCompact === 'true';
+        calPrefs.monthCompact = monthCompact;
         saveCalPrefs();
         render();
       }));
