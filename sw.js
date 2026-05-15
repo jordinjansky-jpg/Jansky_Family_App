@@ -430,7 +430,8 @@
 // v185 (2026-05-14) — Persistent avatar strip filter (Pass 4 Task 3): sticky, vertical avatar + name, ring on active.
 // v186 (2026-05-15) — De-task week + month views (Pass 4 Task 4): calendar is events-first; tasks remain on day view + Dashboard.
 // v187 (2026-05-15) — Month density toggle (Pass 4 Task 5): Compact dots ↔ Stacked titles (Apple pattern).
-const CACHE_NAME = 'family-hub-v309';
+// v188 (2026-05-15) — Fix: exempt overdue tasks had no completion button in detail sheet; only late-credit UI should be skipped.
+const CACHE_NAME = 'family-hub-v310';
 
 const APP_SHELL = [
   '/',

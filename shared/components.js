@@ -3154,7 +3154,9 @@ export function renderTaskDetailSheet(options) {
   }
 
   // ── Complete footer ──────────────────────────────────────
-  if (!readOnly && !isEvent && !task.exempt) {
+  // Exempt tasks don't score — so they skip the late-penalty variant but
+  // still need a plain Mark complete / Mark incomplete button.
+  if (!readOnly && !isEvent) {
     if (isLateEligible) {
       html += `<div class="task-detail__complete-footer">
         <button class="task-detail__complete-btn task-detail__complete-btn--warning" id="sheetToggleComplete" type="button">${DS_CHECK} Complete (late)</button>
