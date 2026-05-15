@@ -47,14 +47,14 @@ export function dayProgress(entries, completions) {
  * @param {object} tasks - All tasks { taskId: taskObject }
  * @returns {Array<{ dateKey, entryKey, ...entry }>} sorted oldest first
  */
-export function getOverdueEntries(schedule, completions, today, tasks) {
+export function getOverdueEntries(schedule, completions, today, tasks, { includeCompleted = false } = {}) {
   const overdue = [];
   if (!schedule) return overdue;
   for (const [dateKey, dayEntries] of Object.entries(schedule)) {
     if (dateKey >= today || !dayEntries) continue;
     for (const [entryKey, entry] of Object.entries(dayEntries)) {
       if (entry.type === 'event') continue; // standalone events aren't overdue tasks
-      if (isComplete(entryKey, completions)) continue;
+      if (!includeCompleted && isComplete(entryKey, completions)) continue;
       const isDailyNoCooldown = entry.rotationType === 'daily'
         && !(tasks && tasks[entry.taskId]?.cooldownDays > 0);
       if (!isDailyNoCooldown) {

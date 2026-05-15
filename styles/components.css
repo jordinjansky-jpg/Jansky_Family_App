@@ -2034,6 +2034,14 @@
 
 /* ============ Send message / Bonus day sheet ============ */
 .sheet-section-title { margin-bottom: 12px; }
+.sheet-section-title--muted {
+  margin-top: 20px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 /* Canonical sheet section label — visually identical to .ef2-section-label and .fs-section__label */
 .sheet-label {
   font-size: var(--font-sm);

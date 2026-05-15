@@ -431,7 +431,8 @@
 // v186 (2026-05-15) — De-task week + month views (Pass 4 Task 4): calendar is events-first; tasks remain on day view + Dashboard.
 // v187 (2026-05-15) — Month density toggle (Pass 4 Task 5): Compact dots ↔ Stacked titles (Apple pattern).
 // v188 (2026-05-15) — Fix: exempt overdue tasks had no completion button in detail sheet; only late-credit UI should be skipped.
-const CACHE_NAME = 'family-hub-v310';
+// v189 (2026-05-15) — Overdue sheet: tap = complete (late), long-press = detail menu. Completed-today items sink to a Done section in the same sheet for undo.
+const CACHE_NAME = 'family-hub-v311';
 
 const APP_SHELL = [
   '/',

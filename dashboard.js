@@ -4,7 +4,7 @@ import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyStat
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
-import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce, normalizePlanSlot, pickWinner, scaleQty } from './shared/utils.js';
+import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce, normalizePlanSlot, pickWinner, scaleQty, dateToKey } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
@@ -212,7 +212,7 @@ applyDataColors(document.getElementById('celebrationMount'));
 // loadData only loads overdue items (completions and schedule/{viewDate} come from listeners)
 async function loadData() {
   const allSched = await readAllSchedule();
-  overdueItems = getOverdueEntries(allSched || {}, completions, today, tasks);
+  overdueItems = getOverdueEntries(allSched || {}, completions, today, tasks, { includeCompleted: true });
   suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSched || {}, completions, tasks, today);
 }
 
@@ -700,43 +700,103 @@ function mountBannerQueue({ overdueItems: overdueIncomplete }) {
 }
 
 function openOverdueSheet(items) {
-  const cards = items.map(e => {
-    const task = tasks[e.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
-    const person = people.find(p => p.id === e.ownerId);
-    const cat = task.category ? cats[task.category] : null;
-    const pts = basePoints(task, settings?.difficultyMultipliers);
-    return renderTaskCard({
-      entryKey: e.entryKey,
-      entry: { ...e, dateKey: e.dateKey },
-      task,
-      person,
-      category: cat,
-      completed: false,
-      overdue: true,
-      points: { possible: pts, override: e.pointsOverride ?? null },
-      isEvent: !!cat?.isEvent,
-      showTodIconBoth:   linkedPerson?.prefs?.showTodIconBoth   !== undefined ? !!linkedPerson.prefs.showTodIconBoth   : !!settings?.showTodIconBoth,
-      showTodIconSingle: linkedPerson?.prefs?.showTodIconSingle !== undefined ? !!linkedPerson.prefs.showTodIconSingle : !!settings?.showTodIconSingle,
-      isPastDaily: false
+  // Snapshot the seed list — these are the overdue items in scope while the
+  // sheet is open. Tapping moves cards between Incomplete and Done sections
+  // without re-fetching, so a mistake stays visible for instant undo.
+  const inScopeKeys = new Set(items.map(e => e.entryKey));
+
+  function buildBody() {
+    const tz = settings?.timezone || 'America/Chicago';
+    // Each render reads live completion state so toggles are reflected.
+    const incomplete = [];
+    const doneToday = [];
+    for (const e of overdueItems) {
+      if (!inScopeKeys.has(e.entryKey)) continue;
+      const comp = completions[e.entryKey];
+      if (comp) {
+        const ts = typeof comp.completedAt === 'number' ? comp.completedAt : null;
+        if (ts && dateToKey(new Date(ts), tz) === today) doneToday.push(e);
+      } else {
+        incomplete.push(e);
+      }
+    }
+
+    function buildCard(e, completed) {
+      const task = tasks[e.taskId] || { name: 'Unknown', estMin: 0, difficulty: 'medium' };
+      const person = people.find(p => p.id === e.ownerId);
+      const cat = task.category ? cats[task.category] : null;
+      const pts = basePoints(task, settings?.difficultyMultipliers);
+      return renderTaskCard({
+        entryKey: e.entryKey,
+        entry: { ...e, dateKey: e.dateKey },
+        task,
+        person,
+        category: cat,
+        completed,
+        overdue: !completed,
+        points: { possible: pts, override: e.pointsOverride ?? null },
+        isEvent: !!cat?.isEvent,
+        showTodIconBoth:   linkedPerson?.prefs?.showTodIconBoth   !== undefined ? !!linkedPerson.prefs.showTodIconBoth   : !!settings?.showTodIconBoth,
+        showTodIconSingle: linkedPerson?.prefs?.showTodIconSingle !== undefined ? !!linkedPerson.prefs.showTodIconSingle : !!settings?.showTodIconSingle,
+        isPastDaily: false
+      });
+    }
+
+    let body = `<h3 class="sheet-section-title">Overdue tasks</h3>`;
+    if (incomplete.length === 0 && doneToday.length === 0) {
+      body += renderEmptyState('', 'Nothing overdue', '');
+      return body;
+    }
+    if (incomplete.length > 0) {
+      body += incomplete.map(e => buildCard(e, false)).join('');
+    }
+    if (doneToday.length > 0) {
+      body += `<h3 class="sheet-section-title sheet-section-title--muted">Done today</h3>`;
+      body += doneToday.map(e => buildCard(e, true)).join('');
+    }
+    return body;
+  }
+
+  function mountSheet() {
+    taskSheetMount.innerHTML = renderBottomSheet(buildBody());
+    applyDataColors(taskSheetMount);
+    bindCards();
+  }
+
+  function refreshSheet() {
+    // Re-render the inner content of the open sheet without closing/reopening
+    // (avoids a 320ms close-then-reopen flash on every toggle).
+    const sheet = document.getElementById('bottomSheet');
+    const content = sheet?.querySelector('.bottom-sheet__content') || sheet?.querySelector('.sheet__content');
+    if (!content) { mountSheet(); return; }
+    content.innerHTML = buildBody();
+    applyDataColors(content);
+    bindCards();
+  }
+
+  function bindCards() {
+    taskSheetMount.querySelectorAll('.task-card').forEach(card => {
+      bindTaskRowGesture(card, {
+        longPressMs: settings?.longPressMs ?? 800,
+        onTap: async (ek, dk) => {
+          await toggleTask(ek, dk);
+          refreshSheet();
+        },
+        onLongPress: (ek, dk) => {
+          closeTaskSheet();
+          setTimeout(() => openTaskSheet(ek, dk), 320);
+        },
+      });
     });
-  }).join('');
-  const body = `<h3 class="sheet-section-title">Overdue tasks</h3>${cards || renderEmptyState('', 'Nothing overdue', '')}`;
-  taskSheetMount.innerHTML = renderBottomSheet(body);
-  applyDataColors(taskSheetMount);
+  }
+
+  mountSheet();
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
   });
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', (e) => {
     if (e.target === overlay) closeTaskSheet();
-  });
-  taskSheetMount.querySelectorAll('.task-card').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const ek = btn.dataset.entryKey;
-      const dk = btn.dataset.dateKey;
-      closeTaskSheet();
-      setTimeout(() => openTaskSheet(ek, dk), 320);
-    });
   });
 }
 
