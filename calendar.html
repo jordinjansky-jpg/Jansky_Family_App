@@ -86,7 +86,6 @@
     const calDefaults = settings?.calendarDefaults || {};
     let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
     let density = calPrefs.density || calDefaults.density || 'snug';
-    let showDailyInWeek = calPrefs.showDailyInWeek ?? calDefaults.showDailyInWeek ?? true;
     const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'agenda';
 
     // ── Person link mode ──
@@ -209,19 +208,13 @@
         isCurrentPeriod = viewMonth === today.substring(0, 7);
       }
 
-      // Monoline SVG icons for density + daily toggles — matches view switcher style
+      // Monoline SVG icons for density toggle — matches view switcher style
       const densityIcon = density === 'cozy'
         ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>`
         : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="2" y1="13.5" x2="14" y2="13.5"/></svg>`;
-      const dailyIcon = showDailyInWeek
-        ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M5.5 8l1.8 1.8 3.2-3.6"/></svg>`
-        : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><line x1="5.5" y1="5.5" x2="10.5" y2="10.5"/><line x1="10.5" y1="5.5" x2="5.5" y2="10.5"/></svg>`;
       const controlsHtml = currentView === 'week' ? `
           <button class="cal-controls__toggle${density === 'cozy' ? ' active' : ''}" data-ctl-density="${density === 'cozy' ? 'snug' : 'cozy'}" type="button" title="${density === 'cozy' ? 'Compact view' : 'Spacious view'}">
             ${densityIcon}
-          </button>
-          <button class="cal-controls__toggle${showDailyInWeek ? ' active' : ''}" data-ctl-daily="${showDailyInWeek ? 'false' : 'true'}" type="button" title="${showDailyInWeek ? 'Hide daily tasks' : 'Show daily tasks'}">
-            ${dailyIcon}
           </button>` : '';
       // Compute small subtitle under the period label
       let navSubtitle = '';
@@ -250,11 +243,11 @@
         html += renderAgendaView({ today, events, people, activePerson });
       } else if (currentView === 'week') {
         html += renderWeekView({
-          weekStartDate: viewWeekStart, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, showDailyInWeek
+          weekStartDate: viewWeekStart, today, events, people, activePerson
         });
       } else {
         html += renderMonthView({
-          viewMonth, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay
+          viewMonth, today, events, people, activePerson, weekStartDay
         });
       }
       html += `</div>`;
@@ -352,13 +345,6 @@
         render();
       }));
 
-      // Inline daily toggle
-      main.querySelectorAll('[data-ctl-daily]').forEach(btn => btn.addEventListener('click', () => {
-        showDailyInWeek = btn.dataset.ctlDaily === 'true';
-        calPrefs.showDailyInWeek = showDailyInWeek;
-        saveCalPrefs();
-        render();
-      }));
     }
 
     function bindPersonFilterEvents() {

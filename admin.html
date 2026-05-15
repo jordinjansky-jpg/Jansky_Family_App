@@ -2550,8 +2550,10 @@
               <div class="form-group" style="flex:1">
                 <label class="form-label">Calendar default view</label>
                 <select class="form-input" id="set_calView">
-                  <option value="week"${(settings?.calendarDefaults?.defaultView || 'week') === 'week' ? ' selected' : ''}>Week</option>
-                  <option value="month"${(settings?.calendarDefaults?.defaultView || 'week') === 'month' ? ' selected' : ''}>Month</option>
+                  <option value="agenda"${(settings?.calendarDefaults?.defaultView || 'agenda') === 'agenda' ? ' selected' : ''}>Agenda</option>
+                  <option value="week"${(settings?.calendarDefaults?.defaultView || 'agenda') === 'week' ? ' selected' : ''}>Week</option>
+                  <option value="month"${(settings?.calendarDefaults?.defaultView || 'agenda') === 'month' ? ' selected' : ''}>Month</option>
+                  <option value="day"${(settings?.calendarDefaults?.defaultView || 'agenda') === 'day' ? ' selected' : ''}>Day</option>
                 </select>
               </div>
               <div class="form-group" style="flex:1">
@@ -2568,13 +2570,6 @@
                 <select class="form-input" id="set_calDensity">
                   <option value="snug"${(settings?.calendarDefaults?.density || 'snug') === 'snug' ? ' selected' : ''}>Snug</option>
                   <option value="cozy"${(settings?.calendarDefaults?.density || 'snug') === 'cozy' ? ' selected' : ''}>Cozy</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex:1">
-                <label class="form-label">Daily tasks in week view</label>
-                <select class="form-input" id="set_showDaily">
-                  <option value="true"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? ' selected' : ''}>Show</option>
-                  <option value="false"${(settings?.calendarDefaults?.showDailyInWeek ?? true) ? '' : ' selected'}>Hide</option>
                 </select>
               </div>
             </div>
@@ -4641,14 +4636,13 @@
       }
 
       // ── Auto-save: Calendar ──
-      for (const id of ['#set_calView', '#set_weekStart', '#set_calDensity', '#set_showDaily']) {
+      for (const id of ['#set_calView', '#set_weekStart', '#set_calDensity']) {
         main.querySelector(id)?.addEventListener('change', async () => {
           const updated = buildSettingsUpdate({
             calendarDefaults: {
-              defaultView:     main.querySelector('#set_calView')?.value || 'week',
+              defaultView:     main.querySelector('#set_calView')?.value || 'agenda',
               density:         main.querySelector('#set_calDensity')?.value || 'snug',
               weekStartDay:    parseInt(main.querySelector('#set_weekStart')?.value, 10) || 0,
-              showDailyInWeek: main.querySelector('#set_showDaily')?.value !== 'false',
             },
           });
           await writeSettings(updated); syncSettings(updated); flashSaved();

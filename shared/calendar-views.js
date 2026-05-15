@@ -3,7 +3,7 @@
 
 import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT, normalizePlanSlot } from './utils.js';
 import { renderEventPill, renderEventBubble } from './components.js';
-import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, isComplete, sortEntries, groupByFrequency, getEventsForRange } from './state.js';
+import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, isComplete, sortEntries, groupByFrequency, getEventsForRange } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -197,9 +197,8 @@ function buildTimeAxisGrid(timedEvents, people, todayKey, dateKey) {
  * @returns {string} HTML
  */
 export function renderWeekView(opts) {
-  const { weekStartDate, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay, showDailyInWeek } = opts;
+  const { weekStartDate, today, events, people, activePerson } = opts;
   const days = dateRange(weekStartDate, addDays(weekStartDate, 6));
-  const maxPills = density === 'cozy' ? 3 : 5;
 
   // Day name headers — respect configurable week start
   const dayHeaders = days.map(dk => {
@@ -214,7 +213,6 @@ export function renderWeekView(opts) {
     if (todayPos < 0) return i;
     if (dk === today) return 0;
     if (dk > today) return i - todayPos;
-    // Past: after all future days, nearest-past first
     return (days.length - 1 - todayPos) + (todayPos - i);
   });
 
@@ -222,70 +220,20 @@ export function renderWeekView(opts) {
     const isToday = dk === today;
     const isPast = dk < today;
 
-    // Events for this day
     let dayEvents = getEventsForDate(events, dk, addDays);
     dayEvents = filterEventsByPerson(dayEvents, activePerson);
     const sortedEvents = sortEvents(dayEvents);
 
-    // Tasks — split into weekly/monthly/once vs daily
-    const dayEntries = allSchedule[dk] || {};
-    const filteredEntries = filterByPerson(dayEntries, activePerson);
-    const recurringTasks = {};
-    const dailyTasks = {};
-    for (const [key, entry] of Object.entries(filteredEntries)) {
-      if (entry.type === 'event') continue;
-      const rt = entry.rotationType || 'daily';
-      if (rt === 'daily') {
-        dailyTasks[key] = entry;
-      } else {
-        recurringTasks[key] = entry;
-      }
-    }
-    const sortedRecurring = sortEntries(recurringTasks, completions);
-    const sortedDaily = showDailyInWeek ? sortEntries(dailyTasks, completions) : [];
-
-    // Separate all-day vs timed events
     const allDayEvents = sortedEvents.filter(([, e]) => e.allDay);
     const timedEvents = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
 
-    // All-day pills (simple list)
     let allDayHtml = '';
     for (const [id, evt] of allDayEvents) {
       allDayHtml += `<div class="cal-week__event-allday" data-event-id="${esc(id)}">${renderEventPill(evt, people)}</div>`;
     }
 
-    // Timed events — compact time grid
     const timeGridHtml = buildTimeGrid(timedEvents, people);
-
-    let eventsHtml = allDayHtml + timeGridHtml;
-
-    // Helper to build task row HTML
-    function taskRow(entryKey, entry) {
-      const task = tasks[entry.taskId] || { name: 'Unknown' };
-      const person = people.find(p => p.id === entry.ownerId);
-      const done = isComplete(entryKey, completions);
-      const isPastDaily = dk < today && entry.rotationType === 'daily';
-      return `<div class="cal-week__task${done ? ' cal-week__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}">
-        <button class="cal-week__task-check${done ? ' cal-week__task-check--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dk}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button" aria-pressed="${done}"></button>
-        ${person ? `<span class="cal-week__task-dot" data-bg-color="${person.color}"></span>` : ''}
-        <span class="cal-week__task-name">${esc(task.name)}</span>
-      </div>`;
-    }
-
-    const visibleRecurring = sortedRecurring.slice(0, maxPills);
-    const visibleDaily     = sortedDaily.slice(0, maxPills);
-    const overflowCount = (sortedRecurring.length - visibleRecurring.length)
-                        + (sortedDaily.length - visibleDaily.length);
-
-    let recurringHtml = '';
-    for (const [entryKey, entry] of visibleRecurring) recurringHtml += taskRow(entryKey, entry);
-
-    let dailyHtml = '';
-    for (const [entryKey, entry] of visibleDaily) dailyHtml += taskRow(entryKey, entry);
-
-    const overflowRow = overflowCount > 0
-      ? `<div class="cal-week__task cal-week__task--overflow">+${overflowCount} more</div>`
-      : '';
+    const eventsHtml = allDayHtml + timeGridHtml;
 
     const dow = dayOfWeek(dk);
     const dayNum = parseInt(dk.split('-')[2], 10);
@@ -296,9 +244,6 @@ export function renderWeekView(opts) {
     return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}" data-mobile-order="${mobileOrder[dayIndex]}">
       ${colLabel}
       <div class="cal-week__events">${eventsHtml}</div>
-      ${recurringHtml ? `<div class="cal-week__tasks">${recurringHtml}</div>` : ''}
-      ${dailyHtml ? `<div class="cal-week__tasks cal-week__tasks--daily">${dailyHtml}</div>` : ''}
-      ${overflowRow}
     </div>`;
   }).join('');
 
@@ -456,51 +401,35 @@ export function renderDayView(opts) {
  * Render the month view grid.
  */
 export function renderMonthView(opts) {
-  const { viewMonth, today, events, allSchedule, completions, tasks, cats, people, activePerson, density, weekStartDay } = opts;
+  const { viewMonth, today, events, people, activePerson, weekStartDay } = opts;
   const mStart = `${viewMonth}-01`;
   const mEnd = monthEnd(mStart);
   const firstDow = dayOfWeek(mStart);
   const days = dateRange(mStart, mEnd);
 
-  // Day-of-week headers respecting week start day
   const dowHeaders = [];
   for (let i = 0; i < 7; i++) {
     const dow = (weekStartDay + i) % 7;
     dowHeaders.push(`<div class="cal-grid__dow">${DAY_NAMES_SHORT[dow]}</div>`);
   }
 
-  // Empty cells before first day
   const emptyBefore = (firstDow - weekStartDay + 7) % 7;
   const emptyCells = Array(emptyBefore).fill('<div class="cal-grid__cell cal-grid__cell--empty"></div>').join('');
 
-  // Day cells
   const dayCells = days.map(dk => {
     const isToday = dk === today;
     const isPast = dk < today;
 
-    // Events
     let dayEvents = getEventsForDate(events, dk, addDays);
     dayEvents = filterEventsByPerson(dayEvents, activePerson);
     const sortedEvents = sortEvents(dayEvents);
 
-    // Tasks
-    const dayEntries = allSchedule[dk] || {};
-    const filtered = filterByPerson(dayEntries, activePerson);
-    const taskEntries = Object.fromEntries(
-      Object.entries(filtered).filter(([, e]) => e.type !== 'event')
-    );
-    const prog = dayProgress(taskEntries, completions);
-    const allDone = prog.total > 0 && prog.done === prog.total;
-
     let cls = 'cal-grid__cell';
     if (isToday) cls += ' cal-grid__cell--today';
-    if (allDone) cls += ' cal-grid__cell--alldone';
-    if (isPast && !isToday && prog.total === 0 && sortedEvents.length === 0) cls += ' cal-grid__cell--past';
-    else if (isPast && !isToday && !allDone && prog.total > 0) cls += ' cal-grid__cell--past-incomplete';
+    if (isPast && !isToday && sortedEvents.length === 0) cls += ' cal-grid__cell--past';
 
     const dayNum = parseInt(dk.split('-')[2], 10);
 
-    // Event pills (compact for month cells — show names with owner-color accents)
     const maxEventPills = 2;
     let eventsHtml = '';
     if (sortedEvents.length > 0) {
@@ -517,17 +446,9 @@ export function renderMonthView(opts) {
       if (overflow > 0) eventsHtml += `<div class="cal-grid__overflow">+${overflow}</div>`;
     }
 
-    // Progress indicator
-    let progressHtml = '';
-    if (prog.total > 0) {
-      const pct = Math.round((prog.done / prog.total) * 100);
-      progressHtml = `<div class="cal-grid__progress"><div class="cal-grid__progress-fill" data-progress="${pct}"></div></div>`;
-    }
-
     return `<button class="${cls}" data-date="${dk}" type="button">
       <span class="cal-grid__day">${dayNum}</span>
       ${eventsHtml}
-      ${progressHtml}
     </button>`;
   }).join('');
 

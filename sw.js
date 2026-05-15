@@ -428,7 +428,8 @@
 // v183 (2026-05-14) — Solid color event blocks on week/day/agenda views (Pass 4 Task 2).
 // v184 (2026-05-14) — Tone down event block saturation to 72% mix with surface (less glaring).
 // v185 (2026-05-14) — Persistent avatar strip filter (Pass 4 Task 3): sticky, vertical avatar + name, ring on active.
-const CACHE_NAME = 'family-hub-v307';
+// v186 (2026-05-15) — De-task week + month views (Pass 4 Task 4): calendar is events-first; tasks remain on day view + Dashboard.
+const CACHE_NAME = 'family-hub-v308';
 
 const APP_SHELL = [
   '/',
