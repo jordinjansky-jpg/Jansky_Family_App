@@ -1333,3 +1333,120 @@
 .cal-nav--agenda .date-nav__btn {
   visibility: hidden;
 }
+
+/* ── Persistent avatar strip (Pass 4 — Task 3) ──
+   Replaces the generic person-pill row with a Skylight-style
+   vertical-avatar filter: bigger circle on top, name below,
+   ring on active. Sticky at top so it stays visible across
+   long agenda/week scrolls. */
+.cal-avatar-strip {
+  position: sticky;
+  top: var(--header-height, 0);
+  z-index: 4;
+  background: var(--bg);
+  padding: var(--spacing-sm) 0 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cal-avatar-strip .person-filter {
+  padding: 0;
+  border-bottom: none;
+  margin-bottom: 0;
+  gap: 14px;
+}
+
+.cal-avatar-strip .person-pill {
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  min-height: 0;
+  min-width: 52px;
+  border-radius: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+  opacity: 0.65;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+}
+
+.cal-avatar-strip .person-pill:active {
+  transform: scale(0.94);
+}
+
+.cal-avatar-strip .person-pill:not(.person-pill--active):hover {
+  opacity: 0.9;
+}
+
+.cal-avatar-strip .person-pill--active {
+  opacity: 1;
+  color: var(--text);
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  animation: none;
+}
+
+/* "All" pill — empty circle on top, "All" label below (matches other avatars). */
+.cal-avatar-strip .person-pill[data-person-id=""] {
+  font-size: 0;
+}
+.cal-avatar-strip .person-pill[data-person-id=""]::before {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  outline: 2.5px solid transparent;
+  outline-offset: 2.5px;
+  opacity: 1;
+  transition: outline-color var(--t-fast);
+  flex-shrink: 0;
+}
+.cal-avatar-strip .person-pill[data-person-id=""].person-pill--active::before {
+  outline-color: var(--accent);
+}
+.cal-avatar-strip .person-pill[data-person-id=""]::after {
+  content: 'All';
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+.cal-avatar-strip .person-pill[data-person-id=""].person-pill--active::after {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Person avatars — bump size + add halo ring on active (outline w/ offset
+   creates visible separation from the fill, like Skylight / Apple Calendar). */
+.cal-avatar-strip .person-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+  margin-left: 0;
+  outline: 2.5px solid transparent;
+  outline-offset: 2.5px;
+  transition: outline-color var(--t-fast);
+}
+
+.cal-avatar-strip .person-pill--active .person-avatar {
+  outline-color: var(--person-color, var(--accent));
+}
+
+/* Suppress the legacy dot/circle pseudo on the colored pills (we use a ring instead) */
+.cal-avatar-strip .person-pill[data-person-id]:not([data-person-id=""])::before {
+  display: none;
+}
+
+/* Suppress the "filled with person color" active style (we use ring instead) */
+.cal-avatar-strip .person-pill[data-person-id]:not([data-person-id=""]).person-pill--active {
+  background: transparent;
+  color: var(--text);
+  border-color: transparent;
+}

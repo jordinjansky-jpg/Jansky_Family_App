@@ -178,7 +178,7 @@
           </div>
         </div>`;
 
-        html += renderPersonFilter(people, activePerson);
+        html += `<div class="cal-avatar-strip">${renderPersonFilter(people, activePerson)}</div>`;
         html += `<div class="${enterCls}">`;
         html += renderDayView({
           dateKey: viewDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings,
@@ -243,7 +243,7 @@
 
       const navMode = currentView === 'agenda' ? 'agenda' : 'period';
       let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml, subtitle: navSubtitle, titleDateValue, navMode });
-      html += renderPersonFilter(people, activePerson);
+      html += `<div class="cal-avatar-strip">${renderPersonFilter(people, activePerson)}</div>`;
 
       html += `<div class="${enterCls} ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
       if (currentView === 'agenda') {
