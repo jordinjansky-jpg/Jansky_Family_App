@@ -406,7 +406,8 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  padding: var(--spacing-xs) var(--spacing-md);
+  /* Inherit padding from base .history-row so tappable buttons line up
+     with non-tappable divs (e.g. synthetic "earned" rows). */
 }
 
 .history-row--tappable:hover { background: var(--surface-2); }

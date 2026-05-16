@@ -434,7 +434,8 @@
 // v189 (2026-05-15) — Overdue sheet: tap = complete (late), long-press = detail menu. Completed-today items sink to a Done section in the same sheet for undo.
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
-const CACHE_NAME = 'family-hub-v313';
+// v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
+const CACHE_NAME = 'family-hub-v314';
 
 const APP_SHELL = [
   '/',
