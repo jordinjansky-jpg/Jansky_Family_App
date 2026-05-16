@@ -2387,6 +2387,7 @@ export function historyTypeIcon(type) {
     'bonus':               '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
     'deduction':           '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>',
     'fyi':                 '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    'earned':              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>',
   };
   // Aliases — use-* variants share visuals with redemption-* counterparts
   icons['use-request']  = icons['redemption-request'];
@@ -2402,7 +2403,8 @@ export function historyTypeIcon(type) {
  * @param {Object} entry  - Message record { title?, type, amount?, createdAt }
  * @param {string} tz     - Timezone for date formatting
  */
-export function renderHistoryRow(entry, tz) {
+export function renderHistoryRow(entry, tz, opts = {}) {
+  const { tappable = true } = opts;
   const isPositive = (entry.amount || 0) > 0;
   const isNegative = (entry.amount || 0) < 0;
   const amountStr = entry.amount
@@ -2414,13 +2416,18 @@ export function renderHistoryRow(entry, tz) {
     : '';
 
   const icon = historyTypeIcon(entry.type);
+  const tag = tappable ? 'button' : 'div';
+  const tappableClass = tappable ? ' history-row--tappable' : '';
+  const tappableAttrs = tappable
+    ? ` type="button" data-msg-id="${esc(entry.id || '')}" data-person-id="${esc(entry.personId || '')}" data-msg-type="${esc(entry.type)}"`
+    : '';
 
-  return `<button class="history-row history-row--tappable" type="button" data-msg-id="${esc(entry.id || '')}" data-person-id="${esc(entry.personId || '')}" data-msg-type="${esc(entry.type)}">
+  return `<${tag} class="history-row${tappableClass}"${tappableAttrs}>
     <span class="history-row__icon">${icon}</span>
     <span class="history-row__label">${esc(entry.title || entry.type)}</span>
-    ${amountStr ? `<span class="history-row__amount ${amountClass}">${amountStr}</span>` : ''}
+    <span class="history-row__amount ${amountClass}">${amountStr}</span>
     <span class="history-row__date">${date}</span>
-  </button>`;
+  </${tag}>`;
 }
 
 /**

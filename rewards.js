@@ -127,11 +127,13 @@ function esc(str) {
 
 const ADULT_HISTORY_TYPES = new Set([
   'bonus','deduction','redemption-request','redemption-approved','redemption-denied',
-  'use-request','use-approved','use-denied','task-skip-used','penalty-removed','reward-used','fyi'
+  'use-request','use-approved','use-denied','task-skip-used','penalty-removed','reward-used','fyi',
+  'earned',
 ]);
 const KID_HISTORY_TYPES = new Set([
   'redemption-request','redemption-approved','redemption-denied',
-  'use-request','use-approved','use-denied','reward-used','task-skip-used','penalty-removed','fyi'
+  'use-request','use-approved','use-denied','reward-used','task-skip-used','penalty-removed','fyi',
+  'earned',
 ]);
 
 function matchesHistoryGroup(type, group) {
@@ -140,7 +142,39 @@ function matchesHistoryGroup(type, group) {
   if (group === 'uses') return ['use-request','use-approved','use-denied','reward-used','task-skip-used','penalty-removed'].includes(type);
   if (group === 'bonuses') return type === 'bonus';
   if (group === 'deductions') return type === 'deduction';
+  if (group === 'earned') return type === 'earned';
   return false;
+}
+
+// Build the full history list for a person: messages from Firebase + synthetic
+// "earned" entries derived from daily snapshots (one row per day with earnings).
+// Filters by allowed types and active group, then sorts newest first.
+function buildHistoryEntries(personId, allowedTypes, groupFilter) {
+  const raw = allMessages?.[personId] || {};
+  const msgEntries = Object.entries(raw)
+    .map(([id, msg]) => ({ ...msg, id, personId }))
+    .filter(msg => allowedTypes.has(msg.type) && matchesHistoryGroup(msg.type, groupFilter));
+
+  const earnedEntries = [];
+  for (const [dateKey, peopleSnaps] of Object.entries(allSnapshots || {})) {
+    const snap = peopleSnaps?.[personId];
+    if (!snap || !snap.earned) continue;
+    // Synthetic timestamp at noon UTC of the dateKey — sorts within the right
+    // day regardless of timezone formatting at render time.
+    const ms = new Date(`${dateKey}T12:00:00Z`).getTime();
+    earnedEntries.push({
+      id: `earned-${dateKey}`,
+      personId,
+      type: 'earned',
+      title: `Earned · ${snap.percentage}% ${snap.grade}`,
+      amount: snap.earned,
+      createdAt: ms,
+    });
+  }
+  const filteredEarned = earnedEntries
+    .filter(e => allowedTypes.has(e.type) && matchesHistoryGroup(e.type, groupFilter));
+
+  return [...msgEntries, ...filteredEarned].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
 
 function render() {
@@ -598,11 +632,7 @@ function renderHistoryTab() {
   const tz = settings?.timezone || 'UTC';
   const allowedTypes = isKidMode ? KID_HISTORY_TYPES : ADULT_HISTORY_TYPES;
 
-  const raw = allMessages?.[activePerson.id] || {};
-  let entries = Object.entries(raw)
-    .map(([id, msg]) => ({ ...msg, id, personId: activePerson.id }))
-    .filter(msg => allowedTypes.has(msg.type) && matchesHistoryGroup(msg.type, historyFilter.type))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const entries = buildHistoryEntries(activePerson.id, allowedTypes, historyFilter.type);
 
   const filterActiveCount = historyFilter.type !== 'all' ? 1 : 0;
 
@@ -619,7 +649,7 @@ function renderHistoryTab() {
   const visible = entries.slice(0, PAGE);
   const remaining = entries.slice(PAGE);
 
-  html += visible.map(msg => renderHistoryRow(msg, tz)).join('');
+  html += visible.map(msg => renderHistoryRow(msg, tz, { tappable: msg.type !== 'earned' })).join('');
 
   if (remaining.length > 0) {
     html += `<button class="rewards-show-more" id="historyShowMore" type="button">+ ${remaining.length} more</button>`;
@@ -633,17 +663,13 @@ function bindHistoryTab() {
   document.getElementById('historyShowMore')?.addEventListener('click', function() {
     const tz = settings?.timezone || 'UTC';
     const allowedTypes = isKidMode ? KID_HISTORY_TYPES : ADULT_HISTORY_TYPES;
-    const raw = allMessages?.[activePerson.id] || {};
-    const entries = Object.entries(raw)
-      .map(([id, msg]) => ({ ...msg, id, personId: activePerson.id }))
-      .filter(msg => allowedTypes.has(msg.type) && matchesHistoryGroup(msg.type, historyFilter.type))
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const entries = buildHistoryEntries(activePerson.id, allowedTypes, historyFilter.type);
     const remaining = entries.slice(50);
     const content = document.getElementById('rewardsContent');
     if (!content) return;
     // Append remaining rows before removing the button
     const fragment = document.createElement('div');
-    fragment.innerHTML = remaining.map(msg => renderHistoryRow(msg, tz)).join('');
+    fragment.innerHTML = remaining.map(msg => renderHistoryRow(msg, tz, { tappable: msg.type !== 'earned' })).join('');
     while (fragment.firstChild) {
       this.before(fragment.firstChild);
     }
@@ -687,11 +713,11 @@ function bindHistoryTab() {
 
 function openHistoryFilterSheet() {
   const adultOpts = [
-    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' },
+    { v: 'all', l: 'All' }, { v: 'earned', l: 'Earned' }, { v: 'purchases', l: 'Purchases' },
     { v: 'uses', l: 'Uses' }, { v: 'bonuses', l: 'Bonuses' }, { v: 'deductions', l: 'Deductions' },
   ];
   const kidOpts = [
-    { v: 'all', l: 'All' }, { v: 'purchases', l: 'Purchases' }, { v: 'uses', l: 'Uses' },
+    { v: 'all', l: 'All' }, { v: 'earned', l: 'Earned' }, { v: 'purchases', l: 'Purchases' }, { v: 'uses', l: 'Uses' },
   ];
   openFilterSheet({
     title: 'Filter history',

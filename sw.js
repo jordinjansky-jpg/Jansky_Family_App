@@ -432,7 +432,9 @@
 // v187 (2026-05-15) — Month density toggle (Pass 4 Task 5): Compact dots ↔ Stacked titles (Apple pattern).
 // v188 (2026-05-15) — Fix: exempt overdue tasks had no completion button in detail sheet; only late-credit UI should be skipped.
 // v189 (2026-05-15) — Overdue sheet: tap = complete (late), long-press = detail menu. Completed-today items sink to a Done section in the same sheet for undo.
-const CACHE_NAME = 'family-hub-v311';
+// v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
+// v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
+const CACHE_NAME = 'family-hub-v313';
 
 const APP_SHELL = [
   '/',

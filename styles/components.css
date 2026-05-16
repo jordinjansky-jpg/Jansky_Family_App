@@ -5157,9 +5157,11 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 
 /* ============ History Row ============ */
+/* Fixed-width columns keep date right-aligned across rows even when one
+   row omits the amount or has a very long label. */
 .history-row {
   display: grid;
-  grid-template-columns: 24px 1fr auto auto;
+  grid-template-columns: 24px minmax(0, 1fr) 72px 56px;
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) 0;
@@ -5168,11 +5170,25 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 .history-row:last-child { border-bottom: none; }
 .history-row__icon { text-align: center; }
-.history-row__label { color: var(--text); }
-.history-row__amount { font-variant-numeric: tabular-nums; font-weight: 600; }
+.history-row__label {
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-row__amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
 .history-row__amount--pos { color: var(--success); }
 .history-row__amount--neg { color: var(--text-muted); }
-.history-row__date { color: var(--text-muted); white-space: nowrap; }
+.history-row__date {
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: right;
+}
 
 /* ============ Approval Row ============ */
 .approval-row {
