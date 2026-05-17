@@ -84,6 +84,7 @@ async function fbGet(env, path) {
 }
 
 async function fbDelete(env, path) {
+  if (!env.FIREBASE_DB_URL || !env.FIREBASE_DB_SECRET) throw new Error('Firebase env missing');
   const base = env.FIREBASE_DB_URL.replace(/\/$/, '');
   await fetch(`${base}/${RUNDOWN_ROOT}/${path}.json?auth=${env.FIREBASE_DB_SECRET}`, { method: 'DELETE' });
 }
