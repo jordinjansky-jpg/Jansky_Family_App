@@ -502,7 +502,7 @@ function mapMessageTypeToPushType(messageType) {
 }
 
 export async function writeFyiMessage(parentPersonId, kidName, rewardName, pointCost, rewardId, createdByPersonId, bankTokenId = null) {
-  return pushData(`messages/${parentPersonId}`, {
+  return writeMessage(parentPersonId, {
     type: 'fyi',
     title: `${kidName} got ${rewardName} from the store.`,
     body: null,
