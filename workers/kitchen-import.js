@@ -100,6 +100,34 @@ async function fbSet(env, path, value) {
   if (!r.ok) throw new Error(`fbSet ${path}: ${r.status}`);
 }
 
+// ── Notification dedup index ──────────────────────────────────────────────────
+// notifications/sent/{YYYY-MM-DD}/{key} = true
+// Prevents a cron rerun from sending the same notification twice.
+
+async function dedupCheck(env, dateKey, dedupKey) {
+  const v = await fbGet(env, `notifications/sent/${dateKey}/${dedupKey}`);
+  return v === true;
+}
+
+async function dedupMark(env, dateKey, dedupKey) {
+  await fbSet(env, `notifications/sent/${dateKey}/${dedupKey}`, true);
+}
+
+// Daily cleanup: remove dedup entries older than 7 days.
+// Called from the scheduled handler at most once per cron tick.
+async function dedupCleanup(env, todayKey) {
+  const all = await fbGet(env, 'notifications/sent');
+  if (!all || typeof all !== 'object') return;
+  const cutoff = new Date(todayKey + 'T00:00:00Z');
+  cutoff.setUTCDate(cutoff.getUTCDate() - 7);
+  const cutoffKey = cutoff.toISOString().slice(0, 10);
+  for (const dateKey of Object.keys(all)) {
+    if (dateKey < cutoffKey) {
+      await fbDelete(env, `notifications/sent/${dateKey}`);
+    }
+  }
+}
+
 // ── VAPID (signs the JWT in the Authorization header for each push) ───────────
 
 async function signVapidJwt(audience, env) {
@@ -1444,6 +1472,18 @@ async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
 async function runScheduled(env, scheduledTimeMs) {
   const now = new Date(scheduledTimeMs);
   console.log('[scheduled] tick at', now.toISOString());
+
+  // Housekeeping: ~once a day, prune dedup entries older than 7 days.
+  if (now.getUTCHours() === 3 && now.getUTCMinutes() < 5) {
+    try {
+      const todayKey = now.toISOString().slice(0, 10);
+      await dedupCleanup(env, todayKey);
+      console.log('[scheduled] dedup cleanup done');
+    } catch (err) {
+      console.warn('[scheduled] dedup cleanup failed', err.message);
+    }
+  }
+
   // TODO Tasks 3, 5, 7: event reminders, task reminders, digest.
 }
 
