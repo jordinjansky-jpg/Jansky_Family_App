@@ -15,6 +15,40 @@ const CATEGORY_LIST = [
 const CATEGORY_STR = CATEGORY_LIST.join(', ');
 const CATEGORY_SET = new Set(CATEGORY_LIST);
 
+// ── HMAC auth (shared with client for /push) ──────────────────────────────────
+
+const HMAC_MAX_AGE_MS = 60_000; // 60 sec replay window
+
+async function verifyPushAuth(authHeader, bodyText, env) {
+  if (!authHeader || !authHeader.startsWith('HMAC v1 ')) return false;
+  const token = authHeader.slice('HMAC v1 '.length);
+  const dot = token.indexOf('.');
+  if (dot <= 0) return false;
+  const tsStr = token.slice(0, dot);
+  const sigHex = token.slice(dot + 1);
+  const ts = Number(tsStr);
+  if (!Number.isFinite(ts)) return false;
+  if (Math.abs(Date.now() - ts) > HMAC_MAX_AGE_MS) return false;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(env.PUSH_HMAC_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${ts}\n${bodyText}`));
+  const expected = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return timingSafeEqual(expected, sigHex);
+}
+
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 // ── Prompts ───────────────────────────────────────────────────────────────────
 
 const RECIPE_PROMPT = (userContext = '') => `${userContext ? `USER-PROVIDED CONTEXT: "${userContext}"\n\n` : ''}Extract recipe information. The source may be a recipe website, blog post, social media post, or photo of a recipe card — formats vary widely.
@@ -1084,7 +1118,7 @@ async function handleScan(input, env, corsHeaders) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 const HANDLERS = {
@@ -1152,6 +1186,22 @@ async function handleEmailMessage(message, env) {
   }
 }
 
+// ── Push notifications ─────────────────────────────────────────────────────────
+
+async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
+  // Auth: HMAC over `${timestamp}\n${rawBodyText}` using PUSH_HMAC_SECRET.
+  // Replay protection: timestamp within 60 sec.
+  const authed = await verifyPushAuth(authHeader, rawBodyText, env);
+  if (!authed) return jsonError('Unauthorized', 401, corsHeaders);
+
+  if (!input?.personId || !input?.type || !input?.payload) {
+    return jsonError('Missing personId, type, or payload', 400, corsHeaders);
+  }
+
+  // TODO Task 3: pref-filter, VAPID sign, fan-out.
+  return jsonOk({ ok: true, sent: 0, skipped: 'stub' }, corsHeaders);
+}
+
 // ── default export ─────────────────────────────────────────────────────────────
 
 export default {
@@ -1165,14 +1215,18 @@ export default {
       });
     }
 
+    const rawBodyText = await request.text();
     let body;
-    try { body = await request.json(); } catch {
+    try { body = JSON.parse(rawBodyText); } catch {
       return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
 
     const { type, input } = body;
+    if (type === 'push') {
+      return handlePush(input, env, CORS, rawBodyText, request.headers.get('Authorization'));
+    }
     const handler = HANDLERS[type];
     if (handler) return handler(input, env);
 
