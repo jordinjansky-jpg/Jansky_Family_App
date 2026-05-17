@@ -130,7 +130,7 @@ On app open, the client checks its current subscription is still in Firebase. If
   tag:   "msg-{senderPersonId}",   // collapses repeats on screen
   data: {
     url:  "/index.html?openBell=1",
-    type: "bellMessage" | "rewardRequest" | "rewardFyi" | "eventReminder" | "taskReminder" | "digest"
+    type: "bellMessages" | "rewardApprovals" | "rewardFyi" | "eventReminders" | "taskReminders" | "dailyDigest"
   },
   actions?: [                       // Android/desktop honor these; iOS ignores
     { action: "approve", title: "Approve" },
@@ -187,7 +187,7 @@ All controls bind to `person.prefs.notifications`. **"Disable"** unsubscribes *t
 ```
 {
   personId: "...",
-  type:     "bellMessage" | "rewardRequest" | "rewardFyi" | "eventReminder" | "taskReminder" | "digest",
+  type:     "bellMessages" | "rewardApprovals" | "rewardFyi" | "eventReminders" | "taskReminders" | "dailyDigest",
   payload:  { title, body, data, actions? }
 }
 ```
@@ -195,7 +195,7 @@ All controls bind to `person.prefs.notifications`. **"Disable"** unsubscribes *t
 **Behavior:**
 1. Verify HMAC + timestamp.
 2. Read `people/{personId}/prefs/notifications`. If `enabled === false` or `types[type] === false`, drop with 200 + `{ skipped: "pref" }`.
-3. If `type` is time-triggered (`eventReminder`, `taskReminder`, `digest`) and `quietHours` is active, drop with `{ skipped: "quiet" }`. Event-triggered types (`bellMessage`, `rewardRequest`, `rewardFyi`) bypass quiet hours — they represent someone actively reaching out.
+3. If `type` is time-triggered (`eventReminders`, `taskReminders`, `dailyDigest`) and `quietHours` is active, drop with `{ skipped: "quiet" }`. Event-triggered types (`bellMessages`, `rewardApprovals`, `rewardFyi`) bypass quiet hours — they represent someone actively reaching out.
 4. Read `pushSubscriptions/{personId}`. For each subscription:
    - Build VAPID-signed Web Push request.
    - On 201/202 → update `lastSeen`.
