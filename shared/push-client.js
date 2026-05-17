@@ -20,12 +20,6 @@ function b64urlToUint8(str) {
   return out;
 }
 
-function uint8ToB64url(buf) {
-  let s = '';
-  const arr = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-  for (const b of arr) s += String.fromCharCode(b);
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
 
 export async function endpointHash(endpoint) {
   const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint));
@@ -116,7 +110,9 @@ export async function sendNotification(personId, type, payload) {
     console.warn('[push-client] /push non-OK', r.status);
     return { ok: false, status: r.status };
   }
-  return { ok: true, ...(await r.json()) };
+  let data = {};
+  try { data = await r.json(); } catch { /* malformed body — still treat as ok */ }
+  return { ok: true, ...data };
 }
 
 // ── Internal ──────────────────────────────────────────────────────────────────
