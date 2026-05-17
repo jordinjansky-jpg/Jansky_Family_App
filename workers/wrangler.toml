@@ -1,3 +1,12 @@
+# Required Worker secrets (set via `wrangler secret put`):
+#   CLAUDE_API_KEY          — Claude API for all AI handlers
+#   FIREBASE_DB_URL         — Firebase REST URL (e.g. https://jansky-home-default-rtdb.firebaseio.com)
+#   FIREBASE_DB_SECRET      — Firebase database secret (email handler only)
+#   VAPID_PUBLIC_KEY        — Web Push public key (base64url, ~88 chars)
+#   VAPID_PRIVATE_KEY       — Web Push private key (base64url, ~43 chars)
+#   VAPID_SUBJECT           — mailto: URL for VAPID JWT sub claim
+#   PUSH_HMAC_SECRET        — 32-byte hex; shared with client for /push auth
+
 name = "kitchen-import"
 main = "kitchen-import.js"
 compatibility_date = "2024-01-01"
