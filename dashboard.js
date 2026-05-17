@@ -3560,12 +3560,20 @@ function openAddMenu() {
 
 // Bind the header buttons
 document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
+  // Person whose settings get edited in Customize:
+  //   1) linkedPerson if URL is person-scoped (person.html / kid.html);
+  //   2) otherwise the active dashboard person filter (so users on / can still
+  //      manage their personal prefs — including Notifications — by filtering
+  //      to themselves first);
+  //   3) otherwise familyOpts (app-defaults editor).
+  const activePersonObj = !linkedPerson && activePerson ? people.find(p => p.id === activePerson) : null;
+  const effectivePerson = linkedPerson || activePersonObj;
   openDeviceThemeSheet(
     document.getElementById('taskSheetMount'),
     settings?.theme,
     () => render(),
-    linkedPerson ? { person: linkedPerson, writePerson, displayDefaults: settings } : undefined,
-    linkedPerson ? undefined : { settings, writeSettings, displayDefaults: settings }
+    effectivePerson ? { person: effectivePerson, writePerson, displayDefaults: settings } : undefined,
+    effectivePerson ? undefined : { settings, writeSettings, displayDefaults: settings }
   );
 });
 

@@ -64,6 +64,9 @@ export async function mountNotificationsSection(mount, personOpts) {
           <input type="checkbox" data-notif-type="rewardFyi" ${t.rewardFyi ? 'checked' : ''}>
           <span class="form-toggle__track"></span>
         </label>
+        ${/Android/.test(navigator.userAgent) ? `
+          <p class="form-hint">On Android, also disable Chrome's app-level notifications (Settings &rarr; Apps &rarr; Chrome &rarr; Notifications &rarr; off) once enabled here. Otherwise every push arrives twice.</p>
+        ` : ''}
         <p class="form-hint">More controls (event reminders, task nudges, digest, quiet hours) coming in later phases.</p>
       </div>
     `;
