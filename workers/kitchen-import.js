@@ -2,8 +2,8 @@
 // Deploy: wrangler deploy workers/kitchen-import.js
 // Secrets (wrangler secret put):
 //   CLAUDE_API_KEY        — required for all AI handlers
-//   FIREBASE_DB_URL       — required for email handler only (e.g. https://project-default-rtdb.firebaseio.com)
-//   FIREBASE_DB_SECRET    — required for email handler only (Firebase Database Secret from Project Settings → Service Accounts)
+//   FIREBASE_DB_URL       — required for email + push handlers (e.g. https://project-default-rtdb.firebaseio.com)
+//   FIREBASE_DB_SECRET    — required for email + push handlers (Firebase Database Secret from Project Settings → Service Accounts)
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -93,6 +93,9 @@ async function fbDelete(env, path) {
 
 async function signVapidJwt(audience, env) {
   // audience = origin of the push service (e.g. https://fcm.googleapis.com)
+  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) {
+    throw new Error('VAPID env missing (PUBLIC_KEY / PRIVATE_KEY / SUBJECT)');
+  }
   const header = { typ: 'JWT', alg: 'ES256' };
   const payload = {
     aud: audience,
