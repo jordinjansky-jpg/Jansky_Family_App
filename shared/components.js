@@ -3453,13 +3453,14 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
       </div>` : ''}
     </div>
     ${richExtras && personOpts ? `
-          <details class="dt-collapsible">
-            <summary>Notifications<span class="dt-collapsible__chev"></span></summary>
-            <div class="dt-collapsible__body">
-              <div id="notifMount" data-person-id="${personOpts.person.id}"></div>
-            </div>
-          </details>
-        ` : ''}
+      <details class="dt-section dt-collapsible">
+        <summary class="dt-collapsible__summary">
+          <span class="form-label">Notifications</span>
+          <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div id="notifMount" data-person-id="${personOpts.person.id}"></div>
+      </details>
+    ` : ''}
     ${!familyOpts ? renderNavTabsSection(personOpts) : ''}
     ${richExtras && currentPage === 'home' ? `
     <div class="dt-section dt-section--page">

@@ -9,6 +9,11 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v317 (2026-05-15) — Push notifications Phase 1 polish: Notifications
+//                     collapsible markup now matches Navigation buttons
+//                     pattern (dt-section dt-collapsible classes, summary
+//                     class, form-label span, SVG polyline chevron) so it
+//                     reads the same as every other Customize section.
 // v316 (2026-05-15) — Push notifications Phase 1: Notifications section in
 //                     Customize sheet (push-ui.js precached).
 // v315 (2026-05-15) — Push notifications Phase 1: SW push+notificationclick
@@ -439,7 +444,7 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
-const CACHE_NAME = 'family-hub-v316';
+const CACHE_NAME = 'family-hub-v317';
 
 const APP_SHELL = [
   '/',
