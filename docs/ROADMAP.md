@@ -62,8 +62,8 @@ New schemas/views, internal complexity, but no external APIs. 1–3 sessions eac
 Activity library, shared timer component (`shared/timer.js` — reused by Task Timer below), stopwatch, session logging, time leaderboard, admin management. Lives in More tab on phone.
 Full spec: [superpowers/specs/2026-04-19-activities-design.md](superpowers/specs/2026-04-19-activities-design.md)
 
-**Push Notifications** · No deps · Cost: $0
-Daily reminders, event alerts (15/30/60 min before), task nudges. Requires FCM client setup + Cloudflare Worker scheduled function. Per-person preferences (types + quiet hours). **The feature that lets people stop using Google Calendar.**
+**Push Notifications** · Phase 1 shipped 2026-05-15 · Cost: $0
+Phase 1 (shipped): subscribe per device, push for bell messages + reward approval requests + reward FYI. Remaining phases (event reminders, task reminders, daily digest, quiet hours) tracked in [docs/superpowers/specs/2026-05-15-push-notifications-design.md](superpowers/specs/2026-05-15-push-notifications-design.md).
 
 **Flexible Recurrence** · Depends on Calendar (shipped) · Cost: $0
 "Every N days", "every other week", "1st and 15th of month". Schema: add `recurrenceRule` to task/event. Extends `shared/scheduler.js`.

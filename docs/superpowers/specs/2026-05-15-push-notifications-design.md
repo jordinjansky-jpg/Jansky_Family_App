@@ -1,6 +1,6 @@
 # Push Notifications — Design
 
-**Status:** Spec · awaiting review
+**Status:** Phase 1 shipped 2026-05-15 · Phases 2–5 pending
 **Date:** 2026-05-15
 **Roadmap entry:** MEDIUM · "Push Notifications" · `docs/ROADMAP.md`
 

@@ -1443,6 +1443,7 @@ Top-to-bottom order:
 - **Theme presets** — flat, always visible. Per-person.
 - **Text Size** — flat, always visible. Per-person.
 - **Task cards / Grouping / Display toggles** — *only when on Home*. Each is its own collapsible (closed by default). Stays in Universal context visually, but functionally a Home-page section nested under the universal area.
+- **Notifications** — collapsible, closed by default. Per-device enable/disable + per-type toggles (bell messages, reward approval requests, reward FYI). Only renders in person mode (not kid mode, not device mode). See [push notifications spec](../superpowers/specs/2026-05-15-push-notifications-design.md).
 - **Navigation buttons** — collapsible, closed by default. The editor lets the user pick which 3 pages occupy nav slots 2, 3, and 4. Slot 1 (Home) and slot 5 (More) are locked.
 
 Avatar editing is the top-right action of the sheet header in person mode: tapping the avatar opens the full editor (color + initials + photo). In device mode (no linked person), the header instead shows a flat accent-color picker.
