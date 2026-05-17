@@ -53,6 +53,175 @@ function timingSafeEqual(a, b) {
   return diff === 0;
 }
 
+// ── base64url helpers ──────────────────────────────────────────────────────────
+
+function b64urlEncode(bytes) {
+  let s = '';
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  for (const b of arr) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function b64urlDecode(str) {
+  const pad = str.length % 4 ? '='.repeat(4 - (str.length % 4)) : '';
+  const b64 = (str + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+// ── Firebase REST (read/write without the client SDK) ─────────────────────────
+
+const RUNDOWN_ROOT = 'rundown'; // Worker always targets production; client-side env=dev does its own routing.
+
+async function fbGet(env, path) {
+  if (!env.FIREBASE_DB_URL || !env.FIREBASE_DB_SECRET) throw new Error('Firebase env missing');
+  const base = env.FIREBASE_DB_URL.replace(/\/$/, '');
+  const r = await fetch(`${base}/${RUNDOWN_ROOT}/${path}.json?auth=${env.FIREBASE_DB_SECRET}`);
+  if (!r.ok) throw new Error(`fbGet ${path}: ${r.status}`);
+  return r.json();
+}
+
+async function fbDelete(env, path) {
+  const base = env.FIREBASE_DB_URL.replace(/\/$/, '');
+  await fetch(`${base}/${RUNDOWN_ROOT}/${path}.json?auth=${env.FIREBASE_DB_SECRET}`, { method: 'DELETE' });
+}
+
+// ── VAPID (signs the JWT in the Authorization header for each push) ───────────
+
+async function signVapidJwt(audience, env) {
+  // audience = origin of the push service (e.g. https://fcm.googleapis.com)
+  const header = { typ: 'JWT', alg: 'ES256' };
+  const payload = {
+    aud: audience,
+    exp: Math.floor(Date.now() / 1000) + 12 * 3600, // 12 hr max per RFC8292
+    sub: env.VAPID_SUBJECT, // mailto:...
+  };
+  const encHeader  = b64urlEncode(new TextEncoder().encode(JSON.stringify(header)));
+  const encPayload = b64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+  const signingInput = `${encHeader}.${encPayload}`;
+
+  // Build JWK from public + private base64url values
+  const pub = b64urlDecode(env.VAPID_PUBLIC_KEY); // 65 bytes: 0x04 || X(32) || Y(32)
+  if (pub.length !== 65 || pub[0] !== 0x04) throw new Error('VAPID public key must be uncompressed P-256 (65 bytes)');
+  const x = b64urlEncode(pub.slice(1, 33));
+  const y = b64urlEncode(pub.slice(33, 65));
+  const jwk = {
+    kty: 'EC', crv: 'P-256', x, y, d: env.VAPID_PRIVATE_KEY,
+    ext: true,
+  };
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, new TextEncoder().encode(signingInput));
+  const encSig = b64urlEncode(new Uint8Array(sig));
+  return `${signingInput}.${encSig}`;
+}
+
+// ── Web Push send (single subscription) ───────────────────────────────────────
+
+async function sendWebPush(subscription, payloadObj, env) {
+  const audience = new URL(subscription.endpoint).origin;
+  const jwt = await signVapidJwt(audience, env);
+
+  const payloadText = JSON.stringify(payloadObj);
+  const { ciphertext } = await encryptPayload(
+    payloadText,
+    subscription.p256dh,
+    subscription.auth,
+  );
+
+  const headers = {
+    'Authorization': `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}`,
+    'Content-Type':  'application/octet-stream',
+    'Content-Encoding': 'aes128gcm',
+    'TTL': '86400',
+    'Urgency': 'normal',
+  };
+
+  const r = await fetch(subscription.endpoint, {
+    method: 'POST',
+    headers,
+    body: ciphertext,
+  });
+  return { status: r.status, ok: r.ok };
+}
+
+// ── aes128gcm encryption (RFC 8188 + 8291) ────────────────────────────────────
+
+async function encryptPayload(plaintext, recipientP256dhB64Url, recipientAuthB64Url) {
+  const recipientPub = b64urlDecode(recipientP256dhB64Url); // 65 bytes
+  const recipientAuth = b64urlDecode(recipientAuthB64Url);  // 16 bytes
+  const ptBytes = new TextEncoder().encode(plaintext);
+
+  // 1. Generate ephemeral ECDH key pair (sender local).
+  const local = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const localPubRaw = await crypto.subtle.exportKey('raw', local.publicKey); // ArrayBuffer(65)
+
+  // 2. Import recipient public key.
+  const recipientKey = await crypto.subtle.importKey(
+    'raw', recipientPub, { name: 'ECDH', namedCurve: 'P-256' }, false, [],
+  );
+
+  // 3. ECDH → shared secret.
+  const sharedBits = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: recipientKey }, local.privateKey, 256,
+  );
+  const sharedSecret = new Uint8Array(sharedBits); // 32 bytes
+
+  // 4. salt (random 16 bytes).
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  // 5. PRK_key = HKDF-Extract(auth, ecdh_secret) with the Web-Push info string.
+  // Per RFC 8291 §3.3:
+  //   key_info = "WebPush: info\x00" || recipient_pub || sender_pub
+  //   IKM      = HKDF(salt = auth_secret, IKM = ecdh_secret, info = key_info, L = 32)
+  //   CEK      = HKDF(salt = random_salt, IKM = IKM, info = "Content-Encoding: aes128gcm\x00", L = 16)
+  //   NONCE    = HKDF(salt = random_salt, IKM = IKM, info = "Content-Encoding: nonce\x00", L = 12)
+
+  const localPub65 = new Uint8Array(localPubRaw);
+  const keyInfo = new Uint8Array(
+    [...new TextEncoder().encode('WebPush: info\0'), ...recipientPub, ...localPub65],
+  );
+  const ikm = await hkdf(recipientAuth, sharedSecret, keyInfo, 32);
+  const cek = await hkdf(salt, ikm, new TextEncoder().encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(salt, ikm, new TextEncoder().encode('Content-Encoding: nonce\0'), 12);
+
+  // 6. AES-GCM encrypt plaintext + 0x02 padding delimiter (RFC 8188 §2.1).
+  const padded = new Uint8Array(ptBytes.length + 1);
+  padded.set(ptBytes); padded[ptBytes.length] = 0x02;
+  const aesKey = await crypto.subtle.importKey('raw', cek, { name: 'AES-GCM' }, false, ['encrypt']);
+  const ctBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aesKey, padded);
+  const ct = new Uint8Array(ctBuf);
+
+  // 7. Build the encrypted content-encoding header per RFC 8188 §2.1:
+  //    salt (16) || rs (4, big-endian) || idlen (1) || keyid (idlen) || ciphertext
+  //    For Web Push: rs = 4096, keyid = sender's raw public key (65 bytes), idlen = 65.
+  const rsBE = new Uint8Array(4);
+  new DataView(rsBE.buffer).setUint32(0, 4096);
+  const header = new Uint8Array(16 + 4 + 1 + 65);
+  header.set(salt, 0);
+  header.set(rsBE, 16);
+  header[20] = 65;
+  header.set(localPub65, 21);
+
+  const out = new Uint8Array(header.length + ct.length);
+  out.set(header, 0);
+  out.set(ct, header.length);
+
+  return { ciphertext: out };
+}
+
+async function hkdf(salt, ikm, info, length) {
+  // HKDF-Extract + HKDF-Expand combined.
+  // Length must be ≤ 32 (single HMAC block). CEK is 16, nonce is 12, IKM is 32 — all fit.
+  const prkKey = await crypto.subtle.importKey('raw', salt, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const prkBuf = await crypto.subtle.sign('HMAC', prkKey, ikm);
+  const prk = new Uint8Array(prkBuf);
+  const expandKey = await crypto.subtle.importKey('raw', prk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const t1Buf = await crypto.subtle.sign('HMAC', expandKey, new Uint8Array([...info, 0x01]));
+  return new Uint8Array(t1Buf).slice(0, length);
+}
+
 // ── Prompts ───────────────────────────────────────────────────────────────────
 
 const RECIPE_PROMPT = (userContext = '') => `${userContext ? `USER-PROVIDED CONTEXT: "${userContext}"\n\n` : ''}Extract recipe information. The source may be a recipe website, blog post, social media post, or photo of a recipe card — formats vary widely.
@@ -1193,20 +1362,66 @@ async function handleEmailMessage(message, env) {
 // ── Push notifications ─────────────────────────────────────────────────────────
 
 async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
-  // Auth: HMAC over `${timestamp}\n${rawBodyText}` using PUSH_HMAC_SECRET.
-  // Replay protection: timestamp within 60 sec.
   const authed = await verifyPushAuth(authHeader, rawBodyText, env);
   if (!authed) {
     console.warn('[push] auth failed');
     return jsonError('Unauthorized', 401, corsHeaders);
   }
 
-  if (!input?.personId || !input?.type || !input?.payload) {
+  const { personId, type, payload } = input || {};
+  if (!personId || !type || !payload) {
     return jsonError('Missing personId, type, or payload', 400, corsHeaders);
   }
 
-  // TODO Task 3: pref-filter, VAPID sign, fan-out.
-  return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'stub' }, corsHeaders);
+  // 1. Per-person pref filter
+  let prefs;
+  try {
+    prefs = await fbGet(env, `people/${personId}/prefs/notifications`);
+  } catch (err) {
+    console.warn('[push] fbGet prefs failed', err.message);
+    return jsonError('Firebase read failed', 500, corsHeaders);
+  }
+  if (!prefs || prefs.enabled === false) {
+    return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'pref-disabled' }, corsHeaders);
+  }
+  if (prefs.types && prefs.types[type] === false) {
+    return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'type-disabled' }, corsHeaders);
+  }
+
+  // 2. Load subscriptions
+  let subsObj;
+  try {
+    subsObj = await fbGet(env, `pushSubscriptions/${personId}`);
+  } catch (err) {
+    console.warn('[push] fbGet subscriptions failed', err.message);
+    return jsonError('Firebase read failed', 500, corsHeaders);
+  }
+  if (!subsObj || typeof subsObj !== 'object') {
+    return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'no-devices' }, corsHeaders);
+  }
+
+  // 3. Fan out
+  let sent = 0, removed = 0, errors = 0;
+  for (const [hash, sub] of Object.entries(subsObj)) {
+    if (!sub?.endpoint || !sub?.p256dh || !sub?.auth) continue;
+    try {
+      const r = await sendWebPush(sub, payload, env);
+      if (r.ok) {
+        sent++;
+      } else if (r.status === 404 || r.status === 410) {
+        await fbDelete(env, `pushSubscriptions/${personId}/${hash}`);
+        removed++;
+      } else {
+        errors++;
+        console.warn('[push] non-OK from push service', r.status, sub.endpoint);
+      }
+    } catch (err) {
+      errors++;
+      console.warn('[push] send failed', err.message);
+    }
+  }
+
+  return jsonOk({ sent, removed, errors }, corsHeaders);
 }
 
 // ── default export ─────────────────────────────────────────────────────────────
