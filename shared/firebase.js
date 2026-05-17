@@ -426,6 +426,34 @@ export async function removeReward(rewardId) {
   await removeData(`rewards/${rewardId}`);
 }
 
+// ── Push Subscriptions ──
+
+export async function readPushSubscriptions(personId) {
+  return readOnce(`pushSubscriptions/${personId}`);
+}
+
+export async function writePushSubscription(personId, endpointHash, data) {
+  return writeData(`pushSubscriptions/${personId}/${endpointHash}`, data);
+}
+
+export async function removePushSubscription(personId, endpointHash) {
+  return removeData(`pushSubscriptions/${personId}/${endpointHash}`);
+}
+
+// ── Notification Prefs ──
+
+export async function readNotificationPrefs(personId) {
+  return readOnce(`people/${personId}/prefs/notifications`);
+}
+
+export async function writeNotificationPrefs(personId, prefs) {
+  return writeData(`people/${personId}/prefs/notifications`, prefs);
+}
+
+export async function updateNotificationPrefs(personId, partial) {
+  return updateData(`people/${personId}/prefs/notifications`, partial);
+}
+
 // ── Messages ──
 
 export async function readMessages(personId) {
@@ -437,7 +465,40 @@ export async function readAllMessages() {
 }
 
 export async function writeMessage(personId, data) {
-  return pushData(`messages/${personId}`, data);
+  const id = await pushData(`messages/${personId}`, data);
+  // Fire-and-forget push notification — never block the message write.
+  // Importing push-client lazily so callers that don't load it (e.g. SW context)
+  // aren't penalized by a static import cycle.
+  notifyMessageFireAndForget(personId, data);
+  return id;
+}
+
+async function notifyMessageFireAndForget(personId, data) {
+  try {
+    const { sendNotification } = await import('./push-client.js');
+    const type = mapMessageTypeToPushType(data?.type);
+    if (!type) return;
+    await sendNotification(personId, type, {
+      title: data.title || 'New message',
+      body:  data.body || '',
+      tag:   `${type}-${data.createdBy || 'system'}`,
+      data:  { url: '/index.html?openBell=1', type },
+    });
+  } catch (err) {
+    console.warn('[firebase] push failed (non-fatal):', err?.message || err);
+  }
+}
+
+function mapMessageTypeToPushType(messageType) {
+  // Message types that should trigger a push.
+  // Returned strings MUST match the keys in person.prefs.notifications.types
+  // (the Worker uses them directly for `prefs.types[type] === false` lookup).
+  // Other internal types (penalty-removed, task-skip-used, etc.) are silent.
+  if (messageType === 'request')  return 'rewardApprovals';
+  if (messageType === 'fyi')      return 'rewardFyi';
+  if (messageType === 'message')  return 'bellMessages';
+  if (messageType === 'kudos')    return 'bellMessages';
+  return null;
 }
 
 export async function writeFyiMessage(parentPersonId, kidName, rewardName, pointCost, rewardId, createdByPersonId, bankTokenId = null) {
