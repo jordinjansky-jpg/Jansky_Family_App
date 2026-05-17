@@ -34,7 +34,7 @@ Replace Google Calendar's reminder utility with a per-person, fully customizable
 1. **Service Worker push handler** — added to `sw.js`. Receives `push` events from the OS-level push service, shows the notification, deep-links on click.
 2. **Worker `POST /push` endpoint** — added to `workers/kitchen-import.js`. Accepts a signed request from a client, looks up the recipient's subscriptions, sends a VAPID-signed push to each, filters against the recipient's prefs.
 3. **Worker `scheduled` handler** — new export in `workers/kitchen-import.js`. Cloudflare Cron Trigger fires every 5 minutes. Reads Firebase, computes events/tasks/digests due in the window, fans out via the same push helper.
-4. **Subscribe UI** — new section in **My Settings → Notifications**. Per-device enable + per-person type/timing controls.
+4. **Subscribe UI** — new section in **Customize → Notifications** (per DESIGN.md §10.4 — Customize is the home for personal settings; notifications affect how a user receives data, not what the data is). Per-device enable + per-person type/timing controls.
 5. **Firebase schema additions** — `pushSubscriptions/*`, `people/*/prefs/notifications`, `notifications/sent/*` (dedup index).
 
 ### Protocol: Web Push (VAPID)
@@ -108,7 +108,7 @@ Daily cleanup sweep keeps 7 days.
 
 ## Subscription flow
 
-1. User opens **My Settings → Notifications**. The "person being subscribed" resolves in this order: (a) `linkedPerson` if the page is `person.html?person=X` or `kid.html?kid=Y`, otherwise (b) the active dashboard person filter, otherwise (c) the UI prompts the user to pick a person before enabling. Call this Person X.
+1. User opens **Customize → Notifications**. The "person being subscribed" resolves in this order: (a) `linkedPerson` if the page is `person.html?person=X` or `kid.html?kid=Y`, otherwise (b) the active dashboard person filter, otherwise (c) the UI prompts the user to pick a person before enabling. Call this Person X.
 2. Status row reads: **"Off on this device · Tap to enable"**.
 3. Tap → `Notification.requestPermission()` → if granted, `registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC })`.
 4. Result `{ endpoint, keys: { p256dh, auth } }` written to `pushSubscriptions/{personX_id}/{endpointHash}`.
@@ -146,7 +146,7 @@ SW `notificationclick` handler:
 
 ---
 
-## Pref UI sketch (My Settings → Notifications)
+## Pref UI sketch (Customize → Notifications)
 
 ```
 ─ Notifications ──────────────────────────────────
@@ -230,7 +230,7 @@ Each phase ships independently and adds user-visible value. The pref UI grows ph
 - Generate VAPID keys; add `VAPID_*` and `PUSH_HMAC_SECRET` Worker secrets.
 - SW push handler + notificationclick deep linking + Approve/Deny action handling.
 - Worker `POST /push` endpoint with HMAC auth + per-person pref filtering.
-- Subscribe / unsubscribe UI in **My Settings → Notifications** with **Send test** button.
+- Subscribe / unsubscribe UI in **Customize → Notifications** with **Send test** button.
 - Schema: `pushSubscriptions/*`, minimal `people/*/prefs/notifications` (enabled + 3 type toggles).
 - Wire pushes to existing flows: bell-message write, reward-approval-request write, reward-FYI write.
 - Pref UI surface for Phase 1: master on/off + 3 type toggles + device list (this device + remove).
