@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v316 (2026-05-15) — Push notifications Phase 1: Notifications section in
+//                     Customize sheet (push-ui.js precached).
 // v315 (2026-05-15) — Push notifications Phase 1: SW push+notificationclick
 //                     handlers added, shared/push-client.js precached.
 // v294 (2026-05-13) — Pass 1 — Calendar day view: group tasks by frequency
@@ -437,7 +439,7 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
-const CACHE_NAME = 'family-hub-v315';
+const CACHE_NAME = 'family-hub-v316';
 
 const APP_SHELL = [
   '/',
@@ -487,6 +489,7 @@ const APP_SHELL = [
   '/shared/dev-banner.js',
   '/shared/kitchen-ical.js',
   '/shared/push-client.js',
+  '/shared/push-ui.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js',

@@ -3452,6 +3452,14 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         </div>
       </div>` : ''}
     </div>
+    ${richExtras ? `
+          <details class="dt-collapsible">
+            <summary>Notifications<span class="dt-collapsible__chev"></span></summary>
+            <div class="dt-collapsible__body">
+              <div id="notifMount" data-person-id="${personOpts.person.id}"></div>
+            </div>
+          </details>
+        ` : ''}
     ${!familyOpts ? renderNavTabsSection(personOpts) : ''}
     ${richExtras && currentPage === 'home' ? `
     <div class="dt-section dt-section--page">
@@ -3690,6 +3698,12 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         if (onApply) onApply();
       });
     }
+  }
+
+  // Notifications section — async init (no-op if not in person mode)
+  const notifMount = mountEl.querySelector('#notifMount');
+  if (notifMount && personOpts?.person?.id) {
+    import('./push-ui.js').then(m => m.mountNotificationsSection(notifMount, personOpts));
   }
 
   // Close
