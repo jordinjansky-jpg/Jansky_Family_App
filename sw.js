@@ -589,7 +589,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, {
     body: body || '',
     icon: icon || '/app-icon.png',
-    tag:  tag || 'rundown',
+    tag:  tag || undefined,
     data: data || {},
     actions: actions || [],
   }));
@@ -598,11 +598,10 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const action = event.action;
 
   // Action buttons (Approve/Deny on reward requests) — Phase 2+ wiring;
   // for Phase 1 we just open the deep link.
-  // TODO Phase 2: POST approve/deny to Worker.
+  // TODO Phase 2: read event.action and POST approve/deny to Worker.
 
   const url = data.url || '/index.html';
   event.waitUntil((async () => {
