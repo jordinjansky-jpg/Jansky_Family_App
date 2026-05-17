@@ -3452,7 +3452,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         </div>
       </div>` : ''}
     </div>
-    ${richExtras ? `
+    ${richExtras && personOpts ? `
           <details class="dt-collapsible">
             <summary>Notifications<span class="dt-collapsible__chev"></span></summary>
             <div class="dt-collapsible__body">

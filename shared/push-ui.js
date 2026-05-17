@@ -113,8 +113,15 @@ export async function mountNotificationsSection(mount, personOpts) {
     mount.querySelectorAll('input[data-notif-type]').forEach(input => {
       input.addEventListener('change', async () => {
         const key = input.dataset.notifType;
-        prefs.types = { ...(prefs.types || {}), [key]: input.checked };
-        await updateNotificationPrefs(personId, { types: prefs.types });
+        const prev = prefs.types || {};
+        const next = { ...prev, [key]: input.checked };
+        try {
+          await updateNotificationPrefs(personId, { types: next });
+          prefs.types = next;
+        } catch (err) {
+          showToast(`Could not save preference: ${err.message}`);
+          input.checked = !input.checked; // revert visual state
+        }
       });
     });
   }
