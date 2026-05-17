@@ -89,6 +89,17 @@ async function fbDelete(env, path) {
   await fetch(`${base}/${RUNDOWN_ROOT}/${path}.json?auth=${env.FIREBASE_DB_SECRET}`, { method: 'DELETE' });
 }
 
+async function fbSet(env, path, value) {
+  if (!env.FIREBASE_DB_URL || !env.FIREBASE_DB_SECRET) throw new Error('Firebase env missing');
+  const base = env.FIREBASE_DB_URL.replace(/\/$/, '');
+  const r = await fetch(`${base}/${RUNDOWN_ROOT}/${path}.json?auth=${env.FIREBASE_DB_SECRET}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
+  });
+  if (!r.ok) throw new Error(`fbSet ${path}: ${r.status}`);
+}
+
 // ── VAPID (signs the JWT in the Authorization header for each push) ───────────
 
 async function signVapidJwt(audience, env) {
@@ -1464,4 +1475,16 @@ export default {
   async email(message, env, ctx) {
     ctx.waitUntil(handleEmailMessage(message, env));
   },
+
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(runScheduled(env, controller.scheduledTime));
+  },
 };
+
+// ── Scheduled handler (cron-driven push) ──────────────────────────────────────
+
+async function runScheduled(env, scheduledTimeMs) {
+  const now = new Date(scheduledTimeMs);
+  console.log('[scheduled] tick at', now.toISOString());
+  // TODO Tasks 3, 5, 7: event reminders, task reminders, digest.
+}

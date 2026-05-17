@@ -10,3 +10,6 @@
 name = "kitchen-import"
 main = "kitchen-import.js"
 compatibility_date = "2024-01-01"
+
+[triggers]
+crons = ["*/5 * * * *"]
