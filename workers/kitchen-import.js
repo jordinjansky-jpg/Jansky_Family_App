@@ -1439,6 +1439,14 @@ async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
   return jsonOk({ sent, removed, errors }, corsHeaders);
 }
 
+// ── Scheduled handler (cron-driven push) ──────────────────────────────────────
+
+async function runScheduled(env, scheduledTimeMs) {
+  const now = new Date(scheduledTimeMs);
+  console.log('[scheduled] tick at', now.toISOString());
+  // TODO Tasks 3, 5, 7: event reminders, task reminders, digest.
+}
+
 // ── default export ─────────────────────────────────────────────────────────────
 
 export default {
@@ -1480,11 +1488,3 @@ export default {
     ctx.waitUntil(runScheduled(env, controller.scheduledTime));
   },
 };
-
-// ── Scheduled handler (cron-driven push) ──────────────────────────────────────
-
-async function runScheduled(env, scheduledTimeMs) {
-  const now = new Date(scheduledTimeMs);
-  console.log('[scheduled] tick at', now.toISOString());
-  // TODO Tasks 3, 5, 7: event reminders, task reminders, digest.
-}
