@@ -21,6 +21,10 @@ const HMAC_MAX_AGE_MS = 60_000; // 60 sec replay window
 
 async function verifyPushAuth(authHeader, bodyText, env) {
   if (!authHeader || !authHeader.startsWith('HMAC v1 ')) return false;
+  if (!env.PUSH_HMAC_SECRET) {
+    console.error('[push] PUSH_HMAC_SECRET not set');
+    return false;
+  }
   const token = authHeader.slice('HMAC v1 '.length);
   const dot = token.indexOf('.');
   if (dot <= 0) return false;
@@ -37,7 +41,7 @@ async function verifyPushAuth(authHeader, bodyText, env) {
     false,
     ['sign'],
   );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${ts}\n${bodyText}`));
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${tsStr}\n${bodyText}`));
   const expected = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
   return timingSafeEqual(expected, sigHex);
 }
@@ -1192,14 +1196,17 @@ async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
   // Auth: HMAC over `${timestamp}\n${rawBodyText}` using PUSH_HMAC_SECRET.
   // Replay protection: timestamp within 60 sec.
   const authed = await verifyPushAuth(authHeader, rawBodyText, env);
-  if (!authed) return jsonError('Unauthorized', 401, corsHeaders);
+  if (!authed) {
+    console.warn('[push] auth failed');
+    return jsonError('Unauthorized', 401, corsHeaders);
+  }
 
   if (!input?.personId || !input?.type || !input?.payload) {
     return jsonError('Missing personId, type, or payload', 400, corsHeaders);
   }
 
   // TODO Task 3: pref-filter, VAPID sign, fan-out.
-  return jsonOk({ ok: true, sent: 0, skipped: 'stub' }, corsHeaders);
+  return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'stub' }, corsHeaders);
 }
 
 // ── default export ─────────────────────────────────────────────────────────────
