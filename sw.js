@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v315 (2026-05-15) — Push notifications Phase 1: SW push+notificationclick
+//                     handlers added, shared/push-client.js precached.
 // v294 (2026-05-13) — Pass 1 — Calendar day view: group tasks by frequency
 //                     (Monthly → Weekly → One-Time → Daily) per DESIGN.md §6.2;
 //                     replaces per-person grouping; owner dot preserved on each row.
@@ -435,7 +437,7 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
-const CACHE_NAME = 'family-hub-v314';
+const CACHE_NAME = 'family-hub-v315';
 
 const APP_SHELL = [
   '/',
@@ -484,6 +486,7 @@ const APP_SHELL = [
   '/shared/ai-helpers.js',
   '/shared/dev-banner.js',
   '/shared/kitchen-ical.js',
+  '/shared/push-client.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js',
@@ -573,4 +576,42 @@ self.addEventListener('fetch', (event) => {
       return response;
     }).catch(() => caches.match(event.request))
   );
+});
+
+// ── Push notifications ─────────────────────────────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  let payload;
+  try { payload = event.data.json(); } catch { return; }
+  const { title, body, icon, tag, data, actions } = payload;
+  if (!title) return;
+  event.waitUntil(self.registration.showNotification(title, {
+    body: body || '',
+    icon: icon || '/app-icon.png',
+    tag:  tag || 'rundown',
+    data: data || {},
+    actions: actions || [],
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  const action = event.action;
+
+  // Action buttons (Approve/Deny on reward requests) — Phase 2+ wiring;
+  // for Phase 1 we just open the deep link.
+  // TODO Phase 2: POST approve/deny to Worker.
+
+  const url = data.url || '/index.html';
+  event.waitUntil((async () => {
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of allClients) {
+      if (c.url.includes(new URL(url, self.location.origin).pathname) && 'focus' in c) {
+        return c.focus();
+      }
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(url);
+  })());
 });
