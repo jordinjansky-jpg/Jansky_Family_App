@@ -1537,7 +1537,8 @@ async function runScheduled(env, scheduledTimeMs) {
   }
 
   await runEventReminders(env, now, tz, people, events);
-  // TODO Tasks 5, 7: task reminders, digest.
+  await runTaskReminders(env, now, tz, people);
+  // TODO Task 7: digest.
 }
 
 async function runEventReminders(env, now, tz, people, events) {
@@ -1585,6 +1586,62 @@ async function runEventReminders(env, now, tz, people, events) {
       } catch (err) {
         console.warn('[scheduled] eventReminder failed', personId, eventId, err.message);
       }
+    }
+  }
+}
+
+async function runTaskReminders(env, now, tz, people) {
+  const todayKey = dateKeyInTz(now, tz);
+  const { hours, minutes } = timeInTz(now, tz);
+  const nowMin = hours * 60 + minutes;
+
+  const optedIn = Object.entries(people).filter(([_, p]) =>
+    p?.prefs?.notifications?.enabled === true
+    && p?.prefs?.notifications?.types?.taskReminders === true
+    && typeof p?.prefs?.notifications?.taskReminderTime === 'string'
+  );
+  if (optedIn.length === 0) return;
+
+  // Only schedule entries for today are loaded — task reminders are about
+  // "what's left for the rest of today," not next week.
+  const [scheduleToday, completions] = await Promise.all([
+    fbGet(env, `schedule/${todayKey}`).catch(() => null),
+    fbGet(env, 'completions').catch(() => null),
+  ]);
+  if (!scheduleToday || typeof scheduleToday !== 'object') return;
+
+  for (const [personId, person] of optedIn) {
+    const targetTime = person.prefs.notifications.taskReminderTime; // "HH:MM"
+    const [targetH, targetM] = targetTime.split(':').map(Number);
+    const targetMin = targetH * 60 + targetM;
+    // Slack window: fire if |nowMin - targetMin| <= 2.5min.
+    if (Math.abs(nowMin - targetMin) > 2.5) continue;
+
+    const dedupKey = `task_${personId}`;
+    if (await dedupCheck(env, todayKey, dedupKey)) continue;
+
+    // Count incomplete entries for this person today.
+    const myEntries = Object.entries(scheduleToday).filter(
+      ([_, entry]) => entry?.ownerId === personId
+    );
+    const completedKeys = new Set(Object.keys(completions || {}));
+    const incomplete = myEntries.filter(([entryKey]) => !completedKeys.has(entryKey));
+    if (incomplete.length === 0) continue;
+
+    const payload = {
+      title: `${incomplete.length} task${incomplete.length === 1 ? '' : 's'} left today`,
+      body:  'Tap to see what\'s remaining.',
+      icon:  '/app-icon.png',
+      tag:   `task-${personId}`,
+      data:  { url: '/index.html', type: 'taskReminders' },
+    };
+
+    try {
+      const { sent, removed, errors } = await fanoutPush(env, personId, payload);
+      await dedupMark(env, todayKey, dedupKey);
+      console.log('[scheduled] taskReminder', personId, { count: incomplete.length, sent, removed, errors });
+    } catch (err) {
+      console.warn('[scheduled] taskReminder failed', personId, err.message);
     }
   }
 }
