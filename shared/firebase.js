@@ -300,6 +300,73 @@ export async function removeActivitySession(sessionId) {
   return removeData(`activitySessions/${sessionId}`);
 }
 
+// --- Active Timers ---
+
+/**
+ * Read the active timer for a single person, or null if none.
+ */
+export async function readActiveTimer(personId) {
+  return readOnce(`activeTimers/${personId}`);
+}
+
+/**
+ * Read all active timers (keyed by personId).
+ */
+export async function readAllActiveTimers() {
+  return readOnce('activeTimers');
+}
+
+/**
+ * Write the active timer for a person. Full replace (set semantics) — caller passes the complete record.
+ */
+export async function writeActiveTimer(personId, data) {
+  return writeData(`activeTimers/${personId}`, data);
+}
+
+/**
+ * Clear the active timer for a person.
+ */
+export async function clearActiveTimer(personId) {
+  return removeData(`activeTimers/${personId}`);
+}
+
+/**
+ * Subscribe to active-timer changes for all people. Calls callback with the full activeTimers map on every change. Returns an unsubscribe function.
+ */
+export function subscribeActiveTimers(callback) {
+  return onValue('activeTimers', callback);
+}
+
+// --- Activity Earnings ---
+
+/**
+ * Read all activity earnings for a single person.
+ */
+export async function readActivityEarnings(personId) {
+  return readOnce(`activityEarnings/${personId}`);
+}
+
+/**
+ * Read all activity earnings (all people).
+ */
+export async function readAllActivityEarnings() {
+  return readOnce('activityEarnings');
+}
+
+/**
+ * Remove one earning record at a specific period.
+ */
+export async function removeActivityEarning(personId, activityId, periodKey) {
+  return removeData(`activityEarnings/${personId}/${activityId}/${periodKey}`);
+}
+
+/**
+ * Remove all earnings for an activity under a single person (used during destructive "Delete with History" admin action).
+ */
+export async function removeActivityEarningsForActivity(personId, activityId) {
+  return removeData(`activityEarnings/${personId}/${activityId}`);
+}
+
 /**
  * Read schedule for a specific date.
  */
