@@ -1,6 +1,6 @@
 # Push Notifications — Phase 6 Design
 
-**Status:** Spec · awaiting review
+**Status:** All 5 sub-phases shipped 2026-05-18
 **Date:** 2026-05-18
 **Builds on:** [Phase 1 spec](2026-05-15-push-notifications-design.md) (which Phases 2-5 fully implemented)
 

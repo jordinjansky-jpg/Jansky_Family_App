@@ -62,8 +62,8 @@ New schemas/views, internal complexity, but no external APIs. 1–3 sessions eac
 Activity library, shared timer component (`shared/timer.js` — reused by Task Timer below), stopwatch, session logging, time leaderboard, admin management. Lives in More tab on phone.
 Full spec: [superpowers/specs/2026-04-19-activities-design.md](superpowers/specs/2026-04-19-activities-design.md)
 
-**Push Notifications** · Shipped 2026-05-15 (all 5 phases) · Cost: $0
-Per-device subscribe, push for bell messages, reward approvals, reward FYI, event reminders (15/30/60 min before), task reminders, and daily digest. Per-person quiet hours. Multi-device management. Spec: [docs/superpowers/specs/2026-05-15-push-notifications-design.md](superpowers/specs/2026-05-15-push-notifications-design.md). Known follow-ups: recurring-event reminders, per-event lead overrides, Approve/Deny notification actions on reward requests.
+**Push Notifications** · All phases shipped (Phase 1–5: 2026-05-15; Phase 6: 2026-05-18) · Cost: $0
+Per-device subscribe; push for bell messages, reward approvals (with one-tap Approve/Deny actions), reward FYI, event reminders (recurring + non-recurring, 15/30/60 min lead, Snooze 5/15/60 cycle), task reminders, daily digest, overdue task nudge, tonight's dinner reminder. Per-person quiet hours. Multi-device management. Admin notification activity log. Specs: [Phases 1–5](superpowers/specs/2026-05-15-push-notifications-design.md), [Phase 6](superpowers/specs/2026-05-18-push-notifications-phase-6-design.md).
 
 **Flexible Recurrence** · Depends on Calendar (shipped) · Cost: $0
 "Every N days", "every other week", "1st and 15th of month". Schema: add `recurrenceRule` to task/event. Extends `shared/scheduler.js`.
