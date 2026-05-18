@@ -575,9 +575,12 @@ export function getActiveAchievements(allDefs) {
  * @param {object} messages - { msgId: message } for this person (already filtered)
  * @param {object|null} anchor - { amount, anchoredAt } or null
  * @param {object|null} multipliers - { dateKey: { personId: { multiplier } } }
+ * @param {string} [timezone]
+ * @param {object|null} [allEarnings] - rundown/activityEarnings (keyed by personId). When
+ *   provided, all settled activity earnings for this person are added to balance/totalEarned.
  * @returns {{ balance: number, totalEarned: number }}
  */
-export function calculateBalance(personId, allSnapshots, messages, anchor, multipliers, timezone) {
+export function calculateBalance(personId, allSnapshots, messages, anchor, multipliers, timezone, allEarnings) {
   const anchorAmount = anchor?.amount || 0;
   const anchorDate = anchor?.anchoredAt || 0;
   // Convert anchor timestamp to YYYY-MM-DD in the family timezone (not UTC)
@@ -611,8 +614,26 @@ export function calculateBalance(personId, allSnapshots, messages, anchor, multi
     }
   }
 
-  const balance = anchorAmount + snapshotEarning + bonuses - deductions - spent;
-  const totalEarned = anchorAmount + snapshotEarning + bonuses;
+  // Activity earnings — settled points from activities (e.g. screen time goals).
+  // Only counted for dates on or after the anchor date so that re-anchoring
+  // correctly resets the balance (same rule as snapshots).
+  let activityEarning = 0;
+  if (allEarnings) {
+    const perPerson = allEarnings[personId];
+    if (perPerson) {
+      for (const activityId of Object.keys(perPerson)) {
+        for (const periodKey of Object.keys(perPerson[activityId])) {
+          const earning = perPerson[activityId][periodKey];
+          if (!earning) continue;
+          if (anchorDateKey && periodKey < anchorDateKey) continue;
+          activityEarning += earning.earned || 0;
+        }
+      }
+    }
+  }
+
+  const balance = anchorAmount + snapshotEarning + activityEarning + bonuses - deductions - spent;
+  const totalEarned = anchorAmount + snapshotEarning + activityEarning + bonuses;
 
   return { balance: Math.round(balance), totalEarned: Math.round(totalEarned) };
 }

@@ -50,7 +50,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, writeSnapshot, readAchievementDefs, readKitchenPlan, readKitchenRecipes } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, writeSnapshot, readAchievementDefs, readKitchenPlan, readKitchenRecipes, readAllActivityEarnings } from './shared/firebase.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet, openDeviceThemeSheet } from './shared/components.js';
     import { closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
@@ -119,11 +119,11 @@
         // ── Offline/Online banner ──
         initOfflineBanner(onConnectionChange, { showConnectionDot: false });
 
-        const [tasksObj, catsObj, rewardsObj, kidMessages, kidBank, kidWishlist, kidAchievements, allSnapshots, allAnchors, allMultipliers, achDefsObj] = await Promise.all([
+        const [tasksObj, catsObj, rewardsObj, kidMessages, kidBank, kidWishlist, kidAchievements, allSnapshots, allAnchors, allMultipliers, achDefsObj, allActivityEarnings] = await Promise.all([
           readTasks(), readCategories(),
           readRewards(), readMessages(kid.id), readBank(kid.id), readWishlist(kid.id),
           readAchievements(kid.id), readAllSnapshots(), readAllBalanceAnchors(), readMultipliers(),
-          readAchievementDefs()
+          readAchievementDefs(), readAllActivityEarnings()
         ]);
         const tasks = tasksObj || {};
         const cats = catsObj || {};
@@ -149,7 +149,7 @@
         const activeDefs = getActiveAchievements(allAchDefs);
 
         // Calculate balance
-        let { balance, totalEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers, tz);
+        let { balance, totalEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers, tz, allActivityEarnings);
         let prevBalance = balance;
 
         // ── Check for new achievements ──
@@ -208,7 +208,7 @@
           streakData = freshStreak;
           const freshMessages = (await readMessages(kid.id)) || {};
           messages = freshMessages;
-          const { balance: freshBal, totalEarned: freshTotal } = calculateBalance(kid.id, allSnapshots, freshMessages, anchor, multipliers, tz);
+          const { balance: freshBal, totalEarned: freshTotal } = calculateBalance(kid.id, allSnapshots, freshMessages, anchor, multipliers, tz, allActivityEarnings);
           balance = freshBal;
           const freshHasRedeemed = Object.values(freshMessages).some(m => m.type === 'redemption-approved');
           const freshSched = (await readOnce(`schedule/${today}`)) || {};
@@ -2166,7 +2166,7 @@
         // Real-time message listener
         onMessages(kid.id, (newMsgs) => {
           messages = newMsgs || {};
-          const { balance: newBal, totalEarned: newEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers, tz);
+          const { balance: newBal, totalEarned: newEarned } = calculateBalance(kid.id, allSnapshots, messages, anchor, multipliers, tz, allActivityEarnings);
           balance = newBal;
           totalEarned = newEarned;
           debouncedRender(); // Re-render to update wishlist bars, store affordability, etc.

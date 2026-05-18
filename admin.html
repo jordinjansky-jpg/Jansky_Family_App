@@ -2155,10 +2155,11 @@
         Promise.all([
           readBalanceAnchor(personId),
           readAllSnapshots(),
-          readMultipliers()
-        ]).then(([anchor, allSnapshots, multipliers]) => {
+          readMultipliers(),
+          readAllActivityEarnings()
+        ]).then(([anchor, allSnapshots, multipliers, allEarningsForBalance]) => {
           const msgs = allMessagesObj[personId] || {};
-          const { balance } = calculateBalance(personId, allSnapshots || {}, msgs, anchor, multipliers || {}, tz);
+          const { balance } = calculateBalance(personId, allSnapshots || {}, msgs, anchor, multipliers || {}, tz, allEarningsForBalance);
           const balEl = mount.querySelector('#ps_balanceDisplay');
           if (balEl) balEl.textContent = `${balance} pts`;
           const anchorEl = mount.querySelector('#ps_balanceAnchor');

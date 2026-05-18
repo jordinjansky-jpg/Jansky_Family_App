@@ -3,7 +3,8 @@ import { initFirebase, readSettings, writeSettings, readPeople, readRewards, rea
   writeFyiMessage, writeMessage, markMessageSeen, writeBankToken,
   markBankTokenUsed, removeBankToken, onConnectionChange, pushReward,
   writeReward, archiveReward, removeReward,
-  onAllMessages, removeMessage, writeMultiplier, writePerson
+  onAllMessages, removeMessage, writeMultiplier, writePerson,
+  readAllActivityEarnings
 } from './shared/firebase.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
@@ -29,7 +30,7 @@ const tabParam = params.get('tab');
 const isKidMode = !!kidName;
 
 // ── State ──
-let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks;
+let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks, allActivityEarnings;
 let people = [];
 let activePerson = null;
 let viewerPerson = null; // the person whose perspective owns this session (theme, etc.)
@@ -38,9 +39,10 @@ let shopFilter = { type: 'all', sort: 'cost', search: '' };
 let historyFilter = { type: 'all' };
 
 async function loadData() {
-  [settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks] = await Promise.all([
+  [settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks, allActivityEarnings] = await Promise.all([
     readSettings(), readPeople(), readRewards(),
-    readAllMessages(), readAllBalanceAnchors(), readAllSnapshots(), readMultipliers(), readAllStreaks()
+    readAllMessages(), readAllBalanceAnchors(), readAllSnapshots(), readMultipliers(), readAllStreaks(),
+    readAllActivityEarnings()
   ]);
   people = Object.entries(peopleObj || {}).map(([id, p]) => ({ id, ...p }));
 
@@ -242,7 +244,7 @@ function getBalance(personId) {
   const msgs = allMessages?.[personId] || {};
   const anchor = allAnchors?.[personId] || null;
   const tz = settings?.timezone || 'UTC';
-  const result = calculateBalance(personId, allSnapshots, msgs, anchor, allMultipliers, tz);
+  const result = calculateBalance(personId, allSnapshots, msgs, anchor, allMultipliers, tz, allActivityEarnings);
   return Math.round(result?.balance ?? result ?? 0);
 }
 
