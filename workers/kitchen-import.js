@@ -224,6 +224,34 @@ function localDateTimeToUtc(dateKey, hhmm, tz) {
   return d;
 }
 
+// ── Activity scoring formula (matches spec §3) ────────────────────────────────
+
+function calculateActivityEarning(actualMinutes, goalMinutes, pointsAtGoal) {
+  if (goalMinutes <= 0) return 0;
+  const goalPercent = actualMinutes / goalMinutes;
+  if (goalPercent >= 1.0) return Math.round(pointsAtGoal * goalPercent);
+  const missPercent = 1.0 - goalPercent;
+  const penalty = pointsAtGoal * missPercent * 2;
+  return Math.max(0, Math.round(pointsAtGoal - penalty));
+}
+
+// Returns the YYYY-MM-DD key for yesterday in the given timezone.
+function yesterdayKeyInTz(now, tz) {
+  const todayKey = dateKeyInTz(now, tz);
+  const d = new Date(todayKey + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// Returns { startMs, endMs } for the local midnight-to-midnight window of dateKey in tz.
+// Reuses the existing localDateTimeToUtc helper which handles DST correctly via iteration.
+function localDayWindowMs(dateKey, tz) {
+  const nextDateKey = addDaysKey(dateKey, 1);
+  const startMs = localDateTimeToUtc(dateKey,    '00:00', tz).getTime();
+  const endMs   = localDateTimeToUtc(nextDateKey, '00:00', tz).getTime();
+  return { startMs, endMs };
+}
+
 // ── Recurring event expansion ────────────────────────────────────────────────
 // Returns the first occurrence of a recurring event whose computed UTC start
 // time falls inside [windowStart, windowEnd]. Returns null if no match.
@@ -1939,6 +1967,14 @@ async function runScheduled(env, scheduledTimeMs) {
   await runOverdueReminders(env, now, tz, people);
   await runMealReminders(env, now, tz, people);
   await runPendingPushes(env, now);
+
+  // Settle yesterday's daily activity goals (idempotent — safe to re-run).
+  try {
+    const activities = (await fbGet(env, 'activities').catch(() => null)) || {};
+    await runDailySettlement(env, now, tz, people, activities);
+  } catch (err) {
+    console.error('[scheduled] runDailySettlement failed:', err?.message || err);
+  }
 }
 
 async function runEventReminders(env, now, tz, people, events) {
@@ -2379,6 +2415,53 @@ async function runPendingPushes(env, now) {
     } finally {
       // Always delete the pending entry — fire-once semantics, even on error.
       try { await fbDelete(env, `notifications/pending/${key}`); } catch {}
+    }
+  }
+}
+
+async function runDailySettlement(env, now, tz, people, activities) {
+  const yesterdayKey = yesterdayKeyInTz(now, tz);
+  const { startMs, endMs } = localDayWindowMs(yesterdayKey, tz);
+
+  // Read all sessions once; filter per (person, activity) pair below.
+  const allSessions = (await fbGet(env, 'activitySessions')) || {};
+
+  for (const [personId] of Object.entries(people || {})) {
+    for (const [activityId, a] of Object.entries(activities || {})) {
+      if (a.active === false) continue;
+      if (a.goalPeriod !== 'daily') continue;
+      if (!a.assignedTo || !a.assignedTo[personId]) continue;
+
+      // Idempotency: skip if already settled for this (person, activity, day).
+      const existing = await fbGet(env, `activityEarnings/${personId}/${activityId}/${yesterdayKey}`);
+      if (existing) continue;
+
+      // Sum session minutes that fall within yesterday's local window.
+      let actualMinutes = 0;
+      for (const s of Object.values(allSessions)) {
+        if (s.activityId !== activityId) continue;
+        if (s.personId !== personId) continue;
+        if (typeof s.startedAt !== 'number') continue;
+        if (s.startedAt < startMs || s.startedAt >= endMs) continue;
+        actualMinutes += s.durationMin || 0;
+      }
+
+      const earned = calculateActivityEarning(actualMinutes, a.goalMinutes, a.pointsAtGoal);
+      const goalPercent = a.goalMinutes > 0 ? actualMinutes / a.goalMinutes : 0;
+
+      await fbSet(env, `activityEarnings/${personId}/${activityId}/${yesterdayKey}`, {
+        periodKey:      yesterdayKey,
+        goalPeriod:     'daily',
+        goalMinutes:    a.goalMinutes,
+        actualMinutes,
+        goalPercent,
+        pointsAtGoal:   a.pointsAtGoal,
+        earned,
+        settledAt:      Date.now(),
+        formulaVersion: 1,
+      });
+      console.log('[settlement] daily settled', personId, activityId, yesterdayKey,
+        { actualMinutes, earned });
     }
   }
 }
