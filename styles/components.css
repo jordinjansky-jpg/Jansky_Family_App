@@ -6082,3 +6082,20 @@ label.ef2-icon-btn  { cursor: pointer; }
   justify-content: space-between;
   padding: var(--spacing-xs) 0;
 }
+.notif-subrow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0 var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-sm);
+}
+.notif-subrow__label {
+  color: var(--text-muted);
+}
+.notif-subrow__suffix {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+.notif-subrow .segmented-control {
+  flex: 0 0 auto;
+}

@@ -13,7 +13,13 @@ import { showToast } from './components.js';
 
 const DEFAULT_PREFS = {
   enabled: false,
-  types: { bellMessages: true, rewardApprovals: true, rewardFyi: true },
+  types: {
+    bellMessages: true,
+    rewardApprovals: true,
+    rewardFyi: true,
+    eventReminders: true,
+  },
+  eventLeadMin: 15,
 };
 
 export async function mountNotificationsSection(mount, personOpts) {
@@ -64,10 +70,26 @@ export async function mountNotificationsSection(mount, personOpts) {
           <input type="checkbox" data-notif-type="rewardFyi" ${t.rewardFyi ? 'checked' : ''}>
           <span class="form-toggle__track"></span>
         </label>
+        <label class="form-toggle">
+          <span>Event reminders</span>
+          <input type="checkbox" data-notif-type="eventReminders" ${t.eventReminders !== false ? 'checked' : ''}>
+          <span class="form-toggle__track"></span>
+        </label>
+        ${t.eventReminders !== false ? `
+          <div class="notif-subrow">
+            <span class="notif-subrow__label">Remind me</span>
+            <div class="segmented-control">
+              <button type="button" class="segmented-btn${(prefs.eventLeadMin || 15) === 15 ? ' segmented-btn--active' : ''}" data-lead="15">15</button>
+              <button type="button" class="segmented-btn${(prefs.eventLeadMin || 15) === 30 ? ' segmented-btn--active' : ''}" data-lead="30">30</button>
+              <button type="button" class="segmented-btn${(prefs.eventLeadMin || 15) === 60 ? ' segmented-btn--active' : ''}" data-lead="60">60</button>
+            </div>
+            <span class="notif-subrow__suffix">min before</span>
+          </div>
+        ` : ''}
         ${/Android/.test(navigator.userAgent) ? `
           <p class="form-hint">On Android, also disable Chrome's app-level notifications (Settings &rarr; Apps &rarr; Chrome &rarr; Notifications &rarr; off) once enabled here. Otherwise every push arrives twice.</p>
         ` : ''}
-        <p class="form-hint">More controls (event reminders, task nudges, digest, quiet hours) coming in later phases.</p>
+        <p class="form-hint">Task nudges, daily digest, and quiet hours coming in later phases.</p>
       </div>
     `;
     wireListeners();
@@ -121,9 +143,26 @@ export async function mountNotificationsSection(mount, personOpts) {
         try {
           await updateNotificationPrefs(personId, { types: next });
           prefs.types = next;
+          render();
         } catch (err) {
           showToast(`Could not save preference: ${err.message}`);
           input.checked = !input.checked; // revert visual state
+        }
+      });
+    });
+
+    mount.querySelectorAll('[data-lead]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const lead = Number(btn.dataset.lead);
+        if (![15, 30, 60].includes(lead)) return;
+        const prev = prefs.eventLeadMin;
+        try {
+          await updateNotificationPrefs(personId, { eventLeadMin: lead });
+          prefs.eventLeadMin = lead;
+          render();
+        } catch (err) {
+          showToast(`Could not save lead time: ${err.message}`);
+          prefs.eventLeadMin = prev;
         }
       });
     });

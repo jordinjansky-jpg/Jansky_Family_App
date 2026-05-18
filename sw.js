@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v319 (2026-05-15) — Phase 2: event reminders shipped — eventReminders
+//                     toggle + lead time selector in Notifications.
 // v318 (2026-05-15) — Push notifications Phase 1 polish 2: dashboard's
 //                     Customize falls back to active person filter when no
 //                     linkedPerson (so / can manage notifications too).
@@ -450,7 +452,7 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
-const CACHE_NAME = 'family-hub-v318';
+const CACHE_NAME = 'family-hub-v319';
 
 const APP_SHELL = [
   '/',
