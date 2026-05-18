@@ -2,6 +2,8 @@
 // Renders into a caller-provided mount. Reads + writes person.prefs.notifications
 // and pushSubscriptions/{personId}/{endpointHash}.
 
+const esc = (s) => String(s || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
 import {
   pushSupported, subscribe, unsubscribe, sendNotification, endpointHash,
 } from './push-client.js';
@@ -116,6 +118,17 @@ export async function mountNotificationsSection(mount, personOpts) {
         ${/Android/.test(navigator.userAgent) ? `
           <p class="form-hint">On Android, also disable Chrome's app-level notifications (Settings &rarr; Apps &rarr; Chrome &rarr; Notifications &rarr; off) once enabled here. Otherwise every push arrives twice.</p>
         ` : ''}
+        <div class="notif-devices">
+          <p class="form-hint">Devices on this account</p>
+          ${Object.entries(subs).length === 0 ? `
+            <p class="form-hint">No devices subscribed yet.</p>
+          ` : Object.entries(subs).map(([hash, sub]) => `
+            <div class="notif-device">
+              <span class="notif-device__label">${esc(sub.ua || 'Unknown')}${hash === thisDeviceHash ? ' · This device' : ''}</span>
+              <button type="button" class="btn btn--sm btn--ghost" data-remove-device="${hash}">Remove</button>
+            </div>
+          `).join('')}
+        </div>
         <div class="notif-quiet">
           <p class="form-hint">Quiet hours</p>
           <label class="form-toggle">
@@ -259,6 +272,29 @@ export async function mountNotificationsSection(mount, personOpts) {
         } catch (err) {
           showToast(`Could not save: ${err.message}`);
           input.value = prev[bound] || (bound === 'start' ? '21:00' : '07:00');
+        }
+      });
+    });
+
+    mount.querySelectorAll('[data-remove-device]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const hash = btn.dataset.removeDevice;
+        const isThisDevice = hash === thisDeviceHash;
+        btn.disabled = true;
+        try {
+          if (isThisDevice) {
+            // Use unsubscribe so the browser-side subscription is also released.
+            await unsubscribe(personId, { removePushSubscription });
+            thisDeviceOn = false;
+          } else {
+            await removePushSubscription(personId, hash);
+          }
+          subs = (await readPushSubscriptions(personId)) || {};
+        } catch (err) {
+          showToast(`Could not remove device: ${err.message}`);
+        } finally {
+          render();
         }
       });
     });

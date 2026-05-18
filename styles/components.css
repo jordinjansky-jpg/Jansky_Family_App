@@ -6118,3 +6118,25 @@ label.ef2-icon-btn  { cursor: pointer; }
   color: var(--text);
   margin-bottom: var(--spacing-xs);
 }
+
+.notif-devices {
+  padding-top: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+}
+.notif-devices .form-hint:first-child {
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: var(--spacing-xs);
+}
+.notif-device {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+}
+.notif-device__label {
+  flex: 1;
+  font-size: var(--font-sm);
+}
