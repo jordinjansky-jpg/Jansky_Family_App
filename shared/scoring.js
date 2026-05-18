@@ -625,7 +625,7 @@ export function calculateBalance(personId, allSnapshots, messages, anchor, multi
         for (const periodKey of Object.keys(perPerson[activityId])) {
           const earning = perPerson[activityId][periodKey];
           if (!earning) continue;
-          if (anchorDateKey && periodKey < anchorDateKey) continue;
+          if (anchorDateKey && periodKeyToStartDateKey(periodKey) < anchorDateKey) continue;
           activityEarning += earning.earned || 0;
         }
       }
