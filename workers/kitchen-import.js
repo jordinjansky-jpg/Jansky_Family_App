@@ -1578,18 +1578,17 @@ async function runEventReminders(env, now, tz, people, events) {
     }
 
     for (const [eventId, ev] of Object.entries(events)) {
-      // Skip recurring events (Phase 2.1 scope).
-      if (ev.repeats && ev.repeats !== 'none' && ev.repeats !== null) continue;
+      // Skip recurring events (Phase 2.1 scope). Schema field is `repeat`,
+      // value may be string ('none'), object ({type:'weekly',...}), or null.
+      if (ev.repeat && ev.repeat !== 'none' && ev.repeat !== null) continue;
       // Skip all-day events (no timed reminder).
       if (ev.allDay) continue;
-      // Skip events without ownership matching this person.
-      const owners = Array.isArray(ev.owners) ? ev.owners
-                   : ev.personId ? [ev.personId]
-                   : [];
-      if (!owners.includes(personId)) continue;
-      if (!ev.date || !ev.time) continue;
+      // Skip events not owned by this person.
+      const people = Array.isArray(ev.people) ? ev.people : [];
+      if (!people.includes(personId)) continue;
+      if (!ev.date || !ev.startTime) continue;
 
-      const eventStartUtc = localDateTimeToUtc(ev.date, ev.time, tz);
+      const eventStartUtc = localDateTimeToUtc(ev.date, ev.startTime, tz);
       if (eventStartUtc < windowStart || eventStartUtc > windowEnd) continue;
 
       const dedupKey = `evt_${eventId}_${personId}`;
@@ -1597,7 +1596,7 @@ async function runEventReminders(env, now, tz, people, events) {
 
       const payload = {
         title: ev.name || 'Upcoming event',
-        body:  ev.location ? `${formatHhmm(ev.time)} · ${ev.location}` : `Starts at ${formatHhmm(ev.time)}`,
+        body:  ev.location ? `${formatHhmm(ev.startTime)} · ${ev.location}` : `Starts at ${formatHhmm(ev.startTime)}`,
         icon:  '/app-icon.png',
         tag:   `evt-${eventId}`,
         data:  { url: '/calendar.html', type: 'eventReminders' },
@@ -1720,17 +1719,15 @@ async function runDailyDigest(env, now, tz, people, events) {
     // Find this person's events for today (non-recurring, owned or shared)
     const myEvents = Object.values(events || {}).filter(ev => {
       if (ev.date !== todayKey) return false;
-      const owners = Array.isArray(ev.owners) ? ev.owners
-                   : ev.personId ? [ev.personId]
-                   : [];
-      return owners.length === 0 || owners.includes(personId);
+      const people = Array.isArray(ev.people) ? ev.people : [];
+      return people.length === 0 || people.includes(personId);
     });
     const eventCount = myEvents.length;
 
     // Compose body
     const firstTimedEvent = myEvents
-      .filter(e => !e.allDay && e.time)
-      .sort((a, b) => a.time.localeCompare(b.time))[0];
+      .filter(e => !e.allDay && e.startTime)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))[0];
     let body;
     if (eventCount === 0 && taskCount === 0) {
       body = 'Nothing scheduled today.';
@@ -1740,7 +1737,7 @@ async function runDailyDigest(env, now, tz, people, events) {
       if (taskCount > 0)  parts.push(`${taskCount} task${taskCount === 1 ? '' : 's'}`);
       body = parts.join(', ');
       if (firstTimedEvent) {
-        body += `. First up: ${firstTimedEvent.name} at ${formatHhmm(firstTimedEvent.time)}.`;
+        body += `. First up: ${firstTimedEvent.name} at ${formatHhmm(firstTimedEvent.startTime)}.`;
       } else {
         body += '.';
       }
