@@ -3504,13 +3504,6 @@
       const colorWrap = mount.querySelector('.cpick-wrap');
       if (colorWrap) initColorButton(colorWrap, null);
 
-      // Name input → toggle save disabled state
-      mount.querySelector('#actFormName')?.addEventListener('input', (e) => {
-        const empty = !e.target.value.trim();
-        mount.querySelector('#actFormSaveHeader')?.toggleAttribute('disabled', empty);
-        mount.querySelector('#actFormSaveFooter')?.toggleAttribute('disabled', empty);
-      });
-
       const close = () => closeAdminSheet();
       mount.querySelector('#actFormClose')?.addEventListener('click', close);
       mount.querySelector('#actFormCancel')?.addEventListener('click', close);
@@ -3518,10 +3511,178 @@
         if (e.target.id === 'bottomSheet') close();
       });
 
-      // Footer save → header save (Task 7 wires the actual save logic)
-      mount.querySelector('#actFormSaveFooter')?.addEventListener('click', () => {
-        mount.querySelector('#actFormSaveHeader')?.click();
+      // --- Validation -------------------------------------------------------
+
+      function validateActivityForm() {
+        const name = document.getElementById('actFormName')?.value.trim() || '';
+        const emoji = document.getElementById('actFormEmoji')?.value.trim() || '';
+        const color = document.getElementById('actFormColor')?.value.trim() || '';
+        const period = document.getElementById('actFormGoalPeriodValue')?.value || '';
+        const mins = parseInt(document.getElementById('actFormGoalMinutes')?.value, 10);
+        const pts = parseInt(document.getElementById('actFormPointsAtGoal')?.value, 10);
+        const assigned = Array.from(
+          document.querySelectorAll('#actFormAssignedTo .ef2-person-chip[data-state="primary"]')
+        ).map(b => b.dataset.personId).filter(Boolean);
+        const maxMins = period === 'weekly' ? 10080 : 1440;
+        return (
+          name.length > 0 && name.length <= 50 &&
+          emoji.length > 0 &&
+          color.length > 0 &&
+          (period === 'daily' || period === 'weekly') &&
+          Number.isInteger(mins) && mins >= 1 && mins <= maxMins &&
+          Number.isInteger(pts) && pts >= 0 && pts <= 1000 &&
+          assigned.length >= 1
+        );
+      }
+
+      function syncActivitySaveState() {
+        const ok = validateActivityForm();
+        const footer = document.getElementById('actFormSaveFooter');
+        const header = document.getElementById('actFormSaveHeader');
+        if (footer) footer.disabled = !ok;
+        if (header) {
+          if (ok) header.removeAttribute('disabled');
+          else header.setAttribute('disabled', '');
+        }
+      }
+
+      // Initial sync — fixes Task 6 reviewer's note: header save starts enabled in create mode
+      syncActivitySaveState();
+
+      // Wire all validation triggers
+      ['actFormName', 'actFormEmoji', 'actFormColor', 'actFormGoalPeriodValue', 'actFormGoalMinutes', 'actFormPointsAtGoal'].forEach(elId => {
+        const el = document.getElementById(elId);
+        el?.addEventListener('input', syncActivitySaveState);
+        el?.addEventListener('change', syncActivitySaveState);
       });
+      // Person chip clicks — toggle primary ↔ unselected, then re-validate
+      document.getElementById('actFormAssignedTo')?.addEventListener('click', e => {
+        const chip = e.target.closest('.ef2-person-chip');
+        if (!chip) return;
+        chip.dataset.state = chip.dataset.state === 'primary' ? '' : 'primary';
+        setTimeout(syncActivitySaveState, 0);
+      });
+      // Goal period chip picker mutates hidden input on click
+      document.getElementById('actFormGoalPeriod')?.addEventListener('click', () => setTimeout(syncActivitySaveState, 0));
+      // Emoji picker cells
+      document.getElementById('actFormEmojiPicker')?.addEventListener('click', () => setTimeout(syncActivitySaveState, 0));
+
+      // --- Save -------------------------------------------------------------
+
+      async function saveActivity() {
+        if (!validateActivityForm()) return;
+        const name = document.getElementById('actFormName').value.trim();
+        const emoji = document.getElementById('actFormEmoji').value.trim();
+        const color = document.getElementById('actFormColor').value.trim();
+        const period = document.getElementById('actFormGoalPeriodValue').value;
+        const mins = parseInt(document.getElementById('actFormGoalMinutes').value, 10);
+        const pts = parseInt(document.getElementById('actFormPointsAtGoal').value, 10);
+        const active = document.getElementById('actFormActive').checked;
+        const assignedIds = Array.from(
+          document.querySelectorAll('#actFormAssignedTo .ef2-person-chip[data-state="primary"]')
+        ).map(b => b.dataset.personId).filter(Boolean);
+
+        const data = {
+          name, emoji, color,
+          goalPeriod: period,
+          goalMinutes: mins,
+          pointsAtGoal: pts,
+          active,
+          assignedTo: Object.fromEntries(assignedIds.map(pid => [pid, true]))
+        };
+
+        if (id) {
+          // Invalidate current-period earnings when goal-affecting fields change
+          const old = existing || {};
+          const goalAffectingChanged =
+            old.goalPeriod !== data.goalPeriod ||
+            old.goalMinutes !== data.goalMinutes ||
+            old.pointsAtGoal !== data.pointsAtGoal;
+          if (goalAffectingChanged) {
+            let currentKey;
+            if (data.goalPeriod === 'weekly') {
+              const d = new Date();
+              d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+              const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+              const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+              currentKey = `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+            } else {
+              currentKey = new Date().toISOString().slice(0, 10);
+            }
+            for (const pid of assignedIds) {
+              await removeActivityEarning(pid, id, currentKey);
+            }
+          }
+          await updateActivity(id, data);
+        } else {
+          data.createdBy = 'admin';
+          await pushActivity(data);
+        }
+
+        close();
+        activitiesObj = (await readActivities()) || {};
+        render();
+      }
+
+      mount.querySelector('#actFormSaveFooter')?.addEventListener('click', saveActivity);
+      mount.querySelector('#actFormSaveHeader')?.addEventListener('click', saveActivity);
+
+      // --- Delete (edit mode only) ------------------------------------------
+
+      if (mode === 'edit') {
+        mount.querySelector('#actFormDelete')?.addEventListener('click', async () => {
+          const allSessions = (await readActivitySessions()) || {};
+          const sessionsForThis = Object.entries(allSessions).filter(([, s]) => s.activityId === id);
+
+          if (sessionsForThis.length === 0) {
+            // No history — simple confirm then hard delete
+            const ok = await showConfirm({ title: 'Delete this activity?', danger: true });
+            if (!ok) return;
+            await removeActivity(id);
+          } else {
+            // Has history — offer to mark inactive first
+            const inactiveOk = await showConfirm({
+              title: 'Activity has session history',
+              message: `This activity has ${sessionsForThis.length} logged session(s). Mark it inactive to keep history, or delete permanently.`,
+              confirmLabel: 'Mark Inactive',
+              cancelLabel: 'Delete Permanently',
+            });
+            if (inactiveOk) {
+              await updateActivity(id, { active: false });
+              close();
+              activitiesObj = (await readActivities()) || {};
+              render();
+              return;
+            }
+            // Destructive path — typed confirmation
+            const result = await showConfirm({
+              title: 'Delete permanently?',
+              message: `This will delete the activity AND all ${sessionsForThis.length} session(s). This cannot be undone.`,
+              confirmLabel: 'Delete',
+              cancelLabel: 'Cancel',
+              danger: true,
+              inputPlaceholder: `Type "${existing?.name || ''}" to confirm`,
+            });
+            if (!result || !result.confirmed) return;
+            if (result.value !== (existing?.name || '')) return;
+            // Delete activity, all sessions, and all earnings
+            await removeActivity(id);
+            for (const [sid] of sessionsForThis) {
+              await removeActivitySession(sid);
+            }
+            const allEarnings = (await readAllActivityEarnings()) || {};
+            for (const [pid, perPerson] of Object.entries(allEarnings)) {
+              if (perPerson[id]) {
+                await removeActivityEarningsForActivity(pid, id);
+              }
+            }
+          }
+
+          close();
+          activitiesObj = (await readActivities()) || {};
+          render();
+        });
+      }
     }
 
     function bindActivitiesTab() {
