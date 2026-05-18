@@ -1620,7 +1620,6 @@ async function runTaskReminders(env, now, tz, people) {
   const optedIn = Object.entries(people).filter(([_, p]) =>
     p?.prefs?.notifications?.enabled === true
     && p?.prefs?.notifications?.types?.taskReminders === true
-    && typeof p?.prefs?.notifications?.taskReminderTime === 'string'
   );
   if (optedIn.length === 0) return;
 
@@ -1635,7 +1634,10 @@ async function runTaskReminders(env, now, tz, people) {
   const completedKeys = new Set(Object.keys(completions || {}));
 
   for (const [personId, person] of optedIn) {
-    const targetTime = person.prefs.notifications.taskReminderTime; // "HH:MM"
+    // Default to 17:00 if the user toggled task reminders on but never touched
+    // the time picker (the UI's input value is presentation-only; Firebase only
+    // gets the field on `change`).
+    const targetTime = person.prefs.notifications.taskReminderTime || '17:00';
     const [targetH, targetM] = targetTime.split(':').map(Number);
     const targetMin = targetH * 60 + targetM;
     if (isNaN(targetMin) || targetMin < 0 || targetMin >= 1440) continue;
@@ -1685,7 +1687,6 @@ async function runDailyDigest(env, now, tz, people, events) {
   const optedIn = Object.entries(people).filter(([_, p]) =>
     p?.prefs?.notifications?.enabled === true
     && p?.prefs?.notifications?.types?.dailyDigest === true
-    && typeof p?.prefs?.notifications?.digestTime === 'string'
   );
   if (optedIn.length === 0) return;
 
@@ -1693,7 +1694,10 @@ async function runDailyDigest(env, now, tz, people, events) {
   let scheduleToday = null;
 
   for (const [personId, person] of optedIn) {
-    const targetTime = person.prefs.notifications.digestTime; // "HH:MM"
+    // Default to 07:00 if the user toggled dailyDigest on but never touched
+    // the time picker (the UI's input value is presentation-only; Firebase only
+    // gets the field on `change`).
+    const targetTime = person.prefs.notifications.digestTime || '07:00';
     const [targetH, targetM] = targetTime.split(':').map(Number);
     const targetMin = targetH * 60 + targetM;
     if (isNaN(targetMin) || targetMin < 0 || targetMin >= 1440) continue;
