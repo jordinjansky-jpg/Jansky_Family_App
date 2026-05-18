@@ -270,6 +270,36 @@ export async function removeActivity(activityId) {
   return removeData(`activities/${activityId}`);
 }
 
+// --- Activity Sessions ---
+
+/**
+ * Read all activity sessions.
+ */
+export async function readActivitySessions() {
+  return readOnce('activitySessions');
+}
+
+/**
+ * Push a new activity session. Returns the generated ID.
+ */
+export async function pushActivitySession(data) {
+  return pushData('activitySessions', { createdAt: firebase.database.ServerValue.TIMESTAMP, ...data });
+}
+
+/**
+ * Update an existing activity session. Uses .update() (merge) — only the supplied fields are written; other fields are preserved.
+ */
+export async function updateActivitySession(sessionId, data) {
+  return updateData(`activitySessions/${sessionId}`, data);
+}
+
+/**
+ * Remove an activity session.
+ */
+export async function removeActivitySession(sessionId) {
+  return removeData(`activitySessions/${sessionId}`);
+}
+
 /**
  * Read schedule for a specific date.
  */
