@@ -1621,15 +1621,156 @@ async function handleAction(input, env, corsHeaders, rawBodyText, authHeader) {
   }
 }
 
-// Stubs — real implementations in Tasks 4 and 5.
 async function actionApprove(input, env, corsHeaders) {
-  return jsonOk({ ok: true, stub: 'approve' }, corsHeaders);
+  const { personId, messageId, intent } = input || {};
+  if (!messageId) return jsonError('Missing messageId for approve', 400, corsHeaders);
+
+  // Read the message
+  const msg = await fbGet(env, `messages/${personId}/${messageId}`);
+  if (!msg) return jsonError('Message not found', 404, corsHeaders);
+  if (msg.seen) return jsonOk({ ok: true, alreadyResolved: true }, corsHeaders);
+
+  const ts = Date.now();
+
+  if (msg.type === 'use-request') {
+    // Approve a banked-token use
+    if (!msg.bankTokenId) return jsonError('Cannot approve: missing bank token reference', 400, corsHeaders);
+    await fbSet(env, `bank/${personId}/${msg.bankTokenId}/used`, true);
+    await fbSet(env, `bank/${personId}/${msg.bankTokenId}/usedAt`, ts);
+    await fbSet(env, `messages/${personId}/${messageId}/seen`, true);
+    await pushMessage(env, personId, {
+      type: 'use-approved',
+      title: msg.title,
+      body: null,
+      amount: 0,
+      seen: false,
+      createdAt: ts,
+      createdBy: 'parent',
+    });
+    return jsonOk({ ok: true, action: 'approve', subtype: 'use' }, corsHeaders);
+  }
+
+  if (msg.type === 'redemption-request') {
+    // Approve a reward purchase
+    const rewardId = msg.rewardId;
+    if (!rewardId) return jsonError('Cannot approve: missing rewardId', 400, corsHeaders);
+    const reward = await fbGet(env, `rewards/${rewardId}`);
+    if (!reward) return jsonError('Reward not found', 404, corsHeaders);
+
+    // Default intent for push-driven approvals = 'save' (banked) — the kid can
+    // tap Use later. 'use-now' is only meaningful from the in-app flow which
+    // already exists at rewards.js:864.
+    const i = intent || 'save';
+
+    if (i === 'use-now') {
+      await pushMessage(env, personId, {
+        type: 'redemption-approved',
+        title: msg.title || reward.name || '',
+        body: null,
+        amount: 0,
+        intent: 'use-now',
+        seen: false,
+        createdAt: ts,
+        createdBy: 'parent',
+        rewardId,
+        rewardName: reward.name || '',
+        rewardIcon: reward.icon || '',
+      });
+      await pushMessage(env, personId, {
+        type: 'reward-used',
+        title: 'Used: ' + (reward.name || msg.title || ''),
+        body: null,
+        amount: 0,
+        seen: true,
+        createdAt: ts,
+        createdBy: 'parent',
+      });
+    } else {
+      // 'save' — bank the token
+      await pushMessage(env, personId, {
+        rewardType: reward.rewardType || 'custom',
+        rewardId,
+        rewardName: reward.name || msg.title || '',
+        rewardIcon: reward.icon || '',
+        acquiredAt: ts,
+        used: false,
+      }, 'bank');
+      await pushMessage(env, personId, {
+        type: 'redemption-approved',
+        title: msg.title || reward.name || '',
+        body: null,
+        amount: 0,
+        seen: false,
+        createdAt: ts,
+        createdBy: 'parent',
+        rewardId,
+        rewardName: reward.name || '',
+        rewardIcon: reward.icon || '',
+      });
+    }
+    await fbSet(env, `messages/${personId}/${messageId}/seen`, true);
+    return jsonOk({ ok: true, action: 'approve', subtype: 'redemption', intent: i }, corsHeaders);
+  }
+
+  return jsonError(`Unsupported message type for approve: ${msg.type}`, 400, corsHeaders);
 }
+
 async function actionDeny(input, env, corsHeaders) {
-  return jsonOk({ ok: true, stub: 'deny' }, corsHeaders);
+  const { personId, messageId, reason } = input || {};
+  if (!messageId) return jsonError('Missing messageId for deny', 400, corsHeaders);
+
+  const msg = await fbGet(env, `messages/${personId}/${messageId}`);
+  if (!msg) return jsonError('Message not found', 404, corsHeaders);
+  if (msg.seen) return jsonOk({ ok: true, alreadyResolved: true }, corsHeaders);
+
+  const ts = Date.now();
+  const deniedType = msg.type === 'use-request' ? 'use-denied' : 'redemption-denied';
+
+  await pushMessage(env, personId, {
+    type: deniedType,
+    title: msg.title || 'Request denied',
+    body: reason || null,
+    amount: 0,
+    seen: false,
+    createdAt: ts,
+    createdBy: 'parent',
+  });
+
+  // Refund points when a buy request is denied (use-request denials have no cost to refund)
+  if (msg.type === 'redemption-request' && Math.abs(msg.amount || 0) > 0) {
+    await pushMessage(env, personId, {
+      type: 'bonus',
+      title: `Refund: ${msg.rewardName || 'Reward'}`,
+      body: null,
+      amount: Math.abs(msg.amount),
+      seen: true,
+      createdAt: ts,
+      createdBy: 'parent',
+    });
+  }
+
+  await fbSet(env, `messages/${personId}/${messageId}/seen`, true);
+  return jsonOk({ ok: true, action: 'deny', subtype: msg.type }, corsHeaders);
 }
+
+// Stub — real implementation in Task 5.
 async function actionSnooze(input, env, corsHeaders) {
   return jsonOk({ ok: true, stub: 'snooze' }, corsHeaders);
+}
+
+// Helper: push a child to a Firebase list via REST (returns the new key).
+// Default path is `messages/{personId}`; pass `bank` to write into `bank/{personId}`.
+async function pushMessage(env, personId, data, where = 'messages') {
+  if (!env.FIREBASE_DB_URL || !env.FIREBASE_DB_SECRET) throw new Error('Firebase env missing');
+  const base = env.FIREBASE_DB_URL.replace(/\/$/, '');
+  const r = await fetch(`${base}/${RUNDOWN_ROOT}/${where}/${personId}.json?auth=${env.FIREBASE_DB_SECRET}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) throw new Error(`pushMessage ${where} ${personId}: ${r.status}`);
+  const result = await r.json();
+  return result.name;
 }
 
 async function fanoutPush(env, personId, payload) {
