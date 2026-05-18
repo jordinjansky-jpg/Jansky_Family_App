@@ -463,7 +463,8 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
-const CACHE_NAME = 'family-hub-v324';
+// v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
+const CACHE_NAME = 'family-hub-v325';
 
 const APP_SHELL = [
   '/',

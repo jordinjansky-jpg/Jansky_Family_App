@@ -6082,6 +6082,23 @@ label.ef2-icon-btn  { cursor: pointer; }
   justify-content: space-between;
   padding: var(--spacing-xs) 0;
 }
+.notif-type-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.notif-type-row__toggle {
+  flex: 1;
+}
+.notif-type-row__test {
+  flex: 0 0 auto;
+  font-size: var(--font-xs);
+}
+.btn--xs {
+  padding: 2px var(--spacing-xs);
+  font-size: var(--font-xs);
+  min-height: 24px;
+}
 .notif-subrow {
   display: flex;
   align-items: center;

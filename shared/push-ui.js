@@ -49,6 +49,21 @@ export async function mountNotificationsSection(mount, personOpts) {
     }
 
     const t = prefs.types || DEFAULT_PREFS.types;
+
+    const typeRow = (key, label, defaultOn = false) => {
+      const isOn = defaultOn ? t[key] !== false : !!t[key];
+      return `
+        <div class="notif-type-row">
+          <label class="form-toggle notif-type-row__toggle">
+            <span>${label}</span>
+            <input type="checkbox" data-notif-type="${key}" ${isOn ? 'checked' : ''}>
+            <span class="form-toggle__track"></span>
+          </label>
+          ${thisDeviceOn && isOn ? `<button type="button" class="btn btn--xs btn--ghost notif-type-row__test" data-test-type="${key}">Test</button>` : ''}
+        </div>
+      `;
+    };
+
     mount.innerHTML = `
       <div class="notif-row">
         <span class="notif-row__label">This device</span>
@@ -56,31 +71,14 @@ export async function mountNotificationsSection(mount, personOpts) {
         <button type="button" class="btn btn--sm" id="notif_toggle">
           ${thisDeviceOn ? 'Disable' : 'Enable'}
         </button>
-        ${thisDeviceOn ? `<button type="button" class="btn btn--sm btn--ghost" id="notif_test">Send test</button>` : ''}
       </div>
 
       <div class="notif-section">
         <p class="form-hint">What to send</p>
-        <label class="form-toggle">
-          <span>Bell messages</span>
-          <input type="checkbox" data-notif-type="bellMessages" ${t.bellMessages ? 'checked' : ''}>
-          <span class="form-toggle__track"></span>
-        </label>
-        <label class="form-toggle">
-          <span>Reward approval requests</span>
-          <input type="checkbox" data-notif-type="rewardApprovals" ${t.rewardApprovals ? 'checked' : ''}>
-          <span class="form-toggle__track"></span>
-        </label>
-        <label class="form-toggle">
-          <span>Reward FYI (kid spent points)</span>
-          <input type="checkbox" data-notif-type="rewardFyi" ${t.rewardFyi ? 'checked' : ''}>
-          <span class="form-toggle__track"></span>
-        </label>
-        <label class="form-toggle">
-          <span>Event reminders</span>
-          <input type="checkbox" data-notif-type="eventReminders" ${t.eventReminders !== false ? 'checked' : ''}>
-          <span class="form-toggle__track"></span>
-        </label>
+        ${typeRow('bellMessages',    'Bell messages',                 true)}
+        ${typeRow('rewardApprovals', 'Reward approval requests',      true)}
+        ${typeRow('rewardFyi',       'Reward FYI (kid spent points)', true)}
+        ${typeRow('eventReminders',  'Event reminders',               true)}
         ${t.eventReminders !== false ? `
           <div class="notif-subrow">
             <span class="notif-subrow__label">Remind me</span>
@@ -92,11 +90,7 @@ export async function mountNotificationsSection(mount, personOpts) {
             <span class="notif-subrow__suffix">min before</span>
           </div>
         ` : ''}
-        <label class="form-toggle">
-          <span>Task reminders</span>
-          <input type="checkbox" data-notif-type="taskReminders" ${t.taskReminders ? 'checked' : ''}>
-          <span class="form-toggle__track"></span>
-        </label>
+        ${typeRow('taskReminders',   'Task reminders',                false)}
         ${t.taskReminders ? `
           <div class="notif-subrow">
             <span class="notif-subrow__label">Remind me at</span>
@@ -104,11 +98,7 @@ export async function mountNotificationsSection(mount, personOpts) {
             <span class="notif-subrow__suffix">if I have unfinished tasks</span>
           </div>
         ` : ''}
-        <label class="form-toggle">
-          <span>Daily morning summary</span>
-          <input type="checkbox" data-notif-type="dailyDigest" ${t.dailyDigest ? 'checked' : ''}>
-          <span class="form-toggle__track"></span>
-        </label>
+        ${typeRow('dailyDigest',     'Daily morning summary',         false)}
         ${t.dailyDigest ? `
           <div class="notif-subrow">
             <span class="notif-subrow__label">Send at</span>
@@ -177,17 +167,6 @@ export async function mountNotificationsSection(mount, personOpts) {
         btn.disabled = false;
         render();
       }
-    });
-
-    mount.querySelector('#notif_test')?.addEventListener('click', async () => {
-      const r = await sendNotification(personId, 'bellMessages', {
-        title: 'Test notification',
-        body:  'If you see this, push is working on this device.',
-        tag:   'notif-test',
-        data:  { url: '/index.html', type: 'bellMessages' },
-      });
-      if (!r?.ok) showToast(`Test failed: status ${r?.status || 'unknown'}`);
-      else showToast('Test notification sent');
     });
 
     mount.querySelectorAll('input[data-notif-type]').forEach(input => {
@@ -296,6 +275,52 @@ export async function mountNotificationsSection(mount, personOpts) {
         } finally {
           render();
         }
+      });
+    });
+
+    const TEST_PAYLOADS = {
+      bellMessages: {
+        title: 'Test · Bell message',
+        body:  'If you see this, push is working on this device.',
+        data:  { url: '/index.html', type: 'bellMessages' },
+      },
+      rewardApprovals: {
+        title: 'Test · Lexi wants a reward',
+        body:  'Tap to approve or deny.',
+        data:  { url: '/index.html?openBell=1', type: 'rewardApprovals' },
+      },
+      rewardFyi: {
+        title: 'Test · Lexi got Movie Night',
+        body:  '-100 pts',
+        data:  { url: '/index.html?openBell=1', type: 'rewardFyi' },
+      },
+      eventReminders: {
+        title: 'Test · Upcoming event',
+        body:  'Starts at 3:00pm',
+        data:  { url: '/calendar.html', type: 'eventReminders' },
+      },
+      taskReminders: {
+        title: 'Test · 3 tasks left today',
+        body:  'Tap to see what\'s remaining.',
+        data:  { url: '/index.html', type: 'taskReminders' },
+      },
+      dailyDigest: {
+        title: 'Test · Today',
+        body:  '2 events, 5 tasks. First up: Dentist at 9:00am.',
+        data:  { url: '/index.html', type: 'dailyDigest' },
+      },
+    };
+
+    mount.querySelectorAll('[data-test-type]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const type = btn.dataset.testType;
+        const payload = TEST_PAYLOADS[type];
+        if (!payload) return;
+        payload.icon = '/app-icon.png';
+        payload.tag = `notif-test-${type}`;
+        const r = await sendNotification(personId, type, payload);
+        if (!r?.ok) showToast(`Test failed: status ${r?.status || 'unknown'}`);
+        else showToast(`Test ${type} sent`);
       });
     });
   }
