@@ -19,9 +19,11 @@ const DEFAULT_PREFS = {
     rewardFyi: true,
     eventReminders: true,
     taskReminders: false,
+    dailyDigest: false,
   },
   eventLeadMin: 15,
   taskReminderTime: '17:00',
+  digestTime: '07:00',
 };
 
 export async function mountNotificationsSection(mount, personOpts) {
@@ -100,10 +102,21 @@ export async function mountNotificationsSection(mount, personOpts) {
             <span class="notif-subrow__suffix">if I have unfinished tasks</span>
           </div>
         ` : ''}
+        <label class="form-toggle">
+          <span>Daily morning summary</span>
+          <input type="checkbox" data-notif-type="dailyDigest" ${t.dailyDigest ? 'checked' : ''}>
+          <span class="form-toggle__track"></span>
+        </label>
+        ${t.dailyDigest ? `
+          <div class="notif-subrow">
+            <span class="notif-subrow__label">Send at</span>
+            <input type="time" class="notif-subrow__time" data-time-pref="digestTime" value="${prefs.digestTime || '07:00'}">
+          </div>
+        ` : ''}
         ${/Android/.test(navigator.userAgent) ? `
           <p class="form-hint">On Android, also disable Chrome's app-level notifications (Settings &rarr; Apps &rarr; Chrome &rarr; Notifications &rarr; off) once enabled here. Otherwise every push arrives twice.</p>
         ` : ''}
-        <p class="form-hint">Daily digest and quiet hours coming in later phases.</p>
+        <p class="form-hint">Quiet hours coming in the next phase.</p>
       </div>
     `;
     wireListeners();
