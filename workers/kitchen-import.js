@@ -1863,6 +1863,7 @@ async function runScheduled(env, scheduledTimeMs) {
   await runEventReminders(env, now, tz, people, events || {});
   await runTaskReminders(env, now, tz, people);
   await runDailyDigest(env, now, tz, people, events || {});
+  await runOverdueReminders(env, now, tz, people);
   await runPendingPushes(env, now);
 }
 
@@ -2090,6 +2091,88 @@ async function runDailyDigest(env, now, tz, people, events) {
       console.log('[scheduled] digest', personId, { eventCount, taskCount, sent, removed, errors });
     } catch (err) {
       console.warn('[scheduled] digest failed', personId, err.message);
+    }
+  }
+}
+
+async function runOverdueReminders(env, now, tz, people) {
+  const todayKey = dateKeyInTz(now, tz);
+  const { hours, minutes } = timeInTz(now, tz);
+  const nowMin = hours * 60 + minutes;
+
+  const optedIn = Object.entries(people).filter(([_, p]) =>
+    p?.prefs?.notifications?.enabled === true
+    && p?.prefs?.notifications?.types?.overdue === true
+  );
+  if (optedIn.length === 0) return;
+
+  // Filter persons in the time window first, before any data reads.
+  const inWindow = optedIn.filter(([_, person]) => {
+    const t = person.prefs.notifications.overdueTime || '21:00';
+    const [h, m] = t.split(':').map(Number);
+    const tMin = h * 60 + m;
+    if (isNaN(tMin) || tMin < 0 || tMin >= 1440) return false;
+    return Math.abs(nowMin - tMin) <= 2.5;
+  });
+  if (inWindow.length === 0) return;
+
+  // Quiet hours check
+  const filtered = inWindow.filter(([_, person]) => {
+    const qh = person.prefs?.notifications?.quietHours;
+    if (qh && isInQuietHours(qh, hours, minutes)) {
+      console.log('[scheduled] skipped (quiet hours)', _, 'overdue');
+      return false;
+    }
+    return true;
+  });
+  if (filtered.length === 0) return;
+
+  // Load last 7 days of schedule + completions + tasks (for frequency check)
+  const lookbackDays = 7;
+  const scheduleEntries = []; // [{dateKey, entryKey, entry}]
+  for (let i = 1; i <= lookbackDays; i++) {
+    const dk = addDaysKey(todayKey, -i);
+    const day = await fbGet(env, `schedule/${dk}`).catch(() => null);
+    if (day && typeof day === 'object') {
+      for (const [entryKey, entry] of Object.entries(day)) {
+        scheduleEntries.push({ dateKey: dk, entryKey, entry });
+      }
+    }
+  }
+  const [completions, tasks] = await Promise.all([
+    fbGet(env, 'completions').catch(() => null),
+    fbGet(env, 'tasks').catch(() => null),
+  ]);
+  const completedKeys = new Set(Object.keys(completions || {}));
+
+  for (const [personId, person] of filtered) {
+    const dedupKey = `overdue_${personId}`;
+    if (await dedupCheck(env, todayKey, dedupKey)) continue;
+
+    // Count incomplete non-daily entries belonging to this person from the lookback window.
+    const incomplete = scheduleEntries.filter(({ entryKey, entry }) => {
+      if (entry?.ownerId !== personId) return false;
+      if (completedKeys.has(entryKey)) return false;
+      const task = tasks?.[entry?.taskId];
+      if (task?.frequency === 'daily') return false; // daily tasks aren't "overdue"
+      return true;
+    });
+    if (incomplete.length === 0) continue;
+
+    const payload = {
+      title: `${incomplete.length} overdue task${incomplete.length === 1 ? '' : 's'}`,
+      body:  'From earlier this week. Tap to review.',
+      icon:  '/app-icon.png',
+      tag:   `overdue-${personId}-${todayKey}`,
+      data:  { url: '/index.html', type: 'overdue' },
+    };
+
+    try {
+      const { sent, removed, errors } = await fanoutPush(env, personId, payload);
+      await dedupMark(env, todayKey, dedupKey);
+      console.log('[scheduled] overdue', personId, { count: incomplete.length, sent, removed, errors });
+    } catch (err) {
+      console.warn('[scheduled] overdue failed', personId, err.message);
     }
   }
 }
