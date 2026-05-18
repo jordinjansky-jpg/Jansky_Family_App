@@ -1596,6 +1596,42 @@ async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
   return jsonOk(result, corsHeaders);
 }
 
+// ── Notification actions (Approve / Deny / Snooze) ────────────────────────────
+
+async function handleAction(input, env, corsHeaders, rawBodyText, authHeader) {
+  const authed = await verifyPushAuth(authHeader, rawBodyText, env);
+  if (!authed) {
+    console.warn('[action] auth failed');
+    return jsonError('Unauthorized', 401, corsHeaders);
+  }
+
+  const { type, personId } = input || {};
+  if (!type || !personId) {
+    return jsonError('Missing type or personId', 400, corsHeaders);
+  }
+
+  try {
+    if (type === 'approve') return await actionApprove(input, env, corsHeaders);
+    if (type === 'deny')    return await actionDeny(input, env, corsHeaders);
+    if (type === 'snooze')  return await actionSnooze(input, env, corsHeaders);
+    return jsonError('Unknown action type', 400, corsHeaders);
+  } catch (err) {
+    console.warn('[action] handler failed', type, err.message);
+    return jsonError(`Action failed: ${err.message}`, 500, corsHeaders);
+  }
+}
+
+// Stubs — real implementations in Tasks 4 and 5.
+async function actionApprove(input, env, corsHeaders) {
+  return jsonOk({ ok: true, stub: 'approve' }, corsHeaders);
+}
+async function actionDeny(input, env, corsHeaders) {
+  return jsonOk({ ok: true, stub: 'deny' }, corsHeaders);
+}
+async function actionSnooze(input, env, corsHeaders) {
+  return jsonOk({ ok: true, stub: 'snooze' }, corsHeaders);
+}
+
 async function fanoutPush(env, personId, payload) {
   const subsObj = await fbGet(env, `pushSubscriptions/${personId}`);
   if (!subsObj || typeof subsObj !== 'object') {
@@ -1912,6 +1948,9 @@ export default {
     const { type, input } = body;
     if (type === 'push') {
       return handlePush(input, env, CORS, rawBodyText, request.headers.get('Authorization'));
+    }
+    if (type === 'action') {
+      return handleAction(input, env, CORS, rawBodyText, request.headers.get('Authorization'));
     }
     const handler = HANDLERS[type];
     if (handler) return handler(input, env);
