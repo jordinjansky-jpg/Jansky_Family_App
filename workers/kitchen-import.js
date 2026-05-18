@@ -2228,7 +2228,7 @@ async function runOverdueReminders(env, now, tz, people) {
       if (entry?.ownerId !== personId) return false;
       if (completedKeys.has(entryKey)) return false;
       const task = tasks?.[entry?.taskId];
-      if (task?.frequency === 'daily') return false; // daily tasks aren't "overdue"
+      if (task?.rotation === 'daily') return false; // daily tasks aren't "overdue"
       return true;
     });
     if (incomplete.length === 0) continue;
@@ -2283,8 +2283,25 @@ async function runMealReminders(env, now, tz, people) {
   if (filtered.length === 0) return;
 
   // One Firebase read for tonight's dinner — shared across all opted-in users.
-  const dinnerSlot = await fbGet(env, `kitchenPlan/${todayKey}/dinner`).catch(() => null);
+  const dinnerSlot = await fbGet(env, `kitchen/plan/${todayKey}/dinner`).catch(() => null);
   const options = normalizePlanSlot(dinnerSlot);
+
+  // Resolve display name for a plan option: prefer customName/mealName for
+  // typed entries; for recipe-linked entries, look up the recipe name via the
+  // recipes map (lazily fetched).
+  let recipesCache = null;
+  async function getRecipes() {
+    if (recipesCache) return recipesCache;
+    recipesCache = await fbGet(env, 'kitchen/recipes').catch(() => null) || {};
+    return recipesCache;
+  }
+  async function resolveOptionName(opt) {
+    if (opt.recipeId) {
+      const recipes = await getRecipes();
+      return recipes[opt.recipeId]?.name || 'Unknown';
+    }
+    return opt.mealName || opt.customName || opt.name || 'see plan';
+  }
 
   // Compose body once — same for all opted-in users.
   let body;
@@ -2292,14 +2309,15 @@ async function runMealReminders(env, now, tz, people) {
   if (options.length === 0) {
     body = 'No dinner planned for tonight.';
   } else if (options.length === 1) {
-    const opt = options[0];
-    body = `Tonight's dinner: ${opt.customName || opt.recipeName || opt.name || 'see plan'}`;
+    const name = await resolveOptionName(options[0]);
+    body = `Tonight's dinner: ${name}`;
   } else {
     // Multi-option voting — try to identify a winner with votes; otherwise prompt.
     const winner = pickPlanWinner(options);
     const winnerScore = winner?.votes ? Object.keys(winner.votes).length : 0;
     if (winnerScore > 0) {
-      body = `Tonight's dinner: ${winner.customName || winner.recipeName || winner.name || 'see plan'}`;
+      const name = await resolveOptionName(winner);
+      body = `Tonight's dinner: ${name}`;
     } else {
       body = `Tonight's dinner: ${options.length} options waiting to be voted on`;
       urlSuffix = '?openVote=dinner';
