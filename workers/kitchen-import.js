@@ -1531,12 +1531,12 @@ async function runScheduled(env, scheduledTimeMs) {
     fbGet(env, 'events').catch(() => null),
   ]);
   const tz = settings?.timezone || 'America/New_York';
-  if (!people || !events) {
-    console.log('[scheduled] no people or events — skipping');
+  if (!people) {
+    console.log('[scheduled] no people — skipping');
     return;
   }
 
-  await runEventReminders(env, now, tz, people, events);
+  await runEventReminders(env, now, tz, people, events || {});
   await runTaskReminders(env, now, tz, people);
   // TODO Task 7: digest.
 }
@@ -1610,10 +1610,13 @@ async function runTaskReminders(env, now, tz, people) {
   ]);
   if (!scheduleToday || typeof scheduleToday !== 'object') return;
 
+  const completedKeys = new Set(Object.keys(completions || {}));
+
   for (const [personId, person] of optedIn) {
     const targetTime = person.prefs.notifications.taskReminderTime; // "HH:MM"
     const [targetH, targetM] = targetTime.split(':').map(Number);
     const targetMin = targetH * 60 + targetM;
+    if (isNaN(targetMin) || targetMin < 0 || targetMin >= 1440) continue;
     // Slack window: fire if |nowMin - targetMin| <= 2.5min.
     if (Math.abs(nowMin - targetMin) > 2.5) continue;
 
@@ -1624,7 +1627,6 @@ async function runTaskReminders(env, now, tz, people) {
     const myEntries = Object.entries(scheduleToday).filter(
       ([_, entry]) => entry?.ownerId === personId
     );
-    const completedKeys = new Set(Object.keys(completions || {}));
     const incomplete = myEntries.filter(([entryKey]) => !completedKeys.has(entryKey));
     if (incomplete.length === 0) continue;
 
