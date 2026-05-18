@@ -252,6 +252,52 @@ function localDayWindowMs(dateKey, tz) {
   return { startMs, endMs };
 }
 
+// Returns the ISO week key (YYYY-Www) for the week containing a given Date.
+// ISO 8601: week starts Monday; week 1 is the week containing Jan 4.
+function isoWeekKeyFromDate(date) {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+// Returns the ISO week key for the week that ended most recently (i.e. last week).
+// Subtracts 7 days from today's local date key and computes that date's ISO week.
+function lastIsoWeekKey(now, tz) {
+  const todayKey = dateKeyInTz(now, tz);
+  const d = new Date(`${todayKey}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 7);
+  return isoWeekKeyFromDate(d);
+}
+
+// Returns { startMs, endMs } in ms for [Mon 00:00, next Mon 00:00) in the given tz.
+// DST-safe via localDateTimeToUtc.
+function isoWeekRangeMs(weekKey, tz) {
+  const m = weekKey.match(/^(\d{4})-W(\d{2})$/);
+  if (!m) return { startMs: 0, endMs: 0 };
+  const year = parseInt(m[1], 10);
+  const week = parseInt(m[2], 10);
+  // ISO week 1 = the week containing Jan 4.
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7; // 1..7, Mon=1
+  const monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1 + (week - 1) * 7);
+  const mondayKey = monday.toISOString().slice(0, 10);
+  const startMs = localDateTimeToUtc(mondayKey, '00:00', tz).getTime();
+  const nextMon = new Date(monday);
+  nextMon.setUTCDate(monday.getUTCDate() + 7);
+  const nextMonKey = nextMon.toISOString().slice(0, 10);
+  const endMs = localDateTimeToUtc(nextMonKey, '00:00', tz).getTime();
+  return { startMs, endMs };
+}
+
+// Returns true if "now" falls on a Monday in the given timezone.
+function isMondayInTz(now, tz) {
+  const fmt = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: tz });
+  return fmt.format(now) === 'Mon';
+}
+
 // ── Recurring event expansion ────────────────────────────────────────────────
 // Returns the first occurrence of a recurring event whose computed UTC start
 // time falls inside [windowStart, windowEnd]. Returns null if no match.
@@ -1968,12 +2014,15 @@ async function runScheduled(env, scheduledTimeMs) {
   await runMealReminders(env, now, tz, people);
   await runPendingPushes(env, now);
 
-  // Settle yesterday's daily activity goals (idempotent — safe to re-run).
+  // Settle activity goals (idempotent — safe to re-run).
+  // Daily: runs every tick, settles yesterday.
+  // Weekly: runs only on Monday in tz, settles prior ISO week.
   try {
     const activities = (await fbGet(env, 'activities').catch(() => null)) || {};
     await runDailySettlement(env, now, tz, people, activities);
+    await runWeeklySettlement(env, now, tz, people, activities);
   } catch (err) {
-    console.error('[scheduled] runDailySettlement failed:', err?.message || err);
+    console.error('[scheduled] runDailySettlement/runWeeklySettlement failed:', err?.message || err);
   }
 }
 
@@ -2461,6 +2510,56 @@ async function runDailySettlement(env, now, tz, people, activities) {
         formulaVersion: 1,
       });
       console.log('[settlement] daily settled', personId, activityId, yesterdayKey,
+        { actualMinutes, earned });
+    }
+  }
+}
+
+async function runWeeklySettlement(env, now, tz, people, activities) {
+  // Only settle on Monday — that's when the previous week's boundary is crossed.
+  if (!isMondayInTz(now, tz)) return;
+
+  const weekKey = lastIsoWeekKey(now, tz);
+  const { startMs, endMs } = isoWeekRangeMs(weekKey, tz);
+
+  // Read all sessions once; filter per (person, activity) pair below.
+  const allSessions = (await fbGet(env, 'activitySessions')) || {};
+
+  for (const [personId] of Object.entries(people || {})) {
+    for (const [activityId, a] of Object.entries(activities || {})) {
+      if (a.active === false) continue;
+      if (a.goalPeriod !== 'weekly') continue;
+      if (!a.assignedTo || !a.assignedTo[personId]) continue;
+
+      // Idempotency: skip if already settled for this (person, activity, week).
+      const existing = await fbGet(env, `activityEarnings/${personId}/${activityId}/${weekKey}`);
+      if (existing) continue;
+
+      // Sum session minutes that fall within the week's local window.
+      let actualMinutes = 0;
+      for (const s of Object.values(allSessions)) {
+        if (s.activityId !== activityId) continue;
+        if (s.personId !== personId) continue;
+        if (typeof s.startedAt !== 'number') continue;
+        if (s.startedAt < startMs || s.startedAt >= endMs) continue;
+        actualMinutes += s.durationMin || 0;
+      }
+
+      const earned = calculateActivityEarning(actualMinutes, a.goalMinutes, a.pointsAtGoal);
+      const goalPercent = a.goalMinutes > 0 ? actualMinutes / a.goalMinutes : 0;
+
+      await fbSet(env, `activityEarnings/${personId}/${activityId}/${weekKey}`, {
+        periodKey:      weekKey,
+        goalPeriod:     'weekly',
+        goalMinutes:    a.goalMinutes,
+        actualMinutes,
+        goalPercent,
+        pointsAtGoal:   a.pointsAtGoal,
+        earned,
+        settledAt:      Date.now(),
+        formulaVersion: 1,
+      });
+      console.log('[settlement] weekly settled', personId, activityId, weekKey,
         { actualMinutes, earned });
     }
   }
