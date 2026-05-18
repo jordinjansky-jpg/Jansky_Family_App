@@ -79,7 +79,7 @@
       isDev
     } from './shared/firebase.js';
     import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor, renderFormSheetHeader, renderChipPicker, bindChipPicker, renderSwitchToggle } from './shared/components.js';
 
     import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
@@ -3379,14 +3379,154 @@
       return html;
     }
 
+    const ACTIVITY_EMOJIS = ['🏃','🚴','🧘','💪','🏊','⚽','🎾','🎸','🎨','📚','🍳','🌱','🧹','🛹','🎯','🎮','🎬','🎵','✏️','🐶'];
+
+    function renderActivityForm({ existing, mode, people }) {
+      const a = existing || {};
+
+      // Sort: kids first (alphabetical), then adults (alphabetical)
+      const peopleEntries = Object.entries(people || {})
+        .sort((x, y) => {
+          const kx = x[1].kid === true ? 0 : 1;
+          const ky = y[1].kid === true ? 0 : 1;
+          if (kx !== ky) return kx - ky;
+          return (x[1].name || '').localeCompare(y[1].name || '');
+        });
+
+      const assignedIds = Object.keys(a.assignedTo || {});
+
+      const personChipsHtml = peopleEntries.map(([pid, p]) => {
+        const isSelected = assignedIds.includes(pid);
+        return `<button class="ef2-person-chip" data-person-id="${esc(pid)}" data-person-color="${esc(p.color || '')}"${isSelected ? ' data-state="primary"' : ''} type="button">${esc(p.name || pid)}</button>`;
+      }).join('') || '<span style="font-size:var(--font-sm);color:var(--text-faint)">No people yet</span>';
+
+      const isEdit = mode === 'edit';
+      const nameEmpty = !(a.name || '').trim();
+
+      return `
+        ${renderFormSheetHeader({
+          title: isEdit ? 'Edit Activity' : 'Add Activity',
+          closeId: 'actFormClose',
+          saveId: 'actFormSaveHeader',
+          deleteId: isEdit ? 'actFormDelete' : null
+        })}
+
+        <div class="rf-title-row">
+          <input class="tf-title-input" id="actFormName" type="text" placeholder="Activity name" maxlength="50" value="${esc(a.name || '')}" autocomplete="off">
+        </div>
+
+        <div class="ef2-divider"></div>
+
+        <div class="cf-icon-section">
+          <span class="ef2-section-label">Emoji</span>
+          ${renderEmojiPicker({
+            pickerId: 'actFormEmojiPicker',
+            hiddenId: 'actFormEmoji',
+            value: a.emoji || '',
+            emojis: ACTIVITY_EMOJIS,
+            allowCustom: true,
+          })}
+        </div>
+
+        <div class="ef2-divider"></div>
+
+        <div class="rf-adv-grid">
+          <div class="rf-adv-row">
+            <span class="rf-adv-label">Color</span>
+            ${renderColorButton(a.color || '#4A90E2', 'actFormColor')}
+          </div>
+        </div>
+
+        <div class="ef2-divider"></div>
+
+        <div class="tf-rotation-section">
+          <span class="ef2-section-label">Goal period</span>
+          ${renderChipPicker({
+            pickerId: 'actFormGoalPeriod',
+            hiddenId: 'actFormGoalPeriodValue',
+            options: [{ value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }],
+            value: a.goalPeriod || 'daily',
+            allowClear: false,
+          })}
+        </div>
+
+        <div class="ef2-divider"></div>
+
+        <div class="rf-adv-grid">
+          <div class="rf-adv-row">
+            <span class="rf-adv-label">Goal minutes</span>
+            <input type="number" id="actFormGoalMinutes" class="rf-adv-input" min="1" max="10080" value="${esc(String(a.goalMinutes || ''))}">
+          </div>
+          <div class="rf-adv-row">
+            <span class="rf-adv-label">Points at goal</span>
+            <input type="number" id="actFormPointsAtGoal" class="rf-adv-input" min="0" max="1000" value="${esc(String(a.pointsAtGoal ?? 100))}">
+          </div>
+        </div>
+
+        <div class="ef2-divider"></div>
+
+        <div class="ef2-for-section">
+          <span class="ef2-section-label">Assigned to</span>
+          <div class="ef2-person-chips" id="actFormAssignedTo">${personChipsHtml}</div>
+        </div>
+
+        <div class="ef2-divider"></div>
+
+        <div class="tf-options-row">
+          <span class="tf-options-label">Active</span>
+          ${renderSwitchToggle({ id: 'actFormActive', checked: a.active !== false })}
+        </div>
+
+        ${renderFormFooter({
+          saveLabel: 'Save',
+          cancelId: 'actFormCancel',
+          saveId: 'actFormSaveFooter',
+          disabled: nameEmpty,
+        })}
+      `;
+    }
+
     function openActivityFormSheet(id) {
-      // Task 6: open activity form sheet
-      console.log('TODO open activity form', id);
+      const mount = document.getElementById('taskSheetMount');
+      const existing = id ? (activitiesObj[id] || null) : null;
+      const mode = id ? 'edit' : 'create';
+      mount.innerHTML = renderBottomSheet(renderActivityForm({ existing, mode, people: peopleObj }));
+
+      // Apply person chip colors
+      mount.querySelectorAll('.ef2-person-chip[data-person-color]').forEach(chip => {
+        chip.style.setProperty('--chip-color', chip.dataset.personColor);
+      });
+
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+      bindChipPicker({ pickerId: 'actFormGoalPeriod', hiddenId: 'actFormGoalPeriodValue' });
+      bindEmojiPicker({ pickerId: 'actFormEmojiPicker', hiddenId: 'actFormEmoji' });
+      const colorWrap = mount.querySelector('.cpick-wrap');
+      if (colorWrap) initColorButton(colorWrap, null);
+
+      // Name input → toggle save disabled state
+      mount.querySelector('#actFormName')?.addEventListener('input', (e) => {
+        const empty = !e.target.value.trim();
+        mount.querySelector('#actFormSaveHeader')?.toggleAttribute('disabled', empty);
+        mount.querySelector('#actFormSaveFooter')?.toggleAttribute('disabled', empty);
+      });
+
+      const close = () => closeAdminSheet();
+      mount.querySelector('#actFormClose')?.addEventListener('click', close);
+      mount.querySelector('#actFormCancel')?.addEventListener('click', close);
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') close();
+      });
+
+      // Footer save → header save (Task 7 wires the actual save logic)
+      mount.querySelector('#actFormSaveFooter')?.addEventListener('click', () => {
+        mount.querySelector('#actFormSaveHeader')?.click();
+      });
     }
 
     function bindActivitiesTab() {
       main.querySelector('#activityAddBtn')?.addEventListener('click', () => {
-        console.log('TODO open activity form (new)');
+        openActivityFormSheet(null);
       });
 
       main.querySelectorAll('.activity-active-toggle').forEach(toggle => {
