@@ -1924,7 +1924,11 @@ async function runEventReminders(env, now, tz, people, events) {
         body:  ev.location ? `${formatHhmm(ev.startTime)} · ${ev.location}` : `Starts at ${formatHhmm(ev.startTime)}`,
         icon:  '/app-icon.png',
         tag:   `evt-${eventId}-${instanceDate}`,
-        data:  { url: '/calendar.html', type: 'eventReminders', eventId, instanceDate },
+        data:  { url: '/calendar.html', type: 'eventReminders', eventId, instanceDate, personId, snoozeCount: 0 },
+        actions: [
+          { action: 'snooze',  title: 'Snooze 5m' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
       };
       try {
         const { sent, removed, errors } = await fanoutPush(env, personId, payload);

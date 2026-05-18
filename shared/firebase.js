@@ -469,21 +469,29 @@ export async function writeMessage(personId, data) {
   // Fire-and-forget push notification — never block the message write.
   // Importing push-client lazily so callers that don't load it (e.g. SW context)
   // aren't penalized by a static import cycle.
-  notifyMessageFireAndForget(personId, data);
+  notifyMessageFireAndForget(personId, data, id);
   return id;
 }
 
-async function notifyMessageFireAndForget(personId, data) {
+async function notifyMessageFireAndForget(personId, data, messageId) {
   try {
     const { sendNotification } = await import('./push-client.js');
     const type = mapMessageTypeToPushType(data?.type);
     if (!type) return;
-    await sendNotification(personId, type, {
+    const payload = {
       title: data.title || 'New message',
       body:  data.body || '',
       tag:   `${type}-${data.createdBy || 'system'}`,
-      data:  { url: '/index.html?openBell=1', type },
-    });
+      data:  { url: '/index.html?openBell=1', type, messageId, personId },
+    };
+    // Add Approve/Deny actions for reward-request notifications.
+    if (type === 'rewardApprovals') {
+      payload.actions = [
+        { action: 'approve', title: 'Approve' },
+        { action: 'deny',    title: 'Deny' },
+      ];
+    }
+    await sendNotification(personId, type, payload);
   } catch (err) {
     console.warn('[firebase] push failed (non-fatal):', err?.message || err);
   }
@@ -494,7 +502,8 @@ function mapMessageTypeToPushType(messageType) {
   // Returned strings MUST match the keys in person.prefs.notifications.types
   // (the Worker uses them directly for `prefs.types[type] === false` lookup).
   // Other internal types (penalty-removed, task-skip-used, etc.) are silent.
-  if (messageType === 'request')  return 'rewardApprovals';
+  if (messageType === 'redemption-request') return 'rewardApprovals';
+  if (messageType === 'use-request')        return 'rewardApprovals';
   if (messageType === 'fyi')      return 'rewardFyi';
   if (messageType === 'message')  return 'bellMessages';
   if (messageType === 'kudos')    return 'bellMessages';

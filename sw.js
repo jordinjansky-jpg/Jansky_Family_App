@@ -463,8 +463,12 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
+// v326 (2026-05-18) — Phase 6b: notification action handlers (Approve/Deny/
+//                     Snooze) wired in SW; reward-request push payload
+//                     includes Approve/Deny buttons; reward-request message
+//                     type mapper fixed (redemption-request, use-request).
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
-const CACHE_NAME = 'family-hub-v325';
+const CACHE_NAME = 'family-hub-v326';
 
 const APP_SHELL = [
   '/',
@@ -626,11 +630,31 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
+  const action = event.action;
 
-  // Action buttons (Approve/Deny on reward requests) — Phase 2+ wiring;
-  // for Phase 1 we just open the deep link.
-  // TODO Phase 2: read event.action and POST approve/deny to Worker.
+  // Action buttons go to the Worker via /action; no UI navigation.
+  if (action === 'approve' || action === 'deny') {
+    event.waitUntil(postAction({ type: action, personId: data.personId, messageId: data.messageId }));
+    return;
+  }
+  if (action === 'snooze') {
+    // Rebuild payload from data — SW doesn't have the original payload here.
+    const payload = {
+      title: event.notification.title,
+      body:  event.notification.body,
+      icon:  event.notification.icon,
+      tag:   event.notification.tag,
+      data,
+    };
+    event.waitUntil(postAction({ type: 'snooze', personId: data.personId, payload }));
+    return;
+  }
+  if (action === 'dismiss') {
+    // Notification already closed; nothing else to do.
+    return;
+  }
 
+  // Default click (no action button) — deep-link
   const url = data.url || '/index.html';
   event.waitUntil((async () => {
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -642,6 +666,30 @@ self.addEventListener('notificationclick', (event) => {
     if (self.clients.openWindow) return self.clients.openWindow(url);
   })());
 });
+
+// SW-side helper to call the Worker /action endpoint. HMAC secret embedded
+// here (same as in push-client.js) — same security model.
+async function postAction(input) {
+  const SECRET = 'b0c24356297ccd8d448b6a4cd49a84d511f609efe06884bdb68e07eb9099f2c8';
+  const WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
+  const body = JSON.stringify({ type: 'action', input });
+  const ts = Date.now();
+  const keyBytes = new TextEncoder().encode(SECRET);
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${ts}\n${body}`));
+  const sigHex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+  const auth = `HMAC v1 ${ts}.${sigHex}`;
+  try {
+    const r = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': auth },
+      body,
+    });
+    if (!r.ok) console.warn('[sw] action non-OK', r.status);
+  } catch (err) {
+    console.warn('[sw] action failed', err?.message || err);
+  }
+}
 
 self.addEventListener('pushsubscriptionchange', (event) => {
   // Browsers occasionally invalidate push subscriptions (key rotation, etc.).
