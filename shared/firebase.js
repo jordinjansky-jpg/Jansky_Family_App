@@ -257,10 +257,10 @@ export async function pushActivity(data) {
 }
 
 /**
- * Update an existing activity.
+ * Update an existing activity (merge — does not wipe unspecified fields).
  */
 export async function writeActivity(activityId, data) {
-  return writeData(`activities/${activityId}`, data);
+  return updateData(`activities/${activityId}`, data);
 }
 
 /**
