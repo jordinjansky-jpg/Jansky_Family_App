@@ -282,6 +282,28 @@ function nextOccurrenceInWindow(event, windowStart, windowEnd, tz) {
   return null;
 }
 
+// Port of shared/utils.js normalizePlanSlot + pickWinner — kept inline so the
+// Worker has no shared-module imports.
+function normalizePlanSlot(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  return [raw];
+}
+function pickPlanWinner(options) {
+  if (!Array.isArray(options) || options.length === 0) return null;
+  if (options.length === 1) return options[0];
+  let bestIdx = 0, bestScore = -1, bestAddedAt = Infinity;
+  for (let i = 0; i < options.length; i++) {
+    const opt = options[i];
+    const score = opt?.votes ? Object.keys(opt.votes).length : 0;
+    const addedAt = opt?.addedAt || 0;
+    if (score > bestScore || (score === bestScore && addedAt < bestAddedAt)) {
+      bestIdx = i; bestScore = score; bestAddedAt = addedAt;
+    }
+  }
+  return options[bestIdx];
+}
+
 // ── VAPID (signs the JWT in the Authorization header for each push) ───────────
 
 async function signVapidJwt(audience, env) {
@@ -1864,6 +1886,7 @@ async function runScheduled(env, scheduledTimeMs) {
   await runTaskReminders(env, now, tz, people);
   await runDailyDigest(env, now, tz, people, events || {});
   await runOverdueReminders(env, now, tz, people);
+  await runMealReminders(env, now, tz, people);
   await runPendingPushes(env, now);
 }
 
@@ -2173,6 +2196,83 @@ async function runOverdueReminders(env, now, tz, people) {
       console.log('[scheduled] overdue', personId, { count: incomplete.length, sent, removed, errors });
     } catch (err) {
       console.warn('[scheduled] overdue failed', personId, err.message);
+    }
+  }
+}
+
+async function runMealReminders(env, now, tz, people) {
+  const todayKey = dateKeyInTz(now, tz);
+  const { hours, minutes } = timeInTz(now, tz);
+  const nowMin = hours * 60 + minutes;
+
+  const optedIn = Object.entries(people).filter(([_, p]) =>
+    p?.prefs?.notifications?.enabled === true
+    && p?.prefs?.notifications?.types?.mealReminder === true
+  );
+  if (optedIn.length === 0) return;
+
+  const inWindow = optedIn.filter(([_, person]) => {
+    const t = person.prefs.notifications.mealReminderTime || '16:00';
+    const [h, m] = t.split(':').map(Number);
+    const tMin = h * 60 + m;
+    if (isNaN(tMin) || tMin < 0 || tMin >= 1440) return false;
+    return Math.abs(nowMin - tMin) <= 2.5;
+  });
+  if (inWindow.length === 0) return;
+
+  // Quiet hours check
+  const filtered = inWindow.filter(([_, person]) => {
+    const qh = person.prefs?.notifications?.quietHours;
+    if (qh && isInQuietHours(qh, hours, minutes)) {
+      console.log('[scheduled] skipped (quiet hours)', _, 'mealReminder');
+      return false;
+    }
+    return true;
+  });
+  if (filtered.length === 0) return;
+
+  // One Firebase read for tonight's dinner — shared across all opted-in users.
+  const dinnerSlot = await fbGet(env, `kitchenPlan/${todayKey}/dinner`).catch(() => null);
+  const options = normalizePlanSlot(dinnerSlot);
+
+  // Compose body once — same for all opted-in users.
+  let body;
+  let urlSuffix = '';
+  if (options.length === 0) {
+    body = 'No dinner planned for tonight.';
+  } else if (options.length === 1) {
+    const opt = options[0];
+    body = `Tonight's dinner: ${opt.customName || opt.recipeName || opt.name || 'see plan'}`;
+  } else {
+    // Multi-option voting — try to identify a winner with votes; otherwise prompt.
+    const winner = pickPlanWinner(options);
+    const winnerScore = winner?.votes ? Object.keys(winner.votes).length : 0;
+    if (winnerScore > 0) {
+      body = `Tonight's dinner: ${winner.customName || winner.recipeName || winner.name || 'see plan'}`;
+    } else {
+      body = `Tonight's dinner: ${options.length} options waiting to be voted on`;
+      urlSuffix = '?openVote=dinner';
+    }
+  }
+
+  for (const [personId] of filtered) {
+    const dedupKey = `meal_${personId}`;
+    if (await dedupCheck(env, todayKey, dedupKey)) continue;
+
+    const payload = {
+      title: 'Dinner tonight',
+      body,
+      icon:  '/app-icon.png',
+      tag:   `meal-${personId}-${todayKey}`,
+      data:  { url: '/kitchen.html' + urlSuffix, type: 'mealReminder' },
+    };
+
+    try {
+      const { sent, removed, errors } = await fanoutPush(env, personId, payload);
+      await dedupMark(env, todayKey, dedupKey);
+      console.log('[scheduled] mealReminder', personId, { sent, removed, errors });
+    } catch (err) {
+      console.warn('[scheduled] mealReminder failed', personId, err.message);
     }
   }
 }
