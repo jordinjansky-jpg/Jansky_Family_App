@@ -239,8 +239,57 @@
       const activeTimerSection = renderActiveTimers(tz);
       if (tab === 'today') return activeTimerSection + renderTodayTab(tz);
       if (tab === 'week') return activeTimerSection + renderWeekTab(tz);
-      if (tab === 'history') return '<p class="activities-placeholder-content">History tab content coming in Task 13</p>';
+      if (tab === 'history') return renderHistoryTab(tz);
       return '';
+    }
+
+    function renderHistoryTab(tz) {
+      const sortedSessions = Object.entries(sessions || {})
+        .map(([id, s]) => ({ id, ...s }))
+        .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+      if (sortedSessions.length === 0) return '<p class="activities-placeholder-content">No sessions logged yet.</p>';
+
+      // Group by local date
+      const groups = {};
+      for (const s of sortedSessions) {
+        const k = localDateKey(s.startedAt, tz);
+        (groups[k] = groups[k] || []).push(s);
+      }
+
+      return Object.entries(groups).map(([dateKey, sList]) => `
+        <div class="history-group">
+          <h4 class="history-group__date">${formatDateHeader(dateKey, tz)}</h4>
+          ${sList.map(s => {
+            const person = people[s.personId] || { name: s.personId, color: 'inherit' };
+            const activity = activities[s.activityId] || { name: '(deleted activity)', emoji: '·' };
+            const time = formatTime(s.startedAt, tz);
+            return `
+              <div class="history-row" data-session-id="${s.id}" data-activity-id="${s.activityId}" data-person-id="${s.personId}">
+                <span class="history-row__icon">${activity.emoji || '·'}</span>
+                <span class="history-row__title">${escapeHtml(person.name)} · ${escapeHtml(activity.name)}</span>
+                <span class="history-row__meta">${s.durationMin} min · ${time}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `).join('');
+    }
+
+    function formatDateHeader(dateKey, tz) {
+      const today = todayKey(tz);
+      if (dateKey === today) return 'Today';
+      if (dateKey === addDays(today, -1)) return 'Yesterday';
+      try {
+        const d = new Date(`${dateKey}T12:00:00`);
+        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz });
+      } catch (e) {
+        return dateKey;
+      }
+    }
+
+    function formatTime(timestampMs, tz) {
+      const d = new Date(timestampMs);
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz });
     }
 
     function renderActiveTimers(tz) {
@@ -441,6 +490,14 @@
       document.querySelectorAll('[data-card-action="log"]').forEach(btn => {
         btn.addEventListener('click', () => openManualEntrySheet(btn.dataset.activityId, btn.dataset.personId));
       });
+      document.querySelectorAll('.history-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const sid = row.dataset.sessionId;
+          const aid = row.dataset.activityId;
+          const pid = row.dataset.personId;
+          openManualEntrySheet(aid, pid, sid);
+        });
+      });
     }
 
     function bindActiveTimerHandlers() {
@@ -500,9 +557,13 @@
       return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
     }
 
-    function openManualEntrySheet(activityId, personId) {
-      // Implemented in Task 14 — placeholder toast for now
-      showToast('Manual entry — coming in Task 14');
+    function openManualEntrySheet(activityId, personId, sessionIdForEdit) {
+      // Implemented in Task 14
+      if (sessionIdForEdit) {
+        showToast(`Edit session — coming in Task 14 (session ${sessionIdForEdit.slice(0, 8)})`);
+      } else {
+        showToast('Manual entry — coming in Task 14');
+      }
     }
 
     // ── Display interval for live timer readouts ──
