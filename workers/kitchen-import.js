@@ -150,6 +150,21 @@ function timeInTz(date, tz) {
   return { hours: h === 24 ? 0 : h, minutes: m };
 }
 
+// quietHours: { start: "HH:MM", end: "HH:MM" } in family timezone.
+// Handles wraparound (start > end means range spans midnight).
+function isInQuietHours(quietHours, hours, minutes) {
+  if (!quietHours?.start || !quietHours?.end) return false;
+  const [sh, sm] = quietHours.start.split(':').map(Number);
+  const [eh, em] = quietHours.end.split(':').map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin   = eh * 60 + em;
+  const nowMin   = hours * 60 + minutes;
+  if (startMin === endMin) return false; // empty range = disabled
+  if (startMin < endMin) return nowMin >= startMin && nowMin < endMin;
+  // Wraparound: e.g. 21:00 → 07:00.
+  return nowMin >= startMin || nowMin < endMin;
+}
+
 // Convert a date key + HH:MM string in a given timezone to a UTC Date.
 // Iterates because UTC midnight of a date in a given tz is not midnight there.
 function localDateTimeToUtc(dateKey, hhmm, tz) {
@@ -1543,6 +1558,7 @@ async function runScheduled(env, scheduledTimeMs) {
 
 async function runEventReminders(env, now, tz, people, events) {
   const todayKey = dateKeyInTz(now, tz);
+  const { hours, minutes } = timeInTz(now, tz);
   const optedIn = Object.entries(people).filter(([_, p]) =>
     p?.prefs?.notifications?.enabled === true
     && p?.prefs?.notifications?.types?.eventReminders !== false
@@ -1571,6 +1587,13 @@ async function runEventReminders(env, now, tz, people, events) {
 
       const dedupKey = `evt_${eventId}_${personId}`;
       if (await dedupCheck(env, todayKey, dedupKey)) continue;
+
+      // Quiet-hours gate (time-triggered types only)
+      const qh = person.prefs?.notifications?.quietHours;
+      if (qh && isInQuietHours(qh, hours, minutes)) {
+        console.log('[scheduled] skipped (quiet hours)', personId, 'eventReminder');
+        continue;
+      }
 
       const payload = {
         title: ev.name || 'Upcoming event',
@@ -1623,6 +1646,13 @@ async function runTaskReminders(env, now, tz, people) {
     const dedupKey = `task_${personId}`;
     if (await dedupCheck(env, todayKey, dedupKey)) continue;
 
+    // Quiet-hours gate (time-triggered types only)
+    const qh = person.prefs?.notifications?.quietHours;
+    if (qh && isInQuietHours(qh, hours, minutes)) {
+      console.log('[scheduled] skipped (quiet hours)', personId, 'taskReminder');
+      continue;
+    }
+
     // Count incomplete entries for this person today.
     const myEntries = Object.entries(scheduleToday).filter(
       ([_, entry]) => entry?.ownerId === personId
@@ -1672,6 +1702,13 @@ async function runDailyDigest(env, now, tz, people, events) {
 
     const dedupKey = `dgst_${personId}`;
     if (await dedupCheck(env, todayKey, dedupKey)) continue;
+
+    // Quiet-hours gate (time-triggered types only)
+    const qh = person.prefs?.notifications?.quietHours;
+    if (qh && isInQuietHours(qh, hours, minutes)) {
+      console.log('[scheduled] skipped (quiet hours)', personId, 'digest');
+      continue;
+    }
 
     if (!scheduleToday) scheduleToday = await fbGet(env, `schedule/${todayKey}`).catch(() => null);
 

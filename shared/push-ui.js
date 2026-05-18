@@ -116,7 +116,22 @@ export async function mountNotificationsSection(mount, personOpts) {
         ${/Android/.test(navigator.userAgent) ? `
           <p class="form-hint">On Android, also disable Chrome's app-level notifications (Settings &rarr; Apps &rarr; Chrome &rarr; Notifications &rarr; off) once enabled here. Otherwise every push arrives twice.</p>
         ` : ''}
-        <p class="form-hint">Quiet hours coming in the next phase.</p>
+        <div class="notif-quiet">
+          <p class="form-hint">Quiet hours</p>
+          <label class="form-toggle">
+            <span>Don't disturb me</span>
+            <input type="checkbox" id="notif_qh_enabled" ${prefs.quietHours ? 'checked' : ''}>
+            <span class="form-toggle__track"></span>
+          </label>
+          ${prefs.quietHours ? `
+            <div class="notif-subrow">
+              <input type="time" class="notif-subrow__time" data-qh-bound="start" value="${prefs.quietHours.start || '21:00'}">
+              <span class="notif-subrow__suffix">to</span>
+              <input type="time" class="notif-subrow__time" data-qh-bound="end" value="${prefs.quietHours.end || '07:00'}">
+            </div>
+            <p class="form-hint">Bell messages and reward approvals still come through.</p>
+          ` : ''}
+        </div>
       </div>
     `;
     wireListeners();
@@ -207,6 +222,42 @@ export async function mountNotificationsSection(mount, personOpts) {
         } catch (err) {
           showToast(`Could not save time: ${err.message}`);
           input.value = prev || '17:00';
+        }
+      });
+    });
+
+    mount.querySelector('#notif_qh_enabled')?.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      const prev = prefs.quietHours;
+      try {
+        if (enabled) {
+          prefs.quietHours = prefs.quietHours || { start: '21:00', end: '07:00' };
+          await updateNotificationPrefs(personId, { quietHours: prefs.quietHours });
+        } else {
+          await updateNotificationPrefs(personId, { quietHours: null });
+          prefs.quietHours = null;
+        }
+        render();
+      } catch (err) {
+        showToast(`Could not save: ${err.message}`);
+        prefs.quietHours = prev;
+        render();
+      }
+    });
+
+    mount.querySelectorAll('[data-qh-bound]').forEach(input => {
+      input.addEventListener('change', async () => {
+        const bound = input.dataset.qhBound; // 'start' | 'end'
+        const val = input.value;
+        if (!/^\d{2}:\d{2}$/.test(val)) return;
+        const prev = { ...(prefs.quietHours || {}) };
+        const next = { ...prev, [bound]: val };
+        try {
+          await updateNotificationPrefs(personId, { quietHours: next });
+          prefs.quietHours = next;
+        } catch (err) {
+          showToast(`Could not save: ${err.message}`);
+          input.value = prev[bound] || (bound === 'start' ? '21:00' : '07:00');
         }
       });
     });

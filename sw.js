@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v322 (2026-05-15) — Phase 5a: quiet hours shipped (Worker filter +
+//                     UI time-range pickers).
 // v321 (2026-05-15) — Phase 4: daily digest shipped — toggle + time
 //                     picker in Notifications.
 // v320 (2026-05-15) — Phase 3: task reminders shipped — toggle + time
@@ -456,7 +458,7 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
-const CACHE_NAME = 'family-hub-v321';
+const CACHE_NAME = 'family-hub-v322';
 
 const APP_SHELL = [
   '/',

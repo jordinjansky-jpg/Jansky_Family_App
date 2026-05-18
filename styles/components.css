@@ -6108,3 +6108,13 @@ label.ef2-icon-btn  { cursor: pointer; }
   color: var(--text);
   color-scheme: light dark;
 }
+.notif-quiet {
+  padding-top: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+}
+.notif-quiet .form-hint:first-child {
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: var(--spacing-xs);
+}
