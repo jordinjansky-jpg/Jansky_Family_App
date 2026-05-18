@@ -71,7 +71,8 @@
       readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed,
       readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync,
-      readKitchenPlan, writeKitchenPlanSlot
+      readKitchenPlan, writeKitchenPlanSlot,
+      readNotificationLog
     } from './shared/firebase.js';
     import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor } from './shared/components.js';
@@ -2800,7 +2801,15 @@
             <button class="btn btn--danger" id="resetConfirmBtn" type="button" disabled>Delete Everything</button>
           </div>
         </div>
-      </div>`;
+      </div>
+
+      <section class="admin-section">
+        <h3 class="admin-section__title">Notification activity</h3>
+        <p class="form-hint">Last 50 push attempts. Newest first. Auto-pruned at 200.</p>
+        <div id="notifLogTable" class="notif-log">
+          <p class="form-hint">Loading…</p>
+        </div>
+      </section>`;
       return html;
     }
 
@@ -4914,6 +4923,54 @@
           localStorage.removeItem('dr-debug');
           window.location.href = 'setup.html';
         });
+      }
+
+      renderNotifLog();
+    }
+
+    async function renderNotifLog() {
+      const mount = document.getElementById('notifLogTable');
+      if (!mount) return;
+      try {
+        const all = await readNotificationLog();
+        if (!all || typeof all !== 'object') {
+          mount.innerHTML = '<p class="form-hint">No activity yet.</p>';
+          return;
+        }
+        const peopleMap = peopleObj || {};
+        const rows = Object.values(all)
+          .filter(e => e && e.ts)
+          .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+          .slice(0, 50);
+
+        const fmtTs = (ts) => new Date(ts).toLocaleString('en-US', { timeZone: settings?.timezone || 'America/New_York', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        const personName = (pid) => peopleMap[pid]?.name || pid?.slice(0, 6) || '—';
+        const result = (e) => {
+          if (e.skipped) return `skipped: ${e.skipped}`;
+          const parts = [];
+          if (e.sent)    parts.push(`sent ${e.sent}`);
+          if (e.removed) parts.push(`removed ${e.removed}`);
+          if (e.errors)  parts.push(`errors ${e.errors}`);
+          return parts.join(' · ') || '—';
+        };
+
+        mount.innerHTML = `
+          <table class="notif-log__table">
+            <thead><tr><th>Time</th><th>Person</th><th>Type</th><th>Result</th></tr></thead>
+            <tbody>
+              ${rows.map(e => `
+                <tr>
+                  <td>${esc(fmtTs(e.ts))}</td>
+                  <td>${esc(personName(e.personId))}</td>
+                  <td>${esc(e.type || '—')}</td>
+                  <td>${esc(result(e))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        mount.innerHTML = `<p class="form-hint">Could not load log: ${esc(err.message)}</p>`;
       }
     }
 

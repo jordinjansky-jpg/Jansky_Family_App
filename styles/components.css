@@ -6154,3 +6154,22 @@ label.ef2-icon-btn  { cursor: pointer; }
   flex: 1;
   font-size: var(--font-sm);
 }
+.notif-log__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+.notif-log__table th,
+.notif-log__table td {
+  text-align: left;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--border);
+}
+.notif-log__table th {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: var(--font-xs);
+}
+.notif-log__table td {
+  color: var(--text);
+}

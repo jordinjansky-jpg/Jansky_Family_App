@@ -440,6 +440,12 @@ export async function removePushSubscription(personId, endpointHash) {
   return removeData(`pushSubscriptions/${personId}/${endpointHash}`);
 }
 
+// ── Notification Log ──
+
+export async function readNotificationLog() {
+  return readOnce('notifications/log');
+}
+
 // ── Notification Prefs ──
 
 export async function readNotificationPrefs(personId) {
