@@ -240,6 +240,36 @@ export async function removeTask(taskId) {
   return removeData(`tasks/${taskId}`);
 }
 
+// --- Activities ---
+
+/**
+ * Read all activities.
+ */
+export async function readActivities() {
+  return readOnce('activities');
+}
+
+/**
+ * Push a new activity. Returns the generated ID.
+ */
+export async function pushActivity(data) {
+  return pushData('activities', { ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
+}
+
+/**
+ * Update an existing activity.
+ */
+export async function writeActivity(activityId, data) {
+  return writeData(`activities/${activityId}`, data);
+}
+
+/**
+ * Remove an activity.
+ */
+export async function removeActivity(activityId) {
+  return removeData(`activities/${activityId}`);
+}
+
 /**
  * Read schedule for a specific date.
  */
