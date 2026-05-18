@@ -72,7 +72,11 @@
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed,
       readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync,
       readKitchenPlan, writeKitchenPlanSlot,
-      readNotificationLog
+      readNotificationLog,
+      readActivities, pushActivity, updateActivity, removeActivity,
+      readActivitySessions, removeActivitySession,
+      readAllActivityEarnings, removeActivityEarning, removeActivityEarningsForActivity,
+      isDev
     } from './shared/firebase.js';
     import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor } from './shared/components.js';
@@ -124,7 +128,7 @@
     // ── Init Firebase ──
     initFirebase();
     const firstRun = await isFirstRun();
-    if (firstRun) { window.location.href = 'setup.html'; }
+    if (firstRun && !isDev) { window.location.href = 'setup.html'; }
 
     // ── Load data ──
     // settings is mutated in place (via syncSettings) so closures like initNavMore
@@ -150,6 +154,7 @@
     let achievementDefsObj = (await readAchievementDefs()) || {};
     let icalFeedsObj = (await readIcalFeeds()) || {};
     let schoolLunchFeedsObj = (await readSchoolLunchFeeds()) || {};
+    let activitiesObj = (await readActivities()) || {};
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -443,6 +448,9 @@
             for (const pid of Object.keys(peopleObj)) {
               allBankData[pid] = (await readBank(pid)) || {};
             }
+          }
+          if (activeLibrarySection === 'activities') {
+            activitiesObj = (await readActivities()) || {};
           }
           render();
         });
@@ -3334,19 +3342,70 @@
     // Activities Tab
     // ══════════════════════════════════════════
 
+    function renderActivityList(activities, people) {
+      const sorted = Object.entries(activities).sort((a, b) =>
+        (a[1].name || '').localeCompare(b[1].name || '')
+      );
+      if (sorted.length === 0) {
+        return '<div class="admin-empty">No activities yet. Tap + Add Activity to create one.</div>';
+      }
+      return `<div class="admin-list" id="activityList">` + sorted.map(([id, a]) => {
+        const peopleNames = Object.keys(a.assignedTo || {})
+          .map(pid => people[pid]?.name || pid)
+          .join(', ') || '(no one assigned)';
+        const inactiveClass = a.active === false ? ' admin-list-item--inactive' : '';
+        const periodLabel = a.goalPeriod === 'weekly' ? 'Weekly' : 'Daily';
+        const toggleHtml = `<label class="form-toggle" style="flex-shrink:0">
+          <input type="checkbox" class="activity-active-toggle" data-activity-id="${id}" ${a.active === false ? '' : 'checked'}>
+          <span class="form-toggle__track"></span>
+        </label>`;
+        return renderAdminRow({
+          icon: renderEmojiTile(a.emoji || '·'),
+          primary: esc(a.name || '(unnamed)'),
+          secondary: esc(`${periodLabel} ${a.goalMinutes || 0} min · ${a.pointsAtGoal || 0} pts · ${peopleNames}`),
+          dataAttrs: `data-activity-id="${id}"`,
+          extraClass: inactiveClass,
+          trailing: toggleHtml,
+        });
+      }).join('') + `</div>`;
+    }
+
     function renderActivitiesTab() {
       let html = '';
       html += `<div class="admin-filters admin-filters--row">
   <button class="btn btn--primary btn--sm" id="activityAddBtn" type="button">+ Add Activity</button>
 </div>`;
-      html += `<div class="admin-empty">No activities defined yet. Tap + Add Activity to create one.</div>`;
-      html += `<div id="activityList" class="admin-list"></div>`;
+      html += renderActivityList(activitiesObj, peopleObj);
       return html;
+    }
+
+    function openActivityFormSheet(id) {
+      // Task 6: open activity form sheet
+      console.log('TODO open activity form', id);
     }
 
     function bindActivitiesTab() {
       main.querySelector('#activityAddBtn')?.addEventListener('click', () => {
-        // Task 6: open activity form sheet
+        console.log('TODO open activity form (new)');
+      });
+
+      main.querySelectorAll('.activity-active-toggle').forEach(toggle => {
+        toggle.addEventListener('change', async (e) => {
+          const id = e.target.dataset.activityId;
+          const checked = e.target.checked;
+          await updateActivity(id, { active: checked });
+          activitiesObj[id] = { ...activitiesObj[id], active: checked };
+          render();
+        });
+      });
+
+      main.querySelectorAll('[data-activity-id]').forEach(row => {
+        row.addEventListener('click', (e) => {
+          // Don't fire row-click when user taps the toggle
+          if (e.target.closest('.form-toggle')) return;
+          const id = row.dataset.activityId;
+          openActivityFormSheet(id);
+        });
       });
     }
 

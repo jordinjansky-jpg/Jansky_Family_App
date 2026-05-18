@@ -1144,6 +1144,10 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.admin-list-item--inactive {
+  opacity: 0.5;
+}
+
 /* ── Person detail view ── */
 .admin-person-detail {
   padding: var(--spacing-md);

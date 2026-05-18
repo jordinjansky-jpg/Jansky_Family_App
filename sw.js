@@ -472,7 +472,7 @@
 //                     includes Approve/Deny buttons; reward-request message
 //                     type mapper fixed (redemption-request, use-request).
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
-const CACHE_NAME = 'family-hub-v328';
+const CACHE_NAME = 'family-hub-v329';
 
 const APP_SHELL = [
   '/',
