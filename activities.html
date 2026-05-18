@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<!-- v1 -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Family task manager with scheduling, scoring, and gamification">
+  <meta name="theme-color" content="#141413">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="/app-icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/app-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>Family Hub — Activities</title>
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/responsive.css">
+  <style>
+    .activities-placeholder {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--color-text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="headerMount"></div>
+  <div class="page-content" id="app">
+    <div id="bannerMount"></div>
+    <div class="loading-inline" id="loadingState">
+      <div class="loading-spinner loading-spinner--small"></div>
+      <span>Loading...</span>
+    </div>
+    <div id="mainContent" style="display:none;"></div>
+  </div>
+  <div id="navMount"></div>
+  <div id="sheetMount"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+
+  <script type="module">
+    import { initFirebase, isDev, isFirstRun, readSettings, readPeople, onConnectionChange } from './shared/firebase.js';
+    import { initBottomNav, renderHeader, initOfflineBanner } from './shared/components.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
+
+    // ── Cached theme ──
+    applyTheme(resolveTheme());
+
+    // ── Init Firebase ──
+    initFirebase();
+    const firstRun = await isFirstRun();
+    if (firstRun && !isDev) { window.location.href = 'setup.html'; }
+
+    // ── Load settings ──
+    const [settings, peopleObj] = await Promise.all([readSettings(), readPeople()]);
+
+    if (settings?.theme) applyTheme(resolveTheme(settings.theme));
+    if (settings?.textSize) applyTextSize(settings.textSize);
+
+    const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
+    const personOpts = { people };
+
+    // ── Header ──
+    const headerMount = document.getElementById('headerMount');
+    headerMount.innerHTML = renderHeader({ title: 'Activities' });
+    initOfflineBanner(onConnectionChange);
+
+    // ── Nav ──
+    initBottomNav({
+      navMount:    document.getElementById('navMount'),
+      activePage:  'activities',
+      sheetMount:  document.getElementById('sheetMount'),
+      getTheme:    () => settings?.theme,
+      personOpts:  undefined,
+      currentPage: 'activities',
+    });
+
+    // ── Content ──
+    const loadingState = document.getElementById('loadingState');
+    const mainContent = document.getElementById('mainContent');
+    loadingState.style.display = 'none';
+    mainContent.style.display = '';
+    mainContent.innerHTML = '<div class="activities-placeholder">Activities — coming soon.</div>';
+  </script>
+</body>
+</html>
