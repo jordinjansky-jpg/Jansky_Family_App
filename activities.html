@@ -166,13 +166,167 @@
       ensureDisplayInterval();
     }
 
-    // ── Tab content (placeholders — Tasks 11-14 will replace) ──
+    // ── Helper functions ──
+
+    function localDateKey(timestampMs, tz) {
+      const d = new Date(timestampMs);
+      const formatter = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz });
+      return formatter.format(d);
+    }
+
+    function minutesForActivityToday(activityId, personId, tz) {
+      const today = todayKey(tz);
+      return Object.values(sessions)
+        .filter(s => s.activityId === activityId && s.personId === personId && localDateKey(s.startedAt, tz) === today)
+        .reduce((sum, s) => sum + (s.durationMin || 0), 0);
+    }
+
+    function minutesForActivityThisWeek(activityId, personId, tz) {
+      const todayK = todayKey(tz);
+      const start = weekStart(todayK);
+      const end = weekEnd(todayK);
+      return Object.values(sessions)
+        .filter(s => {
+          if (s.activityId !== activityId || s.personId !== personId) return false;
+          const k = localDateKey(s.startedAt, tz);
+          return k >= start && k <= end;
+        })
+        .reduce((sum, s) => sum + (s.durationMin || 0), 0);
+    }
+
+    function paceMinutesToday(actualMinutesThisWeek, goalMinutes, daysRemaining) {
+      return Math.max(0, Math.ceil((goalMinutes - actualMinutesThisWeek) / Math.max(1, daysRemaining)));
+    }
+
+    function daysRemainingInWeek(tz) {
+      const todayK = todayKey(tz);
+      const endK = weekEnd(todayK);
+      let count = 0;
+      let k = todayK;
+      while (k <= endK) { count++; k = addDays(k, 1); }
+      return count;
+    }
+
+    function progressBar(actual, target) {
+      const pct = target > 0 ? Math.min(1, actual / target) : 0;
+      return `<div class="progress-bar"><div class="progress-bar__fill" style="width:${(pct * 100).toFixed(1)}%"></div></div>`;
+    }
+
+    function activitiesForPerson(personId) {
+      return Object.entries(activities)
+        .filter(([id, a]) => a.active !== false && a.assignedTo && a.assignedTo[personId])
+        .map(([id, a]) => ({ id, ...a }));
+    }
+
+    function sortedPeople() {
+      return Object.entries(people)
+        .sort(([, x], [, y]) => {
+          const kx = x.kid === true ? 0 : 1;
+          const ky = y.kid === true ? 0 : 1;
+          if (kx !== ky) return kx - ky;
+          return (x.name || '').localeCompare(y.name || '');
+        });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+    }
+
+    // ── Tab content ──
 
     function renderContentForTab(tab) {
-      if (tab === 'today')   return '<p class="activities-placeholder-content">Today tab content coming in Task 11</p>';
-      if (tab === 'week')    return '<p class="activities-placeholder-content">Week tab content coming in Task 12</p>';
+      const tz = settings.timezone || detectTimezone();
+      const activeTimerSection = renderActiveTimers(tz);
+      if (tab === 'today') return activeTimerSection + renderTodayTab(tz);
+      if (tab === 'week') return activeTimerSection + '<p class="activities-placeholder-content">Week tab content coming in Task 12</p>';
       if (tab === 'history') return '<p class="activities-placeholder-content">History tab content coming in Task 13</p>';
       return '';
+    }
+
+    function renderActiveTimers(tz) {
+      const entries = Object.entries(activeTimers || {}).filter(([, t]) => t);
+      if (entries.length === 0) return '';
+      return `
+        <div class="active-timers">
+          <h3 class="section-header">Active timers</h3>
+          ${entries.map(([pid, t]) => {
+            const person = people[pid] || { name: pid };
+            const activity = activities[t.activityId] || { name: 'Unknown', emoji: '·' };
+            const elapsed = formatElapsed(elapsedMs(t));
+            const forgotten = isForgotten(t);
+            const pauseLabel = t.pausedAt ? 'Resume' : 'Pause';
+            return `
+              <div class="active-timer-card" data-person-id="${pid}">
+                <div class="active-timer-card__title">${escapeHtml(person.name)} · ${activity.emoji || ''} ${escapeHtml(activity.name)}</div>
+                <div class="active-timer-card__readout" data-timer-readout="${pid}">${elapsed}${forgotten ? ' <span class="chip chip--warning">⚠ Forgotten?</span>' : ''}</div>
+                <div class="active-timer-card__actions">
+                  <button class="btn btn--secondary" data-timer-action="toggle" data-person-id="${pid}">${pauseLabel}</button>
+                  <button class="btn btn--primary" data-timer-action="stop" data-person-id="${pid}">Stop</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function renderTodayTab(tz) {
+      const sections = sortedPeople().map(([pid, person]) => {
+        const acts = activitiesForPerson(pid);
+        if (acts.length === 0) return '';
+        return `
+          <div class="person-section">
+            <h3 class="person-section__name" style="color:${person.color || 'inherit'}">${escapeHtml(person.name)}</h3>
+            <div class="person-section__cards">
+              ${acts.map(a => renderTodayCard(a, pid, tz)).join('')}
+            </div>
+          </div>
+        `;
+      }).filter(Boolean).join('');
+      return sections || '<p class="activities-placeholder-content">No activities yet. Admin can add some from More → Admin → Activities.</p>';
+    }
+
+    function renderTodayCard(a, pid, tz) {
+      if (a.goalPeriod === 'weekly') {
+        const wkMins = minutesForActivityThisWeek(a.id, pid, tz);
+        const days = daysRemainingInWeek(tz);
+        const paceTarget = paceMinutesToday(wkMins, a.goalMinutes, days);
+        const todayMins = minutesForActivityToday(a.id, pid, tz);
+        const hit = wkMins >= a.goalMinutes;
+        return `
+          <div class="activity-card" data-activity-id="${a.id}" data-person-id="${pid}">
+            <div class="activity-card__head">
+              <span class="activity-card__emoji">${a.emoji || '·'}</span>
+              <span class="activity-card__name">${escapeHtml(a.name)}</span>
+              <span class="activity-card__goal">Weekly ${a.goalMinutes} min</span>
+            </div>
+            ${progressBar(todayMins, paceTarget || 1)}
+            <div class="activity-card__meta">${todayMins} / ${paceTarget} min today${hit ? ' <span class="chip chip--success">✓ Goal hit</span>' : ''}</div>
+            <div class="activity-card__sub-meta">wk: ${wkMins} / ${a.goalMinutes}</div>
+            <div class="activity-card__actions">
+              <button class="btn btn--primary" data-card-action="start" data-activity-id="${a.id}" data-person-id="${pid}">▶ Start</button>
+              <button class="btn btn--secondary" data-card-action="log" data-activity-id="${a.id}" data-person-id="${pid}">+ Log</button>
+            </div>
+          </div>
+        `;
+      }
+      const todayMins = minutesForActivityToday(a.id, pid, tz);
+      const hit = todayMins >= a.goalMinutes;
+      return `
+        <div class="activity-card" data-activity-id="${a.id}" data-person-id="${pid}">
+          <div class="activity-card__head">
+            <span class="activity-card__emoji">${a.emoji || '·'}</span>
+            <span class="activity-card__name">${escapeHtml(a.name)}</span>
+            <span class="activity-card__goal">Daily ${a.goalMinutes} min</span>
+          </div>
+          ${progressBar(todayMins, a.goalMinutes)}
+          <div class="activity-card__meta">${todayMins} / ${a.goalMinutes} min${hit ? ' <span class="chip chip--success">✓ Goal hit</span>' : ''}</div>
+          <div class="activity-card__actions">
+            <button class="btn btn--primary" data-card-action="start" data-activity-id="${a.id}" data-person-id="${pid}">▶ Start</button>
+            <button class="btn btn--secondary" data-card-action="log" data-activity-id="${a.id}" data-person-id="${pid}">+ Log</button>
+          </div>
+        </div>
+      `;
     }
 
     // ── Event binding ──

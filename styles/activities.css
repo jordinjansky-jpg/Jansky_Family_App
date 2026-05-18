@@ -19,3 +19,114 @@
   color: var(--text-muted);
   font-size: var(--font-sm);
 }
+
+/* ── Active timers section ── */
+.active-timers {
+  padding: 0 var(--spacing-md) var(--spacing-md);
+}
+
+.section-header {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 12px 0 8px;
+  color: var(--text-muted);
+}
+
+.active-timer-card {
+  background: var(--surface-2);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+
+.active-timer-card__title {
+  font-weight: 600;
+  font-size: var(--font-sm);
+  color: var(--text);
+}
+
+.active-timer-card__readout {
+  font-size: var(--font-2xl);
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0;
+  color: var(--text);
+}
+
+.active-timer-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Per-person sections ── */
+.person-section {
+  padding: 8px var(--spacing-md) var(--spacing-md);
+}
+
+.person-section__name {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  /* color comes from inline style using person.color */
+}
+
+.person-section__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Activity cards ── */
+.activity-card {
+  background: var(--surface);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.activity-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.activity-card__emoji {
+  font-size: var(--font-xl);
+  line-height: 1;
+}
+
+.activity-card__name {
+  flex: 1;
+  font-weight: 600;
+  font-size: var(--font-sm);
+  color: var(--text);
+}
+
+.activity-card__goal {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+/* progress-bar and progress-bar__fill come from components.css */
+
+.activity-card__meta {
+  font-size: var(--font-sm);
+  color: var(--text-faint);
+}
+
+.activity-card__sub-meta {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.activity-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
