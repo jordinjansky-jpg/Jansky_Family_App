@@ -1753,9 +1753,40 @@ async function actionDeny(input, env, corsHeaders) {
   return jsonOk({ ok: true, action: 'deny', subtype: msg.type }, corsHeaders);
 }
 
-// Stub — real implementation in Task 5.
 async function actionSnooze(input, env, corsHeaders) {
-  return jsonOk({ ok: true, stub: 'snooze' }, corsHeaders);
+  const { personId, payload } = input || {};
+  if (!payload || !payload.tag) {
+    return jsonError('Missing payload or payload.tag for snooze', 400, corsHeaders);
+  }
+  const key = payload.tag; // notification tag = pending entry key
+
+  // Determine snoozeCount by checking if a pending entry already exists.
+  const existing = await fbGet(env, `notifications/pending/${key}`);
+  const prevCount = existing?.snoozeCount || 0;
+
+  // Cycle: 0 → 5min, 1 → 15min, 2 → 60min, 3+ → reject (max snoozes hit).
+  const SNOOZE_MINUTES = [5, 15, 60];
+  if (prevCount >= SNOOZE_MINUTES.length) {
+    return jsonOk({ ok: true, skipped: 'max-snoozes-reached' }, corsHeaders);
+  }
+  const delayMin = SNOOZE_MINUTES[prevCount];
+  const snoozeUntilTs = Date.now() + delayMin * 60_000;
+  const newCount = prevCount + 1;
+
+  // Strip any existing Snooze action from the payload — we'll re-add based on
+  // the new snoozeCount when the cron re-fires (via runPendingPushes).
+  const cleanPayload = { ...payload };
+  delete cleanPayload.actions;
+
+  await fbSet(env, `notifications/pending/${key}`, {
+    snoozeUntilTs,
+    personId,
+    payload: cleanPayload,
+    snoozedAt: Date.now(),
+    snoozeCount: newCount,
+  });
+
+  return jsonOk({ ok: true, action: 'snooze', snoozeCount: newCount, delayMin }, corsHeaders);
 }
 
 // Helper: push a child to a Firebase list via REST (returns the new key).
