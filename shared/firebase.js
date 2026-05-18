@@ -253,13 +253,13 @@ export async function readActivities() {
  * Push a new activity. Returns the generated ID.
  */
 export async function pushActivity(data) {
-  return pushData('activities', { ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
+  return pushData('activities', { createdAt: firebase.database.ServerValue.TIMESTAMP, ...data });
 }
 
 /**
- * Update an existing activity (merge — does not wipe unspecified fields).
+ * Update an existing activity. Uses .update() (merge) — only the supplied fields are written; other fields are preserved.
  */
-export async function writeActivity(activityId, data) {
+export async function updateActivity(activityId, data) {
   return updateData(`activities/${activityId}`, data);
 }
 
