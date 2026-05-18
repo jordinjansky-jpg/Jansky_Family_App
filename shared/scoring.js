@@ -272,6 +272,50 @@ export function aggregateSnapshots(snapshots) {
   return { earned: totalEarned, possible: totalPossible, percentage, grade };
 }
 
+/**
+ * Sum activity earnings for a person across a date range.
+ * @param {Object} allEarnings - rundown/activityEarnings (keyed by personId)
+ * @param {string} personId
+ * @param {string} startDateKey - YYYY-MM-DD inclusive
+ * @param {string} endDateKey - YYYY-MM-DD inclusive
+ * @returns {number} sum of `earned` from all earnings whose periodKey falls in range
+ */
+export function sumActivityEarningsInRange(allEarnings, personId, startDateKey, endDateKey) {
+  const perPerson = allEarnings?.[personId];
+  if (!perPerson) return 0;
+  let total = 0;
+  for (const activityId of Object.keys(perPerson)) {
+    for (const periodKey of Object.keys(perPerson[activityId])) {
+      const earning = perPerson[activityId][periodKey];
+      if (!earning) continue;
+      const dateKey = periodKeyToStartDateKey(periodKey);
+      if (dateKey >= startDateKey && dateKey <= endDateKey) {
+        total += earning.earned || 0;
+      }
+    }
+  }
+  return total;
+}
+
+/**
+ * Map a periodKey ("YYYY-MM-DD" or "YYYY-Www") to its start date key for range checks.
+ */
+function periodKeyToStartDateKey(periodKey) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(periodKey)) return periodKey;
+  const m = periodKey.match(/^(\d{4})-W(\d{2})$/);
+  if (m) {
+    const year = parseInt(m[1], 10);
+    const week = parseInt(m[2], 10);
+    // ISO week 1: Jan 4 is always in week 1
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const monday = new Date(jan4);
+    monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1 + (week - 1) * 7);
+    return monday.toISOString().slice(0, 10);
+  }
+  return '0000-00-00';
+}
+
 // ── Streaks ──
 
 /**
