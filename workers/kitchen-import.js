@@ -128,6 +128,44 @@ async function dedupCleanup(env, todayKey) {
   }
 }
 
+// ── Timezone-aware time helpers (matches shared/utils.js patterns) ────────────
+
+function dateKeyInTz(date, tz) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const y = parts.find(p => p.type === 'year').value;
+  const m = parts.find(p => p.type === 'month').value;
+  const d = parts.find(p => p.type === 'day').value;
+  return `${y}-${m}-${d}`;
+}
+
+// Returns {hours, minutes} in the given tz, e.g. {hours: 17, minutes: 03}.
+function timeInTz(date, tz) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date);
+  const h = Number(parts.find(p => p.type === 'hour').value);
+  const m = Number(parts.find(p => p.type === 'minute').value);
+  return { hours: h === 24 ? 0 : h, minutes: m };
+}
+
+// Convert a date key + HH:MM string in a given timezone to a UTC Date.
+// Iterates because UTC midnight of a date in a given tz is not midnight there.
+function localDateTimeToUtc(dateKey, hhmm, tz) {
+  const [hh, mm] = hhmm.split(':').map(Number);
+  const targetMin = hh * 60 + mm;
+  let d = new Date(dateKey + 'T00:00:00Z');
+  for (let i = 0; i < 3; i++) {
+    const { hours, minutes } = timeInTz(d, tz);
+    const actualMin = hours * 60 + minutes;
+    const diff = targetMin - actualMin;
+    if (diff === 0) return d;
+    d = new Date(d.getTime() + diff * 60_000);
+  }
+  return d;
+}
+
 // ── VAPID (signs the JWT in the Authorization header for each push) ───────────
 
 async function signVapidJwt(audience, env) {
@@ -1431,19 +1469,16 @@ async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
     return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'type-disabled' }, corsHeaders);
   }
 
-  // 2. Load subscriptions
-  let subsObj;
-  try {
-    subsObj = await fbGet(env, `pushSubscriptions/${personId}`);
-  } catch (err) {
-    console.warn('[push] fbGet subscriptions failed', err.message);
-    return jsonError('Firebase read failed', 500, corsHeaders);
-  }
-  if (!subsObj || typeof subsObj !== 'object') {
-    return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'no-devices' }, corsHeaders);
-  }
+  // 2 & 3. Fan out via shared helper
+  const result = await fanoutPush(env, personId, payload);
+  return jsonOk(result, corsHeaders);
+}
 
-  // 3. Fan out
+async function fanoutPush(env, personId, payload) {
+  const subsObj = await fbGet(env, `pushSubscriptions/${personId}`);
+  if (!subsObj || typeof subsObj !== 'object') {
+    return { sent: 0, removed: 0, errors: 0, skipped: 'no-devices' };
+  }
   let sent = 0, removed = 0, errors = 0;
   for (const [hash, sub] of Object.entries(subsObj)) {
     if (!sub?.endpoint || !sub?.p256dh || !sub?.auth) continue;
@@ -1463,8 +1498,7 @@ async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
       console.warn('[push] send failed', err.message);
     }
   }
-
-  return jsonOk({ sent, removed, errors }, corsHeaders);
+  return { sent, removed, errors };
 }
 
 // ── Scheduled handler (cron-driven push) ──────────────────────────────────────
@@ -1473,18 +1507,86 @@ async function runScheduled(env, scheduledTimeMs) {
   const now = new Date(scheduledTimeMs);
   console.log('[scheduled] tick at', now.toISOString());
 
-  // Housekeeping: ~once a day, prune dedup entries older than 7 days.
+  // Housekeeping
   if (now.getUTCHours() === 3 && now.getUTCMinutes() < 5) {
     try {
-      const todayKey = now.toISOString().slice(0, 10);
-      await dedupCleanup(env, todayKey);
-      console.log('[scheduled] dedup cleanup done');
+      const todayUtcKey = now.toISOString().slice(0, 10);
+      await dedupCleanup(env, todayUtcKey);
     } catch (err) {
       console.warn('[scheduled] dedup cleanup failed', err.message);
     }
   }
 
-  // TODO Tasks 3, 5, 7: event reminders, task reminders, digest.
+  // Read shared state once
+  const [settings, people, events] = await Promise.all([
+    fbGet(env, 'settings').catch(() => null),
+    fbGet(env, 'people').catch(() => null),
+    fbGet(env, 'events').catch(() => null),
+  ]);
+  const tz = settings?.timezone || 'America/New_York';
+  if (!people || !events) {
+    console.log('[scheduled] no people or events — skipping');
+    return;
+  }
+
+  await runEventReminders(env, now, tz, people, events);
+  // TODO Tasks 5, 7: task reminders, digest.
+}
+
+async function runEventReminders(env, now, tz, people, events) {
+  const todayKey = dateKeyInTz(now, tz);
+  const optedIn = Object.entries(people).filter(([_, p]) =>
+    p?.prefs?.notifications?.enabled === true
+    && p?.prefs?.notifications?.types?.eventReminders !== false
+  );
+  if (optedIn.length === 0) return;
+
+  for (const [personId, person] of optedIn) {
+    const leadMin = person.prefs.notifications.eventLeadMin || 15;
+    const windowStart = new Date(now.getTime() + (leadMin - 2.5) * 60_000);
+    const windowEnd   = new Date(now.getTime() + (leadMin + 2.5) * 60_000);
+
+    for (const [eventId, ev] of Object.entries(events)) {
+      // Skip recurring events (Phase 2.1 scope).
+      if (ev.repeats && ev.repeats !== 'none' && ev.repeats !== null) continue;
+      // Skip all-day events (no timed reminder).
+      if (ev.allDay) continue;
+      // Skip events without ownership matching this person.
+      const owners = Array.isArray(ev.owners) ? ev.owners
+                   : ev.personId ? [ev.personId]
+                   : [];
+      if (!owners.includes(personId)) continue;
+      if (!ev.date || !ev.time) continue;
+
+      const eventStartUtc = localDateTimeToUtc(ev.date, ev.time, tz);
+      if (eventStartUtc < windowStart || eventStartUtc > windowEnd) continue;
+
+      const dedupKey = `evt_${eventId}_${personId}`;
+      if (await dedupCheck(env, todayKey, dedupKey)) continue;
+
+      const payload = {
+        title: ev.name || 'Upcoming event',
+        body:  ev.location ? `${formatHhmm(ev.time)} · ${ev.location}` : `Starts at ${formatHhmm(ev.time)}`,
+        icon:  '/app-icon.png',
+        tag:   `evt-${eventId}`,
+        data:  { url: '/calendar.html', type: 'eventReminders' },
+      };
+      try {
+        await fanoutPush(env, personId, payload);
+        await dedupMark(env, todayKey, dedupKey);
+        console.log('[scheduled] sent eventReminder', personId, ev.name);
+      } catch (err) {
+        console.warn('[scheduled] eventReminder failed', personId, eventId, err.message);
+      }
+    }
+  }
+}
+
+function formatHhmm(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  const period = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')}${period}`;
 }
 
 // ── default export ─────────────────────────────────────────────────────────────
