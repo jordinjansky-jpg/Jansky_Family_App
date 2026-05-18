@@ -181,6 +181,107 @@ function localDateTimeToUtc(dateKey, hhmm, tz) {
   return d;
 }
 
+// ── Recurring event expansion ────────────────────────────────────────────────
+// Returns the first occurrence of a recurring event whose computed UTC start
+// time falls inside [windowStart, windowEnd]. Returns null if no match.
+// Mirrors the recurrence rules from shared/state.js expandEventOccurrences:
+// rule.type: 'daily' | 'weekly' (rule.days[]) | 'monthly' | 'yearly' | 'custom' (rule.every, rule.unit).
+// rule.end: { type: 'never' | 'date' | 'count', date?, count? }.
+
+function addDaysKey(dateKey, n) {
+  const d = new Date(dateKey + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function nextOccurrenceInWindow(event, windowStart, windowEnd, tz) {
+  if (!event.date || !event.startTime || event.allDay) return null;
+  const rule = event.repeat;
+  if (!rule || !rule.type || rule.type === 'none') return null;
+
+  const windowStartKey = dateKeyInTz(windowStart, tz);
+  const windowEndKey   = dateKeyInTz(windowEnd, tz);
+  const endType  = rule.end?.type || 'never';
+  const endDate  = rule.end?.date || null;
+  const endCount = rule.end?.count || null;
+
+  const DOW = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'];
+  const dowFor = (dk) => DOW[new Date(dk + 'T00:00:00Z').getUTCDay()];
+
+  let cur = event.date;
+  let occurrences = 1;
+  let safety = 0;
+
+  // Check the seed date too — if seed itself falls in the window, return it.
+  if (cur >= windowStartKey && cur <= windowEndKey) {
+    const startUtc = localDateTimeToUtc(cur, event.startTime, tz);
+    if (startUtc >= windowStart && startUtc <= windowEnd) {
+      return { instanceDate: cur, startUtc };
+    }
+  }
+
+  while (safety++ < 5000) {
+    let next;
+    if (rule.type === 'daily') {
+      next = addDaysKey(cur, 1);
+    } else if (rule.type === 'weekly') {
+      const days = rule.days && rule.days.length > 0 ? new Set(rule.days) : null;
+      if (days) {
+        let probe = cur;
+        for (let i = 0; i < 7; i++) {
+          probe = addDaysKey(probe, 1);
+          if (days.has(dowFor(probe))) { next = probe; break; }
+        }
+        if (!next) next = addDaysKey(cur, 7);
+      } else {
+        next = addDaysKey(cur, 7);
+      }
+    } else if (rule.type === 'monthly') {
+      const [, , dayStr] = cur.split('-');
+      const d = new Date(cur + 'T00:00:00Z');
+      const probe = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, parseInt(dayStr, 10)));
+      next = probe.toISOString().slice(0, 10);
+    } else if (rule.type === 'yearly') {
+      const d = new Date(cur + 'T00:00:00Z');
+      const probe = new Date(Date.UTC(d.getUTCFullYear() + 1, d.getUTCMonth(), d.getUTCDate()));
+      next = probe.toISOString().slice(0, 10);
+    } else if (rule.type === 'custom') {
+      const every = rule.every || 1;
+      const unit  = rule.unit || 'days';
+      if (unit === 'days')        next = addDaysKey(cur, every);
+      else if (unit === 'weeks')  next = addDaysKey(cur, every * 7);
+      else if (unit === 'months') {
+        const d = new Date(cur + 'T00:00:00Z');
+        const probe = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + every, d.getUTCDate()));
+        next = probe.toISOString().slice(0, 10);
+      } else if (unit === 'years') {
+        const d = new Date(cur + 'T00:00:00Z');
+        const probe = new Date(Date.UTC(d.getUTCFullYear() + every, d.getUTCMonth(), d.getUTCDate()));
+        next = probe.toISOString().slice(0, 10);
+      } else break;
+    } else {
+      break;
+    }
+    if (!next || next <= cur) break;
+    cur = next;
+
+    // Hard stops
+    if (cur > windowEndKey) break;
+    if (endType === 'date' && endDate && cur > endDate) break;
+    occurrences += 1;
+    if (endType === 'count' && endCount && occurrences > endCount) break;
+
+    // In-window?
+    if (cur >= windowStartKey && cur <= windowEndKey) {
+      const startUtc = localDateTimeToUtc(cur, event.startTime, tz);
+      if (startUtc >= windowStart && startUtc <= windowEnd) {
+        return { instanceDate: cur, startUtc };
+      }
+    }
+  }
+  return null;
+}
+
 // ── VAPID (signs the JWT in the Authorization header for each push) ───────────
 
 async function signVapidJwt(audience, env) {
@@ -1578,9 +1679,6 @@ async function runEventReminders(env, now, tz, people, events) {
     }
 
     for (const [eventId, ev] of Object.entries(events)) {
-      // Skip recurring events (Phase 2.1 scope). Schema field is `repeat`,
-      // value may be string ('none'), object ({type:'weekly',...}), or null.
-      if (ev.repeat && ev.repeat !== 'none' && ev.repeat !== null) continue;
       // Skip all-day events (no timed reminder).
       if (ev.allDay) continue;
       // Skip events not owned by this person.
@@ -1588,23 +1686,37 @@ async function runEventReminders(env, now, tz, people, events) {
       if (!people.includes(personId)) continue;
       if (!ev.date || !ev.startTime) continue;
 
-      const eventStartUtc = localDateTimeToUtc(ev.date, ev.startTime, tz);
-      if (eventStartUtc < windowStart || eventStartUtc > windowEnd) continue;
+      let instanceDate;
+      let eventStartUtc;
+      const isRecurring = ev.repeat && ev.repeat.type && ev.repeat.type !== 'none';
 
-      const dedupKey = `evt_${eventId}_${personId}`;
+      if (isRecurring) {
+        const occ = nextOccurrenceInWindow(ev, windowStart, windowEnd, tz);
+        if (!occ) continue;
+        instanceDate  = occ.instanceDate;
+        eventStartUtc = occ.startUtc;
+      } else {
+        // Non-recurring: only matches if the seed date falls in the window.
+        eventStartUtc = localDateTimeToUtc(ev.date, ev.startTime, tz);
+        if (eventStartUtc < windowStart || eventStartUtc > windowEnd) continue;
+        instanceDate = ev.date;
+      }
+
+      // Dedup key includes instance date so weekly repeats get unique entries.
+      const dedupKey = `evt_${eventId}_${personId}_${instanceDate}`;
       if (await dedupCheck(env, todayKey, dedupKey)) continue;
 
       const payload = {
         title: ev.name || 'Upcoming event',
         body:  ev.location ? `${formatHhmm(ev.startTime)} · ${ev.location}` : `Starts at ${formatHhmm(ev.startTime)}`,
         icon:  '/app-icon.png',
-        tag:   `evt-${eventId}`,
-        data:  { url: '/calendar.html', type: 'eventReminders' },
+        tag:   `evt-${eventId}-${instanceDate}`,
+        data:  { url: '/calendar.html', type: 'eventReminders', eventId, instanceDate },
       };
       try {
         const { sent, removed, errors } = await fanoutPush(env, personId, payload);
         await dedupMark(env, todayKey, dedupKey);
-        console.log('[scheduled] eventReminder', personId, ev.name, { sent, removed, errors });
+        console.log('[scheduled] eventReminder', personId, ev.name, instanceDate, { sent, removed, errors });
       } catch (err) {
         console.warn('[scheduled] eventReminder failed', personId, eventId, err.message);
       }
