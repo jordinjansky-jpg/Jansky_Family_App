@@ -1470,7 +1470,13 @@ async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
   }
 
   // 2 & 3. Fan out via shared helper
-  const result = await fanoutPush(env, personId, payload);
+  let result;
+  try {
+    result = await fanoutPush(env, personId, payload);
+  } catch (err) {
+    console.warn('[push] fanoutPush failed', err.message);
+    return jsonError('Firebase read failed', 500, corsHeaders);
+  }
   return jsonOk(result, corsHeaders);
 }
 
@@ -1512,6 +1518,7 @@ async function runScheduled(env, scheduledTimeMs) {
     try {
       const todayUtcKey = now.toISOString().slice(0, 10);
       await dedupCleanup(env, todayUtcKey);
+      console.log('[scheduled] dedup cleanup done');
     } catch (err) {
       console.warn('[scheduled] dedup cleanup failed', err.message);
     }
@@ -1572,9 +1579,9 @@ async function runEventReminders(env, now, tz, people, events) {
         data:  { url: '/calendar.html', type: 'eventReminders' },
       };
       try {
-        await fanoutPush(env, personId, payload);
+        const { sent, removed, errors } = await fanoutPush(env, personId, payload);
         await dedupMark(env, todayKey, dedupKey);
-        console.log('[scheduled] sent eventReminder', personId, ev.name);
+        console.log('[scheduled] eventReminder', personId, ev.name, { sent, removed, errors });
       } catch (err) {
         console.warn('[scheduled] eventReminder failed', personId, eventId, err.message);
       }
