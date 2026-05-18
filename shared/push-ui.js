@@ -18,8 +18,10 @@ const DEFAULT_PREFS = {
     rewardApprovals: true,
     rewardFyi: true,
     eventReminders: true,
+    taskReminders: false,
   },
   eventLeadMin: 15,
+  taskReminderTime: '17:00',
 };
 
 export async function mountNotificationsSection(mount, personOpts) {
@@ -86,10 +88,22 @@ export async function mountNotificationsSection(mount, personOpts) {
             <span class="notif-subrow__suffix">min before</span>
           </div>
         ` : ''}
+        <label class="form-toggle">
+          <span>Task reminders</span>
+          <input type="checkbox" data-notif-type="taskReminders" ${t.taskReminders ? 'checked' : ''}>
+          <span class="form-toggle__track"></span>
+        </label>
+        ${t.taskReminders ? `
+          <div class="notif-subrow">
+            <span class="notif-subrow__label">Remind me at</span>
+            <input type="time" class="notif-subrow__time" data-time-pref="taskReminderTime" value="${prefs.taskReminderTime || '17:00'}">
+            <span class="notif-subrow__suffix">if I have unfinished tasks</span>
+          </div>
+        ` : ''}
         ${/Android/.test(navigator.userAgent) ? `
           <p class="form-hint">On Android, also disable Chrome's app-level notifications (Settings &rarr; Apps &rarr; Chrome &rarr; Notifications &rarr; off) once enabled here. Otherwise every push arrives twice.</p>
         ` : ''}
-        <p class="form-hint">Task nudges, daily digest, and quiet hours coming in later phases.</p>
+        <p class="form-hint">Daily digest and quiet hours coming in later phases.</p>
       </div>
     `;
     wireListeners();
@@ -164,6 +178,22 @@ export async function mountNotificationsSection(mount, personOpts) {
           showToast(`Could not save lead time: ${err.message}`);
           prefs.eventLeadMin = prev;
           render();
+        }
+      });
+    });
+
+    mount.querySelectorAll('[data-time-pref]').forEach(input => {
+      input.addEventListener('change', async () => {
+        const key = input.dataset.timePref;
+        const val = input.value;
+        if (!/^\d{2}:\d{2}$/.test(val)) return;
+        const prev = prefs[key];
+        try {
+          await updateNotificationPrefs(personId, { [key]: val });
+          prefs[key] = val;
+        } catch (err) {
+          showToast(`Could not save time: ${err.message}`);
+          input.value = prev || '17:00';
         }
       });
     });

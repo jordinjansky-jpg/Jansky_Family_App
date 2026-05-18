@@ -6099,3 +6099,12 @@ label.ef2-icon-btn  { cursor: pointer; }
 .notif-subrow .segmented-control {
   flex: 0 0 auto;
 }
+.notif-subrow__time {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px var(--spacing-xs);
+  font-size: var(--font-sm);
+  color: var(--text);
+  color-scheme: light dark;
+}
