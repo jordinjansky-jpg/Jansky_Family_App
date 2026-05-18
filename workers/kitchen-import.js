@@ -1863,6 +1863,7 @@ async function runScheduled(env, scheduledTimeMs) {
   await runEventReminders(env, now, tz, people, events || {});
   await runTaskReminders(env, now, tz, people);
   await runDailyDigest(env, now, tz, people, events || {});
+  await runPendingPushes(env, now);
 }
 
 async function runEventReminders(env, now, tz, people, events) {
@@ -2085,6 +2086,43 @@ async function runDailyDigest(env, now, tz, people, events) {
       console.log('[scheduled] digest', personId, { eventCount, taskCount, sent, removed, errors });
     } catch (err) {
       console.warn('[scheduled] digest failed', personId, err.message);
+    }
+  }
+}
+
+async function runPendingPushes(env, now) {
+  const all = await fbGet(env, 'notifications/pending');
+  if (!all || typeof all !== 'object') return;
+  const nowTs = now.getTime();
+
+  for (const [key, entry] of Object.entries(all)) {
+    if (!entry?.snoozeUntilTs || !entry?.personId || !entry?.payload) continue;
+    if (entry.snoozeUntilTs > nowTs) continue;
+
+    try {
+      // Re-add Snooze action if the user has remaining snoozes.
+      const SNOOZE_MINUTES = [5, 15, 60];
+      const remaining = SNOOZE_MINUTES.length - (entry.snoozeCount || 0);
+      const payload = { ...entry.payload };
+      if (remaining > 0) {
+        const nextDelay = SNOOZE_MINUTES[entry.snoozeCount];
+        payload.actions = [
+          { action: 'snooze',  title: `Snooze ${nextDelay}m` },
+          { action: 'dismiss', title: 'Dismiss' },
+        ];
+      } else {
+        payload.actions = [{ action: 'dismiss', title: 'Dismiss' }];
+      }
+      // Carry snoozeCount in data so the SW posts it back if the user snoozes again.
+      payload.data = { ...(payload.data || {}), snoozeCount: entry.snoozeCount };
+
+      const { sent, removed, errors } = await fanoutPush(env, entry.personId, payload);
+      console.log('[scheduled] pendingPush fired', entry.personId, key, { sent, removed, errors });
+    } catch (err) {
+      console.warn('[scheduled] pendingPush failed', key, err.message);
+    } finally {
+      // Always delete the pending entry — fire-once semantics, even on error.
+      try { await fbDelete(env, `notifications/pending/${key}`); } catch {}
     }
   }
 }
