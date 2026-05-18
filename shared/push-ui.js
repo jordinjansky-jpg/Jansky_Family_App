@@ -22,10 +22,14 @@ const DEFAULT_PREFS = {
     eventReminders: true,
     taskReminders: false,
     dailyDigest: false,
+    overdue: false,
+    mealReminder: false,
   },
   eventLeadMin: 15,
   taskReminderTime: '17:00',
   digestTime: '07:00',
+  overdueTime: '21:00',
+  mealReminderTime: '16:00',
 };
 
 export async function mountNotificationsSection(mount, personOpts) {
@@ -103,6 +107,22 @@ export async function mountNotificationsSection(mount, personOpts) {
           <div class="notif-subrow">
             <span class="notif-subrow__label">Send at</span>
             <input type="time" class="notif-subrow__time" data-time-pref="digestTime" value="${prefs.digestTime || '07:00'}">
+          </div>
+        ` : ''}
+        ${typeRow('overdue',      'Overdue task nudge',           false)}
+        ${t.overdue ? `
+          <div class="notif-subrow">
+            <span class="notif-subrow__label">Send at</span>
+            <input type="time" class="notif-subrow__time" data-time-pref="overdueTime" value="${prefs.overdueTime || '21:00'}">
+            <span class="notif-subrow__suffix">if I have overdue tasks</span>
+          </div>
+        ` : ''}
+        ${typeRow('mealReminder', 'Tonight\'s dinner reminder', false)}
+        ${t.mealReminder ? `
+          <div class="notif-subrow">
+            <span class="notif-subrow__label">Send at</span>
+            <input type="time" class="notif-subrow__time" data-time-pref="mealReminderTime" value="${prefs.mealReminderTime || '16:00'}">
+            <span class="notif-subrow__suffix">with what's planned</span>
           </div>
         ` : ''}
         ${/Android/.test(navigator.userAgent) ? `
@@ -202,7 +222,12 @@ export async function mountNotificationsSection(mount, personOpts) {
       });
     });
 
-    const TIME_PREF_DEFAULTS = { taskReminderTime: '17:00', digestTime: '07:00' };
+    const TIME_PREF_DEFAULTS = {
+      taskReminderTime: '17:00',
+      digestTime: '07:00',
+      overdueTime: '21:00',
+      mealReminderTime: '16:00',
+    };
     mount.querySelectorAll('[data-time-pref]').forEach(input => {
       input.addEventListener('change', async () => {
         const key = input.dataset.timePref;

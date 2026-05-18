@@ -463,12 +463,14 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
+// v327 (2026-05-18) — Phase 6c: overdue + meal reminder prefs in
+//                     Customize → Notifications.
 // v326 (2026-05-18) — Phase 6b: notification action handlers (Approve/Deny/
 //                     Snooze) wired in SW; reward-request push payload
 //                     includes Approve/Deny buttons; reward-request message
 //                     type mapper fixed (redemption-request, use-request).
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
-const CACHE_NAME = 'family-hub-v326';
+const CACHE_NAME = 'family-hub-v327';
 
 const APP_SHELL = [
   '/',
