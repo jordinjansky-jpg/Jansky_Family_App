@@ -100,6 +100,49 @@ async function fbSet(env, path, value) {
   if (!r.ok) throw new Error(`fbSet ${path}: ${r.status}`);
 }
 
+// ── Notification activity log ─────────────────────────────────────────────────
+// notifications/log/{pushKey} = { ts, personId, personName, type, sent, removed, errors, skipped?, action? }
+// Lazy-pruned: when count > LOG_CAP, drop the oldest LOG_PRUNE_BATCH on a daily housekeeping pass.
+
+const LOG_CAP = 200;
+const LOG_PRUNE_BATCH = 50;
+
+async function fbPush(env, path, value) {
+  if (!env.FIREBASE_DB_URL || !env.FIREBASE_DB_SECRET) throw new Error('Firebase env missing');
+  const base = env.FIREBASE_DB_URL.replace(/\/$/, '');
+  const r = await fetch(`${base}/${RUNDOWN_ROOT}/${path}.json?auth=${env.FIREBASE_DB_SECRET}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
+  });
+  if (!r.ok) throw new Error(`fbPush ${path}: ${r.status}`);
+  const out = await r.json();
+  return out.name;
+}
+
+async function logActivity(env, entry) {
+  try {
+    await fbPush(env, 'notifications/log', { ts: Date.now(), ...entry });
+  } catch (err) {
+    console.warn('[push] log write failed (non-fatal)', err.message);
+  }
+}
+
+async function logPrune(env) {
+  // Read all log entries (small dataset bounded by LOG_CAP).
+  const all = await fbGet(env, 'notifications/log').catch(() => null);
+  if (!all || typeof all !== 'object') return;
+  const entries = Object.entries(all);
+  if (entries.length <= LOG_CAP) return;
+  // Sort by ts ASC and delete the oldest LOG_PRUNE_BATCH.
+  entries.sort(([, a], [, b]) => (a?.ts || 0) - (b?.ts || 0));
+  const toDelete = entries.slice(0, LOG_PRUNE_BATCH);
+  for (const [key] of toDelete) {
+    try { await fbDelete(env, `notifications/log/${key}`); } catch {}
+  }
+  console.log('[scheduled] log prune dropped', toDelete.length);
+}
+
 // ── Notification dedup index ──────────────────────────────────────────────────
 // notifications/sent/{YYYY-MM-DD}/{key} = true
 // Prevents a cron rerun from sending the same notification twice.
@@ -1601,9 +1644,11 @@ async function handlePush(input, env, corsHeaders, rawBodyText, authHeader) {
     return jsonError('Firebase read failed', 500, corsHeaders);
   }
   if (!prefs || prefs.enabled === false) {
+    await logActivity(env, { personId, type, sent: 0, removed: 0, errors: 0, skipped: 'pref-disabled' });
     return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'pref-disabled' }, corsHeaders);
   }
   if (prefs.types && prefs.types[type] === false) {
+    await logActivity(env, { personId, type, sent: 0, removed: 0, errors: 0, skipped: 'type-disabled' });
     return jsonOk({ sent: 0, removed: 0, errors: 0, skipped: 'type-disabled' }, corsHeaders);
   }
 
@@ -1850,6 +1895,7 @@ async function fanoutPush(env, personId, payload) {
       console.warn('[push] send failed', err.message);
     }
   }
+  await logActivity(env, { personId, personName: null, type: payload?.data?.type || 'unknown', sent, removed, errors });
   return { sent, removed, errors };
 }
 
@@ -1867,6 +1913,11 @@ async function runScheduled(env, scheduledTimeMs) {
       console.log('[scheduled] dedup cleanup done');
     } catch (err) {
       console.warn('[scheduled] dedup cleanup failed', err.message);
+    }
+    try {
+      await logPrune(env);
+    } catch (err) {
+      console.warn('[scheduled] log prune failed', err.message);
     }
   }
 
