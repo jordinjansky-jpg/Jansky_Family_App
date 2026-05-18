@@ -1,0 +1,21 @@
+/* v1 */
+/* activities.css — Activities page styles */
+
+/* ── Page wrapper ── */
+.activities-page {
+  padding-bottom: 80px; /* room for bottom nav */
+}
+
+/* ── Chip tab strip ── */
+.activities-tabs {
+  padding: 12px var(--spacing-md);
+  margin-bottom: 0; /* tabs has its own margin-bottom; override to let page spacing control */
+}
+
+/* ── Placeholder content (Tasks 11-14 will replace these) ── */
+.activities-placeholder-content {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1 -->
+<!-- v2 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -15,14 +15,8 @@
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/layout.css">
   <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/activities.css">
   <link rel="stylesheet" href="styles/responsive.css">
-  <style>
-    .activities-placeholder {
-      padding: 40px 20px;
-      text-align: center;
-      color: var(--color-text-secondary);
-    }
-  </style>
 </head>
 <body>
   <div id="headerMount"></div>
@@ -44,9 +38,35 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isDev, isFirstRun, readSettings, readPeople, onConnectionChange } from './shared/firebase.js';
-    import { initBottomNav, renderHeader, initOfflineBanner } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
+    import {
+      initFirebase, isFirstRun, isDev,
+      readSettings, readPeople, readActivities, readActivitySessions,
+      readAllActiveTimers, readAllActivityEarnings,
+      subscribeActiveTimers,
+      writeActiveTimer, clearActiveTimer,
+      pushActivitySession, updateActivitySession, removeActivitySession,
+      removeActivityEarning,
+      onConnectionChange
+    } from './shared/firebase.js';
+    import {
+      initBottomNav, renderHeader,
+      showConfirm, showToast,
+      initOfflineBanner
+    } from './shared/components.js';
+    import { todayKey, weekStart, weekEnd, addDays, detectTimezone } from './shared/utils.js';
+    import {
+      elapsedMs, formatElapsed,
+      pause as pauseTimer,
+      resume as resumeTimer,
+      finalDurationMin,
+      isForgotten
+    } from './shared/timer.js';
+    import { applyTheme, resolveTheme, applyTextSize } from './shared/theme.js';
+
+    // ── Module-scoped state ──
+    let settings = {}, people = {}, activities = {}, sessions = {}, activeTimers = {}, earnings = {};
+    let activeTab = 'today';
+    let displayInterval = null;
 
     // ── Cached theme ──
     applyTheme(resolveTheme());
@@ -56,18 +76,18 @@
     const firstRun = await isFirstRun();
     if (firstRun && !isDev) { window.location.href = 'setup.html'; }
 
-    // ── Load settings ──
-    const [settings, peopleObj] = await Promise.all([readSettings(), readPeople()]);
+    // ── Load data + boot ──
+    await loadData();
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     if (settings?.textSize) applyTextSize(settings.textSize);
 
-    const people = peopleObj ? Object.entries(peopleObj).map(([id, p]) => ({ id, ...p })) : [];
-    const personOpts = { people };
+    // ── Show content ──
+    document.getElementById('loadingState').style.display = 'none';
+    const mainContent = document.getElementById('mainContent');
+    mainContent.style.display = '';
 
     // ── Header ──
-    const headerMount = document.getElementById('headerMount');
-    headerMount.innerHTML = renderHeader({ title: 'Activities' });
     initOfflineBanner(onConnectionChange);
 
     // ── Nav ──
@@ -80,12 +100,112 @@
       currentPage: 'activities',
     });
 
-    // ── Content ──
-    const loadingState = document.getElementById('loadingState');
-    const mainContent = document.getElementById('mainContent');
-    loadingState.style.display = 'none';
-    mainContent.style.display = '';
-    mainContent.innerHTML = '<div class="activities-placeholder">Activities — coming soon.</div>';
+    // ── Initial render ──
+    render();
+
+    // ── Subscribe to active timers for live updates ──
+    subscribeActiveTimers(t => {
+      activeTimers = t || {};
+      render();
+    });
+
+    // ── Data ──
+
+    async function loadData() {
+      const [s, p, a, sess, tim, earn] = await Promise.all([
+        readSettings(),
+        readPeople(),
+        readActivities(),
+        readActivitySessions(),
+        readAllActiveTimers(),
+        readAllActivityEarnings()
+      ]);
+      settings    = s    || {};
+      people      = p    || {};
+      activities  = a    || {};
+      sessions    = sess || {};
+      activeTimers = tim  || {};
+      earnings    = earn || {};
+    }
+
+    // ── Render ──
+
+    function render() {
+      // Header
+      document.getElementById('headerMount').innerHTML =
+        renderHeader({ title: 'Activities' });
+
+      // Content
+      const mount = document.getElementById('activitiesContent');
+      if (!mount) {
+        // mainContent not yet showing the activities-page — inject the skeleton
+        mainContent.innerHTML = `
+          <div class="activities-page">
+            <nav class="tabs tabs--pill activities-tabs" role="tablist" aria-label="Activities tabs">
+              <button class="tab${activeTab === 'today'   ? ' is-active' : ''}" data-tab="today"   type="button" role="tab" aria-selected="${activeTab === 'today'}">Today</button>
+              <button class="tab${activeTab === 'week'    ? ' is-active' : ''}" data-tab="week"    type="button" role="tab" aria-selected="${activeTab === 'week'}">This Week</button>
+              <button class="tab${activeTab === 'history' ? ' is-active' : ''}" data-tab="history" type="button" role="tab" aria-selected="${activeTab === 'history'}">History</button>
+            </nav>
+            <div id="activitiesContent" role="tabpanel"></div>
+          </div>`;
+      } else {
+        // Update tab active states in-place
+        document.querySelectorAll('.activities-tabs .tab').forEach(t => {
+          const isActive = t.dataset.tab === activeTab;
+          t.classList.toggle('is-active', isActive);
+          t.setAttribute('aria-selected', String(isActive));
+        });
+      }
+
+      document.getElementById('activitiesContent').innerHTML =
+        renderContentForTab(activeTab);
+
+      bindTabHandlers();
+      bindCardHandlers();
+      bindActiveTimerHandlers();
+      ensureDisplayInterval();
+    }
+
+    // ── Tab content (placeholders — Tasks 11-14 will replace) ──
+
+    function renderContentForTab(tab) {
+      if (tab === 'today')   return '<p class="activities-placeholder-content">Today tab content coming in Task 11</p>';
+      if (tab === 'week')    return '<p class="activities-placeholder-content">Week tab content coming in Task 12</p>';
+      if (tab === 'history') return '<p class="activities-placeholder-content">History tab content coming in Task 13</p>';
+      return '';
+    }
+
+    // ── Event binding ──
+
+    function bindTabHandlers() {
+      document.querySelectorAll('.activities-tabs .tab').forEach(t => {
+        t.addEventListener('click', () => {
+          activeTab = t.dataset.tab;
+          render();
+        });
+      });
+    }
+
+    function bindCardHandlers() { /* Task 12 */ }
+    function bindActiveTimerHandlers() { /* Task 12 */ }
+
+    // ── Display interval for live timer readouts ──
+
+    function ensureDisplayInterval() {
+      const anyRunning = Object.values(activeTimers).some(t => t && !t.pausedAt);
+      if (anyRunning && !displayInterval) {
+        displayInterval = setInterval(() => {
+          document.querySelectorAll('[data-timer-readout]').forEach(el => {
+            const pid = el.dataset.timerReadout;
+            const t = activeTimers[pid];
+            if (t) el.textContent = formatElapsed(elapsedMs(t));
+          });
+        }, 250);
+      } else if (!anyRunning && displayInterval) {
+        clearInterval(displayInterval);
+        displayInterval = null;
+      }
+    }
   </script>
 </body>
 </html>
