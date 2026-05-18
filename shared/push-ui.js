@@ -163,6 +163,7 @@ export async function mountNotificationsSection(mount, personOpts) {
         } catch (err) {
           showToast(`Could not save lead time: ${err.message}`);
           prefs.eventLeadMin = prev;
+          render();
         }
       });
     });
