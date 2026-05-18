@@ -130,3 +130,30 @@
   gap: 8px;
   margin-top: 8px;
 }
+
+/* ── Week tab: 7-day dot grid ── */
+.activity-card__dots {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface-2);
+}
+
+.dot--hit {
+  background: var(--accent);
+}
+
+.dot--miss {
+  background: var(--border);
+}
+
+.dot--future {
+  background: transparent;
+  border: 1px dashed var(--border);
+}

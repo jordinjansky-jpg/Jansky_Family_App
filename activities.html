@@ -238,7 +238,7 @@
       const tz = settings.timezone || detectTimezone();
       const activeTimerSection = renderActiveTimers(tz);
       if (tab === 'today') return activeTimerSection + renderTodayTab(tz);
-      if (tab === 'week') return activeTimerSection + '<p class="activities-placeholder-content">Week tab content coming in Task 12</p>';
+      if (tab === 'week') return activeTimerSection + renderWeekTab(tz);
       if (tab === 'history') return '<p class="activities-placeholder-content">History tab content coming in Task 13</p>';
       return '';
     }
@@ -329,6 +329,74 @@
       `;
     }
 
+    function renderWeekTab(tz) {
+      const sections = sortedPeople().map(([pid, person]) => {
+        const acts = activitiesForPerson(pid);
+        if (acts.length === 0) return '';
+        return `
+          <div class="person-section">
+            <h3 class="person-section__name" style="color:${person.color || 'inherit'}">${escapeHtml(person.name)}</h3>
+            <div class="person-section__cards">
+              ${acts.map(a => renderWeekCard(a, pid, tz)).join('')}
+            </div>
+          </div>
+        `;
+      }).filter(Boolean).join('');
+      return sections || '<p class="activities-placeholder-content">No activities yet.</p>';
+    }
+
+    function renderWeekCard(a, pid, tz) {
+      if (a.goalPeriod === 'weekly') {
+        const wkMins = minutesForActivityThisWeek(a.id, pid, tz);
+        const hit = wkMins >= a.goalMinutes;
+        return `
+          <div class="activity-card" data-activity-id="${a.id}" data-person-id="${pid}">
+            <div class="activity-card__head">
+              <span class="activity-card__emoji">${a.emoji || '·'}</span>
+              <span class="activity-card__name">${escapeHtml(a.name)}</span>
+              <span class="activity-card__goal">Weekly ${a.goalMinutes} min</span>
+            </div>
+            ${progressBar(wkMins, a.goalMinutes)}
+            <div class="activity-card__meta">${wkMins} / ${a.goalMinutes} min this week${hit ? ' <span class="chip chip--success">✓ Goal hit</span>' : ''}</div>
+            <div class="activity-card__actions">
+              <button class="btn btn--primary" data-card-action="start" data-activity-id="${a.id}" data-person-id="${pid}">▶ Start</button>
+              <button class="btn btn--secondary" data-card-action="log" data-activity-id="${a.id}" data-person-id="${pid}">+ Log</button>
+            </div>
+          </div>
+        `;
+      }
+      // Daily activity in Week tab: show 7-day mini-dot summary
+      const todayK = todayKey(tz);
+      const start = weekStart(todayK);
+      const days = [];
+      let k = start;
+      for (let i = 0; i < 7; i++) {
+        const m = Object.values(sessions)
+          .filter(s => s.activityId === a.id && s.personId === pid && localDateKey(s.startedAt, tz) === k)
+          .reduce((sum, s) => sum + (s.durationMin || 0), 0);
+        const inFuture = k > todayK;
+        days.push({ k, hit: m >= a.goalMinutes, mins: m, inFuture });
+        k = addDays(k, 1);
+      }
+      const hits = days.filter(d => d.hit && !d.inFuture).length;
+      const elapsed = days.filter(d => !d.inFuture).length;
+      return `
+        <div class="activity-card" data-activity-id="${a.id}" data-person-id="${pid}">
+          <div class="activity-card__head">
+            <span class="activity-card__emoji">${a.emoji || '·'}</span>
+            <span class="activity-card__name">${escapeHtml(a.name)}</span>
+            <span class="activity-card__goal">Daily ${a.goalMinutes} min</span>
+          </div>
+          <div class="activity-card__dots">${days.map(d => `<span class="dot ${d.inFuture ? 'dot--future' : (d.hit ? 'dot--hit' : 'dot--miss')}" title="${d.k}: ${d.mins} min"></span>`).join('')}</div>
+          <div class="activity-card__meta">${hits} / ${elapsed} days hit so far</div>
+          <div class="activity-card__actions">
+            <button class="btn btn--primary" data-card-action="start" data-activity-id="${a.id}" data-person-id="${pid}">▶ Start</button>
+            <button class="btn btn--secondary" data-card-action="log" data-activity-id="${a.id}" data-person-id="${pid}">+ Log</button>
+          </div>
+        </div>
+      `;
+    }
+
     // ── Event binding ──
 
     function bindTabHandlers() {
@@ -340,8 +408,102 @@
       });
     }
 
-    function bindCardHandlers() { /* Task 12 */ }
-    function bindActiveTimerHandlers() { /* Task 12 */ }
+    function bindCardHandlers() {
+      document.querySelectorAll('[data-card-action="start"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const pid = btn.dataset.personId;
+          const aid = btn.dataset.activityId;
+          const current = activeTimers[pid];
+          if (current && current.activityId !== aid) {
+            const stopOk = await showConfirm({
+              title: 'Switch activity',
+              message: `Stop "${activities[current.activityId]?.name || 'current activity'}" and start "${activities[aid]?.name || aid}"?`,
+              confirmLabel: 'Switch',
+              cancelLabel: 'Cancel'
+            });
+            if (!stopOk) return;
+            await stopTimer(pid);
+          }
+          if (current && current.activityId === aid && !current.pausedAt) return; // already running
+          const now = Date.now();
+          await writeActiveTimer(pid, {
+            activityId: aid,
+            startedAt: now,
+            originalStartedAt: now,
+            pausedAt: null,
+            accumulatedMs: 0
+          });
+          const a = activities[aid] || {};
+          const p = people[pid] || { name: pid };
+          showToast(`Started ${a.emoji || ''} ${a.name || aid} for ${p.name}`);
+        });
+      });
+      document.querySelectorAll('[data-card-action="log"]').forEach(btn => {
+        btn.addEventListener('click', () => openManualEntrySheet(btn.dataset.activityId, btn.dataset.personId));
+      });
+    }
+
+    function bindActiveTimerHandlers() {
+      document.querySelectorAll('[data-timer-action="toggle"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const pid = btn.dataset.personId;
+          const t = activeTimers[pid];
+          if (!t) return;
+          const updated = t.pausedAt ? resumeTimer(t) : pauseTimer(t);
+          await writeActiveTimer(pid, updated);
+        });
+      });
+      document.querySelectorAll('[data-timer-action="stop"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await stopTimer(btn.dataset.personId);
+        });
+      });
+    }
+
+    async function stopTimer(pid) {
+      const t = activeTimers[pid];
+      if (!t) return;
+      const durationMin = finalDurationMin(t);
+      const sessionData = {
+        activityId: t.activityId,
+        personId: pid,
+        startedAt: t.originalStartedAt || t.startedAt,
+        endedAt: Date.now(),
+        durationMin,
+        source: 'timer',
+        createdBy: pid
+      };
+      await pushActivitySession(sessionData);
+      await clearActiveTimer(pid);
+      // Invalidate settled earning so worker recomputes on next tick
+      const periodKey = sessionPeriodKey(sessionData, t.activityId);
+      if (periodKey) {
+        await removeActivityEarning(pid, t.activityId, periodKey);
+      }
+      await loadData();
+      render();
+      const a = activities[t.activityId] || {};
+      showToast(`Session saved · ${durationMin} min · ${a.name || 'activity'}`);
+    }
+
+    function sessionPeriodKey(session, activityId) {
+      const a = activities[activityId];
+      if (!a) return null;
+      const tz = settings.timezone || detectTimezone();
+      const dateKey = localDateKey(session.startedAt, tz);
+      if (a.goalPeriod === 'daily') return dateKey;
+      // ISO week key for weekly activities
+      const d = new Date(session.startedAt);
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    }
+
+    function openManualEntrySheet(activityId, personId) {
+      // Implemented in Task 14 — placeholder toast for now
+      showToast('Manual entry — coming in Task 14');
+    }
 
     // ── Display interval for live timer readouts ──
 
