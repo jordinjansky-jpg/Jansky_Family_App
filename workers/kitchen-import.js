@@ -1686,6 +1686,10 @@ async function runEventReminders(env, now, tz, people, events) {
       if (!people.includes(personId)) continue;
       if (!ev.date || !ev.startTime) continue;
 
+      // Legacy: an older event schema may have stored `repeat` as a bare
+      // string ('weekly'/'monthly'/etc.). The new format is always an
+      // object. Skip those defensively rather than misclassify as non-recurring.
+      if (ev.repeat && typeof ev.repeat === 'string' && ev.repeat !== 'none') continue;
       let instanceDate;
       let eventStartUtc;
       const isRecurring = ev.repeat && ev.repeat.type && ev.repeat.type !== 'none';
