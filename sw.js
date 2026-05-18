@@ -9,6 +9,8 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v330 (2026-05-18) — Activities feature shipped: precaches /activities.html,
+//                     /shared/timer.js, /styles/activities.css.
 // v324 (2026-05-15) — Phase 5c: pushsubscriptionchange auto re-registration.
 //                     SW posts a message to all clients on rotation; clients
 //                     re-call subscribe() under their current personId.
@@ -472,7 +474,7 @@
 //                     includes Approve/Deny buttons; reward-request message
 //                     type mapper fixed (redemption-request, use-request).
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
-const CACHE_NAME = 'family-hub-v329';
+const CACHE_NAME = 'family-hub-v330';
 
 const APP_SHELL = [
   '/',
@@ -488,6 +490,7 @@ const APP_SHELL = [
   '/setup.html',
   '/rewards.html',
   '/kitchen.html',
+  '/activities.html',
   '/manifest.json',
   '/app-icon.png',
   // Self-hosted variable fonts
@@ -506,6 +509,7 @@ const APP_SHELL = [
   '/styles/rewards.css',
   '/styles/kitchen.css',
   '/styles/kid.css',
+  '/styles/activities.css',
   '/styles/responsive.css',
   // JS modules
   '/shared/firebase.js',
@@ -523,6 +527,7 @@ const APP_SHELL = [
   '/shared/kitchen-ical.js',
   '/shared/push-client.js',
   '/shared/push-ui.js',
+  '/shared/timer.js',
   // Firebase SDK (CDN — cached cross-origin with CORS)
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js',
