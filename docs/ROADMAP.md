@@ -14,7 +14,7 @@
 ## Nav Bar
 Currently **5 slots: Home · Kitchen · Scores · Rewards · More** — tab bar is capped at 5, no exceptions. Adding a slot requires retiring one.
 More sheet contains: Admin · Calendar · Tracker · Theme.
-Activities (in MEDIUM below) would earn a slot only by retiring an existing one (Rewards is the candidate if it moves fully into Scoreboard).
+Activities (shipped 2026-05-18) currently lives in the More sheet; could earn a tab slot by retiring an existing one (Rewards is the candidate if it moves fully into Scoreboard).
 
 ---
 
@@ -44,7 +44,7 @@ December 31 gamified annual recap — task counts, badges earned, perfect days, 
 One-page "this week" PDF for the fridge — kids physically check off as the week progresses. CSS print styles + browser native print, or a small PDF lib if needed.
 
 **Reading log** · No deps · Cost: $0
-Per-kid reading minutes. Daily check-in, weekly streak, monthly leaderboard. Schema: `rundown/reading/{personId}/{YYYY-MM-DD}: minutes`. Could integrate with Activities later (in MEDIUM) but ships standalone first.
+Per-kid reading minutes. Daily check-in, weekly streak, monthly leaderboard. Schema: `rundown/reading/{personId}/{YYYY-MM-DD}: minutes`. Could integrate with Activities (shipped) later but ships standalone first.
 
 ---
 
@@ -58,8 +58,8 @@ New schemas/views, internal complexity, but no external APIs. 1–3 sessions eac
   - **Family photos for kiosk** · Sub-feature; depends on Kiosk shipping first · Cost: $0
     Photo carousel as kiosk idle/screensaver state — what actually makes the kiosk feel like a Skylight. Without photos, the kiosk is just a digital wall calendar. Schema: `rundown/photos/{pushId}: { url, caption, uploadedBy, takenAt }`. Weekly photo upload could become a recurring family task. **Doesn't add value until Kiosk ships** — bundle into the same project.
 
-**Activities (Phase 1)** · No deps · Cost: $0
-Activity library, shared timer component (`shared/timer.js` — reused by Task Timer below), stopwatch, session logging, time leaderboard, admin management. Lives in More tab on phone.
+**Activities** · Shipped 2026-05-18 · Cost: $0
+Time-tracked habits (reading, exercise, piano, etc.) with goal-based scoring — linear bonus for exceeding the goal, 2× penalty for missing, floored at zero per period. Daily or weekly goals per activity; weekly cards show adaptive daily pace. Family-overview Activities page in More menu, grouped by person. Firebase-synced active timers (multi-device — start on phone, stop on kiosk). Manual entry + edit/delete + chronological history. Admin CRUD with mark-inactive vs destructive-with-history delete. Cloudflare Worker handles daily + weekly settlement at period close; activity earnings flow through `calculateBalance` into Scoreboard, Rewards, Kid mode, and Admin totals.
 
 **Push Notifications** · All phases shipped (Phase 1–5: 2026-05-15; Phase 6: 2026-05-18) · Cost: $0
 Per-device subscribe; push for bell messages, reward approvals (with one-tap Approve/Deny actions), reward FYI, event reminders (recurring + non-recurring, 15/30/60 min lead, Snooze 5/15/60 cycle), task reminders, daily digest, overdue task nudge, tonight's dinner reminder. Per-person quiet hours. Multi-device management. Admin notification activity log.
@@ -70,8 +70,8 @@ Per-device subscribe; push for bell messages, reward approvals (with one-tap App
 **Vacation / Skip Mode** · No deps · Cost: $0
 Mark a person as away for a date range. Schema: `rundown/people/{id}/away: [{start, end}]`. Scheduler skips placing tasks for away people. Dashboard `--vacation` banner (highest priority — outranks freeze/overdue/multiplier/info). Calendar shading for away days.
 
-**Task Timer / Stopwatch** · Depends on Activities Phase 1 (shared timer) · Cost: $0
-Visible countdown on task cards using `estMin`. Start button → timer overlay. Optional auto-complete on finish. Reuses `shared/timer.js` built in Activities — do not build a second timer.
+**Task Timer / Stopwatch** · Depends on `shared/timer.js` (shipped with Activities) · Cost: $0
+Visible countdown on task cards using `estMin`. Start button → timer overlay. Optional auto-complete on finish. Reuses `shared/timer.js` built for Activities — do not build a second timer.
 
 **Routines / Sequences** (kids AND adults) · No deps · Cost: $0
 Morning routine, bedtime routine, exercise routine, etc. — ordered task sequences with progress through steps. Different shape from individual tasks: kids check off in order, optional per-step timer, completes when all steps done. Time-bounded steps optional. For BOTH kids and adults. Schema: `rundown/routines/{id}: { name, steps: [{name, estMin}], assignedTo, time, recurrence }`.
@@ -96,9 +96,6 @@ Auto-generated Sunday summary email/notification. "This week: Lexi did 14 tasks 
 ## HARD
 
 External APIs, OAuth, major schema changes, privacy/battery concerns, or multi-system orchestration. 3+ sessions each.
-
-**Activities (Phase 2)** · Depends on Phase 1 (in MEDIUM) · Cost: $0
-Weekly goals, tiered payouts, goal achievement scoreboard, kid mode activities page, per-kid toggles. Builds on Phase 1 timer + library.
 
 **Task Delegation / Swaps** · Depends on Push Notifications (in MEDIUM) · Cost: $0
 Family members propose task trades. Schema: `rundown/trades/{pushId}`. UI: notification badge, proposal from detail sheet, accept/decline list. Real-time multi-user negotiation flows.
