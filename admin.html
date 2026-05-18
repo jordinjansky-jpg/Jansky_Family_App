@@ -256,6 +256,7 @@
       { id: 'events',     label: 'Events'     },
       { id: 'categories', label: 'Categories' },
       { id: 'rewards',    label: 'Rewards'    },
+      { id: 'activities', label: 'Activities' },
       { id: 'badges',     label: 'Badges'     },
     ];
 
@@ -396,8 +397,9 @@
             case 'tasks':      html += renderTasksTab();      break;
             case 'events':     html += renderEventsTab();     break;
             case 'categories': html += renderCategoriesTab(); break;
-            case 'rewards':    html += renderRewardsTab();    break;
-            case 'badges':     html += renderAchievementsTab(); break;
+            case 'rewards':     html += renderRewardsTab();     break;
+            case 'activities':  html += renderActivitiesTab();  break;
+            case 'badges':      html += renderAchievementsTab(); break;
           }
           break;
         case 'people':   html += renderPeopleTab();   break;
@@ -3329,6 +3331,26 @@
     }
 
     // ══════════════════════════════════════════
+    // Activities Tab
+    // ══════════════════════════════════════════
+
+    function renderActivitiesTab() {
+      let html = '';
+      html += `<div class="admin-filters admin-filters--row">
+  <button class="btn btn--primary btn--sm" id="activityAddBtn" type="button">+ Add Activity</button>
+</div>`;
+      html += `<div class="admin-empty">No activities defined yet. Tap + Add Activity to create one.</div>`;
+      html += `<div id="activityList" class="admin-list"></div>`;
+      return html;
+    }
+
+    function bindActivitiesTab() {
+      main.querySelector('#activityAddBtn')?.addEventListener('click', () => {
+        // Task 6: open activity form sheet
+      });
+    }
+
+    // ══════════════════════════════════════════
     // Achievements Tab
     // ══════════════════════════════════════════
 
@@ -3987,8 +4009,9 @@
             case 'tasks':      bindTasksTab();      break;
             case 'events':     bindEventsTab();     break;
             case 'categories': bindCategoriesTab(); break;
-            case 'rewards':    bindRewardsTab();    break;
-            case 'badges':     bindAchievementsTab(); break;
+            case 'rewards':     bindRewardsTab();     break;
+            case 'activities':  bindActivitiesTab();  break;
+            case 'badges':      bindAchievementsTab(); break;
           }
           break;
         case 'people':   bindPeopleTab();   break;
