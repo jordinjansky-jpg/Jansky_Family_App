@@ -2,8 +2,6 @@
 // Renders into a caller-provided mount. Reads + writes person.prefs.notifications
 // and pushSubscriptions/{personId}/{endpointHash}.
 
-const esc = (s) => String(s || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-
 import {
   pushSupported, subscribe, unsubscribe, sendNotification, endpointHash,
 } from './push-client.js';
@@ -12,6 +10,8 @@ import {
   writePushSubscription, removePushSubscription, readPushSubscriptions,
 } from './firebase.js';
 import { showToast } from './components.js';
+
+const esc = (s) => String(s || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
 const DEFAULT_PREFS = {
   enabled: false,
