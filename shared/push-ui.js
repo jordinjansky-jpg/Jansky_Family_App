@@ -316,9 +316,8 @@ export async function mountNotificationsSection(mount, personOpts) {
         const type = btn.dataset.testType;
         const payload = TEST_PAYLOADS[type];
         if (!payload) return;
-        payload.icon = '/app-icon.png';
-        payload.tag = `notif-test-${type}`;
-        const r = await sendNotification(personId, type, payload);
+        const sendPayload = { ...payload, icon: '/app-icon.png', tag: `notif-test-${type}` };
+        const r = await sendNotification(personId, type, sendPayload);
         if (!r?.ok) showToast(`Test failed: status ${r?.status || 'unknown'}`);
         else showToast(`Test ${type} sent`);
       });

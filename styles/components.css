@@ -6093,10 +6093,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 .notif-type-row__test {
   flex: 0 0 auto;
   font-size: var(--font-xs);
-}
-.btn--xs {
   padding: 2px var(--spacing-xs);
-  font-size: var(--font-xs);
   min-height: 24px;
 }
 .notif-subrow {
