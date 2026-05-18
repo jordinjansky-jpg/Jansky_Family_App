@@ -50,7 +50,7 @@ Every current and backlog feature has a named home. If a proposal doesn't fit he
 | **Kitchen (1.3+1.7)** | `kitchen.html` | Dashboard ambient strip (dinner chip), Calendar day view (read-only), More sheet | More tab (phone) → future: promoted to tab after usage review |
 | **1.4 Weather** | Calendar header chip, Kiosk header | Dashboard ambient strip (optional), Kid tile | NO nav tab |
 | **1.5 Kiosk** | `display.html` (own layout, own CSS) | — | NO nav tab (own entry) |
-| **1.6 Activities** | Activities page | Scoreboard Tabs variant, Kid tile, shared timer | More tab (phone), left rail (tablet) |
+| **Activities (current)** | `activities.html` (own page) | Admin → Library → Activities (CRUD) | More tab (phone) → future: left rail (tablet) |
 | **2.1 Push Notifications** | Bell dropdown + OS-level | Admin → People → Notifications, Settings global prefs | existing bell |
 | **2.2 Flexible Recurrence** | Task/Event form (progressive disclosure) | Calendar preview of next occurrences | inside existing forms |
 | **2.3 School lunch PDF** | Admin → Advanced → Import | Calendar day meals with `source: school` tag | inside Admin |
@@ -61,7 +61,7 @@ Every current and backlog feature has a named home. If a proposal doesn't fit he
 **Hard rules enforced by this table:**
 - Phone tab bar never exceeds 5 slots. See [ROADMAP.md](../ROADMAP.md) Nav Bar section for current assignment.
 - Weather, Kiosk, Vacation, Recurrence, Timer, PDF import, Delegation never become tabs.
-- Activities (1.6) is the only backlog feature that earns a future nav slot.
+- Activities now ships in the More tab (current); earns a future nav slot only by retiring an existing one.
 
 ---
 
@@ -1256,21 +1256,31 @@ single-tap commits.
 **Kid view:** read-only Tonight's Dinner tile (Dashboard ambient row); optional shopping peek for lists marked kid-visible (future).
 **Kiosk:** prominent tile in kiosk More menu; meals section in day-column view.
 
-### 6.11 Activities (new page, 1.6)
+### 6.11 Activities (`activities.html`, current)
 
-**Purpose:** On-demand activity tracking with shared timer.
+**Purpose.** Time-tracked habits with goal-based scoring. Anyone in the family can be assigned activities (works like task assignment — one goal per activity; for different goals create a separate activity). Sessions logged via Firebase-synced timer or manual entry; points awarded at period close via the cron worker.
 
-**Layout:**
-- Header: `Activities` + filter.
-- Top: stat hero (today's time + weekly goal progress).
-- Library: `.card.card--activity` rows.
-- FAB: start an activity → opens shared timer.
-- Session log (recent): compact rows at bottom.
+**Page location.** `activities.html`, reached via More → Activities. Sticky header + chip tabs **Today / This Week / History**. Per-person grouping under each tab (kids first, alphabetical within group); empty-assignment people hidden. No FAB — `[▶ Start]` and `[+ Log]` live on each activity card; History rows tap to edit.
 
-**Activity detail sheet:** edit name/category/default duration, start button.
-**Timer:** `shared/timer.js` (same as Task Timer).
-**Scoreboard integration:** activities tab.
-**Kid:** tile on kid home; Start button opens timer.
+**Tab content:**
+- **Today:** active-timers section at top (live readout, Pause/Stop), then per-person sections. Daily activities show progress against today's goal; weekly activities show today's adaptive pace as the primary bar with week-to-date as a secondary metadata line (`wk: X / Y`).
+- **This Week:** weekly activities show full weekly progress bar; daily activities show a 7-dot mini-summary (filled = hit goal, dashed outline = future).
+- **History:** chronological session list grouped by date ("Today", "Yesterday", then formatted long dates); each row → manual entry sheet in edit mode.
+
+**Timer.** One active timer per person, synced via `rundown/activeTimers/{personId}`. Any device with access can stop. Start writes `originalStartedAt` so Pause/Resume preserves the user's original start. Sanity-warn `⚠ Forgotten?` chip on >6 hour running timers. Cross-device sync via Firebase subscription. Module: `shared/timer.js` (Task Timer feature will consume the same module).
+
+**Manual entry sheet.** Composed from `fs-*` primitives per §5.23: activity (read-only), Person chip-picker (limited to people the activity is assigned to), Date pill (`renderDateInput` — never raw `<input type="date">`), Duration (number), Notes (text). Edit-mode shows trash icon for delete. Manual sessions anchor at noon-local on the selected date for predictable period attribution.
+
+**Scoring formula (§3 of activities spec, shipped):**
+`earned = max(0, pointsAtGoal × actualPct)` for hits/exceeds; `earned = max(0, pointsAtGoal − pointsAtGoal × missPct × 2)` for misses. Floor at zero per period (no negative scores). `formulaVersion: 1` stored on every Earning record to enable future migrations.
+
+**Settlement.** Daily activities settle every cron tick (worker computes yesterday's earnings if not already settled). Weekly activities settle only on Monday in the user's `settings.timezone`. Both idempotent. Earnings flow through `calculateBalance` in `shared/scoring.js`, so totals on **Scoreboard, Rewards, Kid mode, Admin** automatically include activity points.
+
+**Schema.** Four trees: `rundown/activities/{id}`, `rundown/activitySessions/{id}`, `rundown/activeTimers/{personId}`, `rundown/activityEarnings/{personId}/{activityId}/{periodKey}`. Earnings written ONLY by the cron worker — never by the client.
+
+**Admin.** Library → Activities lists all activities with active toggle. `+ Add Activity` and row-tap → form sheet composed from `fs-*` primitives (name, emoji, color, period chip [Daily/Weekly], goalMinutes, pointsAtGoal, multi-person chip picker, active switch). Edit-mode includes 🗑️: zero-session activities hard-delete on confirm; activities with sessions show "Mark Inactive (keep history)" as the safe default with a typed-name destructive path for full delete.
+
+**Edit permissions (Phase 1 reality).** No per-user auth yet — anyone with device access can edit/delete any session. `createdBy` is stored for future enforcement when auth lands. Admin PIN gates only the destructive admin operations.
 
 ### 6.12 Kiosk / Wall display (`display.html`, 1.5)
 
