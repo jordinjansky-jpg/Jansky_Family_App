@@ -143,3 +143,31 @@ function describeDevice() {
                  : 'Browser';
   return `${platform} · ${browser}`;
 }
+
+// Auto re-register when the browser rotates a subscription.
+// Pages opt into this by importing push-client (which loads this listener).
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener?.('message', async (event) => {
+    if (event.data?.type !== 'pushsubscriptionchange') return;
+    // Determine personId from the URL or storage.
+    const url = new URL(location.href);
+    const personParam = url.searchParams.get('person') || url.searchParams.get('kid');
+    if (!personParam) return; // unknown person — silent
+    // Look up the person via Firebase (read-only).
+    try {
+      const { readPeople, writePushSubscription } = await import('./firebase.js');
+      const peopleObj = await readPeople();
+      if (!peopleObj) return;
+      const personEntry = Object.entries(peopleObj).find(([_, p]) =>
+        p?.name?.toLowerCase() === personParam.toLowerCase()
+      );
+      if (!personEntry) return;
+      const [personId] = personEntry;
+      // Re-subscribe (this person, fresh subscription).
+      await subscribe(personId, { writePushSubscription });
+      console.log('[push-client] auto re-subscribed after pushsubscriptionchange');
+    } catch (err) {
+      console.warn('[push-client] auto re-subscribe failed', err?.message || err);
+    }
+  });
+}

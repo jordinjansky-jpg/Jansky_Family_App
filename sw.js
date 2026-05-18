@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v324 (2026-05-15) — Phase 5c: pushsubscriptionchange auto re-registration.
+//                     SW posts a message to all clients on rotation; clients
+//                     re-call subscribe() under their current personId.
 // v323 (2026-05-15) — Phase 5b: multi-device management UI in Notifications
 //                     section (list + per-device Remove).
 // v322 (2026-05-15) — Phase 5a: quiet hours shipped (Worker filter +
@@ -460,7 +463,7 @@
 // v190 (2026-05-16) — History row: fixed column widths so date stays right-aligned across rows; long labels truncate with ellipsis instead of wrapping.
 // v191 (2026-05-16) — Rewards history: add synthetic "Earned" rows per day derived from daily snapshots; new Earned filter option.
 // v192 (2026-05-16) — History row alignment fix: tappable rule no longer overrides padding, so button rows line up flush with div rows.
-const CACHE_NAME = 'family-hub-v323';
+const CACHE_NAME = 'family-hub-v324';
 
 const APP_SHELL = [
   '/',
@@ -636,5 +639,19 @@ self.addEventListener('notificationclick', (event) => {
       }
     }
     if (self.clients.openWindow) return self.clients.openWindow(url);
+  })());
+});
+
+self.addEventListener('pushsubscriptionchange', (event) => {
+  // Browsers occasionally invalidate push subscriptions (key rotation, etc.).
+  // Re-subscribe with the same VAPID key and notify ALL pages so the new
+  // endpoint gets written to Firebase under whichever personId is active.
+  // The actual write happens client-side because the SW doesn't know which
+  // personId to associate.
+  event.waitUntil((async () => {
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of allClients) {
+      c.postMessage({ type: 'pushsubscriptionchange' });
+    }
   })());
 });
