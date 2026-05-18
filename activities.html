@@ -51,9 +51,12 @@
     import {
       initBottomNav, renderHeader,
       showConfirm, showToast,
-      initOfflineBanner
+      initOfflineBanner,
+      renderBottomSheet, renderFormSheetHeader, renderFormFooter,
+      renderChipPicker, bindChipPicker,
+      renderDateInput, bindDateInput
     } from './shared/components.js';
-    import { todayKey, weekStart, weekEnd, addDays, detectTimezone } from './shared/utils.js';
+    import { todayKey, weekStart, weekEnd, addDays, detectTimezone, formatDateShort } from './shared/utils.js';
     import {
       elapsedMs, formatElapsed,
       pause as pauseTimer,
@@ -558,11 +561,149 @@
     }
 
     function openManualEntrySheet(activityId, personId, sessionIdForEdit) {
-      // Implemented in Task 14
-      if (sessionIdForEdit) {
-        showToast(`Edit session — coming in Task 14 (session ${sessionIdForEdit.slice(0, 8)})`);
-      } else {
-        showToast('Manual entry — coming in Task 14');
+      const editing = sessionIdForEdit ? sessions[sessionIdForEdit] : null;
+      const aid = editing ? editing.activityId : activityId;
+      const pid = editing ? editing.personId : personId;
+      const activity = activities[aid];
+      if (!activity) {
+        showToast('Activity not found');
+        return;
+      }
+      const tz = settings.timezone || detectTimezone();
+      const allowedPersonIds = Object.keys(activity.assignedTo || {});
+      const personOptions = allowedPersonIds.map(id => ({ value: id, label: people[id]?.name || id }));
+      const dateValue = editing ? localDateKey(editing.startedAt, tz) : todayKey(tz);
+      const dateLabel = dateValue ? formatDateShort(dateValue) : 'Set date';
+
+      const headerHtml = renderFormSheetHeader({
+        title: editing ? 'Edit Session' : 'Log Session',
+        closeId: 'sessFormClose',
+        saveId: 'sessFormSaveHeader',
+        deleteId: editing ? 'sessFormDelete' : null
+      });
+
+      const bodyHtml = `
+        <div class="tf-form">
+          <div class="rf-adv-row">
+            <strong>${activity.emoji || ''} ${escapeHtml(activity.name)}</strong>
+          </div>
+          <div class="rf-adv-row">
+            <div class="rf-adv-label">Person</div>
+            ${renderChipPicker({
+              pickerId: 'sessFormPerson',
+              hiddenId: 'sessFormPersonValue',
+              options: personOptions,
+              value: pid,
+              allowClear: false
+            })}
+          </div>
+          <div class="rf-adv-row">
+            <div class="rf-adv-label">Date</div>
+            ${renderDateInput({ btnId: 'sessFormDateBtn', inputId: 'sessFormDate', labelId: 'sessFormDateLabel', value: dateValue, label: dateLabel })}
+          </div>
+          <div class="rf-adv-row">
+            <div class="rf-adv-label">Duration (min)</div>
+            <input type="number" id="sessFormDuration" class="rf-adv-input" min="1" max="1440" value="${editing ? editing.durationMin : 30}" />
+          </div>
+          <div class="rf-adv-row">
+            <div class="rf-adv-label">Notes</div>
+            <input type="text" id="sessFormNotes" class="rf-adv-input" maxlength="200" value="${escapeHtml(editing?.notes || '')}" />
+          </div>
+        </div>
+      `;
+
+      const footerHtml = renderFormFooter({
+        saveLabel: 'Save',
+        cancelId: 'sessFormCancel',
+        saveId: 'sessFormSaveFooter',
+        disabled: false
+      });
+
+      const fullHtml = headerHtml + bodyHtml + footerHtml;
+      const mount = document.getElementById('sheetMount');
+      mount.innerHTML = renderBottomSheet(fullHtml);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+
+      // Bindings
+      bindChipPicker({ pickerId: 'sessFormPerson', hiddenId: 'sessFormPersonValue' });
+      bindDateInput({
+        btnId: 'sessFormDateBtn',
+        inputId: 'sessFormDate',
+        labelId: 'sessFormDateLabel',
+        format: v => v ? formatDateShort(v) : 'Set date'
+      });
+
+      const close = () => {
+        const overlay = document.getElementById('bottomSheet');
+        if (overlay) {
+          overlay.classList.remove('active');
+          setTimeout(() => { mount.innerHTML = ''; }, 280);
+        } else {
+          mount.innerHTML = '';
+        }
+      };
+      document.getElementById('sessFormClose')?.addEventListener('click', close);
+      document.getElementById('sessFormCancel')?.addEventListener('click', close);
+
+      const doSave = async () => {
+        const finalPid = document.getElementById('sessFormPersonValue').value;
+        const dateKey = document.getElementById('sessFormDate').value;
+        const durationMin = parseInt(document.getElementById('sessFormDuration').value, 10);
+        const notes = document.getElementById('sessFormNotes').value.trim();
+        if (!finalPid || !dateKey || !Number.isInteger(durationMin) || durationMin < 1) {
+          showToast('Please fill all required fields');
+          return;
+        }
+        // Anchor the session at noon local on that date (predictable period attribution)
+        const noonMs = Date.parse(`${dateKey}T12:00:00`);
+        const sessionData = {
+          activityId: aid,
+          personId: finalPid,
+          startedAt: noonMs,
+          endedAt: noonMs + durationMin * 60000,
+          durationMin,
+          source: 'manual',
+          notes: notes || null,
+          createdBy: finalPid
+        };
+        if (editing) {
+          await updateActivitySession(sessionIdForEdit, sessionData);
+        } else {
+          await pushActivitySession(sessionData);
+        }
+        // Invalidate settled earning for affected period
+        const periodKey = sessionPeriodKey(sessionData, aid);
+        if (periodKey) {
+          await removeActivityEarning(finalPid, aid, periodKey);
+        }
+        close();
+        await loadData();
+        render();
+        showToast(`Manual entry saved · ${activity.name} · ${durationMin} min · ${people[finalPid]?.name || finalPid}`);
+      };
+      document.getElementById('sessFormSaveFooter')?.addEventListener('click', doSave);
+      document.getElementById('sessFormSaveHeader')?.addEventListener('click', doSave);
+
+      if (editing) {
+        document.getElementById('sessFormDelete')?.addEventListener('click', async () => {
+          const ok = await showConfirm({
+            title: 'Delete session?',
+            message: `Permanently delete this ${editing.durationMin} min ${activity.name} session?`,
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            danger: true
+          });
+          if (!ok) return;
+          await removeActivitySession(sessionIdForEdit);
+          const periodKey = sessionPeriodKey(editing, editing.activityId);
+          if (periodKey) {
+            await removeActivityEarning(editing.personId, editing.activityId, periodKey);
+          }
+          close();
+          await loadData();
+          render();
+          showToast('Session deleted');
+        });
       }
     }
 
