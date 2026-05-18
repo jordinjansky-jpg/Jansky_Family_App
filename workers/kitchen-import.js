@@ -1570,6 +1570,13 @@ async function runEventReminders(env, now, tz, people, events) {
     const windowStart = new Date(now.getTime() + (leadMin - 2.5) * 60_000);
     const windowEnd   = new Date(now.getTime() + (leadMin + 2.5) * 60_000);
 
+    // Quiet-hours gate (constant per person per tick — skip ALL their events)
+    const qh = person.prefs?.notifications?.quietHours;
+    if (qh && isInQuietHours(qh, hours, minutes)) {
+      console.log('[scheduled] skipped (quiet hours)', personId, 'eventReminder');
+      continue;
+    }
+
     for (const [eventId, ev] of Object.entries(events)) {
       // Skip recurring events (Phase 2.1 scope).
       if (ev.repeats && ev.repeats !== 'none' && ev.repeats !== null) continue;
@@ -1587,13 +1594,6 @@ async function runEventReminders(env, now, tz, people, events) {
 
       const dedupKey = `evt_${eventId}_${personId}`;
       if (await dedupCheck(env, todayKey, dedupKey)) continue;
-
-      // Quiet-hours gate (time-triggered types only)
-      const qh = person.prefs?.notifications?.quietHours;
-      if (qh && isInQuietHours(qh, hours, minutes)) {
-        console.log('[scheduled] skipped (quiet hours)', personId, 'eventReminder');
-        continue;
-      }
 
       const payload = {
         title: ev.name || 'Upcoming event',

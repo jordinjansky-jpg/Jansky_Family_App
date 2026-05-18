@@ -210,6 +210,7 @@ export async function mountNotificationsSection(mount, personOpts) {
       });
     });
 
+    const TIME_PREF_DEFAULTS = { taskReminderTime: '17:00', digestTime: '07:00' };
     mount.querySelectorAll('[data-time-pref]').forEach(input => {
       input.addEventListener('change', async () => {
         const key = input.dataset.timePref;
@@ -221,7 +222,7 @@ export async function mountNotificationsSection(mount, personOpts) {
           prefs[key] = val;
         } catch (err) {
           showToast(`Could not save time: ${err.message}`);
-          input.value = prev || '17:00';
+          input.value = prev || TIME_PREF_DEFAULTS[key] || '17:00';
         }
       });
     });
