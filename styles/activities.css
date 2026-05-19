@@ -159,6 +159,174 @@
   border: 1px dashed var(--border);
 }
 
+/* ── Full-screen timer overlay ── */
+.fs-timer {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--t-slow), visibility var(--t-slow);
+  /* Subtle radial gradient for depth */
+  background: radial-gradient(ellipse at 50% 30%, var(--accent-soft) 0%, var(--bg) 65%);
+}
+
+.fs-timer.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.fs-timer__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 32px 24px;
+  gap: 0;
+  position: relative;
+}
+
+.fs-timer__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--font-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.fs-timer__close:active { opacity: 0.7; }
+
+.fs-timer__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
+}
+
+.fs-timer__emoji {
+  font-size: 72px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.fs-timer__name {
+  font-size: var(--font-3xl);
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.fs-timer__person {
+  font-size: var(--font-lg);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.fs-timer__goal-chip {
+  margin-top: 4px;
+}
+
+.fs-timer__ring-wrap {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fs-timer__ring {
+  position: absolute;
+  inset: 0;
+  /* Arc starts at top (12 o'clock) */
+  transform: rotate(-90deg);
+}
+
+.fs-timer__ring-track {
+  fill: none;
+  stroke: var(--surface-3);
+  stroke-width: 10;
+}
+
+.fs-timer__ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear, stroke var(--t-base);
+}
+
+.fs-timer__ring-fill--success {
+  stroke: var(--success);
+}
+
+.fs-timer__readout {
+  position: relative;
+  z-index: 1;
+  font-size: 52px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  letter-spacing: -1px;
+  line-height: 1;
+  text-align: center;
+  /* Tighten on narrow viewports */
+  white-space: nowrap;
+}
+
+/* Reduce font size for hh:mm:ss format (longer string) */
+.fs-timer__readout[data-fs-readout] {
+  font-size: clamp(40px, 11vw, 52px);
+}
+
+.fs-timer__actions {
+  display: flex;
+  gap: 12px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  width: 100%;
+  max-width: 320px;
+}
+
+.fs-timer__btn {
+  flex: 1;
+  font-size: var(--font-md);
+  font-weight: 700;
+  min-height: 52px;
+  border-radius: var(--radius-md);
+}
+
+.fs-timer__btn--stop {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: transparent;
+}
+
+.fs-timer__btn--stop:hover,
+.fs-timer__btn--stop:active {
+  background: var(--danger);
+  color: var(--on-accent);
+}
+
 /* ── History tab ── */
 .history-group { padding: 0 16px 12px; }
 .history-group__date { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 6px; color: var(--text-muted); }

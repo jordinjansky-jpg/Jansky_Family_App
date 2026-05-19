@@ -31,6 +31,7 @@
   <div id="navMount"></div>
   <div id="sheetMount"></div>
   <div id="fabMount"></div>
+  <div id="fsTimerMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -78,6 +79,10 @@
     let activePerson = null;   // null = All
     let displayInterval = null;
     let headerInitialized = false;
+
+    // ── Full-screen timer overlay state ──
+    let openOverlayOnNextRender = null; // personId — set ONLY by same-device Start tap
+    let currentOverlayPersonId = null;  // personId currently shown in overlay, or null
 
     // ── Cached theme ──
     applyTheme(resolveTheme());
@@ -167,6 +172,173 @@
       rewardsData = rwd   || {};
     }
 
+    // ── Full-screen timer overlay ──
+
+    function fsTimerProgress(personId) {
+      const t = activeTimers[personId];
+      if (!t) return { progress: 0, goalHit: false, elapsedMinNow: 0, goalMinutes: 0, paceTarget: 0 };
+      const tz = settings.timezone || detectTimezone();
+      const a = activities[t.activityId] || {};
+      const goalMinutes = a.goalMinutes || 0;
+      let progress = 0;
+      let paceTarget = 0;
+      // Minutes elapsed so far in this session (running portion only)
+      const sessionMs = elapsedMs(t);
+      // Saved minutes today (excluding the live session)
+      const savedToday = minutesForActivityToday(t.activityId, personId, tz);
+      const elapsedMinNow = savedToday + sessionMs / 60000;
+
+      if (a.goalPeriod === 'weekly') {
+        // Pace bar: same as Today tab primary bar
+        const wkMins = minutesForActivityThisWeek(t.activityId, personId, tz);
+        const days = daysRemainingInWeek(tz);
+        paceTarget = paceMinutesToday(wkMins - savedToday, goalMinutes, days);
+        // Include live session minutes in today's pace progress
+        const todayMinsLive = savedToday + sessionMs / 60000;
+        progress = paceTarget > 0 ? Math.min(1, todayMinsLive / paceTarget) : (wkMins >= goalMinutes ? 1 : 0);
+      } else {
+        // Daily: progress = total today (saved + live) vs goalMinutes
+        progress = goalMinutes > 0 ? Math.min(1, elapsedMinNow / goalMinutes) : 0;
+        paceTarget = goalMinutes;
+      }
+
+      return { progress, goalHit: elapsedMinNow >= goalMinutes, elapsedMinNow, goalMinutes, paceTarget };
+    }
+
+    function buildOverlayHtml(personId) {
+      const t = activeTimers[personId];
+      if (!t) return '';
+      const person = people[personId] || { name: personId };
+      const a = activities[t.activityId] || { name: 'Activity', emoji: '·' };
+      const elapsed = formatElapsed(elapsedMs(t));
+      const paused = !!t.pausedAt;
+      const { progress, goalHit } = fsTimerProgress(personId);
+      const circumference = 565.49;
+      const dashoffset = (circumference * (1 - progress)).toFixed(2);
+
+      return `
+        <div class="fs-timer__inner">
+          <button class="fs-timer__close" id="fsTimerClose" aria-label="Close overlay" type="button">&#x2715;</button>
+          <div class="fs-timer__center">
+            <div class="fs-timer__emoji">${a.emoji || '·'}</div>
+            <div class="fs-timer__name">${escapeHtml(a.name)}</div>
+            <div class="fs-timer__person">for ${escapeHtml(person.name)}</div>
+            ${goalHit ? '<div class="fs-timer__goal-chip"><span class="chip chip--success">✓ Goal hit!</span></div>' : ''}
+            <div class="fs-timer__ring-wrap">
+              <svg class="fs-timer__ring" viewBox="0 0 200 200" width="240" height="240" aria-hidden="true">
+                <circle class="fs-timer__ring-track" cx="100" cy="100" r="90" />
+                <circle class="fs-timer__ring-fill${goalHit ? ' fs-timer__ring-fill--success' : ''}" cx="100" cy="100" r="90"
+                        stroke-dasharray="${circumference}" stroke-dashoffset="${dashoffset}" />
+              </svg>
+              <div class="fs-timer__readout" data-fs-readout="${personId}">${elapsed}</div>
+            </div>
+          </div>
+          <div class="fs-timer__actions">
+            <button class="btn btn--secondary fs-timer__btn" id="fsTimerToggle" data-person-id="${personId}" type="button">${paused ? 'Resume' : 'Pause'}</button>
+            <button class="btn btn--primary fs-timer__btn fs-timer__btn--stop" id="fsTimerStop" data-person-id="${personId}" type="button">Stop</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function openFullScreenTimer(personId) {
+      currentOverlayPersonId = personId;
+      const mount = document.getElementById('fsTimerMount');
+      if (!mount) return;
+      mount.innerHTML = `<div class="fs-timer" id="fsTimerOverlay">${buildOverlayHtml(personId)}</div>`;
+      requestAnimationFrame(() => {
+        const el = document.getElementById('fsTimerOverlay');
+        if (el) el.classList.add('is-active');
+      });
+      bindOverlayHandlers();
+    }
+
+    function closeFullScreenTimer() {
+      const el = document.getElementById('fsTimerOverlay');
+      if (el) {
+        el.classList.remove('is-active');
+        setTimeout(() => {
+          const mount = document.getElementById('fsTimerMount');
+          if (mount) mount.innerHTML = '';
+        }, 280);
+      }
+      currentOverlayPersonId = null;
+    }
+
+    function updateFullScreenTimer() {
+      if (!currentOverlayPersonId) return;
+      const pid = currentOverlayPersonId;
+      const t = activeTimers[pid];
+
+      // If the timer is gone (stopped), dismiss the overlay
+      if (!t) {
+        closeFullScreenTimer();
+        return;
+      }
+
+      // Update readout
+      const readoutEl = document.querySelector(`[data-fs-readout="${pid}"]`);
+      if (readoutEl) {
+        readoutEl.textContent = formatElapsed(elapsedMs(t));
+      }
+
+      // Update ring
+      const { progress, goalHit } = fsTimerProgress(pid);
+      const circumference = 565.49;
+      const dashoffset = (circumference * (1 - progress)).toFixed(2);
+      const fillEl = document.querySelector('.fs-timer__ring-fill');
+      if (fillEl) {
+        fillEl.setAttribute('stroke-dashoffset', dashoffset);
+        fillEl.classList.toggle('fs-timer__ring-fill--success', goalHit);
+      }
+
+      // Update goal hit chip
+      const chipEl = document.querySelector('.fs-timer__goal-chip');
+      const centerEl = document.querySelector('.fs-timer__center');
+      if (goalHit && !chipEl && centerEl) {
+        const personEl = centerEl.querySelector('.fs-timer__person');
+        if (personEl) {
+          const chip = document.createElement('div');
+          chip.className = 'fs-timer__goal-chip';
+          chip.innerHTML = '<span class="chip chip--success">✓ Goal hit!</span>';
+          personEl.insertAdjacentElement('afterend', chip);
+        }
+      } else if (!goalHit && chipEl) {
+        chipEl.remove();
+      }
+
+      // Update pause/resume button label
+      const toggleBtn = document.getElementById('fsTimerToggle');
+      if (toggleBtn) {
+        toggleBtn.textContent = t.pausedAt ? 'Resume' : 'Pause';
+      }
+    }
+
+    function bindOverlayHandlers() {
+      document.getElementById('fsTimerClose')?.addEventListener('click', () => {
+        closeFullScreenTimer();
+      });
+
+      document.getElementById('fsTimerToggle')?.addEventListener('click', async () => {
+        const pid = currentOverlayPersonId;
+        if (!pid) return;
+        const t = activeTimers[pid];
+        if (!t) return;
+        const updated = t.pausedAt ? resumeTimer(t) : pauseTimer(t);
+        await writeActiveTimer(pid, updated);
+        // Update button label immediately (subscription will also re-render)
+        const toggleBtn = document.getElementById('fsTimerToggle');
+        if (toggleBtn) toggleBtn.textContent = updated.pausedAt ? 'Resume' : 'Pause';
+      });
+
+      document.getElementById('fsTimerStop')?.addEventListener('click', async () => {
+        const pid = currentOverlayPersonId;
+        if (!pid) return;
+        closeFullScreenTimer();
+        await stopTimer(pid);
+      });
+    }
+
     // ── Render ──
 
     function render() {
@@ -225,6 +397,15 @@
       bindActiveTimerHandlers();
       bindLongPressHandlers();
       ensureDisplayInterval();
+
+      // Auto-open overlay only on same-device Start tap
+      if (openOverlayOnNextRender && activeTimers[openOverlayOnNextRender]) {
+        openFullScreenTimer(openOverlayOnNextRender);
+        openOverlayOnNextRender = null;
+      }
+
+      // Keep overlay up to date if it's open (e.g. cross-device pause from compact card)
+      updateFullScreenTimer();
     }
 
     // ── Helper functions ──
@@ -536,6 +717,7 @@
             await stopTimer(pid);
           }
           if (current && current.activityId === aid && !current.pausedAt) return; // already running
+          openOverlayOnNextRender = pid; // flag: overlay opens when subscription fires render()
           const now = Date.now();
           await writeActiveTimer(pid, {
             activityId: aid,
@@ -893,11 +1075,14 @@
       const anyRunning = Object.values(activeTimers).some(t => t && !t.pausedAt);
       if (anyRunning && !displayInterval) {
         displayInterval = setInterval(() => {
+          // Update compact active-timer card readouts
           document.querySelectorAll('[data-timer-readout]').forEach(el => {
             const pid = el.dataset.timerReadout;
             const t = activeTimers[pid];
             if (t) el.textContent = formatElapsed(elapsedMs(t));
           });
+          // Update full-screen overlay readout + ring
+          updateFullScreenTimer();
         }, 250);
       } else if (!anyRunning && displayInterval) {
         clearInterval(displayInterval);
