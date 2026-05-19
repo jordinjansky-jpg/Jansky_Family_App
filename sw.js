@@ -9,6 +9,10 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v331 (2026-05-19) — Activities polish + full-screen timer overlay:
+//                     bigger tabs, header bell/gear, FAB, person filter,
+//                     long-press edit, compact emoji picker, drop color,
+//                     library scroll, full-screen timer auto-opens on Start.
 // v330 (2026-05-18) — Activities feature shipped: precaches /activities.html,
 //                     /shared/timer.js, /styles/activities.css.
 // v324 (2026-05-15) — Phase 5c: pushsubscriptionchange auto re-registration.
@@ -474,7 +478,7 @@
 //                     includes Approve/Deny buttons; reward-request message
 //                     type mapper fixed (redemption-request, use-request).
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
-const CACHE_NAME = 'family-hub-v330';
+const CACHE_NAME = 'family-hub-v331';
 
 const APP_SHELL = [
   '/',
