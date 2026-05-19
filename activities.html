@@ -30,6 +30,7 @@
   </div>
   <div id="navMount"></div>
   <div id="sheetMount"></div>
+  <div id="fabMount"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -46,15 +47,19 @@
       writeActiveTimer, clearActiveTimer,
       pushActivitySession, updateActivitySession, removeActivitySession,
       removeActivityEarning,
-      onConnectionChange
+      onConnectionChange,
+      onAllMessages, writeMessage, markMessageSeen, removeMessage,
+      writeBankToken, markBankTokenUsed, readBank, writeMultiplier,
+      readRewards
     } from './shared/firebase.js';
     import {
-      initBottomNav, renderHeader,
+      initBottomNav, renderHeader, initBell,
       showConfirm, showToast,
       initOfflineBanner,
       renderBottomSheet, renderFormSheetHeader, renderFormFooter,
       renderChipPicker, bindChipPicker,
-      renderDateInput, bindDateInput
+      renderDateInput, bindDateInput,
+      renderFab, renderPersonFilter, applyDataColors
     } from './shared/components.js';
     import { todayKey, weekStart, weekEnd, addDays, detectTimezone, formatDateShort } from './shared/utils.js';
     import {
@@ -68,8 +73,11 @@
 
     // ── Module-scoped state ──
     let settings = {}, people = {}, activities = {}, sessions = {}, activeTimers = {}, earnings = {};
+    let rewardsData = {};
     let activeTab = 'today';
+    let activePerson = null;   // null = All
     let displayInterval = null;
+    let headerInitialized = false;
 
     // ── Cached theme ──
     applyTheme(resolveTheme());
@@ -106,6 +114,32 @@
     // ── Initial render ──
     render();
 
+    // ── Bell (one-time init after first render) ──
+    initBell(
+      () => people,
+      () => rewardsData,
+      onAllMessages,
+      {
+        writeMessageFn: writeMessage,
+        markMessageSeenFn: markMessageSeen,
+        removeMessageFn: removeMessage,
+        writeBankTokenFn: writeBankToken,
+        markBankTokenUsedFn: markBankTokenUsed,
+        readBankFn: readBank,
+        writeMultiplierFn: writeMultiplier,
+        getTodayFn: () => todayKey(settings.timezone || detectTimezone()),
+        approverName: null
+      }
+    );
+    headerInitialized = true;
+
+    // ── FAB ──
+    document.getElementById('fabMount').innerHTML =
+      renderFab({ id: 'fabAddManual', label: 'Log activity' });
+    document.getElementById('fabAddManual').addEventListener('click', () =>
+      openManualEntrySheet(null, null, null)
+    );
+
     // ── Subscribe to active timers for live updates ──
     subscribeActiveTimers(t => {
       activeTimers = t || {};
@@ -115,13 +149,14 @@
     // ── Data ──
 
     async function loadData() {
-      const [s, p, a, sess, tim, earn] = await Promise.all([
+      const [s, p, a, sess, tim, earn, rwd] = await Promise.all([
         readSettings(),
         readPeople(),
         readActivities(),
         readActivitySessions(),
         readAllActiveTimers(),
-        readAllActivityEarnings()
+        readAllActivityEarnings(),
+        readRewards()
       ]);
       settings    = s    || {};
       people      = p    || {};
@@ -129,14 +164,17 @@
       sessions    = sess || {};
       activeTimers = tim  || {};
       earnings    = earn || {};
+      rewardsData = rwd   || {};
     }
 
     // ── Render ──
 
     function render() {
-      // Header
-      document.getElementById('headerMount').innerHTML =
-        renderHeader({ title: 'Activities' });
+      // Header — only render on first call; bell badge updates via initBell subscription
+      if (!headerInitialized) {
+        document.getElementById('headerMount').innerHTML =
+          renderHeader({ title: 'Activities', showBell: true });
+      }
 
       // Content
       const mount = document.getElementById('activitiesContent');
@@ -144,11 +182,12 @@
         // mainContent not yet showing the activities-page — inject the skeleton
         mainContent.innerHTML = `
           <div class="activities-page">
-            <nav class="tabs tabs--pill activities-tabs" role="tablist" aria-label="Activities tabs">
+            <nav class="tabs tabs--pill tabs--md activities-tabs" role="tablist" aria-label="Activities tabs">
               <button class="tab${activeTab === 'today'   ? ' is-active' : ''}" data-tab="today"   type="button" role="tab" aria-selected="${activeTab === 'today'}">Today</button>
               <button class="tab${activeTab === 'week'    ? ' is-active' : ''}" data-tab="week"    type="button" role="tab" aria-selected="${activeTab === 'week'}">This Week</button>
               <button class="tab${activeTab === 'history' ? ' is-active' : ''}" data-tab="history" type="button" role="tab" aria-selected="${activeTab === 'history'}">History</button>
             </nav>
+            <div id="personFilterMount"></div>
             <div id="activitiesContent" role="tabpanel"></div>
           </div>`;
       } else {
@@ -160,12 +199,31 @@
         });
       }
 
+      // Person filter — show on today/week tabs, hide on history
+      const filterMount = document.getElementById('personFilterMount');
+      if (filterMount) {
+        if (activeTab !== 'history') {
+          const peopleArr = sortedPeople().map(([id, p]) => ({ id, ...p }));
+          filterMount.innerHTML = renderPersonFilter(peopleArr, activePerson);
+          applyDataColors(filterMount);
+          filterMount.querySelectorAll('.person-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+              activePerson = pill.dataset.personId || null;
+              render();
+            });
+          });
+        } else {
+          filterMount.innerHTML = '';
+        }
+      }
+
       document.getElementById('activitiesContent').innerHTML =
         renderContentForTab(activeTab);
 
       bindTabHandlers();
       bindCardHandlers();
       bindActiveTimerHandlers();
+      bindLongPressHandlers();
       ensureDisplayInterval();
     }
 
@@ -223,6 +281,7 @@
 
     function sortedPeople() {
       return Object.entries(people)
+        .filter(([id]) => !activePerson || id === activePerson)
         .sort(([, x], [, y]) => {
           const kx = x.kid === true ? 0 : 1;
           const ky = y.kid === true ? 0 : 1;
@@ -562,18 +621,33 @@
 
     function openManualEntrySheet(activityId, personId, sessionIdForEdit) {
       const editing = sessionIdForEdit ? sessions[sessionIdForEdit] : null;
-      const aid = editing ? editing.activityId : activityId;
+      const aid = editing ? editing.activityId : activityId;  // null when called from FAB
       const pid = editing ? editing.personId : personId;
-      const activity = activities[aid];
-      if (!activity) {
+      const activity = aid ? activities[aid] : null;
+      const noPreselect = !aid; // FAB mode — user must pick activity
+
+      if (!noPreselect && !activity) {
         showToast('Activity not found');
         return;
       }
+
       const tz = settings.timezone || detectTimezone();
-      const allowedPersonIds = Object.keys(activity.assignedTo || {});
-      const personOptions = allowedPersonIds.map(id => ({ value: id, label: people[id]?.name || id }));
       const dateValue = editing ? localDateKey(editing.startedAt, tz) : todayKey(tz);
       const dateLabel = dateValue ? formatDateShort(dateValue) : 'Set date';
+
+      // Active activities list (for picker in no-preselect mode)
+      const allActiveActivities = Object.entries(activities)
+        .filter(([, a]) => a.active !== false)
+        .sort(([, a], [, b]) => (a.name || '').localeCompare(b.name || ''));
+
+      // Compute person options for a given activityId
+      function personOptionsFor(actId) {
+        const act = actId ? activities[actId] : null;
+        const allowedIds = act ? Object.keys(act.assignedTo || {}) : [];
+        return allowedIds.map(id => ({ value: id, label: people[id]?.name || id }));
+      }
+
+      const initialPersonOptions = noPreselect ? [] : personOptionsFor(aid);
 
       const headerHtml = renderFormSheetHeader({
         title: editing ? 'Edit Session' : 'Log Session',
@@ -582,18 +656,32 @@
         deleteId: editing ? 'sessFormDelete' : null
       });
 
+      const activityPickerHtml = noPreselect ? `
+        <div class="rf-adv-row">
+          <div class="rf-adv-label">Activity</div>
+          <div class="chip-picker" id="sessFormActivityPicker">
+            ${allActiveActivities.map(([id, a]) =>
+              `<button class="chip" data-value="${id}" type="button">${a.emoji || ''} ${escapeHtml(a.name)}</button>`
+            ).join('')}
+          </div>
+          <input type="hidden" id="sessFormActivityValue" value="">
+        </div>
+      ` : `
+        <div class="rf-adv-row">
+          <strong>${activity.emoji || ''} ${escapeHtml(activity.name)}</strong>
+        </div>
+      `;
+
       const bodyHtml = `
         <div class="tf-form">
-          <div class="rf-adv-row">
-            <strong>${activity.emoji || ''} ${escapeHtml(activity.name)}</strong>
-          </div>
-          <div class="rf-adv-row">
+          ${activityPickerHtml}
+          <div class="rf-adv-row" id="sessFormPersonRow">
             <div class="rf-adv-label">Person</div>
             ${renderChipPicker({
               pickerId: 'sessFormPerson',
               hiddenId: 'sessFormPersonValue',
-              options: personOptions,
-              value: pid,
+              options: initialPersonOptions,
+              value: noPreselect ? '' : pid,
               allowClear: false
             })}
           </div>
@@ -616,7 +704,7 @@
         saveLabel: 'Save',
         cancelId: 'sessFormCancel',
         saveId: 'sessFormSaveFooter',
-        disabled: false
+        disabled: noPreselect // start disabled when no activity preselected
       });
 
       const fullHtml = headerHtml + bodyHtml + footerHtml;
@@ -624,8 +712,66 @@
       mount.innerHTML = renderBottomSheet(fullHtml);
       requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
 
-      // Bindings
-      bindChipPicker({ pickerId: 'sessFormPerson', hiddenId: 'sessFormPersonValue' });
+      // Track selected activityId in no-preselect mode
+      let selectedAid = aid;
+
+      function syncSaveState() {
+        const hasActivity = noPreselect ? !!selectedAid : true;
+        const hasPerson = !!(document.getElementById('sessFormPersonValue')?.value);
+        const ok = hasActivity && hasPerson;
+        const footer = document.getElementById('sessFormSaveFooter');
+        const header = document.getElementById('sessFormSaveHeader');
+        if (footer) footer.disabled = !ok;
+        if (header) {
+          if (ok) header.removeAttribute('disabled');
+          else header.setAttribute('disabled', '');
+        }
+      }
+
+      function rebuildPersonPicker(actId) {
+        const opts = personOptionsFor(actId);
+        const personRow = document.getElementById('sessFormPersonRow');
+        if (!personRow) return;
+        // Auto-select when only one person assigned to this activity
+        const autoVal = opts.length === 1 ? opts[0].value : '';
+        personRow.innerHTML = `
+          <div class="rf-adv-label">Person</div>
+          ${renderChipPicker({
+            pickerId: 'sessFormPerson',
+            hiddenId: 'sessFormPersonValue',
+            options: opts,
+            value: autoVal,
+            allowClear: false
+          })}`;
+        bindChipPicker({ pickerId: 'sessFormPerson', hiddenId: 'sessFormPersonValue' });
+        document.getElementById('sessFormPerson')?.addEventListener('click', syncSaveState);
+        syncSaveState();
+      }
+
+      // Activity picker in no-preselect mode
+      if (noPreselect) {
+        const picker = document.getElementById('sessFormActivityPicker');
+        if (picker) {
+          picker.addEventListener('click', e => {
+            const btn = e.target.closest('[data-value]');
+            if (!btn) return;
+            // Toggle selection
+            picker.querySelectorAll('[data-value]').forEach(b => {
+              b.classList.toggle('chip--primary', b === btn);
+              b.dataset.state = b === btn ? 'primary' : '';
+            });
+            selectedAid = btn.dataset.value || null;
+            document.getElementById('sessFormActivityValue').value = selectedAid || '';
+            rebuildPersonPicker(selectedAid);
+          });
+        }
+        // Header save starts disabled — no activity picked yet
+        document.getElementById('sessFormSaveHeader')?.setAttribute('disabled', '');
+      } else {
+        bindChipPicker({ pickerId: 'sessFormPerson', hiddenId: 'sessFormPersonValue' });
+        document.getElementById('sessFormPerson')?.addEventListener('click', syncSaveState);
+      }
+
       bindDateInput({
         btnId: 'sessFormDateBtn',
         inputId: 'sessFormDate',
@@ -646,18 +792,20 @@
       document.getElementById('sessFormCancel')?.addEventListener('click', close);
 
       const doSave = async () => {
+        const finalAid = noPreselect ? selectedAid : aid;
+        const finalActivity = finalAid ? activities[finalAid] : null;
         const finalPid = document.getElementById('sessFormPersonValue').value;
         const dateKey = document.getElementById('sessFormDate').value;
         const durationMin = parseInt(document.getElementById('sessFormDuration').value, 10);
         const notes = document.getElementById('sessFormNotes').value.trim();
-        if (!finalPid || !dateKey || !Number.isInteger(durationMin) || durationMin < 1) {
+        if (!finalAid || !finalPid || !dateKey || !Number.isInteger(durationMin) || durationMin < 1) {
           showToast('Please fill all required fields');
           return;
         }
         // Anchor the session at noon local on that date (predictable period attribution)
         const noonMs = Date.parse(`${dateKey}T12:00:00`);
         const sessionData = {
-          activityId: aid,
+          activityId: finalAid,
           personId: finalPid,
           startedAt: noonMs,
           endedAt: noonMs + durationMin * 60000,
@@ -672,14 +820,15 @@
           await pushActivitySession(sessionData);
         }
         // Invalidate settled earning for affected period
-        const periodKey = sessionPeriodKey(sessionData, aid);
+        const periodKey = sessionPeriodKey(sessionData, finalAid);
         if (periodKey) {
-          await removeActivityEarning(finalPid, aid, periodKey);
+          await removeActivityEarning(finalPid, finalAid, periodKey);
         }
         close();
         await loadData();
         render();
-        showToast(`Manual entry saved · ${activity.name} · ${durationMin} min · ${people[finalPid]?.name || finalPid}`);
+        const actName = finalActivity?.name || 'activity';
+        showToast(`Manual entry saved · ${actName} · ${durationMin} min · ${people[finalPid]?.name || finalPid}`);
       };
       document.getElementById('sessFormSaveFooter')?.addEventListener('click', doSave);
       document.getElementById('sessFormSaveHeader')?.addEventListener('click', doSave);
@@ -688,7 +837,7 @@
         document.getElementById('sessFormDelete')?.addEventListener('click', async () => {
           const ok = await showConfirm({
             title: 'Delete session?',
-            message: `Permanently delete this ${editing.durationMin} min ${activity.name} session?`,
+            message: `Permanently delete this ${editing.durationMin} min ${activity?.name || 'activity'} session?`,
             confirmLabel: 'Delete',
             cancelLabel: 'Cancel',
             danger: true
@@ -705,6 +854,37 @@
           showToast('Session deleted');
         });
       }
+    }
+
+    // ── Long-press on activity cards → deep-link to admin edit form ──
+
+    function bindLongPressHandlers() {
+      document.querySelectorAll('.activity-card').forEach(card => {
+        let lpTimer = null;
+
+        const cancelLp = () => {
+          if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+        };
+
+        // Don't trigger long-press when interacting with action buttons
+        card.querySelectorAll('[data-card-action]').forEach(btn => {
+          btn.addEventListener('pointerdown', e => e.stopPropagation());
+        });
+
+        card.addEventListener('pointerdown', e => {
+          if (e.button && e.button !== 0) return;
+          lpTimer = setTimeout(() => {
+            lpTimer = null;
+            const aid = card.dataset.activityId;
+            if (!aid) return;
+            const envParam = isDev ? '?env=dev' : '';
+            window.location.href = `admin.html${envParam}#activity/${aid}`;
+          }, 800);
+        });
+        card.addEventListener('pointerup',     cancelLp);
+        card.addEventListener('pointerleave',  cancelLp);
+        card.addEventListener('pointercancel', cancelLp);
+      });
     }
 
     // ── Display interval for live timer readouts ──

@@ -3650,6 +3650,13 @@
   color: var(--text);
 }
 
+/* Medium-size pill tabs (Kitchen, Activities) */
+.tabs--md .tab {
+  padding: 10px 16px;
+  min-height: 42px;
+  font-size: var(--font-sm);
+}
+
 /* Admin section nav — full-width equal tabs */
 .admin-section-tabs { margin-bottom: var(--spacing-sm); }
 

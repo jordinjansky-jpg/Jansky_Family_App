@@ -130,6 +130,7 @@
   gap: 8px;
   margin-top: 8px;
 }
+.activity-card__actions > .btn { flex: 1; }
 
 /* ── Week tab: 7-day dot grid ── */
 .activity-card__dots {

@@ -3420,21 +3420,13 @@
 
         <div class="cf-icon-section">
           <span class="ef2-section-label">Emoji</span>
-          ${renderEmojiPicker({
-            pickerId: 'actFormEmojiPicker',
-            hiddenId: 'actFormEmoji',
-            value: a.emoji || '',
-            emojis: ACTIVITY_EMOJIS,
-            allowCustom: true,
-          })}
-        </div>
-
-        <div class="ef2-divider"></div>
-
-        <div class="rf-adv-grid">
-          <div class="rf-adv-row">
-            <span class="rf-adv-label">Color</span>
-            ${renderColorButton(a.color || '#4A90E2', 'actFormColor')}
+          <button class="rf-emoji-btn" id="af_emojiBtnPreview" type="button" title="Pick emoji">${a.emoji || ACTIVITY_EMOJIS[0]}</button>
+          <input type="hidden" id="actFormEmoji" value="${esc(a.emoji || ACTIVITY_EMOJIS[0])}">
+          <div class="rf-emoji-reveal" id="af_emojiReveal">
+            <div class="rf-emoji-grid" id="af_emojiPicker">
+              ${ACTIVITY_EMOJIS.map(e => `<button type="button" class="rf-emoji-cell${(a.emoji || ACTIVITY_EMOJIS[0]) === e ? ' is-selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+              <input type="search" id="af_customEmoji" class="rf-emoji-custom" placeholder="+">
+            </div>
           </div>
         </div>
 
@@ -3501,9 +3493,37 @@
       requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
 
       bindChipPicker({ pickerId: 'actFormGoalPeriod', hiddenId: 'actFormGoalPeriodValue' });
-      bindEmojiPicker({ pickerId: 'actFormEmojiPicker', hiddenId: 'actFormEmoji' });
-      const colorWrap = mount.querySelector('.cpick-wrap');
-      if (colorWrap) initColorButton(colorWrap, null);
+
+      // Compact emoji picker (mirrors reward form pattern)
+      {
+        const emojiReveal = mount.querySelector('#af_emojiReveal');
+        mount.querySelector('#af_emojiBtnPreview')?.addEventListener('click', () => {
+          emojiReveal?.classList.toggle('is-open');
+        });
+        for (const cell of mount.querySelectorAll('#af_emojiPicker .rf-emoji-cell')) {
+          cell.addEventListener('click', () => {
+            mount.querySelectorAll('#af_emojiPicker .rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+            cell.classList.add('is-selected');
+            const picked = cell.dataset.emoji;
+            mount.querySelector('#af_emojiBtnPreview').textContent = picked;
+            const hiddenEmoji = document.getElementById('actFormEmoji');
+            if (hiddenEmoji) hiddenEmoji.value = picked;
+            mount.querySelector('#af_customEmoji').value = '';
+            emojiReveal?.classList.remove('is-open');
+            setTimeout(syncActivitySaveState, 0);
+          });
+        }
+        mount.querySelector('#af_customEmoji')?.addEventListener('input', e => {
+          const v = e.target.value.trim();
+          if (v) {
+            mount.querySelector('#af_emojiBtnPreview').textContent = v;
+            const hiddenEmoji = document.getElementById('actFormEmoji');
+            if (hiddenEmoji) hiddenEmoji.value = v;
+            mount.querySelectorAll('#af_emojiPicker .rf-emoji-cell').forEach(c => c.classList.remove('is-selected'));
+            setTimeout(syncActivitySaveState, 0);
+          }
+        });
+      }
 
       const close = () => closeAdminSheet();
       mount.querySelector('#actFormClose')?.addEventListener('click', close);
@@ -3517,7 +3537,6 @@
       function validateActivityForm() {
         const name = document.getElementById('actFormName')?.value.trim() || '';
         const emoji = document.getElementById('actFormEmoji')?.value.trim() || '';
-        const color = document.getElementById('actFormColor')?.value.trim() || '';
         const period = document.getElementById('actFormGoalPeriodValue')?.value || '';
         const mins = parseInt(document.getElementById('actFormGoalMinutes')?.value, 10);
         const pts = parseInt(document.getElementById('actFormPointsAtGoal')?.value, 10);
@@ -3528,7 +3547,6 @@
         return (
           name.length > 0 && name.length <= 50 &&
           emoji.length > 0 &&
-          color.length > 0 &&
           (period === 'daily' || period === 'weekly') &&
           Number.isInteger(mins) && mins >= 1 && mins <= maxMins &&
           Number.isInteger(pts) && pts >= 0 && pts <= 1000 &&
@@ -3551,7 +3569,7 @@
       syncActivitySaveState();
 
       // Wire all validation triggers
-      ['actFormName', 'actFormEmoji', 'actFormColor', 'actFormGoalPeriodValue', 'actFormGoalMinutes', 'actFormPointsAtGoal'].forEach(elId => {
+      ['actFormName', 'actFormEmoji', 'actFormGoalPeriodValue', 'actFormGoalMinutes', 'actFormPointsAtGoal'].forEach(elId => {
         const el = document.getElementById(elId);
         el?.addEventListener('input', syncActivitySaveState);
         el?.addEventListener('change', syncActivitySaveState);
@@ -3574,7 +3592,6 @@
         if (!validateActivityForm()) return;
         const name = document.getElementById('actFormName').value.trim();
         const emoji = document.getElementById('actFormEmoji').value.trim();
-        const color = document.getElementById('actFormColor').value.trim();
         const period = document.getElementById('actFormGoalPeriodValue').value;
         const mins = parseInt(document.getElementById('actFormGoalMinutes').value, 10);
         const pts = parseInt(document.getElementById('actFormPointsAtGoal').value, 10);
@@ -3584,7 +3601,7 @@
         ).map(b => b.dataset.personId).filter(Boolean);
 
         const data = {
-          name, emoji, color,
+          name, emoji,
           goalPeriod: period,
           goalMinutes: mins,
           pointsAtGoal: pts,
@@ -5816,6 +5833,21 @@ function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
     // ── Initial render if PIN session was cached or bypass applies ──
     if (pinSessionValid || isAdminBypass) {
       render();
+      // ── Hash deep-link: #activity/{id} → open edit form ──
+      const _hashAtBoot = location.hash;
+      const hashMatch = _hashAtBoot.match(/^#activity\/(.+)$/);
+      if (hashMatch) {
+        const targetId = decodeURIComponent(hashMatch[1]);
+        history.replaceState(null, '', location.pathname + location.search); // clear hash
+        // Switch to Library → Activities and open form
+        activeTab = 'library';
+        activeLibrarySection = 'activities';
+        activitiesObj = (await readActivities()) || {};
+        render();
+        if (activitiesObj[targetId]) {
+          openActivityFormSheet(targetId);
+        }
+      }
     }
   </script>
   <script src="/shared/dev-banner.js"></script>

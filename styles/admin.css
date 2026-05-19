@@ -970,6 +970,17 @@
 .admin-lib-tabs .tab,
 .admin-settings-tabs .tab { font-size: var(--font-xs); }
 
+/* Library sub-nav — horizontal scroll on overflow (6 tabs) */
+.admin-lib-tabs {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+  margin-bottom: var(--spacing-md);
+}
+.admin-lib-tabs::-webkit-scrollbar { display: none; }
+.admin-lib-tabs .tab { flex: 0 0 auto; padding: 8px var(--spacing-sm); }
+
 /* Settings + Tools sub-nav — equal-width tabs */
 .admin-settings-tabs {
   overflow-x: auto;
