@@ -483,8 +483,9 @@
 //                     Boot hookup in dashboard.js (covers index.html + person.html)
 //                     and kid.html.
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
+// v334 (2026-05-20) — Activities: gear icon wired to admin.
 // v333 (2026-05-20) — Activities: person switcher chip in header (Rewards pattern) + tabs--md removed.
-const CACHE_NAME = 'family-hub-v333';
+const CACHE_NAME = 'family-hub-v334';
 
 const APP_SHELL = [
   '/',

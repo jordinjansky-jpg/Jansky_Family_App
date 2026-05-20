@@ -148,6 +148,11 @@
     );
     headerInitialized = true;
 
+    // ── Header gear → admin ──
+    document.getElementById('headerAdmin')?.addEventListener('click', () => {
+      location.href = 'admin.html';
+    });
+
     // ── FAB ──
     document.getElementById('fabMount').innerHTML =
       renderFab({ id: 'fabAddManual', label: 'Log activity' });
