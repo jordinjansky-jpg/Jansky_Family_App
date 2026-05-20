@@ -476,6 +476,7 @@ export function renderNavBar(activePage, options = {}) {
     scoreboard: { page: 'scoreboard', href: 'scoreboard.html', label: 'Scores',  svg: `<path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 4h3v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V4h3"></path><path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>` },
     rewards:    { page: 'rewards',    href: 'rewards.html',    label: 'Rewards', svg: `<path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>` },
     tracker:    { page: 'tracker',    href: 'tracker.html',    label: 'Tracker', svg: `<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>` },
+    activities: { page: 'activities', href: 'activities.html', label: 'Activities', svg: `<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>` },
   };
   // Build a user-pick-or-default ordered list of the 3 middle slots, then wrap
   // with Home up front. When the caller doesn't pass tabs explicitly, fall
@@ -623,7 +624,7 @@ export function readNavTabsPref(personOpts) {
     try { raw = JSON.parse(localStorage.getItem('dr-customize-navTabs') || 'null'); } catch { /* */ }
   }
   if (!Array.isArray(raw) || raw.length !== 3) return [...DEFAULT_NAV_TABS];
-  const valid = raw.filter(id => ['kitchen','calendar','scoreboard','rewards','tracker'].includes(id));
+  const valid = raw.filter(id => ['kitchen','calendar','scoreboard','rewards','tracker','activities'].includes(id));
   if (valid.length !== 3 || new Set(valid).size !== 3) return [...DEFAULT_NAV_TABS];
   return valid;
 }
@@ -804,11 +805,12 @@ export async function writeScoreboardCustomize(personOpts, patch) {
 // bindNavTabsSection() after the sheet mounts.
 function renderNavTabsSection(personOpts) {
   const ALL = [
-    { id: 'kitchen',    label: 'Kitchen'  },
-    { id: 'calendar',   label: 'Calendar' },
-    { id: 'scoreboard', label: 'Scores'   },
-    { id: 'rewards',    label: 'Rewards'  },
-    { id: 'tracker',    label: 'Tracker'  },
+    { id: 'kitchen',    label: 'Kitchen'    },
+    { id: 'calendar',   label: 'Calendar'   },
+    { id: 'scoreboard', label: 'Scores'     },
+    { id: 'rewards',    label: 'Rewards'    },
+    { id: 'tracker',    label: 'Tracker'    },
+    { id: 'activities', label: 'Activities' },
   ];
   const tabs = readNavTabsPref(personOpts);
   // Order: user's 3 picks first (in their nav slot order), then the rest.

@@ -483,9 +483,12 @@
 //                     Boot hookup in dashboard.js (covers index.html + person.html)
 //                     and kid.html.
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
+// v335 (2026-05-20) — Activities polish round 3: tab padding bug fixed (was 12px,
+//                     making outer pill way too tall); bell people-array conversion
+//                     fix; Activities now pickable in Customize → Navigation buttons.
 // v334 (2026-05-20) — Activities: gear icon wired to admin.
 // v333 (2026-05-20) — Activities: person switcher chip in header (Rewards pattern) + tabs--md removed.
-const CACHE_NAME = 'family-hub-v334';
+const CACHE_NAME = 'family-hub-v335';
 
 const APP_SHELL = [
   '/',

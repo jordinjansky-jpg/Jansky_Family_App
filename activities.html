@@ -130,8 +130,9 @@
     render();
 
     // ── Bell (one-time init after first render) ──
+    // initBell expects people as an ARRAY with .id, but we store it as an object keyed by id.
     initBell(
-      () => people,
+      () => Object.entries(people).map(([id, p]) => ({ id, ...p })),
       () => rewardsData,
       onAllMessages,
       {
