@@ -11,6 +11,8 @@ import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, get
 import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
+import { silentAutoResubscribe } from './shared/push-client.js';
+import { readNotificationPrefs, writePushSubscription as writePushSubscriptionFb } from './shared/firebase.js';
 
 
 // ── Cached theme (device override > family cache > default) ──
@@ -78,6 +80,17 @@ if (personParam && !linkedPerson) {
 // Apply person's saved theme from Firebase (overrides family theme)
 if (linkedPerson?.theme?.preset) {
   applyTheme(linkedPerson.theme);
+}
+
+// Silent push auto-resubscribe — only runs when page has a person context.
+// Fire-and-forget; never blocks boot.
+if (linkedPerson?.id) {
+  Promise.resolve().then(() =>
+    silentAutoResubscribe(linkedPerson.id, {
+      readNotificationPrefs,
+      writePushSubscription: writePushSubscriptionFb,
+    })
+  );
 }
 
 // ── App state ──

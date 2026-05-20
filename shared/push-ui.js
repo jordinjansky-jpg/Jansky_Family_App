@@ -168,6 +168,13 @@ export async function mountNotificationsSection(mount, personOpts) {
       try {
         if (thisDeviceOn) {
           await unsubscribe(personId, { removePushSubscription });
+          // Set the master intent flag to false so the silent auto-resubscribe on
+          // next page load doesn't put it back. Matches "per-person — one truth
+          // across all devices."
+          if (prefs.enabled !== false) {
+            prefs = { ...prefs, enabled: false };
+            await writeNotificationPrefs(personId, prefs);
+          }
           subs = (await readPushSubscriptions(personId)) || {};
           thisDeviceOn = false;
         } else {

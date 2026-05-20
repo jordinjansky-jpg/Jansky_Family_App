@@ -92,6 +92,38 @@ export async function unsubscribe(personId, firebaseHelpers) {
 }
 
 /**
+ * Silent check on app boot: if the person's master intent says notifications are ON
+ * but this browser has no push subscription, silently re-subscribe.
+ *
+ * Returns silently on all skip conditions (no-op). Never prompts, never throws.
+ * `firebaseHelpers` is { readNotificationPrefs, writePushSubscription }.
+ */
+export async function silentAutoResubscribe(personId, firebaseHelpers) {
+  try {
+    if (!personId) return;
+    if (!pushSupported()) return;
+    // OS-level permission must already be granted. If it was revoked we cannot silently re-prompt.
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) return; // already subscribed in this browser — nothing to do
+
+    if (typeof firebaseHelpers?.readNotificationPrefs !== 'function') return;
+    const prefs = await firebaseHelpers.readNotificationPrefs(personId);
+    if (!prefs || prefs.enabled !== true) return; // user intent says off (or never enabled)
+
+    // Intent says ON but browser has no subscription → silently re-subscribe.
+    // Reuses the existing subscribe() flow which writes fresh endpoint to Firebase.
+    await subscribe(personId, { writePushSubscription: firebaseHelpers.writePushSubscription });
+    console.log('[push-client] silentAutoResubscribe: re-subscribed for', personId);
+  } catch (err) {
+    // Silent — auto-resubscribe failures are surfaced via the existing Notifications UI
+    console.warn('[push-client] silentAutoResubscribe skipped:', err?.message || err);
+  }
+}
+
+/**
  * Send a notification via the Worker. Used by writeMessage hook and the test button.
  * `payload` = { title, body, icon?, tag?, data?, actions? }.
  */

@@ -477,8 +477,13 @@
 //                     Snooze) wired in SW; reward-request push payload
 //                     includes Approve/Deny buttons; reward-request message
 //                     type mapper fixed (redemption-request, use-request).
+// v332 (2026-05-20) — feat(notifications): silent auto-resubscribe on app boot
+//                     (silentAutoResubscribe in push-client.js) + master intent
+//                     flag explicitly set to false on toggle-off (push-ui.js fix).
+//                     Boot hookup in dashboard.js (covers index.html + person.html)
+//                     and kid.html.
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
-const CACHE_NAME = 'family-hub-v331';
+const CACHE_NAME = 'family-hub-v332';
 
 const APP_SHELL = [
   '/',
