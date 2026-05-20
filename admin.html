@@ -5833,7 +5833,7 @@ function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
     // ── Initial render if PIN session was cached or bypass applies ──
     if (pinSessionValid || isAdminBypass) {
       render();
-      // ── Hash deep-link: #activity/{id} → open edit form ──
+      // ── Hash deep-link: #activity/{id} → open edit form; #activity/new → open create form ──
       const _hashAtBoot = location.hash;
       const hashMatch = _hashAtBoot.match(/^#activity\/(.+)$/);
       if (hashMatch) {
@@ -5844,8 +5844,10 @@ function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
         activeLibrarySection = 'activities';
         activitiesObj = (await readActivities()) || {};
         render();
-        if (activitiesObj[targetId]) {
-          openActivityFormSheet(targetId);
+        if (targetId === 'new') {
+          openActivityFormSheet(null); // create mode
+        } else if (activitiesObj[targetId]) {
+          openActivityFormSheet(targetId); // edit mode
         }
       }
     }

@@ -154,12 +154,14 @@
       location.href = 'admin.html';
     });
 
-    // ── FAB ──
+    // ── FAB → create new activity (deep-links to admin) ──
     document.getElementById('fabMount').innerHTML =
-      renderFab({ id: 'fabAddManual', label: 'Log activity' });
-    document.getElementById('fabAddManual').addEventListener('click', () =>
-      openManualEntrySheet(null, null, null)
-    );
+      renderFab({ id: 'fabAddActivity', label: 'Add activity' });
+    document.getElementById('fabAddActivity').addEventListener('click', () => {
+      const envFlag = new URLSearchParams(location.search).get('env');
+      const envParam = envFlag ? `?env=${encodeURIComponent(envFlag)}` : '';
+      location.href = `admin.html${envParam}#activity/new`;
+    });
 
     // ── Subscribe to active timers for live updates ──
     subscribeActiveTimers(t => {
