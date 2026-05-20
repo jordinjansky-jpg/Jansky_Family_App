@@ -60,7 +60,7 @@
       renderBottomSheet, renderFormSheetHeader, renderFormFooter,
       renderChipPicker, bindChipPicker,
       renderDateInput, bindDateInput,
-      renderFab, renderPersonFilter, applyDataColors
+      renderFab, applyDataColors
     } from './shared/components.js';
     import { todayKey, weekStart, weekEnd, addDays, detectTimezone, formatDateShort } from './shared/utils.js';
     import {
@@ -76,7 +76,7 @@
     let settings = {}, people = {}, activities = {}, sessions = {}, activeTimers = {}, earnings = {};
     let rewardsData = {};
     let activeTab = 'today';
-    let activePerson = null;   // null = All
+    let activePersonId = null; // null = All
     let displayInterval = null;
     let headerInitialized = false;
 
@@ -97,6 +97,16 @@
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     if (settings?.textSize) applyTextSize(settings.textSize);
+
+    // ── Restore person filter from localStorage ──
+    try {
+      const saved = localStorage.getItem('activities-active-person');
+      if (saved && saved !== 'all' && people[saved]) {
+        activePersonId = saved;
+      } else {
+        activePersonId = null;
+      }
+    } catch { activePersonId = null; }
 
     // ── Show content ──
     document.getElementById('loadingState').style.display = 'none';
@@ -346,6 +356,18 @@
       if (!headerInitialized) {
         document.getElementById('headerMount').innerHTML =
           renderHeader({ title: 'Activities', showBell: true });
+        // Insert chip mount slot into header actions area
+        document.querySelector('.app-header__actions')?.insertAdjacentHTML(
+          'afterbegin',
+          '<div id="activitiesPersonChipMount"></div>'
+        );
+      }
+
+      // Refresh person switcher chip on every render
+      const chipMount = document.getElementById('activitiesPersonChipMount');
+      if (chipMount) {
+        chipMount.innerHTML = renderActivitiesViewAsChip();
+        document.getElementById('activitiesPersonSwitcherChip')?.addEventListener('click', openActivitiesPersonSwitcherSheet);
       }
 
       // Content
@@ -354,12 +376,11 @@
         // mainContent not yet showing the activities-page — inject the skeleton
         mainContent.innerHTML = `
           <div class="activities-page">
-            <nav class="tabs tabs--pill tabs--md activities-tabs" role="tablist" aria-label="Activities tabs">
+            <nav class="tabs tabs--pill activities-tabs" role="tablist" aria-label="Activities tabs">
               <button class="tab${activeTab === 'today'   ? ' is-active' : ''}" data-tab="today"   type="button" role="tab" aria-selected="${activeTab === 'today'}">Today</button>
               <button class="tab${activeTab === 'week'    ? ' is-active' : ''}" data-tab="week"    type="button" role="tab" aria-selected="${activeTab === 'week'}">This Week</button>
               <button class="tab${activeTab === 'history' ? ' is-active' : ''}" data-tab="history" type="button" role="tab" aria-selected="${activeTab === 'history'}">History</button>
             </nav>
-            <div id="personFilterMount"></div>
             <div id="activitiesContent" role="tabpanel"></div>
           </div>`;
       } else {
@@ -369,24 +390,6 @@
           t.classList.toggle('is-active', isActive);
           t.setAttribute('aria-selected', String(isActive));
         });
-      }
-
-      // Person filter — show on today/week tabs, hide on history
-      const filterMount = document.getElementById('personFilterMount');
-      if (filterMount) {
-        if (activeTab !== 'history') {
-          const peopleArr = sortedPeople().map(([id, p]) => ({ id, ...p }));
-          filterMount.innerHTML = renderPersonFilter(peopleArr, activePerson);
-          applyDataColors(filterMount);
-          filterMount.querySelectorAll('.person-pill').forEach(pill => {
-            pill.addEventListener('click', () => {
-              activePerson = pill.dataset.personId || null;
-              render();
-            });
-          });
-        } else {
-          filterMount.innerHTML = '';
-        }
       }
 
       document.getElementById('activitiesContent').innerHTML =
@@ -461,18 +464,105 @@
     }
 
     function sortedPeople() {
-      return Object.entries(people)
-        .filter(([id]) => !activePerson || id === activePerson)
+      const entries = Object.entries(people)
         .sort(([, x], [, y]) => {
           const kx = x.kid === true ? 0 : 1;
           const ky = y.kid === true ? 0 : 1;
           if (kx !== ky) return kx - ky;
           return (x.name || '').localeCompare(y.name || '');
         });
+      if (activePersonId !== null) {
+        return entries.filter(([pid]) => pid === activePersonId);
+      }
+      return entries;
     }
 
     function escapeHtml(s) {
       return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+    }
+
+    // ── Person switcher chip + sheet ──
+
+    function peopleWithActivitiesSet() {
+      const set = new Set();
+      for (const a of Object.values(activities || {})) {
+        if (a.active === false) continue;
+        for (const pid of Object.keys(a.assignedTo || {})) set.add(pid);
+      }
+      return set;
+    }
+
+    function renderActivitiesViewAsChip() {
+      const has = peopleWithActivitiesSet();
+      if (has.size <= 1) return '';
+
+      if (activePersonId === null) {
+        return `<button class="activities-view-as-chip" id="activitiesPersonSwitcherChip" type="button" aria-label="Switch person">
+          <span class="activities-view-as-chip__all-icon" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M14 19v-1a3 3 0 0 1 3-3h1a3 3 0 0 1 3 3v1"/></svg>
+          </span>
+          <span class="activities-view-as-chip__name">All</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>`;
+      }
+      const person = (people || {})[activePersonId];
+      if (!person) return '';
+      return `<button class="activities-view-as-chip" id="activitiesPersonSwitcherChip" type="button" aria-label="Switch person">
+        <span class="activities-view-as-chip__avatar" style="--person-color: ${escapeHtml(person.color || 'var(--accent)')}">${escapeHtml((person.name || '?')[0].toUpperCase())}</span>
+        <span class="activities-view-as-chip__name">${escapeHtml(person.name)}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>`;
+    }
+
+    function openActivitiesPersonSwitcherSheet() {
+      const mount = document.getElementById('sheetMount');
+      const CHECK_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+      const has = peopleWithActivitiesSet();
+      const peopleList = Object.entries(people || {})
+        .filter(([pid]) => has.has(pid))
+        .map(([pid, p]) => ({ id: pid, ...p }))
+        .sort((x, y) => {
+          const kx = x.kid === true ? 0 : 1;
+          const ky = y.kid === true ? 0 : 1;
+          if (kx !== ky) return kx - ky;
+          return (x.name || '').localeCompare(y.name || '');
+        });
+
+      const allRow = `
+        <button class="person-switcher-row${activePersonId === null ? ' is-active' : ''}" data-person-id="__all" type="button">
+          <span class="person-switcher-row__avatar person-switcher-row__avatar--all" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M14 19v-1a3 3 0 0 1 3-3h1a3 3 0 0 1 3 3v1"/></svg>
+          </span>
+          <span class="person-switcher-row__name">View as everyone</span>
+          ${activePersonId === null ? `<span class="person-switcher-row__check">${CHECK_SVG}</span>` : ''}
+        </button>`;
+
+      const personRows = peopleList.map(p => `
+        <button class="person-switcher-row${p.id === activePersonId ? ' is-active' : ''}" data-person-id="${escapeHtml(p.id)}" type="button">
+          <span class="person-switcher-row__avatar" style="--person-color: ${escapeHtml(p.color || 'var(--accent)')}">${escapeHtml((p.name || '?')[0].toUpperCase())}</span>
+          <span class="person-switcher-row__name">${escapeHtml(p.name)}</span>
+          ${p.id === activePersonId ? `<span class="person-switcher-row__check">${CHECK_SVG}</span>` : ''}
+        </button>`).join('');
+
+      mount.innerHTML = renderBottomSheet(`
+        <h3 class="sheet-section-title">View as</h3>
+        <div class="person-switcher-list">${allRow}${personRows}</div>
+      `);
+      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      document.getElementById('bottomSheet')?.addEventListener('click', e => {
+        if (e.target.id === 'bottomSheet') { mount.innerHTML = ''; }
+      });
+
+      mount.querySelectorAll('.person-switcher-row[data-person-id]').forEach(row => {
+        row.addEventListener('click', () => {
+          const pid = row.dataset.personId;
+          activePersonId = (pid === '__all') ? null : pid;
+          try { localStorage.setItem('activities-active-person', activePersonId == null ? 'all' : activePersonId); } catch {}
+          mount.innerHTML = '';
+          render();
+        });
+      });
     }
 
     // ── Tab content ──
@@ -489,6 +579,7 @@
     function renderHistoryTab(tz) {
       const sortedSessions = Object.entries(sessions || {})
         .map(([id, s]) => ({ id, ...s }))
+        .filter(s => activePersonId === null || s.personId === activePersonId)
         .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
       if (sortedSessions.length === 0) return '<p class="activities-placeholder-content">No sessions logged yet.</p>';
 
