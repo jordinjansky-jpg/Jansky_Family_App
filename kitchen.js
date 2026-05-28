@@ -24,6 +24,7 @@ import { renderHeader, renderNavBar, initNavMore, initBottomNav, initBell,
 } from './shared/components.js';
 import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
+import { withButtonLock } from './shared/dom-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -2507,22 +2508,22 @@ async function openSchoolLunchIcalSheet() {
   }
 
   function bindRowActions() {
-    mount.querySelectorAll('[data-sync]').forEach(b => b.addEventListener('click', async () => {
+    mount.querySelectorAll('[data-sync]').forEach(b => b.addEventListener('click', () => withButtonLock(b, async () => {
       await syncOneFeed(b.dataset.sync);
       const fresh = (await readSchoolLunchFeeds()) || {};
       Object.assign(feeds, fresh);
       for (const k of Object.keys(feeds)) if (!fresh[k]) delete feeds[k];
       render();
-    }));
+    })));
     mount.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openFeedEdit(b.dataset.edit)));
-    mount.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
+    mount.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => withButtonLock(b, async () => {
       const personId = b.dataset.remove;
       const ok = await showConfirm({ title: 'Remove this feed?', confirmLabel: 'Remove', danger: true });
       if (!ok) return;
       await removeSchoolLunchFeed(personId);
       delete feeds[personId];
       render();
-    }));
+    })));
   }
 
   function openFeedEdit(existingPersonId) {
@@ -2545,7 +2546,8 @@ async function openSchoolLunchIcalSheet() {
     activateSheet(subMount);
     document.getElementById('slie_close')?.addEventListener('click', () => render());
     document.getElementById('slie_cancel')?.addEventListener('click', () => render());
-    document.getElementById('slie_save')?.addEventListener('click', async () => {
+    const slieSaveBtn = document.getElementById('slie_save');
+    slieSaveBtn?.addEventListener('click', () => withButtonLock(slieSaveBtn, async () => {
       const pid = document.getElementById('slie_person')?.value;
       const url = document.getElementById('slie_url')?.value.trim();
       if (!pid || !url) return;
@@ -2557,7 +2559,7 @@ async function openSchoolLunchIcalSheet() {
       await writeSchoolLunchFeed(pid, data);
       feeds[pid] = { ...(feeds[pid] || {}), ...data };
       render();
-    });
+    }));
   }
 
   render();
@@ -3307,7 +3309,8 @@ function openRecipeForm(recipeId, onSave = null) {
     }
   });
 
-  document.getElementById('kr_save')?.addEventListener('click', async () => {
+  const krSaveBtn = document.getElementById('kr_save');
+  krSaveBtn?.addEventListener('click', () => withButtonLock(krSaveBtn, async () => {
     const name = document.getElementById('recipeName')?.value.trim();
     if (!name) {
       const inp = document.getElementById('recipeName');
@@ -3353,7 +3356,7 @@ function openRecipeForm(recipeId, onSave = null) {
       if (onSave) { onSave(id); } else { renderActiveTab(); }
       showToast('Recipe saved');
     }
-  });
+  }));
 }
 
 function renderListsTab() {
@@ -3667,7 +3670,8 @@ function openCreateListSheet(onCreated = null) {
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('kl_close')?.addEventListener('click', close);
   document.getElementById('kl_cancel')?.addEventListener('click', close);
-  document.getElementById('kl_save')?.addEventListener('click', async () => {
+  const klSaveBtn = document.getElementById('kl_save');
+  klSaveBtn?.addEventListener('click', () => withButtonLock(klSaveBtn, async () => {
     const name = document.getElementById('kl_name')?.value.trim();
     if (!name) {
       const inp = document.getElementById('kl_name');
@@ -3685,7 +3689,7 @@ function openCreateListSheet(onCreated = null) {
     renderListsTab();
     bindFab();
     if (onCreated) onCreated(id);
-  });
+  }));
 }
 
 function openManageListSheet() {
@@ -3757,7 +3761,8 @@ function openManageListSheet() {
   const close = () => { mount.innerHTML = ''; };
   document.getElementById('km_close')?.addEventListener('click', close);
 
-  document.getElementById('km_save')?.addEventListener('click', async () => {
+  const kmSaveBtn = document.getElementById('km_save');
+  kmSaveBtn?.addEventListener('click', () => withButtonLock(kmSaveBtn, async () => {
     const name = document.getElementById('km_name')?.value.trim();
     if (!name) return;
     const updated = { ...lists[activeListId], name, icon: currentEmoji, color: currentColor };
@@ -3765,7 +3770,7 @@ function openManageListSheet() {
     lists[activeListId] = updated;
     close();
     renderListsTab();
-  });
+  }));
 
   document.getElementById('km_deleteBtn')?.addEventListener('click', async () => {
     const itemCount = document.querySelectorAll('.card--shopping').length;
@@ -3948,20 +3953,22 @@ function openItemEditSheet(id, item) {
   document.getElementById('ki_close')?.addEventListener('click', close);
   document.getElementById('ki_cancel')?.addEventListener('click', close);
 
-  document.getElementById('ki_save')?.addEventListener('click', async () => {
+  const kiSaveBtn = document.getElementById('ki_save');
+  kiSaveBtn?.addEventListener('click', () => withButtonLock(kiSaveBtn, async () => {
     const name = input?.value.trim();
     const qty = qtyInput?.value.trim() || null;
     if (!name || !activeListId) return;
     await writeKitchenItem(activeListId, id, { ...item, name, qty });
     close();
-  });
+  }));
 
-  document.getElementById('ki_deleteBtn')?.addEventListener('click', async () => {
+  const kiDeleteBtn = document.getElementById('ki_deleteBtn');
+  kiDeleteBtn?.addEventListener('click', () => withButtonLock(kiDeleteBtn, async () => {
     const confirmed = await showConfirm({ title: `Remove "${item.name}"?`, confirmLabel: 'Remove', danger: true });
     if (!confirmed) return;
     await removeKitchenItem(activeListId, id);
     close();
-  });
+  }));
 
   document.getElementById('ki_addToStaples')?.addEventListener('click', async () => {
     const name = input?.value.trim() || item.name;
@@ -4095,7 +4102,8 @@ function openStapleEditSheet(id, onDone) {
   document.getElementById('ks_close')?.addEventListener('click', back);
   document.getElementById('ks_cancel')?.addEventListener('click', back);
 
-  document.getElementById('ks_save')?.addEventListener('click', async () => {
+  const ksSaveBtn = document.getElementById('ks_save');
+  ksSaveBtn?.addEventListener('click', () => withButtonLock(ksSaveBtn, async () => {
     const name = document.getElementById('ks_name')?.value.trim();
     if (!name) return;
     await getDb().ref(`rundown/kitchen/staples/${id}/name`).set(name);
@@ -4103,9 +4111,10 @@ function openStapleEditSheet(id, onDone) {
     mount.innerHTML = '';
     onDone?.();
     openStaplesSheet();
-  });
+  }));
 
-  document.getElementById('ks_deleteBtn')?.addEventListener('click', async () => {
+  const ksDeleteBtn = document.getElementById('ks_deleteBtn');
+  ksDeleteBtn?.addEventListener('click', () => withButtonLock(ksDeleteBtn, async () => {
     const confirmed = await showConfirm({
       title: `Remove "${staple.name}" from staples?`,
       confirmLabel: 'Remove', danger: true,
@@ -4115,7 +4124,7 @@ function openStapleEditSheet(id, onDone) {
     delete staples[id];
     mount.innerHTML = '';
     openStaplesSheet();
-  });
+  }));
 }
 
 async function addItemToActiveList(name) {

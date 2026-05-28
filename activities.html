@@ -71,7 +71,7 @@
       isForgotten
     } from './shared/timer.js';
     import { applyTheme, resolveTheme, applyTextSize } from './shared/theme.js';
-    import { startLongPressTimer, recordTap } from './shared/dom-helpers.js';
+    import { startLongPressTimer, recordTap, withButtonLock } from './shared/dom-helpers.js';
 
     // ── Module-scoped state ──
     let settings = {}, people = {}, activities = {}, sessions = {}, activeTimers = {}, earnings = {};
@@ -338,7 +338,8 @@
         closeFullScreenTimer();
       });
 
-      document.getElementById('fsTimerToggle')?.addEventListener('click', async () => {
+      const overlayToggleBtn = document.getElementById('fsTimerToggle');
+      overlayToggleBtn?.addEventListener('click', () => withButtonLock(overlayToggleBtn, async () => {
         const pid = currentOverlayPersonId;
         if (!pid) return;
         const t = activeTimers[pid];
@@ -348,14 +349,15 @@
         // Update button label immediately (subscription will also re-render)
         const toggleBtn = document.getElementById('fsTimerToggle');
         if (toggleBtn) toggleBtn.textContent = updated.pausedAt ? 'Resume' : 'Pause';
-      });
+      }));
 
-      document.getElementById('fsTimerStop')?.addEventListener('click', async () => {
+      const overlayStopBtn = document.getElementById('fsTimerStop');
+      overlayStopBtn?.addEventListener('click', () => withButtonLock(overlayStopBtn, async () => {
         const pid = currentOverlayPersonId;
         if (!pid) return;
         closeFullScreenTimer();
         await stopTimer(pid);
-      });
+      }));
     }
 
     // ── Render ──
@@ -802,7 +804,7 @@
 
     function bindCardHandlers() {
       document.querySelectorAll('[data-card-action="start"]').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => withButtonLock(btn, async () => {
           const pid = btn.dataset.personId;
           const aid = btn.dataset.activityId;
           const current = activeTimers[pid];
@@ -829,7 +831,7 @@
           const a = activities[aid] || {};
           const p = people[pid] || { name: pid };
           showToast(`Started ${a.emoji || ''} ${a.name || aid} for ${p.name}`);
-        });
+        }));
       });
       document.querySelectorAll('[data-card-action="log"]').forEach(btn => {
         btn.addEventListener('click', () => openManualEntrySheet(btn.dataset.activityId, btn.dataset.personId));
@@ -846,18 +848,18 @@
 
     function bindActiveTimerHandlers() {
       document.querySelectorAll('[data-timer-action="toggle"]').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => withButtonLock(btn, async () => {
           const pid = btn.dataset.personId;
           const t = activeTimers[pid];
           if (!t) return;
           const updated = t.pausedAt ? resumeTimer(t) : pauseTimer(t);
           await writeActiveTimer(pid, updated);
-        });
+        }));
       });
       document.querySelectorAll('[data-timer-action="stop"]').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => withButtonLock(btn, async () => {
           await stopTimer(btn.dataset.personId);
-        });
+        }));
       });
     }
 
@@ -1112,8 +1114,10 @@
         const actName = finalActivity?.name || 'activity';
         showToast(`Manual entry saved · ${actName} · ${durationMin} min · ${people[finalPid]?.name || finalPid}`);
       };
-      document.getElementById('sessFormSaveFooter')?.addEventListener('click', doSave);
-      document.getElementById('sessFormSaveHeader')?.addEventListener('click', doSave);
+      const sessFooterBtn = document.getElementById('sessFormSaveFooter');
+      const sessHeaderBtn = document.getElementById('sessFormSaveHeader');
+      sessFooterBtn?.addEventListener('click', () => withButtonLock(sessFooterBtn, doSave));
+      sessHeaderBtn?.addEventListener('click', () => withButtonLock(sessHeaderBtn, doSave));
 
       if (editing) {
         document.getElementById('sessFormDelete')?.addEventListener('click', async () => {

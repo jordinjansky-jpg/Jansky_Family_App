@@ -125,6 +125,29 @@ export function bindTaskRowGesture(row, opts) {
 }
 
 /**
+ * Lock a button while an async action runs. Disables the button, adds an
+ * `.is-loading` class for optional spinner CSS, runs the action, and always
+ * re-enables (even on throw). Use anywhere a tap triggers a Firebase write
+ * that shouldn't be repeated by rapid-tap or a slow network.
+ *
+ * @param {HTMLElement|null} btn - the button element (no-op if null)
+ * @param {Function} asyncFn - the work to run; should return a Promise
+ * @returns {Promise<any>} - resolves with asyncFn's return value
+ */
+export async function withButtonLock(btn, asyncFn) {
+  if (!btn) return asyncFn();
+  if (btn.disabled) return; // already locked — bail (rapid-tap)
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  try {
+    return await asyncFn();
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+  }
+}
+
+/**
  * Close the task detail bottom sheet, persisting any pending slider override first.
  * Used by dashboard, kid, calendar, tracker — each had a near-identical inline copy
  * of this logic that drifted independently.

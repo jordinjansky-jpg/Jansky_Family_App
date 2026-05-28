@@ -6,7 +6,7 @@ import { initFirebase, readSettings, writeSettings, readPeople, readRewards, rea
   onAllMessages, removeMessage, writeMultiplier, writePerson,
   readAllActivityEarnings
 } from './shared/firebase.js';
-import { startLongPressTimer, recordTap } from './shared/dom-helpers.js';
+import { startLongPressTimer, recordTap, withButtonLock } from './shared/dom-helpers.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initOfflineBanner,
@@ -1162,26 +1162,67 @@ async function handleUseToken(tokenId, rewardType, tokenName, rewardId, rewardIc
   }
 }
 
+// Rapid-tap guard: prevents double-triggering if the get-btn and the card
+// both fire (or the user taps twice) before the first write resolves.
+const _rewardGetInFlight = new Set();
+
 async function handleGetReward(rewardId) {
+  if (_rewardGetInFlight.has(rewardId)) return;
   const reward = rewardsObj?.[rewardId];
   if (!reward) return;
+  _rewardGetInFlight.add(rewardId);
 
-  const balance = getBalance(activePerson.id);
-  if (balance < (reward.pointCost || 0)) {
-    showToast('Not enough points.');
-    return;
-  }
+  try {
+    const balance = getBalance(activePerson.id);
+    if (balance < (reward.pointCost || 0)) {
+      showToast('Not enough points.');
+      return;
+    }
 
-  const ts = firebase.database.ServerValue.TIMESTAMP;
-  const isAdult = activePerson.role !== 'child';
+    const ts = firebase.database.ServerValue.TIMESTAMP;
+    const isAdult = activePerson.role !== 'child';
 
-  const isFunctional = reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal';
+    const isFunctional = reward.rewardType === 'task-skip' || reward.rewardType === 'penalty-removal';
 
-  if (isAdult) {
-    if (isFunctional) {
-      // Functional rewards always go to the bank first — no "use now" option
-      const confirmed = await showConfirm({ title: 'Add to your Bank?', message: reward.name });
-      if (!confirmed) return;
+    if (isAdult) {
+      if (isFunctional) {
+        // Functional rewards always go to the bank first — no "use now" option
+        const confirmed = await showConfirm({ title: 'Add to your Bank?', message: reward.name });
+        if (!confirmed) return;
+        await writeMessage(activePerson.id, {
+          type: 'redemption-request',
+          title: reward.name,
+          body: null,
+          amount: -(reward.pointCost || 0),
+          rewardId,
+          rewardName: reward.name,
+          rewardIcon: reward.icon || '',
+          intent: 'save',
+          seen: true,
+          createdAt: ts,
+          createdBy: activePerson.id
+        });
+        await writeBankToken(activePerson.id, {
+          rewardType: reward.rewardType || 'custom',
+          rewardId,
+          rewardName: reward.name || '',
+          rewardIcon: reward.icon || '',
+          acquiredAt: ts,
+          used: false
+        });
+        showToast('Added to Bank!');
+        await refreshData();
+        render();
+        return;
+      }
+      // Custom reward: show intent sheet (Use Now = bank + use immediately, no approval needed)
+      openIntentSheet(reward, rewardId);
+      return;
+    }
+
+    if (reward.approvalRequired === false) {
+      // Path 1 — self-serve (only when explicitly set false; undefined defaults to approval-required)
+      // Write a seen redemption-request so calculateBalance deducts the cost
       await writeMessage(activePerson.id, {
         type: 'redemption-request',
         title: reward.name,
@@ -1195,7 +1236,7 @@ async function handleGetReward(rewardId) {
         createdAt: ts,
         createdBy: activePerson.id
       });
-      await writeBankToken(activePerson.id, {
+      const bankTokenId = await writeBankToken(activePerson.id, {
         rewardType: reward.rewardType || 'custom',
         rewardId,
         rewardName: reward.name || '',
@@ -1203,86 +1244,55 @@ async function handleGetReward(rewardId) {
         acquiredAt: ts,
         used: false
       });
-      showToast('Added to Bank!');
+      // Notify all parents with FYI + revoke option
+      const parents = people.filter(p => p.role !== 'child');
+      for (const parent of parents) {
+        await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
+      }
+      showToast('Saved to your Bank!');
       await refreshData();
       render();
       return;
     }
-    // Custom reward: show intent sheet (Use Now = bank + use immediately, no approval needed)
+
+    if (isFunctional) {
+      // Path 3 — functional: immediate bank + FYI (no approval to save; parent gets FYI with revoke)
+      await writeMessage(activePerson.id, {
+        type: 'redemption-request',
+        title: reward.name,
+        body: null,
+        amount: -(reward.pointCost || 0),
+        rewardId,
+        rewardName: reward.name,
+        rewardIcon: reward.icon || '',
+        intent: 'save',
+        seen: true,
+        createdAt: ts,
+        createdBy: activePerson.id
+      });
+      const bankTokenId = await writeBankToken(activePerson.id, {
+        rewardType: reward.rewardType || 'custom',
+        rewardId,
+        rewardName: reward.name || '',
+        rewardIcon: reward.icon || '',
+        acquiredAt: ts,
+        used: false
+      });
+      const parents = people.filter(p => p.role !== 'child');
+      for (const parent of parents) {
+        await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
+      }
+      showToast('Saved to your Bank!');
+      await refreshData();
+      renderActiveTab();
+      return;
+    }
+
+    // Path 2 — custom with approval: show intent sheet
     openIntentSheet(reward, rewardId);
-    return;
+  } finally {
+    _rewardGetInFlight.delete(rewardId);
   }
-
-  if (reward.approvalRequired === false) {
-    // Path 1 — self-serve (only when explicitly set false; undefined defaults to approval-required)
-    // Write a seen redemption-request so calculateBalance deducts the cost
-    await writeMessage(activePerson.id, {
-      type: 'redemption-request',
-      title: reward.name,
-      body: null,
-      amount: -(reward.pointCost || 0),
-      rewardId,
-      rewardName: reward.name,
-      rewardIcon: reward.icon || '',
-      intent: 'save',
-      seen: true,
-      createdAt: ts,
-      createdBy: activePerson.id
-    });
-    const bankTokenId = await writeBankToken(activePerson.id, {
-      rewardType: reward.rewardType || 'custom',
-      rewardId,
-      rewardName: reward.name || '',
-      rewardIcon: reward.icon || '',
-      acquiredAt: ts,
-      used: false
-    });
-    // Notify all parents with FYI + revoke option
-    const parents = people.filter(p => p.role !== 'child');
-    for (const parent of parents) {
-      await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
-    }
-    showToast('Saved to your Bank!');
-    await refreshData();
-    render();
-    return;
-  }
-
-  if (isFunctional) {
-    // Path 3 — functional: immediate bank + FYI (no approval to save; parent gets FYI with revoke)
-    await writeMessage(activePerson.id, {
-      type: 'redemption-request',
-      title: reward.name,
-      body: null,
-      amount: -(reward.pointCost || 0),
-      rewardId,
-      rewardName: reward.name,
-      rewardIcon: reward.icon || '',
-      intent: 'save',
-      seen: true,
-      createdAt: ts,
-      createdBy: activePerson.id
-    });
-    const bankTokenId = await writeBankToken(activePerson.id, {
-      rewardType: reward.rewardType || 'custom',
-      rewardId,
-      rewardName: reward.name || '',
-      rewardIcon: reward.icon || '',
-      acquiredAt: ts,
-      used: false
-    });
-    const parents = people.filter(p => p.role !== 'child');
-    for (const parent of parents) {
-      await writeFyiMessage(parent.id, activePerson.name, reward.name, reward.pointCost || 0, rewardId, activePerson.id, bankTokenId);
-    }
-    showToast('Saved to your Bank!');
-    await refreshData();
-    renderActiveTab();
-    return;
-  }
-
-  // Path 2 — custom with approval: show intent sheet
-  openIntentSheet(reward, rewardId);
 }
 
 function openIntentSheet(reward, rewardId) {
@@ -1747,7 +1757,8 @@ function openRewardForm(rewardId = null) {
   });
 
   // Save
-  mount.querySelector('#rcf_save')?.addEventListener('click', async () => {
+  const rcfSaveBtn = mount.querySelector('#rcf_save');
+  rcfSaveBtn?.addEventListener('click', () => withButtonLock(rcfSaveBtn, async () => {
     const name = mount.querySelector('#rcf_name').value.trim();
     if (!name) {
       mount.querySelector('#rcf_name').classList.add('is-invalid');
@@ -1779,7 +1790,7 @@ function openRewardForm(rewardId = null) {
     close();
     await refreshData();
     render();
-  });
+  }));
 }
 
 async function refreshData() {

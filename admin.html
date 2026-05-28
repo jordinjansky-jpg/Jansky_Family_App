@@ -89,6 +89,7 @@
     import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
     import { clearWeatherCache, geocodeLocation } from './shared/weather.js';
     import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
+    import { withButtonLock } from './shared/dom-helpers.js';
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
     const MSG_POSITIVE = ['Awesome Job!','Super Star','Great Teamwork','Above & Beyond',
@@ -1289,7 +1290,8 @@
 
       mount.querySelector('#if_cancel')?.addEventListener('click', closeAdminSheet);
 
-      mount.querySelector('#if_save')?.addEventListener('click', async () => {
+      const ifSaveBtn = mount.querySelector('#if_save');
+      ifSaveBtn?.addEventListener('click', () => withButtonLock(ifSaveBtn, async () => {
         const name = mount.querySelector('#if_name')?.value.trim();
         const url  = mount.querySelector('#if_url')?.value.trim();
         if (!name || !url) { showToast('Name and URL are required'); return; }
@@ -1313,7 +1315,7 @@
         }
         closeAdminSheet();
         render();
-      });
+      }));
 
       if (isEdit) {
         mount.querySelector('#if_delete')?.addEventListener('click', async () => {
@@ -1385,7 +1387,8 @@
 
       mount.querySelector('#slf_cancel')?.addEventListener('click', closeAdminSheet);
 
-      mount.querySelector('#slf_save')?.addEventListener('click', async () => {
+      const slfSaveBtn = mount.querySelector('#slf_save');
+      slfSaveBtn?.addEventListener('click', () => withButtonLock(slfSaveBtn, async () => {
         const url = mount.querySelector('#slf_url')?.value.trim();
         if (!url) { showToast('URL is required'); return; }
         const pid = isEdit
@@ -1402,7 +1405,7 @@
         schoolLunchFeedsObj[pid] = { ...(schoolLunchFeedsObj[pid] || {}), ...data };
         closeAdminSheet();
         render();
-      });
+      }));
 
       if (isEdit) {
         mount.querySelector('#slf_delete')?.addEventListener('click', async () => {
@@ -3642,8 +3645,10 @@
         render();
       }
 
-      mount.querySelector('#actFormSaveFooter')?.addEventListener('click', saveActivity);
-      mount.querySelector('#actFormSaveHeader')?.addEventListener('click', saveActivity);
+      const actFooterBtn = mount.querySelector('#actFormSaveFooter');
+      const actHeaderBtn = mount.querySelector('#actFormSaveHeader');
+      actFooterBtn?.addEventListener('click', () => withButtonLock(actFooterBtn, saveActivity));
+      actHeaderBtn?.addEventListener('click', () => withButtonLock(actHeaderBtn, saveActivity));
 
       // --- Delete (edit mode only) ------------------------------------------
 
@@ -4117,7 +4122,8 @@
           applyDataColors(mount);
           requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
 
-          mount.querySelector('#achPopupAward')?.addEventListener('click', async () => {
+          const achAwardBtn = mount.querySelector('#achPopupAward');
+          achAwardBtn?.addEventListener('click', () => withButtonLock(achAwardBtn, async () => {
             await writeAchievement(pid, key, { unlockedAt: Date.now(), seen: false });
             // Grant point reward if configured
             if (def.reward?.type === 'points' && def.reward.amount > 0) {
@@ -4130,14 +4136,15 @@
             allAchievements = (await readAllAchievements()) || {};
             mount.innerHTML = '';
             render();
-          });
-          mount.querySelector('#achPopupRevoke')?.addEventListener('click', async () => {
+          }));
+          const achRevokeBtn = mount.querySelector('#achPopupRevoke');
+          achRevokeBtn?.addEventListener('click', () => withButtonLock(achRevokeBtn, async () => {
             if (!await showConfirm({ title: `Revoke "${def.label}" from ${person?.name}?`, danger: true })) return;
             await updateData(`achievements/${pid}/${key}`, { revoked: true, revokedAt: Date.now() });
             allAchievements = (await readAllAchievements()) || {};
             mount.innerHTML = '';
             render();
-          });
+          }));
           mount.querySelector('#achPopupClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
           mount.querySelector('.bottom-sheet-overlay')?.addEventListener('click', (e) => {
             if (e.target.classList.contains('bottom-sheet-overlay')) mount.innerHTML = '';
@@ -4314,7 +4321,8 @@
       });
 
       // Save
-      form.querySelector('#af_save')?.addEventListener('click', async () => {
+      const afSaveBtn = form.querySelector('#af_save');
+      afSaveBtn?.addEventListener('click', () => withButtonLock(afSaveBtn, async () => {
         const name = form.querySelector('#af_name')?.value?.trim();
         if (!name) { await showConfirm({ title: 'Name is required', alert: true }); return; }
 
@@ -4373,7 +4381,7 @@
         achievementDefsObj = (await readAchievementDefs()) || {};
         closeAdminSheet();
         render();
-      });
+      }));
     }
 
     // ══════════════════════════════════════════

@@ -8,7 +8,7 @@ import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWee
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
-import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap } from './shared/dom-helpers.js';
+import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, withButtonLock } from './shared/dom-helpers.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 import { silentAutoResubscribe } from './shared/push-client.js';
@@ -787,13 +787,23 @@ function openOverdueSheet(items) {
     bindCards();
   }
 
+  // Per-card toggle guard: tracks which entryKeys are mid-write so a rapid
+  // second tap on the same card while the first write is in flight is a no-op.
+  const _overdueToggleInFlight = new Set();
+
   function bindCards() {
     taskSheetMount.querySelectorAll('.task-card').forEach(card => {
       bindTaskRowGesture(card, {
         longPressMs: settings?.longPressMs ?? 800,
         onTap: async (ek, dk) => {
-          await toggleTask(ek, dk);
-          refreshSheet();
+          if (_overdueToggleInFlight.has(ek)) return; // rapid-tap guard
+          _overdueToggleInFlight.add(ek);
+          try {
+            await toggleTask(ek, dk);
+            refreshSheet();
+          } finally {
+            _overdueToggleInFlight.delete(ek);
+          }
         },
         onLongPress: (ek, dk) => {
           closeTaskSheet();

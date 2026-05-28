@@ -501,7 +501,10 @@
 //                     fix; Activities now pickable in Customize → Navigation buttons.
 // v334 (2026-05-20) — Activities: gear icon wired to admin.
 // v333 (2026-05-20) — Activities: person switcher chip in header (Rewards pattern) + tabs--md removed.
-const CACHE_NAME = 'family-hub-v338';
+// v339 (2026-05-27) — withButtonLock helper + rapid-tap guards across all async
+//                     write surfaces (activities, admin, kitchen, rewards, dashboard
+//                     overdue sheet); .is-loading CSS; stale-listener analysis.
+const CACHE_NAME = 'family-hub-v339';
 
 const APP_SHELL = [
   '/',
