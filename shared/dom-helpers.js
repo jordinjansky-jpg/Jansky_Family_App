@@ -17,6 +17,13 @@ export function getSelectedOwners(containerId) {
   return Array.from(document.querySelectorAll(`#${containerId} .owner-chip--selected`)).map(b => b.dataset.id);
 }
 
+// Module-scoped "rapid-tap" timestamp shared across all bindings (dashboard + calendar).
+// When the user is tapping tasks complete one after another, the next pointerdown
+// within `rapidTapWindowMs` of the last successful tap doesn't start a long-press
+// timer. Prevents spurious menu opens when the pointer slides between adjacent
+// cards faster than pointerleave can reliably cancel the press timer.
+let _lastTapAt = 0;
+
 /**
  * Bind tap + long-press gesture to a task row element.
  * Used by dashboard's `.task-card` and calendar's `.cal-day__task`.
@@ -27,6 +34,9 @@ export function getSelectedOwners(containerId) {
  *   instead (used for past-incomplete-daily where toggling is forbidden).
  * - Movement past `moveThreshold` px cancels the press timer (so scrolling
  *   doesn't trigger an accidental long-press).
+ * - Rapid-tap suppression: if any task was tapped in the last `rapidTapWindowMs`,
+ *   skip the long-press timer entirely (user is clearly marking-complete, not
+ *   reaching for the menu).
  *
  * Reads `entryKey`/`dateKey` from row.dataset. Both must be set by the renderer.
  */
@@ -34,6 +44,7 @@ export function bindTaskRowGesture(row, opts) {
   const {
     longPressMs = 800,
     moveThreshold = 10,
+    rapidTapWindowMs = 600,
     onTap,
     onLongPress,
     isTapBlocked,
@@ -49,6 +60,9 @@ export function bindTaskRowGesture(row, opts) {
     startX = e.clientX;
     startY = e.clientY;
     clearTimeout(pressTimer);
+    pressTimer = null;
+    // Skip long-press detection when the user is in rapid-tap mode.
+    if (Date.now() - _lastTapAt < rapidTapWindowMs) return;
     pressTimer = setTimeout(() => {
       didLongPress = true;
       pressTimer = null;
@@ -67,6 +81,7 @@ export function bindTaskRowGesture(row, opts) {
     clearTimeout(pressTimer);
     pressTimer = null;
     if (didLongPress) return;
+    _lastTapAt = Date.now();
     if (isTapBlocked && isTapBlocked(entryKey, dateKey)) {
       onLongPress?.(entryKey, dateKey);
     } else {
