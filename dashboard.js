@@ -8,7 +8,7 @@ import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWee
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
-import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, withButtonLock } from './shared/dom-helpers.js';
+import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, withButtonLock, bindEscapeToClose } from './shared/dom-helpers.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 import { silentAutoResubscribe } from './shared/push-client.js';
@@ -67,12 +67,19 @@ if (linkedPerson?.prefs?.textSize) applyTextSize(linkedPerson.prefs.textSize);
 // Show error if person param given but not found
 if (personParam && !linkedPerson) {
   const errMain = document.getElementById('mainContent');
+  const knownNames = people.map(p => p.name);
+  const suggestHtml = knownNames.length > 0
+    ? `<p class="error-placeholder__body">Did you mean one of these?</p>
+       <div class="error-placeholder__suggestions">
+         ${knownNames.map(n => `<a href="index.html?person=${encodeURIComponent(n)}" class="btn btn--secondary btn--sm">${esc(n)}</a>`).join('')}
+       </div>`
+    : `<p class="error-placeholder__body">We couldn't find anyone with that name.<br>Check the link or ask an admin.</p>`;
   errMain.innerHTML = `
     <div class="error-placeholder">
       <div class="error-placeholder__icon">🤔</div>
       <h2 class="error-placeholder__title">Who's ${esc(personParam)}?</h2>
-      <p class="error-placeholder__body">We couldn't find anyone with that name.<br>Check the link or ask an admin.</p>
-      <a href="index.html" class="btn btn--secondary mt-md">Go to Dashboard</a>
+      ${suggestHtml}
+      <a href="index.html" class="btn btn--secondary mt-md">Go to family dashboard</a>
     </div>`;
   // Skip rest of init — error message is displayed
 } else {
@@ -816,6 +823,7 @@ function openOverdueSheet(items) {
   mountSheet();
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
+    _bindSheetEscape(closeTaskSheet);
   });
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', (e) => {
@@ -829,6 +837,7 @@ function openPersonFilterSheet() {
   applyDataColors(taskSheetMount);
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
+    _bindSheetEscape(closeTaskSheet);
   });
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', (e) => {
@@ -1290,6 +1299,12 @@ function checkCelebration() {
 // ══════════════════════════════════════════
 
 const taskSheetMount = document.getElementById('taskSheetMount');
+// Tracks the current Escape-to-close cleanup so we remove the listener on every sheet close.
+let _escapeCleanup = null;
+function _bindSheetEscape(closeFn) {
+  if (_escapeCleanup) _escapeCleanup();
+  _escapeCleanup = bindEscapeToClose(document.getElementById('bottomSheet'), closeFn);
+}
 
 function openEventDetailSheet(eventId) {
   const event = events[eventId];
@@ -1299,6 +1314,7 @@ function openEventDetailSheet(eventId) {
   applyDataColors(taskSheetMount);
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
+    _bindSheetEscape(closeTaskSheet);
   });
 
   const overlay = document.getElementById('bottomSheet');
@@ -1898,7 +1914,10 @@ function openMealDetailSheet(planEntry, slot) {
   const meal = planEntry?.recipeId ? recipes[planEntry.recipeId] : null;
   const html = renderMealDetailSheet(meal, planEntry, false, slot);
   taskSheetMount.innerHTML = renderBottomSheet(html);
-  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    _bindSheetEscape(closeTaskSheet);
+  });
 
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
@@ -2421,6 +2440,7 @@ function openEventForm(existingEventId = null, savedState = null) {
     };
 
     const saveBtn = document.getElementById('ef2_save');
+    const origSaveBtnText = saveBtn?.textContent || '';
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '…'; }
 
     try {
@@ -2451,9 +2471,10 @@ function openEventForm(existingEventId = null, savedState = null) {
       closeTaskSheet();
       render();
     } catch (err) {
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = existingEventId ? 'Save Changes' : 'Add Event'; }
       const errEl = document.getElementById('ef2_importError');
       if (errEl) { errEl.textContent = 'Couldn\'t save — try again.'; errEl.classList.add('is-visible'); }
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = origSaveBtnText; }
     }
   });
 
@@ -2885,6 +2906,7 @@ function openTaskSheet(entryKey, dateKey) {
   requestAnimationFrame(() => {
     const overlay = document.getElementById('bottomSheet');
     if (overlay) overlay.classList.add('active');
+    _bindSheetEscape(closeTaskSheet);
   });
 
   // Bind sheet events
@@ -2892,6 +2914,7 @@ function openTaskSheet(entryKey, dateKey) {
 }
 
 async function closeTaskSheet() {
+  if (_escapeCleanup) { _escapeCleanup(); _escapeCleanup = null; }
   const override = pendingSliderOverride;
   pendingSliderOverride = null;
   await closeTaskSheetShared({

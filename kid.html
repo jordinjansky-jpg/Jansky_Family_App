@@ -53,7 +53,7 @@
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, writeSnapshot, readAchievementDefs, readKitchenPlan, readKitchenRecipes, readAllActivityEarnings, readNotificationPrefs, writePushSubscription } from './shared/firebase.js';
     import { silentAutoResubscribe } from './shared/push-client.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet, openDeviceThemeSheet } from './shared/components.js';
-    import { closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap } from './shared/dom-helpers.js';
+    import { closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, bindEscapeToClose } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -1801,6 +1801,7 @@
           requestAnimationFrame(() => {
             const overlay = document.getElementById('bottomSheet');
             if (overlay) overlay.classList.add('active');
+            bindEscapeToClose(overlay, closeTaskSheet);
           });
 
           bindTaskSheetEvents(entryKey, dateKey);

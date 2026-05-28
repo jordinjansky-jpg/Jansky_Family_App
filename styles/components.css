@@ -2086,6 +2086,13 @@ button.is-loading {
   color: var(--text-muted);
   font-size: var(--font-sm);
 }
+.error-placeholder__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
 
 /* ============================================================
    Phase 1 — Dashboard rework (mockup-aligned components)
@@ -6188,4 +6195,11 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 .notif-log__table td {
   color: var(--text);
+}
+
+/* ── Transient input error state (e.g. empty ingredient Add) ── */
+.input--error {
+  outline: 2px solid var(--danger) !important;
+  outline-offset: 1px;
+  transition: outline 0.1s;
 }

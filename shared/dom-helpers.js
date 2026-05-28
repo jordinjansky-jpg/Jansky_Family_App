@@ -148,6 +148,42 @@ export async function withButtonLock(btn, asyncFn) {
 }
 
 /**
+ * Safe localStorage.setItem wrapper. Returns true on success, false on failure
+ * (quota exceeded, private browsing, blocked). On failure, optionally toasts.
+ */
+export function safeLocalStorageSet(key, value, { showToastFn } = {}) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.warn(`[safeLocalStorageSet] ${key} write failed:`, e?.message || e);
+    if (showToastFn) showToastFn('Storage is full or unavailable; preference not saved.');
+    return false;
+  }
+}
+
+/**
+ * Bind Escape key to close a sheet/popover/overlay.
+ * Returns a cleanup function. Pass the overlay/sheet element and a close fn.
+ */
+export function bindEscapeToClose(overlayEl, onClose) {
+  if (!overlayEl || typeof onClose !== 'function') return () => {};
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); onClose(); } };
+  document.addEventListener('keydown', onKey);
+  return () => document.removeEventListener('keydown', onKey);
+}
+
+/**
+ * Validate a stored ID (from localStorage) is still valid by checking against
+ * a lookup object. Returns the ID if present, null otherwise. Used to defend
+ * against stale ID references after the underlying record is deleted.
+ */
+export function validateStoredId(storedId, lookupObj) {
+  if (!storedId || !lookupObj) return null;
+  return Object.prototype.hasOwnProperty.call(lookupObj, storedId) ? storedId : null;
+}
+
+/**
  * Close the task detail bottom sheet, persisting any pending slider override first.
  * Used by dashboard, kid, calendar, tracker — each had a near-identical inline copy
  * of this logic that drifted independently.

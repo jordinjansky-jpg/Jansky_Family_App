@@ -71,7 +71,7 @@
       isForgotten
     } from './shared/timer.js';
     import { applyTheme, resolveTheme, applyTextSize } from './shared/theme.js';
-    import { startLongPressTimer, recordTap, withButtonLock } from './shared/dom-helpers.js';
+    import { startLongPressTimer, recordTap, withButtonLock, bindEscapeToClose } from './shared/dom-helpers.js';
 
     // ── Module-scoped state ──
     let settings = {}, people = {}, activities = {}, sessions = {}, activeTimers = {}, earnings = {};
@@ -337,6 +337,8 @@
       document.getElementById('fsTimerClose')?.addEventListener('click', () => {
         closeFullScreenTimer();
       });
+      // Escape dismisses the overlay (same as Close button) without stopping the timer
+      bindEscapeToClose(document.getElementById('fsTimerOverlay'), closeFullScreenTimer);
 
       const overlayToggleBtn = document.getElementById('fsTimerToggle');
       overlayToggleBtn?.addEventListener('click', () => withButtonLock(overlayToggleBtn, async () => {
@@ -560,9 +562,13 @@
         <h3 class="sheet-section-title">View as</h3>
         <div class="person-switcher-list">${allRow}${personRows}</div>
       `);
-      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      const closePersonSwitcher = () => { mount.innerHTML = ''; };
+      requestAnimationFrame(() => {
+        document.getElementById('bottomSheet')?.classList.add('active');
+        bindEscapeToClose(document.getElementById('bottomSheet'), closePersonSwitcher);
+      });
       document.getElementById('bottomSheet')?.addEventListener('click', e => {
-        if (e.target.id === 'bottomSheet') { mount.innerHTML = ''; }
+        if (e.target.id === 'bottomSheet') { closePersonSwitcher(); }
       });
 
       mount.querySelectorAll('.person-switcher-row[data-person-id]').forEach(row => {
@@ -994,7 +1000,10 @@
       const fullHtml = headerHtml + bodyHtml + footerHtml;
       const mount = document.getElementById('sheetMount');
       mount.innerHTML = renderBottomSheet(fullHtml);
-      requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+      requestAnimationFrame(() => {
+        document.getElementById('bottomSheet')?.classList.add('active');
+        // Escape-to-close wired after close() is defined below
+      });
 
       // Track selected activityId in no-preselect mode
       let selectedAid = aid;
@@ -1074,6 +1083,7 @@
       };
       document.getElementById('sessFormClose')?.addEventListener('click', close);
       document.getElementById('sessFormCancel')?.addEventListener('click', close);
+      bindEscapeToClose(document.getElementById('bottomSheet'), close);
 
       const doSave = async () => {
         const finalAid = noPreselect ? selectedAid : aid;

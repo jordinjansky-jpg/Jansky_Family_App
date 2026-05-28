@@ -40,7 +40,7 @@
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet, openVoteSheet } from './shared/components.js';
-    import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
+    import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, bindEscapeToClose } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml, normalizePlanSlot } from './shared/utils.js';
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
@@ -1228,6 +1228,7 @@
             : today,
         };
         const saveBtn = document.getElementById('ef2_save');
+        const origSaveBtnHtml = saveBtn?.innerHTML || '';
         if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '…'; }
         try {
           if (existingEventId) {
@@ -1257,9 +1258,10 @@
           allSchedule = await readAllSchedule() || {};
           render();
         } catch (err) {
-          if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '✓'; }
           const errEl = document.getElementById('ef2_importError');
           if (errEl) { errEl.textContent = "Couldn't save — try again."; errEl.classList.add('is-visible'); }
+        } finally {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = origSaveBtnHtml; }
         }
       });
 
@@ -1850,6 +1852,7 @@
       applyDataColors(taskSheetMount);
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
+        bindEscapeToClose(document.getElementById('bottomSheet'), closeTaskSheet);
       });
       bindTaskSheetEvents(entryKey, dateKey);
     }

@@ -346,7 +346,9 @@
       const filtered = filterRows(allRows);
 
       if (filtered.length === 0) {
-        return renderEmptyState('', 'No weekly tasks', 'Nothing scheduled for this period.');
+        const personName = activePerson ? (people.find(p => p.id === activePerson)?.name || '') : '';
+        const body = personName ? `Nothing scheduled for ${personName} this period.` : 'Nothing scheduled for this period.';
+        return renderEmptyState('', 'No weekly tasks', body);
       }
 
       const overdueRows  = filtered.filter(r => r.status === 'overdue');
@@ -400,7 +402,9 @@
       const filtered = filterRows(allRows);
 
       if (filtered.length === 0) {
-        return renderEmptyState('', 'No monthly tasks', 'Nothing scheduled for this period.');
+        const personName = activePerson ? (people.find(p => p.id === activePerson)?.name || '') : '';
+        const body = personName ? `Nothing scheduled for ${personName} this period.` : 'Nothing scheduled for this period.';
+        return renderEmptyState('', 'No monthly tasks', body);
       }
 
       // Separate skipped/cooldown from date-bucketed rows so the count chip stays accurate

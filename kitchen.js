@@ -24,7 +24,7 @@ import { renderHeader, renderNavBar, initNavMore, initBottomNav, initBell,
 } from './shared/components.js';
 import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
-import { withButtonLock } from './shared/dom-helpers.js';
+import { withButtonLock, validateStoredId } from './shared/dom-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -230,9 +230,11 @@ async function loadData() {
   // Seed active list if none saved or saved list was deleted
   const listIds = Object.keys(lists);
   if (!activeListId || !lists[activeListId]) {
-    activeListId = localStorage.getItem('dr-kitchen-active-list');
-    if (!activeListId || !lists[activeListId]) {
-      activeListId = listIds[0] || null;
+    const storedListId = localStorage.getItem('dr-kitchen-active-list');
+    // validateStoredId guards against stale IDs after list deletion
+    activeListId = validateStoredId(storedListId, lists) || listIds[0] || null;
+    if (!activeListId) {
+      try { localStorage.removeItem('dr-kitchen-active-list'); } catch {}
     }
   }
   if (activeListId) localStorage.setItem('dr-kitchen-active-list', activeListId);
@@ -3010,8 +3012,17 @@ function openRecipeForm(recipeId, onSave = null) {
   });
 
   function addIngredient() {
-    const val = document.getElementById('newIngredientInput')?.value.trim();
-    if (!val) return;
+    const inputEl = document.getElementById('newIngredientInput');
+    const val = inputEl?.value.trim();
+    if (!val) {
+      // Flash red border to signal the input is required
+      if (inputEl) {
+        inputEl.focus();
+        inputEl.classList.add('input--error');
+        setTimeout(() => inputEl.classList.remove('input--error'), 600);
+      }
+      return;
+    }
     const qty = document.getElementById('newIngredientQty')?.value.trim() || null;
     const idx = ingredients.length;
     ingredients.push({ name: cleanIngredientName(val), qty });

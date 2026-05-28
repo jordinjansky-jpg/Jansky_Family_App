@@ -6,7 +6,7 @@ import { initFirebase, readSettings, writeSettings, readPeople, readRewards, rea
   onAllMessages, removeMessage, writeMultiplier, writePerson,
   readAllActivityEarnings
 } from './shared/firebase.js';
-import { startLongPressTimer, recordTap, withButtonLock } from './shared/dom-helpers.js';
+import { startLongPressTimer, recordTap, withButtonLock, bindEscapeToClose, validateStoredId } from './shared/dom-helpers.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initOfflineBanner,
@@ -56,7 +56,11 @@ async function loadData() {
     let restored = null;
     try {
       const savedId = localStorage.getItem('rewards-active-person');
-      if (savedId) restored = people.find(p => p.id === savedId);
+      if (savedId) {
+        restored = people.find(p => p.id === savedId);
+        // Clear stale ID if the person was deleted
+        if (!restored) localStorage.removeItem('rewards-active-person');
+      }
     } catch {}
     activePerson = restored || people.find(p => p.role !== 'child') || people[0];
   }
@@ -222,9 +226,13 @@ function openPersonSwitcherSheet() {
     <h3 class="sheet-section-title">View as</h3>
     <div class="person-switcher-list">${rows}</div>
   `);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  const closePersonSwitcher = () => { mount.innerHTML = ''; };
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    bindEscapeToClose(document.getElementById('bottomSheet'), closePersonSwitcher);
+  });
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
-    if (e.target.id === 'bottomSheet') mount.innerHTML = '';
+    if (e.target.id === 'bottomSheet') closePersonSwitcher();
   });
 
   mount.querySelectorAll('.person-switcher-row[data-person-id]').forEach(row => {
@@ -567,7 +575,10 @@ function openFilterSheet(cfg) {
   ${renderFormFooter({ saveLabel: 'Apply', saveId: cfg.saveId, cancelId: cfg.cancelId })}`;
 
   mount.innerHTML = renderBottomSheet(html);
-  requestAnimationFrame(() => document.getElementById('bottomSheet')?.classList.add('active'));
+  requestAnimationFrame(() => {
+    document.getElementById('bottomSheet')?.classList.add('active');
+    bindEscapeToClose(document.getElementById('bottomSheet'), () => { mount.innerHTML = ''; });
+  });
   document.getElementById('bottomSheet')?.addEventListener('click', e => {
     if (e.target.id === 'bottomSheet') mount.innerHTML = '';
   });
@@ -1338,11 +1349,13 @@ function openIntentSheet(reward, rewardId) {
       </div>
     </div>
   `);
+  const closeIntentSheet = () => { mount.innerHTML = ''; };
   requestAnimationFrame(() => {
     document.getElementById('bottomSheet')?.classList.add('active');
     document.getElementById('bottomSheet')?.addEventListener('click', e => {
-      if (e.target === document.getElementById('bottomSheet')) mount.innerHTML = '';
+      if (e.target === document.getElementById('bottomSheet')) closeIntentSheet();
     });
+    bindEscapeToClose(document.getElementById('bottomSheet'), closeIntentSheet);
   });
 
   let submitting = false;
