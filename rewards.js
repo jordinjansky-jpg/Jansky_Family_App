@@ -6,6 +6,7 @@ import { initFirebase, readSettings, writeSettings, readPeople, readRewards, rea
   onAllMessages, removeMessage, writeMultiplier, writePerson,
   readAllActivityEarnings
 } from './shared/firebase.js';
+import { startLongPressTimer, recordTap } from './shared/dom-helpers.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
 import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initOfflineBanner,
@@ -513,12 +514,12 @@ function bindShopTab() {
       didLongPress = false;
       startX = e.touches[0].clientX; startY = e.touches[0].clientY;
       if (!isAdult) return;
-      pressTimer = setTimeout(() => {
+      pressTimer = startLongPressTimer(() => {
         didLongPress = true;
         pressTimer = null;
         navigator.vibrate?.(30);
         openRewardForm(card.dataset.rewardId);
-      }, 600);
+      }, { longPressMs: 600 });
     }, { passive: true });
     card.addEventListener('touchmove', e => {
       if (pressTimer && (Math.abs(e.touches[0].clientX - startX) > 10 || Math.abs(e.touches[0].clientY - startY) > 10)) {
@@ -531,6 +532,7 @@ function bindShopTab() {
     card.addEventListener('click', e => {
       if (e.target.closest('.reward-get-btn')) return;
       if (didLongPress) { didLongPress = false; return; }
+      recordTap();
       handleGetReward(card.dataset.rewardId);
     });
   });

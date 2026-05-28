@@ -71,6 +71,7 @@
       isForgotten
     } from './shared/timer.js';
     import { applyTheme, resolveTheme, applyTextSize } from './shared/theme.js';
+    import { startLongPressTimer, recordTap } from './shared/dom-helpers.js';
 
     // ── Module-scoped state ──
     let settings = {}, people = {}, activities = {}, sessions = {}, activeTimers = {}, earnings = {};
@@ -1154,13 +1155,13 @@
 
         card.addEventListener('pointerdown', e => {
           if (e.button && e.button !== 0) return;
-          lpTimer = setTimeout(() => {
+          lpTimer = startLongPressTimer(() => {
             lpTimer = null;
             const aid = card.dataset.activityId;
             if (!aid) return;
             const envParam = isDev ? '?env=dev' : '';
             window.location.href = `admin.html${envParam}#activity/${aid}`;
-          }, 800);
+          }, { longPressMs: 800 });
         });
         card.addEventListener('pointerup',     cancelLp);
         card.addEventListener('pointerleave',  cancelLp);

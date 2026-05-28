@@ -483,6 +483,12 @@
 //                     Boot hookup in dashboard.js (covers index.html + person.html)
 //                     and kid.html.
 // v325 (2026-05-18) — Phase 6a: recurring event reminders + per-type Send test button replacing device-level test.
+// v338 (2026-05-27) — Rapid-tap suppression extended to all inline long-press
+//                     handlers: dashboard dinner tile, coming-up rail, event
+//                     bubbles; kid task rows; tracker task cards; rewards card
+//                     admin long-press; activities card edit long-press. All
+//                     share the same 600ms window via startLongPressTimer +
+//                     recordTap exports from shared/dom-helpers.js.
 // v337 (2026-05-27) — Rapid-tap suppression on task gestures: skip long-press
 //                     timer when a task was tapped in the last 600ms. Fixes
 //                     spurious menu opens during rapid mark-complete sequences
@@ -495,7 +501,7 @@
 //                     fix; Activities now pickable in Customize → Navigation buttons.
 // v334 (2026-05-20) — Activities: gear icon wired to admin.
 // v333 (2026-05-20) — Activities: person switcher chip in header (Rewards pattern) + tabs--md removed.
-const CACHE_NAME = 'family-hub-v337';
+const CACHE_NAME = 'family-hub-v338';
 
 const APP_SHELL = [
   '/',

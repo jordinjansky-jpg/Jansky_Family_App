@@ -8,7 +8,7 @@ import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWee
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
-import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared } from './shared/dom-helpers.js';
+import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap } from './shared/dom-helpers.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 import { silentAutoResubscribe } from './shared/push-client.js';
@@ -905,11 +905,11 @@ function bindEvents() {
       if (which !== 'dinner') return;
       const dinnerWinnerLP = pickWinner(normalizePlanSlot(viewMeals?.dinner));
       if (!dinnerWinnerLP?.recipeId && !dinnerWinnerLP?.customName) return;
-      pressTimer = setTimeout(() => {
+      pressTimer = startLongPressTimer(() => {
         didLongPress = true;
         pressTimer = null;
         openMealDetailSheet(dinnerWinnerLP, 'dinner');
-      }, settings?.longPressMs ?? 800);
+      }, { longPressMs: settings?.longPressMs ?? 800 });
     });
 
     tile.addEventListener('pointermove', e => {
@@ -975,12 +975,12 @@ function bindEvents() {
       let pressTimer = null, didLong = false, sx = 0, sy = 0;
       btn.addEventListener('pointerdown', e => {
         didLong = false; sx = e.clientX; sy = e.clientY;
-        pressTimer = setTimeout(() => { didLong = true; pressTimer = null; openEventDetailSheet(btn.dataset.eventId); }, settings?.longPressMs ?? 800);
+        pressTimer = startLongPressTimer(() => { didLong = true; pressTimer = null; openEventDetailSheet(btn.dataset.eventId); }, { longPressMs: settings?.longPressMs ?? 800 });
       });
       btn.addEventListener('pointermove', e => {
         if (pressTimer && (Math.abs(e.clientX - sx) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - sy) > PRESS_MOVE_THRESHOLD)) { clearTimeout(pressTimer); pressTimer = null; }
       });
-      btn.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; if (!didLong) openEventDetailSheet(btn.dataset.eventId); });
+      btn.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; if (!didLong) { recordTap(); openEventDetailSheet(btn.dataset.eventId); } });
       btn.addEventListener('pointerleave', () => { clearTimeout(pressTimer); pressTimer = null; });
       btn.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
       btn.addEventListener('contextmenu', e => e.preventDefault());
@@ -992,12 +992,12 @@ function bindEvents() {
     let pressTimer = null, didLong = false, sx = 0, sy = 0;
     btn.addEventListener('pointerdown', e => {
       didLong = false; sx = e.clientX; sy = e.clientY;
-      pressTimer = setTimeout(() => { didLong = true; pressTimer = null; openEventDetailSheet(btn.dataset.eventId); }, settings?.longPressMs ?? 800);
+      pressTimer = startLongPressTimer(() => { didLong = true; pressTimer = null; openEventDetailSheet(btn.dataset.eventId); }, { longPressMs: settings?.longPressMs ?? 800 });
     });
     btn.addEventListener('pointermove', e => {
       if (pressTimer && (Math.abs(e.clientX - sx) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - sy) > PRESS_MOVE_THRESHOLD)) { clearTimeout(pressTimer); pressTimer = null; }
     });
-    btn.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; if (!didLong) openEventDetailSheet(btn.dataset.eventId); });
+    btn.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; if (!didLong) { recordTap(); openEventDetailSheet(btn.dataset.eventId); } });
     btn.addEventListener('pointerleave', () => { clearTimeout(pressTimer); pressTimer = null; });
     btn.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
     btn.addEventListener('contextmenu', e => e.preventDefault());

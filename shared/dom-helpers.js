@@ -17,12 +17,44 @@ export function getSelectedOwners(containerId) {
   return Array.from(document.querySelectorAll(`#${containerId} .owner-chip--selected`)).map(b => b.dataset.id);
 }
 
-// Module-scoped "rapid-tap" timestamp shared across all bindings (dashboard + calendar).
-// When the user is tapping tasks complete one after another, the next pointerdown
-// within `rapidTapWindowMs` of the last successful tap doesn't start a long-press
-// timer. Prevents spurious menu opens when the pointer slides between adjacent
-// cards faster than pointerleave can reliably cancel the press timer.
+// Module-scoped "rapid-tap" timestamp shared across all bindings (dashboard,
+// calendar, kid, tracker, events, activities, etc.). When the user is tapping
+// rows one after another, the next pointerdown within `RAPID_TAP_WINDOW_MS`
+// of the last successful tap doesn't start a long-press timer. Prevents
+// spurious menu opens when the pointer slides between adjacent rows faster
+// than pointerleave can reliably cancel the press timer.
 let _lastTapAt = 0;
+const RAPID_TAP_WINDOW_MS = 600;
+
+/**
+ * Mark that a tap (not long-press) just happened on a row. Suppresses long-press
+ * detection on neighboring rows for the next RAPID_TAP_WINDOW_MS. Call this in
+ * any pointerup handler that fires the tap action.
+ */
+export function recordTap() {
+  _lastTapAt = Date.now();
+}
+
+/**
+ * Start a long-press timer that respects the shared rapid-tap window.
+ * Returns the timer handle (or null if suppressed), suitable for passing to
+ * clearTimeout in pointerup/pointermove/pointerleave/pointercancel handlers.
+ *
+ * Use this in any inline long-press implementation so it participates in the
+ * global rapid-tap window. Pages that use bindTaskRowGesture already get this
+ * behavior for free.
+ *
+ * @param {Function} onLongPress - called when the press hits longPressMs
+ * @param {object} [opts]
+ * @param {number} [opts.longPressMs=800] - press duration to fire
+ * @param {number} [opts.rapidTapWindowMs=RAPID_TAP_WINDOW_MS] - suppression window
+ * @returns {number|null} setTimeout handle, or null if suppressed
+ */
+export function startLongPressTimer(onLongPress, opts = {}) {
+  const { longPressMs = 800, rapidTapWindowMs = RAPID_TAP_WINDOW_MS } = opts;
+  if (Date.now() - _lastTapAt < rapidTapWindowMs) return null;
+  return setTimeout(() => { try { onLongPress?.(); } catch (e) { console.error(e); } }, longPressMs);
+}
 
 /**
  * Bind tap + long-press gesture to a task row element.
@@ -44,7 +76,7 @@ export function bindTaskRowGesture(row, opts) {
   const {
     longPressMs = 800,
     moveThreshold = 10,
-    rapidTapWindowMs = 600,
+    rapidTapWindowMs,
     onTap,
     onLongPress,
     isTapBlocked,
@@ -60,14 +92,11 @@ export function bindTaskRowGesture(row, opts) {
     startX = e.clientX;
     startY = e.clientY;
     clearTimeout(pressTimer);
-    pressTimer = null;
-    // Skip long-press detection when the user is in rapid-tap mode.
-    if (Date.now() - _lastTapAt < rapidTapWindowMs) return;
-    pressTimer = setTimeout(() => {
+    pressTimer = startLongPressTimer(() => {
       didLongPress = true;
       pressTimer = null;
       onLongPress?.(entryKey, dateKey);
-    }, longPressMs);
+    }, { longPressMs, rapidTapWindowMs });
   });
 
   row.addEventListener('pointermove', (e) => {
@@ -81,7 +110,7 @@ export function bindTaskRowGesture(row, opts) {
     clearTimeout(pressTimer);
     pressTimer = null;
     if (didLongPress) return;
-    _lastTapAt = Date.now();
+    recordTap();
     if (isTapBlocked && isTapBlocked(entryKey, dateKey)) {
       onLongPress?.(entryKey, dateKey);
     } else {
