@@ -9,6 +9,9 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v341 (2026-05-28) — Calendar mobile redesign: month grid+dots+day panel,
+//                     Skylight-style week strip, agenda backward window fix,
+//                     chrome trimming.
 // v331 (2026-05-19) — Activities polish + full-screen timer overlay:
 //                     bigger tabs, header bell/gear, FAB, person filter,
 //                     long-press edit, compact emoji picker, drop color,
@@ -513,7 +516,7 @@
 // v339 (2026-05-27) — withButtonLock helper + rapid-tap guards across all async
 //                     write surfaces (activities, admin, kitchen, rewards, dashboard
 //                     overdue sheet); .is-loading CSS; stale-listener analysis.
-const CACHE_NAME = 'family-hub-v340';
+const CACHE_NAME = 'family-hub-v341';
 
 const APP_SHELL = [
   '/',

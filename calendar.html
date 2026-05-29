@@ -46,7 +46,7 @@
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
-    import { renderWeekView, renderDayView, renderMonthView, renderCalendarNav, renderAgendaView } from './shared/calendar-views.js';
+    import { renderWeekView, renderWeekStripView, renderDayView, renderMonthView, renderCalendarNav, renderAgendaView } from './shared/calendar-views.js';
     import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
@@ -86,7 +86,7 @@
     const calDefaults = settings?.calendarDefaults || {};
     let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
     let density = calPrefs.density || calDefaults.density || 'snug';
-    let monthCompact = calPrefs.monthCompact ?? calDefaults.monthCompact ?? false;
+    let monthCompact = calPrefs.monthCompact ?? calDefaults.monthCompact ?? true;
     const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'agenda';
 
     // ── Person link mode ──
@@ -101,6 +101,8 @@
     let viewWeekStart = weekStartForDay(today, weekStartDay);
     let viewMonth = today.substring(0, 7);
     let viewDay = null;
+    let selectedDate = today;       // selected day in month view (shows day panel)
+    let weekSelectedDate = today;   // selected day in week strip view
     let activePerson = calPrefs.personFilter || linkedPerson?.prefs?.calendar?.personFilter || null;
     let completions = {};
     let allSchedule = {};
@@ -158,6 +160,8 @@
       const { preserveScroll = false, animate = true } = opts;
       const scrollY = preserveScroll ? window.scrollY : null;
       const enterCls = animate ? 'cal-view-enter' : 'cal-view-static';
+      // Toggle month-specific body class so CSS can switch scroll model
+      document.body.classList.toggle('cal-page--month', currentView === 'month');
       let navLabel = '';
       let isCurrentPeriod = false;
 
@@ -255,12 +259,15 @@
       if (currentView === 'agenda') {
         html += renderAgendaView({ today, events, people, activePerson });
       } else if (currentView === 'week') {
-        html += renderWeekView({
-          weekStartDate: viewWeekStart, today, events, people, activePerson
+        html += renderWeekStripView({
+          weekStartDate: viewWeekStart, today, selectedDate: weekSelectedDate,
+          events, allSchedule, completions, tasks, cats, people, activePerson, settings,
+          dayMeals: allMeals, recipes
         });
       } else {
         html += renderMonthView({
-          viewMonth, today, events, people, activePerson, weekStartDay, monthCompact
+          viewMonth, today, events, people, activePerson, weekStartDay,
+          monthCompact: true, selectedDate
         });
       }
       html += `</div>`;
@@ -293,9 +300,17 @@
       document.getElementById('prevPeriod')?.addEventListener('click', () => {
         if (currentView === 'week') {
           viewWeekStart = addDays(viewWeekStart, -7);
+          const newEnd = addDays(viewWeekStart, 6);
+          if (weekSelectedDate < viewWeekStart || weekSelectedDate > newEnd) {
+            weekSelectedDate = viewWeekStart;
+          }
         } else {
           const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01') - 2, 1));
           viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+          // Reset selectedDate to today if in new month, else first of month
+          if (selectedDate.substring(0, 7) !== viewMonth) {
+            selectedDate = viewMonth === today.substring(0, 7) ? today : `${viewMonth}-01`;
+          }
         }
         render();
       });
@@ -303,16 +318,28 @@
       document.getElementById('nextPeriod')?.addEventListener('click', () => {
         if (currentView === 'week') {
           viewWeekStart = addDays(viewWeekStart, 7);
+          const newEnd = addDays(viewWeekStart, 6);
+          if (weekSelectedDate < viewWeekStart || weekSelectedDate > newEnd) {
+            weekSelectedDate = viewWeekStart;
+          }
         } else {
           const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01'), 1));
           viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+          if (selectedDate.substring(0, 7) !== viewMonth) {
+            selectedDate = viewMonth === today.substring(0, 7) ? today : `${viewMonth}-01`;
+          }
         }
         render();
       });
 
       document.getElementById('goToday')?.addEventListener('click', () => {
-        if (currentView === 'week') viewWeekStart = weekStartForDay(today, weekStartDay);
-        else viewMonth = today.substring(0, 7);
+        if (currentView === 'week') {
+          viewWeekStart = weekStartForDay(today, weekStartDay);
+          weekSelectedDate = today;
+        } else {
+          viewMonth = today.substring(0, 7);
+          selectedDate = today;
+        }
         render();
       });
 
@@ -390,6 +417,51 @@
     // ══════════════════════════════════════════
 
     function bindWeekViewEvents() {
+      // Week strip cell tap → select the day (update panel below)
+      main.querySelectorAll('.cal-wstrip__cell[data-date]').forEach(cell => {
+        cell.addEventListener('click', () => {
+          weekSelectedDate = cell.dataset.date;
+          render({ animate: false });
+        });
+      });
+
+      // Event taps in .cal-wstrip-panel__event are handled by the delegated
+      // attachEventGestures() listener on document.body — no extra binding needed.
+
+      // Task rows in the week day panel
+      main.querySelectorAll('.cal-wstrip-panel__task').forEach(row => {
+        bindTaskRowGesture(row, {
+          longPressMs: settings?.longPressMs ?? 800,
+          onTap: toggleTask,
+          onLongPress: openTaskSheet,
+          isTapBlocked: () => row.querySelector('.cal-wstrip-panel__task-check')?.dataset.tapBlocked === 'true',
+        });
+      });
+
+      // Swipe on week strip → navigate weeks
+      let wsx = 0, wsy = 0;
+      const strip = main.querySelector('.cal-wstrip');
+      if (strip) {
+        strip.addEventListener('touchstart', (e) => {
+          wsx = e.touches[0].clientX;
+          wsy = e.touches[0].clientY;
+        }, { passive: true });
+        strip.addEventListener('touchend', (e) => {
+          const dx = e.changedTouches[0].clientX - wsx;
+          const dy = e.changedTouches[0].clientY - wsy;
+          if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            viewWeekStart = addDays(viewWeekStart, dx < 0 ? 7 : -7);
+            // Keep selected date in the new week if possible
+            const newEnd = addDays(viewWeekStart, 6);
+            if (weekSelectedDate < viewWeekStart || weekSelectedDate > newEnd) {
+              weekSelectedDate = viewWeekStart;
+            }
+            render();
+          }
+        }, { passive: true });
+      }
+
+      // Legacy week view (desktop) — keep for old columns if ever rendered
       main.querySelectorAll('.cal-week__col[data-date]').forEach(col => {
         col.addEventListener('click', (e) => {
           if (e.target.classList.contains('cal-week__task-check')) return;
@@ -405,17 +477,28 @@
           toggleTask(cb.dataset.entryKey, cb.dataset.dateKey);
         });
       });
-
     }
 
     function bindMonthViewEvents() {
+      // Single tap on a day cell → update the selected day panel (no navigation).
+      // Double-tap (tapping the already-selected date) → navigate to day view.
       main.querySelectorAll('.cal-grid__cell[data-date]').forEach(cell => {
         cell.addEventListener('click', () => {
-          viewDay = cell.dataset.date;
-          currentView = 'day';
-          render();
+          const tapped = cell.dataset.date;
+          if (tapped === selectedDate) {
+            // Already selected → drill into day view
+            viewDay = tapped;
+            currentView = 'day';
+            render();
+          } else {
+            selectedDate = tapped;
+            render({ animate: false });
+          }
         });
       });
+
+      // Event taps in .cal-month-panel__event are handled by the delegated
+      // attachEventGestures() listener on document.body — no extra binding needed.
     }
 
     // ══════════════════════════════════════════

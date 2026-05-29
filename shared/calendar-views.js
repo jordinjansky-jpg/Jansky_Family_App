@@ -196,6 +196,202 @@ function buildTimeAxisGrid(timedEvents, people, todayKey, dateKey) {
  * @param {number} opts.weekStartDay - 0=Sun, 1=Mon
  * @returns {string} HTML
  */
+/**
+ * Render the new Skylight-style week view: horizontal strip + day detail panel.
+ * @param {object} opts
+ * @param {string} opts.weekStartDate - YYYY-MM-DD
+ * @param {string} opts.today
+ * @param {string} opts.selectedDate - currently selected day
+ * @param {object} opts.events
+ * @param {object} opts.allSchedule
+ * @param {object} opts.completions
+ * @param {object} opts.tasks
+ * @param {object} opts.cats
+ * @param {Array} opts.people
+ * @param {string|null} opts.activePerson
+ * @param {object} opts.settings
+ * @param {object} opts.dayMeals
+ * @param {object} opts.recipes
+ */
+export function renderWeekStripView(opts) {
+  const { weekStartDate, today, selectedDate, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {} } = opts;
+  const days = dateRange(weekStartDate, addDays(weekStartDate, 6));
+  const activeDay = selectedDate || today;
+
+  // Week strip cells
+  const stripCells = days.map(dk => {
+    const dow = dayOfWeek(dk);
+    const dayNum = parseInt(dk.split('-')[2], 10);
+    const isToday = dk === today;
+    const isSelected = dk === activeDay;
+
+    let dayEvents = getEventsForDate(events, dk, addDays);
+    dayEvents = filterEventsByPerson(dayEvents, activePerson);
+    const sortedEvents = sortEvents(dayEvents);
+
+    const maxDots = 3;
+    const visible = sortedEvents.slice(0, maxDots);
+    const overflow = sortedEvents.length > maxDots;
+    const dots = visible.map(([, e]) => {
+      const color = e.color || (people.find(p => e.people?.includes(p.id))?.color) || '#5b7fd6';
+      return `<span class="cal-wstrip__dot" data-bg-color="${esc(color)}"></span>`;
+    }).join('');
+    const dotsRow = sortedEvents.length > 0
+      ? `<div class="cal-wstrip__dots">${dots}${overflow ? '<span class="cal-wstrip__dot-more"></span>' : ''}</div>`
+      : `<div class="cal-wstrip__dots cal-wstrip__dots--empty"></div>`;
+
+    let cls = 'cal-wstrip__cell';
+    if (isToday) cls += ' cal-wstrip__cell--today';
+    if (isSelected) cls += ' cal-wstrip__cell--selected';
+
+    return `<button class="${cls}" data-date="${esc(dk)}" type="button" aria-label="${DAY_NAMES_FULL[dow]}, ${MONTH_NAMES[parseInt(dk.split('-')[1], 10) - 1]} ${dayNum}">
+      <span class="cal-wstrip__dow">${DAY_NAMES_SHORT[dow]}</span>
+      <span class="cal-wstrip__num">${dayNum}</span>
+      ${dotsRow}
+    </button>`;
+  }).join('');
+
+  const strip = `<div class="cal-wstrip" role="tablist" aria-label="Week days">${stripCells}</div>`;
+
+  // Day detail panel for the selected day
+  const panel = renderWeekDayPanel({ dateKey: activeDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals: dayMeals[activeDay] || {}, recipes });
+
+  return `<div class="cal-wstrip-view">
+    ${strip}
+    ${panel}
+  </div>`;
+}
+
+/**
+ * Render the day detail panel for the week strip view.
+ * Shows all-day events as pills, timed events in a time-axis grid, tasks grouped by type.
+ */
+function renderWeekDayPanel({ dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {} }) {
+  // Reuse renderDayView since it already does exactly what we need
+  // But we want to wrap it with a minimal header showing the date
+  const d = new Date(`${dateKey}T00:00:00Z`);
+  const dayName = DAY_NAMES_FULL[d.getUTCDay()];
+  const monthName = MONTH_NAMES[d.getUTCMonth()];
+  const dayNum = d.getUTCDate();
+  const isToday = dateKey === today;
+  const headerLabel = isToday
+    ? `${dayName}, ${monthName} ${dayNum} <span class="cal-wstrip-panel__today-pill">Today</span>`
+    : `${dayName}, ${monthName} ${dayNum}`;
+
+  // Build events list for the panel (same pattern as month day panel)
+  let dayEvents = getEventsForDate(events, dateKey, addDays);
+  dayEvents = filterEventsByPerson(dayEvents, activePerson);
+  const sortedEvents = sortEvents(dayEvents);
+
+  let eventsHtml = '';
+  if (sortedEvents.length > 0) {
+    const allDayEvents = sortedEvents.filter(([, e]) => e.allDay);
+    const timedEvents = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
+    const untimedEvents = sortedEvents.filter(([, e]) => !e.allDay && !e.startTime);
+
+    // All-day pills
+    for (const [id, evt] of allDayEvents) {
+      const color = evt.color || (people.find(p => evt.people?.includes(p.id))?.color) || '#5b7fd6';
+      const personDots = (evt.people || []).map(pid => {
+        const person = people.find(p => p.id === pid);
+        return person ? `<span class="cal-wstrip-panel__event-dot" data-bg-color="${esc(person.color)}"></span>` : '';
+      }).join('');
+      eventsHtml += `<button class="cal-wstrip-panel__event cal-wstrip-panel__event--allday" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
+        <div class="cal-wstrip-panel__event-stripe" data-bg-color="${esc(color)}"></div>
+        <div class="cal-wstrip-panel__event-body">
+          <div class="cal-wstrip-panel__event-name">${esc(evt.name || 'Untitled')}</div>
+          <div class="cal-wstrip-panel__event-time">All day</div>
+        </div>
+        ${personDots ? `<div class="cal-wstrip-panel__event-people">${personDots}</div>` : ''}
+      </button>`;
+    }
+    // Timed events
+    for (const [id, evt] of timedEvents) {
+      const color = evt.color || (people.find(p => evt.people?.includes(p.id))?.color) || '#5b7fd6';
+      const timeStr = evt.endTime ? `${fmtTime(evt.startTime)} – ${fmtTime(evt.endTime)}` : fmtTime(evt.startTime);
+      const personDots = (evt.people || []).map(pid => {
+        const person = people.find(p => p.id === pid);
+        return person ? `<span class="cal-wstrip-panel__event-dot" data-bg-color="${esc(person.color)}"></span>` : '';
+      }).join('');
+      eventsHtml += `<button class="cal-wstrip-panel__event" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
+        <div class="cal-wstrip-panel__event-stripe" data-bg-color="${esc(color)}"></div>
+        <div class="cal-wstrip-panel__event-body">
+          <div class="cal-wstrip-panel__event-name">${esc(evt.name || 'Untitled')}</div>
+          <div class="cal-wstrip-panel__event-time">${esc(timeStr)}</div>
+        </div>
+        ${personDots ? `<div class="cal-wstrip-panel__event-people">${personDots}</div>` : ''}
+      </button>`;
+    }
+    // Untimed events
+    for (const [id, evt] of untimedEvents) {
+      const color = evt.color || (people.find(p => evt.people?.includes(p.id))?.color) || '#5b7fd6';
+      const personDots = (evt.people || []).map(pid => {
+        const person = people.find(p => p.id === pid);
+        return person ? `<span class="cal-wstrip-panel__event-dot" data-bg-color="${esc(person.color)}"></span>` : '';
+      }).join('');
+      eventsHtml += `<button class="cal-wstrip-panel__event" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
+        <div class="cal-wstrip-panel__event-stripe" data-bg-color="${esc(color)}"></div>
+        <div class="cal-wstrip-panel__event-body">
+          <div class="cal-wstrip-panel__event-name">${esc(evt.name || 'Untitled')}</div>
+        </div>
+        ${personDots ? `<div class="cal-wstrip-panel__event-people">${personDots}</div>` : ''}
+      </button>`;
+    }
+  }
+
+  // Tasks section
+  const dayEntries = allSchedule ? (allSchedule[dateKey] || {}) : {};
+  let filteredEntries = filterByPerson(dayEntries, activePerson);
+  filteredEntries = Object.fromEntries(
+    Object.entries(filteredEntries).filter(([, e]) => e.type !== 'event')
+  );
+
+  let tasksHtml = '';
+  if (Object.keys(filteredEntries).length > 0) {
+    const groups = groupByFrequency(filteredEntries, tasks, cats);
+    const groupOrder = [
+      { key: 'monthly', label: 'Monthly' },
+      { key: 'weekly',  label: 'Weekly' },
+      { key: 'once',    label: 'One-Time' },
+      { key: 'daily',   label: 'Daily' },
+    ];
+    for (const { key, label } of groupOrder) {
+      const groupEntries = groups[key];
+      if (!groupEntries || Object.keys(groupEntries).length === 0) continue;
+      const sorted = sortEntries(groupEntries, completions, tasks, people, today);
+      const incomplete = sorted.filter(([k]) => !isComplete(k, completions));
+      const completed  = sorted.filter(([k]) =>  isComplete(k, completions));
+      tasksHtml += `<div class="cal-wstrip-panel__task-group">
+        <div class="cal-wstrip-panel__task-group-label">${label}</div>`;
+      for (const [entryKey, entry] of [...incomplete, ...completed]) {
+        const task = tasks[entry.taskId] || { name: 'Unknown' };
+        const done = isComplete(entryKey, completions);
+        const person = people.find(p => p.id === entry.ownerId);
+        const personDot = person ? `<span class="cal-wstrip-panel__task-dot" data-bg-color="${esc(person.color)}"></span>` : '';
+        const isPastDaily = dateKey < today && entry.rotationType === 'daily';
+        tasksHtml += `<div class="cal-wstrip-panel__task${done ? ' cal-wstrip-panel__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dateKey}">
+          <button class="cal-wstrip-panel__task-check${done ? ' cal-wstrip-panel__task-check--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dateKey}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button"></button>
+          ${personDot}
+          <span class="cal-wstrip-panel__task-name">${esc(task.name)}</span>
+        </div>`;
+      }
+      tasksHtml += `</div>`;
+    }
+  }
+
+  const hasContent = sortedEvents.length > 0 || Object.keys(filteredEntries).length > 0;
+  const emptyHtml = !hasContent ? `<div class="cal-wstrip-panel__empty">No events on this day</div>` : '';
+
+  return `<div class="cal-wstrip-panel" data-panel-date="${esc(dateKey)}">
+    <div class="cal-wstrip-panel__header">${headerLabel}</div>
+    <div class="cal-wstrip-panel__scroll">
+      ${eventsHtml}
+      ${tasksHtml}
+      ${emptyHtml}
+    </div>
+  </div>`;
+}
+
 export function renderWeekView(opts) {
   const { weekStartDate, today, events, people, activePerson } = opts;
   const days = dateRange(weekStartDate, addDays(weekStartDate, 6));
@@ -401,7 +597,7 @@ export function renderDayView(opts) {
  * Render the month view grid.
  */
 export function renderMonthView(opts) {
-  const { viewMonth, today, events, people, activePerson, weekStartDay, monthCompact = false } = opts;
+  const { viewMonth, today, events, people, activePerson, weekStartDay, monthCompact = true, selectedDate = null } = opts;
   const mStart = `${viewMonth}-01`;
   const mEnd = monthEnd(mStart);
   const firstDow = dayOfWeek(mStart);
@@ -419,6 +615,7 @@ export function renderMonthView(opts) {
   const dayCells = days.map(dk => {
     const isToday = dk === today;
     const isPast = dk < today;
+    const isSelected = selectedDate ? dk === selectedDate : dk === today;
 
     let dayEvents = getEventsForDate(events, dk, addDays);
     dayEvents = filterEventsByPerson(dayEvents, activePerson);
@@ -427,34 +624,21 @@ export function renderMonthView(opts) {
     let cls = 'cal-grid__cell';
     if (isToday) cls += ' cal-grid__cell--today';
     if (isPast && !isToday && sortedEvents.length === 0) cls += ' cal-grid__cell--past';
+    if (isSelected) cls += ' cal-grid__cell--selected';
 
     const dayNum = parseInt(dk.split('-')[2], 10);
 
+    // Always use compact dots mode
     let eventsHtml = '';
     if (sortedEvents.length > 0) {
-      if (monthCompact) {
-        const maxDots = 4;
-        const visible = sortedEvents.slice(0, maxDots);
-        const overflow = sortedEvents.length - maxDots;
-        const dots = visible.map(([, e]) => {
-          const accentColor = e.color || (people.find(p => e.people?.includes(p.id))?.color) || '#5b7fd6';
-          return `<span class="cal-grid__dot" data-bg-color="${esc(accentColor)}"></span>`;
-        }).join('');
-        eventsHtml = `<div class="cal-grid__dots">${dots}${overflow > 0 ? `<span class="cal-grid__dots-more">+${overflow}</span>` : ''}</div>`;
-      } else {
-        const maxEventPills = 2;
-        const visible = sortedEvents.slice(0, maxEventPills);
-        const overflow = sortedEvents.length - maxEventPills;
-        eventsHtml = visible.map(([id, e]) => {
-          const accentColor = e.color || (people.find(p => e.people?.includes(p.id))?.color) || '#5b7fd6';
-          const timeStr = !e.allDay && e.startTime ? e.startTime.replace(/:00$/, '') + ' ' : '';
-          return `<div class="cal-grid__event" data-event-id="${esc(id)}" data-bg-color="${esc(accentColor)}">
-            ${timeStr ? `<span class="cal-grid__event-time">${esc(timeStr)}</span>` : ''}
-            <span class="cal-grid__event-name">${esc(e.name)}</span>
-          </div>`;
-        }).join('');
-        if (overflow > 0) eventsHtml += `<div class="cal-grid__overflow">+${overflow}</div>`;
-      }
+      const maxDots = 3;
+      const visible = sortedEvents.slice(0, maxDots);
+      const overflow = sortedEvents.length - maxDots;
+      const dots = visible.map(([, e]) => {
+        const accentColor = e.color || (people.find(p => e.people?.includes(p.id))?.color) || '#5b7fd6';
+        return `<span class="cal-grid__dot" data-bg-color="${esc(accentColor)}"></span>`;
+      }).join('');
+      eventsHtml = `<div class="cal-grid__dots">${dots}${overflow > 0 ? `<span class="cal-grid__dots-more">+${overflow}</span>` : ''}</div>`;
     }
 
     return `<button class="${cls}" data-date="${dk}" type="button">
@@ -463,13 +647,75 @@ export function renderMonthView(opts) {
     </button>`;
   }).join('');
 
+  // Selected day panel
+  const panelDate = selectedDate || today;
+  const panelHtml = renderMonthDayPanel({ dateKey: panelDate, today, events, people, activePerson });
+
   return `<div class="cal-month">
     <div class="cal-grid">
       ${dowHeaders.join('')}
       ${emptyCells}
       ${dayCells}
     </div>
+    ${panelHtml}
   </div>`;
+}
+
+/**
+ * Render the selected-day detail panel shown below the month grid.
+ */
+function renderMonthDayPanel({ dateKey, today, events, people, activePerson }) {
+  const d = new Date(`${dateKey}T00:00:00Z`);
+  const dayName = DAY_NAMES_FULL[d.getUTCDay()];
+  const monthName = MONTH_NAMES[d.getUTCMonth()];
+  const dayNum = d.getUTCDate();
+  const yearNum = d.getUTCFullYear();
+  const isToday = dateKey === today;
+  const headerLabel = isToday
+    ? `${dayName}, ${monthName} ${dayNum} <span class="cal-month-panel__today-pill">Today</span>`
+    : `${dayName}, ${monthName} ${dayNum}, ${yearNum}`;
+
+  let dayEvents = getEventsForDate(events, dateKey, addDays);
+  dayEvents = filterEventsByPerson(dayEvents, activePerson);
+  const sortedEvents = sortEvents(dayEvents);
+
+  let eventsHtml = '';
+  if (sortedEvents.length === 0) {
+    eventsHtml = `<div class="cal-month-panel__empty">No events — tap + to add</div>`;
+  } else {
+    for (const [id, evt] of sortedEvents) {
+      const color = evt.color || (people.find(p => evt.people?.includes(p.id))?.color) || '#5b7fd6';
+      let timeStr = '';
+      if (evt.allDay) timeStr = 'All day';
+      else if (evt.startTime && evt.endTime) timeStr = `${fmtTime(evt.startTime)} – ${fmtTime(evt.endTime)}`;
+      else if (evt.startTime) timeStr = fmtTime(evt.startTime);
+      const personDots = (evt.people || []).map(pid => {
+        const person = people.find(p => p.id === pid);
+        return person ? `<span class="cal-month-panel__event-dot" data-bg-color="${esc(person.color)}"></span>` : '';
+      }).join('');
+      eventsHtml += `<button class="cal-month-panel__event" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
+        <div class="cal-month-panel__event-stripe" data-bg-color="${esc(color)}"></div>
+        <div class="cal-month-panel__event-body">
+          <div class="cal-month-panel__event-name">${esc(evt.name || 'Untitled')}</div>
+          ${timeStr ? `<div class="cal-month-panel__event-time">${esc(timeStr)}</div>` : ''}
+        </div>
+        ${personDots ? `<div class="cal-month-panel__event-people">${personDots}</div>` : ''}
+      </button>`;
+    }
+  }
+
+  return `<div class="cal-month-panel" data-panel-date="${esc(dateKey)}">
+    <div class="cal-month-panel__header">${headerLabel}</div>
+    <div class="cal-month-panel__events">${eventsHtml}</div>
+  </div>`;
+}
+
+function fmtTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ap = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return m === 0 ? `${h12} ${ap}` : `${h12}:${String(m).padStart(2, '0')} ${ap}`;
 }
 
 /**
@@ -522,17 +768,18 @@ export function renderCalendarNav(opts) {
 export function renderAgendaView(opts) {
   const { today, events, people, activePerson } = opts;
 
-  // 60-day forward window.
+  // ±30 days back, +60 days forward so past events are visible.
+  const rangeStart = addDays(today, -30);
   const rangeEnd = addDays(today, 60);
 
   // Expand recurring + multi-day occurrences in the window via existing path.
-  const expandedMap = getEventsForRange(events, today, rangeEnd, addDays);
+  const expandedMap = getEventsForRange(events, rangeStart, rangeEnd, addDays);
   const expanded = filterEventsByPerson(expandedMap, activePerson);
 
   // Group by date, fanning multi-day events across each spanned day.
   const byDate = new Map();
   for (const [id, evt] of Object.entries(expanded)) {
-    const startDate = evt.date < today ? today : evt.date;
+    const startDate = evt.date < rangeStart ? rangeStart : evt.date;
     const endDate = evt.endDate || evt.date;
     const finalEnd = endDate > rangeEnd ? rangeEnd : endDate;
     let cur = startDate;
@@ -557,8 +804,8 @@ export function renderAgendaView(opts) {
   if (sortedDates.length === 0) {
     return `<div class="cal-agenda"><div class="cal-agenda__empty">
       <div class="cal-agenda__empty-icon">📅</div>
-      <div class="cal-agenda__empty-title">Nothing on the calendar</div>
-      <div class="cal-agenda__empty-body">Events in the next 60 days will appear here.</div>
+      <div class="cal-agenda__empty-title">No events in this period</div>
+      <div class="cal-agenda__empty-body">Events in the past 30 days and next 60 days will appear here.</div>
     </div></div>`;
   }
 
