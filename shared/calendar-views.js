@@ -289,53 +289,40 @@ function renderWeekDayPanel({ dateKey, today, events, allSchedule, completions, 
     const timedEvents = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
     const untimedEvents = sortedEvents.filter(([, e]) => !e.allDay && !e.startTime);
 
-    // All-day pills
-    for (const [id, evt] of allDayEvents) {
+    // Helper: render a single event row with inline time (Issue 4)
+    const renderPanelEvent = (id, evt, cls = '') => {
       const color = evt.color || (people.find(p => evt.people?.includes(p.id))?.color) || '#5b7fd6';
+      let timePrefix = '';
+      if (!evt.allDay) {
+        if (evt.startTime && evt.endTime) timePrefix = `${fmtTime(evt.startTime)} – ${fmtTime(evt.endTime)}`;
+        else if (evt.startTime) timePrefix = fmtTime(evt.startTime);
+      }
+      const inlineTime = timePrefix
+        ? `<span class="cal-panel__event-time-inline">${esc(timePrefix)}</span><span class="cal-panel__event-sep"> · </span>`
+        : '';
       const personDots = (evt.people || []).map(pid => {
         const person = people.find(p => p.id === pid);
         return person ? `<span class="cal-wstrip-panel__event-dot" data-bg-color="${esc(person.color)}"></span>` : '';
       }).join('');
-      eventsHtml += `<button class="cal-wstrip-panel__event cal-wstrip-panel__event--allday" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
+      return `<button class="cal-wstrip-panel__event${cls ? ' ' + cls : ''}" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
         <div class="cal-wstrip-panel__event-stripe" data-bg-color="${esc(color)}"></div>
         <div class="cal-wstrip-panel__event-body">
-          <div class="cal-wstrip-panel__event-name">${esc(evt.name || 'Untitled')}</div>
-          <div class="cal-wstrip-panel__event-time">All day</div>
+          <div class="cal-wstrip-panel__event-name">${inlineTime}${esc(evt.name || 'Untitled')}</div>
         </div>
         ${personDots ? `<div class="cal-wstrip-panel__event-people">${personDots}</div>` : ''}
       </button>`;
+    };
+    // All-day pills
+    for (const [id, evt] of allDayEvents) {
+      eventsHtml += renderPanelEvent(id, evt, 'cal-wstrip-panel__event--allday');
     }
     // Timed events
     for (const [id, evt] of timedEvents) {
-      const color = evt.color || (people.find(p => evt.people?.includes(p.id))?.color) || '#5b7fd6';
-      const timeStr = evt.endTime ? `${fmtTime(evt.startTime)} – ${fmtTime(evt.endTime)}` : fmtTime(evt.startTime);
-      const personDots = (evt.people || []).map(pid => {
-        const person = people.find(p => p.id === pid);
-        return person ? `<span class="cal-wstrip-panel__event-dot" data-bg-color="${esc(person.color)}"></span>` : '';
-      }).join('');
-      eventsHtml += `<button class="cal-wstrip-panel__event" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
-        <div class="cal-wstrip-panel__event-stripe" data-bg-color="${esc(color)}"></div>
-        <div class="cal-wstrip-panel__event-body">
-          <div class="cal-wstrip-panel__event-name">${esc(evt.name || 'Untitled')}</div>
-          <div class="cal-wstrip-panel__event-time">${esc(timeStr)}</div>
-        </div>
-        ${personDots ? `<div class="cal-wstrip-panel__event-people">${personDots}</div>` : ''}
-      </button>`;
+      eventsHtml += renderPanelEvent(id, evt);
     }
     // Untimed events
     for (const [id, evt] of untimedEvents) {
-      const color = evt.color || (people.find(p => evt.people?.includes(p.id))?.color) || '#5b7fd6';
-      const personDots = (evt.people || []).map(pid => {
-        const person = people.find(p => p.id === pid);
-        return person ? `<span class="cal-wstrip-panel__event-dot" data-bg-color="${esc(person.color)}"></span>` : '';
-      }).join('');
-      eventsHtml += `<button class="cal-wstrip-panel__event" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
-        <div class="cal-wstrip-panel__event-stripe" data-bg-color="${esc(color)}"></div>
-        <div class="cal-wstrip-panel__event-body">
-          <div class="cal-wstrip-panel__event-name">${esc(evt.name || 'Untitled')}</div>
-        </div>
-        ${personDots ? `<div class="cal-wstrip-panel__event-people">${personDots}</div>` : ''}
-      </button>`;
+      eventsHtml += renderPanelEvent(id, evt);
     }
   }
 
@@ -359,21 +346,46 @@ function renderWeekDayPanel({ dateKey, today, events, allSchedule, completions, 
       const groupEntries = groups[key];
       if (!groupEntries || Object.keys(groupEntries).length === 0) continue;
       const sorted = sortEntries(groupEntries, completions, tasks, people, today);
-      const incomplete = sorted.filter(([k]) => !isComplete(k, completions));
-      const completed  = sorted.filter(([k]) =>  isComplete(k, completions));
+      // Group entries by task name (Issue 3)
+      const byName = new Map();
+      for (const [entryKey, entry] of sorted) {
+        const taskName = tasks[entry.taskId]?.name || 'Unknown';
+        if (!byName.has(taskName)) byName.set(taskName, []);
+        byName.get(taskName).push([entryKey, entry]);
+      }
       tasksHtml += `<div class="cal-wstrip-panel__task-group">
         <div class="cal-wstrip-panel__task-group-label">${label}</div>`;
-      for (const [entryKey, entry] of [...incomplete, ...completed]) {
-        const task = tasks[entry.taskId] || { name: 'Unknown' };
-        const done = isComplete(entryKey, completions);
-        const person = people.find(p => p.id === entry.ownerId);
-        const personDot = person ? `<span class="cal-wstrip-panel__task-dot" data-bg-color="${esc(person.color)}"></span>` : '';
-        const isPastDaily = dateKey < today && entry.rotationType === 'daily';
-        tasksHtml += `<div class="cal-wstrip-panel__task${done ? ' cal-wstrip-panel__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dateKey}">
-          <button class="cal-wstrip-panel__task-check${done ? ' cal-wstrip-panel__task-check--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dateKey}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button"></button>
-          ${personDot}
-          <span class="cal-wstrip-panel__task-name">${esc(task.name)}</span>
-        </div>`;
+      for (const [taskName, entries] of byName) {
+        if (entries.length === 1) {
+          const [entryKey, entry] = entries[0];
+          const done = isComplete(entryKey, completions);
+          const person = people.find(p => p.id === entry.ownerId);
+          const personDot = person ? `<span class="cal-wstrip-panel__task-dot" data-bg-color="${esc(person.color)}"></span>` : '';
+          const isPastDaily = dateKey < today && entry.rotationType === 'daily';
+          tasksHtml += `<div class="cal-wstrip-panel__task${done ? ' cal-wstrip-panel__task--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dateKey}">
+            <button class="cal-wstrip-panel__task-check${done ? ' cal-wstrip-panel__task-check--done' : ''}" data-entry-key="${entryKey}" data-date-key="${dateKey}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button"></button>
+            ${personDot}
+            <span class="cal-wstrip-panel__task-name">${esc(taskName)}</span>
+          </div>`;
+        } else {
+          // Multiple entries for same task name — render one row with avatar cluster
+          const allDone = entries.every(([k]) => isComplete(k, completions));
+          const firstEntry = entries[0][1];
+          const isPastDaily = dateKey < today && firstEntry.rotationType === 'daily';
+          const avatars = entries.map(([entryKey, entry]) => {
+            const done = isComplete(entryKey, completions);
+            const person = people.find(p => p.id === entry.ownerId);
+            const initial = person ? esc((person.name || '?')[0].toUpperCase()) : '?';
+            const color = person?.color || 'var(--accent)';
+            return `<button class="cal-task-avatar${done ? ' cal-task-avatar--done' : ''}" data-entry-key="${esc(entryKey)}" data-date-key="${esc(dateKey)}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button" style="--avatar-color: ${esc(color)}" aria-label="${esc(person?.name || '?')}">${initial}</button>`;
+          }).join('');
+          // Use first entry key as the primary tap target for task detail sheet
+          const primaryKey = entries[0][0];
+          tasksHtml += `<div class="cal-wstrip-panel__task${allDone ? ' cal-wstrip-panel__task--done' : ''} cal-wstrip-panel__task--grouped" data-entry-key="${esc(primaryKey)}" data-date-key="${esc(dateKey)}">
+            <span class="cal-wstrip-panel__task-name">${esc(taskName)}</span>
+            <div class="cal-task-avatars">${avatars}</div>
+          </div>`;
+        }
       }
       tasksHtml += `</div>`;
     }
@@ -528,12 +540,37 @@ export function renderDayView(opts) {
       const groupEntries = groups[key];
       if (!groupEntries || Object.keys(groupEntries).length === 0) continue;
       const sorted = sortEntries(groupEntries, completions, tasks, people, today);
-      const incomplete = sorted.filter(([k]) => !isComplete(k, completions));
-      const completed  = sorted.filter(([k]) =>  isComplete(k, completions));
+      // Group by task name (Issue 3)
+      const byName = new Map();
+      for (const [entryKey, entry] of sorted) {
+        const taskName = tasks[entry.taskId]?.name || 'Unknown';
+        if (!byName.has(taskName)) byName.set(taskName, []);
+        byName.get(taskName).push([entryKey, entry]);
+      }
       tasksHtml += `<div class="cal-day__freq-group">
         <div class="cal-day__freq-label">${label}</div>`;
-      for (const [k, e] of incomplete) tasksHtml += renderDayTaskRow(k, e);
-      for (const [k, e] of completed)  tasksHtml += renderDayTaskRow(k, e);
+      for (const [taskName, entries] of byName) {
+        if (entries.length === 1) {
+          tasksHtml += renderDayTaskRow(entries[0][0], entries[0][1]);
+        } else {
+          // Multiple people assigned to same task — one row with avatar cluster
+          const allDone = entries.every(([k]) => isComplete(k, completions));
+          const firstEntry = entries[0][1];
+          const isPastDaily = dateKey < today && firstEntry.rotationType === 'daily';
+          const avatars = entries.map(([entryKey, entry]) => {
+            const done = isComplete(entryKey, completions);
+            const person = people.find(p => p.id === entry.ownerId);
+            const initial = person ? esc((person.name || '?')[0].toUpperCase()) : '?';
+            const color = person?.color || 'var(--accent)';
+            return `<button class="cal-task-avatar${done ? ' cal-task-avatar--done' : ''}" data-entry-key="${esc(entryKey)}" data-date-key="${esc(dateKey)}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button" style="--avatar-color: ${esc(color)}" aria-label="${esc(person?.name || '?')}">${initial}</button>`;
+          }).join('');
+          const primaryKey = entries[0][0];
+          tasksHtml += `<div class="cal-day__task${allDone ? ' cal-day__task--done' : ''} cal-day__task--grouped" data-entry-key="${esc(primaryKey)}" data-date-key="${esc(dateKey)}">
+            <span class="cal-day__task-name">${esc(taskName)}</span>
+            <div class="cal-task-avatars">${avatars}</div>
+          </div>`;
+        }
+      }
       tasksHtml += `</div>`;
     }
 
@@ -623,7 +660,7 @@ export function renderMonthView(opts) {
 
     let cls = 'cal-grid__cell';
     if (isToday) cls += ' cal-grid__cell--today';
-    if (isPast && !isToday && sortedEvents.length === 0) cls += ' cal-grid__cell--past';
+    if (isPast && !isToday) cls += ' cal-grid__cell--past';
     if (isSelected) cls += ' cal-grid__cell--selected';
 
     const dayNum = parseInt(dk.split('-')[2], 10);
@@ -685,10 +722,15 @@ function renderMonthDayPanel({ dateKey, today, events, people, activePerson }) {
   } else {
     for (const [id, evt] of sortedEvents) {
       const color = evt.color || (people.find(p => evt.people?.includes(p.id))?.color) || '#5b7fd6';
-      let timeStr = '';
-      if (evt.allDay) timeStr = 'All day';
-      else if (evt.startTime && evt.endTime) timeStr = `${fmtTime(evt.startTime)} – ${fmtTime(evt.endTime)}`;
-      else if (evt.startTime) timeStr = fmtTime(evt.startTime);
+      // Issue 4: inline time
+      let timePrefix = '';
+      if (!evt.allDay) {
+        if (evt.startTime && evt.endTime) timePrefix = `${fmtTime(evt.startTime)} – ${fmtTime(evt.endTime)}`;
+        else if (evt.startTime) timePrefix = fmtTime(evt.startTime);
+      }
+      const inlineTime = timePrefix
+        ? `<span class="cal-panel__event-time-inline">${esc(timePrefix)}</span><span class="cal-panel__event-sep"> · </span>`
+        : '';
       const personDots = (evt.people || []).map(pid => {
         const person = people.find(p => p.id === pid);
         return person ? `<span class="cal-month-panel__event-dot" data-bg-color="${esc(person.color)}"></span>` : '';
@@ -696,8 +738,7 @@ function renderMonthDayPanel({ dateKey, today, events, people, activePerson }) {
       eventsHtml += `<button class="cal-month-panel__event" data-event-id="${esc(id)}" data-event-color="${esc(color)}" type="button">
         <div class="cal-month-panel__event-stripe" data-bg-color="${esc(color)}"></div>
         <div class="cal-month-panel__event-body">
-          <div class="cal-month-panel__event-name">${esc(evt.name || 'Untitled')}</div>
-          ${timeStr ? `<div class="cal-month-panel__event-time">${esc(timeStr)}</div>` : ''}
+          <div class="cal-month-panel__event-name">${inlineTime}${esc(evt.name || 'Untitled')}</div>
         </div>
         ${personDots ? `<div class="cal-month-panel__event-people">${personDots}</div>` : ''}
       </button>`;
@@ -841,11 +882,18 @@ function renderAgendaEvent(id, event, people) {
         .filter(Boolean)
     : [];
 
-  let timeStr;
-  if (event.allDay) timeStr = 'All day';
-  else if (event.startTime && event.endTime) timeStr = `${event.startTime} – ${event.endTime}`;
-  else if (event.startTime) timeStr = event.startTime;
-  else timeStr = '';
+  // Issue 4: inline time — "9:00 AM · Name" on one line
+  let timePrefix = '';
+  if (!event.allDay) {
+    if (event.startTime && event.endTime) {
+      timePrefix = `${fmtTime(event.startTime)} – ${fmtTime(event.endTime)}`;
+    } else if (event.startTime) {
+      timePrefix = fmtTime(event.startTime);
+    }
+  }
+  const inlineTime = timePrefix
+    ? `<span class="cal-agenda__event-time-inline">${esc(timePrefix)}</span><span class="cal-agenda__event-sep"> · </span>`
+    : '';
 
   // Multi-day badge for events that span more than one day
   const startDate = event.date;
@@ -858,9 +906,8 @@ function renderAgendaEvent(id, event, people) {
     : '';
 
   return `<button class="cal-agenda__event" data-event-id="${esc(id)}" data-event-color="${esc(personColor)}" type="button">
-    <div class="cal-agenda__event-time">${esc(timeStr)}</div>
     <div class="cal-agenda__event-body">
-      <div class="cal-agenda__event-name">${esc(event.name || 'Untitled event')}</div>
+      <div class="cal-agenda__event-line">${inlineTime}<span class="cal-agenda__event-name">${esc(event.name || 'Untitled event')}</span></div>
       ${event.location ? `<div class="cal-agenda__event-loc">${esc(event.location)}</div>` : ''}
       ${spanBadge}
     </div>

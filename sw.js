@@ -9,6 +9,10 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v342 (2026-05-31) — Calendar polish bundle: sticky tabs in all views incl Day,
+//                     View-as chip (replaces avatar strip), grouped tasks by name
+//                     with avatar cluster, compact inline event time, filled accent
+//                     selected day, Today button in Day view, past-day muting fix.
 // v341 (2026-05-28) — Calendar mobile redesign: month grid+dots+day panel,
 //                     Skylight-style week strip, agenda backward window fix,
 //                     chrome trimming.
@@ -516,7 +520,7 @@
 // v339 (2026-05-27) — withButtonLock helper + rapid-tap guards across all async
 //                     write surfaces (activities, admin, kitchen, rewards, dashboard
 //                     overdue sheet); .is-loading CSS; stale-listener analysis.
-const CACHE_NAME = 'family-hub-v341';
+const CACHE_NAME = 'family-hub-v342';
 
 const APP_SHELL = [
   '/',
