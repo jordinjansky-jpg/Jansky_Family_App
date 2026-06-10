@@ -11,7 +11,7 @@ const FIREBASE_CONFIG = {
   databaseURL: "https://jansky-home-default-rtdb.firebaseio.com"
 };
 
-export const isDev = location.search.includes('env=dev');
+export const isDev = new URLSearchParams(location.search).get('env') === 'dev';
 const ROOT = isDev ? 'rundown-dev' : 'rundown';
 
 let db = null;
@@ -828,6 +828,97 @@ export async function deletePersonRewardsData(personId) {
 }
 
 /**
+ * Full person-deletion cascade. Removes every tree keyed by (or referencing)
+ * the person, beyond what deletePersonRewardsData covers:
+ * push subscriptions, activity earnings/sessions/timers, streaks, snapshots,
+ * school-lunch feed, recipe ratings, schedule entries they own (+ their
+ * completion records), and their id inside tasks.owners / events.people /
+ * activities.assignedTo / achievementDefs.perPerson arrays.
+ *
+ * Does NOT delete people/{personId} itself and does NOT rebuild the schedule —
+ * the caller removes the person record and triggers a rebuild afterwards.
+ */
+export async function deletePersonCascade(personId) {
+  await deletePersonRewardsData(personId);
+
+  const updates = {};
+  updates[`pushSubscriptions/${personId}`] = null;
+  updates[`activityEarnings/${personId}`] = null;
+  updates[`activeTimers/${personId}`] = null;
+  updates[`streaks/${personId}`] = null;
+  updates[`kitchen/schoolLunchFeeds/${personId}`] = null;
+
+  const stripFromArray = (obj, basePath, field) => {
+    if (!obj) return;
+    for (const [id, rec] of Object.entries(obj)) {
+      if (Array.isArray(rec?.[field]) && rec[field].includes(personId)) {
+        const filtered = rec[field].filter(x => x !== personId);
+        updates[`${basePath}/${id}/${field}`] = filtered.length > 0 ? filtered : null;
+      }
+    }
+  };
+
+  const [snapshots, schedule, completions, tasks, events, activities, sessions, recipes, achievementDefs] = await Promise.all([
+    readOnce('snapshots'),
+    readOnce('schedule'),
+    readOnce('completions'),
+    readOnce('tasks'),
+    readOnce('events'),
+    readOnce('activities'),
+    readOnce('activitySessions'),
+    readOnce('kitchen/recipes'),
+    readOnce('achievementDefs'),
+  ]);
+
+  if (snapshots) {
+    for (const [dateKey, people] of Object.entries(snapshots)) {
+      if (people && people[personId]) updates[`snapshots/${dateKey}/${personId}`] = null;
+    }
+  }
+
+  if (schedule) {
+    for (const [dateKey, dayEntries] of Object.entries(schedule)) {
+      if (!dayEntries) continue;
+      for (const [entryKey, entry] of Object.entries(dayEntries)) {
+        if (entry?.ownerId === personId) {
+          updates[`schedule/${dateKey}/${entryKey}`] = null;
+          if (completions && completions[entryKey]) {
+            updates[`completions/${entryKey}`] = null;
+          }
+        }
+      }
+    }
+  }
+
+  if (sessions) {
+    for (const [sessionId, session] of Object.entries(sessions)) {
+      if (session?.personId === personId) updates[`activitySessions/${sessionId}`] = null;
+    }
+  }
+
+  if (recipes) {
+    for (const [recipeId, recipe] of Object.entries(recipes)) {
+      if (recipe?.ratings && recipe.ratings[personId] != null) {
+        updates[`kitchen/recipes/${recipeId}/ratings/${personId}`] = null;
+      }
+    }
+  }
+
+  stripFromArray(tasks, 'tasks', 'owners');
+  stripFromArray(events, 'events', 'people');
+  stripFromArray(activities, 'activities', 'assignedTo');
+  stripFromArray(achievementDefs, 'achievementDefs', 'perPerson');
+
+  // Firebase caps multi-location updates well above this size in practice,
+  // but chunk defensively for very old installs with years of schedule data.
+  const entries = Object.entries(updates);
+  const CHUNK = 400;
+  for (let i = 0; i < entries.length; i += CHUNK) {
+    await multiUpdate(Object.fromEntries(entries.slice(i, i + CHUNK)));
+  }
+}
+
+/**
  * Remove messages matching an entryKey for a given person.
  * Used to reverse bounty rewards on undo.
  */
@@ -874,51 +965,6 @@ export async function countGlobalRedemptions(rewardId) {
   return count;
 }
 
-// ── Meal helpers ──
-
-/** Read all meal slot assignments for one date (e.g. { dinner: { mealId, source } }). */
-export async function readMeals(dateKey) {
-  return readOnce(`meals/${dateKey}`);
-}
-
-/** Read the entire meals/ tree (all dates). Used by calendar for one-shot load. */
-export async function readAllMeals() {
-  return readOnce('meals');
-}
-
-/** Assign a meal to a day/slot. slot: 'breakfast'|'lunch'|'dinner'|'snack' */
-export async function writeMeal(dateKey, slot, data) {
-  return writeData(`meals/${dateKey}/${slot}`, data);
-}
-
-/** Remove a meal assignment from a day/slot. */
-export async function removeMeal(dateKey, slot) {
-  return removeData(`meals/${dateKey}/${slot}`);
-}
-
-/** Read the full meal library. Returns null when empty. */
-export async function readMealLibrary() {
-  return readOnce('mealLibrary');
-}
-
-/**
- * Add a new meal to the library. Returns the generated push key.
- * data: { name, ingredients, url?, notes?, prepTime?, isFavorite, tags, createdAt, lastUsed }
- */
-export async function pushMealLibrary(data) {
-  return pushData('mealLibrary', data);
-}
-
-/** Full-replace update for an existing meal library entry. */
-export async function writeMealLibrary(mealId, data) {
-  return writeData(`mealLibrary/${mealId}`, data);
-}
-
-/** Remove a meal library entry. Caller is responsible for cascade-removing plan references. */
-export async function removeMealLibrary(mealId) {
-  return removeData(`mealLibrary/${mealId}`);
-}
-
 // ─── Kitchen: Recipes ────────────────────────────────────────────────────────
 
 export async function readKitchenRecipes() {
@@ -948,26 +994,26 @@ export async function readAllKitchenPlan() {
   return readOnce('kitchen/plan');
 }
 
-/** Read plan slots for a date range (inclusive). Returns { [dateKey]: planObj }
- * where missing dates are omitted. Used by the Meal History view. */
+/** Read plan slots for a date-key range (inclusive). Returns { [dateKey]: planObj }
+ * where missing dates are omitted. Accepts YYYY-MM-DD strings (preferred —
+ * already timezone-resolved by the caller) or Date objects (converted using
+ * UTC parts for backward compatibility). One keyed range query instead of a
+ * round trip per day. Used by the Meal History view. */
 export async function readKitchenPlanRange(startDate, endDate) {
-  const start = startDate instanceof Date ? startDate : new Date(startDate);
-  const end = endDate instanceof Date ? endDate : new Date(endDate);
-  const day = new Date(start);
-  day.setHours(0, 0, 0, 0);
-  const lastDay = new Date(end);
-  lastDay.setHours(0, 0, 0, 0);
-  const out = {};
-  while (day <= lastDay) {
-    const y = day.getFullYear();
-    const m = String(day.getMonth() + 1).padStart(2, '0');
-    const d = String(day.getDate()).padStart(2, '0');
-    const dk = `${y}-${m}-${d}`;
-    const plan = await readKitchenPlan(dk).catch(() => null);
-    if (plan) out[dk] = plan;
-    day.setDate(day.getDate() + 1);
-  }
-  return out;
+  const toKey = (v) => {
+    if (typeof v === 'string') return v.slice(0, 10);
+    const d = v instanceof Date ? v : new Date(v);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const startKey = toKey(startDate);
+  const endKey = toKey(endDate);
+  await ready();
+  const snapshot = await ref('kitchen/plan')
+    .orderByKey()
+    .startAt(startKey)
+    .endAt(endKey)
+    .once('value');
+  return snapshot.val() || {};
 }
 
 export async function writeKitchenPlanSlot(dateKey, slot, data) {
@@ -1017,6 +1063,11 @@ export async function writeKitchenItem(listId, id, data) {
   return writeData(`kitchen/items/${listId}/${id}`, data);
 }
 
+/** Merge-update fields on a list item (e.g. { checked, checkedAt } or { category }). */
+export async function updateKitchenItem(listId, id, partial) {
+  return updateData(`kitchen/items/${listId}/${id}`, partial);
+}
+
 export async function removeKitchenItem(listId, id) {
   return removeData(`kitchen/items/${listId}/${id}`);
 }
@@ -1029,6 +1080,11 @@ export async function readKitchenStaples() {
 
 export async function pushKitchenStaple(data) {
   return pushData('kitchen/staples', data);
+}
+
+/** Merge-update fields on a staple (e.g. { name } or { category }). */
+export async function updateKitchenStaple(id, partial) {
+  return updateData(`kitchen/staples/${id}`, partial);
 }
 
 export async function removeKitchenStaple(id) {

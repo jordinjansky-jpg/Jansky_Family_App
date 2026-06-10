@@ -80,6 +80,7 @@ export function getOverdueCooldownTaskIds(schedule, completions, tasks, today) {
   for (const [dateKey, dayEntries] of Object.entries(schedule)) {
     if (dateKey >= today || !dayEntries) continue;
     for (const [entryKey, entry] of Object.entries(dayEntries)) {
+      if (entry.type === 'event') continue;
       if (isComplete(entryKey, completions)) continue;
       const task = tasks[entry.taskId];
       if (task?.cooldownDays > 0) {
@@ -109,6 +110,12 @@ export function groupByFrequency(entries, tasks, cats) {
   const groups = { events: {}, daily: {}, weekly: {}, monthly: {}, once: {} };
   if (!entries) return groups;
   for (const [key, entry] of Object.entries(entries)) {
+    // Standalone event entries always belong in the events bucket,
+    // regardless of whether tasks/cats context was provided.
+    if (entry.type === 'event') {
+      groups.events[key] = entry;
+      continue;
+    }
     // Check if this entry belongs to an event category
     if (tasks && cats) {
       const task = tasks[entry.taskId];
@@ -369,7 +376,16 @@ export function expandEventRepeats(event, eventId, startDate, endDate, addDaysFn
     durationDays = Math.round((end - start) / 86400000);
   }
 
-  if (event.date >= startDate && event.date <= endDate) {
+  // An occurrence starting at `d` spans [d, d + durationDays]. It belongs in
+  // the result when that span overlaps [startDate, endDate] — not only when
+  // it *starts* inside the window (a multi-day occurrence's middle/end days
+  // must still surface it).
+  const overlapsWindow = (d) => {
+    const occEnd = durationDays > 0 ? addDaysFn(d, durationDays) : d;
+    return d <= endDate && occEnd >= startDate;
+  };
+
+  if (overlapsWindow(event.date)) {
     out.push([eventId, event]);
   }
 
@@ -386,9 +402,23 @@ export function expandEventRepeats(event, eventId, startDate, endDate, addDaysFn
     return DOW[d.getUTCDay()];
   };
 
+  // Monthly/yearly (and custom month/year units) anchor on the ORIGINAL
+  // event's year/month/day, clamping to each target month's last day.
+  // Deriving the target day from the previous occurrence drifts permanently
+  // (Jan 31 → "Feb 31" rolls to Mar 3, then every month lands on the 3rd).
+  const [origY, origM, origD] = event.date.split('-').map(Number);
+  const monthAnchoredDate = (monthsFromOrigin) => {
+    const idx = (origM - 1) + monthsFromOrigin;
+    const y = origY + Math.floor(idx / 12);
+    const m = ((idx % 12) + 12) % 12;
+    const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    return new Date(Date.UTC(y, m, Math.min(origD, lastDay))).toISOString().slice(0, 10);
+  };
+
   let cur = event.date;
   let occurrences = 1;
   let safety = 0;
+  let monthsFromOrigin = 0;
   while (safety++ < 5000) {
     let next;
     if (rule.type === 'daily') {
@@ -406,28 +436,22 @@ export function expandEventRepeats(event, eventId, startDate, endDate, addDaysFn
         next = addDaysFn(cur, 7);
       }
     } else if (rule.type === 'monthly') {
-      const [, , dayStr] = cur.split('-');
-      const targetDay = parseInt(dayStr, 10);
-      const d = new Date(`${cur}T00:00:00Z`);
-      const probe = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, targetDay));
-      next = probe.toISOString().slice(0, 10);
+      monthsFromOrigin += 1;
+      next = monthAnchoredDate(monthsFromOrigin);
     } else if (rule.type === 'yearly') {
-      const d = new Date(`${cur}T00:00:00Z`);
-      const probe = new Date(Date.UTC(d.getUTCFullYear() + 1, d.getUTCMonth(), d.getUTCDate()));
-      next = probe.toISOString().slice(0, 10);
+      monthsFromOrigin += 12;
+      next = monthAnchoredDate(monthsFromOrigin);
     } else if (rule.type === 'custom') {
       const every = rule.every || 1;
       const unit = rule.unit || 'days';
       if (unit === 'days')        next = addDaysFn(cur, every);
       else if (unit === 'weeks')  next = addDaysFn(cur, every * 7);
       else if (unit === 'months') {
-        const d = new Date(`${cur}T00:00:00Z`);
-        const probe = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + every, d.getUTCDate()));
-        next = probe.toISOString().slice(0, 10);
+        monthsFromOrigin += every;
+        next = monthAnchoredDate(monthsFromOrigin);
       } else if (unit === 'years') {
-        const d = new Date(`${cur}T00:00:00Z`);
-        const probe = new Date(Date.UTC(d.getUTCFullYear() + every, d.getUTCMonth(), d.getUTCDate()));
-        next = probe.toISOString().slice(0, 10);
+        monthsFromOrigin += every * 12;
+        next = monthAnchoredDate(monthsFromOrigin);
       } else break;
     } else {
       break;
@@ -441,7 +465,7 @@ export function expandEventRepeats(event, eventId, startDate, endDate, addDaysFn
     occurrences += 1;
     if (endType === 'count' && endCount && occurrences > endCount) break;
 
-    if (cur >= startDate && cur <= endDate) {
+    if (overlapsWindow(cur)) {
       const virtual = { ...event, date: cur };
       if (durationDays > 0) {
         virtual.endDate = addDaysFn(cur, durationDays);

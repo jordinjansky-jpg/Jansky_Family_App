@@ -34,7 +34,8 @@ export function keyToDate(key) {
 }
 
 /**
- * Get the day of week (0=Sun..6=Sat) for a date key in the given timezone.
+ * Get the day of week (0=Sun..6=Sat) for a date key. Keys are already
+ * timezone-resolved upstream, so this computes in UTC from the key.
  */
 export function dayOfWeek(dateKey) {
   const d = keyToDate(dateKey);
@@ -169,6 +170,7 @@ export function parseFloatOr(value, fallback) {
  * Format minutes as "Xh Ym" or just "Ym" if under 60.
  */
 export function formatMinutes(min) {
+  min = Math.max(0, min || 0);
   if (min < 60) return `${min}m`;
   const h = Math.floor(min / 60);
   const m = min % 60;
@@ -184,9 +186,9 @@ export function parseQtyAmount(str) {
   const s = str.trim();
   let m;
   m = s.match(/^(\d+)\s+(\d+)\/(\d+)(.*)/);
-  if (m) return { amount: parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]), unit: m[4].trim() };
+  if (m && parseInt(m[3]) > 0) return { amount: parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]), unit: m[4].trim() };
   m = s.match(/^(\d+)\/(\d+)(.*)/);
-  if (m) return { amount: parseInt(m[1]) / parseInt(m[2]), unit: m[3].trim() };
+  if (m && parseInt(m[2]) > 0) return { amount: parseInt(m[1]) / parseInt(m[2]), unit: m[3].trim() };
   m = s.match(/^(\d*\.?\d+)(.*)/);
   if (m) return { amount: parseFloat(m[1]), unit: m[2].trim() };
   return null;
@@ -300,10 +302,11 @@ export function formatDateLong(dateKey) {
 }
 
 /**
- * Escape HTML special characters.
+ * Escape HTML special characters. Coerces non-string input (null/undefined
+ * become '') so a missing Firebase field can never crash a renderer.
  */
 export function escapeHtml(str) {
-  return str
+  return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -448,8 +451,8 @@ export function normalizePlanSlot(raw) {
 }
 
 // Given an array of meal options with votes maps, return the winning
-// option. Ties broken by earliest addedAt. Returns null when the array
-// is empty.
+// option. Ties broken by earliest addedAt (options missing addedAt lose
+// ties rather than win them). Returns null when the array is empty.
 export function pickWinner(options) {
   if (!Array.isArray(options) || options.length === 0) return null;
   if (options.length === 1) return options[0];
@@ -459,7 +462,7 @@ export function pickWinner(options) {
   for (let i = 0; i < options.length; i++) {
     const opt = options[i];
     const score = opt?.votes ? Object.keys(opt.votes).length : 0;
-    const addedAt = opt?.addedAt || 0;
+    const addedAt = opt?.addedAt || Infinity;
     if (score > bestScore || (score === bestScore && addedAt < bestAddedAt)) {
       bestIdx = i;
       bestScore = score;

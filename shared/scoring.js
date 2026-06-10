@@ -79,13 +79,18 @@ export function gradeTier(pct) {
  */
 export function earnedPoints(task, completion, difficultyMultipliers) {
   if (!completion) return 0;
-  const base = basePoints(task, difficultyMultipliers);
+  return applyOverride(basePoints(task, difficultyMultipliers), completion);
+}
 
-  if (completion.pointsOverride != null) {
-    return Math.round(base * (completion.pointsOverride / 100));
+/**
+ * Apply a completion's pointsOverride percentage to a precomputed base.
+ * Single home for the override math (was inlined in dailyScore/buildSnapshot).
+ */
+function applyOverride(basePts, completion) {
+  if (completion?.pointsOverride != null) {
+    return Math.round(basePts * (completion.pointsOverride / 100));
   }
-
-  return base;
+  return basePts;
 }
 
 /**
@@ -138,9 +143,10 @@ export function dailyPossible(entries, tasks, categories, difficultyMultipliers)
     regularTotalByOwner[oid] = total;
   }
 
-  // Calculate weighted base points per entry using only the owner's regular total
+  // Calculate weighted base points per entry using only the owner's regular total.
+  // Clamp the weight below 100 — w/(100-w) divides by zero at exactly 100.
   for (const [key, { entry, task, cat }] of Object.entries(weighted)) {
-    const w = cat.weightPercent;
+    const w = Math.min(cat.weightPercent, 95);
     const ownerRegular = regularTotalByOwner[entry.ownerId] || 0;
     const weightedPts = ownerRegular > 0
       ? Math.round(ownerRegular * (w / (100 - w)))
@@ -179,13 +185,7 @@ export function dailyScore(personEntries, completions, tasks, categories, settin
     const completion = completions?.[key] || null;
     if (!completion) continue;
     const basePts = pointsMap[key] ?? basePoints(task, mults);
-    let pts;
-    if (completion.pointsOverride != null) {
-      pts = Math.round(basePts * (completion.pointsOverride / 100));
-    } else {
-      pts = basePts;
-    }
-    earned += pts;
+    earned += applyOverride(basePts, completion);
   }
 
   const percentage = Math.round((earned / possible) * 100);
@@ -225,13 +225,7 @@ export function buildSnapshot(personEntries, completions, tasks, categories, set
     const completion = completions?.[key] || null;
     if (completion) {
       const basePts = pointsMap[key] ?? basePoints(task, mults);
-      let pts;
-      if (completion.pointsOverride != null) {
-        pts = Math.round(basePts * (completion.pointsOverride / 100));
-      } else {
-        pts = basePts;
-      }
-      earned += pts;
+      earned += applyOverride(basePts, completion);
     } else {
       missedKeys.push(key);
     }
@@ -324,17 +318,26 @@ function periodKeyToStartDateKey(periodKey) {
  * @param {object} currentStreaks - { current, best, lastCompleteDate } or null
  * @param {string} dateKey - The date to evaluate
  * @param {boolean} allComplete - Whether all tasks were completed that day
+ * @param {string|null} [prevTaskDate] - The person's most recent EARLIER date
+ *   that had any tasks assigned. When provided, a streak continues if that
+ *   day was completed — days with zero assigned tasks are streak-neutral
+ *   instead of streak-fatal (a kid with only weekly tasks, or a scheduled
+ *   day off, no longer resets to 1). When omitted, falls back to the strict
+ *   calendar next-day check.
  * @returns {object} updated { current, best, lastCompleteDate }
  */
-export function updateStreaks(currentStreaks, dateKey, allComplete) {
+export function updateStreaks(currentStreaks, dateKey, allComplete, prevTaskDate = null) {
   const prev = currentStreaks || { current: 0, best: 0, lastCompleteDate: null };
 
   if (!allComplete) {
     return { current: 0, best: prev.best, lastCompleteDate: prev.lastCompleteDate };
   }
 
-  // Check if this is the consecutive next day
-  const isConsecutive = prev.lastCompleteDate && isNextDay(prev.lastCompleteDate, dateKey);
+  const isConsecutive = !!prev.lastCompleteDate && (
+    prevTaskDate != null
+      ? prev.lastCompleteDate === prevTaskDate
+      : isNextDay(prev.lastCompleteDate, dateKey)
+  );
   const newCurrent = isConsecutive ? prev.current + 1 : 1;
   const newBest = Math.max(newCurrent, prev.best);
 
@@ -403,7 +406,11 @@ export function timeContributed(personId, schedule, completions, tasks, startDat
       if (!completions[k]) continue;
       const task = tasks[e.taskId];
       if (!task) continue;
-      total += (task.estMin || 0);
+      // 'both' tasks are split into am+pm entries by the scheduler — count
+      // half per entry so a completed pair totals the task's estMin once.
+      total += task.timeOfDay === 'both'
+        ? Math.ceil((task.estMin || 0) / 2)
+        : (task.estMin || 0);
     }
     cur = addDaysFn(cur, 1);
   }
@@ -443,8 +450,10 @@ export function computeRollover(today, schedule, completions, tasks, categories,
   const updates = {};
   let snapshotCount = 0;
   const streaks = {};
+  const lastTaskDate = {}; // per person: most recent earlier date that had entries
   for (const p of people) {
     streaks[p.id] = existingStreaks?.[p.id] || { current: 0, best: 0, lastCompleteDate: null };
+    lastTaskDate[p.id] = null;
   }
 
   // Collect past dates with entries, sorted ascending
@@ -457,9 +466,6 @@ export function computeRollover(today, schedule, completions, tasks, categories,
     if (!dayEntries) continue;
 
     for (const person of people) {
-      // Skip if snapshot already exists
-      if (existingSnapshots?.[dateKey]?.[person.id]) continue;
-
       // Filter entries for this person
       const personEntries = {};
       for (const [key, entry] of Object.entries(dayEntries)) {
@@ -468,15 +474,23 @@ export function computeRollover(today, schedule, completions, tasks, categories,
 
       if (Object.keys(personEntries).length === 0) continue;
 
+      // Track the person's task-day chain even for already-snapshotted dates
+      // so the streak bridge below sees the true previous task day.
+      const prevTaskDay = lastTaskDate[person.id];
+      lastTaskDate[person.id] = dateKey;
+
+      // Skip if snapshot already exists
+      if (existingSnapshots?.[dateKey]?.[person.id]) continue;
+
       const snapshot = buildSnapshot(personEntries, completions, tasks, categories, settings, dateKey);
       if (!snapshot) continue;
 
       updates[`snapshots/${dateKey}/${person.id}`] = snapshot;
       snapshotCount++;
 
-      // Update streak for this person
+      // Update streak: zero-task days between task days are streak-neutral.
       const allDone = snapshot.missedKeys.length === 0;
-      streaks[person.id] = updateStreaks(streaks[person.id], dateKey, allDone);
+      streaks[person.id] = updateStreaks(streaks[person.id], dateKey, allDone, prevTaskDay);
     }
   }
 

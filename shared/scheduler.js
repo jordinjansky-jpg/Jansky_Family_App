@@ -51,14 +51,19 @@ export function getRotationOwner(task, dateKey, taskId) {
       break;
     }
     case 'weekly': {
-      // Fallback for callers without balanceCtx — use week-based rotation
-      const week = isoWeekNumber(dateKey);
-      index = week % owners.length;
+      // Fallback for callers without balanceCtx — continuous weeks since a
+      // fixed Monday epoch (ISO week numbers reset 52→1 at year end, which
+      // could hand the same owner two consecutive weeks).
+      const d = new Date(dateKey + 'T00:00:00Z');
+      const epoch = new Date('2024-01-01T00:00:00Z'); // a Monday
+      const weeksSinceEpoch = Math.floor((d - epoch) / (7 * 86400000));
+      index = ((weeksSinceEpoch % owners.length) + owners.length) % owners.length;
       break;
     }
     case 'monthly': {
-      const month = monthNumber(dateKey);
-      index = month % owners.length;
+      // Continuous months since epoch (same year-boundary reasoning).
+      const monthsSinceEpoch = (yearNumber(dateKey) - 2024) * 12 + (monthNumber(dateKey) - 1);
+      index = ((monthsSinceEpoch % owners.length) + owners.length) % owners.length;
       break;
     }
     case 'once':
@@ -228,18 +233,21 @@ export function isInCooldown(task, taskId, dateKey, completions, scheduleData) {
   if (!completions || !scheduleData) return false;
 
   const cooldownStart = addDays(dateKey, -task.cooldownDays);
+  return hasCompletedEntryInWindow(taskId, cooldownStart, dateKey, completions, scheduleData);
+}
 
-  // Look through completions to find any completion of this task within the cooldown window
-  for (const [entryKey, completion] of Object.entries(completions)) {
-    // Find which schedule entry this completion belongs to
-    for (const [schedDate, dayEntries] of Object.entries(scheduleData)) {
-      if (schedDate < cooldownStart || schedDate > dateKey) continue;
-      if (dayEntries && dayEntries[entryKey] && dayEntries[entryKey].taskId === taskId) {
-        return true;
-      }
+/**
+ * Scan only the window's schedule days for a completed entry of the task.
+ * (Previously these helpers iterated every completion ever recorded × every
+ * schedule date — O(C×D) per candidate day per task during generation.)
+ */
+function hasCompletedEntryInWindow(taskId, startKey, endKey, completions, scheduleData) {
+  for (const [schedDate, dayEntries] of Object.entries(scheduleData)) {
+    if (schedDate < startKey || schedDate > endKey || !dayEntries) continue;
+    for (const [entryKey, entry] of Object.entries(dayEntries)) {
+      if (entry.taskId === taskId && completions[entryKey]) return true;
     }
   }
-
   return false;
 }
 
@@ -248,20 +256,7 @@ export function isInCooldown(task, taskId, dateKey, completions, scheduleData) {
  */
 export function isCompletedThisWeek(taskId, dateKey, completions, scheduleData) {
   if (!completions || !scheduleData) return false;
-
-  const wStart = weekStart(dateKey);
-  const wEnd = weekEnd(dateKey);
-
-  for (const [entryKey, completion] of Object.entries(completions)) {
-    for (const [schedDate, dayEntries] of Object.entries(scheduleData)) {
-      if (schedDate < wStart || schedDate > wEnd) continue;
-      if (dayEntries && dayEntries[entryKey] && dayEntries[entryKey].taskId === taskId) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return hasCompletedEntryInWindow(taskId, weekStart(dateKey), weekEnd(dateKey), completions, scheduleData);
 }
 
 /**
@@ -269,20 +264,7 @@ export function isCompletedThisWeek(taskId, dateKey, completions, scheduleData) 
  */
 export function isCompletedThisMonth(taskId, dateKey, completions, scheduleData) {
   if (!completions || !scheduleData) return false;
-
-  const mStart = monthStart(dateKey);
-  const mEnd = monthEnd(dateKey);
-
-  for (const [entryKey, completion] of Object.entries(completions)) {
-    for (const [schedDate, dayEntries] of Object.entries(scheduleData)) {
-      if (schedDate < mStart || schedDate > mEnd) continue;
-      if (dayEntries && dayEntries[entryKey] && dayEntries[entryKey].taskId === taskId) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return hasCompletedEntryInWindow(taskId, monthStart(dateKey), monthEnd(dateKey), completions, scheduleData);
 }
 
 /**
@@ -385,10 +367,6 @@ function isOnceTaskHandled(taskId, futureSchedule, completions, scheduleData) {
 // Step 4: Load balancing
 // ============================================================
 
-/**
- * Calculate the total estimated minutes for a person on a given day.
- * Merges new schedule entries (being built) with existing schedule entries.
- */
 /**
  * Calculate total estimated minutes on a day across ALL people (global load).
  * Used for day-level decisions like weekend weighting.
@@ -567,6 +545,12 @@ export function generateSchedule(tasks, people, settings, completions, existingS
   // This lets placement functions re-place tasks onto better dates, and prevents
   // isOnceTaskHandled from finding stale entries that buildScheduleUpdates will
   // replace (which would cause one-time tasks to vanish from the schedule).
+  //
+  // Entries the USER explicitly shaped are kept alongside completed ones:
+  // moved (movedFromDate), delegated (delegatedFromName), slider overrides
+  // (pointsOverride), and per-entry notes that differ from the task's own.
+  // Without this, every rebuild (any task save, cooldown toggle) silently
+  // undid moves/delegations made on the dashboard or calendar.
   if (existingSchedule) {
     existingSchedule = { ...existingSchedule };
     const completedKeys = new Set(Object.keys(completions || {}));
@@ -574,10 +558,10 @@ export function generateSchedule(tasks, people, settings, completions, existingS
       if (!existingSchedule[dk]) continue;
       const cleaned = {};
       for (const [ek, entry] of Object.entries(existingSchedule[dk])) {
-        if (completedKeys.has(ek)) {
-          cleaned[ek] = entry; // keep completed entries
+        if (completedKeys.has(ek) || isUserPinnedEntry(entry, tasks[entry.taskId])) {
+          cleaned[ek] = entry;
         }
-        // drop uncompleted entries — they'll be regenerated
+        // drop everything else — it'll be regenerated
       }
       if (Object.keys(cleaned).length > 0) {
         existingSchedule[dk] = cleaned;
@@ -633,18 +617,26 @@ export function generateSchedule(tasks, people, settings, completions, existingS
     }
   }
 
-  // Preserve completed entries from existing schedule on rebuilt dates.
-  // After stripping, existingSchedule only retains completed entries for these
-  // dates. Merge them into newSchedule so buildScheduleUpdates (which replaces
-  // entire date nodes) doesn't orphan their completion records.
+  // Preserve completed + user-pinned entries from the existing schedule on
+  // rebuilt dates. After stripping, existingSchedule retains only those for
+  // these dates. Merge them into newSchedule so buildScheduleUpdates (which
+  // replaces entire date nodes) doesn't orphan completion records or undo
+  // user moves/delegations.
   if (existingSchedule) {
     for (const dk of futureDates) {
       if (!existingSchedule[dk]) continue;
       for (const [ek, entry] of Object.entries(existingSchedule[dk])) {
-        // If scheduler regenerated an entry for the same task+owner+timeOfDay,
-        // prefer the completed one (its key matches the completion record)
+        // If the scheduler regenerated an instance of the same task on this
+        // day, prefer the preserved one (its key matches the completion
+        // record / carries the user's move-delegate markers). Rotate/fixed
+        // tasks have one instance per day, so match by task+timeOfDay and
+        // ignore owner — a delegated entry must suppress the regenerated
+        // original even though the owner differs. Duplicate-mode tasks keep
+        // per-owner matching (each owner legitimately has their own copy).
+        const mode = tasks[entry.taskId]?.ownerAssignmentMode || entry.ownerAssignmentMode || 'rotate';
         const dupeKey = Object.entries(newSchedule[dk]).find(
-          ([_, ne]) => ne.taskId === entry.taskId && ne.ownerId === entry.ownerId && ne.timeOfDay === entry.timeOfDay
+          ([_, ne]) => ne.taskId === entry.taskId && ne.timeOfDay === entry.timeOfDay
+            && (mode === 'duplicate' ? ne.ownerId === entry.ownerId : true)
         )?.[0];
         if (dupeKey) delete newSchedule[dk][dupeKey];
         newSchedule[dk][ek] = entry;
@@ -652,7 +644,33 @@ export function generateSchedule(tasks, people, settings, completions, existingS
     }
   }
 
+  // PAST-DATE SAFETY: dedicated-day weekly/monthly tasks whose day already
+  // passed this period get placed on a PAST date so they surface in the
+  // overdue banner. Those past dates were never seeded into newSchedule and
+  // were never stripped — but buildScheduleUpdates emits each newSchedule
+  // date as a FULL NODE REPLACE. Merge the day's existing entries underneath
+  // the new one, or the write would wipe every other task's entries (and
+  // orphan their completions) for that day.
+  const futureSet = new Set(futureDates);
+  for (const dk of Object.keys(newSchedule)) {
+    if (futureSet.has(dk)) continue;
+    newSchedule[dk] = { ...(existingSchedule?.[dk] || {}), ...newSchedule[dk] };
+  }
+
   return newSchedule;
+}
+
+/**
+ * An entry the user explicitly shaped — schedule rebuilds must not destroy it.
+ * Markers: move flow (movedFromDate), delegation (delegatedFromName), points
+ * slider override, or a per-entry note edited away from the task's own note.
+ */
+function isUserPinnedEntry(entry, task) {
+  if (!entry) return false;
+  if (entry.movedFromDate || entry.delegatedFromName) return true;
+  if (entry.pointsOverride != null) return true;
+  if (task && entry.notes && entry.notes !== task.notes) return true;
+  return false;
 }
 
 /**
@@ -878,7 +896,9 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
     }
   }
   if (!targetDay) {
-    // Try days sorted by load, pick first under category limit
+    // Try the next 14 days sorted by load, pick first under category limit.
+    // If all 14 are over the limit, fall back to later eligible days rather
+    // than silently never scheduling the task.
     const candidates = eligibleDates.slice(0, 14);
     const sortedDays = [...candidates].sort((a, b) => {
       const rawA = totalDayLoad(a, newSchedule[a], existingSchedule?.[a], allTasks);
@@ -887,7 +907,7 @@ function placeOnceTask(taskId, task, futureDates, newSchedule, existingSchedule,
       const loadB = isWeekend(b) ? (rawB + 1) / weekendWeight : rawB + 1;
       return loadA - loadB;
     });
-    for (const dk of sortedDays) {
+    for (const dk of [...sortedDays, ...eligibleDates.slice(14)]) {
       if (canPlaceUnderCategoryLimit(task, dk, categories, newSchedule, existingSchedule, allTasks)) {
         targetDay = dk;
         break;
@@ -929,14 +949,16 @@ export function rebuildSingleTaskSchedule(taskId, task, anchorDate, existingSche
   const futureDates = dateRange(startDate, endDate);
   const updates = {};
 
-  // 1. Find and null-out all future entries for this task
+  // 1. Find and null-out all future entries for this task — except completed
+  //    ones and entries the user explicitly moved/delegated/overrode.
   for (const dk of futureDates) {
     const dayEntries = existingSchedule[dk];
     if (!dayEntries) continue;
     for (const [ek, entry] of Object.entries(dayEntries)) {
-      if (entry.taskId === taskId) {
-        updates[`schedule/${dk}/${ek}`] = null;
-      }
+      if (entry.taskId !== taskId) continue;
+      if (completions && completions[ek]) continue;
+      if (isUserPinnedEntry(entry, task)) continue;
+      updates[`schedule/${dk}/${ek}`] = null;
     }
   }
 
@@ -947,8 +969,8 @@ export function rebuildSingleTaskSchedule(taskId, task, anchorDate, existingSche
     if (!dayEntries) continue;
     const cleaned = {};
     for (const [ek, entry] of Object.entries(dayEntries)) {
-      // Keep entries from other tasks, and completed entries for this task
-      if (entry.taskId !== taskId || (completions && completions[ek])) {
+      // Keep entries from other tasks, plus completed/user-pinned entries for this task
+      if (entry.taskId !== taskId || (completions && completions[ek]) || isUserPinnedEntry(entry, task)) {
         cleaned[ek] = entry;
       }
     }
@@ -1019,19 +1041,29 @@ export function buildScheduleUpdates(tasks, people, settings, completions, exist
   const newSchedule = generateSchedule(tasks, people, settings, completions, existingSchedule, options, categories);
   const updates = {};
 
-  // Optionally wipe all past date nodes entirely
+  // Optionally clear past dates. Completed entries are KEPT — they anchor
+  // completion records, snapshots, and tracker history. Only uncompleted
+  // past entries (the overdue clutter the button promises to remove) go.
   if (clearPast) {
     const timezone = settings.timezone || 'America/Chicago';
     const today = todayKey(timezone);
     for (const dk of Object.keys(existingSchedule || {})) {
       if (dk >= today) continue;
-      updates[`schedule/${dk}`] = null;
+      const kept = {};
+      for (const [ek, entry] of Object.entries(existingSchedule[dk] || {})) {
+        if (completions && completions[ek]) kept[ek] = entry;
+      }
+      updates[`schedule/${dk}`] = Object.keys(kept).length > 0 ? kept : null;
     }
   }
 
   for (const [dateKey, entries] of Object.entries(newSchedule)) {
     const hasEntries = Object.keys(entries).length > 0;
-    updates[`schedule/${dateKey}`] = hasEntries ? entries : null;
+    // A past-date placement may collide with a clearPast node built above —
+    // merge rather than overwrite so kept completed entries survive.
+    const prior = updates[`schedule/${dateKey}`];
+    const merged = prior && typeof prior === 'object' ? { ...prior, ...entries } : entries;
+    updates[`schedule/${dateKey}`] = (hasEntries || (prior && Object.keys(prior).length > 0)) ? merged : null;
   }
 
   return updates;

@@ -1,5 +1,7 @@
 // theme.js — Theme application, dark mode, admin-configured styles (v2)
-// No DOM access. Returns CSS variable maps. Pages apply them.
+// Mostly pure (returns CSS variable maps); applyTheme/applyTextSize are the
+// documented exceptions that write to document/localStorage. initTextSize()
+// runs once on import so text size applies before first paint.
 
 const PRESETS = {
   'light-warm': {
@@ -171,7 +173,11 @@ export function getThemeVars(themeConfig) {
   if (themeConfig.accentColor) {
     const accent = themeConfig.accentColor;
     vars['--accent'] = accent;
-    vars['--accent-hover'] = accent + 'dd';
+    // The +'dd' alpha shorthand only works on 6-digit hex; fall back to
+    // color-mix for any other accent format so we never emit invalid CSS.
+    vars['--accent-hover'] = /^#[0-9a-fA-F]{6}$/.test(accent)
+      ? accent + 'dd'
+      : `color-mix(in srgb, ${accent} 87%, transparent)`;
     vars['--fab-ink'] = _getAccentInkColor(accent);
     vars['--accent-bright'] = _getAccentBright(accent);
 
@@ -208,7 +214,12 @@ export function defaultThemeConfig() {
  * it's called by pages to apply the theme.
  */
 export function applyTheme(themeConfig) {
-  const vars = getThemeVars(themeConfig);
+  // No accent in the config → derive all accent tokens from the default
+  // accent through the same single code path (no duplicated fallback math).
+  const effectiveConfig = themeConfig.accentColor
+    ? themeConfig
+    : { ...themeConfig, accentColor: '#5b7fd6' };
+  const vars = getThemeVars(effectiveConfig);
   const root = document.documentElement;
   const preset = PRESETS[themeConfig.preset] || PRESETS['light-warm'];
 
@@ -221,25 +232,6 @@ export function applyTheme(themeConfig) {
 
   for (const [prop, value] of Object.entries(vars)) {
     root.style.setProperty(prop, value);
-  }
-
-  // Set accent if not in vars
-  if (!vars['--accent']) {
-    const fallbackAccent = '#5b7fd6';
-    const isDark = (preset.mode || themeConfig.mode) === 'dark';
-    root.style.setProperty('--accent', fallbackAccent);
-    root.style.setProperty('--accent-hover', fallbackAccent + 'dd');
-    root.style.setProperty('--fab-ink', _getAccentInkColor(fallbackAccent));
-    root.style.setProperty('--accent-bright', _getAccentBright(fallbackAccent));
-    // Spec-aligned tokens.
-    if (isDark) {
-      root.style.setProperty('--accent', `color-mix(in srgb, ${fallbackAccent} 75%, #fff)`);
-      root.style.setProperty('--accent-ink', `color-mix(in srgb, ${fallbackAccent} 40%, #fff)`);
-      root.style.setProperty('--accent-soft', `color-mix(in srgb, ${fallbackAccent} 30%, #000)`);
-    } else {
-      root.style.setProperty('--accent-ink', `color-mix(in srgb, ${fallbackAccent} 60%, #000)`);
-      root.style.setProperty('--accent-soft', `color-mix(in srgb, ${fallbackAccent} 12%, #fff)`);
-    }
   }
 
   // Set data attribute for CSS selectors. Use the preset's mode (not
@@ -303,26 +295,16 @@ export function saveDeviceTheme(themeConfig) {
 }
 
 /**
- * Resolve which theme to apply: device override > cached family > Firebase settings > default.
+ * Resolve which theme to apply.
+ * Priority: device override > live Firebase settings > localStorage cache > default.
+ *
+ * The cache exists ONLY for instant paint before Firebase loads (call with no
+ * argument at boot). Once settings are available they must win — otherwise a
+ * family-theme change made on another device is permanently masked by this
+ * device's stale cache (which applyTheme re-writes on every apply).
  */
 export function resolveTheme(settingsTheme) {
-  return loadDeviceTheme() || loadCachedTheme() || settingsTheme || defaultThemeConfig();
-}
-
-/**
- * Grade color mapping — consistent across all pages.
- */
-export function gradeColor(grade) {
-  if (!grade) return '#999';
-  const letter = grade.charAt(0);
-  const colors = {
-    'A': '#2e7d32',
-    'B': '#1565c0',
-    'C': '#f9a825',
-    'D': '#e65100',
-    'F': '#c62828'
-  };
-  return colors[letter] || '#999';
+  return loadDeviceTheme() || settingsTheme || loadCachedTheme() || defaultThemeConfig();
 }
 
 const TEXT_SIZE_KEY = 'dr-text-size';
