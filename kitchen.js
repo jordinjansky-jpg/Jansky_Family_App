@@ -6,9 +6,10 @@ import { initFirebase, readSettings, writeSettings, readPeople, writePerson, onC
   readKitchenRecipes, readKitchenLists, readKitchenStaples,
   readKitchenPlan, readKitchenPlanRange, onKitchenItems, readOnce,
   pushKitchenList, writeKitchenList, removeKitchenList, removeKitchenItem,
-  pushKitchenItem, writeKitchenItem, pushKitchenStaple,
+  pushKitchenItem, writeKitchenItem, updateKitchenItem, pushKitchenStaple,
+  updateKitchenStaple, removeKitchenStaple,
   writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe,
-  getDb,
+  multiUpdate, updateData,
   readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync,
 } from './shared/firebase.js';
 import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
@@ -22,7 +23,7 @@ import { renderHeader, renderNavBar, initNavMore, initBottomNav, initBell,
   openCookMode, readKitchenCustomize,
   renderMealDetailSheet, openVoteSheet
 } from './shared/components.js';
-import { todayKey, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
+import { todayKey, addDays, formatDateShort, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
 import { withButtonLock, validateStoredId } from './shared/dom-helpers.js';
 
@@ -63,16 +64,15 @@ async function selfHealRecipeImage(recipeId) {
       dataUrl = await urlToDataUrl(data.imageUrl);
     }
     if (!dataUrl || !dataUrl.startsWith('data:')) throw new Error('No image');
-    const updated = { ...recipe, imageUrl: dataUrl, imageRefreshFails: null };
-    recipes[recipeId] = updated;
-    await writeKitchenRecipe(recipeId, updated);
+    recipes[recipeId] = { ...recipe, imageUrl: dataUrl, imageRefreshFails: null };
+    // Leaf update — don't replace the whole recipe from a possibly stale snapshot.
+    await updateData(`kitchen/recipes/${recipeId}`, { imageUrl: dataUrl, imageRefreshFails: null });
     // Re-render the list so the recovered image appears. Cheap; idempotent.
     if (activeTab === 'recipes') renderRecipesTab();
   } catch {
     const next = (recipe.imageRefreshFails || 0) + 1;
-    const updated = { ...recipe, imageRefreshFails: next };
-    recipes[recipeId] = updated;
-    try { await writeKitchenRecipe(recipeId, updated); } catch { /* swallow */ }
+    recipes[recipeId] = { ...recipe, imageRefreshFails: next };
+    try { await updateData(`kitchen/recipes/${recipeId}`, { imageRefreshFails: next }); } catch { /* swallow */ }
     // Once we cross the banner threshold, refresh the Recipes tab so it shows.
     if (next === 2 && activeTab === 'recipes') renderRecipesTab();
   }
@@ -96,26 +96,29 @@ function activateSheet(mount, onClose) {
 }
 
 // Long-press helper: 600ms hold fires onLongPress; short tap fires onTap(e).
-// Movement > 12px cancels. Vibrates 30ms on fire. Touch-event-based for reliability.
+// Movement > 10px cancels. Vibrates 30ms on fire. Pointer-event-based so both
+// touch AND mouse (kiosk/desktop) users can long-press.
 function bindLongPress(el, onLongPress, onTap) {
   let timer = null, didLong = false, sx = 0, sy = 0;
-  el.addEventListener('touchstart', (e) => {
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  el.addEventListener('pointerdown', (e) => {
+    if (typeof e.button === 'number' && e.button !== 0) return; // primary button only
     didLong = false;
-    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    sx = e.clientX; sy = e.clientY;
+    cancel();
     timer = setTimeout(() => {
+      timer = null;
       didLong = true;
       if (navigator.vibrate) navigator.vibrate(30);
       onLongPress();
     }, 600);
-  }, { passive: true });
-  el.addEventListener('touchmove', (e) => {
+  });
+  el.addEventListener('pointermove', (e) => {
     if (!timer) return;
-    if (Math.abs(e.touches[0].clientX - sx) > 12 || Math.abs(e.touches[0].clientY - sy) > 12) {
-      clearTimeout(timer); timer = null;
-    }
-  }, { passive: true });
-  el.addEventListener('touchend', () => { clearTimeout(timer); timer = null; });
-  el.addEventListener('touchcancel', () => { clearTimeout(timer); timer = null; });
+    if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) cancel();
+  });
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointercancel', cancel);
   el.addEventListener('click', (e) => { if (didLong) { didLong = false; return; } onTap(e); });
 }
 
@@ -131,9 +134,9 @@ let activeTab = localStorage.getItem('dr-kitchen-tab') || 'meals';
 let activeListId = null;
 let currentItems = {}; // last items snapshot, used by wand cleanup
 let itemsUnsub = null; // Firebase onValue unsubscribe for active list
-let keepAddFieldOpen = false; // true while user is in a multi-item add session
+let _cleanupInFlight = false; // guards against overlapping AI list-cleanup runs
 let recipeFilter = {
-  show: 'all',          // 'all' | 'favorites' | 'never-cooked'
+  show: 'all',          // 'all' | 'top-rated' | 'never-cooked'
   prepBucket: 'any',    // 'any' | 'lt-30' | '30-60' | 'gt-60'
   tags: [],             // [] = no tag filter; else AND across these tag strings
   sort: 'alpha',        // 'alpha' | 'recent' | 'quickest' | 'last-cooked' | 'highest-rated'
@@ -355,9 +358,10 @@ async function renderMealsTab() {
   const todayStr = todayKey(tz);
 
   // Rolling N-day window — N is user-customizable (3 / 7 / 14).
+  // Day 0 derives from the family-timezone today key, not the device clock,
+  // so a late-night phone in another timezone still starts on "today".
   const kPrefs = readKitchenCustomize(linkedPerson ? { person: linkedPerson } : undefined);
-  const startDate = new Date();
-  startDate.setHours(0, 0, 0, 0);
+  const startDate = new Date(todayStr + 'T00:00:00');
 
   const weekDays = Array.from({ length: kPrefs.daysShown }, (_, i) => {
     const d = new Date(startDate);
@@ -451,6 +455,12 @@ async function renderMealsTab() {
         <span class="day-block__slot-label">${esc(SLOT_LABELS.dinner)}</span>
         <span class="day-block__slot-name day-block__slot-name--empty">Plan dinner <span aria-hidden="true">›</span></span>
       </div>`);
+    }
+
+    // Empty state: all slot nudges off + nothing planned → single muted hint
+    // so the day block isn't a bare header.
+    if (slotRows.length === 0) {
+      slotRows.push(`<div class="day-block__slot-empty-hint">Tap + to plan a meal</div>`);
     }
 
     const slotsHtml = slotRows.join('');
@@ -600,7 +610,7 @@ function renderRecipesTab() {
         const la = ra.lastUsed || 0; const lb = rb.lastUsed || 0;
         return lb - la;
       }
-      case 'highest-rated': return (rb.rating || 0) - (ra.rating || 0);
+      case 'highest-rated': return (avgRating(rb, linkedPerson?.id).avg ?? 0) - (avgRating(ra, linkedPerson?.id).avg ?? 0);
       case 'alpha':
       default:               return (ra.name || '').localeCompare(rb.name || '');
     }
@@ -608,11 +618,16 @@ function renderRecipesTab() {
 
   const linkIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
 
+  // The user's saved Customize → Kitchen default sort is the baseline — only
+  // a sort that differs from it counts toward the filter badge, and Clear
+  // restores it (not hardcoded alpha).
+  const kPrefsRender = readKitchenCustomize(linkedPerson ? { person: linkedPerson } : undefined);
+  const defaultSort = kPrefsRender.recipesSort || 'alpha';
   const filterCount =
     (recipeFilter.show !== 'all'         ? 1 : 0) +
     (recipeFilter.prepBucket !== 'any'   ? 1 : 0) +
     (recipeFilter.tags?.length           ? 1 : 0) +
-    (recipeFilter.sort !== 'alpha'       ? 1 : 0);
+    (recipeFilter.sort !== defaultSort   ? 1 : 0);
   const filterLabel = filterCount > 0 ? `Filter & Sort · ${filterCount}` : 'Filter & Sort';
 
   const recipeLibHtml = (() => {
@@ -658,7 +673,6 @@ function renderRecipesTab() {
     </button>`;
   })();
 
-  const kPrefsRender = readKitchenCustomize(linkedPerson ? { person: linkedPerson } : undefined);
   content.innerHTML = `
     <div class="rl-wrap rl-wrap--${esc(kPrefsRender.cardDensity)}">
       ${flaggedBanner}
@@ -690,7 +704,7 @@ function renderRecipesTab() {
       show: 'all',
       prepBucket: 'any',
       tags: [],
-      sort: 'alpha',
+      sort: defaultSort,
     };
     renderRecipesTab();
   });
@@ -767,7 +781,11 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   // maps it to school-lunch or school-lunch-2 based on day state.
   const PLAN_SLOT_ORDER = ['breakfast', 'lunch', 'school', 'dinner', 'snack'];
 
-  let selectedSlot = PLAN_SLOT_ORDER.includes(preSlot) ? preSlot : (preSlot === null ? null : 'dinner');
+  // Concrete school-lunch schema keys map back to the picker's virtual
+  // 'school' slot — otherwise "Plan school lunch" entry points would silently
+  // fall through to Dinner.
+  const normalizedPreSlot = (preSlot === 'school-lunch' || preSlot === 'school-lunch-2') ? 'school' : preSlot;
+  let selectedSlot = PLAN_SLOT_ORDER.includes(normalizedPreSlot) ? normalizedPreSlot : (normalizedPreSlot === null ? null : 'dinner');
   let mealMode = opts.initialMode || 'single'; // 'single' | 'vote'
 
   // Vote-mode candidate state. Each entry: { selectedRecipeId, typedName }.
@@ -783,8 +801,10 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     return `${DAY_ABBR[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
   }
 
-  function buildPickRow(id, r) {
-    const isSelected = selectedRecipeId === id;
+  // `selId` defaults to the first picker's selection; the second-school picker
+  // passes its own selected id so its rows highlight independently.
+  function buildPickRow(id, r, selId = selectedRecipeId) {
+    const isSelected = selId === id;
     const thumb = r.imageUrl
       ? `<img class="recipe-pick__thumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`
       : `<span class="recipe-pick__thumb recipe-pick__thumb--placeholder" aria-hidden="true">🍴</span>`;
@@ -795,7 +815,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     </button>`;
   }
 
-  function buildRecipeRows(filter) {
+  function buildRecipeRows(filter, selId = selectedRecipeId) {
     const lc = filter?.toLowerCase() || '';
     const all = Object.entries(recipes).sort((a, b) => {
       // Legacy isFavorite sort — field no longer exposed by rating UI but retained for backward compatibility
@@ -805,7 +825,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     const entries = lc ? all.filter(([, r]) => r.name.toLowerCase().includes(lc)) : all;
     if (entries.length === 0 && lc) return `<div class="recipe-pick__none">No match — will save as "${esc(filter)}"</div>`;
     if (entries.length === 0) return `<div class="recipe-pick__none">No recipes yet. Type any meal name to continue.</div>`;
-    return entries.map(([id, r]) => buildPickRow(id, r)).join('');
+    return entries.map(([id, r]) => buildPickRow(id, r, selId)).join('');
   }
 
   function buildCandidateRow(i) {
@@ -1164,7 +1184,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
         const name = secondRecipeId ? recipes[secondRecipeId]?.name || '' : '';
         document.getElementById('kp_secondSearch').value = name;
         document.getElementById('kp_secondMealLabel').textContent = name || 'Choose a meal…';
-        document.getElementById('kp_secondPick').innerHTML = buildRecipeRows(name);
+        document.getElementById('kp_secondPick').innerHTML = buildRecipeRows(name, secondRecipeId);
         bindSecondPickRows();
       });
     });
@@ -1176,7 +1196,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     document.getElementById('kp_addSecond').classList.toggle('is-active', secondOpen);
     document.getElementById('kp_secondMealWrap')?.classList.toggle('is-open', secondOpen);
     if (secondOpen) {
-      document.getElementById('kp_secondPick').innerHTML = buildRecipeRows('');
+      document.getElementById('kp_secondPick').innerHTML = buildRecipeRows('', secondRecipeId);
       bindSecondPickRows();
     } else {
       secondRecipeId = null;
@@ -1187,7 +1207,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   document.getElementById('kp_secondSearch')?.addEventListener('input', (e) => {
     secondRecipeId = null;
     secondTypedName = e.target.value.trim();
-    document.getElementById('kp_secondPick').innerHTML = buildRecipeRows(e.target.value);
+    document.getElementById('kp_secondPick').innerHTML = buildRecipeRows(e.target.value, secondRecipeId);
     bindSecondPickRows();
   });
 
@@ -1200,21 +1220,35 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     syncSecondSchoolVisibility();
   });
 
-  document.getElementById('kp_save')?.addEventListener('click', async () => {
+  const kpSaveBtn = document.getElementById('kp_save');
+  kpSaveBtn?.addEventListener('click', () => withButtonLock(kpSaveBtn, async () => {
     const day = document.getElementById('kp_day')?.value;
     if (!day || !selectedSlot) return;
+
+    // planCache only holds the Meals tab's visible window — opening the
+    // planner from the Recipes tab or picking a far date would otherwise see
+    // an empty day and silently clobber votes / misallocate school slots.
+    // Refresh the chosen day from Firebase before any occupancy decision.
+    const freshPlan = await readKitchenPlan(day).catch(() => null) || {};
+    planCache[day] = freshPlan;
 
     // ===== Vote mode branch =====
     if (mealMode === 'vote' && selectedSlot !== 'school') {
       const voteSlot = selectedSlot;
+      // Carry votes/addedAt/addedBy forward from existing options so adding a
+      // 3rd candidate (or re-saving) doesn't wipe everyone's votes.
+      const existingOpts = normalizePlanSlot(freshPlan[voteSlot]);
       const filled = candidates
         .filter(c => c.selectedRecipeId || c.typedName.trim())
         .map(c => {
+          const match = existingOpts.find(o => c.selectedRecipeId
+            ? o.recipeId === c.selectedRecipeId
+            : (!o.recipeId && (o.customName || o.mealName || '') === c.typedName.trim()));
           const base = {
-            source: 'manual',
-            addedBy: linkedPerson?.id || (people[0]?.id ?? null),
-            addedAt: Date.now(),
-            votes: {},
+            source: match?.source || 'manual',
+            addedBy: match?.addedBy ?? (linkedPerson?.id || (people[0]?.id ?? null)),
+            addedAt: match?.addedAt || Date.now(),
+            votes: match?.votes || {},
           };
           if (c.selectedRecipeId) return { ...base, recipeId: c.selectedRecipeId };
           return { ...base, customName: c.typedName.trim() };
@@ -1252,6 +1286,8 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
         firstData = { customName: typed, source: 'manual' };
       }
     }
+    firstData.addedAt = Date.now();
+    if (linkedPerson?.id) firstData.addedBy = linkedPerson.id;
     // Carry user-adjusted servings from the recipe detail's calculator (only when this recipe was prefilled).
     if (preServings && selectedRecipeId === preRecipeId) {
       firstData.servings = preServings;
@@ -1381,11 +1417,14 @@ function openSlotEditSheet(dk, slot, entry) {
       });
     });
 
-    document.getElementById('mdAddToList')?.addEventListener('click', async () => {
+    document.getElementById('mdAddToList')?.addEventListener('click', () => {
       const recipe = opt.recipeId ? recipes[opt.recipeId] : null;
       if (!recipe) return;
       mount.innerHTML = '';
-      await addRecipeIngredientsToList(recipe);
+      // K1: this used to call an undefined addRecipeIngredientsToList() and
+      // crash after clearing the sheet. Use the shared review sheet, seeded
+      // with the plan entry's persisted servings.
+      openAddToListReviewSheet(recipe, opt.servings || recipe.servings, recipe.servings);
     });
 
     document.getElementById('mdChange')?.addEventListener('click', () => {
@@ -3585,7 +3624,7 @@ async function toggleItem(id) {
   const isNowChecked = !card.classList.contains('is-checked');
   card.classList.toggle('is-checked', isNowChecked);
 
-  await getDb().ref(`rundown/kitchen/items/${activeListId}/${id}`).update({
+  await updateKitchenItem(activeListId, id, {
     checked: isNowChecked,
     checkedAt: isNowChecked ? firebase.database.ServerValue.TIMESTAMP : null,
   });
@@ -3609,7 +3648,7 @@ async function toggleItem(id) {
           await removeKitchenItem(activeListId, itemId);
         }
       } else {
-        await getDb().ref(`rundown/kitchen/items/${activeListId}/${id}`).update({ checked: false, checkedAt: null });
+        await updateKitchenItem(activeListId, id, { checked: false, checkedAt: null });
       }
     }
   }
@@ -4059,7 +4098,7 @@ function openStaplesSheet() {
           confirmLabel: 'Remove', danger: true,
         });
         if (!confirmed) return;
-        await getDb().ref(`rundown/kitchen/staples/${id}`).remove();
+        await removeKitchenStaple(id);
         delete staples[id];
         rebuildRows();
       });
@@ -4117,7 +4156,7 @@ function openStapleEditSheet(id, onDone) {
   ksSaveBtn?.addEventListener('click', () => withButtonLock(ksSaveBtn, async () => {
     const name = document.getElementById('ks_name')?.value.trim();
     if (!name) return;
-    await getDb().ref(`rundown/kitchen/staples/${id}/name`).set(name);
+    await updateKitchenStaple(id, { name });
     staples[id].name = name;
     mount.innerHTML = '';
     onDone?.();
@@ -4131,7 +4170,7 @@ function openStapleEditSheet(id, onDone) {
       confirmLabel: 'Remove', danger: true,
     });
     if (!confirmed) return;
-    await getDb().ref(`rundown/kitchen/staples/${id}`).remove();
+    await removeKitchenStaple(id);
     delete staples[id];
     mount.innerHTML = '';
     openStaplesSheet();
@@ -4429,10 +4468,12 @@ async function healUncategorizedItems(listId, items) {
   _healPassLog.set(listId, now);
 
   // Find items that need re-categorization. Skip checked items (don't waste
-  // Worker calls on completed groceries).
+  // Worker calls on completed groceries). 'Other' is a legitimate persisted
+  // answer (K19) — only null/empty categories are truly uncategorized;
+  // legacy 'OTHER' (uppercase) marks pre-categorization items and still heals.
   const candidates = Object.entries(items)
     .filter(([, it]) => it && it.name && !it.checked)
-    .filter(([, it]) => !it.category || it.category === '' || it.category === 'OTHER' || it.category === 'Other')
+    .filter(([, it]) => !it.category || it.category === '' || it.category === 'OTHER')
     .slice(0, 10);
 
   if (candidates.length === 0) return;
@@ -4453,8 +4494,10 @@ async function categorizeItem(listId, itemId, name) {
     });
     if (!res.ok) return;
     const { category } = await res.json();
-    if (!category || category === 'Other') return;
-    await getDb().ref(`rundown/kitchen/items/${listId}/${itemId}/category`).set(category);
+    if (!category) return;
+    // K19: persist 'Other' too — refusing to write it made genuinely-Other
+    // items re-enter the heal pass every 60s forever (1 Worker call/item/min).
+    await updateKitchenItem(listId, itemId, { category });
   } catch (err) {
     // Silently fail — item stays in Other
   }
@@ -4489,8 +4532,8 @@ async function categorizeStaple(stapleId, name) {
     });
     if (!res.ok) return;
     const { category } = await res.json();
-    if (!category || category === 'Other') return;
-    await getDb().ref(`rundown/kitchen/staples/${stapleId}/category`).set(category);
+    if (!category) return;
+    await updateKitchenStaple(stapleId, { category });
     staples[stapleId].category = category;
   } catch (err) {}
 }

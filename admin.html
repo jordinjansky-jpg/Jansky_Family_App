@@ -27,9 +27,9 @@
     </div>
 
     <!-- PIN Gate -->
-    <div id="pinGate" style="display:none;">
+    <div id="pinGate" class="is-hidden">
       <div class="admin-pin-gate">
-        <div>🔒</div>
+        <div class="admin-pin-gate__icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
         <h2 class="admin-pin-gate__title">Admin Access</h2>
         <p class="admin-pin-gate__desc">Enter your 4-digit PIN</p>
         <div class="admin-pin-gate__inputs">
@@ -43,7 +43,7 @@
     </div>
 
     <!-- Admin Content (after PIN) -->
-    <div id="mainContent" style="display:none;overflow-x:hidden;"></div>
+    <div id="mainContent" class="is-hidden admin-main-content"></div>
   </div>
   <div id="navMount"></div>
   <div id="toastMount"></div>
@@ -58,17 +58,17 @@
   <script type="module">
     import {
       initFirebase, isFirstRun, readSettings, writeSettings,
-      readPeople, writePerson, pushPerson, removeData,
+      readPeople, pushPerson, removeData,
       readTasks, pushTask, writeTask, removeTask,
       readCategories, writeCategories,
       readEvents, pushEvent, writeEvent, removeEvent,
       readCompletions, readAllSchedule, readOnce,
       multiUpdate, updateData, pushDebugEvent, factoryReset, onConnectionChange,
       readRewards, pushReward, writeReward, archiveReward, removeReward,
-      readMessages, readAllMessages, writeMessage, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, clearMessages, deletePersonRewardsData, readMultipliers,
+      readAllMessages, writeMessage, readAllSnapshots, readBalanceAnchor, writeBalanceAnchor, readMultipliers,
+      deletePersonCascade,
       readAllAchievements, writeAchievement, deleteAchievement,
       readAchievementDefs, writeAchievementDef, deleteAchievementDef,
-      readBank, writeBankToken, removeBankToken,
       readIcalFeeds, pushIcalFeed, writeIcalFeed, removeIcalFeed,
       readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync,
       readKitchenPlan, writeKitchenPlanSlot,
@@ -79,16 +79,16 @@
       isDev
     } from './shared/firebase.js';
     import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderUndoToast, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderRepeatSheet, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, derivePersonInitials, openPhotoCropper, openAvatarEditor, renderFormSheetHeader, renderChipPicker, bindChipPicker, renderSwitchToggle } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, openAvatarEditor, renderFormSheetHeader, renderChipPicker, bindChipPicker, renderSwitchToggle } from './shared/components.js';
 
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
+    import { applyTheme, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
     import { normalizeTaskGrouping } from './shared/state.js';
-    import { todayKey, addDays, dateRange, formatDateShort, getTimezoneOptions, detectTimezone, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
+    import { todayKey, addDays, formatDateShort, getTimezoneOptions, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
-    import { generateSchedule, buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
-    import { basePoints, calculateBalance, ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
+    import { buildScheduleUpdates, getRotationOwner } from './shared/scheduler.js';
+    import { basePoints, calculateBalance, mergeAchievementDefs, getActiveAchievements } from './shared/scoring.js';
     import { clearWeatherCache, geocodeLocation } from './shared/weather.js';
-    import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
+    import { resizeImageForUpload, renderConfirmRow, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
     import { withButtonLock } from './shared/dom-helpers.js';
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
 
@@ -100,28 +100,9 @@
 
 
 
-    // ── Undo toast helper ──
-    let undoTimer = null;
-    function showUndoToast(message, undoCallback) {
-      const mount = document.getElementById('toastMount');
-      mount.innerHTML = renderUndoToast(message);
-      if (undoTimer) clearTimeout(undoTimer);
-      const undoBtn = mount.querySelector('.undo-toast__btn');
-      if (undoCallback) {
-        undoBtn.addEventListener('click', () => {
-          clearTimeout(undoTimer);
-          mount.innerHTML = '';
-          undoCallback();
-        });
-      } else {
-        undoBtn.style.display = 'none';
-      }
-      undoTimer = setTimeout(() => {
-        const toast = mount.querySelector('.undo-toast');
-        if (toast) toast.style.opacity = '0';
-        setTimeout(() => { mount.innerHTML = ''; }, 300);
-      }, 5000);
-    }
+    // ── Schedule key counter — Date.now() repeats in tight loops (see CLAUDE.md) ──
+    let schedKeyCounter = 0;
+    const newEventSchedKey = () => `sched_${Date.now()}_event_${String(schedKeyCounter++).padStart(3, '0')}`;
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -144,6 +125,15 @@
       Object.assign(settings, updated);
     }
 
+    // Build a full settings object for writeSettings — spreads the live settings
+    // so sibling keys survive, and strips legacy keys that should never persist.
+    function buildSettingsUpdate(extra) {
+      const u = { ...settings, ...extra };
+      delete u.sliderMin; delete u.sliderMax;
+      delete u.longPressMs; delete u.kidLongPressMs;
+      return u;
+    }
+
     let peopleObj = await readPeople() || {};
     let tasksObj = await readTasks() || {};
     let catsObj = await readCategories() || {};
@@ -151,7 +141,6 @@
     let rewardsObj = (await readRewards()) || {};
     let allAchievements = (await readAllAchievements()) || {};
     let allMessagesObj = (await readAllMessages()) || {};
-    let allBankData = {};
     let achievementDefsObj = (await readAchievementDefs()) || {};
     let icalFeedsObj = (await readIcalFeeds()) || {};
     let schoolLunchFeedsObj = (await readSchoolLunchFeeds()) || {};
@@ -185,7 +174,7 @@
     // PIN Gate
     // ══════════════════════════════════════════
 
-    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('loadingState').classList.add('is-hidden');
 
     const PIN_SESSION_KEY = 'dr-admin-pin-ts';
     const PIN_SESSION_TTL = 30 * 60 * 1000; // 30 minutes
@@ -209,9 +198,9 @@
         sessionStorage.setItem(PIN_SESSION_KEY, String(Date.now()));
       }
       // Skip PIN gate — render() called after main is defined below
-      document.getElementById('mainContent').style.display = '';
+      document.getElementById('mainContent').classList.remove('is-hidden');
     } else {
-      document.getElementById('pinGate').style.display = '';
+      document.getElementById('pinGate').classList.remove('is-hidden');
       const digits = document.querySelectorAll('.admin-pin-digit');
 
       digits.forEach((input, i) => {
@@ -235,9 +224,8 @@
 
         if (entered === adminPin || entered === recoveryPin) {
           sessionStorage.setItem(PIN_SESSION_KEY, String(Date.now()));
-          document.getElementById('pinGate').style.display = 'none';
-          const main = document.getElementById('mainContent');
-          main.style.display = '';
+          document.getElementById('pinGate').classList.add('is-hidden');
+          document.getElementById('mainContent').classList.remove('is-hidden');
           render();
         } else {
           document.getElementById('pinError').textContent = 'Incorrect PIN';
@@ -311,15 +299,6 @@
     }
     function catsArray() {
       return Object.entries(catsObj).map(([key, c]) => ({ key, ...c }));
-    }
-    function getAccentColors() {
-      return [
-        '#ef5350', '#e85d75', '#ec407a', '#f06292',
-        '#ab47bc', '#8e24aa', '#7e57c2', '#5b7fd6',
-        '#42a5f5', '#00acc1', '#26a69a', '#43a047',
-        '#66bb6a', '#ffca28', '#ffa726', '#ff9800',
-        '#ff7043', '#8d6e63', '#78909c', '#546e7a'
-      ];
     }
 
     /**
@@ -447,10 +426,6 @@
           if (activeLibrarySection === 'rewards') {
             allAchievements = (await readAllAchievements()) || {};
             allMessagesObj = (await readAllMessages()) || {};
-            allBankData = {};
-            for (const pid of Object.keys(peopleObj)) {
-              allBankData[pid] = (await readBank(pid)) || {};
-            }
           }
           if (activeLibrarySection === 'activities') {
             activitiesObj = (await readActivities()) || {};
@@ -2093,14 +2068,25 @@
         mount.querySelector('#ps_delete')?.addEventListener('click', async () => {
           const confirmed = await showConfirm({
             title: `Delete ${person.name || 'this person'}?`,
-            message: 'This removes the person and all associated messages, bank tokens, wishlist, and achievements. This cannot be undone.',
+            message: 'Removes this person and ALL their data: points history, rewards, messages, schedule, activities, and notification devices. This cannot be undone.',
             confirmLabel: 'Delete',
             danger: true,
           });
           if (!confirmed) return;
-          await firebase.database().ref(`rundown/people/${personId}`).remove();
-          await deletePersonRewardsData(personId);
+          // A2: full cascade (push subs, earnings, timers, sessions, streaks,
+          // snapshots, lunch feed, ratings, owned schedule entries, owner
+          // arrays) BEFORE removing the person record, then rebuild the
+          // schedule so rotation reflows without the deleted owner.
+          await deletePersonCascade(personId);
+          await removeData(`people/${personId}`);
           peopleObj = await readPeople() || {};
+          try {
+            const [allComp, allSched] = await Promise.all([readCompletions(), readAllSchedule()]);
+            const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp || {}, allSched || {}, { includeToday: true }, catsObj);
+            await multiUpdate(futureUpdates);
+          } catch (err) {
+            showToast('Person deleted — schedule rebuild failed, edit any task to retry');
+          }
           closeAdminSheet();
           render();
         });
@@ -2140,9 +2126,15 @@
         };
 
         if (isEdit) {
-          await firebase.database().ref(`rundown/people/${personId}`).update(data);
+          // A1/A7: dev-root-aware write; explicit nulls clear theme/kidSettings
+          // when switched off (update-merge can never delete an absent key).
+          await updateData(`people/${personId}`, {
+            ...data,
+            theme: theme || null,
+            kidSettings: kidSettings || null,
+          });
         } else {
-          await firebase.database().ref('rundown/people').push(data);
+          await pushPerson(data);
         }
         peopleObj = await readPeople() || {};
         closeAdminSheet();
@@ -2152,7 +2144,7 @@
       if (isEdit) {
         mount.querySelector('#ps_saveAnchor')?.addEventListener('click', async () => {
           const amount = parseFloat(mount.querySelector('#ps_balanceAnchor')?.value || '0');
-          await firebase.database().ref(`rundown/balanceAnchors/${personId}`).set({ amount, anchoredAt: firebase.database.ServerValue.TIMESTAMP });
+          await writeBalanceAnchor(personId, { amount, anchoredAt: firebase.database.ServerValue.TIMESTAMP });
           showToast('Balance anchor saved');
         });
 
@@ -4645,7 +4637,7 @@
         selectMode = false;
         selectedTaskIds.clear();
         render();
-        showUndoToast(`Updated ${ids.length} task${ids.length !== 1 ? 's' : ''}`);
+        showToast(`Updated ${ids.length} task${ids.length !== 1 ? 's' : ''}`);
         } catch (err) {
           console.error('[bulkEdit] save failed:', err);
         } finally {
@@ -4706,7 +4698,7 @@
       const futureUpdates = buildScheduleUpdates(tasksObj, peopleArray(), settings, allComp2, allSched2, { includeToday: true }, catsObj);
       await multiUpdate(futureUpdates);
 
-      showUndoToast(`Deleted ${count} task${count !== 1 ? 's' : ''}`);
+      showToast(`Deleted ${count} task${count !== 1 ? 's' : ''}`);
     }
 
     // ── Events tab events ──
@@ -4820,7 +4812,7 @@
           createdBy: 'Parent'
         });
         closeAdminSheet();
-        showUndoToast(`${msgType === 'bonus' ? 'Bonus' : 'Deduction'} sent!`);
+        showToast(`${msgType === 'bonus' ? 'Bonus' : 'Deduction'} sent!`);
       });
     }
 

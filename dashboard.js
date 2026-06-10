@@ -1,13 +1,13 @@
 // cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted)
-import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onValue, onCompletions, onEvents, onScheduleDay, onMultipliers, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, removeData, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeed, writeIcalFeedLastSync } from './shared/firebase.js';
-import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderPersonFilter, renderProgressBar, renderTaskCard, renderTimeHeader, renderPersonHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderOverflowMenu, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderAmbientStrip, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderMealEditorSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet } from './shared/components.js';
+import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onCompletions, onEvents, onScheduleDay, onMultipliers, onSettings, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeedLastSync } from './shared/firebase.js';
+import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
-import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
+import { applyTheme, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce, normalizePlanSlot, pickWinner, scaleQty, dateToKey } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
-import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
+import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, getEventsForRange, sortEvents, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries, groupBySectionsTOD, normalizeTaskGrouping } from './shared/state.js';
 import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, withButtonLock, bindEscapeToClose } from './shared/dom-helpers.js';
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
@@ -28,12 +28,29 @@ applyTheme(resolveTheme());
 // ── Init Firebase ──
 initFirebase();
 const firstRun = await isFirstRun();
-if (firstRun) { window.location.href = 'setup.html'; }
+if (firstRun) {
+  window.location.href = 'setup.html';
+  // DB18: halt module execution while the redirect lands — the rest of boot
+  // would otherwise race against an empty DB.
+  await new Promise(() => {});
+}
 
 // ── Load core data ──
-const [settings, peopleObj, tasksObj, catsObj, eventsObj] = await Promise.all([
-  readSettings(), readPeople(), readTasks(), readCategories(), readEvents()
-]);
+// `settings` is `let` so the live onSettings listener (bottom of file) can refresh it. (DB16)
+let settings, peopleObj, tasksObj, catsObj, eventsObj;
+try {
+  [settings, peopleObj, tasksObj, catsObj, eventsObj] = await Promise.all([
+    readSettings(), readPeople(), readTasks(), readCategories(), readEvents()
+  ]);
+} catch (err) {
+  // DB32: boot error state — without this a failed initial read leaves the skeleton spinning forever.
+  renderErrorState(document.getElementById('mainContent'), {
+    title: "Couldn't load your data",
+    message: 'Check your connection and try again.',
+    retry: () => location.reload(),
+  });
+  await new Promise(() => {}); // halt boot; Retry reloads the page
+}
 
 // Apply family theme from Firebase only if no device override
 if (settings?.theme) applyTheme(resolveTheme(settings.theme));
@@ -54,6 +71,7 @@ let recipes = (await readKitchenRecipes()) || {};
 let viewMeals = (await readKitchenPlan(today)) || {};
 let activePressTimer = null;
 let pendingSliderOverride = null; // { entryKey, value } — set by slider, consumed by toggleTask/closeSheet
+const PRESS_MOVE_THRESHOLD = 10; // px of pointer movement that cancels a long-press timer (DB2)
 
 // ── Person link mode (?person=Name) ──
 const personParam = new URLSearchParams(window.location.search).get('person');
@@ -76,7 +94,6 @@ if (personParam && !linkedPerson) {
     : `<p class="error-placeholder__body">We couldn't find anyone with that name.<br>Check the link or ask an admin.</p>`;
   errMain.innerHTML = `
     <div class="error-placeholder">
-      <div class="error-placeholder__icon">🤔</div>
       <h2 class="error-placeholder__title">Who's ${esc(personParam)}?</h2>
       ${suggestHtml}
       <a href="index.html" class="btn btn--secondary mt-md">Go to family dashboard</a>
@@ -123,8 +140,7 @@ let pendingApprovalCount = 0; // unseen redemption-request / use-request across 
 if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
 
 // ── Header & Nav ──
-// More menu is rendered by the shared initNavMore (icons + page list match
-// every other page). The dashboard wires it after renderNavBar below.
+// Bottom nav (and its shared More/Customize sheet) is mounted by initBottomNav below.
 
 function wireHeaderActions() {
   document.getElementById('headerAdmin')?.addEventListener('click', () => { location.href = 'admin.html'; });
@@ -197,14 +213,15 @@ onConnectionChange((connected) => {
   }
 });
 
-// ── Notification bell ──
-initBell(() => people, () => rewardsData, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, removeBankTokenFn: removeBankToken, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
+// Debounced render — shared by every realtime listener (defined before any
+// listener registration so no callback can hit it uninitialized).
+const debouncedRender = debounce(() => render(), 100);
 
-// ── Pending-approvals banner driver ──
-// Subscribe separately from initBell so the dashboard knows about unseen
-// requests even when the bell isn't open. Triggers a render to refresh the
-// banner queue whenever the count changes.
-onAllMessages((allMsgs) => {
+// ── Notification bell + pending-approvals banner driver ──
+// Single onAllMessages subscription (DB15): the wrapper counts unseen
+// approval requests for the banner queue, then hands the same payload to
+// initBell's callback for the dot/dropdown.
+const onAllMessagesShared = (bellCallback) => onAllMessages((allMsgs) => {
   let count = 0;
   for (const msgs of Object.values(allMsgs || {})) {
     if (!msgs) continue;
@@ -214,9 +231,30 @@ onAllMessages((allMsgs) => {
   }
   if (count !== pendingApprovalCount) {
     pendingApprovalCount = count;
-    if (typeof render === 'function') render();
+    debouncedRender();
   }
+  bellCallback(allMsgs);
 });
+initBell(() => people, () => rewardsData, onAllMessagesShared, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, removeBankTokenFn: removeBankToken, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
+
+// ── Notification deep-links (SW4) ──
+// The service worker posts { type: 'deep-link', url } when a notification tap
+// focuses an already-open client; a cold open lands here with ?openBell=1.
+// Both routes open the bell dropdown via the existing header button.
+function handleDeepLink(url) {
+  if (typeof url === 'string' && url.includes('openBell=1')) {
+    document.getElementById('headerBell')?.click();
+  }
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data?.type === 'deep-link') handleDeepLink(e.data.url);
+  });
+}
+if (new URLSearchParams(window.location.search).get('openBell') === '1') {
+  // Small delay so the bell's message subscription has data before the dropdown opens.
+  setTimeout(() => document.getElementById('headerBell')?.click(), 500);
+}
 
 // Skeleton is replaced by render() below; no show/hide needed.
 const main = document.getElementById('mainContent');
@@ -1147,15 +1185,20 @@ async function toggleTask(entryKey, dateKey, { noPenalty = false } = {}) {
           });
         }
       }
-      // Multi-person bounty: first-come-first-served — remove other entries
+      // Multi-person bounty: first-come-first-served — remove the twins'
+      // entries AND their completion records in one atomic write (DB17;
+      // was N sequential removes that also orphaned completions).
       if (bountyTask.ownerAssignmentMode === 'duplicate' && bountyTask.owners?.length > 1) {
         const dateKey2 = toggledEntry.dateKey || viewDate;
         const daySchedule = await readOnce(`schedule/${dateKey2}`) || {};
+        const twinUpdates = {};
         for (const [otherKey, otherEntry] of Object.entries(daySchedule)) {
           if (otherKey !== entryKey && otherEntry.taskId === toggledEntry.taskId) {
-            await removeData(`schedule/${dateKey2}/${otherKey}`);
+            twinUpdates[`schedule/${dateKey2}/${otherKey}`] = null;
+            if (completions[otherKey]) twinUpdates[`completions/${otherKey}`] = null;
           }
         }
+        if (Object.keys(twinUpdates).length > 0) await multiUpdate(twinUpdates);
       }
     }
   }
@@ -2001,170 +2044,6 @@ function openMealDetailSheet(planEntry, slot) {
   });
 }
 
-function openMealEditorSheet(mealId = null, returnSlot = null) {
-  const meal = mealId ? recipes[mealId] : null;
-  const html = renderMealEditorSheet(meal, mealId);
-  taskSheetMount.innerHTML = renderBottomSheet(html);
-  requestAnimationFrame(() => { document.getElementById('bottomSheet')?.classList.add('active'); });
-
-  const overlay = document.getElementById('bottomSheet');
-  overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });
-
-  document.getElementById('me_closeBtn')?.addEventListener('click', closeTaskSheet);
-  document.getElementById('me_cancel')?.addEventListener('click', closeTaskSheet);
-
-  // Footer Save submits the form (header save is type=submit; footer matches behavior).
-  document.getElementById('me_footerSave')?.addEventListener('click', () => {
-    document.getElementById('meForm')?.requestSubmit?.() ||
-      document.getElementById('meForm')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-  });
-
-  // Name input → disable both save buttons when empty.
-  document.getElementById('me_name')?.addEventListener('input', (e) => {
-    const empty = !e.target.value.trim();
-    const headerSave = document.getElementById('me_headerSave');
-    const footerSave = document.getElementById('me_footerSave');
-    if (headerSave) headerSave.disabled = empty;
-    if (footerSave) footerSave.disabled = empty;
-  });
-
-  document.getElementById('me_fav')?.addEventListener('click', e => {
-    const btn = e.currentTarget;
-    const pressed = btn.getAttribute('aria-pressed') === 'true';
-    btn.setAttribute('aria-pressed', String(!pressed));
-    btn.classList.toggle('is-active', !pressed);
-  });
-
-  const urlInput = document.getElementById('me_url');
-  const urlOpen = document.getElementById('me_urlOpen');
-  urlInput?.addEventListener('input', () => {
-    const val = urlInput.value.trim();
-    if (urlOpen) { urlOpen.href = val || '#'; urlOpen.hidden = !val; }
-  });
-
-  let ingredients = meal ? [...(meal.ingredients || [])] : [];
-  let tags = meal ? [...(meal.tags || [])] : [];
-
-  function refreshIngredients() {
-    const container = document.getElementById('me_ingredients');
-    if (!container) return;
-    container.innerHTML = ingredients.map((item, i) =>
-      `<div class="me-ingredient-row">
-        <input type="text" value="${esc(item)}" placeholder="e.g. 2 lbs ground beef"
-               data-ingr-index="${i}" aria-label="Ingredient ${i + 1}">
-        <button class="me-ingredient-remove" data-ingr-index="${i}" type="button" aria-label="Remove">&times;</button>
-      </div>`
-    ).join('');
-  }
-
-  function bindIngredientEvents() {
-    const container = document.getElementById('me_ingredients');
-    container?.addEventListener('input', e => {
-      const input = e.target.closest('input[data-ingr-index]');
-      if (input) ingredients[parseInt(input.dataset.ingrIndex)] = input.value;
-    });
-    container?.addEventListener('click', e => {
-      const btn = e.target.closest('.me-ingredient-remove');
-      if (!btn) return;
-      ingredients.splice(parseInt(btn.dataset.ingrIndex), 1);
-      refreshIngredients();
-    });
-  }
-  bindIngredientEvents();
-
-  document.getElementById('me_addIngredient')?.addEventListener('click', () => {
-    ingredients.push('');
-    refreshIngredients();
-    const inputs = document.querySelectorAll('#me_ingredients input');
-    inputs[inputs.length - 1]?.focus();
-  });
-
-  function refreshTags() {
-    const container = document.getElementById('me_tags');
-    if (!container) return;
-    container.innerHTML = tags.map((t, i) =>
-      `<span class="me-tag">
-        ${esc(t)}
-        <button class="me-tag__remove" data-tag-index="${i}" type="button" aria-label="Remove tag">&times;</button>
-      </span>`
-    ).join('');
-    container.querySelectorAll('.me-tag__remove').forEach(btn => {
-      btn.addEventListener('click', () => {
-        tags.splice(parseInt(btn.dataset.tagIndex), 1);
-        refreshTags();
-      });
-    });
-  }
-
-  document.getElementById('me_tagInput')?.addEventListener('keydown', e => {
-    if ((e.key === 'Enter' || e.key === ',') && e.target.value.trim()) {
-      e.preventDefault();
-      tags.push(e.target.value.trim().replace(/,$/,''));
-      e.target.value = '';
-      refreshTags();
-    }
-  });
-
-  // Delete (edit mode only)
-  document.getElementById('meDelete')?.addEventListener('click', async () => {
-    const confirmed = await showConfirm({
-      title: 'Delete meal?',
-      message: `"${meal?.name ?? ''}" will be removed from any planned days.`,
-      confirmLabel: 'Delete',
-      danger: true,
-    });
-    if (!confirmed) return;
-    const allPlanSnap = await readOnce('kitchen/plan');
-    const cascadeUpdates = {};
-    if (allPlanSnap) {
-      for (const [dateKey, slots] of Object.entries(allPlanSnap)) {
-        for (const [s, entry] of Object.entries(slots || {})) {
-          if (entry?.recipeId === mealId) cascadeUpdates[`kitchen/plan/${dateKey}/${s}`] = null;
-        }
-      }
-    }
-    cascadeUpdates[`kitchen/recipes/${mealId}`] = null;
-    await multiUpdate(cascadeUpdates);
-    delete recipes[mealId];
-    viewMeals = (await readKitchenPlan(viewDate)) || {};
-    closeTaskSheet();
-    render();
-  });
-
-  // Save
-  document.getElementById('meForm')?.addEventListener('submit', async e => {
-    e.preventDefault();
-    const name = document.getElementById('me_name').value.trim();
-    if (!name) {
-      document.getElementById('me_nameError').textContent = 'Name is required';
-      return;
-    }
-    document.querySelectorAll('#me_ingredients input[data-ingr-index]').forEach((inp, i) => {
-      ingredients[i] = inp.value;
-    });
-    const data = {
-      name,
-      isFavorite: document.getElementById('me_fav')?.getAttribute('aria-pressed') === 'true',
-      prepTime: document.getElementById('me_prepTime').value.trim() || null,
-      tags: tags.filter(Boolean),
-      ingredients: ingredients.filter(Boolean),
-      url: document.getElementById('me_url').value.trim() || null,
-      notes: document.getElementById('me_notes').value.trim() || null,
-      lastUsed: meal?.lastUsed || null,
-      createdAt: meal?.createdAt || firebase.database.ServerValue.TIMESTAMP,
-    };
-    if (mealId) {
-      await writeKitchenRecipe(mealId, data);
-      recipes[mealId] = data;
-    } else {
-      const newId = await pushKitchenRecipe({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
-      recipes[newId] = data;
-    }
-    closeTaskSheet();
-    if (returnSlot) setTimeout(() => openMealPlanSheet(returnSlot), 320);
-    render();
-  });
-}
 
 function openEventForm(existingEventId = null, savedState = null) {
   const event = savedState
@@ -3604,41 +3483,35 @@ function openAddMenu() {
   });
 }
 
-// Bind the header buttons
-document.getElementById('headerThemeBtn')?.addEventListener('click', () => {
-  // Person whose settings get edited in Customize:
-  //   1) linkedPerson if URL is person-scoped (person.html / kid.html);
-  //   2) otherwise the active dashboard person filter (so users on / can still
-  //      manage their personal prefs — including Notifications — by filtering
-  //      to themselves first);
-  //   3) otherwise familyOpts (app-defaults editor).
-  const activePersonObj = !linkedPerson && activePerson ? people.find(p => p.id === activePerson) : null;
-  const effectivePerson = linkedPerson || activePersonObj;
-  openDeviceThemeSheet(
-    document.getElementById('taskSheetMount'),
-    settings?.theme,
-    () => render(),
-    effectivePerson ? { person: effectivePerson, writePerson, displayDefaults: settings } : undefined,
-    effectivePerson ? undefined : { settings, writeSettings, displayDefaults: settings }
-  );
-});
 
 // ══════════════════════════════════════════
 // Real-time listeners
 // ══════════════════════════════════════════
 
-const debouncedRender = debounce(() => render(), 100);
-
-// Completions listener — stays active for the lifetime of the page
-onCompletions(async (val) => {
+// Completions listener — stays active for the lifetime of the page.
+// loadData calls are serialized on a chain (DB9): two rapid completion
+// changes used to race their readAllSchedule reads and could resolve out
+// of order, leaving overdue/cooldown state stale.
+let loadDataChain = Promise.resolve();
+onCompletions((val) => {
   completions = val || {};
-  await loadData();
-  debouncedRender();
+  loadDataChain = loadDataChain.then(() => loadData()).then(() => debouncedRender()).catch(() => {});
 });
 
 // Events listener — stays active for the lifetime of the page
 onEvents((val) => {
   events = val || {};
+  debouncedRender();
+});
+
+// Settings listener (DB16/DB5): admin changes from another device — theme,
+// scoring knobs, weather location, renames — now apply live instead of
+// waiting for a full reload. resolveTheme keeps the device override on top.
+onSettings((val) => {
+  if (!val) return;
+  settings = val;
+  applyTheme(resolveTheme(settings.theme));
+  applyTaskDisplayPrefs(settings, linkedPerson?.prefs);
   debouncedRender();
 });
 

@@ -1,7 +1,7 @@
 // calendar-views.js — Pure render functions for calendar week/day/month views.
 // No DOM access. Returns HTML strings. Import into calendar.html.
 
-import { addDays, weekStartForDay, weekEndForDay, dateRange, dayOfWeek, monthNumber, yearNumber, monthEnd, escapeHtml, DAY_NAMES_SHORT, normalizePlanSlot } from './utils.js';
+import { addDays, dateRange, dayOfWeek, monthEnd, escapeHtml, DAY_NAMES_SHORT, formatDateShort, normalizePlanSlot } from './utils.js';
 import { renderEventPill, renderEventBubble } from './components.js';
 import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, isComplete, sortEntries, groupByFrequency, getEventsForRange } from './state.js';
 
@@ -11,70 +11,32 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /**
- * Build a compact time-grid HTML for timed events.
- * Events are stacked vertically by overlap group (no empty time gaps).
- * Overlapping events sit side-by-side within a group.
- * @param {Array} timedEvents - [[id, eventObj], ...]
- * @param {Array} people - people array
- * @param {number} scale - px per minute (default 1.5)
- * @param {number} minHeight - minimum pill height in px (default 28)
- * @param {string} wrapperClass - CSS class for the grid container
- * @returns {string} HTML string
+ * Expand all events ONCE over [startKey, endKey] and bucket occurrences by
+ * date. Each day's bucket is an `{ id: event }` object identical in shape to
+ * what `getEventsForDate(events, day)` returns, so per-day filtering/sorting
+ * works unchanged — without re-walking every repeat rule per rendered cell.
+ *
+ * Multi-day occurrences are fanned across every spanned day (clamped to the
+ * window) so continuation days surface the event too.
+ *
+ * @param {object} events - { eventId: event }
+ * @param {string} startKey - YYYY-MM-DD inclusive
+ * @param {string} endKey - YYYY-MM-DD inclusive
+ * @returns {Map<string, object>} dateKey → { id: event }
  */
-function buildTimeGrid(timedEvents, people, { scale = 1.5, minHeight = 28, wrapperClass = 'cal-week__time-grid', itemClass = 'cal-week__timed' } = {}) {
-  if (timedEvents.length === 0) return '';
-
-  const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-  const parsed = timedEvents.map(([id, evt]) => {
-    const start = toMin(evt.startTime);
-    const end = evt.endTime ? toMin(evt.endTime) : start + 15;
-    return { id, evt, start, end, dur: end - start };
-  });
-
-  // Overlap detection
-  parsed.sort((a, b) => a.start - b.start || a.end - b.end);
-  const groups = [];
-  let curGroup = [], groupEnd = 0;
-  for (const ev of parsed) {
-    if (curGroup.length > 0 && ev.start >= groupEnd) { groups.push(curGroup); curGroup = []; }
-    curGroup.push(ev);
-    groupEnd = Math.max(groupEnd, ev.end);
-  }
-  if (curGroup.length > 0) groups.push(curGroup);
-
-  // Column assignment per group
-  const layout = new Map();
-  for (const group of groups) {
-    const cols = [];
-    for (const ev of group) {
-      let placed = false;
-      for (let ci = 0; ci < cols.length; ci++) {
-        if (ev.start >= cols[ci]) { cols[ci] = ev.end; layout.set(ev, { col: ci }); placed = true; break; }
-      }
-      if (!placed) { layout.set(ev, { col: cols.length }); cols.push(ev.end); }
+function bucketEventsByDate(events, startKey, endKey) {
+  const expanded = getEventsForRange(events, startKey, endKey, addDays);
+  const byDate = new Map();
+  for (const [id, evt] of Object.entries(expanded)) {
+    const first = evt.date < startKey ? startKey : evt.date;
+    const rawEnd = evt.endDate || evt.date;
+    const last = rawEnd > endKey ? endKey : rawEnd;
+    for (let cur = first; cur <= last; cur = addDays(cur, 1)) {
+      if (!byDate.has(cur)) byDate.set(cur, {});
+      byDate.get(cur)[id] = evt;
     }
-    const tc = cols.length;
-    for (const ev of group) layout.get(ev).totalCols = tc;
   }
-
-  // Compact stacked render
-  const groupGap = 4;
-  let yOffset = 0;
-  let html = '';
-  for (const group of groups) {
-    const groupHeight = Math.max(...group.map(ev => Math.max(ev.dur * scale, minHeight)));
-    for (const ev of group) {
-      const height = Math.max(ev.dur * scale, minHeight);
-      const { col, totalCols } = layout.get(ev);
-      const left = (col / totalCols) * 100;
-      const width = (1 / totalCols) * 100;
-      const pill = renderEventPill(ev.evt, people);
-      html += `<div class="${itemClass}" data-event-id="${ev.id}" data-timegrid-pos="${yOffset.toFixed(1)}|${height.toFixed(1)}|${left.toFixed(1)}|${width.toFixed(1)}">${pill}</div>`;
-    }
-    yOffset += groupHeight + groupGap;
-  }
-  const gridHeight = Math.max(yOffset - groupGap, 0);
-  return `<div class="${wrapperClass}" data-timegrid-height="${gridHeight.toFixed(1)}">${html}</div>`;
+  return byDate;
 }
 
 /**
@@ -181,22 +143,6 @@ function buildTimeAxisGrid(timedEvents, people, todayKey, dateKey) {
 }
 
 /**
- * Render the week view.
- * @param {object} opts
- * @param {string} opts.weekStartDate - YYYY-MM-DD of the first day of the displayed week
- * @param {string} opts.today - today's YYYY-MM-DD
- * @param {object} opts.events - all events { eventId: event }
- * @param {object} opts.allSchedule - full schedule { dateKey: { entryKey: entry } }
- * @param {object} opts.completions - all completions
- * @param {object} opts.tasks - all tasks { taskId: task }
- * @param {object} opts.cats - all categories
- * @param {Array} opts.people - people array [{ id, name, color }]
- * @param {string|null} opts.activePerson - filtered person ID or null
- * @param {string} opts.density - 'cozy' | 'snug'
- * @param {number} opts.weekStartDay - 0=Sun, 1=Mon
- * @returns {string} HTML
- */
-/**
  * Render the new Skylight-style week view: horizontal strip + day detail panel.
  * @param {object} opts
  * @param {string} opts.weekStartDate - YYYY-MM-DD
@@ -218,6 +164,9 @@ export function renderWeekStripView(opts) {
   const days = dateRange(weekStartDate, addDays(weekStartDate, 6));
   const activeDay = selectedDate || today;
 
+  // Expand repeats/multi-day spans ONCE for the whole week, then bucket per day.
+  const eventsByDate = bucketEventsByDate(events, days[0], days[6]);
+
   // Week strip cells
   const stripCells = days.map(dk => {
     const dow = dayOfWeek(dk);
@@ -225,7 +174,7 @@ export function renderWeekStripView(opts) {
     const isToday = dk === today;
     const isSelected = dk === activeDay;
 
-    let dayEvents = getEventsForDate(events, dk, addDays);
+    let dayEvents = eventsByDate.get(dk) || {};
     dayEvents = filterEventsByPerson(dayEvents, activePerson);
     const sortedEvents = sortEvents(dayEvents);
 
@@ -253,8 +202,12 @@ export function renderWeekStripView(opts) {
 
   const strip = `<div class="cal-wstrip" role="tablist" aria-label="Week days">${stripCells}</div>`;
 
-  // Day detail panel for the selected day
-  const panel = renderWeekDayPanel({ dateKey: activeDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals: dayMeals[activeDay] || {}, recipes });
+  // Day detail panel for the selected day — reuse the week's bucket when the
+  // selected day is inside the displayed week (it always should be).
+  const panelEvents = (activeDay >= days[0] && activeDay <= days[6])
+    ? (eventsByDate.get(activeDay) || {})
+    : getEventsForDate(events, activeDay, addDays);
+  const panel = renderWeekDayPanel({ dateKey: activeDay, today, dayEvents: panelEvents, allSchedule, completions, tasks, cats, people, activePerson });
 
   return `<div class="cal-wstrip-view">
     ${strip}
@@ -265,10 +218,9 @@ export function renderWeekStripView(opts) {
 /**
  * Render the day detail panel for the week strip view.
  * Shows all-day events as pills, timed events in a time-axis grid, tasks grouped by type.
+ * `dayEvents` is the pre-expanded `{ id: event }` bucket for this day.
  */
-function renderWeekDayPanel({ dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {} }) {
-  // Reuse renderDayView since it already does exactly what we need
-  // But we want to wrap it with a minimal header showing the date
+function renderWeekDayPanel({ dateKey, today, dayEvents: rawDayEvents, allSchedule, completions, tasks, cats, people, activePerson }) {
   const d = new Date(`${dateKey}T00:00:00Z`);
   const dayName = DAY_NAMES_FULL[d.getUTCDay()];
   const monthName = MONTH_NAMES[d.getUTCMonth()];
@@ -278,8 +230,8 @@ function renderWeekDayPanel({ dateKey, today, events, allSchedule, completions, 
     ? `${dayName}, ${monthName} ${dayNum} <span class="cal-wstrip-panel__today-pill">Today</span>`
     : `${dayName}, ${monthName} ${dayNum}`;
 
-  // Build events list for the panel (same pattern as month day panel)
-  let dayEvents = getEventsForDate(events, dateKey, addDays);
+  // Events arrive pre-expanded from the caller's per-week bucket.
+  let dayEvents = rawDayEvents || {};
   dayEvents = filterEventsByPerson(dayEvents, activePerson);
   const sortedEvents = sortEvents(dayEvents);
 
@@ -401,63 +353,6 @@ function renderWeekDayPanel({ dateKey, today, events, allSchedule, completions, 
       ${tasksHtml}
       ${emptyHtml}
     </div>
-  </div>`;
-}
-
-export function renderWeekView(opts) {
-  const { weekStartDate, today, events, people, activePerson } = opts;
-  const days = dateRange(weekStartDate, addDays(weekStartDate, 6));
-
-  // Day name headers — respect configurable week start
-  const dayHeaders = days.map(dk => {
-    const dow = dayOfWeek(dk);
-    return `<div class="cal-week__dow${dk === today ? ' cal-week__dow--today' : ''}">${DAY_NAMES_SHORT[dow]}<br><span class="cal-week__date-num">${parseInt(dk.split('-')[2], 10)}</span></div>`;
-  }).join('');
-
-  // Mobile sort order: today first, future ascending, past at bottom (nearest-past first).
-  // When today isn't in this week, keep chronological order.
-  const todayPos = days.indexOf(today);
-  const mobileOrder = days.map((dk, i) => {
-    if (todayPos < 0) return i;
-    if (dk === today) return 0;
-    if (dk > today) return i - todayPos;
-    return (days.length - 1 - todayPos) + (todayPos - i);
-  });
-
-  const dayColumns = days.map((dk, dayIndex) => {
-    const isToday = dk === today;
-    const isPast = dk < today;
-
-    let dayEvents = getEventsForDate(events, dk, addDays);
-    dayEvents = filterEventsByPerson(dayEvents, activePerson);
-    const sortedEvents = sortEvents(dayEvents);
-
-    const allDayEvents = sortedEvents.filter(([, e]) => e.allDay);
-    const timedEvents = sortedEvents.filter(([, e]) => !e.allDay && e.startTime);
-
-    let allDayHtml = '';
-    for (const [id, evt] of allDayEvents) {
-      allDayHtml += `<div class="cal-week__event-allday" data-event-id="${esc(id)}">${renderEventPill(evt, people)}</div>`;
-    }
-
-    const timeGridHtml = buildTimeGrid(timedEvents, people);
-    const eventsHtml = allDayHtml + timeGridHtml;
-
-    const dow = dayOfWeek(dk);
-    const dayNum = parseInt(dk.split('-')[2], 10);
-    const monthIdx = parseInt(dk.split('-')[1], 10) - 1;
-    const todayTag = isToday ? '<span class="cal-week__today-tag">Today</span>' : '';
-    const colLabel = `<div class="cal-week__col-label"><span class="cal-week__col-day">${DAY_NAMES_FULL[dow]}</span>${todayTag}<span class="cal-week__col-date">${MONTH_NAMES[monthIdx]} ${dayNum}</span></div>`;
-
-    return `<div class="cal-week__col${isToday ? ' cal-week__col--today' : ''}${isPast ? ' cal-week__col--past' : ''}" data-date="${dk}" data-mobile-order="${mobileOrder[dayIndex]}">
-      ${colLabel}
-      <div class="cal-week__events">${eventsHtml}</div>
-    </div>`;
-  }).join('');
-
-  return `<div class="cal-week">
-    <div class="cal-week__header">${dayHeaders}</div>
-    <div class="cal-week__body">${dayColumns}</div>
   </div>`;
 }
 
@@ -649,12 +544,16 @@ export function renderMonthView(opts) {
   const emptyBefore = (firstDow - weekStartDay + 7) % 7;
   const emptyCells = Array(emptyBefore).fill('<div class="cal-grid__cell cal-grid__cell--empty"></div>').join('');
 
+  // Expand repeats/multi-day spans ONCE for the month, then bucket per day —
+  // the per-cell expansion was O(event-age) × ~31 cells per render.
+  const eventsByDate = bucketEventsByDate(events, mStart, mEnd);
+
   const dayCells = days.map(dk => {
     const isToday = dk === today;
     const isPast = dk < today;
     const isSelected = selectedDate ? dk === selectedDate : dk === today;
 
-    let dayEvents = getEventsForDate(events, dk, addDays);
+    let dayEvents = eventsByDate.get(dk) || {};
     dayEvents = filterEventsByPerson(dayEvents, activePerson);
     const sortedEvents = sortEvents(dayEvents);
 
@@ -684,9 +583,14 @@ export function renderMonthView(opts) {
     </button>`;
   }).join('');
 
-  // Selected day panel
+  // Selected day panel — reuse the month bucket when the panel date is inside
+  // the displayed month (a panel date outside it falls back to a single-day
+  // expansion).
   const panelDate = selectedDate || today;
-  const panelHtml = renderMonthDayPanel({ dateKey: panelDate, today, events, people, activePerson });
+  const panelEvents = (panelDate >= mStart && panelDate <= mEnd)
+    ? (eventsByDate.get(panelDate) || {})
+    : getEventsForDate(events, panelDate, addDays);
+  const panelHtml = renderMonthDayPanel({ dateKey: panelDate, today, dayEvents: panelEvents, people, activePerson });
 
   return `<div class="cal-month">
     <div class="cal-grid">
@@ -701,7 +605,7 @@ export function renderMonthView(opts) {
 /**
  * Render the selected-day detail panel shown below the month grid.
  */
-function renderMonthDayPanel({ dateKey, today, events, people, activePerson }) {
+function renderMonthDayPanel({ dateKey, today, dayEvents: rawDayEvents, people, activePerson }) {
   const d = new Date(`${dateKey}T00:00:00Z`);
   const dayName = DAY_NAMES_FULL[d.getUTCDay()];
   const monthName = MONTH_NAMES[d.getUTCMonth()];
@@ -712,7 +616,7 @@ function renderMonthDayPanel({ dateKey, today, events, people, activePerson }) {
     ? `${dayName}, ${monthName} ${dayNum} <span class="cal-month-panel__today-pill">Today</span>`
     : `${dayName}, ${monthName} ${dayNum}, ${yearNum}`;
 
-  let dayEvents = getEventsForDate(events, dateKey, addDays);
+  let dayEvents = rawDayEvents || {};
   dayEvents = filterEventsByPerson(dayEvents, activePerson);
   const sortedEvents = sortEvents(dayEvents);
 
@@ -899,7 +803,7 @@ function renderAgendaEvent(id, event, people) {
   const startDate = event.date;
   const endDate = event.endDate || event.date;
   const spans = endDate > startDate;
-  const spanBadge = spans ? `<span class="cal-agenda__event-span">${esc(startDate)} – ${esc(endDate)}</span>` : '';
+  const spanBadge = spans ? `<span class="cal-agenda__event-span">${esc(formatDateShort(startDate))} – ${esc(formatDateShort(endDate))}</span>` : '';
 
   const peopleBadges = isMulti
     ? `<div class="cal-agenda__event-people">${otherColors.map(c => `<span class="cal-agenda__event-dot" data-bg-color="${esc(c)}"></span>`).join('')}</div>`

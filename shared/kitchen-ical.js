@@ -60,6 +60,15 @@ export function mapEventsToPlan(events, currentPlanByDate, todayStr) {
   const usedSlot2 = new Set();
   const out = [];
 
+  // Plan slots are stored as ARRAYS of options (legacy single objects may
+  // remain). Reading `.source` on an array is undefined, which made every
+  // re-sync treat its own previous entries as foreign — lunches spilled into
+  // school-lunch-2 and surfaced as phantom conflicts.
+  const slotSource = (v) => {
+    const arr = Array.isArray(v) ? v : v ? [v] : [];
+    return arr[0]?.source;
+  };
+
   for (const ev of sorted) {
     if (!ev.date || ev.date < todayStr) continue;
     if (new Date(ev.date + 'T00:00:00') >= endDate) continue;
@@ -72,17 +81,17 @@ export function mapEventsToPlan(events, currentPlanByDate, todayStr) {
     if (!dayPlan['school-lunch'] && !usedSlot1.has(ev.date)) {
       target = 'school-lunch';
       usedSlot1.add(ev.date);
-    } else if (dayPlan['school-lunch'] && dayPlan['school-lunch'].source === 'ical') {
+    } else if (slotSource(dayPlan['school-lunch']) === 'ical') {
       // Overwrite our own previous ical entry
       target = 'school-lunch';
     } else if (!dayPlan['school-lunch-2'] && !usedSlot2.has(ev.date)) {
       target = 'school-lunch-2';
       usedSlot2.add(ev.date);
-    } else if (dayPlan['school-lunch-2'] && dayPlan['school-lunch-2'].source === 'ical') {
+    } else if (slotSource(dayPlan['school-lunch-2']) === 'ical') {
       target = 'school-lunch-2';
     } else {
       target = null;
-      conflictType = dayPlan['school-lunch']?.source || 'unknown';
+      conflictType = slotSource(dayPlan['school-lunch']) || 'unknown';
     }
 
     out.push({ date: ev.date, summary: ev.summary, target, conflictType });

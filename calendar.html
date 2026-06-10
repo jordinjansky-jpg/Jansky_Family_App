@@ -46,7 +46,7 @@
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
     import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
-    import { renderWeekView, renderWeekStripView, renderDayView, renderMonthView, renderCalendarNav, renderAgendaView } from './shared/calendar-views.js';
+    import { renderWeekStripView, renderDayView, renderMonthView, renderCalendarNav, renderAgendaView } from './shared/calendar-views.js';
     import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 
     const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
@@ -555,22 +555,8 @@
         }, { passive: true });
       }
 
-      // Legacy week view (desktop) — keep for old columns if ever rendered
-      main.querySelectorAll('.cal-week__col[data-date]').forEach(col => {
-        col.addEventListener('click', (e) => {
-          if (e.target.classList.contains('cal-week__task-check')) return;
-          viewDay = col.dataset.date;
-          currentView = 'day';
-          render();
-        });
-      });
-
-      main.querySelectorAll('.cal-week__task-check').forEach(cb => {
-        cb.addEventListener('change', (e) => {
-          e.stopPropagation();
-          toggleTask(cb.dataset.entryKey, cb.dataset.dateKey);
-        });
-      });
+      // (Legacy .cal-week__* bindings removed with the retired desktop week
+      // view — the week strip view owns all week interactions now.)
     }
 
     function bindMonthViewEvents() {
