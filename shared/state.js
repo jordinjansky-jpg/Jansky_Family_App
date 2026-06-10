@@ -392,7 +392,11 @@ export function expandEventRepeats(event, eventId, startDate, endDate, addDaysFn
   const rule = event.repeat;
   if (!rule || !rule.type || rule.type === 'none') return out;
 
-  const endType = rule.end?.type || 'never';
+  // The repeat sheet stores end.type as 'on'/'after'; older data may carry
+  // 'date'/'count'. Accept both — previously only 'date'/'count' matched, so
+  // "Ends on date / after N occurrences" was silently ignored in expansion.
+  const rawEndType = rule.end?.type || 'never';
+  const endType = rawEndType === 'on' ? 'date' : rawEndType === 'after' ? 'count' : rawEndType;
   const endDateRule = rule.end?.date || null;
   const endCount = rule.end?.count || null;
 

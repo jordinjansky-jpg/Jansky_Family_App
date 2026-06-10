@@ -9,6 +9,10 @@ import { normalizeTaskGrouping } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
+// For user-supplied URLs that land in href attributes: esc() blocks markup
+// injection but not javascript: URLs — require an http(s) scheme.
+const safeHref = (url) => /^https?:\/\//i.test(url || '') ? esc(url) : '#';
+
 // SVG glyph map for weather conditions (Lucide-style, monochrome).
 // Module-level so renderAmbientStrip and renderWeatherSheet share one copy.
 const WEATHER_GLYPHS = {
@@ -101,7 +105,14 @@ export function initColorButton(container, onChange) {
     if (onChange) onChange(color);
   });
 
+  // Outside-click closer. Self-removes when the container leaves the DOM —
+  // this runs on every Customize/avatar/person-form open, and the old version
+  // leaked one document-level capture listener (plus its closure) per open.
   document.addEventListener('click', function closeOnOutside(e) {
+    if (!container.isConnected) {
+      document.removeEventListener('click', closeOnOutside, { capture: true });
+      return;
+    }
     if (!container.contains(e.target)) { pop.hidden = true; btn?.setAttribute('aria-expanded', 'false'); }
   }, { capture: true, passive: true });
 }
@@ -387,8 +398,11 @@ export function openPhotoCropper({ file, size = 320, onApply, onCancel }) {
   };
   const endDrag = () => { dragStart = null; };
 
+  // Document-level mouse listeners are removed on close — each crop session
+  // used to leave them (and the cropper's closure) attached forever.
+  const onDocMove = e => moveDrag(e.clientX, e.clientY);
   winEl.addEventListener('mousedown', e => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
-  document.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+  document.addEventListener('mousemove', onDocMove);
   document.addEventListener('mouseup', endDrag);
   winEl.addEventListener('touchstart', e => { const t = e.touches[0]; startDrag(t.clientX, t.clientY); }, { passive: true });
   winEl.addEventListener('touchmove', e => { e.preventDefault(); const t = e.touches[0]; moveDrag(t.clientX, t.clientY); }, { passive: false });
@@ -408,6 +422,8 @@ export function openPhotoCropper({ file, size = 320, onApply, onCancel }) {
   });
 
   const close = () => {
+    document.removeEventListener('mousemove', onDocMove);
+    document.removeEventListener('mouseup', endDrag);
     overlay.classList.remove('active');
     setTimeout(() => overlay.remove(), 220);
   };
@@ -607,7 +623,13 @@ export function initNavMore(sheetMount, getTheme, personOpts, familyOpts, onAppl
   }
 
   document.getElementById('navMore')?.addEventListener('click', openMoreSheet);
-  document.getElementById('headerAdmin')?.addEventListener('click', () => { location.href = 'admin.html'; });
+  // #headerAdmin is NOT re-rendered with the nav bar, so re-running initNavMore
+  // (every dr-nav-tabs-changed repaint) must not stack another listener on it.
+  const headerAdmin = document.getElementById('headerAdmin');
+  if (headerAdmin && !headerAdmin.dataset.navBound) {
+    headerAdmin.dataset.navBound = '1';
+    headerAdmin.addEventListener('click', () => { location.href = 'admin.html'; });
+  }
 }
 
 // Default nav tabs (matches existing nav order). slots[0..2] map to the middle
@@ -629,6 +651,13 @@ export function readNavTabsPref(personOpts) {
   return valid;
 }
 
+// The person object carries a synthetic `id` field in memory; never persist
+// it into the record itself (rundown/people/{id} shouldn't contain id).
+function personRecordForWrite(person) {
+  const { id, ...data } = person;
+  return data;
+}
+
 // Write nav tabs to person (if linkedPerson) or localStorage. Mirrors the read
 // path's branching logic so the same UI works in both contexts.
 export async function writeNavTabsPref(personOpts, tabs) {
@@ -643,7 +672,7 @@ export async function writeNavTabsPref(personOpts, tabs) {
         },
       },
     };
-    await personOpts.writePerson(personOpts.person.id, next);
+    await personOpts.writePerson(personOpts.person.id, personRecordForWrite(next));
     personOpts.person = next;
   } else {
     try { localStorage.setItem('dr-customize-navTabs', JSON.stringify(tabs)); } catch { /* */ }
@@ -672,8 +701,17 @@ export function readKitchenCustomize(personOpts) {
     daysShown:   [3, 7, 14].includes(raw.daysShown) ? raw.daysShown : KITCHEN_PREFS_DEFAULT.daysShown,
     recipesSort: typeof raw.recipesSort === 'string' ? raw.recipesSort : KITCHEN_PREFS_DEFAULT.recipesSort,
     cardDensity: ['compact', 'roomy'].includes(raw.cardDensity) ? raw.cardDensity : KITCHEN_PREFS_DEFAULT.cardDensity,
-    tabs:        Array.isArray(raw.tabs) ? raw.tabs.filter(t => ['meals','recipes','lists'].includes(t)) : [...KITCHEN_PREFS_DEFAULT.tabs],
+    tabs:        normalizeTabsPref(raw.tabs, ['meals', 'recipes', 'lists'], KITCHEN_PREFS_DEFAULT.tabs),
   };
+}
+
+// Filtered stored tabs can come back empty (corrupted/legacy data) — the
+// "keep at least one" guard only lives in the toggle UI, so fall back to the
+// defaults rather than rendering a page with zero tabs.
+function normalizeTabsPref(rawTabs, validTabs, defaults) {
+  if (!Array.isArray(rawTabs)) return [...defaults];
+  const filtered = rawTabs.filter(t => validTabs.includes(t));
+  return filtered.length > 0 ? filtered : [...defaults];
 }
 
 export async function writeKitchenCustomize(personOpts, patch) {
@@ -685,7 +723,7 @@ export async function writeKitchenCustomize(personOpts, patch) {
     if (!personOpts.person.prefs) personOpts.person.prefs = {};
     if (!personOpts.person.prefs.customize) personOpts.person.prefs.customize = {};
     personOpts.person.prefs.customize.kitchen = next;
-    await personOpts.writePerson(personOpts.person.id, personOpts.person);
+    await personOpts.writePerson(personOpts.person.id, personRecordForWrite(personOpts.person));
   } else {
     try { localStorage.setItem('dr-customize-kitchen', JSON.stringify(next)); } catch { /* */ }
   }
@@ -718,7 +756,7 @@ export function readRewardsCustomize(personOpts) {
     cardShow: { ...REWARDS_PREFS_DEFAULT.cardShow },
   };
   return {
-    tabs:             Array.isArray(raw.tabs) ? raw.tabs.filter(t => ['shop','bank','history','approvals'].includes(t)) : [...REWARDS_PREFS_DEFAULT.tabs],
+    tabs:             normalizeTabsPref(raw.tabs, ['shop', 'bank', 'history', 'approvals'], REWARDS_PREFS_DEFAULT.tabs),
     shopSort:         ['name', 'cost', 'closest'].includes(raw.shopSort) ? raw.shopSort : REWARDS_PREFS_DEFAULT.shopSort,
     cardDensity:      ['roomy', 'compact'].includes(raw.cardDensity) ? raw.cardDensity : REWARDS_PREFS_DEFAULT.cardDensity,
     showFamilyBanner: raw.showFamilyBanner !== false,
@@ -735,7 +773,7 @@ export async function writeRewardsCustomize(personOpts, patch) {
     if (!personOpts.person.prefs) personOpts.person.prefs = {};
     if (!personOpts.person.prefs.customize) personOpts.person.prefs.customize = {};
     personOpts.person.prefs.customize.rewards = next;
-    await personOpts.writePerson(personOpts.person.id, personOpts.person);
+    await personOpts.writePerson(personOpts.person.id, personRecordForWrite(personOpts.person));
   } else {
     try { localStorage.setItem('dr-customize-rewards', JSON.stringify(next)); } catch { /* */ }
   }
@@ -794,7 +832,7 @@ export async function writeScoreboardCustomize(personOpts, patch) {
     if (!personOpts.person.prefs) personOpts.person.prefs = {};
     if (!personOpts.person.prefs.customize) personOpts.person.prefs.customize = {};
     personOpts.person.prefs.customize.scoreboard = next;
-    await personOpts.writePerson(personOpts.person.id, personOpts.person);
+    await personOpts.writePerson(personOpts.person.id, personRecordForWrite(personOpts.person));
   } else {
     try { localStorage.setItem('dr-customize-scoreboard', JSON.stringify(next)); } catch { /* */ }
   }
@@ -1410,7 +1448,7 @@ export function renderEmptyState(icon, title, subtitle = '', options = {}) {
 export function renderErrorState(root, { title = 'Something went wrong', message = 'Check your connection and try again.', retry } = {}) {
   const retryBtn = retry ? `<button class="error-state__retry" type="button" id="errorStateRetry">Try again</button>` : '';
   root.innerHTML = `<div class="error-state">
-    <span class="error-state__icon" aria-hidden="true">⚠️</span>
+    <span class="error-state__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
     <h3 class="error-state__title">${esc(title)}</h3>
     ${message ? `<p class="error-state__message">${esc(message)}</p>` : ''}
     ${retryBtn}
@@ -1773,11 +1811,37 @@ export function openRepeatSubsheet({ mount, currentRule, onDone, onCancel, close
 
   const getSelectedType = () => mount.querySelector('.ef2-repeat-option.is-selected')?.dataset.type || 'none';
 
+  // Full binding for everything renderRepeatSheet draws. The original helper
+  // only bound the type rows — weekly day chips did nothing on tap and any
+  // end condition the user set was silently dropped on Done.
   mount.querySelectorAll('.ef2-repeat-option').forEach(opt => {
     opt.addEventListener('click', () => {
       mount.querySelectorAll('.ef2-repeat-option').forEach(o => o.classList.remove('is-selected'));
       opt.classList.add('is-selected');
+      const type = opt.dataset.type;
+      mount.querySelector('#rptWeeklySub')?.classList.toggle('is-open', type === 'weekly');
+      mount.querySelector('#rptCustomSub')?.classList.toggle('is-open', type === 'custom');
+      mount.querySelector('#rptEndSection')?.classList.toggle('is-open', type !== 'none');
     });
+  });
+
+  mount.querySelectorAll('.ef2-day-chip').forEach(chip => {
+    chip.addEventListener('click', () => chip.classList.toggle('is-active'));
+  });
+
+  mount.querySelector('#rptEndType')?.addEventListener('change', (e) => {
+    mount.querySelector('#rptEndDateWrap')?.classList.toggle('is-hidden', e.target.value !== 'on');
+    mount.querySelector('#rptEndCountWrap')?.classList.toggle('is-hidden', e.target.value !== 'after');
+  });
+  mount.querySelector('#rptEndDateBtn')?.addEventListener('click', () => {
+    const input = mount.querySelector('#rptEndDate');
+    if (!input) return;
+    if (typeof input.showPicker === 'function') input.showPicker();
+    else input.focus();
+  });
+  mount.querySelector('#rptEndDate')?.addEventListener('change', (e) => {
+    const label = mount.querySelector('#rptEndDateLabel');
+    if (label && e.target.value) label.textContent = formatDateShort(e.target.value);
   });
 
   mount.querySelector('#rptBack')?.addEventListener('click', () => {
@@ -1790,7 +1854,23 @@ export function openRepeatSubsheet({ mount, currentRule, onDone, onCancel, close
   });
   mount.querySelector('#rptDone')?.addEventListener('click', () => {
     const type = getSelectedType();
-    const rule = type === 'none' ? null : { type };
+    let rule = null;
+    if (type !== 'none') {
+      rule = { type };
+      if (type === 'weekly') {
+        rule.days = [...mount.querySelectorAll('.ef2-day-chip.is-active')].map(c => c.dataset.day);
+      }
+      if (type === 'custom') {
+        rule.every = parseInt(mount.querySelector('#rptEvery')?.value, 10) || 2;
+        rule.unit = mount.querySelector('#rptUnit')?.value || 'weeks';
+      }
+      const endType = mount.querySelector('#rptEndType')?.value || 'never';
+      if (endType === 'on') {
+        rule.end = { type: 'on', date: mount.querySelector('#rptEndDate')?.value || '' };
+      } else if (endType === 'after') {
+        rule.end = { type: 'after', count: parseInt(mount.querySelector('#rptEndCount')?.value, 10) || 5 };
+      }
+    }
     closeSheet();
     if (onDone) setTimeout(() => onDone(rule), 320);
   });
@@ -2060,7 +2140,9 @@ export function renderTaskCard(options) {
   }
   const slotEl = !isEvent ? `<span class="task-card__slot">${timePill}</span>` : '';
 
-  const eventPrefix = isEvent ? '📅 ' : '';
+  // Event cards carry their identity via the --event variant styling (left
+  // stripe); no emoji prefix in chrome (§12).
+  const eventPrefix = '';
   const taskName = catIcon ? `${esc(task.name)} ${catIcon}` : `${eventPrefix}${esc(task.name)}`;
 
   // Tags row: category, date, action tags (rotation moved to meta column).
@@ -2129,9 +2211,9 @@ export function renderOverdueBanner(count) {
   if (count === 0) return '';
   const s = count === 1 ? 'task' : 'tasks';
   return `<button class="overdue-banner" id="overdueToggle" type="button" aria-expanded="false" aria-controls="overdueList">
-    <span class="overdue-banner__icon" aria-hidden="true">⚠️</span>
+    <span class="overdue-banner__icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
     <span class="overdue-banner__text">${count} overdue ${s}</span>
-    <span class="overdue-banner__arrow" id="overdueArrow" aria-hidden="true">▸</span>
+    <span class="overdue-banner__arrow" id="overdueArrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
   </button>`;
 }
 
@@ -2350,9 +2432,11 @@ export function renderBankToken(tokenId, token, opts = {}) {
   const { showUse = true, isAdult = false, approvalRequired = true, description = '' } = opts;
   const isFunctional = token.rewardType === 'task-skip' || token.rewardType === 'penalty-removal';
   const canUseInstant = isAdult || isFunctional || !approvalRequired;
+  // Raw label — escaped once at each interpolation site below (it was
+  // pre-escaped here AND re-escaped in the attribute, double-encoding & and ").
   const typeLabel = token.rewardType === 'task-skip' ? 'Task Skip'
     : token.rewardType === 'penalty-removal' ? 'Penalty Removal'
-    : esc(token.rewardName || 'Reward');
+    : (token.rewardName || 'Reward');
   const acquired = new Date(token.acquiredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   return `<div class="card card--reward" data-token-id="${esc(tokenId)}" data-reward-type="${esc(token.rewardType || 'custom')}">
@@ -2360,7 +2444,7 @@ export function renderBankToken(tokenId, token, opts = {}) {
       <span class="icon-tile">${esc(token.rewardIcon || '🎁')}</span>
     </div>
     <div class="card__body">
-      <div class="card__title">${typeLabel}</div>
+      <div class="card__title">${esc(typeLabel)}</div>
       <div class="card__meta">Saved ${acquired}</div>
       ${description ? `<div class="card--reward__desc">${esc(description)}</div>` : ''}
     </div>
@@ -2966,7 +3050,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   <div class="ef2-secondary-row">
     <button class="ef2-add-chip${event.allDay ? ' is-active' : ''}" id="ef2_allDay" type="button">All day</button>
-    <button class="ef2-add-chip${event.endDate ? ' is-active' : ''}" id="ef2_endDateChip" type="button">${event.endDate ? '✓ Ends ' + esc(event.endDate) : '+ End date'}</button>
+    <button class="ef2-add-chip${event.endDate ? ' is-active' : ''}" id="ef2_endDateChip" type="button">${event.endDate ? '✓ Ends ' + esc(formatDateShort(event.endDate)) : '+ End date'}</button>
     <button class="ef2-add-chip${notesOpen ? ' is-active' : ''}" id="ef2_notesChip" type="button">+ Notes</button>
     <button class="ef2-add-chip${locOpen ? ' is-active' : ''}" id="ef2_locChip" type="button">+ Location</button>
     <button class="ef2-add-chip${urlOpen ? ' is-active' : ''}" id="ef2_urlChip" type="button">+ Link</button>
@@ -3017,7 +3101,7 @@ export function renderEventDetailSheet(eventId, event, people = []) {
     ${peopleHtml ? `<div class="event-detail__people">${peopleHtml}</div>` : ''}
     ${event.location ? `<div class="event-detail__row"><strong>Location:</strong> <a class="event-detail__map-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener">${esc(event.location)}</a></div>` : ''}
     ${event.notes ? `<div class="event-detail__row"><strong>Notes:</strong> ${esc(event.notes)}</div>` : ''}
-    ${event.url ? `<div class="event-detail__row"><a href="${esc(event.url)}" target="_blank" rel="noopener">Open Link</a></div>` : ''}
+    ${event.url ? `<div class="event-detail__row"><a href="${safeHref(event.url)}" target="_blank" rel="noopener">Open Link</a></div>` : ''}
     <div class="ef2-footer">
       <button class="btn btn--secondary" id="eventEdit" data-event-id="${eventId}" type="button">Edit</button>
       <button class="btn btn--danger btn--sm" id="eventDelete" data-event-id="${eventId}" type="button">Delete</button>
@@ -3541,8 +3625,10 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
   function applyAndSave() {
     const themeConfig = activePreset
       ? (() => {
-          const info = presets.find(p => p.key === activePreset);
-          return { mode: info.mode, preset: activePreset, accentColor: activeAccent };
+          // Stale stored preset key (renamed/removed preset) must not crash
+          // every theme tap — fall back to the first available preset.
+          const info = presets.find(p => p.key === activePreset) || presets[0] || { mode: 'light', key: 'light-warm' };
+          return { mode: info.mode, preset: info.key === activePreset ? activePreset : info.key, accentColor: activeAccent };
         })()
       : null;
 
@@ -3863,14 +3949,9 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
   }
 
   for (const item of recentActivity.slice(0, 20)) {
-    const icon = item.type === 'fyi' ? '🛍️' :
-                 item.type === 'bonus' ? '➕' :
-                 item.type === 'deduction' ? '➖' :
-                 item.type === 'redemption-approved' ? '✅' :
-                 item.type === 'redemption-denied' ? '❌' :
-                 item.type === 'use-approved' ? '✅' :
-                 item.type === 'use-denied' ? '❌' :
-                 item.type === 'reward-used' ? '🎉' : '📋';
+    // SVG icons via historyTypeIcon — it was converted to SVG for exactly
+    // this "no emoji in chrome" rule; the bell list had kept its emoji copy.
+    const icon = historyTypeIcon(item.type);
     const canRevoke = item.type === 'fyi' && item.bankTokenId;
     html += `<div class="bell-dropdown__item">
       <span class="bell-dropdown__icon">${icon}</span>
@@ -3891,7 +3972,7 @@ export function renderBellDropdown({ pendingRequests = [], recentActivity = [], 
       if (kid.activeCount === 0) continue;
       const names = kid.tokens.map(t => esc(t.rewardName || 'Reward')).join(', ');
       html += `<div class="bell-dropdown__item bell-dropdown__item--bank">
-        <span class="bell-dropdown__icon">🏦</span>
+        <span class="bell-dropdown__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/></svg></span>
         <div class="bell-dropdown__body">
           <div class="bell-dropdown__item-title">${esc(kid.name)} &middot; ${kid.activeCount} saved</div>
           <div class="bell-dropdown__item-subtitle">${names}</div>
@@ -4028,12 +4109,19 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
   overlay?.addEventListener('click', (e) => { if (e.target === overlay) mount.innerHTML = ''; });
 
   // Send
-  sheet.querySelector('#msg_send')?.addEventListener('click', async () => {
+  sheet.querySelector('#msg_send')?.addEventListener('click', async function () {
+    // Double-tap guard — the per-person write loop below is slow enough that
+    // a second tap used to duplicate every message and bank token.
+    if (this.disabled) return;
+    const sendBtn = this;
+    sendBtn.disabled = true;
+    const reenable = () => { sendBtn.disabled = false; };
+
     const personIds = [...sheet.querySelectorAll('#msg_people .chip--active')].map(c => c.dataset.personId);
-    if (personIds.length === 0) { sheet.querySelector('#msg_people .chip--selectable')?.focus(); return; }
+    if (personIds.length === 0) { sheet.querySelector('#msg_people .chip--selectable')?.focus(); reenable(); return; }
 
     const title = sheet.querySelector('#msg_customTitle')?.value.trim();
-    if (!title) { sheet.querySelector('#msg_customTitle')?.focus(); return; }
+    if (!title) { sheet.querySelector('#msg_customTitle')?.focus(); reenable(); return; }
 
     const points = parseInt(sheet.querySelector('#msg_points')?.value || '0', 10);
     const body = sheet.querySelector('#msg_body')?.value.trim() || null;
@@ -4044,6 +4132,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
 
     if (amount === 0 && !reward) {
       showToast('Add points or a reward to send.');
+      reenable();
       return;
     }
 
@@ -4094,7 +4183,7 @@ export function bindSendMessageSheet(mount, writeMessageFn, approverName, writeB
 export function renderBonusDaySheet(people, todayDate) {
   const today = todayDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
   return renderBottomSheet(`
-    <h3 class="sheet-section-title">🎉 Bonus Day</h3>
+    <h3 class="sheet-section-title">Bonus Day</h3>
 
     <label class="form-label">Who</label>
     <div class="chip-group" id="bd_people">
@@ -4141,7 +4230,7 @@ export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLa
     overlay.innerHTML = `<div class="confirm-modal__card">
       <div class="confirm-modal__title" id="confirmModalTitle">${escapeHtml(title)}</div>
       ${message ? `<div class="confirm-modal__message">${escapeHtml(message)}</div>` : ''}
-      ${inputPlaceholder ? `<textarea class="confirm-modal__input" placeholder="${escapeHtml(inputPlaceholder)}" rows="2" style="width:100%;margin-top:10px;resize:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;font:inherit;background:var(--surface-2);color:var(--text);"></textarea>` : ''}
+      ${inputPlaceholder ? `<textarea class="confirm-modal__input" placeholder="${escapeHtml(inputPlaceholder)}" rows="2"></textarea>` : ''}
       <div class="confirm-modal__actions">
         ${!isAlert ? `<button class="btn btn--secondary confirm-modal__cancel" type="button">${escapeHtml(cancelLabel)}</button>` : ''}
         <button class="btn ${danger ? 'btn--danger' : 'btn--primary'} confirm-modal__ok" type="button">${escapeHtml(confirmLabel)}</button>
@@ -4167,7 +4256,9 @@ export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLa
     // Focus trap: Tab cycles between cancel and ok (or stays on ok for alerts)
     function keyHandler(e) {
       if (e.key === 'Escape') { e.preventDefault(); close(isAlert ? true : false); }
-      else if (e.key === 'Enter' && document.activeElement !== inputEl) { e.preventDefault(); close(true); }
+      // Enter confirms — unless the user has tabbed to Cancel (Enter must
+      // activate the focused button, not force-confirm) or is typing.
+      else if (e.key === 'Enter' && document.activeElement !== inputEl && document.activeElement !== cancelBtn) { e.preventDefault(); close(true); }
       else if (e.key === 'Tab') {
         const focusable = [cancelBtn, inputEl, okBtn].filter(Boolean);
         if (focusable.length <= 1) { e.preventDefault(); return; }
@@ -4181,7 +4272,10 @@ export function showConfirm({ title, message = '', confirmLabel = 'OK', cancelLa
     document.body.appendChild(overlay);
     requestAnimationFrame(() => {
       overlay.classList.add('confirm-modal--active');
-      (inputEl || okBtn).focus();
+      // Always focus the OK button — focusing the optional reason textarea
+      // pops the phone keyboard before the user has chosen to type (§12
+      // no-auto-focus rule). The textarea stays one Tab/tap away.
+      okBtn.focus();
     });
   });
 }
@@ -4698,10 +4792,14 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const btn of document.querySelectorAll('.bell-approve')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
+          // Double-tap guard: a second tap before the awaits resolve would
+          // re-run the whole chain and mint duplicate tokens/messages.
+          if (btn.disabled) return;
+          btn.disabled = true;
           const personId = btn.dataset.personId;
           const msgId = btn.dataset.msgId;
           const msg = bellMessages[personId]?.[msgId];
-          if (!msg) return;
+          if (!msg) { btn.disabled = false; return; }
 
           await markMessageSeenFn(personId, msgId);
 
@@ -4763,6 +4861,8 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const btn of document.querySelectorAll('.bell-deny')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
+          if (btn.disabled) return;
+          btn.disabled = true;
           closeBellDropdown();
           const personId = btn.dataset.personId;
           const msgId = btn.dataset.msgId;
@@ -4793,18 +4893,22 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
             createdBy: approver
           });
 
-          // Refund points
-          await writeMessageFn(personId, {
-            type: 'bonus',
-            title: `Refund: ${reward.name || 'Reward'}`,
-            body: null,
-            amount: Math.abs(msg.amount),
-            rewardId: null,
-            entryKey: null,
-            seen: true,
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
-            createdBy: 'system'
-          });
+          // Refund points. Guard missing amount — legacy requests without an
+          // amount would otherwise write a NaN bonus and corrupt the balance.
+          const refund = Math.abs(msg.amount || 0);
+          if (refund > 0) {
+            await writeMessageFn(personId, {
+              type: 'bonus',
+              title: `Refund: ${reward.name || 'Reward'}`,
+              body: null,
+              amount: refund,
+              rewardId: null,
+              entryKey: null,
+              seen: true,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              createdBy: 'system'
+            });
+          }
 
           // Mark seen last so a network failure on the refund write doesn't lose the request
           await markMessageSeenFn(personId, msgId);
@@ -4815,10 +4919,12 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const btn of document.querySelectorAll('.bell-approve-use')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
+          if (btn.disabled) return;
+          btn.disabled = true;
           const personId = btn.dataset.personId;
           const msgId = btn.dataset.msgId;
           const msg = bellMessages[personId]?.[msgId];
-          if (!msg) return;
+          if (!msg) { btn.disabled = false; return; }
 
           await markMessageSeenFn(personId, msgId);
 
@@ -4846,6 +4952,8 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const btn of document.querySelectorAll('.bell-deny-use')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
+          if (btn.disabled) return;
+          btn.disabled = true;
           closeBellDropdown();
           const personId = btn.dataset.personId;
           const msgId = btn.dataset.msgId;
@@ -4882,10 +4990,12 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
       for (const btn of document.querySelectorAll('.bell-revoke')) {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
+          if (btn.disabled) return;
+          btn.disabled = true;
           const personId = btn.dataset.personId;
           const msgId = btn.dataset.msgId;
           const msg = bellMessages[personId]?.[msgId];
-          if (!msg) return;
+          if (!msg) { btn.disabled = false; return; }
 
           await markMessageSeenFn(personId, msgId);
 
@@ -5020,7 +5130,7 @@ export function renderMealEditorSheet(meal = null, mealId = null) {
       <div class="me-url-row">
         <input class="field__input" id="me_url" type="url" value="${url}"
                placeholder="https://…">
-        <a class="me-url-open" id="me_urlOpen" href="${esc(url || '#')}"
+        <a class="me-url-open" id="me_urlOpen" href="${url || '#'}"
            target="_blank" rel="noopener noreferrer" aria-label="Open recipe link"${url ? '' : ' hidden'}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
@@ -5375,7 +5485,7 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = 
   // (different scope — explicit aria label keeps that clear). Edit pencil
   // opens the recipe edit form so the user can rename, re-tag, etc.
   const headerActions = [];
-  if (meal.url) headerActions.push(`<a class="ef2-icon-btn" id="mdLink" href="${esc(meal.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open recipe">${MD_LINK_SVG}</a>`);
+  if (meal.url) headerActions.push(`<a class="ef2-icon-btn" id="mdLink" href="${safeHref(meal.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open recipe">${MD_LINK_SVG}</a>`);
   if (!readonly && !isSchool) {
     headerActions.push(`<button class="ef2-icon-btn" id="mdEdit" type="button" aria-label="Edit recipe">${MD_PENCIL_SVG}</button>`);
     headerActions.push(`<button class="ef2-icon-btn" id="mdRemove" type="button" aria-label="Remove from plan">${MD_TRASH_SVG}</button>`);
@@ -5383,7 +5493,7 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = 
   headerActions.push(`<button class="ef2-icon-btn" id="mdClose" type="button" aria-label="Close">${MD_CLOSE_SVG}</button>`);
 
   return `
-    ${meal.imageUrl ? `<div class="rd-hero"><img id="mdHero" src="${esc(meal.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="this.parentElement.remove()"/></div>` : ''}
+    ${meal.imageUrl ? `<div class="rd-hero"><img id="mdHero" src="${esc(meal.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" data-rid="${esc(meal.id || '')}" onerror="if(window.__krImgError&&this.dataset.rid)window.__krImgError(this.dataset.rid);this.parentElement.remove()"/></div>` : ''}
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(meal.name)}</h2>
       <div class="rf-header-actions">${headerActions.join('')}</div>
@@ -5540,12 +5650,12 @@ export function openVoteSheet({
     const winnerCls = (pickWinner(options) === opt) ? ' vote-card--winner' : '';
     return `
       <div class="vote-card${winnerCls}" data-vote-idx="${i}">
-        <div class="vote-card__title">${esc(name)}${winnerCls ? ' <span class="vote-card__crown">&#x1F3C6;</span>' : ''}</div>
+        <div class="vote-card__title">${esc(name)}${winnerCls ? ' <span class="vote-card__crown" aria-label="Leading"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 19h14l1.5-9-4.5 3-4-6-4 6-4.5-3L5 19z"/></svg></span>' : ''}</div>
         <div class="vote-card__row">
           ${voterNames.length
             ? voterNames.map(n => `<span class="vote-chip">${esc(n)}</span>`).join('')
             : '<span class="vote-card__nobody">No votes yet</span>'}
-          <button class="btn btn--ghost btn--sm" data-vote-toggle="${i}" type="button">&#x1F44D; ${voteCount}</button>
+          <button class="btn btn--ghost btn--sm" data-vote-toggle="${i}" type="button" aria-label="Vote for this option"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg> ${voteCount}</button>
         </div>
         <div class="vote-card__actions">
           <button class="btn btn--secondary btn--sm" data-vote-lock="${i}" type="button">Lock in</button>
@@ -5580,17 +5690,29 @@ export function openVoteSheet({
   document.getElementById('slotClose')?.addEventListener('click', onClose);
   document.getElementById('addAnotherOption')?.addEventListener('click', onAddAnother);
 
+  // One write at a time: rapid taps on two cards each cloned the same stale
+  // options array, so the second write clobbered the first vote.
+  let voteWriteInFlight = false;
   mount.querySelectorAll('[data-vote-toggle]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!viewerId) return;
-      const i = parseInt(btn.dataset.voteToggle, 10);
-      const opt = options[i];
-      const votes = { ...(opt.votes || {}) };
-      if (votes[viewerId]) delete votes[viewerId];
-      else votes[viewerId] = 1;
-      const next = [...options];
-      next[i] = { ...opt, votes };
-      await onWriteOptions(next);
+      if (voteWriteInFlight) return;
+      voteWriteInFlight = true;
+      const allVoteBtns = mount.querySelectorAll('[data-vote-toggle]');
+      allVoteBtns.forEach(b => { b.disabled = true; });
+      try {
+        const i = parseInt(btn.dataset.voteToggle, 10);
+        const opt = options[i];
+        const votes = { ...(opt.votes || {}) };
+        if (votes[viewerId]) delete votes[viewerId];
+        else votes[viewerId] = 1;
+        const next = [...options];
+        next[i] = { ...opt, votes };
+        await onWriteOptions(next);
+      } finally {
+        voteWriteInFlight = false;
+        allVoteBtns.forEach(b => { b.disabled = false; });
+      }
     });
   });
 

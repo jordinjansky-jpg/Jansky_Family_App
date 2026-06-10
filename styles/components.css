@@ -688,9 +688,24 @@ button.is-loading {
 
 .confirm-modal__message {
   font-size: var(--font-sm);
-  color: var(--text-faint);
+  /* --text-muted, not --text-faint: faint is ~2.8:1 on surface — below AA
+     for body text. Faint is scoped to decoration (meta dots, chevrons). */
+  color: var(--text-muted);
   line-height: 1.5;
   margin-bottom: 16px;
+}
+
+/* Optional reason textarea (deny flows) — was an inline style attribute. */
+.confirm-modal__input {
+  width: 100%;
+  margin-top: 10px;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  font: inherit;
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .confirm-modal__actions {
