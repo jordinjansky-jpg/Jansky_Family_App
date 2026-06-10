@@ -25,7 +25,7 @@
 | # | Area | Files | Status |
 |---|---|---|---|
 | 1 | Foundation modules | shared/utils.js, state.js, firebase.js, theme.js, dom-helpers.js | ✅ Done |
-| 2 | Engine modules | shared/scheduler.js, scoring.js | Pending |
+| 2 | Engine modules | shared/scheduler.js, scoring.js | ✅ Done |
 | 3 | Components library | shared/components.js | Pending |
 | 4 | Dashboard | index.html, dashboard.js, styles/dashboard.css | Pending |
 | 5 | Calendar | calendar.html, shared/calendar-views.js, styles/calendar.css | Pending |
@@ -105,5 +105,39 @@
 Foundation modules are headless; UX implications are logged with their owning pages. One cross-cutting item:
 
 - **X1 🟡 Monthly events created on the 29th–31st silently shift days (S1/S2)** — to the user this reads as "the calendar lost my event / moved my event," one of the most trust-damaging bug classes in a family calendar. Recommend prioritizing S1–S3 in the fix pass.
+
+---
+
+## 2. Engine modules
+
+### 2.1 shared/scheduler.js — Phase A
+
+- **SC1 🔴 Past-date placement wipes other tasks' entries on that day.** `placeWeeklyTask`/`placeMonthlyTask`: when a dedicated-day task's day has already passed in the current week/month (and the task isn't already scheduled/completed this period), the entry is placed on a **past date** (`newSchedule[pastDate] = {}` then the single entry). `generateSchedule`'s final completed-entry merge only runs over `futureDates`, and `buildScheduleUpdates` then emits `schedule/{pastDate} = { onlyTheNewEntry }` — a **full node replace** (confirmed: callers feed this directly into `multiUpdate`, e.g. calendar.html:2487, admin.html ×5). Every other task's entry on that past date is deleted: incomplete past entries vanish from the overdue banner, completed entries are deleted and their completion records orphaned (history/snapshot rebuild for that day breaks). Trigger is mundane: *create a weekly task on Wednesday with dedicated day Monday* → this week's past Monday node is replaced. Fix: merge `existingSchedule[pastDate]` entries into any past-date node before emitting, or emit per-entry update paths (`schedule/{date}/{key}`) for past dates instead of node replaces.
+- **SC2 🟡 Manual schedule moves are not rebuild-stable.** `generateSchedule` strips all *uncompleted* future entries and re-places every task by load balancing. Any entry a user manually moved to a chosen future date (move flow) — unless the move also rewrote `task.dedicatedDate`/`dedicatedDay` — is silently relocated on the next full rebuild (any task save in admin triggers one). `[verify against the pages' move-flow implementation — logged to recheck in §4/§5/§12]`
+- **SC3 🟡 Weekly task periods ignore the family week-start setting.** `isScheduledThisWeek` / `isCompletedThisWeek` / week grouping all use Monday-anchored `weekStart`/ISO weeks. The admin "Week start" setting (`settings.calendarDefaults.weekStartDay`, Sunday default) only affects calendar display. A family with Sunday-start weeks gets weekly tasks that reset on Monday — e.g. completing a weekly task on Sunday counts it toward the *previous* display week but blocks Mon–Sun placement of the *ISO* week. Decide one definition of "week" and use it in scheduler, scoring (`periodKeyToStartDateKey`), tracker, and scoreboard alike.
+- **SC4 🟡 `isInCooldown` / `isCompletedThisWeek` / `isCompletedThisMonth` are O(all-completions × all-schedule-days)** — for each completion key ever recorded, they scan the entire schedule tree; and they're called once per candidate day per task during generation. With a year of history this is millions of iterations per rebuild. Invert the loop: scan only the window's schedule days and test `completions[entryKey]` membership (same result, ~100× cheaper). The completion *value* is never used — the outer loop is pure overhead.
+- **SC5 🔵 `placeOnceTask` fallback only considers the next 14 days** (`eligibleDates.slice(0, 14)`); if every one of those days fails the category limit, the task silently isn't scheduled at all (no fallback to day 15+). Rare, but the silent drop contradicts the "tasks never vanish" principle the dedicated-date branch works hard to uphold.
+- **SC6 🔵 Weekly/monthly fallback rotation is unfair at period boundaries.** `getRotationOwner` weekly uses `isoWeekNumber % owners.length` — at the 52→1 year rollover the same owner can repeat consecutive weeks. Cosmetic-fairness only (balanced path usually wins), but cheap to fix with a continuous week index (days-since-epoch ÷ 7).
+- **SC7 🔵 Weekend "weight" semantics are inverted vs. its name and divides instead of multiplies.** Placement sorts by `load / weekendWeight` on weekends — a weight of 3 makes weekends *3× more attractive*. If that's the intent ("family has more time on weekends"), name it `weekendPreference`; verify the admin Scoring screen explains it this way (§12) — a parent reading "weekend weight 3" could reasonably expect the opposite.
+- **SC8 ⚪ Dead params & duplicated JSDoc.** `placeDailyTask(…, completions, weekendWeight, …)` never uses either param; orphaned duplicate doc block above `totalDayLoad` (lines 388–392); `entries` variable in `generateRotatedEntries` is initialized before the duplicate-mode early return that ignores it.
+- **SC9 ⚪ `canPlaceUnderCategoryLimit` rotate-mode heuristic checks `owners[0]` only** — self-acknowledged in a comment; fine, but worth a `[known approximation]` marker in the doc/spec rather than only a code comment.
+
+### 2.2 shared/scoring.js — Phase A
+
+- **SR1 🟡 A zero-task day resets a streak.** `computeRollover` only calls `updateStreaks` for dates where the person *has* entries; the gap leaves `lastCompleteDate` stale, so the next all-done day fails `isNextDay` and resets `current` to 1. A kid with weekly-only tasks, or anyone given a scheduled day off, can never build a streak. Decide: zero-task days should be streak-neutral (bridge the gap) — currently they're streak-fatal.
+- **SR2 🟡 `timeContributed` double-counts `timeOfDay: 'both'` tasks.** Scheduler splits a 'both' task into am+pm entries each costing `ceil(estMin/2)`; `timeContributed` adds the full `estMin` for *each* completed entry → 2× the real minutes in the scoreboard drilldown stat.
+- **SR3 🟡 Denied redemptions may permanently deduct points.** `calculateBalance` subtracts every `redemption-request` message's amount. If denial doesn't rewrite/remove that message, denied requests still cost the kid points. `[verify the deny flow in §9 Rewards — logged to recheck]`
+- **SR4 🔵 Anchor-day double count.** Snapshots are included when `dateKey >= anchorDateKey`, but the anchor amount was set partway through that same day — the anchor day's snapshot (written later at rollover) adds on top of the anchored amount. Off-by-one-day in the kid's favor; use `>` or anchor at end-of-day.
+- **SR5 🔵 `dailyPossible` weighted formula divides by `(100 - w)`** — a category weight of 100 produces `Infinity`. Clamp `w ≤ 95` (or guard) wherever the slider writes, and defensively here.
+- **SR6 🔵 `achievementProgress` returns `progressPct: 0` for all grade-based achievements** — the kid trophy case can never show progress toward Perfect Day/Week/Month. Could pass current percentage (e.g. 96/97 toward A+) for a real bar.
+- **SR7 🔵 Dead code: `theme.gradeColor`** (hex map) has zero callers — all grade coloring goes through `gradeTier` CSS classes. Delete (cross-ref T4: deleting it also resolves the hardcoded-hex concern).
+- **SR8 ⚪ `ACHIEVEMENTS` deprecated alias** — grep for remaining users and remove.
+- **SR9 ⚪ Earned-points logic is implemented three times** (`earnedPoints`, inline in `dailyScore`, inline in `buildSnapshot`) — same `pointsOverride` math; the two inline copies should call a shared helper that accepts a precomputed base (the only reason they diverged).
+
+### 2.x Phase B (UX) — engines
+
+- **X2 🟠 SC1's user-visible symptom:** past days' tasks disappear from the overdue banner and tracker history after an unrelated task edit. If users have reported "my old tasks vanished," this is the likely cause.
+- **X3 🟡 SC3's user-visible symptom:** weekly tasks "reset" midweek relative to the calendar's Sunday-start week — e.g. a weekly task completed Sunday evening doesn't prevent it reappearing Monday.
+- **X4 🔵 Streak rules (SR1) should be explained somewhere user-visible** (kid mode / scoreboard tooltip): what keeps a streak alive, what breaks it, and whether days off count. Right now the rule is implicit and slightly wrong.
 
 ---
