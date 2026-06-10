@@ -29,13 +29,13 @@
 | 3 | Components library | shared/components.js | ✅ Done |
 | 4 | Dashboard | index.html, dashboard.js, styles/dashboard.css | ✅ Done |
 | 5 | Calendar | calendar.html, shared/calendar-views.js, styles/calendar.css | ✅ Done |
-| 6 | Kitchen | kitchen.html, kitchen.js, shared/kitchen-ical.js, styles/kitchen.css | Pending |
-| 7 | Tracker | tracker.html, styles/tracker.css | Pending |
-| 8 | Scoreboard | scoreboard.html, styles/scoreboard.css | Pending |
-| 9 | Rewards | rewards.html, rewards.js, styles/rewards.css | Pending |
+| 6 | Kitchen | kitchen.html, kitchen.js, shared/kitchen-ical.js, styles/kitchen.css | ✅ Done |
+| 7 | Tracker | tracker.html, styles/tracker.css | ✅ Done |
+| 8 | Scoreboard | scoreboard.html, styles/scoreboard.css | ✅ Done |
+| 9 | Rewards | rewards.html, rewards.js, styles/rewards.css | ✅ Done |
 | 10 | Kid mode | kid.html, styles/kid.css | Pending |
 | 11 | Person mode | person.html | Pending |
-| 12 | Admin | admin.html, styles/admin.css | Pending |
+| 12 | Admin | admin.html, styles/admin.css | ✅ Done |
 | 13 | Setup wizard | setup.html, styles/setup.css | Pending |
 | 14 | Activities | activities.html, shared/timer.js, styles/activities.css | Pending |
 | 15 | Support modules | shared/weather.js, ai-helpers.js, push-client.js, push-ui.js, dev-banner.js | ✅ Done |
@@ -280,6 +280,210 @@ Foundation modules are headless; UX implications are logged with their owning pa
 - **CALB11 🔵 Dead CSS ≈350+ lines:** legacy `.cal-week__*` block (calendar.css:55–292, :690–701, :723–803), avatar-strip block (:1322–1461), person-pill mobile rules, old `ef-*` form styles (:652–688), `.cal-grid__event` stacked rows (:936–973), superseded panel-time classes, `.cal-day__person*` (:317–340).
 - **CALB12 🔵 The (currently dead) import/quick-add sheets predate the form system** — legacy `sheet__*` structure, inline styles, raw `<input type="date">` (:830–841, :913, :946–947, :972, :1009–1016, :1070–1075, :1654). Reviving them (CAL1) should include a §5.23 rebuild.
 - **CALB13 ⚪ Polish:** agenda multi-day span badge prints raw ISO dates (calendar-views.js:902); `buildTimeAxisGrid` uses inline style positioning (:120, :162) vs the `data-timegrid-pos` pattern; nested scroll containers in month view (calendar.css:27–30, :1913–1917); weather chips per §6.2 absent (roadmap).
+
+---
+
+## 6. Kitchen (kitchen.html · kitchen.js · shared/kitchen-ical.js · styles/kitchen.css)
+
+### 6.1 Phase A — critical
+
+- **K1 🔴 `addRecipeIngredientsToList` is called but never defined — guaranteed ReferenceError.** kitchen.js:1388 (the `mdAddToList` handler in the slot-edit sheet) calls a function that exists nowhere in the repo. Tapping "Add to list" on a planned meal from the Meals tab clears the sheet, then throws — the user silently gets nothing. Fix: route to the existing `openAddToListReviewSheet(...)` like the Recipes-tab path does (1773–1776).
+- **K2 🔴 Direct `getDb().ref('rundown/...')` writes bypass the dev-mode root — dev testing writes to production.** *(Same class as A1.)* Seven hardcoded refs: toggleItem check/uncheck (3588, 3612), staple delete (4062, 4134), staple rename (4120), item/staple category (4457, 4493). Checking a list item at `?env=dev` mutates the live family list. Also violates the "firebase.js is the only DB module" rule. Add the missing helpers to firebase.js.
+- **K3 🔴 `.vote-card`/`.cook-mode`/`.who-overlay` CSS lives only in kitchen.css, but those shared components open on Dashboard/Calendar/Kid.** `openVoteSheet` and `openCookMode` are called from dashboard.js:1650/1965 and calendar.html:1747, yet all their CSS sits in kitchen.css:893–1009/1175–1219 (zero matches in components.css). The vote sheet renders unstyled and Cook mode loses its full-screen `position:fixed` shell on every non-Kitchen page. §6.10 moved the `rd-*` CSS to components.css for exactly this reason — vote/cook were missed. Move the blocks + bump `CACHE_NAME`.
+
+### 6.2 Phase A — high
+
+- **K4 🟠 iCal re-sync misroutes its own entries.** `mapEventsToPlan` checks `dayPlan['school-lunch'].source === 'ical'` (kitchen-ical.js:75, :81) — but slots are now arrays, so `.source` is `undefined`; every re-sync treats its own prior entries as foreign, spills lunches into `school-lunch-2`, and reports phantom conflicts. Normalize with `normalizePlanSlot(...)[0]?.source`.
+- **K5 🟠 "Add another option" wipes all existing votes.** `onAddAnother` (1458–1472) keeps only recipeId/name and the vote-mode save (1210–1223) writes every candidate fresh with `votes: {}`. Adding a 3rd option discards every vote cast. Carry `votes`/`addedAt`/`addedBy` forward by matching candidates to existing options.
+- **K6 🟠 Vote tallies aren't race-safe — whole-array last-write-wins.** The toggle handler copies the entire options array and persists via `.set()` on the whole slot (components.js:5583–5594 → kitchen.js:1438–1439). Two family members voting near-simultaneously (the headline use case) clobber each other. Write the single vote leaf (`…/{slot}/{i}/votes/{viewerId}`) or use a transaction.
+- **K7 🟠 `planCache` staleness lets single-mode saves clobber votes and misallocate school slots.** The Plan-a-meal sheet trusts `planCache` (749–756, 880–882, 741–746, 1260–1271), which is only populated by the Meals tab's visible window. Opening the planner from the Recipes tab or picking a far date sees an empty day — saves overwrite an existing vote with no confirm. `await readKitchenPlan(day)` in the save handler.
+- **K8 🟠 School-lunch slot keys fall through to Dinner in the planner.** Line 770 maps unknown `preSlot` to `'dinner'`, and two real entry points pass `'school-lunch'`/`'school-lunch-2'`: the school nudge row (392–427) and "Change meal" on a planned school lunch (1391–1394) — saving replaces *dinner* and leaves the school entry untouched. Map `school-lunch*` → `'school'` first.
+- **K9 🟠 `runListCleanup` deletes any item the model fails to echo back** (4374–4396) — a truncated/lossy-but-successful Claude response silently deletes groceries with no confirm or undo (hard failures are null-guarded and safe, 4336–4350). Sanity-gate: abort or confirm when removals exceed ~30%, or show a review sheet like photo→list does.
+- **K10 🟠 "Highest rated" sort uses the legacy `rating` field** (603) instead of the `ratings` map — multi-person-rated recipes sort 0 vs 0. The Top-rated *filter* does it right (555–558). Sort by `avgRating(r).avg ?? 0`.
+- **K11 🟠 Unbounded base64 recipe images in RTDB — every page pays for all of them.** Imports store ~100–250KB data URLs per recipe; a 100-recipe library is 10–25MB, and `readKitchenRecipes()` full-tree reads run on load of Kitchen, Dashboard (dashboard.js:53), Calendar (calendar.html:158), and Kid mode. The single biggest data-cost item in the app. Store thumbnails for cards and move originals to a lazily-loaded tree (`kitchen/recipeImages/{id}`).
+- **K12 🟠 Meals window and history use device-local dates, not `settings.timezone`** (359–366 vs `todayStr` at 355; also `openMealHistorySheet` 1534–1537) — late at night the window starts on "tomorrow" and the Today pill matches nothing. Derive day 0 from `todayKey(tz)`.
+
+### 6.3 Phase A — medium
+
+- **K13 🟡 Meal History does 31 sequential Firebase reads** (`readKitchenPlanRange`, firebase.js:953–971; sole caller kitchen.js:1547) — 1.5–3s+ of "Loading last 30 days…". *(Confirms F1.)* Use `readAllKitchenPlan` (calendar already does), `Promise.all`, or a keyed range query.
+- **K14 🟡 `syncOneFeed` repeats the same serial pattern** — 30 sequential reads + sequential per-day writes (2429–2455); school-lunch confirm save too (2389–2400). Batch with `multiUpdate`.
+- **K15 🟡 Large dead-code block including a spec'd-but-unreachable feature:** `openMealFabSheet` (2667), `openListFabSheet` (4150), `openBulkAddSheet` (2697 — §6.10 line 1226 documents it as the live bulk-add path; it's unreachable, and its per-row ✕ has a latent bug that never deletes the pushed Firebase item, 2757–2762), `dedupIngredientsAi` (4405), `mergeQtyAi` (4463), `keepAddFieldOpen` (134), `staplesTopBtn` (3434), `listCleanupBtn` lookups (3472, 4354). Rewire bulk-add or delete + amend the spec.
+- **K16 🟡 Auto-categorize runs with zero feedback** — the AI sheet closes itself (2654–2658), the button it tries to lock doesn't exist (4354–4355), nothing prevents a second overlapping cleanup. Show the `.ai-loading` sheet + an in-flight flag.
+- **K17 🟡 No loading state for recipe URL import** (`runImport` 3072–3176) — the form sits inert for seconds and Save isn't blocked mid-import.
+- **K18 🟡 Photo→list discards the AI's category and qty** (4281–4283 vs 4314–4319) then re-categorizes the same items with N more Worker calls. Pass the full item through on insert.
+- **K19 🟡 Self-heal categorization retries genuine "Other" items forever** — candidates include `category === 'Other'` (4435) but the writer refuses to write `Other` back (4456): 1 Worker call/item/minute while the tab is open. Write Other or stamp `categorizedAt`. (Debounce/cap/skip-checked otherwise verified to spec, 4422–4444.)
+- **K20 🟡 Inline `style=""` in HTML strings:** find-recipes sheet (2006–2009), staples sheet (4003–4005, 4019, 4023), photo-context fields (3240, 4245), photo-scan error sheets (4214, 4227–4229).
+- **K21 🟡 Ten emoji-in-button violations in the AI Tools sheet** (2577–2596: 📷🖼📄🔗🔎💡🪄 …) — every other source picker in the file already uses the SVG constants.
+- **K22 🟡 The `source === 'school'` read-only gate is dead** — nothing writes `source: 'school'`; kitchen writes `'school-photo'` (2398), `'ical'` (2453), `'manual'`. Imported school lunches get a "Change meal" button that then misroutes per K8. Match `startsWith('school') || 'ical'` or drop the gate deliberately.
+- **K23 🟡 Filter badge/Clear fight the Customize default sort** — `filterCount` counts `sort !== 'alpha'` (612–615) so a "Recently added" default shows a permanent "· 1" badge, and Clear resets to alpha overriding the saved pref. Compare against `kPrefs.recipesSort`.
+- **K24 🟡 Single-mode plan writes omit `addedAt`/`addedBy`** (1244–1254, 1277–1284; school/iCal too) — makes the U5 `pickWinner` tie-bias latent rather than impossible. Stamp every option write.
+- **K25 🟡 `bindLongPress` is touch-only** (100–119) — mouse/kiosk users cannot rename/delete list items or staples at all (3559–3563, 4038–4040). Use pointer events / the shared helper.
+- **K26 🟡 kitchen.css violations:** `.cook-mode` z-index 100 (899) and `.who-overlay` z-index 200 (1226) outside the 0–60 band with no audit comment; `.who-overlay` hardcodes `rgba(0,0,0,0.4)` (1225).
+- **K27 🟡 Dead CSS:** `.day-block__slot--option`, `.day-block__vote-chip` (1148–1161), `.day-block__multi-badge` (1164–1173, self-admitted legacy), `.day-block__slot-school` (148–154), `.recipe-library*` (157–168), `.rl-find-btn` (289–291), `.kait-soon` (508–512), `.kp-vote-placeholder` (1283–1287), `.rrs-star__half--*` (794–807).
+- **K28 🟡 Vote toggle silently no-ops when the voter prompt is cancelled** (1479–1511 → components.js:5585) — dead 👍 buttons with no hint. Re-prompt on tap or show helper text.
+
+### 6.4 Phase A — low / nits
+
+- **K29 🔵 Meal history shows `options[0]`, not the vote winner** (1590–1591) — `pickWinner` is already imported.
+- **K30 🔵 "All done" clear removes items one-by-one** (3604–3610, 3843–3846) — each remove triggers a full re-render. One `multiUpdate`.
+- **K31 🔵 Second-school picker highlights the *first* picker's selection** (1167–1190) and never shows its own.
+- **K32 🔵 Import image conversion isn't awaited** (3098–3110) — fast Save stores the expiring CDN URL (self-heal eventually fixes it; avoidable).
+- **K33 🔵 URL/photo import wipes hand-typed ingredients without confirmation** (3134–3140).
+- **K34 🔵 Slot-edit servings stepper is display-only and "Change meal" drops `entry.servings`** (1336–1361, 1391–1394) — partial break of the §6.10 continuity chain (the main path verified working).
+- **K35 🔵 File-input leak in `openListPhotoSourceSheet`** (4188–4189) — inputs linger if the OS dialog is cancelled.
+- **K36 🔵 `selfHealRecipeImage` writes the whole recipe from a possibly stale snapshot** (66–75) — concurrent edits overwritten; use leaf writes. (Pipeline otherwise verified correct: sync set-before-await, global cap, banner threshold, reset-on-save.)
+- **K37 ⚪ Misc:** `recipeFilter` comment says 'favorites', code does 'top-rated' (135–139); `Object.values` wrapping an array (3509–3511); unused `const id` (4144); `kr_photoCtx` escapes only `"` (3242); meal-history double `renderBottomSheet` binds `mh_close` twice. Escaping otherwise solid; no `window.confirm`/`alert`.
+
+### 6.5 Phase B — UX / spec
+
+- **K38 🟡 §6.10 compliance largely verified ✓** (tabs+wand, customize prefs, nudges, dinner-last, sort seeding, density, vote display rule, redirect toast, school dual-pick) — gaps: bulk-add unreachable (K15) and the flagged-recipes banner embeds un-truncated recipe names (648–651) which can wrap to 3+ lines.
+- **K39 🟡 Meals tab has no empty state when all slot nudges are off** — N bare day headers with zero rows and no hint. Add a "Tap + to plan a meal" helper. (Recipes and Lists empty states are strong ✓.)
+- **K40 🟡 Rating slider has no keyboard support** — `role="slider" tabindex="0"` (2068) with no keydown makes the ARIA contract false; add arrow = ±0.5. Related: vote button has no `aria-label` (components.js:5548); `.day-block__slot` rows are click-bound divs — the whole Meals tab is keyboard-inaccessible.
+- **K41 🟡 AI loading/error states inconsistent across the four flows:** photo→list best-in-file ✓; school-lunch has loading but no res.ok check and a surprising "overlay closes but import continues" behavior; URL import nothing (K17); auto-categorize nothing (K16). Standardize on the `.ai-loading` pattern.
+- **K42 🟡 `kp_save` lacks the `withButtonLock` every sibling save has** (1203 vs 3324, 2552, 3968) — double-tap double-runs the school second-slot write.
+- **K43 🔵 Recipes search re-renders the whole tab per keystroke with a setTimeout refocus hack** (698–710) — scope to `#recipeLibrary` + count label.
+- **K44 🔵 iCal feed conflicts surface only as a count** (2483–2485) with no dates; `lastSync` uses device-locale time (2481).
+- **K45 🔵 Suggestions (ROADMAP-consistent):** (a) "Add this week to list" — aggregate the visible window's planned-recipe ingredients into the existing review sheet; (b) "Plan again" on Meal History rows; (c) kid-visible list peek (already spec'd future); (d) auto-resolve un-locked votes on the day via `pickWinner` + toast — today the dinner tile says "Vote" forever.
+
+---
+
+## 7. Tracker (tracker.html · styles/tracker.css)
+
+### 7.1 Phase A
+
+- **TR1 🟠 Task delete leaves orphaned schedule entries and completions.** tracker.html:1048–1059 calls `removeTask` only — the comment admits it. Violates the documented critical rule and diverges from dashboard's delete path; orphans accumulate forever. Port the cleanup multi-update.
+- **TR2 🟠 Long-press fires while scrolling.** The local gesture copy (566–587) has no movement threshold and no `pointercancel` — touch-scrolling with a finger resting on a card for 500ms pops the detail sheet. Use the shared `bindTaskRowGesture` (10px move-cancel + rapid-tap window built in).
+- **TR3 🟡 Editing a task in tracker never rebuilds the schedule** (1010–1045, self-admitted in a comment) — change rotation/owners/day and the grid doesn't change until another page regenerates. Import `buildScheduleUpdates` or toast the limitation.
+- **TR4 🟡 `toggleCompletion` is optimistic with no error handling** (1064–1092) — failed write leaves the row showing Done until reload.
+- **TR5 🔵 Schedule keys without counters:** `sched_${Date.now()}_delegate` / `_delegate_moved` / `_moved` (728, 751, 779) — the exact pattern the CLAUDE.md counter rule exists to prevent.
+- **TR6 🔵 Swipe handlers bound to `document`, not `main`** (1105–1117, contradicting their own comment) — swipes on header/nav also flip periods. Scope to `main`.
+- **TR7 🔵 Dead code:** `completionDate`/`formatCompletionDate` (183–187, 220 — also device-local time, a timezone-rule violation); `debugActive` (137); unused imports `openDeviceThemeSheet`, `renderNavBar`, `initNavMore`, `writeSettings`, `loadCachedTheme`, `defaultThemeConfig`, `formatDateLong`, `isComplete`, `dayOfWeek`, `DAY_NAMES_SHORT`, `isoWeekNumber`.
+- **TR8 ⚪ Edit-save sets `eventTime: null` unconditionally** (1038) — an event-category task edited here silently loses its time.
+
+### 7.2 Phase B
+
+- **TR9 🟡 §6.4's filter spec is unimplemented and its component shipped dead.** Spec: "Filter" chip → sheet with person/category/status/rotation/completed. Page has person pills only (517–519); `renderTrackerFilterSheet` (components.js:2512) has zero callers (cross-ref C10). Wire it up or amend §6.4 — a busy month can't be filtered by status or category today.
+- **TR10 🔵 Cards are keyboard-inert** — `<article>` rows, no role/tabindex/keydown (325). Same fix as TR2 via the shared gesture helper + keydown.
+- **TR11 🔵 Person summary says "done this week/month" even when swiped to a past period** (366, 420) — use the period label.
+- **TR12 ⚪ Long-press default 500ms ✓ via `settings?.longPressMs ?? 500`** (575) — but note a global `longPressMs` setting silently overrides the documented 500/800 split across pages.
+- Empty/loading/error states all present ✓; tracker.css token-clean ✓; segmented tabs use `.tabs--segmented` ✓ (missing `aria-selected`, same nit as SB12). Week math confirmed **Monday-anchored** (90–120) — part of the SC3 week-definition inconsistency.
+
+---
+
+## 8. Scoreboard (scoreboard.html · styles/scoreboard.css)
+
+### 8.1 Phase A
+
+- **SB1 🟠 `location.reload()` after Mark Late-Done** (961–970) — direct violation of the "loadData(); render(), never location.reload()" rule; also discards the open drilldown and scroll position.
+- **SB2 🟠 First-achievement unlock crashes the page for new families.** `readAllAchievements()` can return `null`; the auto-award block property-sets on it (287–288) → TypeError → the whole page falls into the error state. Default to `{}` at assignment (line 60).
+- **SB3 🟡 Drilldown ignores the per-card cycled period** — cards cycle Today/Month/Year via the badge (`cardPeriods`, 320–326, 420) but `openDrilldown` (596–612) reads only the global `selectedPeriod`. Tap a Month card, get Week numbers.
+- **SB4 🟡 Heatmap weeks are Sunday-anchored while everything else is Monday** (`renderHeatmap` hardcodes `weekStartForDayFn(todayKey, 0)`, components.js:2654) and the `weekStartDay` setting is ignored — third anchor in the SC3 inconsistency family.
+- **SB5 🟡 "No tasks today" shown for all periods** when `possible === 0` (components.js:2234) — wrong copy on Week/Month/Year cards.
+- **SB6 🔵 Dead code:** `wStart`/`wEnd`/`mStart`/`mEnd` (89–92) computed and never used; `debugActive` (96); 11 unused imports (incl. `renderPersonAvatar` — while the drilldown header hand-rolls an avatar div at 705).
+- **SB7 🔵 `readScoreboardCustomize` called 6× per render** (393, 417, 429, 509, 715). Read once.
+- **SB8 🔵 Period-tab tap writes the entire person record** (563–568) — last-writer-wins against concurrent pref writes (same class as C5). Also: the bell deny path writes `Math.abs(msg.amount)` unguarded (components.js:4801) — `NaN` write on legacy messages; rewards.js's own deny guards it (958).
+
+### 8.2 Phase B (§6.3)
+
+- **SB9 🟡 Emoji bans violated three ways:** achievement emoji strip inside leaderboard card body (307–313 → components.js:2224–2226), category emoji in Category Leaders rows (538) and drilldown bars (742), 👏 inside the kudos **button** (839). Empty-state 🏆 (332) borderline.
+- **SB10 🟡 Period tabs include "Today"** — spec says Week | Month | Year. Useful addition; update DESIGN.md rather than removing. Tabs correctly use `.tabs--pill` (no bespoke `sb-period-tabs`) ✓.
+- **SB11 🔵 No "Open Store" CTA** — §6.7 lists the balance-card → Store route as primary; the drilldown Balance section (830–834) is a dead end. Add a link-chip to rewards.html.
+- **SB12 🔵 A11y drift:** period tabs lack `role="tab"`/`aria-selected` (410–414) while rewards' tabs have both; Late-Done sheet uses bespoke buttons and binds no Escape (944–960). Hero-card keyboard handlers ✓, heatmap `role="img"` ✓.
+- **SB13 ⚪ Inline styles:** `#mainContent` display:none (29), generated `style="background:…"` (540) and owner-color (704–705) — use `data-*` + `applyDataColors`. scoreboard.css token-clean, maps grades to `--grade-*` tokens ✓.
+- **SB14 🟡 Scoreboard "Week"/"Month" are rolling windows (last 7/30 days, 137–152), not calendar periods** — a fourth definition of "week" in the app (scheduler ISO-Monday, tracker Monday, heatmap Sunday, scoreboard rolling). Decide one model (SC3).
+
+---
+
+## 9. Rewards (rewards.html · rewards.js · styles/rewards.css)
+
+### 9.1 Phase A
+
+- **R1 🔴 Tapping a dimmed (ineligible) card still buys the reward.** `renderRewardCard` hides "Get it" when `canGet` is false, but the whole card is tappable (540–545) and `handleGetReward` (1186–1191) re-checks **only balance** — not `streakRequirement`, `maxRedemptions`, or `expiresAt`. A kid at streak 0 can buy a streak-locked reward; out-of-stock rewards remain purchasable. Re-validate all four gates in `handleGetReward`.
+- **R2 🟠 Approvals-tab Approve/Deny have no in-flight or freshness guard** (860–933, 935–973) — this page's copy of C2. Double-tap = two bank tokens + two approved messages; two parents' devices can both approve the same request (no `seen` re-check). `withButtonLock` is already imported (used at 1774) — apply it and re-read the message before acting.
+- **R3 🟠 `maxRedemptions` stock only decrements on the kid-approval path.** Stock counting (474–479) counts `redemption-approved`/`reward-used`, but adult save (1198–1227), kid self-serve (1234–1267), and kid functional (1269–1300) write neither — those flows never consume stock; "3 left" is wrong for most of the store. Count `redemption-request` (minus denials) or write a counted type everywhere.
+- **R4 🟡 History "Earned" rows don't reconcile with the balance** — history shows `snap.earned` task points (165–180) while the balance credits `snap.percentage × multiplier` (scoring.js:600). A kid sees "+47" while the balance rose 95 (or 190 on a 2× day). Show percentage × multiplier and surface the multiplier.
+- **R5 🟡 Denial refunds are invisible to kids and inflate `totalEarned`.** *(Resolves SR3: denied redemptions DO refund net balance via a compensating `bonus` message — both deny paths verified: rewards.js:947–968 and components.js:4784–4810.)* Caveats: `bonus` is excluded from `KID_HISTORY_TYPES` (140–144) so the kid sees "denied" with no visible refund; the refund inflates `totalEarned` and therefore lifetime-points achievements by the reward's cost on every request→deny cycle (scoring.js:636); the bell deny path doesn't guard a missing `msg.amount` (NaN write, see SB8). Consider a dedicated `refund` type counted in balance but not totalEarned, whitelisted for kid history.
+- **R6 🟡 No load error state** — `init().catch(console.error)` (1815) leaves the skeleton forever. Scoreboard and tracker both render `renderErrorState` with retry; rewards is the odd one out.
+- **R7 🟡 Sparkline mislabeled** — "30-day balance" (350) actually plots daily `snap.earned` task points (317–337), neither balance nor store-point earnings.
+- **R8 🔵 No write error handling anywhere** — `sendRequest` (1363–1366) even clears the sheet *before* the writes; offline failure silently swallows the request.
+- **R9 🔵 Long-press is 600ms and touch-only** (525–531) — a third timing beside the documented 500/800, and with `contextmenu` suppressed (539) mouse users can't edit a reward at all. Use pointer events + `settings.longPressMs`.
+- **R10 🔵 Dead code:** `renderBankTab` (977–979) never called; unused imports `validateStoredId` (while 56–64 hand-rolls exactly that), `renderOverflowMenu`, `openDeviceThemeSheet`, `initNavMore`, `renderNavBar`; dead `result?.balance ?? result ?? 0` (257); local `esc()` (131–133) duplicating `utils.escapeHtml`.
+- **R11 🔵 `reward.icon` injected unescaped into the form sheet** (1507 → 1531/1537) — the custom-emoji input accepts arbitrary text that round-trips into innerHTML on next edit. Wrap in `esc()` (cross-ref A13 — same data, admin side).
+- **R12 ⚪ Shop search re-renders on every keystroke and re-focuses with caret jump** (502–507). Debounce or patch the list only.
+
+### 9.2 Phase B (§6.7)
+
+- **R13 🟡 §6.7 has fully diverged from the shipped page.** Spec tabs `Custom | Functional | Bounties | Wishlist | Bank`; shipped `Shop | Bank | History | Approve` + a type filter sheet (arguably better). Wishlist has Firebase plumbing (firebase.js:732) and **zero UI anywhere**. Update §6.7 or delete the wishlist schema.
+- **R14 🟡 Balance count-up animation specified and missing** (`renderBalanceZone` 339–353 renders a static number). Cheap win.
+- **R15 🟡 Kid-mode parity gap:** kid branch gets no offline banner and no bell (89–112) — a kid on flaky Wi-Fi gets silent write failures. Layout parity otherwise honored ✓.
+- **R16 🔵 Emoji in empty-state icons** ('📜' 659, '✅' 789, '🎒' 993) vs `''` on the Shop tab (487) — inconsistent; align with the C22 cleanup.
+- **R17 🔵 `color: white` hardcoded twice in rewards.css** (254, 305) — use `var(--on-accent)`. Otherwise token-clean, no z-index. ✓
+- **R18 ⚪ Three different sheet-dismiss binding patterns in one file** (229–236, 1352–1359, 1624–1630) — candidate for the shared `openSheet` helper (C13).
+
+### 9.3 Cross-cutting answers recorded
+
+- **Bank-token races:** kid use-request properly guards with a fresh re-read (1149–1154) ✓; rewards' own redeem path guards double-tap (`_rewardGetInFlight` 1178–1184, `submitting` 1361–1365) ✓; instant bank "Use" (1132–1147) unguarded but confirm-gated; `removeLatestBankToken` (firebase.js:850–860) removes by type+latest — undo can delete the wrong token if another of the same type was acquired in between.
+- **Balance args consistent across rewards/scoreboard** (identical 7-arg `calculateBalance` calls) except the timezone fallback (`'UTC'` vs `'America/Chicago'`) — unify; rewards' `refreshData()` (1809–1813) doesn't re-read activity earnings (stale within a session).
+
+---
+
+## 12. Admin (admin.html · styles/admin.css)
+
+### 12.1 Phase A — data integrity / cascades
+
+- **A1 🔴 Person CRUD bypasses the data layer and hardcodes the production root — dev mode writes to production.** `openPersonSheet` uses raw `firebase.database().ref('rundown/people/...')` for delete (admin.html:2101), update (2143), create (2145), and balance anchor (2155). With `?env=dev` every other write goes to `rundown-dev/`, but these hit production — delete even removes a *production* person while cleaning *dev* reward data. Same hardcoded-root pattern in `autoPrune` (297–306 — a dev visit can silently prune the production schedule/snapshots) and email imports (5706, 5813, 5831). Fix: route through the shared/firebase.js helpers (`writePerson`, `pushPerson`, `writeBalanceAnchor` — already imported and unused, see A20).
+- **A2 🔴 Person deletion orphans large amounts of data.** *(Confirms and expands F2.)* Delete (2093–2106) removes `people/{pid}` + `deletePersonRewardsData` only. **Not cleaned:** `pushSubscriptions/{pid}` (stale endpoints keep receiving pushes), `activityEarnings/{pid}`, `activeTimers/{pid}`, `activitySessions` rows, `activities/*/assignedTo`, `streaks/{pid}`, `snapshots/{date}/{pid}`, `kitchen/schoolLunchFeeds/{pid}` (Worker keeps syncing a deleted kid's lunch feed), recipe `ratings[pid]`, `icalFeeds/*/owners`, `achievementDefs/*/perPerson`, `events/*/people`, `tasks/*/owners`, and **all schedule entries with `ownerId === pid`** — with no rebuild, the dashboard shows ghost-owned tasks for up to 90 days. Build a full `deletePersonCascade` + rebuild; fix the understated confirm copy (2096).
+- **A3 🟠 Single-task delete violates the CLAUDE.md rule: completions are not removed** (`tf_delete`, 1046–1062) — and it deletes completed past entries while leaving their completions, erasing visible history. Bulk delete (4661–4710) *does* clean completions — inconsistent paths. Recommend: keep completed past entries + completions; delete uncompleted entries + orphaned completions; share the code.
+- **A4 🟠 Event deletion leaves orphaned schedule mirror entries** (`ef2_delete`, 1815–1828) — saves write mirrors (1796, 1803) and date-changes migrate them (1785–1797), but delete never removes them. Mirror the move-cleanup loop.
+- **A5 🔴 Five admin actions trigger the past-date node-wipe (SC1):** task create (1028), task edit (1036), bulk edit (4641), bulk delete (4706), Tools→Schedule rebuild (5116). The fix belongs in the scheduler, but admin is the main trigger surface.
+- **A6 🟠 Rebuilds destroy user moves/delegations (SC2/DB1/CAL4 — all five call sites), and the "Clear Past" copy is wrong:** `clearPast` nulls **entire past date nodes including completed entries** (scheduler.js:1023–1030) while both the hint (2672) and confirm (5102) promise "removes *uncompleted* past entries." Preserve completed entries or fix the copy (preserve them — their completions otherwise orphan).
+- **A7 🟠 Saving a person can never clear `theme`, `kidSettings`, or `prefs`.** `ps_save` uses conditional spreads + `.update()` (2132–2143) — absent keys are never nulled, so "Family theme" leaves the old personal theme and Kid→Adult leaves stale `kidSettings`. Write explicit nulls like `avatarUrl` already does.
+
+### 12.2 Phase A — functional bugs
+
+- **A8 🔴 Delete is broken on the iCal-feed and school-lunch-feed sheets.** Both call `showConfirm('plain string')` (1324, 1414) but `showConfirm` destructures an options object → `escapeHtml(undefined)` throws (utils.js:305) → the promise never resolves → **feeds can never be deleted from these sheets.** Fix: `showConfirm({ title: '…' })`. *(Also exhibit A for U2 — escapeHtml should coerce.)*
+- **A9 🟠 Badge award/revoke popup is dead code — manual awarding is impossible.** `bindAchievementsTab` binds to `.ach-badge-btn[data-key]` (4089) but `renderAchievementsTab` renders cells with no `data-key`/`data-person-id` (4802–4805); `.ach-toggle` (4192–4202) and `.ach-delete` (4205–4221) also match nothing. Add the data attributes or delete ~130 dead lines.
+- **A10 🟡 Activity form "kids first" sort checks `p.kid === true`** (3398–3399) but people use `role: 'child'` (1879) — silently degrades to alphabetical. Use `p.role === 'child'`.
+- **A11 🟡 Duplicate `#sf_themePreset` change handlers double-write settings** (4892 and 5015). Merge.
+- **A12 🟡 Device-local/UTC date math where `settings.timezone` is mandated:** activity-earnings invalidation period key (3627–3635), school-lunch 30-day sync window (1449–1454), task-scan `formatDueDate` (5578–5582).
+- **A13 🟡 Custom emoji inputs are rendered unescaped** — reward `rf_customEmoji` (3194–3201, no maxlength) and activity `af_customEmoji` (3523–3532) store arbitrary strings rendered raw via `renderEmojiTile` (356, 2870, 3371) and the badge grid (3960, 4110). Stored-XSS-ish; escape at render + add maxlength.
+- **A14 🟡 Task save has no error handling and can strand a disabled Save button** (991–1037). Event save has the right try/catch/finally (1777–1812) — copy it to task, person, category, reward, achievement saves.
+
+### 12.3 Phase A — verified behaviors
+
+- **A15 ✅/🔵 PIN gate verified** (4-digit, 30-min sessionStorage, recovery `settings?.recoveryPin || '2522'` hardcoded *and printed in the settings hint* at 2494). Note: all data loads before the gate and the bypass flag is spoofable — the PIN is cosmetic; fine for a family app behind Zero Trust, just don't mistake it for security. No attempt throttling.
+- **A16 ✅/🟡 Settings saves don't clobber siblings** — handlers spread the live `settings` object (`buildSettingsUpdate`, 4963–4968). Residual risks: concurrent-device clobber (full-object last-writer-wins) and the auto-prune handler (5144–5149) bypassing the helper. Recommend partial `updateData('settings', …)` semantics.
+- **A17 ✅/🟡 Export/import confirm-gated and shallowly validated** — but import is a top-level **merge**, not a faithful restore (DB keys absent from the backup survive), has no per-key shape validation, and only reloads settings/people/tasks/cats afterward (5193–5199). Factory reset + scoreboard reset correctly typed-phrase-gated.
+- **A18 🟡 Weekend weight UI doesn't convey its inverted semantic (SC7 confirmed):** bare "Weekend weight" number inputs under **Scoring** (2621–2630) with no help text, while the scheduler makes higher = *more* weekend chores. Add "Higher = more chores land on weekends" and consider relocating; update DESIGN.md §6.5 in the same pass.
+- **A19 ✅ No `window.confirm`/`alert` anywhere in admin.html.**
+
+### 12.4 Phase A — duplication / dead code
+
+- **A20 🔵 17 unused imports** (59–92: `writePerson`, `pushPerson`, `readMessages`, `writeBalanceAnchor`, `clearMessages`, `writeBankToken`, `removeBankToken`, `generateSchedule`, `dateRange`, `detectTimezone`, `defaultThemeConfig`, `ACHIEVEMENTS`, `DEFAULT_ACHIEVEMENTS`, `renderRepeatSheet`, `openPhotoCropper`, `derivePersonInitials`); `getAccentColors` (315–323) never called; `allBankData` (154, 450–453) populated via N sequential `readBank` reads on every Rewards tab open and **never read**.
+- **A21 🔵 Five nearly identical filter sheets** (~250 removable lines: 627–725, 1486–1552, 2220–2267, 2947–3012, 3868–3928) and the footer-save/title-disable duo copy-pasted six times. Extract `openFilterSheet({ sections, state, onApply })`.
+- **A22 🔵 Four different emoji-picker implementations in one file** — categories use the shared primitive (2294–2299); rewards hand-roll `rf-emoji-*` (3052–3061); activities copy that (3428–3437); badges use a third grid (3959–3962). Converge on `renderEmojiPicker`.
+- **A23 🔵 `showUndoToast` never gets an undo callback** (4648, 4709, 4823) — Undo button always hidden; bulk delete is irreversible despite the framing. Implement undo or use `showToast`.
+- **A24 ⚪ Misc drift:** `createdBy: 'Parent'` vs IDs elsewhere (4821); email-import events omit fields other creators set (5803–5808); task-scan hardcodes `category: 'general'` (5660); event schedule keys `sched_${Date.now()}_event` without the mandated counter (1795, 1802).
+
+### 12.5 Phase A — admin.css
+
+- **A25 🟡 Duplicate conflicting selectors:** `.admin-color-dot` defined twice (525–532 vs 1079–1084), `.admin-list-item--selected` twice (653–656 vs 1153–1156) — later wins; delete the losers.
+- **A26 🔵 Hardcoded colors / undefined tokens:** `.admin-tab--active { color: white }` (145, block appears unused); stale-accent fallbacks `rgba(108,99,255,…)`/`#6c63ff` (654–655, 832); `--surface-highlight`, `--accent-rgb`, `--border-subtle` are never defined anywhere; admin.html inline styles reference nonexistent `--accent-danger`/`--accent-success` (3810, 4104–4120) — always render the hardcoded fallback. Real tokens are `--danger`/`--success`.
+- **A27 ⚪ Roughly a quarter of admin.css is dead** (grep-verified: `.admin-subnav*`, `.admin-theme-grid`, `.admin-accent*`, `.admin-checkbox*`, `.bulk-checkbox`, `.admin-form-overlay`, `.dedicated-day-select`, `.admin-badge*`, `.admin-person-detail`, `.pricing-helper`, `.achievements-grid`, `.admin-event-log`, `.admin-pre`, more). Prune (verify setup.html doesn't load admin.css for `.color-swatch`/`.step-indicator` first).
+
+### 12.6 Phase B — UX / spec compliance
+
+- **AB1 🟠 Top-level IA diverges from §6.5 — and the spec is the declared source of truth.** Spec: Library / People / Rewards / Settings / Advanced (with Debug). Shipped: Library / People / Settings / **Tools** (255–282), Rewards+Badges+Activities inside Library, Schedule under Tools, Settings sub-tabs Family/Style/Scoring/Connect, and **no Debug section** — `pushDebugEvent` writes a log nothing can view (5119) and the themed `.debug-panel` CSS has no consumer. The shipped IA is arguably better; update §6.5 to match before future sessions "correct" toward the stale spec.
+- **AB2 🟡 One-chevron rule violated on three row types:** people rows add an open-profile icon (1857), school-lunch rows a sync button (1178), activity rows an inline Active toggle (3366–3369) — each plus the chevron. Move actions into detail sheets.
+- **AB3 🟡 Form-pattern stragglers:** iCal feed sheet (1223–1258) and school-lunch sheet (1355–1376) — non-sticky footers, no `renderFormSheetHeader`, no disabled-save; message modal (4746–4779) and bulk-edit modal (4494–4565) use `.sheet-actions`/raw selects; two raw exposed `<input type="date">` in the AI-import confirm flows (5597, 5739) — banned by §12.
+- **AB4 🟡 Auto-focus violation:** `openEventFormAdmin` focuses `ef2_name` inside the activation rAF in create mode (1565–1568) — explicitly banned.
+- **AB5 🟡 Inline styles and emoji in chrome:** `style="display:none"` on `#pinGate`/`#mainContent` (30, 46); heavy `style=""` blocks in redemption history (2886–2940), badge popup (4109–4123), Reset-All (3809–3811), AI/email imports (5595–5599, 5737–5761). Emoji: 🔒 in the PIN gate (32), ✅/❌/⏳ status icons in redemption rows (2923–2924).
+- **AB6 🟡 Search inputs re-render the whole page per keystroke and teleport the caret to the end** (4417–4422, 3340–3345, ×5). Debounce + re-render only the list container.
+- **AB7 🔵 A11y:** PIN inputs lack aria-labels, error not aria-live (36–41); clickable rows are `<div>`s with no keyboard access (`renderAdminRow`, 333); sub-nav in a `role="tablist"` without `role="tab"`/`aria-selected` (375–397); text `›` chevrons; badge lock state by opacity alone.
+- **AB8 🔵 Loading/error coverage uneven:** Rewards/Badges/Activities sub-tab switch awaits reads with no spinner (439–458); most saves surface no failure (A14); Events library defaults to all-time ascending — opens on the oldest past event; default to Upcoming.
+- **AB9 🔵 Schedule stats: two of four cards both labeled "Avg / Day"** (2724–2733); add an overdue-entries count for Clear-Past context.
+- **AB10 🔵 No dirty-form protection** — every sheet closes on backdrop tap, losing long edits to a stray thumb (748–750, 2016–2018). Dirty flag + confirm.
+- **AB11 ⚪ Suggestions:** offer "download backup" inside the factory-reset confirm; promote notification log + redemption history + a `debug/eventLog` viewer into the spec'd Debug section; auto-prune copy claims it prunes "completions" (2780) but only prunes schedule/snapshots (303–306) — pruning orphaned completions would also fix A3 retroactively.
 
 ---
 
