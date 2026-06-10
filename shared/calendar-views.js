@@ -748,13 +748,17 @@ export function renderAgendaView(opts) {
   const sortedDates = Array.from(byDate.keys()).sort();
   if (sortedDates.length === 0) {
     return `<div class="cal-agenda"><div class="cal-agenda__empty">
-      <div class="cal-agenda__empty-icon">📅</div>
+      <div class="cal-agenda__empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
       <div class="cal-agenda__empty-title">No events in this period</div>
       <div class="cal-agenda__empty-body">Events in the past 30 days and next 60 days will appear here.</div>
     </div></div>`;
   }
 
   let html = `<div class="cal-agenda">`;
+  // Anchor for scroll-to-today: the first group on/after today (the agenda
+  // starts 30 days in the past — without the anchor every open showed
+  // month-old events first).
+  const anchorDk = sortedDates.find(dk => dk >= today) || null;
   for (const dk of sortedDates) {
     const items = byDate.get(dk);
     const d = new Date(`${dk}T00:00:00Z`);
@@ -762,7 +766,7 @@ export function renderAgendaView(opts) {
     const dayNum = d.getUTCDate();
     const dowName = DAY_NAMES_FULL[d.getUTCDay()];
     const todayPill = dk === today ? ` <span class="cal-agenda__today-pill">Today</span>` : '';
-    html += `<div class="cal-agenda__date" data-date="${esc(dk)}">
+    html += `<div class="cal-agenda__date${dk === anchorDk ? ' cal-agenda__date--anchor' : ''}"${dk === anchorDk ? ' id="agendaTodayAnchor"' : ''} data-date="${esc(dk)}">
       <span class="cal-agenda__date-dow">${dowName}</span>
       <span class="cal-agenda__date-num">${monthName} ${dayNum}</span>
       ${todayPill}

@@ -27,6 +27,7 @@
     </div>
     <div id="mainContent" style="display:none;"></div>
   </div>
+  <div id="fabMount"></div>
   <div id="navMount"></div>
   <div id="sheetMount"></div>
   <div id="taskSheetMount"></div>
@@ -39,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet, openVoteSheet } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, renderFab, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet, openVoteSheet } from './shared/components.js';
     import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, bindEscapeToClose, safeLocalStorageSet, validateStoredId } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml, normalizePlanSlot } from './shared/utils.js';
@@ -79,7 +80,8 @@
 
     // ── Personal preferences (localStorage) ──
     const calPrefsRaw = localStorage.getItem('dr-cal-prefs');
-    const calPrefs = calPrefsRaw ? JSON.parse(calPrefsRaw) : {};
+    let calPrefs = {};
+    try { calPrefs = calPrefsRaw ? JSON.parse(calPrefsRaw) : {}; } catch { /* corrupt pref — start fresh */ }
     function saveCalPrefs() { localStorage.setItem('dr-cal-prefs', JSON.stringify(calPrefs)); }
 
     // ── Calendar defaults (admin settings → personal override) ──
@@ -87,7 +89,7 @@
     let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
     let density = calPrefs.density || calDefaults.density || 'snug';
     let monthCompact = calPrefs.monthCompact ?? calDefaults.monthCompact ?? true;
-    const defaultView = calPrefs.defaultView || calDefaults.defaultView || 'agenda';
+    const defaultView = calPrefs.lastView || calPrefs.defaultView || calDefaults.defaultView || 'agenda';
 
     // ── Person link mode ──
     const personParam = new URLSearchParams(window.location.search).get('person');
@@ -97,10 +99,11 @@
     if (linkedPerson?.theme?.preset) applyTheme(linkedPerson.theme);
 
     // ── App state ──
-    let currentView = defaultView; // 'week' | 'month' | 'day'
+    let currentView = defaultView; // 'agenda' | 'week' | 'month' | 'day'
     let viewWeekStart = weekStartForDay(today, weekStartDay);
     let viewMonth = today.substring(0, 7);
-    let viewDay = null;
+    // CAL6: a 'day' default view renders immediately — null bricked the header.
+    let viewDay = today;
     let selectedDate = today;       // selected day in month view (shows day panel)
     let weekSelectedDate = today;   // selected day in week strip view
     // calendar-active-person: per-person localStorage key (Issue 2)
@@ -115,6 +118,7 @@
     let suppressedCooldownTaskIds = new Set();
     let pendingSliderOverride = null;
     let daySwipeController = null;
+    let _lastScrolledView = null; // tracks agenda scroll-to-today (once per view entry)
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
@@ -136,6 +140,11 @@
       currentPage:  'calendar',
       onPageRender: () => render(),
     });
+    // FAB — the page's primary add action (CAL1: the whole add/import tree
+    // existed but nothing on the page could reach it).
+    document.getElementById('fabMount').innerHTML = renderFab({ id: 'fabAdd', label: 'Add' });
+    document.getElementById('fabAdd')?.addEventListener('click', () => openAddMenu());
+
     initOfflineBanner(onConnectionChange);
     initBell(() => people, () => calRewards || {}, onAllMessages, { writeMessageFn: writeMessage, markMessageSeenFn: markMessageSeen, removeMessageFn: removeMessage, writeBankTokenFn: writeBankToken, markBankTokenUsedFn: markBankTokenUsed, readBankFn: readBank, writeMultiplierFn: writeMultiplier, getTodayFn: () => today, approverName: linkedPerson?.name || null });
 
@@ -164,6 +173,9 @@
     // ══════════════════════════════════════════
 
     function render(opts = {}) {
+      // CAL2: day-view swipe handlers must not survive a view switch — they
+      // mutated viewDay and double-fired alongside the week handlers.
+      if (currentView !== 'day' && daySwipeController) { daySwipeController.abort(); daySwipeController = null; }
       // Backwards-compat: render(true) used to mean preserveScroll=true
       if (opts === true) opts = { preserveScroll: true, animate: false };
       const { preserveScroll = false, animate = true } = opts;
@@ -275,6 +287,12 @@
       else if (currentView === 'month') bindMonthViewEvents();
 
       if (scrollY != null) requestAnimationFrame(() => window.scrollTo(0, scrollY));
+      // Agenda starts 30 days in the past — land the user on today, not on
+      // month-old events. Only on view entry; preserve scroll on re-renders.
+      else if (currentView === 'agenda' && _lastScrolledView !== 'agenda') {
+        requestAnimationFrame(() => document.getElementById('agendaTodayAnchor')?.scrollIntoView({ block: 'start' }));
+      }
+      _lastScrolledView = currentView;
     }
 
     // ── View-as chip (Issue 2) ──
@@ -447,6 +465,7 @@
           currentView = view;
           // When user picks Day from the switcher, default to today.
           if (currentView === 'day') viewDay = today;
+          calPrefs.lastView = view; // remember across visits (CAL17)
           saveCalPrefs();
           render();
         });
@@ -788,7 +807,7 @@
       const photoIcon = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
       const textIcon = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>';
       const options = [
-        { key: 'ical',  label: 'Subscribe (iCal URL)', icon: icalIcon },
+        { key: 'ical',  label: 'Import once from URL', icon: icalIcon },
         { key: 'photo', label: 'Photo of flyer / whiteboard', icon: photoIcon },
         { key: 'text',  label: 'Type it (e.g. "dentist Fri 3pm")', icon: textIcon },
       ];
@@ -2506,24 +2525,22 @@
     // Swipe navigation (week/month)
     // ══════════════════════════════════════════
 
+    // CAL3: month only — the week strip binds its own swipe handler, and both
+    // firing on one gesture advanced two weeks at a time.
     let swipeStartX = 0, swipeStartY = 0;
     main.addEventListener('touchstart', (e) => {
-      if (currentView === 'day') return;
+      if (currentView !== 'month') return;
       swipeStartX = e.touches[0].clientX;
       swipeStartY = e.touches[0].clientY;
     }, { passive: true });
     main.addEventListener('touchend', (e) => {
-      if (currentView === 'day') return;
+      if (currentView !== 'month') return;
       const dx = e.changedTouches[0].clientX - swipeStartX;
       const dy = e.changedTouches[0].clientY - swipeStartY;
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
         const delta = dx < 0 ? 1 : -1;
-        if (currentView === 'week') {
-          viewWeekStart = addDays(viewWeekStart, delta * 7);
-        } else {
-          const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01') - 1 + delta, 1));
-          viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-        }
+        const d = new Date(Date.UTC(yearNumber(viewMonth + '-01'), monthNumber(viewMonth + '-01') - 1 + delta, 1));
+        viewMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
         render();
       }
     }, { passive: true });
