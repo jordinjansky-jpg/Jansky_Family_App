@@ -59,7 +59,7 @@
     try {
     const [settings, peopleObj, tasksObj, catsObj, completions, allSchedule, allSnapshots, allStreaks, allAchievementsData, allAnchors, allMessages, allMultipliers, sbRewards, achDefsObj, allActivityEarnings] = await Promise.all([
       readSettings(), readPeople(), readTasks(), readCategories(),
-      readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks(), readAllAchievements(),
+      readCompletions(), readAllSchedule(), readAllSnapshots(), readAllStreaks(), readAllAchievements().then(v => v || {}),
       readAllBalanceAnchors(), readAllMessages(), readMultipliers(), readRewards(), readAchievementDefs(),
       readAllActivityEarnings()
     ]);
@@ -959,14 +959,18 @@
       overlayEl.addEventListener('click', (e) => { if (e.target === overlayEl) close(); });
       document.getElementById('ddLateCancel').addEventListener('click', close);
       document.getElementById('ddLateDone').addEventListener('click', async () => {
-        await writeCompletion(entryKey, {
+        const record = {
           completedAt: firebase.database.ServerValue.TIMESTAMP,
           completedBy: 'scoreboard',
           pointsOverride: settings?.pastDueCreditPct ?? 75,
           isLate: true,
-        });
+        };
+        await writeCompletion(entryKey, record);
+        // SB1: update in place — location.reload() violated the write→render
+        // rule and discarded the open drilldown + scroll position.
+        completions[entryKey] = { ...record, completedAt: Date.now() };
         close();
-        location.reload();
+        render();
       });
     }
 

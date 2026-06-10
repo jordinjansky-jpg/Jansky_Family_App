@@ -68,7 +68,7 @@
     // ── Init Firebase ──
     initFirebase();
     const firstRun = await isFirstRun();
-    if (firstRun) { window.location.href = 'setup.html'; }
+    if (firstRun) { window.location.href = 'setup.html'; await new Promise(() => {}); }
 
     const settings = await readSettings();
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
@@ -660,8 +660,12 @@
           mount.querySelector('.kid-msg-overlay__dismiss')?.addEventListener('click', async () => {
             await markAchievementSeen(kid.id, key);
             achievements[key].seen = true;
-            mount.innerHTML = '';
-            showUnseenAchievements(); // Show next unseen if any
+            // KD1: restore the celebration mount (like the message overlay
+            // does) — clearing it permanently killed the all-done celebration
+            // for the rest of the session.
+            mount.innerHTML = renderCelebration();
+            applyDataColors(mount);
+            showUnseenAchievements(); // Show next unseen if any (overwrites mount)
           });
         }
 
@@ -1399,6 +1403,7 @@
             if (!ok) return;
           }
 
+          const originalCompletion = wasComplete ? { ...completions[entryKey] } : null;
           if (wasComplete) {
             delete completions[entryKey];
             await removeCompletion(entryKey);
@@ -1495,27 +1500,29 @@
               }
             }
 
-            // Cooldown task rebuild
-            const cdEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
-            if (cdEntry) {
-              const cdTask = tasks[cdEntry.taskId];
-              if (cdTask?.cooldownDays > 0) {
-                const allSched = await readAllSchedule() || {};
-                const cdUpdates = rebuildSingleTaskSchedule(
-                  cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks, cats
-                );
-                if (Object.keys(cdUpdates).length > 0) {
-                  await multiUpdate(cdUpdates);
-                }
-                await loadData();
-              }
-            }
-
             // Per-task celebration
             triggerCelebration(entryKey, 'task');
 
             // Re-check achievements after completion
             recheckAchievements();
+          }
+
+          // Cooldown task rebuild — BOTH directions (KD5): un-toggling a
+          // cooldown task must also re-place future entries, or stale ones
+          // linger until another page rebuilds (dashboard already does this).
+          const cdEntry = viewEntries[entryKey] || overdueItems.find(o => o.entryKey === entryKey);
+          if (cdEntry) {
+            const cdTask = tasks[cdEntry.taskId];
+            if (cdTask?.cooldownDays > 0) {
+              const allSched = await readAllSchedule() || {};
+              const cdUpdates = rebuildSingleTaskSchedule(
+                cdEntry.taskId, cdTask, today, allSched, completions, people, settings, tasks, cats
+              );
+              if (Object.keys(cdUpdates).length > 0) {
+                await multiUpdate(cdUpdates);
+              }
+              await loadData();
+            }
           }
 
           const doRenderAndToast = () => {
@@ -1524,7 +1531,9 @@
               wasComplete ? 'Task marked incomplete' : 'Task completed!',
               async () => {
                 if (wasComplete) {
-                  const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'kid-mode' };
+                  // KD3: restore the ORIGINAL record — recreating a fresh one
+                  // dropped isLate/pointsOverride and upgraded the completion.
+                  const record = originalCompletion || { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'kid-mode' };
                   completions[entryKey] = record;
                   await writeCompletion(entryKey, record);
                 } else {
@@ -1537,9 +1546,10 @@
                     await removeMessagesByEntryKey(kid.id, entryKey);
                     if (undoBountyTask.bounty.type === 'reward' && undoBountyTask.bounty.rewardId) {
                       const bReward = rewards[undoBountyTask.bounty.rewardId];
-                      if (bReward?.rewardType === 'task-skip' || bReward?.rewardType === 'penalty-removal') {
-                        await removeLatestBankToken(kid.id, bReward.rewardType);
-                      }
+                      // KD4: custom bounty rewards also banked a token on
+                      // completion — undo must reclaim those too, not just
+                      // the functional types.
+                      await removeLatestBankToken(kid.id, bReward?.rewardType || 'custom');
                     }
                   }
                   // Restore archived one-time task
@@ -1820,7 +1830,7 @@
           html += `<div class="task-detail__info">
             <div class="task-detail__name" style="--owner-color:${kid.color}">
               <span class="task-card__avatar">${kid.name[0].toUpperCase()}</span>
-              <span>${catIcon ? catIcon + ' ' : ''}${taskNameWithEmoji(task.name)}</span>
+              <span>${catIcon ? esc(catIcon) + ' ' : ''}${taskNameWithEmoji(esc(task.name))}</span>
             </div>
             <div class="task-detail__meta">
               <span class="chip">${rotLabel}</span>
@@ -2163,7 +2173,7 @@
         render();
 
         // Mount overlays BEFORE revealing content to avoid flash
-        const hasUnseenMsgs = Object.values(messages).some(m => !m.seen && ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'task-skip-used', 'penalty-removed'].includes(m.type));
+        const hasUnseenMsgs = Object.values(messages).some(m => !m.seen && ['bonus', 'deduction', 'redemption-approved', 'redemption-denied', 'use-approved', 'use-denied', 'task-skip-used', 'penalty-removed'].includes(m.type));
         showUnseenMessages();
         if (!hasUnseenMsgs) showUnseenAchievements();
 

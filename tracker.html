@@ -566,17 +566,27 @@
       for (const card of main.querySelectorAll('.card--tracker[data-entry-key]:not([data-entry-key=""])')) {
         let pressTimer = null;
         let didLongPress = false;
+        let pressX = 0, pressY = 0;
 
-        card.addEventListener('pointerdown', () => {
+        card.addEventListener('pointerdown', (e) => {
           didLongPress = false;
+          pressX = e.clientX; pressY = e.clientY;
           pressTimer = startLongPressTimer(() => {
             didLongPress = true;
             openTaskSheet(card.dataset.entryKey, card.dataset.dateKey);
           }, { longPressMs: settings?.longPressMs ?? 500 });
         });
 
+        // TR2: scrolling with a finger resting on a card used to fire the
+        // long-press — cancel on >10px movement (and on pointercancel).
+        card.addEventListener('pointermove', (e) => {
+          if (pressTimer && (Math.abs(e.clientX - pressX) > 10 || Math.abs(e.clientY - pressY) > 10)) {
+            clearTimeout(pressTimer); pressTimer = null;
+          }
+        });
         card.addEventListener('pointerup', () => { clearTimeout(pressTimer); });
         card.addEventListener('pointerleave', () => { clearTimeout(pressTimer); });
+        card.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
         card.addEventListener('contextmenu', (e) => e.preventDefault());
 
         card.addEventListener('click', () => {
@@ -1049,9 +1059,20 @@
         if (!taskId) return;
         const name = tasks[taskId]?.name || 'this task';
         if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
-        // Tracker doesn't have readAllSchedule re-import — null the task node only.
-        // Orphaned schedule entries will be filtered out by renderers (taskId won't be found).
-        await removeTask(taskId);
+        // TR1: deleting only the task node orphaned its schedule entries and
+        // completions forever. Same semantic as admin's delete: keep completed
+        // PAST entries (history), remove everything else + orphaned completions.
+        const allSched = (await readAllSchedule()) || {};
+        const updates = { [`tasks/${taskId}`]: null };
+        for (const [dk, day] of Object.entries(allSched)) {
+          for (const [ek, en] of Object.entries(day || {})) {
+            if (en.taskId !== taskId) continue;
+            if (comps[ek] && dk < today) continue; // completed history stays
+            updates[`schedule/${dk}/${ek}`] = null;
+            if (comps[ek]) updates[`completions/${ek}`] = null;
+          }
+        }
+        await multiUpdate(updates);
         delete tasks[taskId];
         trkHidePicker();
         closeTaskSheet();
@@ -1102,12 +1123,12 @@
     // or listeners will stack on every render.
     let swipeStartX = 0;
     let swipeStartY = 0;
-    document.addEventListener('touchstart', (e) => {
+    main.addEventListener('touchstart', (e) => {
       if (e.target.closest('#taskSheetMount') || e.target.closest('.bottom-sheet')) return;
       swipeStartX = e.touches[0].clientX;
       swipeStartY = e.touches[0].clientY;
     }, { passive: true });
-    document.addEventListener('touchend', (e) => {
+    main.addEventListener('touchend', (e) => {
       if (e.target.closest('#taskSheetMount') || e.target.closest('.bottom-sheet')) return;
       const dx = e.changedTouches[0].clientX - swipeStartX;
       const dy = e.changedTouches[0].clientY - swipeStartY;

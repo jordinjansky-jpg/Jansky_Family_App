@@ -33,9 +33,13 @@
 </head>
 <body>
   <div id="headerMount"></div>
-  <div class="page-content" id="app">
+  <!-- P1: shell must stay byte-identical to index.html's wrapper — person mode
+       is the same dashboard.js page. .page-content here doubled the side
+       gutters and used a different tablet clamp than Home (§6.9 parity).
+       If you change index.html's wrapper, change this one too. -->
+  <main class="app-shell" id="app">
     <div id="mainContent"></div>
-  </div>
+  </main>
   <div id="fabMount"></div>
   <div id="navMount"></div>
   <div id="toastMount"></div>

@@ -4,7 +4,7 @@ import { initFirebase, readSettings, writeSettings, readPeople, readRewards, rea
   markBankTokenUsed, removeBankToken, onConnectionChange, pushReward,
   writeReward, archiveReward, removeReward,
   onAllMessages, removeMessage, writeMultiplier, writePerson,
-  readAllActivityEarnings
+  readAllActivityEarnings, readOnce
 } from './shared/firebase.js';
 import { startLongPressTimer, recordTap, withButtonLock, bindEscapeToClose, validateStoredId } from './shared/dom-helpers.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
@@ -12,7 +12,7 @@ import { calculateBalance } from './shared/scoring.js';
 import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderHistoryDetailSheet, renderApprovalRow,
-  openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState,
+  openDeviceThemeSheet, renderOverflowMenu, renderSkeleton, renderEmptyState, renderErrorState,
   renderDateInput, bindDateInput, renderSwitchToggle,
   renderColorButton, initColorButton, renderPersonAvatar, renderFormFooter,
   readRewardsCustomize,
@@ -517,25 +517,29 @@ function bindShopTab() {
   document.querySelectorAll('.card--reward[data-reward-id]').forEach(card => {
     let pressTimer = null, didLongPress = false, startX = 0, startY = 0;
 
-    card.addEventListener('touchstart', e => {
+    // Pointer events so mouse users can long-press to edit too (R9), and the
+    // documented 800ms default instead of a bespoke 600ms third timing.
+    card.addEventListener('pointerdown', e => {
       if (e.target.closest('.reward-get-btn')) return;
+      if (typeof e.button === 'number' && e.button !== 0) return;
       didLongPress = false;
-      startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+      startX = e.clientX; startY = e.clientY;
       if (!isAdult) return;
       pressTimer = startLongPressTimer(() => {
         didLongPress = true;
         pressTimer = null;
         navigator.vibrate?.(30);
         openRewardForm(card.dataset.rewardId);
-      }, { longPressMs: 600 });
-    }, { passive: true });
-    card.addEventListener('touchmove', e => {
-      if (pressTimer && (Math.abs(e.touches[0].clientX - startX) > 10 || Math.abs(e.touches[0].clientY - startY) > 10)) {
+      }, { longPressMs: settings?.longPressMs ?? 800 });
+    });
+    card.addEventListener('pointermove', e => {
+      if (pressTimer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
         clearTimeout(pressTimer); pressTimer = null;
       }
-    }, { passive: true });
-    card.addEventListener('touchend', () => { clearTimeout(pressTimer); pressTimer = null; });
-    card.addEventListener('touchcancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+    });
+    card.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
+    card.addEventListener('pointerleave', () => { clearTimeout(pressTimer); pressTimer = null; });
+    card.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
     card.addEventListener('contextmenu', e => e.preventDefault());
     card.addEventListener('click', e => {
       if (e.target.closest('.reward-get-btn')) return;
@@ -817,24 +821,26 @@ function bindApprovalsTab() {
     }
   });
 
+  // R2: disable the row's buttons during the async approve/deny — double-tap
+  // (or both parents' devices) used to mint duplicate tokens and messages.
+  const lockApprovalRow = async (btn, fn) => {
+    const row = btn.closest('.approval-row');
+    const btns = row ? row.querySelectorAll('button') : [btn];
+    if (btn.disabled) return;
+    btns.forEach(b => { b.disabled = true; });
+    try { await fn(row); } finally { btns.forEach(b => { b.disabled = false; }); }
+  };
+
   document.querySelectorAll('.approval-approve-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const row = btn.closest('.approval-row');
-      const msgId = row?.dataset.msgId || '';
-      const personId = row?.dataset.personId || '';
-      const rewardId = row?.dataset.rewardId || '';
-      const intent = row?.dataset.intent || '';
-      handleApprove(msgId, personId, rewardId, intent);
-    });
+    btn.addEventListener('click', () => lockApprovalRow(btn, (row) =>
+      handleApprove(row?.dataset.msgId || '', row?.dataset.personId || '', row?.dataset.rewardId || '', row?.dataset.intent || '')
+    ));
   });
 
   document.querySelectorAll('.approval-deny-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const row = btn.closest('.approval-row');
-      const msgId = row?.dataset.msgId || '';
-      const personId = row?.dataset.personId || '';
-      handleDeny(msgId, personId);
-    });
+    btn.addEventListener('click', () => lockApprovalRow(btn, (row) =>
+      handleDeny(row?.dataset.msgId || '', row?.dataset.personId || '')
+    ));
   });
 
   document.querySelectorAll('#approvalsRecentList .history-row--tappable').forEach(row => {
@@ -858,6 +864,14 @@ function bindApprovalsTab() {
 }
 
 async function handleApprove(msgId, personId, rewardId, intent) {
+  // R2: re-read the message — the cached copy can't tell us another device
+  // (or the bell on this one) already approved/denied this request.
+  const fresh = await readOnce(`messages/${personId}/${msgId}`).catch(() => null);
+  if (!fresh || fresh.seen) {
+    showToast('Already handled.');
+    await refreshData(); render();
+    return;
+  }
   const msg = allMessages?.[personId]?.[msgId];
   const reward = rewardsObj?.[rewardId] || {};
   const ts = firebase.database.ServerValue.TIMESTAMP;
@@ -1188,6 +1202,29 @@ async function handleGetReward(rewardId) {
     if (balance < (reward.pointCost || 0)) {
       showToast('Not enough points.');
       return;
+    }
+
+    // R1: re-validate EVERY gate, not just balance — the whole card is
+    // tappable, so a dimmed (ineligible) card still reached this handler and
+    // let kids buy streak-locked, out-of-stock, or expired rewards.
+    const streakNow = allStreaks?.[activePerson.id]?.current || 0;
+    if (reward.streakRequirement > 0 && streakNow < reward.streakRequirement) {
+      showToast(`Needs a ${reward.streakRequirement}-day streak (you're at ${streakNow}).`);
+      return;
+    }
+    if (reward.expiresAt && reward.expiresAt < todayKey(settings?.timezone)) {
+      showToast('This reward has expired.');
+      return;
+    }
+    if (reward.maxRedemptions > 0) {
+      let used = 0;
+      for (const msg of Object.values(allMessages?.[activePerson.id] || {})) {
+        if (msg.rewardId === rewardId && (msg.type === 'redemption-approved' || msg.type === 'reward-used')) used++;
+      }
+      if (used >= reward.maxRedemptions) {
+        showToast('This reward is out of stock.');
+        return;
+      }
     }
 
     const ts = firebase.database.ServerValue.TIMESTAMP;
@@ -1812,4 +1849,12 @@ async function refreshData() {
   ]);
 }
 
-init().catch(console.error);
+init().catch((err) => {
+  console.error(err);
+  // R6: a failed load used to leave the skeleton spinning forever.
+  renderErrorState(document.getElementById('rewardsContent'), {
+    title: "Couldn't load rewards",
+    message: 'Check your connection and try again.',
+    retry: () => location.reload(),
+  });
+});
