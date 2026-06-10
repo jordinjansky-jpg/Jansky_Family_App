@@ -36,14 +36,46 @@
 | 10 | Kid mode | kid.html, styles/kid.css | ✅ Done |
 | 11 | Person mode | person.html | ✅ Done |
 | 12 | Admin | admin.html, styles/admin.css | ✅ Done |
-| 13 | Setup wizard | setup.html, styles/setup.css | Pending |
-| 14 | Activities | activities.html, shared/timer.js, styles/activities.css | Pending |
+| 13 | Setup wizard | setup.html, styles/setup.css | ✅ Done |
+| 14 | Activities | activities.html, shared/timer.js, styles/activities.css | ✅ Done |
 | 15 | Support modules | shared/weather.js, ai-helpers.js, push-client.js, push-ui.js, dev-banner.js | ✅ Done |
 | 16 | Worker & PWA | workers/kitchen-import.js, sw.js, manifest.json, serve.js | ✅ Done |
 | 17 | Base CSS | styles/base.css, layout.css, components.css, responsive.css | ✅ Done |
-| 18 | Docs drift | CLAUDE.md, DESIGN.md, ROADMAP.md vs reality | Pending |
+| 18 | Docs drift | CLAUDE.md, DESIGN.md, ROADMAP.md vs reality | ✅ Done |
 
 ---
+
+## Executive summary
+
+**425+ findings across 18 areas: 13 critical, ~45 high.** The app is feature-rich and the recent form-system work shows; the dominant problems are (a) the schedule rebuild destroying user data, (b) dev-mode writes leaking to production, (c) an unsecured Worker, and (d) a spec that no longer describes the shipped app.
+
+### All 🔴 Critical findings
+
+| ID | Area | One-liner |
+|---|---|---|
+| SC1/A5 | Scheduler | Dedicated-day placement on a past date **replaces the whole day's schedule node** — wipes other tasks' entries + orphans completions; triggered by 5 routine admin actions |
+| DB1/CAL4 | Dashboard/Calendar | Moves, delegations, skips, notes, slider overrides are **silently undone by any schedule rebuild** |
+| CAL1 | Calendar | **No FAB — events/tasks cannot be created from the calendar at all**; ~400 lines of add/import code unreachable |
+| CAL2/CAL3 | Calendar | Swipe-listener leak across views + double-bound week swipe (jumps 2 weeks) |
+| K1 | Kitchen | "Add to list" on a planned meal calls an **undefined function** — guaranteed crash |
+| K2/A1 | Kitchen/Admin | Hardcoded `rundown/` refs — **`?env=dev` testing writes to production** (list check-offs, person CRUD, autoPrune, email imports) |
+| K3 | Kitchen | Vote sheet + Cook mode CSS only loads on Kitchen — **unstyled/broken on Dashboard, Calendar, Kid** |
+| A2/F2 | Admin | Person deletion orphans ~12 data trees (push subs, earnings, streaks, snapshots, schedule entries, owner arrays…) |
+| A8 | Admin | iCal & school-lunch **feed deletion is broken** (`showConfirm('string')` throws) |
+| R1 | Rewards | Tapping a dimmed card **bypasses streak/stock/expiry gates** — kids can buy locked/out-of-stock rewards |
+| W1 | Worker | AI endpoints **unauthenticated behind `*` CORS — anyone can spend the Claude API key**; no rate limiting (W2); approval HMAC forgeable (W3) |
+| AC1 | Activities | Editing/deleting an older session **permanently deletes settled points** (Worker never re-settles past periods) |
+| SU1 | Setup | Non-atomic settings-first final write can **brick onboarding** (half-created family, wizard locked out) |
+| CSS12 | CSS | Retired token `--bg-secondary` used → confirm-row press state renders nothing |
+
+### Recommended fix-pass order
+
+1. **Stop the bleeding (data):** SC1 + SC2-family (one scheduler fix), K2/A1 dev→prod writes, A8 feed deletes, K1 crash, AC1+AC2+AC3 earnings, SU1 setup atomicity, R1 reward gates, C2/R2 double-tap approval guards.
+2. **Security:** W1+W2+W3+W4 Worker hardening (one task).
+3. **Restore broken UX:** CAL1 FAB, CAL2/3 swipes, K3 CSS move, KD1 celebration mount, DB5/T1 theme propagation, A9 badge awarding, SB2 scoreboard crash.
+4. **Cross-cutting sweeps** (see "Consolidated cross-cutting themes" at the end): error-handling wrapper, escaping, emoji/inline-style sweeps, dead code, gesture consolidation, week definition, timezone audit.
+5. **Docs re-sync** (§18): one PR updating DESIGN.md/CLAUDE.md to match every intentional divergence, marking the rest "planned."
+
 
 ## Pre-review observations (found during setup)
 
@@ -532,6 +564,72 @@ Foundation modules are headless; UX implications are logged with their owning pa
 
 ---
 
+## 13. Setup wizard (setup.html · styles/setup.css)
+
+### 13.1 Phase A
+
+- **SU1 🔴 Final write is non-atomic and settings-first — a failure mid-write bricks onboarding.** `finishSetup` writes settings → categories → people sequentially (setup.html:541–574). Settings existing is the first-run sentinel AND setup's own redirect trigger (204–208): if a person push fails, "Try Again" duplicates already-written people, and a refresh redirects to index.html with a family that has zero/partial people and no way back into the wizard. Fix: one atomic multi-path `update()`, or write settings *last* as the commit marker.
+- **SU2 🟠 Dev-mode env param dropped on both redirects** (206, 577) — a dev-mode setup writes to `rundown-dev` then lands on production index. Propagate `location.search`.
+- **SU3 🟡 PIN stored plaintext; recovery PIN `2522` hardcoded in shipped JS** (545–546). Known/accepted posture (cross-ref A15), but consider hashing `adminPin` at least.
+- **SU4 🟡 No PIN confirmation step** — §6.8 says "4-digit entry + confirm"; implementation is a single entry (137–143). A typo locks the user out of admin until they find the recovery PIN.
+- **SU5 🟡 Validation is silent, not inline** — step 1's Continue is always enabled and just refocuses on empty name (258–261); spec requires inline validation with `role="alert"`. Also an all-symbol category label produces an empty key that Firebase rejects at finish time, far from the cause (422).
+- **SU6 🟡 Schema linkage:** setup writes `role: 'child'` (350–369, correct) — but activities/calendar/admin sort on a `kid === true` property nothing ever writes (see AC6). Fix in the consumers.
+- **SU7 🟡 Refresh mid-wizard loses everything** — all state in module variables, no `beforeunload` guard, no draft persistence. Losing 5 typed family members to a back-swipe is painful.
+- **SU8 🔵 Already-set-up redirect is racy and error-blind** — fire-and-forget `readSettings().then(...)` (204–208); a read error is swallowed and `finishSetup` would overwrite an existing family. Await before showing step 1.
+- **SU9 🔵 Pattern drift: the only page still on inline `onclick=` + 10 window-globals** (53–157, 256–487).
+- **SU10 🔵 Dead CSS:** `.person-card__color` (setup.css:91–96), `.color-swatch--used/--positioned` (132–149, 261) — markup replaced by `openAvatarEditor`. Hardcoded `color: white` (147); `!important` triple-stack on `.role-btn` (121–130).
+- **SU11 ⚪ Theme preview hexes hardcoded in JS** (449–450, 464) — will drift from theme.js presets; derive from `getPresets()`.
+
+### 13.2 Phase B
+
+- **SU12 🟡 Step 6 has no Back button** (152–159) — a typo spotted on the summary can't be fixed. Spec: every step has Back (ghost) | Next (primary).
+- **SU13 🟡 A11y:** theme/accent pickers are click-only divs with no tabindex/role/aria-pressed and no accessible name (451–468); PIN digits unlabeled; remove buttons icon-only unlabeled. Convert to buttons and label.
+- **SU14 🔵 §6.8 otherwise solid** (6 steps ✓, dots ✓ though custom `.step-dot` not the spec'd shared `.progress`, footer ✓ steps 2–5). Header 📋 and finish 🎉 emoji are in page chrome — exempt setup explicitly in DESIGN.md if the festive tone is intended.
+- **SU15 🔵 Flow polish:** Enter in the name field should trigger Add Person; role resets to Adult after each add (kid-heavy families re-tap Child every time); `removeCategory` silently refuses at one remaining category (438).
+
+---
+
+## 14. Activities (activities.html · shared/timer.js · styles/activities.css)
+
+### 14.1 Phase A — earnings integrity & timer sync
+
+- **AC1 🔴 Earnings invalidation permanently deletes points for back-dated periods.** The Worker only ever settles *yesterday* (daily) and *last week on Mondays* (weekly) — but the client `removeActivityEarning`s for *any* affected period (activities.html:888–891, 1117–1120, 1143–1146). Editing/deleting a session ≥2 days old deletes a settled earning the Worker will never recompute — silent point loss in a points economy. (Compounds W5's no-catch-up gap.) Fix: Worker re-settles any unsettled past period within a lookback window, or the client writes a "needs resettle" marker.
+- **AC2 🟠 Weekly periodKey computed from the UTC day, not `settings.timezone`** (`sessionPeriodKey`, 904–909) while the Worker attributes by tz-local date — a Sunday-evening Chicago session invalidates *next* week's key while the Worker counted it in *this* week. Same UTC bug in admin.html:3628–3635 (A12). Compute from `localDateKey(startedAt, tz)`.
+- **AC3 🟠 Editing a session never invalidates its OLD period** (`doSave`, 1117–1120, only the new key) — moving a session across days/persons leaves the old settled earning counting phantom minutes. Delete does it right (1143–1146); edit must invalidate both.
+- **AC4 🟠 Stop race: two devices stopping simultaneously double-log the session** (`stopTimer`, 872–896: read-local → push → clear, no transaction; push IDs never collide). Also non-atomic on one device (failed clear after push = retry duplicates). Claim the timer with a `transaction()` and push only after a successful claim.
+- **AC5 🟠 Cross-device elapsed time uses local `Date.now()` against another device's clock** — `startedAt`/`pausedAt` are client timestamps (829–836), and `pause()` on a skewed device bakes the error into `accumulatedMs` permanently (timer.js:3–26, clamped to 0 so minutes are *lost* silently). Use `ServerValue.TIMESTAMP` + `.info/serverTimeOffset`.
+- **AC6 🟠 "Kids first" sorting is dead code app-wide** — sorts on `x.kid === true` (482–484, 539–541) but people use `role: 'child'`; nothing ever writes `kid: true` (repo-wide grep). Same latent bug in calendar.html:306 and admin.html:3398 (A10). One-line fix ×3.
+- **AC7 🟠 Today-tab weekly pace disagrees with the overlay's math** — the card includes today's minutes in the pace base (691–693; goal 70, log 10 → target drops to 9 and the bar shows "over") while the overlay correctly subtracts today first (214). Align the card.
+- **AC8 🟠 FAB present though §6.11 says "No FAB"** (159–165, deep-links to admin) — and §5.13 separately says an Activities FAB should *start an activity*. DESIGN.md contradicts itself; resolve the spec, then the code (wiring the FAB to the manual-entry sheet would also revive AC15's dead branch).
+- **AC9 🟡 Cross-device totals don't update** — the activeTimers subscription re-renders but never reloads `sessions` (168–171); device A sees the timer vanish but totals exclude the new session until reload.
+- **AC10 🟡 `bindEscapeToClose` unsubscribe discarded at all four call sites** (341, 568, 1086 + re-binds) — document keydown listeners accumulate; after N opens one Escape fires N stale closures.
+- **AC11 🟡 `isForgotten` defeated by pause/resume** (checks `startedAt`, which `resume()` resets — timer.js:32, 44–47) and never fires for long-paused timers. Use `originalStartedAt`.
+- **AC12 🟡 Manual entry: no max duration enforced** (input `max=1440` is advisory; typing 99999 saves and inflates earnings) **and future dates allowed** (pre-banking goal credit). Enforce in `doSave` with inline errors.
+- **AC13 🟡 Noon anchor parses in device timezone** (1100), not `settings.timezone` — ≥12h-offset devices land sessions on the wrong day (compounds AC2). `formatDateHeader` (634) same.
+- **AC14 🟡 Editing a timer session destroys provenance** — `doSave` unconditionally sets `source:'manual'`, re-anchors `startedAt` to noon, overwrites `createdBy` (1101–1110). Fixing a Notes typo rewrites the real start time. Only re-anchor when the date changed; preserve source/createdBy.
+- **AC15 🟡 ~80 lines of dead "no-preselect" code in the manual sheet** (914–963, 1024–1066) — every caller passes an activityId; the activity-picker branch is unreachable (pairs with AC8).
+- **AC16 🟡 No error state on initial load** (`loadData`, 175–192) — failed read = spinner forever.
+- **AC17 🟡 Stale timers for deleted people/activities linger forever** — raw push-ID rendered as the name (653); nothing GCs `activeTimers`. Add a sweep.
+- **AC18 🟡 `.section-header` collides with the shared component class** (activities.css:27–34 vs components.css:2856) and, loading later, overrides it page-wide. Rename.
+- **AC19 🟡 `shared/timer.js` doesn't match its §5.10 spec at all** — spec promises `openTimer({durationMin, label, onDone})` as a Sheet with chime + reduced-motion fallback; the module is pure math and the overlay is page-local (activities.html:227–363). Task Timer (3.1) consuming "the same module" will find nothing. Update §5.10 or extract the overlay.
+- **AC20 🔵 First-run redirect doesn't return** (94) — same as DB18/KD13.
+- **AC21 🔵 Inline styles + inconsistent escaping:** `style="width:…"` progress bars (470), person headers inject `person.color` **unescaped** (679, 738) while the chip version escapes it (524); `applyDataColors` imported and never used (63); `a.emoji` injected raw everywhere.
+- **AC22 🔵 Duplicated helpers:** local `escapeHtml` (493–495) vs utils; localStorage person validation (103–110) vs `validateStoredId`; two env-param patterns three lines apart in behavior (162–163 vs 1176).
+- **AC23 🔵 Interval/efficiency nits:** 250ms display interval keeps ticking when the tab is hidden and on the History tab; History renders every session ever with no pagination.
+- **AC24 🔵 Only page without the dev banner** — `?env=dev` testing here shows no orange banner/clear button.
+- **AC25 ⚪ Misc:** stale "Tasks 11-14" comment (activities.css:14); dead `.fs-timer__readout` 52px rule (285); hardcoded px sizes/radius in history rows (331–336); `padding-bottom:80px` hardcodes nav height; `activities-active-person` localStorage key shared dev/prod.
+
+### 14.2 Phase B
+
+- **AC26 🟡 §6.11 layout compliance good** (tabs ✓ grouping ✓ active-timers ✓ adaptive pace ✓ 7-dot summary ✓ history grouping ✓) **except** the FAB (AC8) and kids-first (AC6).
+- **AC27 🟡 History edit is undiscoverable** — plain divs, no chevron/pencil/hint (617–623), not keyboard-accessible. Add a trailing chevron + make rows buttons.
+- **AC28 🟡 Symbols in chrome:** `▶ Start` buttons (707), `✓ Goal hit` / `⚠ Forgotten?` status chips (704, 661) — §12 bans glyphs in buttons/status chips; use SVG.
+- **AC29 🟡 A11y:** timer readouts have no `aria-live`; week dots convey state by color/title only; tabs lack arrow-key nav; long-press card→admin gesture has no affordance and doesn't suppress contextmenu.
+- **AC30 🔵 Forgotten-timer chip offers no remediation** — Stop still credits 6+ hours. Offer "Discard"/"Trim to goal", and surface via the Bell per §7.2.
+- **AC31 🔵 Polish:** wake-lock + chime + reduced-motion on the fullscreen timer; "wk: 35 / 70" is cryptic for kids ("This week: 35 of 70 min"); avatar/color on active-timer cards; empty-state copy points at admin while the FAB exists.
+
+---
+
 ## 15. Support modules (weather, ai-helpers, push-client, push-ui, dev-banner)
 
 - **SM1 🟠 weather.js ignores the temperature-unit setting — always Fahrenheit.** `_fetchAndCache` hardcodes `&temperature_unit=fahrenheit` (weather.js:129); no read of any `settings.temperatureUnit`. Thread the unit through from settings (the Admin spec §6.5 lists "temperature unit" as a Family setting).
@@ -633,3 +731,60 @@ Push pref-key chain is **fully consistent**: `firebase.js mapMessageTypeToPushTy
 - **CSS27 ⚪ theme.js dark fallback writes `--accent-soft` via color-mix while base.css dark uses hand-picked values** — if a preset fails to load, dark accent-soft chips look noticeably different from the designed palette.
 
 ---
+
+## 18. Docs drift (CLAUDE.md · DESIGN.md · ROADMAP.md vs reality)
+
+The project's own rule is "DESIGN.md is the single source of truth — if a situation isn't covered, add it first, then build." A large share of Phase B findings are really *doc* findings: the app shipped past the spec. Consolidated here so the fix pass can do one docs sweep.
+
+### 18.1 CLAUDE.md
+
+- **DOC1 🟡 File-structure tree is stale:** missing `activities.html`, `styles/activities.css`, `shared/timer.js`, `shared/push-client.js`, `shared/push-ui.js`, `shared/kitchen-ical.js`. Counts stale: firebase.js "~25 exports" (now ~150), components.js "~4,000 lines" (now ~5,635).
+- **DOC2 🟡 "Shared modules are pure functions — no DOM. Exceptions: theme.js, dev-banner.js"** — also DOM-touching: components.js (showConfirm/showToast/openCookMode/openVoteSheet/sheet binders), dom-helpers.js (by design), push-ui.js, ai-helpers.js, and the page-local timer overlay. Rewrite the rule to describe the real boundary (pure *renderers* return strings; *binders/openers* may touch DOM).
+- **DOC3 🔵 "All past-date completions get isLate + pointsOverride … regardless of rotation"** overstates: saved pointsOverride, `isEvent` categories, `exempt` tasks, and full-credit completions are exempt (DB11) — and dashboard doesn't block past-daily taps while calendar does (CAL24).
+- **DOC4 🔵 Long-press timings:** rewards uses an undocumented 600ms (R9); the documented 500/800 split can be silently overridden by a global `settings.longPressMs` (TR12).
+
+### 18.2 DESIGN.md — sections that no longer describe the shipped app
+
+| Spec section | Reality | Finding |
+|---|---|---|
+| §6.2 Calendar (views, month-hidden-on-phone, default Week) | 4th Agenda view (default), mobile month grid+dots+day panel | CALB1 |
+| §6.5 Admin IA (Library/People/Rewards/Settings/Advanced + Debug) | Library/People/Settings/Tools; no Debug anywhere | AB1 |
+| §6.7 Rewards tabs (Custom/Functional/Bounties/Wishlist/Bank) | Shop/Bank/History/Approve; Wishlist has schema but zero UI | R13 |
+| §6.3 Scoreboard periods (Week/Month/Year) | + Today tab; "weeks" are rolling 7-day windows | SB10, SB14 |
+| §6.1 Dashboard | approvals banner tier (undocumented), Back-to-Today pill in header, `.event-bubble` instead of `.card--event`, Coming-up rail behavior changed | DB24–DB27 |
+| §10.1 Theme presets (Sage/Ocean/Rose/Amber/Iris) | light-warm/dark/dark-warm/light-vivid/dark-vivid + free accent | T2 |
+| §3.2 Type scale + "never import a webfont" | different px values + self-hosted Plus Jakarta Sans | CSS1, CSS2 |
+| §3.4 `--icon-*` tile tokens | never implemented; `--owner-a..d` defined but unused | CSS3, CSS4 |
+| §4.2 Tablet two-pane (rail, 900/1200/1600, type bump) | unimplemented; 560px clamp contradicts it | CSS9, CSS22 |
+| §5.10 Timer component (`openTimer` sheet, chime) | timer.js is pure math; overlay is page-local in activities.html | AC19 |
+| §5.13 vs §6.11 | FAB contradiction (FAB-starts-activity vs No-FAB) — spec disagrees with itself | AC8 |
+| §6.6 Kid mode (stats row, today-tile grid, on-page trophies, bank at 3+, parent escape, two celebrations, modifier CSS) | stats row absent, trophies in a sheet, bank at 1+, escape not implemented, four celebrations, parallel kid-* CSS | KB1–KB4, KB9 |
+| §6.4 Tracker filter sheet | unimplemented; the shared component for it is dead code | TR9 |
+| §6.10 Kitchen bulk-add | documented as live; unreachable | K15 |
+| §6.8 Setup PIN confirm step | single entry, no confirm | SU4 |
+| §7.3 Banner mounts/priority | approvals tier exists; vacation/freeze are dead placeholders | DB24 |
+
+**Recommended approach:** one "spec re-sync" PR that updates DESIGN.md to match every *intentional* shipped divergence above (Agenda view, admin IA, rewards tabs, Today tab, theme system, webfont, type scale), and explicitly marks the rest as "spec'd, not yet built" (tablet §4.2, kiosk §4.3, kid stats row, tracker filter, timer component §5.10). Without this, every future session "corrects" the app toward a stale spec.
+
+### 18.3 ROADMAP.md
+
+- **DOC5 ⚪ Nav line is current ✓** (Home · Kitchen · Scores · Rewards · More; user-customizable slots match §10.4). Activities "shipped" status ✓. No changes needed beyond adding any fix-pass follow-ups the user adopts from this review (e.g., wishlist decision from R13).
+
+---
+
+## Consolidated cross-cutting themes (for the fix pass)
+
+These patterns each appear on 3+ pages; fixing them once in shared code clears dozens of findings:
+
+1. **Schedule-rebuild data destruction** — SC1 (past-date node wipe), SC2/DB1/CAL4/A6 (moves/delegations/notes/sliders stripped), DB19/CAL5/A4 (event mirror decay). One scheduler fix (merge past dates; preserve marked entries; drop or regenerate mirrors) clears ~10 findings across 4 pages.
+2. **Dev mode writes to production** — A1 (admin person CRUD, autoPrune, email imports), K2 (kitchen items/staples), W12 (Worker root), SU2 (setup redirects). Audit rule: no `'rundown/'` string literals outside shared/firebase.js.
+3. **No error handling on writes** — DB6/DB12, CAL7, TR4, R8, KD7, AC16, A14. One shared `safeWrite(fn, { toast, revert })` wrapper + adoption.
+4. **Double-tap / concurrency guards missing on money paths** — C2 (bell approve), R2 (approvals tab), K6 (votes), AC4 (timer stop), K42 (plan save). `withButtonLock` exists; adopt it + transactions where two devices race.
+5. **Week definition chaos** — scheduler ISO-Monday (SC3), tracker Monday, scoreboard rolling (SB14), heatmap Sunday (SB4), activities UTC-week keys (AC2), `weekStartDay` setting honored only by calendar display. Pick one family-week definition.
+6. **Timezone rule violations** — F1, A12, K12, AC2, AC13, TR7, SM-adjacent. Grep for `new Date()`-based day math outside utils.
+7. **Local gesture copies drifting from `bindTaskRowGesture`** — DB2 (undefined const), CAL19, TR2, R9, K25. Consolidate on the shared helper (and add the keyboard path once — DB31).
+8. **Escaping gaps** — U2 (escapeHtml crashes on non-strings — fix this first, it converts crashes like A8 into rendered text), DB7, KD2, R11, A13, C6 (double-escapes), CAL20, AC21.
+9. **Emoji-in-chrome sweep** — C22, DB28, CALB7, SB9, K21, KB6, AC28, SU14, R16: ~30 sites, all mechanical swaps to existing SVG constants.
+10. **Inline-style sweep** — C23, DB29, SB13, K20, KD14, AB5, AC21, CALB12: move to classes / `data-*` + `applyDataColors`.
+11. **Dead code** — ~15 unused imports per page (DB14, CAL14, SB6, TR7, A20, R10), dead functions (DB13, K15, A9, C10), ~500+ lines of dead CSS (CALB11, A27, K27, CSS19, KD11, SU10). One cleanup PR.
+12. **Worker security posture** — W1+W2+W3+W4 should be treated as a single hardening task (CORS lock, shared secret, rate limit, SSRF guard) before any of the AI features are promoted further.
