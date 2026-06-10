@@ -33,14 +33,14 @@
 | 7 | Tracker | tracker.html, styles/tracker.css | ✅ Done |
 | 8 | Scoreboard | scoreboard.html, styles/scoreboard.css | ✅ Done |
 | 9 | Rewards | rewards.html, rewards.js, styles/rewards.css | ✅ Done |
-| 10 | Kid mode | kid.html, styles/kid.css | Pending |
-| 11 | Person mode | person.html | Pending |
+| 10 | Kid mode | kid.html, styles/kid.css | ✅ Done |
+| 11 | Person mode | person.html | ✅ Done |
 | 12 | Admin | admin.html, styles/admin.css | ✅ Done |
 | 13 | Setup wizard | setup.html, styles/setup.css | Pending |
 | 14 | Activities | activities.html, shared/timer.js, styles/activities.css | Pending |
 | 15 | Support modules | shared/weather.js, ai-helpers.js, push-client.js, push-ui.js, dev-banner.js | ✅ Done |
 | 16 | Worker & PWA | workers/kitchen-import.js, sw.js, manifest.json, serve.js | ✅ Done |
-| 17 | Base CSS | styles/base.css, layout.css, components.css, responsive.css | Pending |
+| 17 | Base CSS | styles/base.css, layout.css, components.css, responsive.css | ✅ Done |
 | 18 | Docs drift | CLAUDE.md, DESIGN.md, ROADMAP.md vs reality | Pending |
 
 ---
@@ -427,6 +427,51 @@ Foundation modules are headless; UX implications are logged with their owning pa
 
 ---
 
+## 10. Kid mode (kid.html · styles/kid.css)
+
+### 10.1 Phase A
+
+- **KD1 🟠 Achievement overlay destroys the all-done celebration mount.** `showUnseenAchievements`'s dismiss sets `mount.innerHTML = ''` (kid.html:663) instead of restoring `renderCelebration()` like `showUnseenMessages` does (567–568). Once any achievement overlay has shown, `#celebration` is gone and `showFullAllDoneCelebration` (1742–1743) silently no-ops for the rest of the session — and `recheckAchievements` runs after every completion, so this is common. Restore the mount on dismiss.
+- **KD2 🟠 Unescaped task name in the kid task detail sheet** (1823: `taskNameWithEmoji(task.name)` raw) — HTML in a task name renders/executes here. `taskNameWithEmoji(esc(task.name))`.
+- **KD3 🟠 Undo of "marked incomplete" loses the original completion record** (1527) — identical to DB10; fix both pages by snapshotting the original record.
+- **KD4 🟠 Custom-reward bounty bank token is orphaned on undo.** Kid completion writes a token for *any* bounty reward incl. custom (1462–1473) but undo only removes task-skip/penalty tokens (1538–1543) — a usable orphan token remains. Also schema drift vs dashboard's bounty path (dashboard.js:1140–1148: functional-only, missing `rewardId/rewardName/rewardIcon`) — same action, different token shapes per page.
+- **KD5 🟡 Un-toggling a cooldown task doesn't rebuild the schedule** — dashboard runs the rebuild on both directions (dashboard.js:1175); kid.html's copy (1498–1512) is inside the complete-only branch. Stale future entries after un-toggle. (Other rebuild wiring verified matching.)
+- **KD6 🟡 Boot-time unseen-message check uses a stale hardcoded type list** (2166, omitting `use-approved`/`use-denied` which are in `VISIBLE_MSG_TYPES` at 517) — message and achievement overlays can fight over the mount. Use the shared constant.
+- **KD7 🟡 No write error handling; boot is an unguarded top-level await chain** — any read failure strands the spinner with no error state, and kid mode has no nav to escape from.
+- **KD8 🟡 `checkCelebration` disagrees with `render()` about events** — render filters `type==='event'` from display (705–708); checkCelebration tests raw `viewEntries` (1763). One uncompleted event entry blocks the celebration while the victory screen shows. (Same family as DB4.)
+- **KD9 🟡 "Today so far: +N pts" label is wrong on non-today views** — score is computed for `viewDate` (713) but the label always says Today (747).
+- **KD10 🔵 `onBank` listener updates state without re-rendering** (2185–2187) — Saved Rewards stays stale until something else renders.
+- **KD11 🔵 Dead code cluster around the missing stats row:** `streakData` loaded but never rendered (482, 506, 214); `gd` computed unused (714); unused imports `renderGradeBadge`, `loadCachedTheme`, `defaultThemeConfig`; ~30 lines of `.kid-stats` CSS (kid.css:86–116) match no markup.
+- **KD12 🔵 kid.html omits styles/layout.css but its `#app` uses `.page-content`** (31) — wrapper gets no padding/max-width; works by accident, no tablet clamp. Fragile.
+- **KD13 ⚪ `firstRun` redirect doesn't return** (71) — same as DB18.
+- **KD14 ⚪ 25 inline `style=""` instances** in generated markup (544, 558, 647–656, 1175, 1213, 1885) + static display:none (36).
+
+### 10.2 Phase B (§6.6)
+
+- **KB1 🟡 Four celebration systems — explicitly banned by §6.6** ("keep two: sparkle + confetti"): emoji rain, sparkle rain, confetti+overlay, confetti+custom toast.
+- **KB2 🟡 Parallel `kid-*` CSS ecosystem — explicitly banned**, including the spec's own named bad example `kid-week-tabs`. Should be `.card.kid` / `.tabs.kid` modifiers.
+- **KB3 🟡 Parent escape not implemented per spec:** the gear is conditional on `ks.showGearIcon` (730) and opens the *theme sheet*, not a PIN escape; no long-press fallback, no triple-tap avatar. With the gear off there is no parent escape at all.
+- **KB4 🟡 Stats row (Points/Streak/Badges) missing** — streak fetched but shown nowhere; trophy count survives only as a hover `title` (729), useless on touch. (KD11's dead CSS is its skeleton.)
+- **KB5 🟡 Reduced motion produces zero feedback instead of a toast** — kid.css:537–547 forces 0.001ms animations; the animation-driven toast ends off-screen instantly. §6.6/§9 require collapse-to-toast.
+- **KB6 🟡 Emoji in chrome outside the kid exceptions:** 👋 header (725), 🎉 in the multiplier banner (737), "🔒 Mark Complete" button (1855), "📅 Move too" form label (1880), 🔒 appended into card names (1041). (Balance/dinner tiles + trophies fall within the exceptions ✓.)
+- **KB7 🟡 Tap targets below the 56px kid floor:** week tabs 44px (kid.css:130), header icon buttons 36px (489–492), bank tokens ~36px, `btn--xs` Use buttons. Task cards 72px ✓.
+- **KB8 🔵 Today tiles incomplete vs spec** — only a full-width Tonight tile after tasks; no Weather, no Activity-goal, no 2-up grid (backlog, but reserve the grid per §6.6).
+- **KB9 🔵 Trophies/Bank drift:** trophies are a header-icon sheet, not the spec'd on-page carousel; Bank shows at ≥1 token vs spec "3+". Current behavior arguably better — reconcile DESIGN.md.
+- **KB10 🔵 Hardcoded colors:** `rgba(0,0,0,0.5)` (kid.css:420), `#38a169` fallback + `border-color: gold` in JS markup (647, 650).
+- **KB11 ⚪ `taskNameWithEmoji` can exceed "max one emoji per card"** (up to 2 + category icon) — deliberate pre-reader feature; record as a DESIGN.md exception.
+- **ROADMAP placement notes:** Kid Feelings Check-in fits the boot overlay queue (after 2166–2168) or the restored stats/tiles row; birthday countdown chip belongs beside `kid-header__date` (726).
+- **Restriction posture (recorded):** no admin links; PIN overlay compares against client-held `settings.adminPin` + hardcoded `2522` (1333), no throttling; kid page imports unrestricted write primitives and ships the push HMAC secret (W3) — the restriction is presentational at the data layer. Acceptable for a family app; don't mistake it for security.
+
+---
+
+## 11. Person mode (person.html)
+
+- **P1 🟠 Page wrapper drift from index.html.** person.html:36 uses `<div class="page-content" id="app">`; index.html:23 uses `<main class="app-shell" id="app">`. `.page-content` adds all-around padding + 600px clamp + fade-in; `.app-shell` is gutterless with a 560px tablet clamp — the person PWA gets doubled side gutters and a different tablet width than Home, a direct §6.9 "visually identical" violation. Copy index's wrapper verbatim.
+- **P2 🔵 Mount points and gates verified compliant:** all seven §6.9 mounts present (35–43); no `!linkedPerson` gates on core controls in dashboard.js (bell unconditional at 201); unknown `?person=` gets a friendly escaped suggestion screen; missing param redirects home.
+- **P3 ⚪ This file has a drift habit** — sw.js changelogs record two *prior* person.html shell-drift bugs (v52, v62); P1 is the third. Add a parity comment in both files (or a checked-in parity test). Also `<div>` vs `<main>` semantics and a missing shell-version marker.
+
+---
+
 ## 12. Admin (admin.html · styles/admin.css)
 
 ### 12.1 Phase A — data integrity / cascades
@@ -532,5 +577,59 @@ Foundation modules are headless; UX implications are logged with their owning pa
 ### 16.3 Cross-file consistency (verified end-to-end)
 
 Push pref-key chain is **fully consistent**: `firebase.js mapMessageTypeToPushType` → `bellMessages`/`rewardApprovals`/`rewardFyi` → `push-ui.js DEFAULT_PREFS.types` → Worker `prefs.types[type]` lookup (1724) → `sw.js` action routing (674). Payload shapes match. No drift.
+
+---
+
+## 17. Base CSS (styles/base.css · layout.css · components.css · responsive.css)
+
+### 17.1 base.css
+
+- **CSS1 🟠 Type-scale tokens contradict DESIGN.md §3.2.** Doc says 12/14/16/18/22/24/36px; base.css:109–116 defines 11/13/15/17/20/23/32px plus `[data-text-size]` variants the doc never mentions (148–167) and `--font-base`/`--font-md` aliases. Rewrite §3.2 to match reality (or acknowledge silent scale drift).
+- **CSS2 🟠 Webfont violates §3.2's "never import a webfont."** base.css:5–19 self-hosts Plus Jakarta Sans and `--font-family` (56) leads with it. Clearly deliberate — update the doc rule.
+- **CSS3 🟠 §3.4 `--icon-*` tile tokens don't exist.** Zero definitions in base.css, zero emissions in theme.js, zero references anywhere. The spec'd token family was never implemented.
+- **CSS4 🟡 `--owner-a…d` defined but never used** (100–103; no dark variants either) — per-person color flows entirely through runtime `--person-color`/`--owner-color`. Wire up or delete + update §3.4.
+- **CSS5 🟡 Body + page wrapper both reserve nav height** — base.css:272 and layout.css:12 stack to ~150px of bottom clearance at the end of every scroll. One owner should win (mirror of the documented header-height gotcha).
+- **CSS6 🔵 Two hand-synced dark token lists** (`[data-theme=dark]` 175–210 vs the `prefers-color-scheme` fallback 212–249) — a missed line silently diverges first-paint dark from chosen dark.
+- **CSS7 🔵 Dark mode never adjusts `--overlay-bg` or `--shadow-*`** — 6–12% black shadows are nearly invisible on `#0f0f0e`.
+- **CSS8 ⚪ Verified good:** `--on-accent` defined light+dark ✓; all 8 `--z-*` band tokens exist and match §3.7 ✓; six spacing tokens ✓; semantic soft pairs have dark parity ✓; `:not([data-theme])` guard correct ✓.
+
+### 17.2 layout.css
+
+- **CSS9 🟠 Tablet rule contradicts §4.2:** `@media (min-width:768px) { .app-shell { max-width: 560px } }` (172–174) clamps tablet to a centered phone column — the opposite of the spec'd 240px rail + two-pane + 900px content. The comment even cites a spec section that no longer matches the doc's numbering.
+- **CSS10 🟡 Hardcoded `font-size: 11px` in the bottom nav** (137; `1.3rem` icon at 178) — should be tokens.
+- **CSS11 🔵 Global reduced-motion block duplicated byte-identically** in layout.css:199–209 and responsive.css:40–50. Delete one — carefully: several keyframes app-wide rely solely on this global override (see CSS20).
+
+### 17.3 components.css
+
+- **CSS12 🔴 Retired token `--bg-secondary` is an undefined-var bug.** components.css:5359 — `.confirm-row:active { background: var(--bg-secondary) }` renders nothing (the token is on the A.2 retired list and defined nowhere). Fix: `var(--surface-2)`. Only A.2 hit without a fallback in the four target files (admin.css's 8 `--border-subtle` uses all carry fallbacks).
+- **CSS13 🟠 A.3 raw-hex audit fails: 23 matches, ~19 beyond the documented color-mix anchors.** Worst: the time-pill AM/PM palette (8 hexes, 1419–1426) and the weather icon palette (7 hexes, 3505, 3537–3540, 3586–3587), plus `#fff` literals (397, 1772, 1788) and fallback hexes (2420, 3088, 3152). Tokenize the two palettes (`--time-am`, `--wf-sun`, …) so themes can redefine them.
+- **CSS14 🟠 A.6 z-index audit fails: 4 untokenized, uncommented values** outside the 0–60 band: 600 (`.cpick-pop`, 215), 1100 (`.photo-cropper-overlay`, 445), 300 (`.ef2-subsheet-overlay`, 4527), 2000 (`.tf-picker-overlay`, 4850). Six siblings were properly migrated with audit comments — these four were missed.
+- **CSS15 🟠 Phantom (never-defined) tokens:** `--surface-highlight` + `--accent-rgb` (1864) fall through to the pre-theming purple — pending bell items render off-brand purple on every theme (same in admin.css:832); `--c-warning` (4712) falls back to `--danger`, so the date warn label renders danger-colored. Replace with `--accent-soft` / `--warning`.
+- **CSS16 🟡 ~15 ad-hoc box-shadows vs §3.5's three tokens** (223, 672, 730, 1832, 4867, 2430; 1984 hardcodes a warning-yellow glow — moot, the block is dead per CSS19). Most should be `var(--shadow-lg)`.
+- **CSS17 🟡 Spacing/type/radius drift is broad but small-scale:** off-scale spacing literals (12px ×28, 14px ×13, 20px ×12, 10px ×43, 6px ×37 — §3.1 explicitly bans 12px), 52 `font-size` declarations bypassing the scale, assorted off-scale radii. Recommend ratcheting (new code clean, fix on touch) — much of it is deliberate micro-sizing the scale can't express.
+- **CSS18 🟡 Sticky form footer declared three times identically:** `.ef2-footer` (4506–4517), the `k*-footer` selector list (5454–5465), `.fs-footer` (5475–5486). Collapse into the canonical `.fs-footer` list. Same for `.me-detail__action-row` vs `.task-detail__action-row` twins (3211, 3716).
+- **CSS19 🟡 ~150 lines of confirmed-dead CSS** (zero references): `.form-compact` block (770–833), reward-store block `.store-header/.store-card*/.store-bounties/.store-pending/.wishlist-btn` (1977–1998), `.template-chip` (1963–1974), `.cal-day-block` (2888–2908), `.event-row` (2911–2942). (Sampled ~30 selectors; `.undo-toast`, `.add-menu`, `.segmented-control`, `.kid-tonight`, `.av-card` all still live.)
+- **CSS20 🔵 Reduced-motion coverage good in-file (13 targeted blocks)** but several keyframes (ef2-shake, tf-shake, progressShimmer, bannerSlideIn, slideUp, toastFadeIn) rely solely on the global `*` override — fragile if CSS11's duplicate cleanup removes the wrong copy.
+- **CSS21 🔵 No page-CSS conflicts on core components** (sampled `.tabs`, `.card`, `.bottom-sheet`, `.btn`, `.chip`) — pages only add variants; the known `.card`/`.task-card` collision is handled with a documented specificity fix (1049–1060). ✓
+
+### 17.4 responsive.css
+
+- **CSS22 🟠 §4.2 tablet spec is essentially unimplemented.** Exists: `--max-content` 700px@768 / 800px@1024 (wrong values vs spec's 900/1200/1600), one calendar day-grid split, narrow-phone subtitle swap. Absent: left rail, all five two-pane layouts, the `html { font-size: 18px }` type bump, the 520px sheet clamp — and layout.css's 560px clamp actively contradicts it. Build §4.2 or mark it "planned" so the spec stops describing fiction. (`display.html`/kiosk §4.3 also don't exist — known roadmap item.)
+- **CSS23 ⚪ Misplaced page rules:** `.admin-tab` (14–17), `.cal-day__grid`/`.event-pill` (28–36, with a 10px font literal) belong in their page CSS files.
+
+### 17.5 Mechanical audit results (Appendix A, run as spec'd)
+
+- **A.2 retired tokens:** 9 hits — `--bg-secondary` ×1 (real bug, CSS12), `--border-subtle` ×8 (admin.css, safe fallbacks), plus `--accent-success` ×2 in admin.html/kid.html inline styles.
+- **A.3 raw hex in components.css:** FAIL — 23 matches, ~19 violations (CSS13).
+- **A.5 reduced-motion:** **scoreboard.css is MISSING** its block (has 3 transitions); the other eight required files pass.
+- **A.6 z-index:** clean everywhere except components.css ×4 (CSS14) and kitchen.css 100/200 (K26).
+- **Sheet animation duration (cross-cutting D1/C15 resolved):** CSS animates the bottom sheet at exactly `--t-base` = **200ms** (components.css:610, 629; sub-sheets 4530, 4544). JS teardown waits are 220/280/300/320ms in different files — all ≥ CSS today, but the 220ms waiter truncates the animation if `--t-base` is ever raised. One shared `SHEET_CLOSE_MS` constant recommended.
+
+### 17.6 Accessibility
+
+- **CSS24 🟠 `--text-faint` used as *text* color 47× in components.css — contrast failure.** `#9a9a9a` on white ≈ 2.8:1 (AA needs 4.5:1); it's the text color of `.form-label` (749), inactive `.tab` (3626), `.confirm-modal__message` (691), `.owner-chip` (110), `.field__label` (3700), task-card meta. Dark value similar (~2.9:1). Sweep label/message text to `--text-muted` (≈5.0:1, passes); reserve faint for decoration per §3.4's own scoping.
+- **CSS25 🟡 No global `:focus-visible` rule; coverage patchy** — 28 per-component rules in components.css but base/layout/dashboard/kid/admin/tracker/setup have zero. One `:where(button, a, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }` in base.css closes the gap.
+- **CSS26 🟡 Sub-44px tap targets:** `.notif-type-row__test` 24px (6120), `.ef2-field-close` 24×24 (4490), `.btn--xs` 28px (90), `.filter-chip` 32px (2466), `.rd-stepper-btn` 32px (4083), `.check` 32px (2268, mitigated — whole card tappable), `.tab` 36px (3632).
+- **CSS27 ⚪ theme.js dark fallback writes `--accent-soft` via color-mix while base.css dark uses hand-picked values** — if a preset fails to load, dark accent-soft chips look noticeably different from the designed palette.
 
 ---
