@@ -166,7 +166,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, writeSettings, writeCategories, pushPerson, readSettings } from './shared/firebase.js';
+    import { initFirebase, multiUpdate, readSettings } from './shared/firebase.js';
     import { getTimezoneOptions, detectTimezone, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { getPresets, getColorPalette, applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
@@ -200,12 +200,17 @@
     if (cached) applyTheme(cached);
     else applyTheme(defaultThemeConfig());
 
-    // Check if setup already completed — redirect to dashboard
-    readSettings().then(settings => {
-      if (settings) {
-        window.location.href = 'index.html';
+    // Check if setup already completed — redirect to dashboard.
+    // Awaited (SU8): fire-and-forget let the user fill half the wizard before
+    // the redirect landed. Preserves ?env=dev (SU2) so a dev-mode setup stays
+    // in the dev root instead of bouncing to production.
+    {
+      const existing = await readSettings().catch(() => null);
+      if (existing) {
+        window.location.href = 'index.html' + window.location.search;
+        await new Promise(() => {});
       }
-    });
+    }
 
     // --- Timezone setup ---
     const tzSelect = document.getElementById('timezone');
@@ -537,26 +542,11 @@
         const presets = getPresets();
         const presetInfo = presets.find(p => p.key === selectedPreset);
 
-        // Write settings
-        await writeSettings({
-          appName,
-          familyName,
-          timezone,
-          adminPin,
-          recoveryPin: '2522',
-          weekendWeightWeekly: 1.5,
-          weekendWeightMonthly: 3,
-          pastDueCreditPct: 75,
-          sliderMin: 0,
-          sliderMax: 150,
-          theme: {
-            mode: presetInfo.mode,
-            preset: selectedPreset,
-            accentColor: selectedAccent
-          }
-        });
-
-        // Write categories
+        // SU1: ONE atomic multi-path write. Settings existing is the
+        // first-run sentinel — the old settings-first sequence could fail
+        // midway, leaving a family with no people and a wizard that
+        // permanently redirects away. All-or-nothing fixes both the
+        // duplicate-people-on-retry and the bricked-onboarding cases.
         const catObj = {};
         categories.forEach(c => {
           catObj[c.key] = {
@@ -566,15 +556,32 @@
             weightPercent: c.weightPercent
           };
         });
-        await writeCategories(catObj);
+        const peopleObj = {};
+        people.forEach((person, i) => { peopleObj[`p_${Date.now()}_${i}`] = person; });
+        await multiUpdate({
+          settings: {
+            appName,
+            familyName,
+            timezone,
+            adminPin,
+            recoveryPin: '2522',
+            weekendWeightWeekly: 1.5,
+            weekendWeightMonthly: 3,
+            pastDueCreditPct: 75,
+            sliderMin: 0,
+            sliderMax: 150,
+            theme: {
+              mode: presetInfo.mode,
+              preset: selectedPreset,
+              accentColor: selectedAccent
+            }
+          },
+          categories: catObj,
+          people: peopleObj,
+        });
 
-        // Write people
-        for (const p of people) {
-          await pushPerson(p);
-        }
-
-        // Redirect to dashboard
-        window.location.href = 'index.html';
+        // Redirect to dashboard (preserving ?env=dev — SU2)
+        window.location.href = 'index.html' + window.location.search;
       } catch (err) {
         console.error('Setup failed:', err);
         btn.disabled = false;

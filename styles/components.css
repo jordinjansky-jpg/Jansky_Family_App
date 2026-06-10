@@ -212,7 +212,7 @@ button.is-loading {
 }
 .cpick-pop {
   position: fixed;
-  z-index: 600;
+  z-index: var(--z-modal); /* z-index audit: was 600 */
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -442,7 +442,7 @@ button.is-loading {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
-  z-index: 1100;
+  z-index: var(--z-modal); /* z-index audit: was 1100 (above sheets) */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1876,7 +1876,7 @@ button.is-loading {
 .bell-dropdown__item:last-child { border-bottom: none; }
 
 .bell-dropdown__item--pending {
-  background: var(--surface-highlight, rgba(var(--accent-rgb, 108, 99, 255), 0.05));
+  background: var(--accent-soft); /* was phantom --surface-highlight/--accent-rgb — always fell back to the pre-theming purple */
 }
 
 .bell-dropdown__icon { font-size: 1.25rem; flex-shrink: 0; width: 28px; text-align: center; }
@@ -4539,7 +4539,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   position: fixed;
   inset: 0;
   background: var(--overlay-bg);
-  z-index: 300;
+  z-index: var(--z-sheet); /* z-index audit: sub-sheet stacks above parent via DOM order */
   opacity: 0;
   visibility: hidden;
   transition: all var(--t-base);
@@ -4724,7 +4724,7 @@ label.ef2-icon-btn  { cursor: pointer; }
   margin-bottom: 4px;
 }
 
-.ef2-date-label--warn { color: var(--c-warning, var(--danger)); }
+.ef2-date-label--warn { color: var(--warning); } /* was phantom --c-warning falling back to danger */
 /* ── End Event Form v2 ──────────────────────────────────────────── */
 
 /* ── Task Form ─────────────────────────────────────────── */
@@ -4862,7 +4862,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 .tf-picker-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: var(--z-modal); /* z-index audit: was 2000 */
   pointer-events: none;
 }
 .tf-picker-backdrop {
@@ -5371,7 +5371,7 @@ label.ef2-icon-btn  { cursor: pointer; }
 }
 
 .confirm-row:active {
-  background: var(--bg-secondary);
+  background: var(--surface-2); /* was retired --bg-secondary (rendered nothing) */
 }
 
 .confirm-row.confidence-low {

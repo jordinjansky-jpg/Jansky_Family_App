@@ -9,7 +9,9 @@
      flow (plus safe-area-inset-top), so page-content only needs normal
      top spacing here — adding header-height again double-counts it and
      leaves a large blank gap below the header. */
-  padding-bottom: calc(var(--nav-height) + var(--spacing-md) + env(safe-area-inset-bottom, 0px));
+  /* body (base.css) already reserves nav-height + safe-area at the bottom —
+     adding it here too doubled the clearance (~150px of dead scroll). */
+  padding-bottom: var(--spacing-md);
   overflow-x: hidden;
   animation: pageFadeIn 0.3s ease-out;
 }

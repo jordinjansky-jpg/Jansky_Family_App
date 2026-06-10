@@ -42,6 +42,10 @@ export function finalDurationMin(timer, nowMs = Date.now()) {
 }
 
 export function isForgotten(timer, nowMs = Date.now()) {
-  if (!timer || timer.pausedAt) return false;
-  return (nowMs - timer.startedAt) > 6 * 60 * 60 * 1000;
+  if (!timer) return false;
+  // AC11: anchor on originalStartedAt — resume() resets startedAt, so a timer
+  // running 10h with one pause/resume never warned. Long-PAUSED timers warn
+  // too (a timer paused for days is just as forgotten as a running one).
+  const anchor = timer.originalStartedAt || timer.startedAt;
+  return (nowMs - anchor) > 6 * 60 * 60 * 1000;
 }

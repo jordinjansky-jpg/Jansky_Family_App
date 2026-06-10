@@ -45,7 +45,7 @@
       readSettings, readPeople, readActivities, readActivitySessions,
       readAllActiveTimers, readAllActivityEarnings,
       subscribeActiveTimers,
-      writeActiveTimer, clearActiveTimer,
+      writeActiveTimer, clearActiveTimer, claimAndClearActiveTimer, onServerTimeOffset,
       pushActivitySession, updateActivitySession, removeActivitySession,
       removeActivityEarning,
       onConnectionChange,
@@ -60,7 +60,7 @@
       renderBottomSheet, renderFormSheetHeader, renderFormFooter,
       renderChipPicker, bindChipPicker,
       renderDateInput, bindDateInput,
-      renderFab, applyDataColors
+      renderFab, applyDataColors, renderErrorState
     } from './shared/components.js';
     import { todayKey, weekStart, weekEnd, addDays, detectTimezone, formatDateShort } from './shared/utils.js';
     import {
@@ -91,10 +91,23 @@
     // ── Init Firebase ──
     initFirebase();
     const firstRun = await isFirstRun();
-    if (firstRun && !isDev) { window.location.href = 'setup.html'; }
+    if (firstRun && !isDev) { window.location.href = 'setup.html'; await new Promise(() => {}); }
 
     // ── Load data + boot ──
-    await loadData();
+    try {
+      await loadData();
+    } catch (err) {
+      // AC16: a failed initial read used to leave the spinner forever.
+      const errMount = document.getElementById('mainContent') || document.body;
+      errMount.style.display = '';
+      document.getElementById('loadingState')?.remove();
+      renderErrorState(errMount, {
+        title: "Couldn't load activities",
+        message: 'Check your connection and try again.',
+        retry: () => location.reload(),
+      });
+      await new Promise(() => {});
+    }
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     if (settings?.textSize) applyTextSize(settings.textSize);
@@ -165,8 +178,18 @@
     });
 
     // ── Subscribe to active timers for live updates ──
-    subscribeActiveTimers(t => {
-      activeTimers = t || {};
+    let _timerCount = null;
+    subscribeActiveTimers(async (t) => {
+      const next = t || {};
+      const nextCount = Object.keys(next).length;
+      const shrank = _timerCount != null && nextCount < _timerCount;
+      _timerCount = nextCount;
+      activeTimers = next;
+      // AC9: a timer disappearing means another device stopped it and pushed
+      // a session — re-read data so Today/Week totals include it.
+      if (shrank) {
+        try { await loadData(); } catch { /* keep stale data over a crash */ }
+      }
       render();
     });
 
@@ -202,7 +225,7 @@
       let progress = 0;
       let paceTarget = 0;
       // Minutes elapsed so far in this session (running portion only)
-      const sessionMs = elapsedMs(t);
+      const sessionMs = elapsedMs(t, nowMs());
       // Saved minutes today (excluding the live session)
       const savedToday = minutesForActivityToday(t.activityId, personId, tz);
       const elapsedMinNow = savedToday + sessionMs / 60000;
@@ -229,7 +252,7 @@
       if (!t) return '';
       const person = people[personId] || { name: personId };
       const a = activities[t.activityId] || { name: 'Activity', emoji: '·' };
-      const elapsed = formatElapsed(elapsedMs(t));
+      const elapsed = formatElapsed(elapsedMs(t, nowMs()));
       const paused = !!t.pausedAt;
       const { progress, goalHit } = fsTimerProgress(personId);
       const circumference = 565.49;
@@ -298,7 +321,7 @@
       // Update readout
       const readoutEl = document.querySelector(`[data-fs-readout="${pid}"]`);
       if (readoutEl) {
-        readoutEl.textContent = formatElapsed(elapsedMs(t));
+        readoutEl.textContent = formatElapsed(elapsedMs(t, nowMs()));
       }
 
       // Update ring
@@ -346,7 +369,7 @@
         if (!pid) return;
         const t = activeTimers[pid];
         if (!t) return;
-        const updated = t.pausedAt ? resumeTimer(t) : pauseTimer(t);
+        const updated = t.pausedAt ? resumeTimer(t, nowMs()) : pauseTimer(t, nowMs());
         await writeActiveTimer(pid, updated);
         // Update button label immediately (subscription will also re-render)
         const toggleBtn = document.getElementById('fsTimerToggle');
@@ -432,6 +455,31 @@
       return formatter.format(d);
     }
 
+    // AC5: all timer math uses server-corrected time. Timestamps written by
+    // one device are compared against another's clock — a skewed device used
+    // to bake the error into accumulatedMs permanently on pause.
+    let _serverTimeOffset = 0;
+    onServerTimeOffset((v) => { _serverTimeOffset = v; });
+    const nowMs = () => Date.now() + _serverTimeOffset;
+
+    // AC13: noon in the FAMILY timezone for a date key (manual entries used
+    // device-local noon, landing on the wrong day for far-offset devices).
+    function localNoonMs(dateKey, tz) {
+      let guess = Date.parse(`${dateKey}T12:00:00Z`);
+      for (let i = 0; i < 3; i++) {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz, hour12: false,
+          year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+        }).formatToParts(new Date(guess));
+        const get = (t) => parts.find(pp => pp.type === t)?.value;
+        const localMs = Date.UTC(+get('year'), +get('month') - 1, +get('day'), (+get('hour')) % 24, +get('minute'));
+        const targetMs = Date.parse(`${dateKey}T12:00:00Z`);
+        if (localMs === targetMs) break;
+        guess += targetMs - localMs;
+      }
+      return guess;
+    }
+
     function minutesForActivityToday(activityId, personId, tz) {
       const today = todayKey(tz);
       return Object.values(sessions)
@@ -479,8 +527,8 @@
     function sortedPeople() {
       const entries = Object.entries(people)
         .sort(([, x], [, y]) => {
-          const kx = x.kid === true ? 0 : 1;
-          const ky = y.kid === true ? 0 : 1;
+          const kx = x.role === 'child' ? 0 : 1;
+          const ky = y.role === 'child' ? 0 : 1;
           if (kx !== ky) return kx - ky;
           return (x.name || '').localeCompare(y.name || '');
         });
@@ -536,8 +584,8 @@
         .filter(([pid]) => has.has(pid))
         .map(([pid, p]) => ({ id: pid, ...p }))
         .sort((x, y) => {
-          const kx = x.kid === true ? 0 : 1;
-          const ky = y.kid === true ? 0 : 1;
+          const kx = x.role === 'child' ? 0 : 1;
+          const ky = y.role === 'child' ? 0 : 1;
           if (kx !== ky) return kx - ky;
           return (x.name || '').localeCompare(y.name || '');
         });
@@ -652,8 +700,8 @@
           ${entries.map(([pid, t]) => {
             const person = people[pid] || { name: pid };
             const activity = activities[t.activityId] || { name: 'Unknown', emoji: '·' };
-            const elapsed = formatElapsed(elapsedMs(t));
-            const forgotten = isForgotten(t);
+            const elapsed = formatElapsed(elapsedMs(t, nowMs()));
+            const forgotten = isForgotten(t, nowMs());
             const pauseLabel = t.pausedAt ? 'Resume' : 'Pause';
             return `
               <div class="active-timer-card" data-person-id="${pid}">
@@ -826,7 +874,7 @@
           }
           if (current && current.activityId === aid && !current.pausedAt) return; // already running
           openOverlayOnNextRender = pid; // flag: overlay opens when subscription fires render()
-          const now = Date.now();
+          const now = nowMs(); // server-corrected (AC5)
           await writeActiveTimer(pid, {
             activityId: aid,
             startedAt: now,
@@ -858,7 +906,7 @@
           const pid = btn.dataset.personId;
           const t = activeTimers[pid];
           if (!t) return;
-          const updated = t.pausedAt ? resumeTimer(t) : pauseTimer(t);
+          const updated = t.pausedAt ? resumeTimer(t, nowMs()) : pauseTimer(t, nowMs());
           await writeActiveTimer(pid, updated);
         }));
       });
@@ -870,20 +918,26 @@
     }
 
     async function stopTimer(pid) {
-      const t = activeTimers[pid];
-      if (!t) return;
-      const durationMin = finalDurationMin(t);
+      // AC4: claim the timer atomically — two devices stopping at once both
+      // read-then-pushed and double-logged the session. Only the transaction
+      // winner pushes.
+      const t = await claimAndClearActiveTimer(pid);
+      if (!t) {
+        delete activeTimers[pid];
+        render();
+        return;
+      }
+      const durationMin = finalDurationMin(t, nowMs());
       const sessionData = {
         activityId: t.activityId,
         personId: pid,
         startedAt: t.originalStartedAt || t.startedAt,
-        endedAt: Date.now(),
+        endedAt: nowMs(),
         durationMin,
         source: 'timer',
         createdBy: pid
       };
       await pushActivitySession(sessionData);
-      await clearActiveTimer(pid);
       // Invalidate settled earning so worker recomputes on next tick
       const periodKey = sessionPeriodKey(sessionData, t.activityId);
       if (periodKey) {
@@ -901,8 +955,10 @@
       const tz = settings.timezone || detectTimezone();
       const dateKey = localDateKey(session.startedAt, tz);
       if (a.goalPeriod === 'daily') return dateKey;
-      // ISO week key for weekly activities
-      const d = new Date(session.startedAt);
+      // ISO week key for weekly activities — derived from the TZ-LOCAL date
+      // (AC2: the UTC day shifted late-evening sessions into the wrong week,
+      // so the client invalidated a different earning than the Worker wrote).
+      const d = new Date(`${dateKey}T12:00:00Z`);
       d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
       const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
       const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
@@ -1096,24 +1152,48 @@
           showToast('Please fill all required fields');
           return;
         }
-        // Anchor the session at noon local on that date (predictable period attribution)
-        const noonMs = Date.parse(`${dateKey}T12:00:00`);
+        // AC12: the input's max attribute is advisory — enforce sane bounds
+        // and no future dates (pre-banked goal credit) here.
+        if (durationMin > 1440) {
+          showToast('Duration can be at most 1440 minutes (24h)');
+          return;
+        }
+        const tzSave = settings.timezone || detectTimezone();
+        if (dateKey > todayKey(tzSave)) {
+          showToast("Sessions can't be in the future");
+          return;
+        }
+        // Anchor at noon in the FAMILY timezone (AC13 — device-local parse
+        // landed sessions on the wrong day for far-offset devices).
+        // Editing an existing session only re-anchors when the date actually
+        // changed, and never rewrites source/createdBy (AC14 — fixing a notes
+        // typo used to rewrite a timer session's real start time).
+        const dateChanged = !editing || localDateKey(editing.startedAt, tzSave) !== dateKey;
+        const noonMs = dateChanged ? localNoonMs(dateKey, tzSave) : editing.startedAt;
         const sessionData = {
           activityId: finalAid,
           personId: finalPid,
           startedAt: noonMs,
-          endedAt: noonMs + durationMin * 60000,
+          endedAt: (dateChanged ? noonMs : editing.startedAt) + durationMin * 60000,
           durationMin,
-          source: 'manual',
+          source: editing ? (editing.source || 'manual') : 'manual',
           notes: notes || null,
-          createdBy: finalPid
+          createdBy: editing ? (editing.createdBy || finalPid) : finalPid
         };
         if (editing) {
           await updateActivitySession(sessionIdForEdit, sessionData);
         } else {
           await pushActivitySession(sessionData);
         }
-        // Invalidate settled earning for affected period
+        // Invalidate settled earnings — BOTH the old period and the new one
+        // (AC3: moving a session across days/people left the old period's
+        // settled earning counting minutes that no longer exist).
+        if (editing) {
+          const oldKey = sessionPeriodKey(editing, editing.activityId);
+          if (oldKey) {
+            await removeActivityEarning(editing.personId, editing.activityId, oldKey);
+          }
+        }
         const periodKey = sessionPeriodKey(sessionData, finalAid);
         if (periodKey) {
           await removeActivityEarning(finalPid, finalAid, periodKey);
@@ -1193,7 +1273,7 @@
           document.querySelectorAll('[data-timer-readout]').forEach(el => {
             const pid = el.dataset.timerReadout;
             const t = activeTimers[pid];
-            if (t) el.textContent = formatElapsed(elapsedMs(t));
+            if (t) el.textContent = formatElapsed(elapsedMs(t, nowMs()));
           });
           // Update full-screen overlay readout + ring
           updateFullScreenTimer();

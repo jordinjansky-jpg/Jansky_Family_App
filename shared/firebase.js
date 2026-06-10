@@ -337,6 +337,35 @@ export function subscribeActiveTimers(callback) {
   return onValue('activeTimers', callback);
 }
 
+/**
+ * Atomically claim and clear a person's active timer (AC4). Returns the timer
+ * record if THIS caller won the race, or null if it was already stopped —
+ * without the transaction, two devices pressing Stop both pushed a session
+ * and double-logged the minutes.
+ */
+export async function claimAndClearActiveTimer(personId) {
+  await ready();
+  let claimed = null;
+  const result = await ref(`activeTimers/${personId}`).transaction((cur) => {
+    if (!cur) return; // abort — already stopped elsewhere
+    claimed = cur;
+    return null;
+  });
+  return result.committed && claimed ? claimed : null;
+}
+
+/**
+ * Subscribe to Firebase's estimate of (serverTime − clientTime) in ms (AC5).
+ * Cross-device timer math compares one device's Date.now() against another's
+ * written timestamps; applying this offset removes the clock-skew error.
+ */
+export function onServerTimeOffset(callback) {
+  const r = getDb().ref('.info/serverTimeOffset');
+  const handler = (snap) => callback(snap.val() || 0);
+  r.on('value', handler);
+  return () => r.off('value', handler);
+}
+
 // --- Activity Earnings ---
 
 /**

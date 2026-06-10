@@ -325,4 +325,11 @@ img {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
+
+/* ── Global keyboard focus (§8) ──────────────────────────────────────────────
+   Baseline focus ring for every interactive element; component CSS may
+   override (form sheets intentionally suppress rings per §5.23). */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -591,3 +591,9 @@
 .sb-heatmap-cell--f { background: var(--grade-f); }
 .sb-heatmap-cell--empty { background: var(--surface-2); opacity: 0.5; }
 .sb-heatmap-cell--future { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-hero-card, .sb-drilldown, .sb-late-action__btn {
+    transition: none;
+  }
+}
