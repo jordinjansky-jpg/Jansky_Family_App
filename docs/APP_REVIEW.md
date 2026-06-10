@@ -27,7 +27,7 @@
 | 1 | Foundation modules | shared/utils.js, state.js, firebase.js, theme.js, dom-helpers.js | ✅ Done |
 | 2 | Engine modules | shared/scheduler.js, scoring.js | ✅ Done |
 | 3 | Components library | shared/components.js | Pending |
-| 4 | Dashboard | index.html, dashboard.js, styles/dashboard.css | Pending |
+| 4 | Dashboard | index.html, dashboard.js, styles/dashboard.css | ✅ Done |
 | 5 | Calendar | calendar.html, shared/calendar-views.js, styles/calendar.css | Pending |
 | 6 | Kitchen | kitchen.html, kitchen.js, shared/kitchen-ical.js, styles/kitchen.css | Pending |
 | 7 | Tracker | tracker.html, styles/tracker.css | Pending |
@@ -38,8 +38,8 @@
 | 12 | Admin | admin.html, styles/admin.css | Pending |
 | 13 | Setup wizard | setup.html, styles/setup.css | Pending |
 | 14 | Activities | activities.html, shared/timer.js, styles/activities.css | Pending |
-| 15 | Support modules | shared/weather.js, ai-helpers.js, push-client.js, push-ui.js, dev-banner.js | Pending |
-| 16 | Worker & PWA | workers/kitchen-import.js, sw.js, manifest.json, serve.js | Pending |
+| 15 | Support modules | shared/weather.js, ai-helpers.js, push-client.js, push-ui.js, dev-banner.js | ✅ Done |
+| 16 | Worker & PWA | workers/kitchen-import.js, sw.js, manifest.json, serve.js | ✅ Done |
 | 17 | Base CSS | styles/base.css, layout.css, components.css, responsive.css | Pending |
 | 18 | Docs drift | CLAUDE.md, DESIGN.md, ROADMAP.md vs reality | Pending |
 
@@ -139,5 +139,97 @@ Foundation modules are headless; UX implications are logged with their owning pa
 - **X2 🟠 SC1's user-visible symptom:** past days' tasks disappear from the overdue banner and tracker history after an unrelated task edit. If users have reported "my old tasks vanished," this is the likely cause.
 - **X3 🟡 SC3's user-visible symptom:** weekly tasks "reset" midweek relative to the calendar's Sunday-start week — e.g. a weekly task completed Sunday evening doesn't prevent it reappearing Monday.
 - **X4 🔵 Streak rules (SR1) should be explained somewhere user-visible** (kid mode / scoreboard tooltip): what keeps a streak alive, what breaks it, and whether days off count. Right now the rule is implicit and slightly wrong.
+
+---
+
+## 4. Dashboard (index.html · dashboard.js · styles/dashboard.css)
+
+### 4.1 Phase A — bugs, correctness, duplication
+
+- **DB1 🔴 Move/Delegate/Skip rewrite only the schedule entry — wiped by the next schedule rebuild.** *(Confirms SC2.)* The move handler (dashboard.js:3081–3106), delegate (3019–3042), delegate+move (3046–3073), and skip (3109–3120) write only `schedule/...` paths and never touch `task.dedicatedDate`. `generateSchedule` strips ALL uncompleted future-date entries before re-placing (scheduler.js:566–588). So any task save (dashboard.js:3490 with `includeToday: true`) or any toggle of a cooldown task (1179) silently undoes a user's move/delegate, and "Skip" on a one-time task resurrects on rebuild. Fix: persist the move on the task (e.g. `dedicatedDate`/`movedTo` map) or teach the scheduler to preserve entries carrying `movedFromDate`/`delegatedFromName` keys.
+- **DB2 🟠 `PRESS_MOVE_THRESHOLD` is undefined — ReferenceError in pointermove on event bubbles and Coming-up items.** dashboard.js:1000 and 1017 reference a const that is never declared or imported. Every pointermove with an active press timer throws; movement-cancel for long-press is dead on those elements. Fix: declare the const (10) or reuse `bindTaskRowGesture`.
+- **DB3 🟠 Dinner vote sheet writes to TODAY's slot while the tile shows viewDate's dinner.** Tile reads `viewMeals` for `viewDate` (948, 1042) but `openVoteSheetForDinner` hardcodes `today` (1640, 1650–1674). Swipe to tomorrow, vote on tomorrow's dinner → today's plan is overwritten. Pass `viewDate` through.
+- **DB4 🟠 Celebration never fires on days with a standalone event.** `checkCelebration` (1283–1284) feeds raw `viewEntries` (incl. `type:'event'` entries) into `isAllDone`, which doesn't exclude events (state.js:97–101). With an event mirror entry on today, all-done is permanently false. Filter events before the check.
+- **DB5 🟠 Changed family theme from Firebase is never applied.** *(Confirms T1.)* Line 39 calls `applyTheme(resolveTheme(settings.theme))` but the `dr-theme` cache always wins and is rewritten on every apply — `settings.theme` is dead after first run. Apply `settings.theme` directly when no device override exists.
+- **DB6 🟠 Task-form save can permanently disable Save with no feedback.** `tf_save` disables the button (3483) then awaits 3–4 writes with no try/catch/finally (3485–3534). Any rejection leaves a dead Save and no toast. (The event form does it right at 2442–2478.) Wrap in try/finally or use the imported-but-unused `withButtonLock`.
+- **DB7 🟠 Unescaped user data in the Dinner tile (stored XSS).** `renderDashboardTile` interpolates `value`/`sub` raw (components.js:4233–4234) and the dashboard passes the recipe name unescaped (dashboard.js:369). A recipe named `<img src=x onerror=…>` executes on every dashboard load. Escape in the component.
+- **DB8 🟡 Day navigation renders stale data.** `goToday` (895–902) and `changeDay` (1035–1046) await meal reload + `loadData()` but never call `render()` — they rely on a listener whose debounced render typically fires *before* the reads resolve. Dinner tile and overdue banner lag a day behind. Call `debouncedRender()` after the awaits.
+- **DB9 🟡 `onCompletions` → `loadData()` race.** Every completion change triggers `readAllSchedule()` (3633–3637, also toggleTask:1178–1186) with no in-flight guard — rapid toggles can resolve out of order, leaving `overdueItems`/`suppressedCooldownTaskIds` stale. Add a sequence counter (the render path already has one at 239–247).
+- **DB10 🟡 Undo of "marked incomplete" loses the original completion record.** The undo recreates `{ completedAt: TIMESTAMP, completedBy: 'dashboard' }` (1196–1199), dropping `pointsOverride`/`isLate`/original timestamp — undoing an accidental uncomplete of a late task upgrades it to on-time full credit. Snapshot and restore the original record.
+- **DB11 🟡 Past-date completion contract drift between pages.** `toggleTask` applies `isLate` + `pointsOverride: pastDueCreditPct` for all rotations (1092–1102) ✓ — but skips both when a saved `pointsOverride` exists, or category `isEvent`, or task `exempt` (CLAUDE.md overstates "ALL"). And dashboard never passes `isTapBlocked` to `bindTaskRowGesture` (906–912) while calendar does (calendar.html:513/612) — tapping a past incomplete daily on dashboard completes it; on calendar it opens the sheet. Pick one contract.
+- **DB12 🟡 No error handling/toast on most writes.** `toggleTask` mutates in-memory state before awaiting writes with no try/catch (1073–1106); delegate/move/skip/notes-save (3038, 3068, 3102, 3116, 3164) fire `multiUpdate` bare. A rejected write = silent UI/DB divergence, violating §7.7. Wrap with toast + reload.
+- **DB13 🟡 Dead code: `openMealEditorSheet` (~165 lines, 2004–2167, never called) and the `headerThemeBtn` listener (3608–3624, matches no element).** Delete both.
+- **DB14 🟡 ~14 dead imports + stale comments** (lines 2–12: `renderNavBar`, `initNavMore`, `renderPersonFilter`, `renderProgressBar`, `renderOverdueBanner`, `renderGradeBadge`, `renderOverflowMenu`, `renderAmbientStrip`, `renderMealEditorSheet`, `groupByFrequency`, `onValue`, `writeIcalFeed`, `withButtonLock`, `loadCachedTheme`, `defaultThemeConfig`); comment at 126–128 describes wiring that no longer exists.
+- **DB15 🔵 Duplicate `onAllMessages` subscription; approvals driver calls `render()` directly** (207–219), bypassing the 100ms debounce the other listeners use.
+- **DB16 🔵 settings/people/tasks/categories are read once at boot (34–36) with no listeners** — admin changes from another device don't appear until reload, while completions/events are live. A settings listener would also fix DB5.
+- **DB17 🔵 Multi-person bounty cleanup is N sequential `removeData` calls (1152–1158) instead of one `multiUpdate`, and doesn't remove twin entries' completion records.**
+- **DB18 🔵 First-run redirect doesn't halt boot** (31) — module keeps executing against an empty DB while navigation races. Early-return.
+- **DB19 ⚪ Schedule "event mirror" entries are write-only decaying data.** Dashboard writes `{type:'event', eventId}` entries (2461–2469, 2769–2770), filters them out at render (263), and every rebuild strips them. Drop the writes or preserve them in the scheduler.
+- **DB20 ⚪ Overdue sheet "Done today" check requires `typeof completedAt === 'number'`** (736–738) — locally-written `ServerValue.TIMESTAMP` sentinel can miss just-completed items offline.
+
+### 4.2 Phase B — UX / spec compliance (§6.1)
+
+- **DB21 🟡 "Today" section and person-filter chip vanish when there are events but zero tasks.** Empty-state branch requires both counts zero (464); with events present and no tasks, the Today section (and the filter chip's only mount, 468/511) is skipped entirely. Render the Today head + empty state whenever `totalCount === 0`.
+- **DB22 🟡 Swipe is the only day-navigation gesture** (1051–1061) — §7.8 requires a visible non-gesture fallback. No prev/next chevrons; desktop/keyboard users can't change days. Add chevrons by the header subtitle or Today section head.
+- **DB23 🟡 FAB pre-fill half-implemented vs §6.1.** Event form gets `dateKey: viewDate` (2173) but no activePerson; task form seeds `owners: [activePerson]` (3184–3186) but writes the same-day entry to `today` not `viewDate` (3498–3501) — adding a task while viewing Saturday lands it today. Cross-wire both.
+- **DB24 🔵 Banner queue adds an undocumented "approvals" tier** (vacation > freeze > overdue > **approvals** > multiplier > info, 630–697). Sensible, but §7.3/§6.1 must be updated per the project's own spec-first rule. One-banner rule holds ✓ (700–710). Vacation/freeze/activity branches are dead placeholders gated on `window.__*` hooks.
+- **DB25 🔵 Back-to-Today pill moved to the header center slot** (312–321) vs spec position between Banner and Ambient strip. Update DESIGN.md or move it back.
+- **DB26 🔵 Coming-up rail dropped the spec'd "tap day-block head jumps viewDate"** — rows open the event detail sheet instead (427–444, 993–1006); the "clear week" copy branch (417–419) is dead because the rail hides at zero events.
+- **DB27 🔵 Events render as `.event-bubble`** (454–456; components.js:2786–2801) — spec says `.card.card--event` (§6.1 item 6); a second card-ish pattern violating §12. Reconcile with DESIGN.md.
+- **DB28 🔵 Emoji in chrome:** 👍 in the Dinner tile vote sub-line (364), 🍴 placeholder in recipe pick rows (1703), 🤔 in person-not-found placeholder (79), 🐛 debug title (865, arguably exempt). Swap for SVG.
+- **DB29 🔵 Inline-style violations in generated HTML:** `style="padding:0 var(--spacing-md)…"` (2701), `.style` mutations (1499, 1524–1525, 1251, 1435), and the import-confirm sheet uses the banned legacy `sheet__content` wrapper (2711). dashboard.css itself is clean (tokens only).
+- **DB30 🔵 Past-day score meta uses today's multiplier** (492–495) instead of `multipliers[viewDate]`.
+- **DB31 🔵 Task cards are focusable but keyboard-inert.** `renderTaskCard` emits `role="button" tabindex="0"` (components.js:2094) but only pointer events are bound — Enter/Space do nothing, and long-press has no keyboard equivalent. Add a keydown path in `bindTaskRowGesture` (fixes all pages).
+- **DB32 🔵 No boot error state** — if the initial `Promise.all` (34–36) rejects, the skeleton spins forever. §7.7 requires `renderErrorState` + retry.
+- **DB33 🔵 Weather tile with no location set deep-links into PIN-gated admin** (961–963) with no explanation — kid/person users hit a PIN wall. Toast or inline subsheet instead.
+- **DB34 ⚪ Polish:** (a) ROADMAP's Birthday & Milestone tracking would feed the Coming-up rail with zero new dashboard chrome; (b) promote the overdue-sheet per-card toggle guard (799–813) into the shared pattern DB12 asks for; (c) `timeLabel` is computed (286–293) but never rendered — use it in section meta or delete.
+
+---
+
+## 15. Support modules (weather, ai-helpers, push-client, push-ui, dev-banner)
+
+- **SM1 🟠 weather.js ignores the temperature-unit setting — always Fahrenheit.** `_fetchAndCache` hardcodes `&temperature_unit=fahrenheit` (weather.js:129); no read of any `settings.temperatureUnit`. Thread the unit through from settings (the Admin spec §6.5 lists "temperature unit" as a Family setting).
+- **SM2 🟡 Weather coordinate cache never refreshes when location changes.** Coords are only geocoded when absent (118–123); `clearWeatherCache()` (240) clears `dr-weather-` date entries but **not** `dr-weather-coord`. Changing `weatherLocation` leaves weather pinned to the old coordinates. Clear the coord key too, or key coords by location string.
+- **SM3 🟡 weather.js has no fetch timeout.** `geocodeLocation`/`_fetchAndCache` (108, 133) await fetch with no `AbortController` — a hung Open-Meteo request blocks the widget indefinitely. Add a few-second timeout.
+- **SM4 🟡 ai-helpers.js image resize drops EXIF orientation.** `resizeImageForUpload` (17–49) canvas-redraws and re-encodes, discarding the orientation tag — portrait phone photos reach Claude sideways, hurting OCR/recipe/calendar extraction. Use `createImageBitmap(file, { imageOrientation: 'from-image' })`.
+- **SM5 🔵 ai-helpers escaping is correct** — `renderConfirmRow` (121–141) routes all interpolation through `esc()`. No XSS gaps here.
+- **SM6 🔵 Rotated push subscriptions silently die on the bare dashboard.** `pushsubscriptionchange` re-subscribe and `silentAutoResubscribe` (push-client.js:181–205) resolve `personId` only from `?person=`/`?kid=` URL params — on plain `/index.html` a rotated subscription is never re-registered; pushes stop until the user revisits the Notifications UI. Persist the last-known personId (localStorage) as a fallback.
+- **SM7 🔵 Permission-denied toast doesn't distinguish hard `denied`** (needs OS settings) from `default` (push-ui.js:192) — copy could guide the user.
+- **SM8 🔵 Quiet-hours logic confirmed Worker-side and consistent** with the in-UI promise that bell messages and reward approvals bypass quiet hours (push-ui.js:155; worker `isInQuietHours` gates only time-triggered types). No action.
+- **SM9 🔵 dev-banner.js can't leak into production** (gated on `?env=dev`, touches only `rundown-dev`). Minor: uses native `confirm()` (line 55) — banned by CLAUDE.md but dev-only tooling; decide whether the ban applies.
+- **SM10 ⚪ serve.js: path-traversal guard adequate for a localhost dev server; `.mjs`/`.map` missing from the MIME table** (no live impact).
+
+---
+
+## 16. Worker & PWA (workers/kitchen-import.js · sw.js · manifest.json)
+
+### 16.1 Cloudflare Worker
+
+- **W1 🔴 AI handlers are unauthenticated behind wildcard CORS — anyone can spend the Claude API key.** `Access-Control-Allow-Origin: *` (kitchen-import.js:1628) and the entire `HANDLERS` map (`categorize`, `url`, `screenshot`, `scan`, `recipeSuggest`, … lines 1633–1649) runs with no auth — only `push`/`action` verify HMAC. Any script anywhere can POST `{type:"scan", input:{base64:…}}` and bill multimodal Haiku calls to the key indefinitely. Fix: lock CORS to `https://dashboard.jansky.app` and gate AI handlers behind a shared secret.
+- **W2 🟠 No rate limiting anywhere.** Pairs with W1 as the cost-abuse story. Add a Cloudflare rate-limiting rule or KV/DO counter per IP.
+- **W3 🟠 HMAC "auth" on `/push` + `/action` is a public secret — reward approvals can be forged.** `PUSH_HMAC_SECRET` ships verbatim in `shared/push-client.js:9` and `sw.js:728` (served to every browser). Anyone reading the JS — including a kid — can mint valid tokens and call `action`/`approve` (worker:1765) to self-approve redemptions or push arbitrary notifications. The DB-mutating reward actions raise the stakes beyond notifications. Needs a server-held secret or signed parent session.
+- **W4 🟠 SSRF / open fetch proxy.** `handleUrl`/`fetchImageAsBase64` (1284, 1147) and `handleIcal` (1482) fetch arbitrary user-supplied URLs and return bodies/base64. With W1's open CORS this is a general-purpose proxy. Block private IP ranges, cap redirect depth.
+- **W5 🟡 Cron-miss gaps in settlement permanently skip payouts.** `runDailySettlement` only settles *yesterday* (2472); `runWeeklySettlement` only fires when it's Monday in the family TZ (2520). A down day (or a fully missed Monday) is never back-filled — kids silently lose earned activity points. Idempotency itself is correct (2485/2535). Add a catch-up loop over the last N days/weeks.
+- **W6 🟡 Settlement does O(people × activities) Firebase reads every 5-minute tick all day,** even when fully settled (2476, 2485). Gate to once/day or short-circuit when yesterday is settled.
+- **W7 🟡 `runOverdueReminders` issues 7 sequential schedule-day reads** (2292–2300) inside its firing window — `Promise.all` them.
+- **W8 🔵 Model ID current** (`claude-haiku-4-5-20251001`, line 872); max_tokens 4096 fine. No action.
+- **W9 🔵 Claude-failure handling is safe but inconsistent:** text handlers swallow errors as HTTP 200 with fallback data; image handlers return 500. Unify or document.
+- **W10 🔵 Prompt-injection blast radius contained:** AI handlers only return client-validated JSON; the single write path (`handleEmailMessage` → `emailImports`, `processed:false`, line 1653) enqueues human-review items only. Acceptable. (Note: the email handler's `FIREBASE_DB_SECRET` is full-DB-scope — worth knowing.)
+- **W11 🔵 `parseJson` (886) throws on max_tokens truncation** — dense calendar images can silently fall back. Detect `stop_reason` or raise the cap for `handleScan`.
+- **W12 ⚪ `RUNDOWN_ROOT` hardcoded to `rundown`** (76) — dev-mode clients still trigger production pushes/settlement; a kid testing `?env=dev` could fire real approvals. Conscious choice; documented here.
+
+### 16.2 Service worker & PWA
+
+- **SW1 🟠 No offline navigation fallback.** Network-first caches every OK GET (657–665), but uncached routes have no fallback page when offline. Add navigation fallback to `/index.html`.
+- **SW2 🟡 `kitchen.js` is not precached but `kitchen.html` is** (APP_SHELL 525–581, intentional per v94 comment) — opening Kitchen offline before ever visiting it online loads HTML whose module 404s. Precache it or document the limitation.
+- **SW3 🟡 Approve/Deny/Snooze notification actions silently no-op offline.** `notificationclick` → `postAction` (691–747) just logs on failure (744) — the notification closes, the user believes they approved, nothing happened. Background Sync or re-show the notification on failure.
+- **SW4 🟡 `notificationclick` URL matching is loose** (`c.url.includes(targetPathname)`, 714–722) and drops query deep-links (`?openBell=1` etc.) when focusing an existing client — tapping a reward-approval push focuses the dashboard without opening the bell. Match pathname exactly and postMessage the deep-link.
+- **SW5 🔵 `CACHE_BUMPS` changelog block (7–522) has duplicate/out-of-order version entries** (two v182/v183, v184–189 dupes, two v68) — unreliable as history; clean up or switch to date-ordered.
+- **SW6 🔵 skipWaiting/clients.claim/per-asset catch on install all correct.** ✓
+- **SW7 ⚪ Dynamic kid/person manifests hardcode `#141413` theme colors** (627–646) — won't follow user theme; matches static manifest.json. Fine.
+
+### 16.3 Cross-file consistency (verified end-to-end)
+
+Push pref-key chain is **fully consistent**: `firebase.js mapMessageTypeToPushType` → `bellMessages`/`rewardApprovals`/`rewardFyi` → `push-ui.js DEFAULT_PREFS.types` → Worker `prefs.types[type]` lookup (1724) → `sw.js` action routing (674). Payload shapes match. No drift.
 
 ---
