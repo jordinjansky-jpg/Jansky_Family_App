@@ -38,3 +38,30 @@ Each batch = one commit. IDs reference findings in docs/APP_REVIEW.md.
 | SC8 | Removed orphaned duplicate JSDoc |
 
 **Deliberately NOT fixed here:** SC3 / SB14 (one "week" definition app-wide) — behavior change that needs a product decision on Sunday vs Monday weeks; flagged in the final summary. SR4 (anchor-day double count) — needs verification of how anchors are written in rewards flows; revisit in the rewards batch.
+
+## Batch 2 — Worker security, service worker, support modules
+
+⚠️ **The Worker is NOT auto-deployed.** After merging, run `npx wrangler deploy --config workers/wrangler.toml` (and consider adding a Cloudflare dashboard rate-limiting rule as the real abuse ceiling).
+
+| ID | Fix |
+|---|---|
+| W1 | Worker rejects any request whose Origin isn't allowlisted (`dashboard.jansky.app`, localhost dev) — the Claude key can no longer be spent by arbitrary websites. Residual: non-browser clients can spoof Origin; pair with a dashboard rate rule |
+| W2 | Per-isolate burst throttle on AI handlers (30/min) — caps scripted bursts at zero cost; not a global limit |
+| W4 | `isSafeRemoteUrl` SSRF guard on `handleUrl`, `handleIcal`, `fetchImageAsBase64` (http(s) only; no loopback/link-local/private hosts) |
+| W5 + AC1 | Settlement lookback: daily settles the last **14 days**, weekly the last **8 completed ISO weeks** (any day, not just Monday). Cron outages no longer permanently skip payouts, and client invalidations after session edits/deletes get **re-settled** — the silent point-loss bug is closed for edits within the lookback |
+| W6 | Settlement gated to the first tick of each hour + idempotency checks moved to a single `activityEarnings` read (was O(people×activities) Firebase reads every 5 min) |
+| W7 | Overdue-reminder schedule lookback reads parallelized |
+| W11 | `handleScan` max_tokens 4096 → 8192 (dense calendar images were truncating + silently falling back) |
+| SW1 | Offline navigation falls back to cached `/index.html` instead of the browser error page |
+| SW2 | `kitchen.js` precached — offline Kitchen no longer loads HTML whose module 404s |
+| SW3 | Failed/offline Approve/Deny/Snooze actions re-surface as an "didn't send" notification instead of silently vanishing |
+| SW4 | `notificationclick` matches clients by exact pathname and posts a `deep-link` message with the query string (page-side `?openBell=1` handling wired in the dashboard batch) |
+| — | `CACHE_NAME` bumped v342 → v343 |
+| SM1 | Weather honors `settings.temperatureUnit` ('celsius'/'C' → metric; default Fahrenheit). Admin UI field added in the admin batch |
+| SM2 | Weather coords keyed by location string + `clearWeatherCache` also clears coords — changing the family location actually moves the weather |
+| SM3 | Weather fetches have an 8s abort timeout |
+| SM4 | `resizeImageForUpload` honors EXIF orientation via `createImageBitmap(file, { imageOrientation: 'from-image' })` with legacy fallback — portrait photos no longer reach Claude sideways |
+| SM6 | Rotated push subscriptions re-register on bare `/index.html` via a `dr-push-person-id` localStorage fallback written at subscribe time |
+| SM9 | dev-banner native `confirm()` replaced with a two-tap arm/confirm |
+
+**Accepted-risk (documented, not fixed):** W3 — the push/action HMAC secret ships in client JS, so approvals remain forgeable by anyone who reads the source (including a curious kid). A real fix needs a server-held secret / parent-session model, which changes the notification architecture; the new Origin gate at least blocks third-party websites from using it. W12 — Worker always targets the production root (dev-mode clients trigger real pushes); conscious choice, left as-is. W9 — text handlers return 200-with-fallback while image handlers 500; intentional asymmetry, left.

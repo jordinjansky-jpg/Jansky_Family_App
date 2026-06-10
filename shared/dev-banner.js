@@ -50,11 +50,21 @@
     document.addEventListener('DOMContentLoaded', mount);
   }
 
+  // Two-tap confirm (first tap arms for 3s) — native confirm() is banned
+  // app-wide, and dev tooling shouldn't be the one exception.
+  let armedUntil = 0;
   document.addEventListener('click', async function (e) {
     if (e.target.id !== 'dev-banner-clear') return;
-    if (!confirm('Delete everything under rundown-dev/ in Firebase?\n\nThis cannot be undone.')) return;
-
     const btn = e.target;
+    if (Date.now() > armedUntil) {
+      armedUntil = Date.now() + 3000;
+      btn.textContent = 'Tap again to wipe';
+      setTimeout(() => {
+        if (Date.now() > armedUntil) btn.textContent = 'Clear data';
+      }, 3200);
+      return;
+    }
+    armedUntil = 0;
     btn.textContent = '...';
     btn.disabled = true;
 

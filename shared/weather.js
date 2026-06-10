@@ -82,12 +82,24 @@ function _writeCache(dateKey, data) {
   try { localStorage.setItem('dr-weather-' + dateKey, JSON.stringify({ ...data, fetched: Date.now() })); } catch {}
 }
 
-function _readCoords() {
-  try { return JSON.parse(localStorage.getItem('dr-weather-coord')); } catch { return null; }
+// Coords are keyed by the location string so a changed weatherLocation
+// geocodes fresh instead of serving the old town's weather forever.
+function _readCoords(loc) {
+  try {
+    const c = JSON.parse(localStorage.getItem('dr-weather-coord'));
+    return c && c.loc === loc ? c : null;
+  } catch { return null; }
 }
 
-function _writeCoords(lat, lon) {
-  try { localStorage.setItem('dr-weather-coord', JSON.stringify({ lat, lon })); } catch {}
+function _writeCoords(loc, lat, lon) {
+  try { localStorage.setItem('dr-weather-coord', JSON.stringify({ loc, lat, lon })); } catch {}
+}
+
+// Abortable fetch — a hung Open-Meteo request must not block the widget forever.
+function _fetchWithTimeout(url, ms = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
 function _toResult(entry) {
@@ -105,7 +117,7 @@ function _isFresh(entry, isToday) {
 }
 
 export async function geocodeLocation(loc) {
-  const r = await fetch(`${OM_GEO_BASE}?name=${encodeURIComponent(loc)}&count=1&language=en&format=json`);
+  const r = await _fetchWithTimeout(`${OM_GEO_BASE}?name=${encodeURIComponent(loc)}&count=1&language=en&format=json`);
   if (!r.ok) throw new Error(`Geocode ${r.status}`);
   const j = await r.json();
   const result = j.results?.[0];
@@ -114,23 +126,24 @@ export async function geocodeLocation(loc) {
            region: result.admin1 || '', country: result.country_code?.toUpperCase() || '' };
 }
 
-async function _fetchAndCache(loc, timezone) {
-  let coords = _readCoords();
+async function _fetchAndCache(loc, timezone, unit) {
+  let coords = _readCoords(loc);
   if (!coords) {
     const geo = await geocodeLocation(loc);
     coords = { lat: geo.lat, lon: geo.lon };
-    _writeCoords(coords.lat, coords.lon);
+    _writeCoords(loc, coords.lat, coords.lon);
   }
 
+  const tempUnit = unit === 'celsius' || unit === 'C' ? 'celsius' : 'fahrenheit';
   const url = `${OM_FORECAST_BASE}?latitude=${coords.lat}&longitude=${coords.lon}` +
     `&current=temperature_2m` +
     `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
     `&hourly=weathercode` +
-    `&temperature_unit=fahrenheit` +
+    `&temperature_unit=${tempUnit}` +
     `&timezone=${encodeURIComponent(timezone)}` +
     `&forecast_days=5`;
 
-  const r = await fetch(url);
+  const r = await _fetchWithTimeout(url);
   if (!r.ok) throw new Error(`OM ${r.status}`);
   const j = await r.json();
 
@@ -190,7 +203,7 @@ async function _fetchAndCache(loc, timezone) {
  *        | { isPast: true } | { isFuture: true } | null
  */
 export async function fetchWeather(dateKey, settings) {
-  const { weatherLocation: loc, timezone } = settings || {};
+  const { weatherLocation: loc, timezone, temperatureUnit } = settings || {};
   if (!loc) return null;
 
   const today = _todayKey(timezone);
@@ -201,7 +214,7 @@ export async function fetchWeather(dateKey, settings) {
   const cached = _readCache(dateKey);
   if (_isFresh(cached, dateKey === today)) return _toResult(cached);
 
-  try { await _fetchAndCache(loc, timezone); } catch { return _toResult(cached); }
+  try { await _fetchAndCache(loc, timezone, temperatureUnit); } catch { return _toResult(cached); }
   return _toResult(_readCache(dateKey));
 }
 
@@ -210,7 +223,7 @@ export async function fetchWeather(dateKey, settings) {
  * Returns array of { dateKey, ..., sunrise, sunset }.
  */
 export async function fetchForecast(settings) {
-  const { weatherLocation: loc, timezone } = settings || {};
+  const { weatherLocation: loc, timezone, temperatureUnit } = settings || {};
   if (!loc) return [];
 
   const today = _todayKey(timezone);
@@ -227,7 +240,7 @@ export async function fetchForecast(settings) {
     }));
   }
 
-  try { await _fetchAndCache(loc, timezone); } catch {}
+  try { await _fetchAndCache(loc, timezone, temperatureUnit); } catch {}
 
   return dates.map(dk => {
     const d = _readCache(dk);
@@ -236,12 +249,14 @@ export async function fetchForecast(settings) {
   }).filter(Boolean);
 }
 
-/** Evict all dr-weather-* cache entries (call when location changes). */
+/** Evict all dr-weather-* cache entries INCLUDING the geocoded coordinates
+ * (call when location changes — coords are also location-keyed as a second
+ * line of defense, but a clean flush avoids serving any stale entries). */
 export function clearWeatherCache() {
   const toRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k?.startsWith('dr-weather-')) toRemove.push(k);
+    if (k?.startsWith('dr-weather')) toRemove.push(k);
   }
   toRemove.forEach(k => localStorage.removeItem(k));
 }

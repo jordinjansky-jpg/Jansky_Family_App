@@ -74,6 +74,9 @@ export async function subscribe(personId, firebaseHelpers) {
     addedAt:  firebase.database.ServerValue.TIMESTAMP,
     lastSeen: firebase.database.ServerValue.TIMESTAMP,
   });
+  // Remember who this device subscribed as so a browser-rotated subscription
+  // can re-register even on pages without a ?person=/?kid= URL param.
+  try { localStorage.setItem('dr-push-person-id', personId); } catch {}
   return { hash, endpoint: json.endpoint };
 }
 
@@ -181,20 +184,28 @@ function describeDevice() {
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener?.('message', async (event) => {
     if (event.data?.type !== 'pushsubscriptionchange') return;
-    // Determine personId from the URL or storage.
+    // Determine personId from the URL, falling back to the last person this
+    // device subscribed as (bare /index.html has no ?person= param — without
+    // the fallback a rotated subscription was never re-registered and pushes
+    // silently stopped until the user revisited the Notifications UI).
     const url = new URL(location.href);
     const personParam = url.searchParams.get('person') || url.searchParams.get('kid');
-    if (!personParam) return; // unknown person — silent
-    // Look up the person via Firebase (read-only).
+    let storedPersonId = null;
+    try { storedPersonId = localStorage.getItem('dr-push-person-id'); } catch {}
+    if (!personParam && !storedPersonId) return; // truly unknown — silent
     try {
       const { readPeople, writePushSubscription } = await import('./firebase.js');
-      const peopleObj = await readPeople();
-      if (!peopleObj) return;
-      const personEntry = Object.entries(peopleObj).find(([_, p]) =>
-        p?.name?.toLowerCase() === personParam.toLowerCase()
-      );
-      if (!personEntry) return;
-      const [personId] = personEntry;
+      let personId = null;
+      if (personParam) {
+        const peopleObj = await readPeople();
+        if (!peopleObj) return;
+        const personEntry = Object.entries(peopleObj).find(([_, p]) =>
+          p?.name?.toLowerCase() === personParam.toLowerCase()
+        );
+        if (personEntry) [personId] = personEntry;
+      }
+      if (!personId) personId = storedPersonId;
+      if (!personId) return;
       // Re-subscribe (this person, fresh subscription).
       await subscribe(personId, { writePushSubscription });
       console.log('[push-client] auto re-subscribed after pushsubscriptionchange');

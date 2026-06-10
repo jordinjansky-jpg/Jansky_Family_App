@@ -520,7 +520,12 @@
 // v339 (2026-05-27) — withButtonLock helper + rapid-tap guards across all async
 //                     write surfaces (activities, admin, kitchen, rewards, dashboard
 //                     overdue sheet); .is-loading CSS; stale-listener analysis.
-const CACHE_NAME = 'family-hub-v342';
+// v343 (2026-06-10) — Review fix pass: precache kitchen.js (offline Kitchen no
+//                     longer 404s its module); offline navigation falls back to
+//                     cached index.html; notificationclick matches by pathname +
+//                     posts deep-link to the focused client; failed offline
+//                     approve/deny re-surfaces as a notification.
+const CACHE_NAME = 'family-hub-v343';
 
 const APP_SHELL = [
   '/',
@@ -528,6 +533,7 @@ const APP_SHELL = [
   '/person.html',
   '/dashboard.js',
   '/rewards.js',
+  '/kitchen.js',
   '/calendar.html',
   '/scoreboard.html',
   '/tracker.html',
@@ -653,7 +659,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first: try network, fall back to cache for offline support
+  // Network-first: try network, fall back to cache for offline support.
+  // Navigations to a route we never cached fall back to the app shell
+  // (index.html) instead of the browser's offline error page.
   event.respondWith(
     fetch(event.request).then((response) => {
       if (response.ok) {
@@ -661,7 +669,15 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
       }
       return response;
-    }).catch(() => caches.match(event.request))
+    }).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      if (event.request.mode === 'navigate') {
+        const shell = await caches.match('/index.html');
+        if (shell) return shell;
+      }
+      return Response.error();
+    })
   );
 });
 
@@ -712,9 +728,16 @@ self.addEventListener('notificationclick', (event) => {
   // Default click (no action button) — deep-link
   const url = data.url || '/index.html';
   event.waitUntil((async () => {
+    const target = new URL(url, self.location.origin);
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of allClients) {
-      if (c.url.includes(new URL(url, self.location.origin).pathname) && 'focus' in c) {
+      // Exact pathname match — substring matching could focus the wrong page —
+      // and post the full deep-link so the page can act on query params like
+      // ?openBell=1 (focusing alone drops them).
+      let clientPath;
+      try { clientPath = new URL(c.url).pathname; } catch { continue; }
+      if (clientPath === target.pathname && 'focus' in c) {
+        c.postMessage({ type: 'deep-link', url: target.pathname + target.search });
         return c.focus();
       }
     }
@@ -740,10 +763,28 @@ async function postAction(input) {
       headers: { 'Content-Type': 'application/json', 'Authorization': auth },
       body,
     });
-    if (!r.ok) console.warn('[sw] action non-OK', r.status);
+    if (!r.ok) {
+      console.warn('[sw] action non-OK', r.status);
+      await notifyActionFailed(input);
+    }
   } catch (err) {
+    // Offline / network failure: the notification already closed, so without
+    // this the user believes their Approve/Deny went through when it didn't.
     console.warn('[sw] action failed', err?.message || err);
+    await notifyActionFailed(input);
   }
+}
+
+async function notifyActionFailed(input) {
+  try {
+    const verb = input?.type === 'approve' ? 'Approval' : input?.type === 'deny' ? 'Denial' : 'Action';
+    await self.registration.showNotification(`${verb} didn't send`, {
+      body: 'You appear to be offline. Open the app to handle this request.',
+      icon: '/app-icon.png',
+      tag: 'action-failed',
+      data: { url: '/index.html?openBell=1' },
+    });
+  } catch { /* failure notice is best-effort */ }
 }
 
 self.addEventListener('pushsubscriptionchange', (event) => {

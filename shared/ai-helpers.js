@@ -23,6 +23,28 @@ export async function resizeImageForUpload(file, maxPx = 1092) {
       reader.readAsDataURL(file);
     });
   }
+  // Prefer createImageBitmap with EXIF orientation honored — phone photos
+  // carry an orientation tag that the bare <img>→canvas path discards,
+  // sending portrait shots to the AI sideways and hurting OCR accuracy.
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      let { width, height } = bitmap;
+      if (width > maxPx || height > maxPx) {
+        if (width >= height) { height = Math.round(height * maxPx / width); width = maxPx; }
+        else { width = Math.round(width * maxPx / height); height = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+      bitmap.close();
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      return { base64: dataUrl.split(',')[1], mediaType: 'image/jpeg' };
+    } catch {
+      // fall through to the legacy path (some browsers can't decode via bitmap)
+    }
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = reject;

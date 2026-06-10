@@ -1140,6 +1140,27 @@ function isTikTokUrl(url) {
   return /(?:^|[./])tiktok\.com|^https?:\/\/(?:vm|vt)\.tiktok\.com/i.test(url);
 }
 
+// SSRF guard for every user-supplied URL the Worker fetches server-side
+// (recipe pages, og:images, iCal feeds). Cloudflare's network already blocks
+// RFC1918 targets, but defense-in-depth costs nothing: http(s) only, and no
+// loopback/link-local/private hostnames.
+function isSafeRemoteUrl(urlStr) {
+  let u;
+  try { u = new URL(urlStr); } catch { return false; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase();
+  if (host === 'localhost' || host.endsWith('.localhost')) return false;
+  if (host.endsWith('.local') || host.endsWith('.internal')) return false;
+  if (host.startsWith('[')) return false; // IPv6 literals
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    const [a, b] = host.split('.').map(Number);
+    if (a === 0 || a === 10 || a === 127 || a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+  }
+  return true;
+}
+
 // Server-side image fetch + base64 encode. Returns { imageData, imageMediaType }
 // or { imageData: null, imageMediaType: null } on any failure. Caps at 5 MB
 // raw to avoid runaway responses. Used so the client can store the image as a
@@ -1147,6 +1168,7 @@ function isTikTokUrl(url) {
 async function fetchImageAsBase64(url) {
   const NULL_RESULT = { imageData: null, imageMediaType: null };
   if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url)) return NULL_RESULT;
+  if (!isSafeRemoteUrl(url)) return NULL_RESULT;
   try {
     const res = await fetch(url, { redirect: 'follow' });
     if (!res.ok) return NULL_RESULT;
@@ -1290,6 +1312,7 @@ async function handleUrl(input, env, corsHeaders) {
     ? input.context.slice(0, 500).trim()
     : '';
   if (!url || typeof url !== 'string') return jsonError('No URL provided', 400, corsHeaders);
+  if (!isSafeRemoteUrl(url)) return jsonError('That URL can’t be fetched', 400, corsHeaders);
 
   // Always echo URL back so the client preserves it even on parse failure.
   // Use null (not '') for fields the client checks truthy-falsy on.
@@ -1481,6 +1504,7 @@ async function handleCalendarPhoto(input, env, corsHeaders) {
 
 async function handleIcal(url, env, corsHeaders) {
   if (!url || typeof url !== 'string') return jsonError('No URL provided', 400, corsHeaders);
+  if (!isSafeRemoteUrl(url)) return jsonError('That URL can’t be fetched', 400, corsHeaders);
 
   try {
     const res = await fetch(url, {
@@ -1608,7 +1632,9 @@ async function handleScan(input, env, corsHeaders) {
         imageContent(input.base64, input.mediaType),
         { type: 'text', text: SCAN_PROMPT(contextDate, userContext) },
       ],
-    }], env, 4096);
+      // 8192: dense calendar images were truncating events at 4096, which
+      // made parseJson throw and the whole scan silently fall back.
+    }], env, 8192);
     const parsed = parseJson(raw);
     return jsonOk({
       events: Array.isArray(parsed.events) ? parsed.events.filter(e => e.name && e.date) : [],
@@ -1624,11 +1650,44 @@ async function handleScan(input, env, corsHeaders) {
 
 // ── fetch export ───────────────────────────────────────────────────────────────
 
+// Origins allowed to call this Worker. Everything else is rejected before any
+// handler (or Claude spend) runs. Previously this was a `*` wildcard, which
+// let any website on the internet bill AI calls to our API key.
+// Note: a non-browser client can still spoof an Origin header — real abuse
+// protection should ALSO be configured as a Cloudflare rate-limiting rule —
+// but this closes the drive-by web vector entirely.
+const ALLOWED_ORIGINS = new Set([
+  'https://dashboard.jansky.app',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+]);
+
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  // Rewritten per-request in fetch() after the origin check passes. If two
+  // concurrent requests interleave, each still gets *an allowlisted* origin —
+  // worst case the browser rejects the response (fail closed), never opens up.
+  'Access-Control-Allow-Origin': 'https://dashboard.jansky.app',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+// Cheap in-isolate burst throttle for the AI handlers. Cloudflare spins up
+// many isolates so this is NOT a global rate limit — it caps per-isolate
+// bursts (rapid-fire scripted abuse) at near-zero cost. Pair with a
+// dashboard-level rate-limiting rule for a real ceiling.
+let _aiWindowStart = 0;
+let _aiWindowCount = 0;
+const AI_CALLS_PER_MINUTE = 30;
+
+function aiThrottleExceeded() {
+  const now = Date.now();
+  if (now - _aiWindowStart > 60000) {
+    _aiWindowStart = now;
+    _aiWindowCount = 0;
+  }
+  _aiWindowCount++;
+  return _aiWindowCount > AI_CALLS_PER_MINUTE;
+}
 
 const HANDLERS = {
   categorize:        (input, env) => handleCategorize(input, env, CORS),
@@ -2015,14 +2074,25 @@ async function runScheduled(env, scheduledTimeMs) {
   await runPendingPushes(env, now);
 
   // Settle activity goals (idempotent — safe to re-run).
-  // Daily: runs every tick, settles yesterday.
-  // Weekly: runs only on Monday in tz, settles prior ISO week.
-  try {
-    const activities = (await fbGet(env, 'activities').catch(() => null)) || {};
-    await runDailySettlement(env, now, tz, people, activities);
-    await runWeeklySettlement(env, now, tz, people, activities);
-  } catch (err) {
-    console.error('[scheduled] runDailySettlement/runWeeklySettlement failed:', err?.message || err);
+  // Daily: settles the last 14 days; Weekly: the last 8 completed ISO weeks.
+  // The lookback (a) survives cron outages (a down day no longer permanently
+  // skips a payout) and (b) re-settles periods the client invalidated after
+  // a session edit/delete — previously any edit older than yesterday deleted
+  // a settled earning that was never recomputed.
+  // Gated to the first tick of each hour: settlement was burning
+  // O(people × activities) Firebase reads every 5 minutes all day.
+  if (now.getUTCMinutes() < 5) {
+    try {
+      const [activities, allSessions, allEarnings] = await Promise.all([
+        fbGet(env, 'activities').catch(() => null),
+        fbGet(env, 'activitySessions').catch(() => null),
+        fbGet(env, 'activityEarnings').catch(() => null),
+      ]);
+      await runDailySettlement(env, now, tz, people, activities || {}, allSessions || {}, allEarnings || {});
+      await runWeeklySettlement(env, now, tz, people, activities || {}, allSessions || {}, allEarnings || {});
+    } catch (err) {
+      console.error('[scheduled] runDailySettlement/runWeeklySettlement failed:', err?.message || err);
+    }
   }
 }
 
@@ -2286,18 +2356,21 @@ async function runOverdueReminders(env, now, tz, people) {
   });
   if (filtered.length === 0) return;
 
-  // Load last 7 days of schedule + completions + tasks (for frequency check)
+  // Load last 7 days of schedule + completions + tasks (for frequency check).
+  // Days fetched in parallel — they were serial round trips before.
   const lookbackDays = 7;
+  const dayKeys = [];
+  for (let i = 1; i <= lookbackDays; i++) dayKeys.push(addDaysKey(todayKey, -i));
+  const days = await Promise.all(dayKeys.map(dk => fbGet(env, `schedule/${dk}`).catch(() => null)));
   const scheduleEntries = []; // [{dateKey, entryKey, entry}]
-  for (let i = 1; i <= lookbackDays; i++) {
-    const dk = addDaysKey(todayKey, -i);
-    const day = await fbGet(env, `schedule/${dk}`).catch(() => null);
+  dayKeys.forEach((dk, idx) => {
+    const day = days[idx];
     if (day && typeof day === 'object') {
       for (const [entryKey, entry] of Object.entries(day)) {
         scheduleEntries.push({ dateKey: dk, entryKey, entry });
       }
     }
-  }
+  });
   const [completions, tasks] = await Promise.all([
     fbGet(env, 'completions').catch(() => null),
     fbGet(env, 'tasks').catch(() => null),
@@ -2468,12 +2541,18 @@ async function runPendingPushes(env, now) {
   }
 }
 
-async function runDailySettlement(env, now, tz, people, activities) {
-  const yesterdayKey = yesterdayKeyInTz(now, tz);
-  const { startMs, endMs } = localDayWindowMs(yesterdayKey, tz);
+const SETTLE_DAILY_LOOKBACK_DAYS = 14;
+const SETTLE_WEEKLY_LOOKBACK_WEEKS = 8;
 
-  // Read all sessions once; filter per (person, activity) pair below.
-  const allSessions = (await fbGet(env, 'activitySessions')) || {};
+async function runDailySettlement(env, now, tz, people, activities, allSessions, allEarnings) {
+  const todayKey = dateKeyInTz(now, tz);
+
+  // Pre-compute the local day windows for the lookback range (newest first).
+  const dayWindows = [];
+  for (let i = 1; i <= SETTLE_DAILY_LOOKBACK_DAYS; i++) {
+    const dayKey = addDaysKey(todayKey, -i);
+    dayWindows.push({ dayKey, ...localDayWindowMs(dayKey, tz) });
+  }
 
   for (const [personId] of Object.entries(people || {})) {
     for (const [activityId, a] of Object.entries(activities || {})) {
@@ -2481,49 +2560,54 @@ async function runDailySettlement(env, now, tz, people, activities) {
       if (a.goalPeriod !== 'daily') continue;
       if (!a.assignedTo || !a.assignedTo[personId]) continue;
 
-      // Idempotency: skip if already settled for this (person, activity, day).
-      const existing = await fbGet(env, `activityEarnings/${personId}/${activityId}/${yesterdayKey}`);
-      if (existing) continue;
+      for (const { dayKey, startMs, endMs } of dayWindows) {
+        // Idempotency: skip days already settled (checked against the single
+        // earnings read — no per-pair-per-day Firebase round trips).
+        if (allEarnings?.[personId]?.[activityId]?.[dayKey]) continue;
 
-      // Sum session minutes that fall within yesterday's local window.
-      let actualMinutes = 0;
-      for (const s of Object.values(allSessions)) {
-        if (s.activityId !== activityId) continue;
-        if (s.personId !== personId) continue;
-        if (typeof s.startedAt !== 'number') continue;
-        if (s.startedAt < startMs || s.startedAt >= endMs) continue;
-        actualMinutes += s.durationMin || 0;
+        // Sum session minutes that fall within that day's local window.
+        let actualMinutes = 0;
+        for (const s of Object.values(allSessions)) {
+          if (s.activityId !== activityId) continue;
+          if (s.personId !== personId) continue;
+          if (typeof s.startedAt !== 'number') continue;
+          if (s.startedAt < startMs || s.startedAt >= endMs) continue;
+          actualMinutes += s.durationMin || 0;
+        }
+
+        const earned = calculateActivityEarning(actualMinutes, a.goalMinutes, a.pointsAtGoal);
+        const goalPercent = a.goalMinutes > 0 ? actualMinutes / a.goalMinutes : 0;
+
+        await fbSet(env, `activityEarnings/${personId}/${activityId}/${dayKey}`, {
+          periodKey:      dayKey,
+          goalPeriod:     'daily',
+          goalMinutes:    a.goalMinutes,
+          actualMinutes,
+          goalPercent,
+          pointsAtGoal:   a.pointsAtGoal,
+          earned,
+          settledAt:      Date.now(),
+          formulaVersion: 1,
+        });
+        console.log('[settlement] daily settled', personId, activityId, dayKey,
+          { actualMinutes, earned });
       }
-
-      const earned = calculateActivityEarning(actualMinutes, a.goalMinutes, a.pointsAtGoal);
-      const goalPercent = a.goalMinutes > 0 ? actualMinutes / a.goalMinutes : 0;
-
-      await fbSet(env, `activityEarnings/${personId}/${activityId}/${yesterdayKey}`, {
-        periodKey:      yesterdayKey,
-        goalPeriod:     'daily',
-        goalMinutes:    a.goalMinutes,
-        actualMinutes,
-        goalPercent,
-        pointsAtGoal:   a.pointsAtGoal,
-        earned,
-        settledAt:      Date.now(),
-        formulaVersion: 1,
-      });
-      console.log('[settlement] daily settled', personId, activityId, yesterdayKey,
-        { actualMinutes, earned });
     }
   }
 }
 
-async function runWeeklySettlement(env, now, tz, people, activities) {
-  // Only settle on Monday — that's when the previous week's boundary is crossed.
-  if (!isMondayInTz(now, tz)) return;
-
-  const weekKey = lastIsoWeekKey(now, tz);
-  const { startMs, endMs } = isoWeekRangeMs(weekKey, tz);
-
-  // Read all sessions once; filter per (person, activity) pair below.
-  const allSessions = (await fbGet(env, 'activitySessions')) || {};
+async function runWeeklySettlement(env, now, tz, people, activities, allSessions, allEarnings) {
+  // Settle every COMPLETED week in the lookback, not just "last week on
+  // Monday" — a missed Monday no longer permanently skips a week's payout,
+  // and client invalidations of past weeks get recomputed.
+  const todayKey = dateKeyInTz(now, tz);
+  const weekKeys = [];
+  for (let w = 1; w <= SETTLE_WEEKLY_LOOKBACK_WEEKS; w++) {
+    const d = new Date(`${todayKey}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 7 * w);
+    const wk = isoWeekKeyFromDate(d);
+    if (!weekKeys.includes(wk)) weekKeys.push(wk);
+  }
 
   for (const [personId] of Object.entries(people || {})) {
     for (const [activityId, a] of Object.entries(activities || {})) {
@@ -2531,36 +2615,37 @@ async function runWeeklySettlement(env, now, tz, people, activities) {
       if (a.goalPeriod !== 'weekly') continue;
       if (!a.assignedTo || !a.assignedTo[personId]) continue;
 
-      // Idempotency: skip if already settled for this (person, activity, week).
-      const existing = await fbGet(env, `activityEarnings/${personId}/${activityId}/${weekKey}`);
-      if (existing) continue;
+      for (const weekKey of weekKeys) {
+        if (allEarnings?.[personId]?.[activityId]?.[weekKey]) continue;
+        const { startMs, endMs } = isoWeekRangeMs(weekKey, tz);
 
-      // Sum session minutes that fall within the week's local window.
-      let actualMinutes = 0;
-      for (const s of Object.values(allSessions)) {
-        if (s.activityId !== activityId) continue;
-        if (s.personId !== personId) continue;
-        if (typeof s.startedAt !== 'number') continue;
-        if (s.startedAt < startMs || s.startedAt >= endMs) continue;
-        actualMinutes += s.durationMin || 0;
+        // Sum session minutes that fall within the week's local window.
+        let actualMinutes = 0;
+        for (const s of Object.values(allSessions)) {
+          if (s.activityId !== activityId) continue;
+          if (s.personId !== personId) continue;
+          if (typeof s.startedAt !== 'number') continue;
+          if (s.startedAt < startMs || s.startedAt >= endMs) continue;
+          actualMinutes += s.durationMin || 0;
+        }
+
+        const earned = calculateActivityEarning(actualMinutes, a.goalMinutes, a.pointsAtGoal);
+        const goalPercent = a.goalMinutes > 0 ? actualMinutes / a.goalMinutes : 0;
+
+        await fbSet(env, `activityEarnings/${personId}/${activityId}/${weekKey}`, {
+          periodKey:      weekKey,
+          goalPeriod:     'weekly',
+          goalMinutes:    a.goalMinutes,
+          actualMinutes,
+          goalPercent,
+          pointsAtGoal:   a.pointsAtGoal,
+          earned,
+          settledAt:      Date.now(),
+          formulaVersion: 1,
+        });
+        console.log('[settlement] weekly settled', personId, activityId, weekKey,
+          { actualMinutes, earned });
       }
-
-      const earned = calculateActivityEarning(actualMinutes, a.goalMinutes, a.pointsAtGoal);
-      const goalPercent = a.goalMinutes > 0 ? actualMinutes / a.goalMinutes : 0;
-
-      await fbSet(env, `activityEarnings/${personId}/${activityId}/${weekKey}`, {
-        periodKey:      weekKey,
-        goalPeriod:     'weekly',
-        goalMinutes:    a.goalMinutes,
-        actualMinutes,
-        goalPercent,
-        pointsAtGoal:   a.pointsAtGoal,
-        earned,
-        settledAt:      Date.now(),
-        formulaVersion: 1,
-      });
-      console.log('[settlement] weekly settled', personId, activityId, weekKey,
-        { actualMinutes, earned });
     }
   }
 }
@@ -2576,6 +2661,17 @@ function formatHhmm(hhmm) {
 
 export default {
   async fetch(request, env) {
+    // Origin gate: the app is always a cross-origin caller of this Worker, so
+    // browsers send Origin on every POST. Reject anything not on the
+    // allowlist before doing any work (or any Claude spend).
+    const origin = request.headers.get('Origin') || '';
+    if (!ALLOWED_ORIGINS.has(origin)) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    CORS['Access-Control-Allow-Origin'] = origin;
+
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS });
     }
@@ -2601,7 +2697,14 @@ export default {
       return handleAction(input, env, CORS, rawBodyText, request.headers.get('Authorization'));
     }
     const handler = HANDLERS[type];
-    if (handler) return handler(input, env);
+    if (handler) {
+      if (aiThrottleExceeded()) {
+        return new Response(JSON.stringify({ error: 'Too many requests — try again in a minute' }), {
+          status: 429, headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+      return handler(input, env);
+    }
 
     return new Response(JSON.stringify({ error: 'Unknown type' }), {
       status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
