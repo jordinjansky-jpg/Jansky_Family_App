@@ -26,9 +26,9 @@
 |---|---|---|---|
 | 1 | Foundation modules | shared/utils.js, state.js, firebase.js, theme.js, dom-helpers.js | ✅ Done |
 | 2 | Engine modules | shared/scheduler.js, scoring.js | ✅ Done |
-| 3 | Components library | shared/components.js | Pending |
+| 3 | Components library | shared/components.js | ✅ Done |
 | 4 | Dashboard | index.html, dashboard.js, styles/dashboard.css | ✅ Done |
-| 5 | Calendar | calendar.html, shared/calendar-views.js, styles/calendar.css | Pending |
+| 5 | Calendar | calendar.html, shared/calendar-views.js, styles/calendar.css | ✅ Done |
 | 6 | Kitchen | kitchen.html, kitchen.js, shared/kitchen-ical.js, styles/kitchen.css | Pending |
 | 7 | Tracker | tracker.html, styles/tracker.css | Pending |
 | 8 | Scoreboard | scoreboard.html, styles/scoreboard.css | Pending |
@@ -142,6 +142,56 @@ Foundation modules are headless; UX implications are logged with their owning pa
 
 ---
 
+## 3. Components library (shared/components.js)
+
+### 3.1 Phase A — bugs, correctness, duplication
+
+- **C1 🟠 `initColorButton` leaks a document-level capture listener on every call.** components.js:104–106 adds `document.addEventListener('click', closeOnOutside, { capture: true })` and never removes it — called on every open of Customize, Avatar editor, and admin person/category forms. Listeners and their closures over removed DOM accumulate for the page lifetime. Remove on popover close or use an AbortController.
+- **C2 🟠 Bell approve/deny and Send Message have no in-flight guard — double-tap duplicates Firebase writes.** `.bell-approve` (4698–4761) awaits then writes approval messages + bank tokens; a second tap re-runs the whole chain → duplicate reward tokens/points. Same in `.bell-approve-use` (4815–4844) and `#msg_send` (4031–4091). Fix: disable the button at handler entry (the §5.23 saving-spinner pattern). **Real data corruption in the rewards economy.**
+- **C3 🟠 `openRepeatSubsheet` renders the full Repeat UI but silently discards everything except the type.** (1770–1797 + `renderRepeatSheet` 5418–5496.) Weekly day chips have no click binding (taps do nothing) and the entire "Ends" section (end date / occurrence count) is dropped on Done — `rule = { type }` (1793). Used by calendar.html:1716 and admin.html:1833 — users set options that silently vanish. Bind the full UI (dashboard has richer wiring) or render a `simple: true` variant.
+- **C4 🟡 `showConfirm`: Enter while Cancel is focused confirms.** keyHandler (4168–4177) force-confirms on Enter unless focus is in the input — even when the user has Tabbed to Cancel. Skip the shortcut when `activeElement === cancelBtn`.
+- **C5 🟡 Customize pref-writes persist the `id` field into the person record.** `writeNavTabsPref` (646), `writeKitchenCustomize` (688), `writeRewardsCustomize` (738), `writeScoreboardCustomize` (797) spread the full person (incl. `id`) into `writePerson`, while `openDeviceThemeSheet` carefully strips it (3554/3630). Pollutes `rundown/people/{id}` with a redundant `id` key. Destructure it out.
+- **C6 🟡 Double-escaping bugs.** (a) `renderMealEditorSheet`: `url` escaped at 4959 then again at 5023 — URLs with `&` become `&amp;amp;` and open broken. (b) `renderBankToken`: `typeLabel` contains escaped name (2353–2355) and is re-escaped at 2371.
+- **C7 🟡 `openPhotoCropper` leaks document `mousemove`/`mouseup` listeners** (391–392; `close()` at 410–413 only removes the overlay).
+- **C8 🟡 `openVoteSheet` vote toggles operate on a stale `options` closure with no in-flight guard** (5583–5595) — rapid taps clone the same original array; second write clobbers the first vote. Disable buttons during `await onWriteOptions`.
+- **C9 🟡 `openDeviceThemeSheet.applyAndSave` crashes on a stale preset key** (3544: `presets.find(...)` then unconditional `info.mode`). Guard with `defaultThemeConfig()` fallback.
+- **C10 🔵 Dead code (grep-verified zero callers):** `NAV_ITEMS` (449–454), `renderTrackerFilterSheet` (2512), `renderViewSwitcher` (2821), `renderSectionHeader` (4243), `_formatEventTime12h` (4438), and the dead `.replace('from ', '')` at 3079. Delete.
+- **C11 🔵 Four duplicate 24h→12h time formatters** (`formatEventTime` 429, `formatTime12` 2692, `ef2fmt12` 2829, `_formatEventTime12h` 4438). Collapse to one.
+- **C12 🔵 SVG icon constants duplicated 6–9×** — close ✕ exists as `CLOSE_SVG`/`CLOSE_SVG_TF`/`MD_CLOSE_SVG`/`DS_CLOSE`/`closeSvg` (216, 1471, 2895, 3041, 3214, 4983, 5265, 5529); same for check and trash; `chev` re-declared in each customize renderer (920, 1041, 1161). Hoist to module constants.
+- **C13 🔵 The shipped form primitives aren't used by the flagship forms.** `renderEventForm` (2917–2924), `renderTaskForm` (3264–3271), `renderMealEditorSheet` (4986–4997) hand-roll identical `sheet__header` blocks instead of `renderFormSheetHeader` (1470); the `requestAnimationFrame(...add('active'))` open boilerplate appears 11× with subtly different overlay-close logic. A shared `openSheet(mount, html, onDismiss)` helper would unify both (and is the natural home for the Escape/focus-trap fix in C24).
+- **C14 🔵 `renderNavBar` re-implements `readNavTabsPref`'s localStorage fallback** (485–496 vs 619–630) and skips its page-id whitelist validation. Call the helper.
+- **C15 🔵 Sheet-close timing constants drifted:** CSS `--t-base` 200ms; dom-helpers 300ms; this file 220/280/300/320ms (419, 262, 3718, 1785/1795/1847/1909). Define one `SHEET_ANIM_MS` (DESIGN.md's budget is 320ms).
+- **C16 🔵 `initBottomNav` re-binds `#headerAdmin` on every `dr-nav-tabs-changed`** (554–558 → 610) — accumulating listeners on a node that isn't re-rendered.
+- **C17 🔵 `initBell` rapid double-click stacks two dropdowns** — existence check happens before `await readBankFn` per kid (4538–4576). Append the overlay (skeleton) before the async reads.
+- **C18 ⚪ `bindEmojiPicker`: clearing the custom input leaves the stale value** (1615–1617: `if (!v) return`); `maxlength="4"` blocks ZWJ-sequence emoji (1569).
+- **C19 ⚪ Eleven exports are internal-only** (grep-verified): `DEFAULT_NAV_TABS`, `readNavTabsPref`, `writeNavTabsPref`, `writeKitchenCustomize`, `writeRewardsCustomize`, `writeScoreboardCustomize`, `renderConnectionStatus`, `historyTypeIcon`, `renderBellDropdown`, `renderBonusDaySheet`, `renderOfflineBanner`. Drop `export`.
+- **C20 ⚪ Tab-pref readers can return an empty `tabs` array** (`readKitchenCustomize` 675, `readRewardsCustomize` 721) — the "keep at least one" guard lives only in the toggle UI (1028); corrupted data renders a page with zero tabs. Add a non-empty fallback.
+
+### 3.2 Phase B — UX, accessibility, spec compliance
+
+- **C21 🟠 `renderMealPlanSheet` violates §5.24/§12 on four counts** (5059–5155, used by calendar.html:1786): banned slot tabs (5109), lone full-width Save instead of `fs-footer` Cancel+primary (5153), no `sheet__header` ✕, Save never disabled with nothing selected — plus no empty-library state (5123). It near-duplicates kitchen.js's compliant `openPlanMealSheet`; consolidating on that fixes all five.
+- **C22 🟡 Emoji in chrome (banned), 7 sites:** overdue banner ⚠️/▸ (2132–2134), `renderErrorState` ⚠️ (1413), bell activity icons 🛍️➕➖✅❌🎉📋 (3866–3873) + 🏦 (3894) — `historyTypeIcon` (2384) was already converted to SVG for exactly this reason and the bell list wasn't — Bonus Day header 🎉 (4097), vote sheet 👍 (5548) + 🏆 (5543), and the app-supplied `📅 ` prefix on event card names (2063). Each has an SVG sibling in-file to swap to.
+- **C23 🟡 Inline `style=""` in generated HTML, 6 sites:** showConfirm reason textarea (4144), `#dt_sectionsNudge` display:none (3481), meal-detail not-found padding (5282), `renderScoreCard` (2246) and `renderApprovalRow` (2484) owner-color (should use `data-owner-color` + `applyDataColors` like siblings), `renderDashboardTile` tile-icon-color (4228).
+- **C24 🟡 Bottom sheets claim `role="dialog" aria-modal="true"` but have no focus management, no Escape, no label** (1427). Tab escapes the sheet; Escape does nothing (only showConfirm handles it). Add a shared open-helper with focus trap + Escape + `aria-labelledby` (pairs with C13).
+- **C25 🟡 `showConfirm` auto-focuses the reason textarea on open** (4184) — keyboard pops immediately in deny-reason flows (4779/4860), violating §12's auto-focus rule. Focus the OK button unconditionally.
+- **C26 🔵 Task form "Exempt from scoring" is a chip-toggle, should be a switch** (3341–3343; `renderSwitchToggle` exists at 1696, unused here — §5.23 names this exact control). Event form end-date chip shows raw ISO (`'✓ Ends ' + esc(event.endDate)`, 2969) instead of `formatDateShort`.
+- **C27 🔵 Keyboard-unreachable controls:** `.ef2-repeat-option` are click-only `<div>`s (5428); overflow-menu buttons lack `role="menuitem"` (2565); person-filter sheet likewise (2607); `ef2-person-chip` exposes no `aria-pressed` (2887–2890, 3248–3251) so primary/attending is visual-only.
+- **C28 🔵 `showToast` has no `role="status"`/aria-live and toasts stack** (4192–4198) — spec says max 1 visible, queue the rest. Add the role and reuse/replace the node.
+- **C29 🔵 `renderMealDetailSheet` hero `onerror` is inline JS and bypasses the self-heal pipeline** (5386: `onerror="this.parentElement.remove()"`) — §6.10 says hero errors should fire `window.__krImgError(recipeId)`.
+- **C30 🔵 `renderHeatmap` data is title-attribute only** (2682) — unreachable on touch (phone-first app) and the title is unescaped. Tap-to-show or `aria-label` summary.
+- **C31 ⚪ Iconography drift:** Kitchen icon differs between `renderNavBar` (474, whisk) and `initNavMore` (567, pot); Scores too (476 vs 569). Cook mode uses text glyphs `←✕‹›` in buttons (5222–5235). Color swatches use the raw hex code as `aria-label` (56).
+- **C32 ⚪ Sub-sheet dismissal inconsistency:** avatar editor / photo-source / iCal-URL overlays don't close on backdrop tap while every `renderBottomSheet` consumer does. Pick one behavior.
+- **C33 ⚪ `event.url`/`meal.url` go into `href` with only HTML-escaping** (3020, 5378) — `esc()` doesn't block `javascript:` URLs. One-line `https?:` scheme check.
+
+### 3.3 Cross-cutting answers recorded
+
+- **XSS surface beyond DB7:** `renderEmptyState` icon/title/subtitle raw (1396–1400), `renderUndoToast` message raw (1370, current callers safe), user-authored `category.icon` raw in task card + detail sheet (2064, 3061), `renderScoreCard` badgeIcons raw (2225), `renderHeatmap` title raw (2682), plus unescaped-but-currently-safe ID/color attribute interpolations drifting from the file's own esc() convention (1945, 3941, 4103, 2795, 3022–3023, 3107, 3120, 3159, 3268).
+- **Repeat-day tokens match state.js exactly** (5421 vs state.js:383) — S7 resolved as "no bug, fragile contract stands."
+- **No `window.confirm`/`alert` anywhere in the file.** ✓
+- **Event/Task forms are largely §5.23-compliant** (sticky footers, synced disabled saves, date pills, time picker, no auto-focus) — gaps are C26 and C13 only.
+
+---
+
 ## 4. Dashboard (index.html · dashboard.js · styles/dashboard.css)
 
 ### 4.1 Phase A — bugs, correctness, duplication
@@ -183,6 +233,53 @@ Foundation modules are headless; UX implications are logged with their owning pa
 - **DB32 🔵 No boot error state** — if the initial `Promise.all` (34–36) rejects, the skeleton spins forever. §7.7 requires `renderErrorState` + retry.
 - **DB33 🔵 Weather tile with no location set deep-links into PIN-gated admin** (961–963) with no explanation — kid/person users hit a PIN wall. Toast or inline subsheet instead.
 - **DB34 ⚪ Polish:** (a) ROADMAP's Birthday & Milestone tracking would feed the Coming-up rail with zero new dashboard chrome; (b) promote the overdue-sheet per-card toggle guard (799–813) into the shared pattern DB12 asks for; (c) `timeLabel` is computed (286–293) but never rendered — use it in section meta or delete.
+
+---
+
+## 5. Calendar (calendar.html · shared/calendar-views.js · styles/calendar.css)
+
+### 5.1 Phase A — bugs, correctness, duplication
+
+- **CAL1 🔴 The Add flow is unreachable — calendar has no FAB.** `openAddMenu()` (calendar.html:766) and its entire downstream tree — `openImportEventsSheet` (:800), `openIcalImportSheet` (:826), `openCalendarPhotoImport` (:874), `openTextEventSheet` (:1005), `openImportEventsConfirm` (:1058) — are never called. `renderFab` isn't imported and no FAB markup exists (:21–32). Users cannot create an event or task from the calendar page at all; the month panel empty state even says "No events — tap + to add" (calendar-views.js:721) — a button that doesn't exist. §6.2 requires the FAB. Fix: render `renderFab` → `openAddMenu` (mirroring dashboard.js:180). ~400 lines of import code are currently dead.
+- **CAL2 🔴 Day-view swipe listeners leak across views — multi-fire navigation.** `bindDayViewEvents` attaches touch handlers under `daySwipeController` (calendar.html:658–673) only aborted on the *next* day-view bind. After visiting Day view once, a week-view swipe mutates `viewDay`, fires an extra `render()`, *and* runs the week handlers. Abort the controller at the top of `render()` or guard on `currentView`.
+- **CAL3 🔴 Week-strip swipe double-navigates — jumps two weeks.** The strip has its own swipe handler (±7 days, threshold 50, :536–556) and the page-level handler on `main` also handles week view (±7, threshold 60, :2523–2543). One gesture can advance 14 days (and between 50–60px only one fires — inconsistent feel). Remove one of the two.
+- **CAL4 🟠 Full schedule rebuilds wipe calendar's moves, delegations, notes, and slider overrides.** *(Same root cause as DB1/SC2 — confirmed here too.)* Move (:2208–2226), Delegate (:2146–2177), Delegate+Move (:2180–2200) write only schedule entries; `generateSchedule` strips uncompleted future entries and `movedFromDate`/`delegatedFromName`/`notes` (:2093) appear nowhere in scheduler.js. Completing a cooldown task (:740) also nulls that task's future entries including manual moves. One fix in the scheduler (preserve entries carrying these markers) repairs both pages.
+- **CAL5 🟠 Event "mirror" schedule entries are write-only decaying data — 5 write sites** (:1139, :1433, :1440, :1703, :2610); every renderer filters them out, every rebuild strips them, and they force O(all-dates) scans on event move/delete (:1425–1431, :1461–1467, :1961–1968). Matches DB19 — recommend dropping the writes entirely.
+- **CAL6 🟠 `defaultView: 'day'` boots into a broken view.** Admin offers Day as a default (admin.html:2572–2575) but `viewDay` initializes to null (:103) and is only set when the user clicks the Day tab (:449) — first render calls `formatDateShort(null)`. Initialize `viewDay = today`.
+- **CAL7 🟠 No error handling/toast on completion and move writes.** `toggleTask` mutates local state then awaits writes bare (:695–721); same for delegate/move/skip (:2174, :2196, :2223, :2232), notes (:2093), meal plan (:1903–1921). The event form does it right (:1445–1450) — extend that pattern.
+- **CAL8 🟠 No schedule listener — cross-device task changes never appear.** Calendar subscribes to completions + events only (:2552–2561); a move/new task from another device is invisible until reload. The `closeTaskSheet` comment (:1983–1984) claims a listener that doesn't exist.
+- **CAL9 🟠 Month view calls `getEventsForDate` per cell — amplifies the state.js expansion bugs and cost.** ~31 cells + day panel per render (calendar-views.js:652–685, :715), each O(event-age) from the event's origin (a year-old daily repeat ≈ 11k iterations/render, re-run per 100ms listener echo). Also makes S1/S3 user-visible: drifted monthly dots and invisible continuation days. Agenda is the only view using `getEventsForRange` (:817–832). Mitigation: one range call per month/week, bucketed by day.
+- **CAL10 🟠 Editing or deleting a recurring occurrence silently affects the whole series.** Virtual `__rpt_` IDs resolve to the parent (:1935–1936, "reserved for Pass 2") and Edit/Delete rewrite the base event with no occurrence-vs-series prompt (:2719 too). Deleting one Tuesday's soccer practice deletes every week. At minimum warn in the confirm.
+- **CAL11 🟡 Three divergent event-delete paths.** Form delete (:1453–1476) and detail-sheet delete (:1957–1973) clean up mirror entries; quick-actions delete (:2748–2754) doesn't (orphans mirrors); quick-actions duplicate (:2741–2747) pollutes the local cache with an `id` field. Extract one `deleteEvent(id)` helper.
+- **CAL12 🟡 iCal "Subscribe (iCal URL)" doesn't subscribe and has no dedup.** The calendar flow (:826–872) is a one-shot import: no `icalFeeds` record, no source UID on imported events — importing the same URL twice duplicates everything. Persistent feeds live only in admin (:1121–1327) and calendar never syncs them on load. Rename to "Import once" or route through the feed store; store `{source, uid}` for dedup.
+- **CAL13 🟡 Both density toggles are dead controls** — month renders hardcoded `monthCompact: true` (:264) and `renderMonthView` never reads it (calendar-views.js:668–678); week cozy CSS targets only legacy classes (calendar.css:690–701). §6.2 explicitly bans density modes — delete toggles, prefs, and CSS.
+- **CAL14 🟡 Substantial dead code:** 15 unused imports (:41–49: `renderNavBar`, `initNavMore`, `renderTaskCard`, `renderTimeHeader`, `renderEmptyState`, `renderUndoToast`, `renderGradeBadge`, `renderPersonFilter`, `openDeviceThemeSheet`, `writeSettings`, `initColorButton`, `renderRepeatSheet`, `monthStart`, `weekEndForDay`, `renderWeekView`); `bindPersonFilterEvents` (:474–489) never called; legacy `renderWeekView` (calendar-views.js:407–462) + bindings unreachable; `suppressedCooldownTaskIds` computed 3× and never read (:155, :746, :2554); `__evtGesturesAttached` guard always false (:2802–2803); `renderWeekDayPanel` ignores 3 of its params (calendar-views.js:269).
+- **CAL15 🟡 Heavy duplication:** `openImportEventsConfirm` (:1058–1148) vs `openCalEfImportConfirm` (:1644–1713) ~90% identical; delegate/move/delegate-move share the same write block 3× (:2166–2174, :2188–2196, :2214–2223) — which also exists in dashboard.js; import loops write per-event sequentially with no partial-failure feedback (one batched `multiUpdate` would be atomic); one import path refreshes `allSchedule` after writing, the other doesn't (:1141 vs :1706).
+- **CAL16 🟡 `JSON.parse(calPrefsRaw)` unguarded at module top (:81–82)** — one corrupt localStorage value bricks the page on the loading spinner. Wrap in try/catch.
+- **CAL17 🟡 View-switch `saveCalPrefs()` is a no-op** (:443–453 never sets `calPrefs.defaultView`) — "remember last view" never happens.
+- **CAL18 🟡 Completing a task in Week view gives no press feedback** — `toggleTask` selectors (:688) and `.cal-task--completing` CSS (calendar.css:556–576) miss the live `.cal-wstrip-panel__task` rows; the row sits inert for the 400ms timeout. Add the selector + CSS variant.
+- **CAL19 🔵 `attachEventGestures` rough edges (:2764–2793):** zero movement threshold cancels long-press on finger jitter (vs 10px in `bindTaskRowGesture`); 800ms hardcoded ignoring `settings.longPressMs`; capture-phase click intercepts `.cal-search__result` taps, making their handler (:2703–2709) dead and opening the detail sheet under the search sheet.
+- **CAL20 🔵 Escaping gaps:** `renderDayTaskRow` injects `person.color`/`entryKey`/`cat.icon` unescaped (calendar-views.js:529–535) while the sibling grouped path escapes them (:560–571); AI/iCal-supplied `ev.date` goes into a `value` attribute (:1074, :1654) and a Firebase path (:1139) without validation.
+- **CAL21 🔵 Meal-plan sheet date bugs:** `openCalMealPlanSheet` reads the slot raw (:1784) — vote-array slots yield `undefined` (this is what `normalizePlanSlot` is for); after changing `mp_date`, remove-link/slot-tab lookups still use the original date (:1816–1829) while submit uses the new one (:1892) — you can "remove" from a day you're no longer viewing.
+- **CAL22 ⚪ Misc:** stale view-type comment (:100); `migrateEventCategories` gated on per-device localStorage (:2568) re-scans on every new device; quick-add focus calls + `autofocus` attr (:1167, :2263, :1025, :2648) violate the §12 no-autofocus rule (forms; search input arguably exempt).
+- **CAL23 ✅ Day-sheet ordering verified spec-compliant** (Events, then Monthly → Weekly → One-Time → Daily; calendar-views.js:509–518, :339–344).
+- **CAL24 ✅/🟡 Past-daily tap blocking works on calendar, missing on dashboard** (calendar-views.js:364–366, :524–531; calendar.html:513/:612) — confirms DB11; dashboard should adopt the calendar behavior.
+
+### 5.2 Phase B — UX / spec compliance
+
+- **CALB1 🟠 DESIGN.md §6.2 is badly stale — shipped calendar contradicts it on five points.** Spec says Month/Week/Day, default Week, month *hidden* on phone. Shipped: a 4th Agenda view, default `agenda` (:90), and a full mobile month grid with dots + day panel (calendar-views.js:636–698; commits e52728a/2c6df2f). The redesign is clearly intentional — rewrite §6.2 to match it.
+- **CALB2 🟠 Two items on §6.2's own banned list are present:** `.cal-page { overflow: hidden; height: 100dvh }` (calendar.css:4 — also banned by §12 outside kiosk), and the density toggles (CAL13).
+- **CALB3 🟠 Agenda (the default view) opens 30 days in the past with no scroll-to-today** (calendar-views.js:813–814) — every app open shows month-old events first. Anchor-scroll to today or hide the past behind "Show earlier."
+- **CALB4 🟡 Day content is inconsistent across views** against the spec's consistency rule: month panel = events only (:704–752); week panel = events + tasks, no meals (:269–405); day view = events + tasks + meals (:467–630). Reuse one day-panel renderer.
+- **CALB5 🟡 Person filter diverged from spec (header "View as" chip + switcher sheet, :282–354)** — arguably better but undocumented; and in linked-person mode every switch writes the whole person object with no error handling (:344–349).
+- **CALB6 🟡 Month-cell "tap-again to open Day" is undiscoverable** (:579–592). Add a chevron/"Open day" affordance in the panel header.
+- **CALB7 🟡 Emoji in interactive chrome:** `👍 Vote · N options` button (calendar-views.js:592) and raw 📅 in the agenda empty state (:847).
+- **CALB8 🟡 A11y gaps:** month cells labeled by bare day number (no month, no `aria-current`, no selected state — :681–684; week strip does it right at :247); view switcher `role="tab"` without `aria-selected` (:782–786); people conveyed by color alone on dots; long-press is the only path to detail with no keyboard equivalent; prev/next rely on `title` only.
+- **CALB9 🟡 No boot error state** — any rejected read at :63–65 leaves "Loading..." forever.
+- **CALB10 🟡 Hardcoded colors in calendar.css:** `#fff` ~15× (:155, :782, :1259, :1639), rgba text-shadows, while siblings use `var(--on-accent)` (:1244, :1512, :1731); JS fallbacks `#5b7fd6`/`#4285f4` hardcoded. z-index all within band ✓; reduced-motion present ✓.
+- **CALB11 🔵 Dead CSS ≈350+ lines:** legacy `.cal-week__*` block (calendar.css:55–292, :690–701, :723–803), avatar-strip block (:1322–1461), person-pill mobile rules, old `ef-*` form styles (:652–688), `.cal-grid__event` stacked rows (:936–973), superseded panel-time classes, `.cal-day__person*` (:317–340).
+- **CALB12 🔵 The (currently dead) import/quick-add sheets predate the form system** — legacy `sheet__*` structure, inline styles, raw `<input type="date">` (:830–841, :913, :946–947, :972, :1009–1016, :1070–1075, :1654). Reviving them (CAL1) should include a §5.23 rebuild.
+- **CALB13 ⚪ Polish:** agenda multi-day span badge prints raw ISO dates (calendar-views.js:902); `buildTimeAxisGrid` uses inline style positioning (:120, :162) vs the `data-timegrid-pos` pattern; nested scroll containers in month view (calendar.css:27–30, :1913–1917); weather chips per §6.2 absent (roadmap).
 
 ---
 
