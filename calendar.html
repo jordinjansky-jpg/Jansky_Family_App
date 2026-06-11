@@ -1027,7 +1027,6 @@
       applyDataColors(taskSheetMount);
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
-        document.getElementById('textEvent')?.focus();
       });
       document.getElementById('textEventCancel')?.addEventListener('click', closeTaskSheet);
       async function doParse() {
@@ -1167,7 +1166,6 @@
 
       requestAnimationFrame(() => {
         document.getElementById('bottomSheet')?.classList.add('active');
-        if (mode === 'create') document.getElementById('ef2_name')?.focus();
       });
 
       document.getElementById('ef2_close')?.addEventListener('click', closeTaskSheet);
@@ -1954,7 +1952,16 @@
       });
 
       document.getElementById('eventDelete')?.addEventListener('click', async () => {
-        if (!await showConfirm({ title: 'Delete this event?', danger: true })) return;
+        // CAL10: virtual occurrences resolve to the parent — deleting removes
+        // EVERY occurrence, which deserves explicit copy.
+        const delEvent = events[baseEventId] || {};
+        const isRepeating = eventId.includes('__rpt_') || (delEvent.repeat && delEvent.repeat.type && delEvent.repeat.type !== 'none');
+        if (!await showConfirm({
+          title: 'Delete this event?',
+          message: isRepeating ? 'This is a repeating event — deleting removes ALL of its occurrences.' : '',
+          confirmLabel: 'Delete',
+          danger: true,
+        })) return;
         await removeEvent(baseEventId);
         delete events[baseEventId];
         const updates = {};
@@ -2774,11 +2781,16 @@
             const copy = { ...event, name: event.name + ' (copy)' };
             delete copy.id;
             const newId = await pushEvent(copy);
-            events[newId] = { ...copy, id: newId };
+            events[newId] = copy;
             render();
             showToast('Event duplicated');
           } else if (action === 'delete') {
-            if (await showConfirm({ title: `Delete "${event.name}"?`, danger: true, confirmLabel: 'Delete' })) {
+            const qaRepeating = eventId.includes('__rpt_') || (event.repeat && event.repeat.type && event.repeat.type !== 'none');
+            if (await showConfirm({
+              title: `Delete "${event.name}"?`,
+              message: qaRepeating ? 'This is a repeating event — deleting removes ALL of its occurrences.' : '',
+              danger: true, confirmLabel: 'Delete',
+            })) {
               await removeEvent(baseEventId);
               delete events[baseEventId];
               render();

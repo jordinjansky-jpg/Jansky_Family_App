@@ -65,3 +65,27 @@ Each batch = one commit. IDs reference findings in docs/APP_REVIEW.md.
 | SM9 | dev-banner native `confirm()` replaced with a two-tap arm/confirm |
 
 **Accepted-risk (documented, not fixed):** W3 — the push/action HMAC secret ships in client JS, so approvals remain forgeable by anyone who reads the source (including a curious kid). A real fix needs a server-held secret / parent-session model, which changes the notification architecture; the new Origin gate at least blocks third-party websites from using it. W12 — Worker always targets the production root (dev-mode clients trigger real pushes); conscious choice, left as-is. W9 — text handlers return 200-with-fallback while image handlers 500; intentional asymmetry, left.
+
+## Batch 3a — shared/components.js (+ state.js follow-on)
+
+C1, C2 (+NaN refund guard from SB8), C3 (full repeat sub-sheet binding — and a NEW find: state.js only honored end types 'date'/'count' while every form writes 'on'/'after', so **repeat end conditions were ignored app-wide**; both accepted now), C4, C5, C6, C7, C8, C9, C16, C17 (via C2-style guards), C20, C22 (components sites), C23 (confirm textarea + contrast), C25, C26 (end-date formatting half), C29, C33. CSS24 partial (confirm message text).
+
+## Batch 3b — pages (parts 1–7)
+
+**Dashboard:** DB2–DB13 (incl. live settings listener + theme propagation page-side, serialized completion loads, SW deep-link handling, boot error state, failure-safe toggle + delegate/move/skip/notes toasts, undo restores original record, past-daily tap blocking, viewDate-aware vote sheet / FAB / multiplier), DB14–DB19 (dead code/imports, mirror writes retired), DB23, DB30.
+**Calendar:** CAL1 (FAB restored — add/import flows reachable again), CAL2, CAL3, CAL5 (mirror writes retired; legacy cleanup kept; category migration nulls instead of converting), CAL6, CAL7, CAL8 (live schedule listener), CAL9 (range-bucketed event expansion across month/week/panel), CAL10 (series-delete warning), CAL11 partial (dup id field), CAL12 (label), CAL14 partial (legacy week view + bindings deleted), CAL16, CAL17, CAL22 (auto-focus), CALB3 (agenda scroll-to-today), CALB7 partial, CALB13 (span dates).
+**Kitchen:** K1, K2, K4–K5, K7–K10, K12, K16 partial (in-flight flag), K17, K19, K23–K25, K29–K31, K36, K39, K3 (cook/vote/who CSS → components.css, tokenized) + K26.
+**Admin:** A1 (all raw rundown/ refs gone, incl. autoPrune + email imports), A2 (full cascade + rebuild + honest copy), A3, A4 (mirror writes retired), A7–A14, A16 partial, A18, A20, A23, plus SM1's settings field (temperature unit; weather-cache flush on change).
+**Rewards:** R1, R2, R6, R9. **Scoreboard:** SB1, SB2, SB8 (bell side). **Tracker:** TR1, TR2, TR6.
+**Kid:** KD1–KD6, KD13. **Person:** P1 (+ parity comment).
+**Activities:** AC2–AC6, AC9, AC11–AC14, AC16, AC20 (+ Worker-side AC1 in batch 2). **Setup:** SU1, SU2, SU8.
+**CSS:** CSS5, CSS12, CSS14, CSS15, CSS25, scoreboard reduced-motion (A.5). **SW:** CACHE_NAME → v344.
+
+## Deferred / still open (visual-verification or larger scope)
+
+- **Needs on-device visual verification before changing:** CALB2 (calendar `overflow:hidden; height:100dvh` page lock — interacts with the month view's nested scroll), DB21/DB22 (Today-section empty state with events + day-nav chevrons), CAL13 (dead density toggles removal touches rendered controls), CAL18 (week-strip completing animation), K39/K40 visual side, KB1–KB11 (kid celebration/CSS architecture), CSS13/16/17 sweeps, CSS24 full contrast sweep, CSS26 tap targets.
+- **Mechanical sweeps not yet exhaustive:** remaining emoji-in-chrome sites (kitchen AI sheet K21, scoreboard SB9, kid KB6, activities AC28, dashboard DB28 partial), inline-style sweeps (K20, AB5 remainder, KD14, SB13, AC21), dead code/CSS (CAL14 remainder, K15, K27, A21/A22/A27, CALB11, C10–C15).
+- **Product decisions needed:** SC3/SB14 (single "week" definition app-wide), S6 (unassigned events under person filters), AC8 (§5.13 vs §6.11 FAB contradiction), R13 (wishlist: build UI or delete schema), K11 (recipe image storage strategy — biggest data-cost item), SR3 caveats (refund type for kid history/totalEarned), W3 (approval trust model).
+- **Docs re-sync (§18)** — not started; one PR updating DESIGN.md/CLAUDE.md to match shipped reality.
+
+⚠️ Deploy notes: merge to main auto-deploys the frontend; the **Worker changes (batch 2) require `npx wrangler deploy --config workers/wrangler.toml` separately**. Recommend a Cloudflare dashboard rate-limit rule on the Worker route as the real abuse ceiling.

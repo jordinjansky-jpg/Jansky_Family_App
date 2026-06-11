@@ -47,6 +47,13 @@
 
 ## Executive summary
 
+> **Fix-pass status (2026-06-11):** a working fix pass has been applied on this
+> branch — see [FIX_LOG.md](FIX_LOG.md) for the finding-by-finding ledger of
+> what's fixed, what's deferred pending visual verification, and what needs a
+> product decision. All 🔴 criticals are fixed except the W3 trust-model item
+> (accepted risk, documented).
+
+
 **425+ findings across 18 areas: 13 critical, ~45 high.** The app is feature-rich and the recent form-system work shows; the dominant problems are (a) the schedule rebuild destroying user data, (b) dev-mode writes leaking to production, (c) an unsecured Worker, and (d) a spec that no longer describes the shipped app.
 
 ### All 🔴 Critical findings

@@ -1592,7 +1592,9 @@ async function openMealHistorySheet() {
     d.setDate(d.getDate() - i);
     const dk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const plan = planByDate[dk];
-    days.push({ date: d, dateKey: dk, dinner: plan?.dinner || null });
+    const dinnerOpts = normalizePlanSlot(plan?.dinner);
+    // K29: a never-locked-in vote should show its winner in history.
+    days.push({ date: d, dateKey: dk, dinner: dinnerOpts.length > 1 ? pickWinner(dinnerOpts) : (dinnerOpts[0] || null) });
   }
 
   function mondayOf(date) {
@@ -3112,7 +3114,8 @@ function openRecipeForm(recipeId, onSave = null) {
     const photoBtn = document.getElementById('kr_photo');
     const status = document.getElementById('urlImportStatus');
     if (photoBtn) photoBtn.disabled = true;
-    if (status) status.style.display = 'none';
+    // K17: the form used to sit inert for seconds with no feedback.
+    if (status) { status.textContent = 'Importing…'; status.style.display = ''; status.style.color = ''; }
     try {
       const res = await fetch(KITCHEN_WORKER_URL, {
         method: 'POST',
@@ -3880,9 +3883,12 @@ function openListActionsMenu() {
     const confirmed = await showConfirm({ title: 'Remove all checked items?', confirmLabel: 'Clear' });
     if (!confirmed) return;
     const checkedCards = document.querySelectorAll('.card--shopping.is-checked');
+    const clearUpdates = {};
     for (const card of checkedCards) {
-      await removeKitchenItem(activeListId, card.dataset.itemId);
+      clearUpdates[`kitchen/items/${activeListId}/${card.dataset.itemId}`] = null;
     }
+    // One atomic write (K30) — per-item removes fired a full re-render each.
+    if (Object.keys(clearUpdates).length > 0) await multiUpdate(clearUpdates);
   });
   document.getElementById('lam_delete')?.addEventListener('click', async () => {
     mount.innerHTML = '';
@@ -4412,6 +4418,14 @@ async function runListCleanup(currentItems) {
 
   const keptIds = new Set(cleaned.map(c => c.id));
   const removedIds = unchecked.filter(u => !keptIds.has(u.id)).map(u => u.id);
+  // K9: a truncated/hallucinated-but-200 response simply omits items, and we
+  // treated every omission as a merged duplicate. Real dedup rarely removes
+  // a third of a list — bail rather than silently deleting groceries.
+  if (removedIds.length > 2 && removedIds.length > unchecked.length * 0.3) {
+    if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); }
+    showToast('Cleanup looked wrong — no changes made');
+    return;
+  }
   const byId = new Map(unchecked.map(u => [u.id, u]));
 
   let changedCount = 0;

@@ -525,7 +525,12 @@
 //                     cached index.html; notificationclick matches by pathname +
 //                     posts deep-link to the focused client; failed offline
 //                     approve/deny re-surfaces as a notification.
-const CACHE_NAME = 'family-hub-v343';
+// v344 (2026-06-11) — Review fix pass batches 3a-3b: scheduler/scoring/theme
+//                     core fixes, calendar FAB + event-expansion rewrite,
+//                     kitchen dev-root + vote fixes, admin cascade, rewards
+//                     gates, kid/person/activities/setup repairs, shared
+//                     cook/vote CSS moved to components.css, token fixes.
+const CACHE_NAME = 'family-hub-v344';
 
 const APP_SHELL = [
   '/',
