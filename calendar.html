@@ -39,7 +39,7 @@
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 
   <script type="module">
-    import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
+    import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onValue, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, renderFab, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet, openVoteSheet } from './shared/components.js';
     import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, bindEscapeToClose, safeLocalStorageSet, validateStoredId } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
@@ -1140,8 +1140,6 @@
             };
             const newId = await pushEvent(eventData);
             events[newId] = eventData;
-            const schedKey = `sched_${Date.now()}_evt_${counter++}`;
-            await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
           }
           closeTaskSheet();
           render();
@@ -1434,15 +1432,13 @@
                   }
                 }
               }
-              const newSchedKey = `sched_${Date.now()}_event`;
-              moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId: existingEventId };
-              await multiUpdate(moveUpdates);
+              // Mirror entries are no longer written (DB19/CAL5) — this loop
+              // still clears any legacy ones from the old date.
+              if (Object.keys(moveUpdates).length > 0) await multiUpdate(moveUpdates);
             }
           } else {
             const newId = await pushEvent(eventData);
             events[newId] = eventData;
-            const schedKey = `sched_${Date.now()}_event`;
-            await multiUpdate({ [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId } });
           }
           closeTaskSheet();
           allSchedule = await readAllSchedule() || {};
@@ -1704,8 +1700,6 @@
             const eventData = { name: ev.name, date: ev.date, allDay: ev.allDay ?? true, startTime: ev.time || null, endTime: null, color: people[0]?.color || '#4285f4', people: [], notes: ev.notes || null, repeat: null };
             const newId = await pushEvent(eventData);
             events[newId] = eventData;
-            const schedKey = `sched_${Date.now()}_evt_${counter++}`;
-            await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
           }
           closeTaskSheet();
           allSchedule = await readAllSchedule() || {};
@@ -2176,7 +2170,13 @@
             updates[`completions/${entryKey}`] = null;
             updates[`completions/${newKey}`] = completions[entryKey];
           }
-          await multiUpdate(updates);
+          try {
+            await multiUpdate(updates);
+          } catch (err) {
+            console.error('[delegate]', err);
+            showToast("Couldn't save — try again");
+            return;
+          }
           closeTaskSheet();
           await loadData(); render();
         });
@@ -2198,7 +2198,13 @@
           updates[`completions/${entryKey}`] = null;
           updates[`completions/${newKey}`] = completions[entryKey];
         }
-        await multiUpdate(updates);
+        try {
+          await multiUpdate(updates);
+        } catch (err) {
+          console.error('[delegate-move]', err);
+          showToast("Couldn't save — try again");
+          return;
+        }
         pendingDelegateOwnerId = null;
         closeTaskSheet();
         await loadData(); render();
@@ -2225,7 +2231,13 @@
           updates[`completions/${entryKey}`] = null;
           updates[`completions/${newKey}`] = completions[entryKey];
         }
-        await multiUpdate(updates);
+        try {
+          await multiUpdate(updates);
+        } catch (err) {
+          console.error('[move/skip]', err);
+          showToast("Couldn't save — try again");
+          return;
+        }
         closeTaskSheet();
         await loadData(); render();
       });
@@ -2234,7 +2246,13 @@
         const updates = {};
         updates[`schedule/${dateKey}/${entryKey}`] = null;
         if (completions[entryKey]) updates[`completions/${entryKey}`] = null;
-        await multiUpdate(updates);
+        try {
+          await multiUpdate(updates);
+        } catch (err) {
+          console.error('[move/skip]', err);
+          showToast("Couldn't save — try again");
+          return;
+        }
         closeTaskSheet();
         await loadData(); render();
       });
@@ -2558,6 +2576,14 @@
       debouncedRender();
     });
 
+    // CAL8: schedule changes from other devices/pages (moves, delegations,
+    // new tasks) now stream in live — there was no schedule listener at all.
+    onValue('schedule', (val) => {
+      allSchedule = val || {};
+      suppressedCooldownTaskIds = getOverdueCooldownTaskIds(allSchedule, completions, tasks, today);
+      debouncedRender();
+    });
+
     onEvents((val) => {
       events = val || {};
       debouncedRender();
@@ -2610,7 +2636,10 @@
         for (const [dateKey, dayEntries] of Object.entries(allSchedule)) {
           for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
             if (entry.taskId === taskId) {
-              updates[`schedule/${dateKey}/${entryKey}`] = { type: 'event', eventId };
+              // Null instead of converting to a mirror entry — mirrors are
+              // retired write-only data (DB19/CAL5); the event itself now
+              // renders from the events collection.
+              updates[`schedule/${dateKey}/${entryKey}`] = null;
             }
           }
         }

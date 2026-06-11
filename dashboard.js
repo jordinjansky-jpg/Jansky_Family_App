@@ -2372,15 +2372,13 @@ function openEventForm(existingEventId = null, savedState = null) {
               }
             }
           }
-          const newSchedKey = `sched_${Date.now()}_event`;
-          moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId: existingEventId };
-          await multiUpdate(moveUpdates);
+          // Mirror entries are no longer written (write-only decaying data —
+          // DB19); this loop still clears any legacy ones from the old date.
+          if (Object.keys(moveUpdates).length > 0) await multiUpdate(moveUpdates);
         }
       } else {
         const newId = await pushEvent(eventData);
         events[newId] = eventData;
-        const schedKey = `sched_${Date.now()}_event`;
-        await multiUpdate({ [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId } });
       }
       closeTaskSheet();
       render();
@@ -2680,8 +2678,6 @@ function openEfImportConfirm(eventsArr, hadRecurring, onCancel) {
         };
         const newId = await pushEvent(eventData);
         events[newId] = eventData;
-        const schedKey = `sched_${Date.now()}_evt_${counter++}`;
-        await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
       }
       closeTaskSheet();
       render();
@@ -2949,7 +2945,13 @@ function bindTaskSheetEvents(entryKey, dateKey) {
         updates[`completions/${newKey}`] = completions[entryKey];
       }
 
-      await multiUpdate(updates);
+      try {
+        await multiUpdate(updates);
+      } catch (err) {
+        console.error('[delegate]', err);
+        showToast("Couldn't save — try again");
+        return;
+      }
       closeTaskSheet();
       await loadData();
       render();
@@ -2979,7 +2981,13 @@ function bindTaskSheetEvents(entryKey, dateKey) {
       updates[`completions/${newKey}`] = completions[entryKey];
     }
 
-    await multiUpdate(updates);
+    try {
+      await multiUpdate(updates);
+    } catch (err) {
+      console.error('[delegate-move]', err);
+      showToast("Couldn't save — try again");
+      return;
+    }
     pendingDelegateOwnerId = null;
     closeTaskSheet();
     await loadData();
@@ -3013,7 +3021,13 @@ function bindTaskSheetEvents(entryKey, dateKey) {
       updates[`completions/${newKey}`] = completions[entryKey];
     }
 
-    await multiUpdate(updates);
+    try {
+      await multiUpdate(updates);
+    } catch (err) {
+      console.error('[move/skip]', err);
+      showToast("Couldn't save — try again");
+      return;
+    }
     closeTaskSheet();
     await loadData();
     render();
@@ -3027,7 +3041,13 @@ function bindTaskSheetEvents(entryKey, dateKey) {
     if (completions[entryKey]) {
       updates[`completions/${entryKey}`] = null;
     }
-    await multiUpdate(updates);
+    try {
+      await multiUpdate(updates);
+    } catch (err) {
+      console.error('[move/skip]', err);
+      showToast("Couldn't save — try again");
+      return;
+    }
     closeTaskSheet();
     await loadData();
     render();
@@ -3075,7 +3095,13 @@ function bindTaskSheetEvents(entryKey, dateKey) {
     const ek = notesSaveBtn.dataset.entryKey;
     const dk = notesSaveBtn.dataset.dateKey;
     if (ek && dk) {
-      await multiUpdate({ [`schedule/${dk}/${ek}/notes`]: noteValue });
+      try {
+        await multiUpdate({ [`schedule/${dk}/${ek}/notes`]: noteValue });
+      } catch (err) {
+        console.error('[notes]', err);
+        showToast("Couldn't save — try again");
+        return;
+      }
       if (viewEntries[ek]) viewEntries[ek].notes = noteValue;
     }
     const notesText = document.getElementById('notesText');

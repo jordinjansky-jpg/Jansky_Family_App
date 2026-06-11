@@ -281,17 +281,20 @@
       cutoff.setMonth(cutoff.getMonth() - months);
       const cutoffKey = cutoff.toLocaleDateString('en-CA', { timeZone: tz });
 
-      const db = firebase.database();
-      const pruneRef = (path) => db.ref(path).orderByKey().endAt(cutoffKey).once('value').then(snap => {
-        const updates = {};
-        snap.forEach(child => { updates[child.key] = null; });
-        if (Object.keys(updates).length > 0) return db.ref(path).update(updates);
-      });
-
-      await Promise.all([
-        pruneRef('rundown/schedule'),
-        pruneRef('rundown/snapshots'),
+      // A1: dev-root-aware prune. The raw `rundown/` refs meant a ?env=dev
+      // visit could silently prune the PRODUCTION schedule and snapshots.
+      const [schedTree, snapTree] = await Promise.all([
+        readOnce('schedule'),
+        readOnce('snapshots'),
       ]);
+      const pruneUpdates = {};
+      for (const k of Object.keys(schedTree || {})) {
+        if (k <= cutoffKey) pruneUpdates[`schedule/${k}`] = null;
+      }
+      for (const k of Object.keys(snapTree || {})) {
+        if (k <= cutoffKey) pruneUpdates[`snapshots/${k}`] = null;
+      }
+      if (Object.keys(pruneUpdates).length > 0) await multiUpdate(pruneUpdates);
     }
 
     function peopleArray() {
@@ -1767,15 +1770,13 @@
                   }
                 }
               }
-              const newSchedKey = `sched_${Date.now()}_event`;
-              moveUpdates[`schedule/${eventData.date}/${newSchedKey}`] = { type: 'event', eventId: existingEventId };
-              await multiUpdate(moveUpdates);
+              // Mirror entries are no longer written (DB19) — this loop still
+              // clears legacy ones from the old date.
+              if (Object.keys(moveUpdates).length > 0) await multiUpdate(moveUpdates);
             }
           } else {
             const newId = await pushEvent(eventData);
             eventsObj[newId] = eventData;
-            const schedKey = `sched_${Date.now()}_event`;
-            await multiUpdate({ [`schedule/${eventData.date}/${schedKey}`]: { type: 'event', eventId: newId } });
           }
           closeAdminSheet();
           render();
@@ -5694,9 +5695,12 @@ function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
       listEl.innerHTML = `<div class="ai-loading"><div class="ai-loading__spinner"></div>Loading email imports…</div>`;
 
       try {
-        const db = firebase.database();
-        const snap = await db.ref('rundown/emailImports').orderByChild('processed').equalTo(false).once('value');
-        const imports = snap.val();
+        // Dev-root-aware read (A1); unprocessed filter applied client-side —
+        // the tree is tiny and the data layer doesn't expose child queries.
+        const allImports = await readOnce('emailImports');
+        const imports = allImports
+          ? Object.fromEntries(Object.entries(allImports).filter(([, v]) => v && v.processed === false))
+          : null;
 
         if (!imports) {
           listEl.innerHTML = `<p style="color:var(--text-muted);font-size:var(--font-sm)">No pending imports.</p>`;
@@ -5798,11 +5802,9 @@ function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
                     color: Object.values(peopleObj)[0]?.color || '#4285f4',
                     people: [], notes: ev.notes || null, url: null,
                   });
-                  const schedKey = `sched_${Date.now()}_em_${counter++}`;
-                  await multiUpdate({ [`schedule/${ev.date}/${schedKey}`]: { type: 'event', eventId: newId } });
                 }
 
-                await db.ref(`rundown/emailImports/${emailId}/processed`).set(true);
+                await updateData(`emailImports/${emailId}`, { processed: true });
                 const statusEl = card.querySelector('.em-status');
                 if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">${selected.length} event${selected.length !== 1 ? 's' : ''} added.</span>`;
                 showToast(`${selected.length} event${selected.length !== 1 ? 's' : ''} added to schedule`);
@@ -5820,7 +5822,7 @@ function renderTaskScanConfirm(tasks, statusEl, hasUncertainDates) {
 
           card.querySelector('.em-dismiss').addEventListener('click', async () => {
             try {
-              await db.ref(`rundown/emailImports/${emailId}/processed`).set(true);
+              await updateData(`emailImports/${emailId}`, { processed: true });
             } catch (err) { /* ignore — dismiss visually; write will retry on reconnect */ }
             card.style.opacity = '0';
             card.style.transition = 'opacity 0.3s';
