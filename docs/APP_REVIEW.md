@@ -45,13 +45,41 @@
 
 ---
 
-## Executive summary
+## Fix-pass results (2026-06-11)
 
-> **Fix-pass status (2026-06-11):** a working fix pass has been applied on this
-> branch — see [FIX_LOG.md](FIX_LOG.md) for the finding-by-finding ledger of
-> what's fixed, what's deferred pending visual verification, and what needs a
-> product decision. All 🔴 criticals are fixed except the W3 trust-model item
-> (accepted risk, documented).
+A fix pass has been applied on this branch (commit ledger in [FIX_LOG.md](FIX_LOG.md)).
+Legend: ✅ fixed · 🔶 partially fixed · ⬜ open. Findings not listed in a row are open.
+**All 🔴 criticals are fixed** except W3 (accepted risk, documented below).
+
+| Area | ✅ Fixed | 🔶 Partial | ⬜ Open (notable) |
+|---|---|---|---|
+| §1 Foundation | U2, U4–U7, S1–S5, S8, F1–F3, F6, T1, T3–T6 | S7 (verified, shared constant not extracted) | U3, U8, S6 (product call), F4, F5, F7 (docs), T2 (docs), D1–D3 |
+| §2 Engines | SC1, SC2, SC4–SC6, SC8, SR1–SR3, SR5, SR7, SR9 | SC7 (UI hint added; rename not) | SC3 (week-definition decision), SC9, SR4, SR6, SR8 |
+| §3 Components | C1–C9, C16, C20, C22, C25, C29, C33 (+ new find: repeat END conditions were ignored app-wide — fixed) | C23 (confirm textarea done; 5 inline-style sites left), C26 (date format done; exempt switch not) | C10–C15, C17–C19, C21, C24 (sheet Escape/focus trap), C27, C28, C30–C32 |
+| §4 Dashboard | DB1–DB13, DB15–DB19, DB23, DB30, DB32, DB33 | DB14 (stale comment swept; verify imports), DB28 (🤔 + tile 👍 → SVG; 🍴 left), DB29 (2701 fixed; legacy sheet__content left) | DB20, DB21 + DB22 (need visual), DB24–DB27 (doc decisions), DB31, DB34 |
+| §5 Calendar | CAL1–CAL10, CAL12 (label), CAL16, CAL17, CAL22, CALB3, CALB9, CALB13 | CAL11 (dup id fixed; unified deleteEvent helper not), CAL14 (legacy view deleted; unused imports left), CALB7 (agenda+sheet SVG; day-row 👍 left) | CAL13, CAL15, CAL18–CAL21, CALB1 (docs), CALB2 (needs visual), CALB4–CALB6, CALB8, CALB10–CALB12 |
+| §6 Kitchen | K1–K5, K7–K10, K12, K13, K17, K19, K23–K26, K29–K31, K36, K39, K42 | K6 (same-device serialization; cross-device tallies still whole-array), K16 (in-flight flag; loading sheet not), K22 (routing fixed via K8; gate decision open), K37 | K11 (image-storage decision), K14, K15, K18, K20, K21, K27, K28, K32–K35, K38, K40, K41, K43–K45 |
+| §7 Tracker | TR1, TR2, TR6 | — | TR3–TR5, TR7–TR12 (TR9 = wire the shipped filter sheet) |
+| §8 Scoreboard | SB1, SB2, SB8 | — | SB3–SB7, SB9–SB14 (SB4/SB14 ride the week decision) |
+| §9 Rewards | R1, R2, R6, R9 | — | R3 (stock counting — needs a counting-rule decision), R4, R5 (refund type — product), R7, R8, R10–R18 |
+| §10 Kid | KD1–KD6, KD8, KD13 | — | KD7, KD9–KD12, KD14, KB1–KB11 (celebration/CSS architecture — needs visual session) |
+| §11 Person | P1, P2 | P3 (parity comment added) | — |
+| §12 Admin | A1–A14, A18, A20, A23 | A16, A24–A26, AB4, AB5 | A17, A19 ✓(verified), A21, A22, A27, AB1 (docs), AB2, AB3, AB6–AB11 |
+| §13 Setup | SU1, SU2, SU6, SU8 | — | SU3 (accepted), SU4, SU5, SU7, SU9–SU15 |
+| §14 Activities | AC1–AC6, AC9, AC11–AC14, AC16, AC20 | — | AC7 (pace mismatch), AC8 (spec contradiction), AC10, AC15, AC17–AC19, AC21–AC31 |
+| §15 Support | SM1–SM4, SM6, SM9 | — | SM7, SM10 (SM5/SM8 verified-good) |
+| §16 Worker/PWA | W1, W2, W4–W7, W11, SW1–SW4 | — | W3/W9/W12 (accepted-risk, documented), SW5, SW7 (W8/W10/SW6 verified-good) |
+| §17 CSS | CSS5, CSS12, CSS14, CSS15, CSS25 + scoreboard A.5 | CSS24 (confirm-message contrast only) | CSS1–CSS4 (doc/build decisions), CSS6–CSS11, CSS13, CSS16–CSS23, CSS26, CSS27 |
+| §18 Docs | — | — | All (one re-sync PR) |
+
+### Suggested next-session plan
+
+1. **Verify on a real screen first (your machine, `node serve.js` + Playwright at 412×915).** This pass is syntax-checked and logic-reviewed but has never run in a browser. Smoke-test at `?env=dev`: dashboard toggle/move/undo, calendar FAB + month/week views + a repeating event with an end date, kitchen plan/vote/cook-mode from the dashboard tile, a reward approve/deny, admin person delete (test data!), setup wizard end-to-end. Fix anything the screenshots surface.
+2. **Deploy steps:** merge → frontend auto-deploys; run `npx wrangler deploy --config workers/wrangler.toml` for the Worker (batch-2 security + settlement fixes are dormant until then); add a Cloudflare dashboard rate-limit rule on the Worker route.
+3. **Three product decisions to make (10 minutes, unblocks a batch each):** (a) one "week" definition app-wide — recommend Monday everywhere, surfacing the weekStartDay setting as display-only; (b) wishlist — recommend deleting the schema; (c) recipe images — recommend 320px thumbnails on cards + lazy full image, the biggest perf win available.
+4. **Visual-polish batch (needs the browser open):** DB21/DB22 (Today empty state + day chevrons), CALB2 (remove the calendar page-scroll lock), kid-mode KB1–KB7 (two-celebration consolidation, parent escape, reduced-motion toast, tap targets), CSS24/CSS26 contrast + tap-target sweeps.
+5. **Mechanical sweeps batch (safe, no browser needed):** remaining emoji-in-chrome (K21, SB9, KB6, AC28, day-row 👍), inline styles (K20, AB5 rest, KD14, SB13), dead code/CSS (C10–C15, K15, K27, A21/A22/A27, CALB11, CAL14 imports), TR9 filter-sheet wiring, R3 stock counting, AC7 pace formula.
+6. **Docs re-sync PR (§18):** update DESIGN.md (calendar §6.2, admin §6.5, rewards §6.7, theme §10.1, type scale §3.2, tablet §4.2 → "planned", timer §5.10, FAB contradiction) and CLAUDE.md (file tree, module rules, past-completion nuances) so future sessions stop fighting a stale spec.
 
 
 **425+ findings across 18 areas: 13 critical, ~45 high.** The app is feature-rich and the recent form-system work shows; the dominant problems are (a) the schedule rebuild destroying user data, (b) dev-mode writes leaking to production, (c) an unsecured Worker, and (d) a spec that no longer describes the shipped app.

@@ -1770,7 +1770,13 @@
 
         function checkCelebration() {
           if (celebrationShown) return;
-          if (isAllDone(viewEntries, completions)) {
+          // KD8: drop standalone event entries before the all-done check —
+          // one event on today's schedule suppressed the celebration forever.
+          const kidTaskEntries = {};
+          for (const [k, e] of Object.entries(viewEntries)) {
+            if (e.type !== 'event') kidTaskEntries[k] = e;
+          }
+          if (isAllDone(kidTaskEntries, completions)) {
             celebrationShown = true;
             triggerCelebration(null, 'allDone');
           }

@@ -80,6 +80,9 @@ C1, C2 (+NaN refund guard from SB8), C3 (full repeat sub-sheet binding — and a
 **Kid:** KD1–KD6, KD13. **Person:** P1 (+ parity comment).
 **Activities:** AC2–AC6, AC9, AC11–AC14, AC16, AC20 (+ Worker-side AC1 in batch 2). **Setup:** SU1, SU2, SU8.
 **CSS:** CSS5, CSS12, CSS14, CSS15, CSS25, scoreboard reduced-motion (A.5). **SW:** CACHE_NAME → v344.
+**Closeout additions:** DB7 (dinner-tile XSS — recipe name escaped at the call site; tile 👍 → SVG), KD8 (kid all-done celebration no longer blocked by event entries), CALB9 (calendar boot error state with retry).
+
+The authoritative per-finding ✅/🔶/⬜ table now lives at the top of APP_REVIEW.md ("Fix-pass results"), along with the suggested next-session plan.
 
 ## Deferred / still open (visual-verification or larger scope)
 

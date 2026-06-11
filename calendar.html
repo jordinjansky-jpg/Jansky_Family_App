@@ -61,9 +61,18 @@
     if (firstRun) { window.location.href = 'setup.html'; }
 
     // ── Load core data ──
-    const [settings, peopleObj, tasksObj, catsObj, eventsObj, calRewards] = await Promise.all([
-      readSettings(), readPeople(), readTasks(), readCategories(), readEvents(), readRewards()
-    ]);
+    // CALB9: a rejected read used to leave "Loading..." forever.
+    let settings, peopleObj, tasksObj, catsObj, eventsObj, calRewards;
+    try {
+      [settings, peopleObj, tasksObj, catsObj, eventsObj, calRewards] = await Promise.all([
+        readSettings(), readPeople(), readTasks(), readCategories(), readEvents(), readRewards()
+      ]);
+    } catch (err) {
+      console.error('[calendar boot]', err);
+      const ls = document.getElementById('loadingState');
+      if (ls) ls.innerHTML = '<div class="error-state"><h3 class="error-state__title">Couldn\'t load the calendar</h3><p class="error-state__message">Check your connection and try again.</p><button class="error-state__retry" type="button" onclick="location.reload()">Try again</button></div>';
+      await new Promise(() => {});
+    }
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     if (settings?.textSize) applyTextSize(settings.textSize);

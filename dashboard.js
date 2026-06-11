@@ -399,12 +399,13 @@ async function render() {
     // announcing the vote (rendered as a sibling of value, not inside it, to
     // escape the line-clamp's overflow:hidden).
     const dinnerSub = dinnerIsMulti
-      ? `&#x1F44D; Vote &middot; ${dinnerOptions.length} options`
+      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg> Vote &middot; ${dinnerOptions.length} options`
       : '';
     const dinnerTile = renderDashboardTile({
       label: 'Dinner',
       // Vote state hides winner name — show generic copy instead. Spec §2.
-      value: dinnerIsMulti ? 'Tonight\'s dinner' : (dinnerName || 'Plan dinner'),
+      // DB7: recipe names are user/AI-authored — escape (value renders raw HTML).
+      value: dinnerIsMulti ? 'Tonight\'s dinner' : (dinnerName ? esc(dinnerName) : 'Plan dinner'),
       sub: dinnerSub,
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a3 3 0 0 0 6 0V2M6 9v13M14 2v20M18 2c-2 2-3 4-3 7s1 4 3 4v9"/></svg>',
       iconColor: 'var(--ambient-dinner-fg)',
