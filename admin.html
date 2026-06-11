@@ -100,10 +100,6 @@
 
 
 
-    // ── Schedule key counter — Date.now() repeats in tight loops (see CLAUDE.md) ──
-    let schedKeyCounter = 0;
-    const newEventSchedKey = () => `sched_${Date.now()}_event_${String(schedKeyCounter++).padStart(3, '0')}`;
-
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
 
@@ -335,7 +331,8 @@
      * Emoji tile for use as the icon in renderAdminRow.
      */
     function renderEmojiTile(emoji) {
-      return `<span class="admin-icon-tile__emoji" aria-hidden="true">${emoji}</span>`;
+      // A13: emoji comes from a free-text custom input — escape it.
+      return `<span class="admin-icon-tile__emoji" aria-hidden="true">${esc(emoji)}</span>`;
     }
 
     const main = document.getElementById('mainContent');
@@ -919,6 +916,7 @@
 
       // ── Save ──────────────────────────────────────────────────
       document.getElementById('tf_save')?.addEventListener('click', async () => {
+        try { // A14: a failed write left the sheet stuck with no feedback
         const name = document.getElementById('tf_name')?.value.trim();
         if (!name) {
           const inp = document.getElementById('tf_name');
@@ -1015,9 +1013,13 @@
           await multiUpdate(futureUpdates);
         }
 
-        tfHidePicker();
-        closeAdminSheet();
-        render();
+          tfHidePicker();
+          closeAdminSheet();
+          render();
+        } catch (err) {
+          console.error('[admin task save]', err);
+          showToast("Couldn't save — try again");
+        }
       });
 
       // ── Delete (edit mode only) ───────────────────────────────
@@ -1025,11 +1027,19 @@
         if (!taskId) return;
         const name = tasksObj[taskId]?.name || 'this task';
         if (!await showConfirm({ title: `Delete "${name}"?`, danger: true })) return;
+        // A3: keep completed PAST entries (visible history) like bulk delete;
+        // remove everything else AND the orphaned completion records the old
+        // path left behind forever.
         const updates = { [`tasks/${taskId}`]: null };
         const allSched = await readAllSchedule() || {};
+        const allCompForDelete = (await readCompletions()) || {};
+        const todayDel = todayKey(settings?.timezone);
         for (const [dateKey, dayEntries] of Object.entries(allSched)) {
           for (const [entryKey, entry] of Object.entries(dayEntries || {})) {
-            if (entry.taskId === taskId) updates[`schedule/${dateKey}/${entryKey}`] = null;
+            if (entry.taskId !== taskId) continue;
+            if (allCompForDelete[entryKey] && dateKey < todayDel) continue;
+            updates[`schedule/${dateKey}/${entryKey}`] = null;
+            if (allCompForDelete[entryKey]) updates[`completions/${entryKey}`] = null;
           }
         }
         await multiUpdate(updates);
@@ -1424,13 +1434,8 @@
       let mapped = [];
       try {
         const events = parseIcs(icsText);
-        const day0 = new Date(todayStr + 'T00:00:00');
         const days = [];
-        for (let i = 0; i < 30; i++) {
-          const d = new Date(day0);
-          d.setDate(d.getDate() + i);
-          days.push(d.toISOString().slice(0, 10));
-        }
+        for (let i = 0; i < 30; i++) days.push(addDays(todayStr, i));
         const planByDate = {};
         for (const dk of days) planByDate[dk] = await readKitchenPlan(dk).catch(() => null) || {};
         mapped = mapEventsToPlan(events, planByDate, todayStr);
@@ -2613,6 +2618,7 @@
             </div>
             <div class="form-row mt-sm">
               <div class="form-group" style="flex:1">
+                <div class="form-hint">Higher = more chores land on weekends (the scheduler treats weekend days as having extra capacity).</div>
                 <label class="form-label">Weekend weight (weekly)</label>
                 <input class="form-input" type="number" id="sf_weekendWeightWeekly" value="${settings?.weekendWeightWeekly ?? settings?.weekendWeight ?? 1.5}" min="0.1" max="5" step="0.1">
               </div>
@@ -2641,6 +2647,13 @@
                 <button class="btn btn--secondary btn--sm" id="sf_weatherTest" type="button">Test</button>
               </div>
               <div id="sf_weatherTestResult" class="form-hint" hidden></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sf_temperatureUnit">Temperature unit</label>
+              <select class="form-input" id="sf_temperatureUnit">
+                <option value="fahrenheit"${(settings?.temperatureUnit || 'fahrenheit') === 'fahrenheit' ? ' selected' : ''}>Fahrenheit (°F)</option>
+                <option value="celsius"${settings?.temperatureUnit === 'celsius' ? ' selected' : ''}>Celsius (°C)</option>
+              </select>
             </div>
           </div>`;
           break;
@@ -3388,8 +3401,8 @@
       // Sort: kids first (alphabetical), then adults (alphabetical)
       const peopleEntries = Object.entries(people || {})
         .sort((x, y) => {
-          const kx = x[1].kid === true ? 0 : 1;
-          const ky = y[1].kid === true ? 0 : 1;
+          const kx = x[1].role === 'child' ? 0 : 1;
+          const ky = y[1].role === 'child' ? 0 : 1;
           if (kx !== ky) return kx - ky;
           return (x[1].name || '').localeCompare(y[1].name || '');
         });
@@ -3617,15 +3630,19 @@
             old.goalMinutes !== data.goalMinutes ||
             old.pointsAtGoal !== data.pointsAtGoal;
           if (goalAffectingChanged) {
+            // A12: period keys in the FAMILY timezone — UTC keys invalidated
+            // the wrong day/week near midnight (same class as activities AC2).
+            const tzInv = settings?.timezone || 'America/Chicago';
+            const todayInv = todayKey(tzInv);
             let currentKey;
             if (data.goalPeriod === 'weekly') {
-              const d = new Date();
+              const d = new Date(`${todayInv}T12:00:00Z`);
               d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
               const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
               const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
               currentKey = `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
             } else {
-              currentKey = new Date().toISOString().slice(0, 10);
+              currentKey = todayInv;
             }
             for (const pid of assignedIds) {
               await removeActivityEarning(pid, id, currentKey);
@@ -3792,8 +3809,8 @@
             const got = pa[key];
             const isRevoked = got?.revoked;
             const isUnlocked = got && !isRevoked;
-            html += `<div class="ach-badge-btn ${isUnlocked ? 'ach-badge-btn--unlocked' : ''}" title="${esc(def.label)}">
-              <span class="ach-badge-icon">${def.icon}</span>
+            html += `<div class="ach-badge-btn ${isUnlocked ? 'ach-badge-btn--unlocked' : ''}" data-key="${esc(key)}" data-person-id="${esc(p.id)}" title="${esc(def.label)}">
+              <span class="ach-badge-icon">${esc(def.icon)}</span>
               <span class="ach-badge-label">${esc(def.label)}</span>
             </div>`;
           }
@@ -4881,14 +4898,8 @@
         });
       }
 
-      // ── Theme preset — live apply ──
-      main.querySelector('#sf_themePreset')?.addEventListener('change', async (e) => {
-        const theme = { ...(settings?.theme || {}), preset: e.target.value };
-        const updated = { ...settings, theme };
-        await writeSettings(updated);
-        syncSettings(updated);
-        applyTheme(resolveTheme(settings.theme));
-      });
+      // (Theme preset change handler lives with the other buildSettingsUpdate
+      // auto-saves below — a duplicate here double-wrote settings per change.)
 
       // ── Accent color — live apply ──
       initColorButton(main.querySelector('#sf_accentPicker')?.closest('.cpick-wrap'), async (color) => {
@@ -5007,7 +5018,9 @@
       });
       main.querySelector('#sf_themePreset')?.addEventListener('change', async () => {
         const updated = buildSettingsUpdate({ theme: { ...(settings?.theme || {}), preset: main.querySelector('#sf_themePreset')?.value } });
-        await writeSettings(updated); syncSettings(updated); flashSaved();
+        await writeSettings(updated); syncSettings(updated);
+        applyTheme(resolveTheme(settings.theme));
+        flashSaved();
       });
       const saveDisplayPrefs = async () => {
         const updated = buildSettingsUpdate({
@@ -5076,6 +5089,13 @@
         const newLoc = main.querySelector('#sf_weatherLocation')?.value.trim() || '';
         if ((settings?.weatherLocation || '') !== newLoc) clearWeatherCache();
         const updated = buildSettingsUpdate({ weatherLocation: newLoc });
+        await writeSettings(updated); syncSettings(updated); flashSaved();
+      });
+      main.querySelector('#sf_temperatureUnit')?.addEventListener('change', async () => {
+        // SM1: shared/weather.js reads settings.temperatureUnit; flush the
+        // cache so the unit flips immediately instead of after the TTL.
+        clearWeatherCache();
+        const updated = buildSettingsUpdate({ temperatureUnit: main.querySelector('#sf_temperatureUnit')?.value || 'fahrenheit' });
         await writeSettings(updated); syncSettings(updated); flashSaved();
       });
     }
