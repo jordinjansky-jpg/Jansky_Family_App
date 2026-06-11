@@ -527,8 +527,10 @@ async function render() {
       // Today's earned pt (store-economy): percentage × multiplier; cap not enforced
       // (multiplier days legitimately push past 100). Computed live; matches the
       // snapshot value at midnight.
-      const todayMul = (multipliers?.[today]?.[activePerson]?.multiplier
-                        ?? multipliers?.[today]?.all?.multiplier
+      // DB30: the score chip describes viewDate — a past day's points were
+      // being scaled by TODAY's multiplier.
+      const todayMul = (multipliers?.[viewDate]?.[activePerson]?.multiplier
+                        ?? multipliers?.[viewDate]?.all?.multiplier
                         ?? 1);
       const earnedPt = Math.round(score.percentage * todayMul);
       metaPieces.push(`${earnedPt} pt`);
@@ -844,7 +846,7 @@ function openOverdueSheet(items) {
           if (_overdueToggleInFlight.has(ek)) return; // rapid-tap guard
           _overdueToggleInFlight.add(ek);
           try {
-            await toggleTask(ek, dk);
+            await toggleTaskSafe(ek, dk);
             refreshSheet();
           } finally {
             _overdueToggleInFlight.delete(ek);
@@ -944,8 +946,16 @@ function bindEvents() {
   main.querySelectorAll('.task-card').forEach(btn => {
     bindTaskRowGesture(btn, {
       longPressMs: settings?.longPressMs ?? 800,
-      onTap: (ek, dk) => toggleTask(ek, dk || viewDate),
+      onTap: (ek, dk) => toggleTaskSafe(ek, dk || viewDate),
       onLongPress: (ek, dk) => openTaskSheet(ek, dk || viewDate),
+      // DB11: match the calendar's contract — a past incomplete daily opens
+      // the detail sheet on tap instead of silently completing with penalty.
+      isTapBlocked: (ek, dk) => {
+        const dateK = dk || viewDate;
+        if (dateK >= today) return false;
+        const entry = viewEntries[ek] || overdueItems.find(o => o.entryKey === ek);
+        return !!entry && entry.rotationType === 'daily' && !completions[ek];
+      },
     });
   });
 
@@ -1070,6 +1080,18 @@ function bindEvents() {
   });
 }
 
+// DB12: toggleTask mutates local state optimistically before its writes — a
+// rejected write left UI and DB silently diverged. All user-facing call sites
+// route through this wrapper, which reverts by reloading and toasts.
+function toggleTaskSafe(entryKey, dateKey, opts) {
+  return toggleTask(entryKey, dateKey, opts).catch(async (err) => {
+    console.error('[toggleTask]', err);
+    showToast("Couldn't save — try again");
+    try { await loadData(); } catch { /* offline — keep optimistic state */ }
+    render();
+  });
+}
+
 async function changeDay(delta) {
   const slideClass = delta > 0 ? 'dash-slide-next' : 'dash-slide-prev';
   main.classList.remove('dash-slide-next', 'dash-slide-prev');
@@ -1079,6 +1101,7 @@ async function changeDay(delta) {
   subscribeSchedule(viewDate);
   viewMeals = (await readKitchenPlan(viewDate)) || {};
   await loadData();
+  render(); // DB8: the schedule listener's debounced render usually fires BEFORE these reads resolve
   main.classList.add(slideClass);
   main.addEventListener('animationend', () => main.classList.remove(slideClass), { once: true });
 }
@@ -1107,6 +1130,7 @@ let undoTimer = null;
 async function toggleTask(entryKey, dateKey, { noPenalty = false } = {}) {
   if (!entryKey) return;
   const wasComplete = isComplete(entryKey, completions);
+  const originalCompletion = wasComplete ? { ...completions[entryKey] } : null;
 
   if (wasComplete) {
     // Uncomplete
@@ -1237,7 +1261,9 @@ async function toggleTask(entryKey, dateKey, { noPenalty = false } = {}) {
       wasComplete ? 'Task marked incomplete' : (archivedTaskId ? 'One-time task completed & archived' : 'Task completed'),
       async () => {
         if (wasComplete) {
-          const record = { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'dashboard' };
+          // DB10: restore the ORIGINAL record — recreating a fresh one dropped
+          // isLate/pointsOverride and upgraded the completion to full credit.
+          const record = originalCompletion || { completedAt: firebase.database.ServerValue.TIMESTAMP, completedBy: 'dashboard' };
           completions[entryKey] = record;
           await writeCompletion(entryKey, record);
         } else {
@@ -1323,7 +1349,13 @@ function showUndoToast(message, undoCallback) {
 
 function checkCelebration() {
   if (celebrationShown) return;
-  const filtered = filterByPerson(viewEntries, activePerson);
+  // DB4: drop standalone event entries (never "completable") before the
+  // all-done check — one event on the schedule suppressed the celebration.
+  const taskEntries = {};
+  for (const [k, e] of Object.entries(viewEntries)) {
+    if (e.type !== 'event') taskEntries[k] = e;
+  }
+  const filtered = filterByPerson(taskEntries, activePerson);
   if (isAllDone(filtered, completions)) {
     celebrationShown = true;
     const cel = document.getElementById('celebration');
@@ -1680,7 +1712,10 @@ function openRecipeForm(recipeId = null, onSave = null) {
 async function openVoteSheetForDinner(options) {
   const slot = 'dinner';
   const slotLabel = 'Dinner';
-  const d = new Date(today + 'T12:00:00');
+  // DB3: the tile shows viewDate's dinner — voting after swiping to tomorrow
+  // used to overwrite TODAY's plan.
+  const voteDate = viewDate;
+  const d = new Date(voteDate + 'T12:00:00');
   const dayLabel = `${DAY_NAMES[d.getDay()].slice(0, 3)} ${d.getDate()}`;
 
   // Resolve viewer id — mirrors kitchen.js logic.
@@ -1692,13 +1727,13 @@ async function openVoteSheetForDinner(options) {
 
   openVoteSheet({
     mount: taskSheetMount,
-    dk: today, slot, slotLabel, dayLabel,
+    dk: voteDate, slot, slotLabel, dayLabel,
     options,
     recipes, people,
     viewerId,
     showToast, showConfirm,
     onWriteOptions: async (newOpts) => {
-      await writeKitchenPlanSlot(today, slot, newOpts);
+      await writeKitchenPlanSlot(voteDate, slot, newOpts);
       // Update in-memory cache so re-renders reflect fresh vote state.
       if (viewMeals) viewMeals.dinner = newOpts;
       if (newOpts.length > 1) {
@@ -1712,7 +1747,7 @@ async function openVoteSheetForDinner(options) {
       }
     },
     onRemoveSlot: async () => {
-      await removeKitchenPlanSlot(today, slot);
+      await removeKitchenPlanSlot(voteDate, slot);
       await loadData();
       render();
     },
@@ -2820,13 +2855,13 @@ function bindTaskSheetEvents(entryKey, dateKey) {
   // Toggle complete
   document.getElementById('sheetToggleComplete')?.addEventListener('click', async () => {
     await closeTaskSheet();
-    await toggleTask(entryKey, dateKey);
+    await toggleTaskSafe(entryKey, dateKey);
   });
 
   // Complete without penalty (full credit for late task)
   document.getElementById('sheetCompleteNoPenalty')?.addEventListener('click', async () => {
     await closeTaskSheet();
-    await toggleTask(entryKey, dateKey, { noPenalty: true });
+    await toggleTaskSafe(entryKey, dateKey, { noPenalty: true });
   });
 
   // Points slider — stores pending override, saved on sheet close or toggle-complete
@@ -3360,6 +3395,9 @@ function openTaskForm(taskId = null, savedState = null) {
 
     const saveBtn = document.getElementById('tf_save');
     if (saveBtn) saveBtn.disabled = true;
+    // DB6: a rejected write used to leave the sheet open with a permanently
+    // dead Save button and no feedback (the event form already did this right).
+    try {
 
     if (taskId) {
       // Edit path
@@ -3377,7 +3415,9 @@ function openTaskForm(taskId = null, savedState = null) {
       const skipToday = (rotation === 'once' && dedicatedDate && dedicatedDate !== today)
         || ((rotation === 'weekly' || rotation === 'monthly') && dedicatedDay != null && dayOfWeek(today) !== dedicatedDay);
       if (ownerIds.length > 0 && !skipToday) {
-        const schedDate = dedicatedDate || today;
+        // DB23: adding a task while viewing Saturday should land it on
+        // Saturday, not silently on today.
+        const schedDate = dedicatedDate || (viewDate >= today ? viewDate : today);
         const schedUpdates = {};
         const baseEntry = { taskId: newId, rotationType: rotation, ownerAssignmentMode, timeOfDay: tfTod };
         let qaCounter = 0;
@@ -3411,6 +3451,12 @@ function openTaskForm(taskId = null, savedState = null) {
     await loadData();
     closeTaskSheet();
     render();
+    } catch (err) {
+      console.error('[task save]', err);
+      showToast("Couldn't save — try again");
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
   });
 
   // ── Delete (edit mode only) ───────────────────────────────

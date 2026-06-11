@@ -1296,7 +1296,7 @@
 
       if (isEdit) {
         mount.querySelector('#if_delete')?.addEventListener('click', async () => {
-          const ok = await showConfirm('Delete this calendar feed? Imported events will remain until the next sync.');
+          const ok = await showConfirm({ title: 'Delete this calendar feed?', message: 'Imported events will remain until the next sync.', confirmLabel: 'Delete', danger: true });
           if (!ok) return;
           await removeIcalFeed(feedId);
           delete icalFeedsObj[feedId];
@@ -1386,7 +1386,7 @@
 
       if (isEdit) {
         mount.querySelector('#slf_delete')?.addEventListener('click', async () => {
-          const ok = await showConfirm('Delete this school lunch feed? Imported lunches will remain until you manually remove them.');
+          const ok = await showConfirm({ title: 'Delete this school lunch feed?', message: 'Imported lunches will remain until you manually remove them.', confirmLabel: 'Delete', danger: true });
           if (!ok) return;
           await removeSchoolLunchFeed(existingPersonId);
           delete schoolLunchFeedsObj[existingPersonId];
