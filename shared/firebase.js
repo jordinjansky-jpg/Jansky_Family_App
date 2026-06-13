@@ -762,6 +762,10 @@ export async function readWishlist(personId) {
   return readOnce(`wishlist/${personId}`);
 }
 
+export async function readAllWishlists() {
+  return readOnce('wishlist');
+}
+
 export async function writeWishlistItem(personId, rewardId) {
   await writeData(`wishlist/${personId}/${rewardId}`, {
     addedAt: firebase.database.ServerValue.TIMESTAMP

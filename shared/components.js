@@ -2359,6 +2359,8 @@ export function renderRewardCard(reward, balance, opts = {}) {
     redemptionCount = 0,
     show = {},
     density = 'roomy',
+    showWishlist = false,
+    wishlisted = false,
   } = opts;
   const showApprovalLabel = show.approvalLabel !== false;
   const showDescription   = show.description !== false;
@@ -2415,9 +2417,10 @@ export function renderRewardCard(reward, balance, opts = {}) {
       ${showProgressBar ? `<div class="reward-progress"><div class="reward-progress__bar" data-progress="${progress}"></div></div>` : ''}
       ${!canAfford && showGet ? `<div class="card__hint">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
     </div>
-    ${showGet ? `<div class="card__trailing card__trailing--reward">
-      <span class="chip ${costChipClass}">${(reward.pointCost || 0).toLocaleString()} pts</span>
-      ${canGet ? `<button class="chip reward-get-btn" data-reward-id="${esc(reward.id)}" type="button">Get it</button>` : ''}
+    ${(showGet || showWishlist) ? `<div class="card__trailing card__trailing--reward">
+      ${showWishlist ? `<button class="wishlist-btn${wishlisted ? ' wishlist-btn--active' : ''}" data-wishlist-reward-id="${esc(reward.id)}" type="button" aria-pressed="${wishlisted}" aria-label="${wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}"><svg viewBox="0 0 24 24" width="20" height="20" fill="${wishlisted ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg></button>` : ''}
+      ${showGet ? `<span class="chip ${costChipClass}">${(reward.pointCost || 0).toLocaleString()} pts</span>
+      ${canGet ? `<button class="chip reward-get-btn" data-reward-id="${esc(reward.id)}" type="button">Get it</button>` : ''}` : ''}
     </div>` : ''}
   </div>`;
 }

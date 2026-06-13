@@ -4,7 +4,8 @@ import { initFirebase, readSettings, writeSettings, readPeople, readRewards, rea
   markBankTokenUsed, removeBankToken, onConnectionChange, pushReward,
   writeReward, archiveReward, removeReward,
   onAllMessages, removeMessage, writeMultiplier, writePerson,
-  readAllActivityEarnings, readOnce
+  readAllActivityEarnings, readOnce,
+  readAllWishlists, writeWishlistItem, removeWishlistItem
 } from './shared/firebase.js';
 import { startLongPressTimer, recordTap, withButtonLock, bindEscapeToClose, validateStoredId } from './shared/dom-helpers.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
@@ -31,7 +32,7 @@ const tabParam = params.get('tab');
 const isKidMode = !!kidName;
 
 // ── State ──
-let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks, allActivityEarnings;
+let settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks, allActivityEarnings, allWishlists;
 let people = [];
 let activePerson = null;
 let viewerPerson = null; // the person whose perspective owns this session (theme, etc.)
@@ -40,10 +41,10 @@ let shopFilter = { type: 'all', sort: 'cost', search: '' };
 let historyFilter = { type: 'all' };
 
 async function loadData() {
-  [settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks, allActivityEarnings] = await Promise.all([
+  [settings, peopleObj, rewardsObj, allMessages, allAnchors, allSnapshots, allMultipliers, allStreaks, allActivityEarnings, allWishlists] = await Promise.all([
     readSettings(), readPeople(), readRewards(),
     readAllMessages(), readAllBalanceAnchors(), readAllSnapshots(), readMultipliers(), readAllStreaks(),
-    readAllActivityEarnings()
+    readAllActivityEarnings(), readAllWishlists()
   ]);
   people = Object.entries(peopleObj || {}).map(([id, p]) => ({ id, ...p }));
 
@@ -487,12 +488,15 @@ function renderShopTab() {
     html += renderEmptyState('', 'No rewards yet', 'Ask a parent to add some in Admin.');
   } else {
     const cardPrefs = readRewardsCustomize(viewerPerson ? { person: viewerPerson } : null);
+    const personWishlist = allWishlists?.[activePerson.id] || {};
     html += visible.map(r => renderRewardCard(r, balance, {
       showGet: true,
       streak: personStreak,
       redemptionCount: redemptionCountByReward[r.id] || 0,
       show: cardPrefs.cardShow,
       density: cardPrefs.cardDensity,
+      showWishlist: true,
+      wishlisted: !!personWishlist[r.id],
     })).join('');
   }
   return html;
@@ -513,6 +517,45 @@ function bindShopTab() {
     });
   });
 
+  // Wishlist toggle (heart) — marks a reward the active person is saving toward.
+  // Populates the wishlist progress trackers shown in kid mode (kid.html).
+  document.querySelectorAll('.wishlist-btn[data-wishlist-reward-id]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      if (!activePerson) return;
+      const rewardId = btn.dataset.wishlistRewardId;
+      const pid = activePerson.id;
+      if (!allWishlists) allWishlists = {};
+      const current = allWishlists[pid] || {};
+      const wasWishlisted = !!current[rewardId];
+      const next = !wasWishlisted;
+      // Optimistic in-place toggle (no full re-render — keeps search focus/scroll).
+      const svg = btn.querySelector('svg');
+      btn.classList.toggle('wishlist-btn--active', next);
+      btn.setAttribute('aria-pressed', String(next));
+      btn.setAttribute('aria-label', next ? 'Remove from wishlist' : 'Add to wishlist');
+      if (svg) svg.setAttribute('fill', next ? 'currentColor' : 'none');
+      try {
+        if (next) {
+          current[rewardId] = { addedAt: Date.now() };
+          allWishlists[pid] = current;
+          await writeWishlistItem(pid, rewardId);
+        } else {
+          delete current[rewardId];
+          allWishlists[pid] = current;
+          await removeWishlistItem(pid, rewardId);
+        }
+      } catch (err) {
+        console.error('[wishlist]', err);
+        showToast("Couldn't save — try again");
+        btn.classList.toggle('wishlist-btn--active', wasWishlisted);
+        btn.setAttribute('aria-pressed', String(wasWishlisted));
+        btn.setAttribute('aria-label', wasWishlisted ? 'Remove from wishlist' : 'Add to wishlist');
+        if (svg) svg.setAttribute('fill', wasWishlisted ? 'currentColor' : 'none');
+      }
+    });
+  });
+
   const isAdult = activePerson?.role !== 'child';
   document.querySelectorAll('.card--reward[data-reward-id]').forEach(card => {
     let pressTimer = null, didLongPress = false, startX = 0, startY = 0;
@@ -520,7 +563,7 @@ function bindShopTab() {
     // Pointer events so mouse users can long-press to edit too (R9), and the
     // documented 800ms default instead of a bespoke 600ms third timing.
     card.addEventListener('pointerdown', e => {
-      if (e.target.closest('.reward-get-btn')) return;
+      if (e.target.closest('.reward-get-btn') || e.target.closest('.wishlist-btn')) return;
       if (typeof e.button === 'number' && e.button !== 0) return;
       didLongPress = false;
       startX = e.clientX; startY = e.clientY;
@@ -542,7 +585,7 @@ function bindShopTab() {
     card.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
     card.addEventListener('contextmenu', e => e.preventDefault());
     card.addEventListener('click', e => {
-      if (e.target.closest('.reward-get-btn')) return;
+      if (e.target.closest('.reward-get-btn') || e.target.closest('.wishlist-btn')) return;
       if (didLongPress) { didLongPress = false; return; }
       recordTap();
       handleGetReward(card.dataset.rewardId);
