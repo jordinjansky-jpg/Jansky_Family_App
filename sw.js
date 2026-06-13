@@ -530,7 +530,10 @@
 //                     kitchen dev-root + vote fixes, admin cascade, rewards
 //                     gates, kid/person/activities/setup repairs, shared
 //                     cook/vote CSS moved to components.css, token fixes.
-const CACHE_NAME = 'family-hub-v344';
+// v345 (2026-06-13) — First-run redirect to setup.html now preserves
+//                     location.search (?env=dev), so dev-mode boots with empty
+//                     dev data no longer silently leak to the production root.
+const CACHE_NAME = 'family-hub-v345';
 
 const APP_SHELL = [
   '/',

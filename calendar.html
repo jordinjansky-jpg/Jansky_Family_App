@@ -58,7 +58,7 @@
     // ── Init Firebase ──
     initFirebase();
     const firstRun = await isFirstRun();
-    if (firstRun) { window.location.href = 'setup.html'; }
+    if (firstRun) { window.location.href = 'setup.html' + location.search; } // preserve ?env=dev
 
     // ── Load core data ──
     // CALB9: a rejected read used to leave "Loading..." forever.

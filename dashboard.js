@@ -29,7 +29,7 @@ applyTheme(resolveTheme());
 initFirebase();
 const firstRun = await isFirstRun();
 if (firstRun) {
-  window.location.href = 'setup.html';
+  window.location.href = 'setup.html' + location.search; // preserve ?env=dev so first-run never leaks to prod
   // DB18: halt module execution while the redirect lands — the rest of boot
   // would otherwise race against an empty DB.
   await new Promise(() => {});

@@ -68,7 +68,7 @@
     // ── Init Firebase ──
     initFirebase();
     const firstRun = await isFirstRun();
-    if (firstRun) { window.location.href = 'setup.html'; await new Promise(() => {}); }
+    if (firstRun) { window.location.href = 'setup.html' + location.search; await new Promise(() => {}); } // preserve ?env=dev
 
     const settings = await readSettings();
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));

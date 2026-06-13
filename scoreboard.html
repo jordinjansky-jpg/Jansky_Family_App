@@ -53,7 +53,7 @@
     // ── Init Firebase ──
     initFirebase();
     const firstRun = await isFirstRun();
-    if (firstRun) { window.location.href = 'setup.html'; }
+    if (firstRun) { window.location.href = 'setup.html' + location.search; } // preserve ?env=dev
 
     // ── Load all data ──
     try {
