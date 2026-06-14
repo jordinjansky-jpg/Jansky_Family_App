@@ -71,6 +71,40 @@ export async function resizeImageForUpload(file, maxPx = 1092) {
 }
 
 /**
+ * Downscale an image (data: URL or remote URL) to a small JPEG data URL for
+ * recipe card thumbnails, so the recipe tree stays tiny and the full image can
+ * live in a lazily-loaded branch. Returns '' on failure (e.g. a remote URL whose
+ * server sends no CORS headers taints the canvas) — callers fall back to the
+ * full image in that case.
+ * @param {string} srcUrl  data: or http(s) URL
+ * @param {number} maxPx   longest-edge cap (default 200)
+ * @returns {Promise<string>} a `data:image/jpeg;base64,...` URL, or ''
+ */
+export async function makeThumbnail(srcUrl, maxPx = 200) {
+  if (!srcUrl) return '';
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.crossOrigin = 'anonymous'; // needed so remote images don't taint the canvas (when CORS allows)
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = srcUrl;
+    });
+    const longest = Math.max(img.naturalWidth, img.naturalHeight) || maxPx;
+    const scale = Math.min(1, maxPx / longest);
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.7);
+  } catch {
+    return ''; // tainted canvas or load failure — caller keeps the full image
+  }
+}
+
+/**
  * Convert a Worker-supplied { imageData (base64), imageMediaType } pair into
  * a resized data URL via the existing image resizer. Returns null when the
  * payload is missing or conversion fails — caller decides the fallback.
