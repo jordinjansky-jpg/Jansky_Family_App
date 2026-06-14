@@ -5496,7 +5496,7 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = 
   headerActions.push(`<button class="ef2-icon-btn" id="mdClose" type="button" aria-label="Close">${MD_CLOSE_SVG}</button>`);
 
   return `
-    ${meal.imageUrl ? `<div class="rd-hero"><img id="mdHero" src="${esc(meal.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" data-rid="${esc(meal.id || '')}" onerror="if(window.__krImgError&&this.dataset.rid)window.__krImgError(this.dataset.rid);this.parentElement.remove()"/></div>` : ''}
+    ${(meal.thumbUrl || meal.imageUrl) ? `<div class="rd-hero"><img id="mdHero" src="${esc(meal.thumbUrl || meal.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" data-rid="${esc(meal.id || '')}" onerror="if(window.__krImgError&&this.dataset.rid)window.__krImgError(this.dataset.rid);this.parentElement.remove()"/></div>` : ''}
     <div class="sheet__header">
       <h2 class="sheet__title">${esc(meal.name)}</h2>
       <div class="rf-header-actions">${headerActions.join('')}</div>

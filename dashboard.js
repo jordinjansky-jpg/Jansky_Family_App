@@ -12,7 +12,7 @@ import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, startLongPr
 import { basePoints, dailyScore, dailyPossible, gradeDisplay, computeRollover } from './shared/scoring.js';
 import { buildScheduleUpdates, getRotationOwner, rebuildSingleTaskSchedule } from './shared/scheduler.js';
 import { silentAutoResubscribe } from './shared/push-client.js';
-import { readNotificationPrefs, writePushSubscription as writePushSubscriptionFb } from './shared/firebase.js';
+import { readNotificationPrefs, writePushSubscription as writePushSubscriptionFb, readRecipeImage } from './shared/firebase.js';
 
 
 // ── Cached theme (device override > family cache > default) ──
@@ -1990,6 +1990,16 @@ async function addRecipeIngredientsToList(meal) {
   if (count) showToast(`Added ${count} item${count !== 1 ? 's' : ''} to ${listData[listId]?.name || 'list'}`);
 }
 
+// The meal-detail hero paints recipe.thumbUrl first, then lazily swaps in the
+// full image from kitchen/recipeImages (which isn't loaded with the recipe tree).
+async function upgradeMealHero(recipeId, fallbackUrl) {
+  if (!recipeId) return;
+  const full = (await readRecipeImage(recipeId)) || fallbackUrl;
+  if (!full) return;
+  const el = document.querySelector('#mdHero, .rd-hero__img');
+  if (el && el.getAttribute('src') !== full) el.setAttribute('src', full);
+}
+
 function openMealDetailSheet(planEntry, slot) {
   const meal = planEntry?.recipeId ? recipes[planEntry.recipeId] : null;
   const html = renderMealDetailSheet(meal, planEntry, false, slot);
@@ -1998,6 +2008,7 @@ function openMealDetailSheet(planEntry, slot) {
     document.getElementById('bottomSheet')?.classList.add('active');
     _bindSheetEscape(closeTaskSheet);
   });
+  if (meal) upgradeMealHero(planEntry.recipeId, meal.imageUrl); // thumb → full image
 
   const overlay = document.getElementById('bottomSheet');
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeTaskSheet(); });

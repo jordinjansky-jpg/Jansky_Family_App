@@ -9,6 +9,7 @@ import { initFirebase, readSettings, writeSettings, readPeople, writePerson, onC
   pushKitchenItem, writeKitchenItem, updateKitchenItem, pushKitchenStaple,
   updateKitchenStaple, removeKitchenStaple,
   writeKitchenPlanSlot, removeKitchenPlanSlot, writeKitchenRecipe, pushKitchenRecipe, removeKitchenRecipe,
+  readRecipeImage, writeRecipeImage, removeRecipeImage,
   multiUpdate, updateData,
   readSchoolLunchFeeds, writeSchoolLunchFeed, removeSchoolLunchFeed, writeSchoolLunchFeedSync,
 } from './shared/firebase.js';
@@ -24,7 +25,7 @@ import { renderHeader, renderNavBar, initNavMore, initBottomNav, initBell,
   renderMealDetailSheet, openVoteSheet
 } from './shared/components.js';
 import { todayKey, addDays, formatDateShort, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
-import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl } from './shared/ai-helpers.js';
+import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl, makeThumbnail } from './shared/ai-helpers.js';
 import { withButtonLock, validateStoredId } from './shared/dom-helpers.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -82,6 +83,19 @@ async function selfHealRecipeImage(recipeId) {
 // the per-context placeholder swap; this one just fires the heal.
 if (typeof window !== 'undefined') {
   window.__krImgError = (recipeId) => selfHealRecipeImage(recipeId);
+}
+
+// Recipe/meal detail heroes paint the small thumbnail first, then lazily swap
+// in the full-resolution image (which lives in kitchen/recipeImages, not on the
+// recipe record). Only one detail sheet is open at a time, so the single
+// .rd-hero__img selector is unambiguous. fallbackUrl covers un-migrated recipes
+// that still carry imageUrl.
+async function upgradeHero(recipeId, fallbackUrl) {
+  if (!recipeId) return;
+  const full = (await readRecipeImage(recipeId)) || fallbackUrl;
+  if (!full) return;
+  const el = document.querySelector('.rd-hero__img');
+  if (el && el.getAttribute('src') !== full) el.setAttribute('src', full);
 }
 
 // Activate a sheet: animate it in and close on overlay click
@@ -1366,6 +1380,7 @@ function openSlotEditSheet(dk, slot, entry) {
 
     mount.innerHTML = renderBottomSheet(renderMealDetailSheet(meal, opt, false, slot));
     activateSheet(mount);
+    upgradeHero(opt.recipeId, meal.imageUrl); // paint thumb, then lazily swap in the full image
 
     document.getElementById('mdClose')?.addEventListener('click', () => { mount.innerHTML = ''; });
 
@@ -1744,7 +1759,7 @@ function openRecipeDetailSheet(recipeId) {
   function render() {
     const timesBlock = buildTimesAndServings();
     mount.innerHTML = renderBottomSheet(`
-      ${recipe.imageUrl ? `<div class="rd-hero"><img src="${esc(recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="(window.__krImgError&&window.__krImgError('${esc(recipeId)}'));this.parentElement.remove()"/></div>` : ''}
+      ${(recipe.thumbUrl || recipe.imageUrl) ? `<div class="rd-hero"><img src="${esc(recipe.thumbUrl || recipe.imageUrl)}" alt="" class="rd-hero__img" loading="lazy" onerror="(window.__krImgError&&window.__krImgError('${esc(recipeId)}'));this.parentElement.remove()"/></div>` : ''}
       <div class="sheet__header">
         <h2 class="sheet__title">${esc(recipe.name)}</h2>
         <div class="rf-header-actions">
@@ -1782,6 +1797,7 @@ function openRecipeDetailSheet(recipeId) {
       </div>`);
     activateSheet(mount);
     bindButtons();
+    upgradeHero(recipeId, recipe.imageUrl); // paint thumb, then lazily swap in the full image
   }
 
   function bindButtons() {
