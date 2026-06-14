@@ -495,7 +495,9 @@ function renderShopTab() {
       redemptionCount: redemptionCountByReward[r.id] || 0,
       show: cardPrefs.cardShow,
       density: cardPrefs.cardDensity,
-      showWishlist: true,
+      // Wishlist is a kid feature (only displayed in kid mode), so the heart
+      // shows only when the active person is a kid — incl. a parent viewing-as-kid.
+      showWishlist: activePerson.role === 'child',
       wishlisted: !!personWishlist[r.id],
     })).join('');
   }
