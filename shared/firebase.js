@@ -1016,6 +1016,22 @@ export async function removeKitchenRecipe(id) {
   return removeData(`kitchen/recipes/${id}`);
 }
 
+// Full-resolution recipe images live in a separate branch so the recipe tree
+// (loaded on Kitchen/Dashboard/Calendar/Kid) only carries small thumbnails.
+// The full image is fetched lazily, only when a detail/cook hero opens.
+export async function readRecipeImage(recipeId) {
+  const v = await readOnce(`kitchen/recipeImages/${recipeId}`);
+  return v?.imageUrl || null;
+}
+
+export async function writeRecipeImage(recipeId, imageUrl) {
+  return writeData(`kitchen/recipeImages/${recipeId}`, { imageUrl });
+}
+
+export async function removeRecipeImage(recipeId) {
+  return removeData(`kitchen/recipeImages/${recipeId}`);
+}
+
 // ─── Kitchen: Meal Plan ───────────────────────────────────────────────────────
 
 export async function readKitchenPlan(dateKey) {
