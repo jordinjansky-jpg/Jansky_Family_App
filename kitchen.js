@@ -225,6 +225,7 @@ async function init() {
   try {
     await loadData();
     renderActiveTab();
+    migrateRecipeImages(); // background, one-time, idempotent — moves legacy full images out of the recipe tree
   } catch (err) {
     renderErrorState(document.getElementById('kitchenContent'), {
       title: "Couldn't load kitchen",
@@ -255,6 +256,33 @@ async function loadData() {
     }
   }
   if (activeListId) localStorage.setItem('dr-kitchen-active-list', activeListId);
+}
+
+// One-time, idempotent migration: legacy recipes store the full image inline as
+// recipe.imageUrl (the single biggest data cost — the whole recipe tree loads on
+// Kitchen/Dashboard/Calendar/Kid). Split each into a small recipe.thumbUrl for
+// cards + the full image in kitchen/recipeImages/{id} (lazy-loaded by heroes).
+// Runs in the background on Kitchen load; the imageUrl && !thumbUrl filter makes
+// it self-skipping once done, and recipeImages-first ordering makes it resumable.
+let _imgMigrationRan = false;
+async function migrateRecipeImages() {
+  if (_imgMigrationRan) return;
+  _imgMigrationRan = true;
+  const pending = Object.entries(recipes).filter(([, r]) => r.imageUrl && !r.thumbUrl);
+  if (pending.length === 0) return;
+  showToast(`Optimizing ${pending.length} recipe image${pending.length === 1 ? '' : 's'}…`);
+  let done = 0;
+  for (const [id, r] of pending) {
+    try {
+      const thumb = (await makeThumbnail(r.imageUrl, 200)) || r.imageUrl;
+      await writeRecipeImage(id, r.imageUrl);                                   // full image to lazy branch first
+      await updateData(`kitchen/recipes/${id}`, { thumbUrl: thumb, imageUrl: null }); // then strip imageUrl off the record
+      if (recipes[id]) { recipes[id] = { ...recipes[id], thumbUrl: thumb }; delete recipes[id].imageUrl; }
+      done++;
+    } catch (e) { console.error('[migrateRecipeImages]', id, e); }
+  }
+  showToast(`Recipe images optimized (${done})`);
+  if (activeTab === 'recipes') renderRecipesTab();
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
