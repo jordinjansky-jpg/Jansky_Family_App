@@ -346,8 +346,9 @@ function buildSlotThumb(entry, { voteGlyph = false } = {}) {
     return `<span class="day-block__slot-thumb day-block__slot-thumb--spacer" aria-hidden="true"></span>`;
   }
   const recipe = entry.recipeId ? recipes[entry.recipeId] : null;
-  if (recipe?.imageUrl) {
-    return `<img class="day-block__slot-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy">`;
+  const slotThumb = recipe?.thumbUrl || recipe?.imageUrl; // thumbUrl preferred; imageUrl = un-migrated fallback
+  if (slotThumb) {
+    return `<img class="day-block__slot-thumb" src="${esc(slotThumb)}" alt="" loading="lazy">`;
   }
   return `<span class="day-block__slot-thumb day-block__slot-thumb--placeholder" aria-hidden="true">🍴</span>`;
 }
@@ -509,12 +510,13 @@ async function renderMealsTab() {
 
 function renderRecipesTab() {
   function buildRecipeCardThumb(recipe, id) {
-    if (recipe?.imageUrl) {
+    const cardThumb = recipe?.thumbUrl || recipe?.imageUrl; // thumbUrl preferred; imageUrl = un-migrated fallback
+    if (cardThumb) {
       // onerror: swap visual to placeholder + trigger background self-heal.
       // (window.__krImgError lives at module scope; defensive in case the
       // page somehow renders before the module evaluates.)
       const onErr = `(window.__krImgError&&window.__krImgError('${esc(id)}'));this.outerHTML='&lt;span class=&quot;rl-card-thumb rl-card-thumb--placeholder&quot; aria-hidden=&quot;true&quot;&gt;\\ud83c\\udf74&lt;/span&gt;'`;
-      return `<img class="rl-card-thumb" src="${esc(recipe.imageUrl)}" alt="" loading="lazy" onerror="${onErr}">`;
+      return `<img class="rl-card-thumb" src="${esc(cardThumb)}" alt="" loading="lazy" onerror="${onErr}">`;
     }
     return `<span class="rl-card-thumb rl-card-thumb--placeholder" aria-hidden="true">🍴</span>`;
   }
@@ -805,8 +807,9 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
   // passes its own selected id so its rows highlight independently.
   function buildPickRow(id, r, selId = selectedRecipeId) {
     const isSelected = selId === id;
-    const thumb = r.imageUrl
-      ? `<img class="recipe-pick__thumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`
+    const pickThumb = r.thumbUrl || r.imageUrl; // thumbUrl preferred; imageUrl = un-migrated fallback
+    const thumb = pickThumb
+      ? `<img class="recipe-pick__thumb" src="${esc(pickThumb)}" alt="" loading="lazy">`
       : `<span class="recipe-pick__thumb recipe-pick__thumb--placeholder" aria-hidden="true">🍴</span>`;
     return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-recipe-pick="${esc(id)}" type="button">
       ${thumb}
@@ -853,8 +856,9 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
 
   function buildCandPickRow(rowIdx, id, r) {
     const isSelected = candidates[rowIdx].selectedRecipeId === id;
-    const thumb = r.imageUrl
-      ? `<img class="recipe-pick__thumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`
+    const pickThumb = r.thumbUrl || r.imageUrl; // thumbUrl preferred; imageUrl = un-migrated fallback
+    const thumb = pickThumb
+      ? `<img class="recipe-pick__thumb" src="${esc(pickThumb)}" alt="" loading="lazy">`
       : `<span class="recipe-pick__thumb recipe-pick__thumb--placeholder" aria-hidden="true">🍴</span>`;
     return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-cand-pick-row="${rowIdx}" data-cand-pick-id="${esc(id)}" type="button">
       ${thumb}

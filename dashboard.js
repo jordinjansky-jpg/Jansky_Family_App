@@ -1777,8 +1777,9 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
 
   function buildPickRow(id, r) {
     const isSelected = selectedRecipeId === id;
-    const thumb = r.imageUrl
-      ? `<img class="recipe-pick__thumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`
+    const pickThumb = r.thumbUrl || r.imageUrl; // thumbUrl preferred; imageUrl = un-migrated fallback
+    const thumb = pickThumb
+      ? `<img class="recipe-pick__thumb" src="${esc(pickThumb)}" alt="" loading="lazy">`
       : `<span class="recipe-pick__thumb recipe-pick__thumb--placeholder" aria-hidden="true">🍴</span>`;
     return `<button class="recipe-pick__row${isSelected ? ' is-selected' : ''}" data-recipe-pick="${esc(id)}" type="button">
       ${thumb}
