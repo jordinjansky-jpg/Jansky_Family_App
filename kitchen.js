@@ -1333,7 +1333,7 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
     mount.innerHTML = '';
     await renderMealsTab();
     showToast('Meal planned');
-  });
+  }));
 }
 
 function openSlotEditSheet(dk, slot, entry) {

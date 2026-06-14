@@ -535,7 +535,10 @@
 //                     dev data no longer silently leak to the production root.
 // v346 (2026-06-13) — Wishlist completed (add-to-wishlist heart on shop cards);
 //                     scoreboard "week" + heatmap unified to Monday-anchored.
-const CACHE_NAME = 'family-hub-v346';
+// v347 (2026-06-14) — HOTFIX: kitchen.js kp_save handler was missing a closing
+//                     paren (withButtonLock wrap from the K42 fix), a SyntaxError
+//                     that blanked the entire Kitchen page. Force SW update.
+const CACHE_NAME = 'family-hub-v347';
 
 const APP_SHELL = [
   '/',
