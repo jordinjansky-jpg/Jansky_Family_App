@@ -538,7 +538,10 @@
 // v347 (2026-06-14) — HOTFIX: kitchen.js kp_save handler was missing a closing
 //                     paren (withButtonLock wrap from the K42 fix), a SyntaxError
 //                     that blanked the entire Kitchen page. Force SW update.
-const CACHE_NAME = 'family-hub-v347';
+// v348 (2026-06-14) — Recipe images: small thumbnail on the recipe record + full
+//                     image in kitchen/recipeImages (lazy). Recipe tree drops
+//                     ~90% (2.3MB→0.24MB); one-time background migration on load.
+const CACHE_NAME = 'family-hub-v348';
 
 const APP_SHELL = [
   '/',
