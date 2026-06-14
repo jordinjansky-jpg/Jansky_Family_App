@@ -91,4 +91,21 @@ The authoritative per-finding ✅/🔶/⬜ table now lives at the top of APP_REV
 - **Product decisions needed:** SC3/SB14 (single "week" definition app-wide), S6 (unassigned events under person filters), AC8 (§5.13 vs §6.11 FAB contradiction), R13 (wishlist: build UI or delete schema), K11 (recipe image storage strategy — biggest data-cost item), SR3 caveats (refund type for kid history/totalEarned), W3 (approval trust model).
 - **Docs re-sync (§18)** — not started; one PR updating DESIGN.md/CLAUDE.md to match shipped reality.
 
-⚠️ Deploy notes: merge to main auto-deploys the frontend; the **Worker changes (batch 2) require `npx wrangler deploy --config workers/wrangler.toml` separately**. Recommend a Cloudflare dashboard rate-limit rule on the Worker route as the real abuse ceiling.
+⚠️ Deploy notes: merge to main auto-deploys the frontend; the **Worker changes (batch 2) require `npx wrangler deploy --config workers/wrangler.toml` separately**. Recommend a Cloudflare dashboard rate-limit rule on the Worker route as the real abuse ceiling. *(Both done in Session 3 below — Worker deployed; rate-limit rule still TODO.)*
+
+## Session 3 — verification, deploy, and post-review batches (2026-06-13/14)
+
+The batch 1–2 fix pass was **verified in a real browser** (`?env=dev`, 412×915) and **shipped to `main`**. All six smoke-test flows passed: dashboard toggle/move/undo, calendar FAB + repeating-event-with-end-date, kitchen plan/vote/cook-mode from the dashboard tile, rewards approve/deny, admin person-delete cascade + rebuild-survival, setup wizard end-to-end. The headline SC2/DB1 fix (manual moves survive a schedule rebuild) was confirmed twice.
+
+**Found + fixed during verification:**
+- **Dev→prod redirect leak.** The first-run redirect to `setup.html` dropped `location.search`, so booting dashboard/kid/calendar/scoreboard/tracker in dev mode with an empty `rundown-dev` silently bounced to the **production** root. Fixed by preserving `location.search` on all five redirects (`activities.html`/`admin.html` already guarded with `!isDev`). SW cache → v345. Verified: empty dev + `/index.html?env=dev` now lands on `setup.html?env=dev`.
+- **Person-delete cascade (A2) leaves transient orphan schedule entries.** Observed 469 of a deleted person's entries survive the cascade's own rebuild (all uncompleted, for co-owned tasks); the UI hides them and they self-heal on the next rebuild (469→0). Low severity, not yet fixed — noted for a future pass.
+
+**Deployed:** frontend merged (auto-deploy); **Worker deployed** via wrangler (batch-2 security fixes live). ⚠️ Still TODO (dashboard-only): rate-limit rule on the Worker route.
+
+**Product decisions resolved (were "needed" above):**
+- **Week (SC3/SB14) → Monday everywhere.** Scoreboard "Week" (was rolling-7) + heatmap (was Sunday) now Monday-anchored; `weekStartDay` = calendar-display-only. **Shipped.**
+- **Wishlist (R13) → completed, not deleted.** Turned out ~70% built (kid-mode progress trackers existed but nothing could populate them). Added an add-to-wishlist heart on shop cards (kids only). **Shipped.**
+- **Recipe images (K11) → thumbnails + lazy full image, staying in RTDB.** **Planned** in `docs/RECIPE_IMAGE_PLAN.md`; not yet built (ends with a one-time production migration).
+
+SW cache → v346 for the wishlist + Monday-week changes. Still open from the lists above: the visual-verification batch, mechanical sweeps, the remaining product calls (S6, AC8, SR3, W3), and the §18 docs re-sync.

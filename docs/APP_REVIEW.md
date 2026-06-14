@@ -47,6 +47,8 @@
 
 ## Fix-pass results (2026-06-11)
 
+> **Status update (2026-06-13/14):** The "Suggested next-session plan" below was **executed and shipped to `main`** — see the Session 3 section in [FIX_LOG.md](FIX_LOG.md). The fix pass was verified in a real browser (all 6 smoke-test flows passed); a dev→prod redirect leak found during verification was fixed; the frontend + Worker are deployed; and the three product decisions are resolved — **week = Monday everywhere (shipped)**, **wishlist = completed/built (shipped)**, **recipe images = planned** (`docs/RECIPE_IMAGE_PLAN.md`). Still open: the visual-polish batch, mechanical sweeps, the remaining product calls (S6, AC8, SR3, W3), the §18 docs re-sync, and a Cloudflare rate-limit rule on the Worker route.
+
 A fix pass has been applied on this branch (commit ledger in [FIX_LOG.md](FIX_LOG.md)).
 Legend: ✅ fixed · 🔶 partially fixed · ⬜ open. Findings not listed in a row are open.
 **All 🔴 criticals are fixed** except W3 (accepted risk, documented below).
