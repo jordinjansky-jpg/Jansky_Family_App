@@ -86,11 +86,13 @@
     if (linkedPerson?.theme?.preset) applyTheme(linkedPerson.theme);
 
     // ── Date ranges ──
-    const wStart = weekStart(today);
+    const wStart = weekStart(today);        // Monday of this week — app-wide week start
     const wEnd = weekEnd(today);
     const mStart = monthStart(today);
     const mEnd = monthEnd(today);
     const y12Start = addDays(today, -365);
+    const wPrevStart = addDays(wStart, -7); // Monday of last week
+    const wPrevEnd = addDays(wStart, -1);   // Sunday of last week
 
     // ── Header & Nav ──
     const debugActive = localStorage.getItem('dr-debug') === 'true';
@@ -133,9 +135,9 @@
       return dailyScore(personEntries, comps, tasks, cats, settings, today, today);
     }
 
-    /** Get weekly grade: rolling 7 days ending today. */
+    /** Get weekly grade: this calendar week (Monday-anchored) through today. */
     function weeklyGrade(personId) {
-      const pastSnaps = collectSnapshots(snapshots, personId, addDays(today, -6), addDays(today, -1));
+      const pastSnaps = collectSnapshots(snapshots, personId, wStart, addDays(today, -1));
       const todayLive = todayScore(personId);
       const all = [...pastSnaps];
       if (todayLive.possible > 0) all.push(todayLive);
@@ -160,7 +162,6 @@
       return aggregateSnapshots(all);
     }
 
-    /** Calculate total time contributed over the rolling 7 days for a person. */
     /** Get per-category breakdown for a person over a date range. */
     function categoryBreakdown(personId, startDate, endDate) {
       const catTotals = {}; // catKey -> { earned, possible, label, icon }
@@ -191,9 +192,9 @@
       return catTotals;
     }
 
-    /** Get weekly trend vs rolling 7 days prior. Returns 'up' | 'down' | 'same' | null. */
+    /** Get weekly trend vs the prior calendar week. Returns 'up' | 'down' | 'same' | null. */
     function weeklyTrend(personId) {
-      const lastWeek = periodGrade(snapshots, personId, addDays(today, -13), addDays(today, -7));
+      const lastWeek = periodGrade(snapshots, personId, wPrevStart, wPrevEnd);
       const thisWeek = weeklyGrade(personId);
       if (lastWeek.possible === 0 || thisWeek.possible === 0) return null;
       const diff = thisWeek.percentage - lastWeek.percentage;
@@ -311,7 +312,7 @@
         .map(([key]) => activeDefs[key]?.icon || '')
         .filter(Boolean)
         .join('');
-      const lastWeek = periodGrade(snapshots, p.id, addDays(today, -13), addDays(today, -7));
+      const lastWeek = periodGrade(snapshots, p.id, wPrevStart, wPrevEnd);
       return { person: p, today: td, week: wk, month: mo, year: yr, streak, trend, liveBalance, badgeIcons, lastWeek };
     });
 
@@ -369,7 +370,7 @@
       let familyTrendDir = null;
       if (selectedPeriod === 'week' || selectedPeriod === 'month') {
         const priorRanges = {
-          week:  [addDays(today, -13), addDays(today, -7)],
+          week:  [wPrevStart, wPrevEnd],
           month: [addDays(today, -59), addDays(today, -30)],
         };
         const [ps, pe] = priorRanges[selectedPeriod];
@@ -508,7 +509,7 @@
       // ── Category Leaders (2+ people only) ──
       const customPrefsForCL = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
       if (board.length >= 2 && customPrefsForCL.sections.categoryLeaders) {
-        const clDates = { today: [today, today], week: [addDays(today, -6), today], month: [addDays(today, -29), today], year: [y12Start, today] };
+        const clDates = { today: [today, today], week: [wStart, today], month: [addDays(today, -29), today], year: [y12Start, today] };
         const [clStart, clEnd] = clDates[selectedPeriod];
         const allCatData = {};
         for (const b of board) {
@@ -599,12 +600,12 @@
 
       const periodDates = {
         today: [today, today],
-        week:  [addDays(today, -6), today],
+        week:  [wStart, today],
         month: [addDays(today, -29), today],
         year:  [y12Start, today],
       };
       const [dStart, dEnd] = periodDates[selectedPeriod];
-      const periodLabels = { today: 'Today', week: 'Last 7 Days', month: 'Last 30 Days', year: 'This Year' };
+      const periodLabels = { today: 'Today', week: 'This Week', month: 'Last 30 Days', year: 'This Year' };
 
       const grade = selectedPeriod === 'today' ? todayScore(personId)
         : selectedPeriod === 'week'  ? weeklyGrade(personId)
@@ -615,7 +616,7 @@
       // Family average for the same period — used for "+3 vs family" comparison
       let familyAvgPct = null;
       {
-        const ps = selectedPeriod === 'today' ? today : (selectedPeriod === 'week' ? addDays(today, -6) : (selectedPeriod === 'month' ? addDays(today, -29) : y12Start));
+        const ps = selectedPeriod === 'today' ? today : (selectedPeriod === 'week' ? wStart : (selectedPeriod === 'month' ? addDays(today, -29) : y12Start));
         const perPerson = people.map(p => {
           if (p.id === personId) return null;
           if (selectedPeriod === 'today') {

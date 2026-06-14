@@ -2732,21 +2732,21 @@ export function renderAchievementBadge(def, state) {
  * @param {string} todayKey - YYYY-MM-DD today in family tz
  * @param {object} todayLive - Live today score { earned, possible, percentage, grade } from todayScore()
  * @param {function} addDaysFn
- * @param {function} weekStartForDayFn - util.weekStartForDay (Sunday start)
+ * @param {function} weekStartForDayFn - util.weekStartForDay (passed 1 = Monday/app week start)
  * @param {function} gradeTierFn - scoring.gradeTier
  * @returns {string} HTML
  */
 export function renderHeatmap(snapshots, personId, todayKey, todayLive, addDaysFn, weekStartForDayFn, gradeTierFn) {
   const WEEKS = 13;
-  const todaySun = weekStartForDayFn(todayKey, 0); // Sunday of this week
-  const startSun = addDaysFn(todaySun, -7 * (WEEKS - 1));
+  const todayMon = weekStartForDayFn(todayKey, 1); // Monday of this week — app-wide week start
+  const startMon = addDaysFn(todayMon, -7 * (WEEKS - 1));
 
   let html = '<div class="sb-heatmap" role="img" aria-label="90-day grade heatmap">';
-  // Column-major iteration: col 0 days first (Sun→Sat), then col 1, etc.
+  // Column-major iteration: col 0 days first (Mon→Sun), then col 1, etc.
   // CSS uses grid-auto-flow: column so source order matches visual layout.
   for (let col = 0; col < WEEKS; col++) {
     for (let row = 0; row < 7; row++) {
-      const date = addDaysFn(startSun, col * 7 + row);
+      const date = addDaysFn(startMon, col * 7 + row);
       const isFuture = date > todayKey;
       let tier, title;
       if (isFuture) {
