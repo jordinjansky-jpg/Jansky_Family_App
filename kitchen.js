@@ -65,9 +65,13 @@ async function selfHealRecipeImage(recipeId) {
       dataUrl = await urlToDataUrl(data.imageUrl);
     }
     if (!dataUrl || !dataUrl.startsWith('data:')) throw new Error('No image');
-    recipes[recipeId] = { ...recipe, imageUrl: dataUrl, imageRefreshFails: null };
-    // Leaf update — don't replace the whole recipe from a possibly stale snapshot.
-    await updateData(`kitchen/recipes/${recipeId}`, { imageUrl: dataUrl, imageRefreshFails: null });
+    // New model: the full image lives in kitchen/recipeImages; the record carries
+    // only a thumbnail. Refresh both — full to the lazy branch, thumb on the record.
+    const thumb = (await makeThumbnail(dataUrl, 200)) || dataUrl;
+    await writeRecipeImage(recipeId, dataUrl);
+    await updateData(`kitchen/recipes/${recipeId}`, { thumbUrl: thumb, imageUrl: null, imageRefreshFails: null });
+    recipes[recipeId] = { ...recipe, thumbUrl: thumb, imageRefreshFails: null };
+    delete recipes[recipeId].imageUrl;
     // Re-render the list so the recovered image appears. Cheap; idempotent.
     if (activeTab === 'recipes') renderRecipesTab();
   } catch {
@@ -1873,6 +1877,7 @@ function openRecipeDetailSheet(recipeId) {
       const confirmed = await showConfirm({ title: `Delete "${recipe.name}"?`, confirmLabel: 'Delete', danger: true });
       if (!confirmed) return;
       await removeKitchenRecipe(recipeId);
+      await removeRecipeImage(recipeId); // also drop the full image from the lazy branch
       delete recipes[recipeId];
       close();
       renderActiveTab();
@@ -3100,6 +3105,7 @@ async function openRecipeForm(recipeId, onSave = null) {
     const confirmed = await showConfirm({ title: 'Delete recipe?', danger: true });
     if (!confirmed) return;
     await removeKitchenRecipe(recipeId);
+    await removeRecipeImage(recipeId); // also drop the full image from the lazy branch
     delete recipes[recipeId];
     close();
     renderActiveTab();
