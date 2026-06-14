@@ -533,7 +533,9 @@
 // v345 (2026-06-13) — First-run redirect to setup.html now preserves
 //                     location.search (?env=dev), so dev-mode boots with empty
 //                     dev data no longer silently leak to the production root.
-const CACHE_NAME = 'family-hub-v345';
+// v346 (2026-06-13) — Wishlist completed (add-to-wishlist heart on shop cards);
+//                     scoreboard "week" + heatmap unified to Monday-anchored.
+const CACHE_NAME = 'family-hub-v346';
 
 const APP_SHELL = [
   '/',
