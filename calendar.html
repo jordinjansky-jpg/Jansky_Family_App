@@ -2820,6 +2820,9 @@
       const root = document.body;
       root.addEventListener('click', (e) => {
         if (evtPressDidLong) { evtPressDidLong = false; return; }
+        // Don't hijack taps inside an open sheet — the detail sheet's own
+        // Edit/Delete buttons carry data-event-id and must keep their handlers.
+        if (e.target.closest('#taskSheetMount')) return;
         const evtEl = e.target.closest('[data-event-id]');
         if (!evtEl) return;
         // Skip cell-level taps — those navigate to day view via their own handler
@@ -2829,6 +2832,7 @@
       }, { capture: true });
 
       root.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('#taskSheetMount')) return;
         const evtEl = e.target.closest('[data-event-id]');
         if (!evtEl || evtEl.matches('.cal-grid__cell')) return;
         if (evtPressTimer) clearTimeout(evtPressTimer);
