@@ -2895,10 +2895,16 @@ function buildIngredientNamePool() {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
-function openRecipeForm(recipeId, onSave = null) {
+async function openRecipeForm(recipeId, onSave = null) {
   const existing = recipeId ? recipes[recipeId] : null;
   const ingredients = existing?.ingredients ? [...existing.ingredients] : [];
+  // Editing a migrated recipe: the full image lives in kitchen/recipeImages, not
+  // on the record — load it back so the working copy (and the save) has the full
+  // image, not just the thumbnail. Un-migrated recipes still carry imageUrl directly.
   let imageUrl = existing?.imageUrl || '';
+  if (!imageUrl && recipeId && existing?.thumbUrl) {
+    imageUrl = (await readRecipeImage(recipeId)) || existing.thumbUrl || '';
+  }
   let videoUrl = existing?.videoUrl || '';
   const tagsOpen = existing?.tags?.length ? ' is-open' : '';
   const stepsOpen = (existing?.steps?.length) ? ' is-open' : '';
@@ -3396,6 +3402,10 @@ function openRecipeForm(recipeId, onSave = null) {
     const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
     const stepsRaw = document.getElementById('recipeSteps')?.value || '';
     const steps = stepsRaw.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 30);
+    // Small thumbnail for cards/lists; the full image goes to the lazily-loaded
+    // kitchen/recipeImages branch below so the recipe tree stays tiny. On CORS
+    // failure makeThumbnail returns '' and we fall back to the full image.
+    const thumbUrl = imageUrl ? ((await makeThumbnail(imageUrl, 200)) || imageUrl) : null;
     const data = {
       name,
       url,
@@ -3409,7 +3419,7 @@ function openRecipeForm(recipeId, onSave = null) {
       servings: parseInt(document.getElementById('recipeServings')?.value, 10) || null,
       tags: tags.length ? tags : null,
       steps: steps.length ? steps : null,
-      imageUrl: imageUrl || null,
+      thumbUrl,
       videoUrl: videoUrl || null,
       // Any save implicitly "fixes" the recipe — clear the failure counter
       // so any banner attribution disappears.
@@ -3419,12 +3429,14 @@ function openRecipeForm(recipeId, onSave = null) {
     if (recipeId) {
       await writeKitchenRecipe(recipeId, { ...data, createdAt: existing?.createdAt });
       recipes[recipeId] = { ...data, createdAt: existing?.createdAt };
+      if (imageUrl) { await writeRecipeImage(recipeId, imageUrl); } else { await removeRecipeImage(recipeId); }
       close();
       if (onSave) { onSave(recipeId); } else { renderActiveTab(); }
       showToast('Recipe updated');
     } else {
       const id = await pushKitchenRecipe({ ...data, createdAt: firebase.database.ServerValue.TIMESTAMP });
       recipes[id] = data;
+      if (imageUrl) { await writeRecipeImage(id, imageUrl); }
       close();
       if (onSave) { onSave(id); } else { renderActiveTab(); }
       showToast('Recipe saved');
