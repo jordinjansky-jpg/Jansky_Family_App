@@ -3103,16 +3103,26 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 export function renderEventDetailSheet(eventId, event, people = []) {
   const timeStr = event.allDay ? 'All Day' : formatTimeRange(event.startTime, event.endTime);
   const assignedPeople = (event.people || []).map(pid => people.find(p => p.id === pid)).filter(Boolean);
-  const peopleHtml = assignedPeople.map(p =>
-    `<span class="chip" data-person-color="${esc(p.color)}">${esc(p.name)}</span>`
-  ).join(' ');
+  // C10: empty people = whole family — say so rather than showing nothing.
+  const peopleHtml = assignedPeople.length
+    ? assignedPeople.map(p => `<span class="chip" data-person-color="${esc(p.color)}">${esc(p.name)}</span>`).join(' ')
+    : `<span class="chip chip--muted">Everyone</span>`;
+  // C10: surface the recurrence rule (+ end date) — was previously omitted.
+  let repeatLabel = '';
+  if (event.repeat && event.repeat.type && event.repeat.type !== 'none') {
+    repeatLabel = ef2RepeatLabel(event.repeat);
+    if (event.repeat.end?.type === 'on' && event.repeat.end.date) {
+      repeatLabel += ' until ' + formatDateShort(event.repeat.end.date);
+    }
+  }
 
   return `<div class="task-detail-sheet">
     <div class="event-detail__color-bar" data-bg-color="${esc(event.color || '#5b7fd6')}"></div>
     <h3 class="event-detail__name">${esc(event.name)}</h3>
     <div class="event-detail__time">${esc(timeStr)}</div>
     <div class="event-detail__date">${formatDateShort(event.date)}</div>
-    ${peopleHtml ? `<div class="event-detail__people">${peopleHtml}</div>` : ''}
+    ${repeatLabel ? `<div class="event-detail__row"><strong>Repeats:</strong> ${esc(repeatLabel)}</div>` : ''}
+    <div class="event-detail__people">${peopleHtml}</div>
     ${event.location ? `<div class="event-detail__row"><strong>Location:</strong> <a class="event-detail__map-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener">${esc(event.location)}</a></div>` : ''}
     ${event.notes ? `<div class="event-detail__row"><strong>Notes:</strong> ${esc(event.notes)}</div>` : ''}
     ${event.url ? `<div class="event-detail__row"><a href="${safeHref(event.url)}" target="_blank" rel="noopener">Open Link</a></div>` : ''}

@@ -1167,7 +1167,11 @@
     // ══════════════════════════════════════════
 
     function openEventForm(existingEventId = null, savedState = null) {
-      const event = savedState || (existingEventId ? events[existingEventId] : {});
+      // C9: a new event defaults its "For" to the active/linked person (not all
+      // four, not none). On the family "everyone" view with no linked person it
+      // stays empty (= whole family).
+      const _defaultPersonId = activePerson || linkedPerson?.id || null;
+      const event = savedState || (existingEventId ? events[existingEventId] : (_defaultPersonId ? { people: [_defaultPersonId] } : {}));
       const mode = existingEventId ? 'edit' : 'create';
       const dateKey = event.date || viewDay || today;
       const html = renderEventForm({ event, eventId: existingEventId, people, dateKey, mode });

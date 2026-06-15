@@ -1482,6 +1482,15 @@
   width: auto;
   height: auto;
 }
+/* C11: on the solid-accent today cell, event dots in the same accent vanish —
+   render them white (with a faint ring) so they read against the fill. */
+.cal-grid__cell--today.cal-grid__cell--selected .cal-grid__dot {
+  background-color: #fff !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #000 18%, transparent);
+}
+.cal-grid__cell--today.cal-grid__cell--selected .cal-grid__dots-more {
+  color: #fff;
+}
 
 /* ── Month view: selected day panel ── */
 .cal-month-panel {

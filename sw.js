@@ -559,7 +559,11 @@
 //                     circle that completes; tapping the rest of the row opens
 //                     the detail sheet (dashboard, kid, calendar). Prevents the
 //                     accidental tap-anywhere completions.
-const CACHE_NAME = 'family-hub-v357';
+// v358 (2026-06-15) — Calendar quick fixes: new event "For" defaults to the
+//                     active/linked person (C9); event detail sheet surfaces the
+//                     recurrence rule + "Everyone" attendees (C10); today-cell
+//                     event dots render white so they're visible on the fill (C11).
+const CACHE_NAME = 'family-hub-v358';
 
 const APP_SHELL = [
   '/',
