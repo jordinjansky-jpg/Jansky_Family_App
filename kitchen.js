@@ -182,6 +182,11 @@ async function init() {
 
   // Phase 2: apply family theme from Firebase
   applyTheme(resolveTheme(settings?.theme));
+  // K1: the person's saved theme overrides the family theme (matches the
+  // dashboard). Without this, Kitchen booted in the family/device theme and
+  // ignored the per-person override — e.g. a Dark-Warm person got a light
+  // Kitchen, so Home→Kitchen flipped the whole UI.
+  if (linkedPerson?.theme?.preset) applyTheme(linkedPerson.theme);
 
   // Header
   document.getElementById('headerMount').innerHTML = renderHeader({
