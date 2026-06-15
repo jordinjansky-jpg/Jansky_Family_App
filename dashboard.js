@@ -2141,17 +2141,10 @@ function openEventForm(existingEventId = null, savedState = null) {
     if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
   });
 
-  // Footer Save delegates to header ✓ (single save handler is wired below).
-  document.getElementById('ef2_footerSave')?.addEventListener('click', () => {
-    document.getElementById('ef2_save')?.click();
-  });
-
-  // Title input → disable both save buttons when empty.
+  // Title input → disable the footer save button when empty.
   document.getElementById('ef2_name')?.addEventListener('input', (e) => {
     const empty = !e.target.value.trim();
-    const headerSave = document.getElementById('ef2_save');
     const footerSave = document.getElementById('ef2_footerSave');
-    if (headerSave) headerSave.disabled = empty;
     if (footerSave) footerSave.disabled = empty;
   });
 
@@ -2359,7 +2352,7 @@ function openEventForm(existingEventId = null, savedState = null) {
   }
 
   // ── Save ─────────────────────────────────────────────────────
-  document.getElementById('ef2_save')?.addEventListener('click', async () => {
+  document.getElementById('ef2_footerSave')?.addEventListener('click', async () => {
     const name = document.getElementById('ef2_name')?.value.trim();
     if (!name) {
       const inp = document.getElementById('ef2_name');
@@ -2393,7 +2386,7 @@ function openEventForm(existingEventId = null, savedState = null) {
         : todayKey(settings?.timezone || 'America/Chicago'),
     };
 
-    const saveBtn = document.getElementById('ef2_save');
+    const saveBtn = document.getElementById('ef2_footerSave');
     const origSaveBtnText = saveBtn?.textContent || '';
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '…'; }
 
@@ -3168,17 +3161,10 @@ function openTaskForm(taskId = null, savedState = null) {
     if (e.target === document.getElementById('bottomSheet')) doClose();
   });
 
-  // Footer Save delegates to header tf_save (single save handler wired below).
-  document.getElementById('tf_footerSave')?.addEventListener('click', () => {
-    document.getElementById('tf_save')?.click();
-  });
-
-  // Title input → disable both save buttons when empty.
+  // Title input → disable the footer save button when empty.
   document.getElementById('tf_name')?.addEventListener('input', (e) => {
     const empty = !e.target.value.trim();
-    const headerSave = document.getElementById('tf_save');
     const footerSave = document.getElementById('tf_footerSave');
-    if (headerSave) headerSave.disabled = empty;
     if (footerSave) footerSave.disabled = empty;
   });
 
@@ -3392,7 +3378,7 @@ function openTaskForm(taskId = null, savedState = null) {
   });
 
   // ── Save ──────────────────────────────────────────────────
-  document.getElementById('tf_save')?.addEventListener('click', async () => {
+  document.getElementById('tf_footerSave')?.addEventListener('click', async () => {
     const name = document.getElementById('tf_name')?.value.trim();
     if (!name) {
       const inp = document.getElementById('tf_name');
@@ -3443,7 +3429,7 @@ function openTaskForm(taskId = null, savedState = null) {
     };
     if (!taskId) updated.createdDate = today;
 
-    const saveBtn = document.getElementById('tf_save');
+    const saveBtn = document.getElementById('tf_footerSave');
     if (saveBtn) saveBtn.disabled = true;
     // DB6: a rejected write used to leave the sheet open with a permanently
     // dead Save button and no feedback (the event form already did this right).

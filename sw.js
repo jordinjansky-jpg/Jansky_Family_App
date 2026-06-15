@@ -541,7 +541,17 @@
 // v348 (2026-06-14) — Recipe images: small thumbnail on the recipe record + full
 //                     image in kitchen/recipeImages (lazy). Recipe tree drops
 //                     ~90% (2.3MB→0.24MB); one-time background migration on load.
-const CACHE_NAME = 'family-hub-v354';
+// v355 (2026-06-15) — HOTFIX: event + task forms could not save. The form-system
+//                     polish removed the header save buttons (ef2_save/tf_save) but
+//                     the click handlers still bound to them and the footer button
+//                     only delegated to the now-missing header — a silent no-op.
+//                     Rebound handlers to ef2_footerSave/tf_footerSave across
+//                     calendar, dashboard, admin, tracker. Restores New/Edit Event
+//                     and New/Edit Task everywhere. Also: tapping a custom
+//                     (typed-not-saved) planned meal showed "Meal not found" —
+//                     renderMealDetailSheet now synthesizes a minimal sheet from
+//                     the plan name and hides recipe-only controls.
+const CACHE_NAME = 'family-hub-v355';
 
 const APP_SHELL = [
   '/',

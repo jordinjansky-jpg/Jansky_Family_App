@@ -5419,9 +5419,17 @@ const MD_TRASH_SVG  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="non
  *   mdServingsDown, mdServingsUp, mdStars, mdHero (the <img>).
  */
 export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = '') {
-  if (!meal) return `<p class="text-muted" style="padding:var(--spacing-md)">Meal not found.</p>`;
+  // No recipe record? For a custom (typed-not-saved) meal, synthesize a minimal
+  // meal from the plan entry's name so the sheet still shows the name + slot
+  // actions instead of bailing to "Meal not found."
+  if (!meal) {
+    const customName = planEntry?.customName || planEntry?.mealName;
+    if (!customName) return `<p class="text-muted" style="padding:var(--spacing-md)">Meal not found.</p>`;
+    meal = { name: customName };
+  }
 
   const isSchool = planEntry?.source === 'school';
+  const hasRecipe = !!planEntry?.recipeId;
   const hasIngredients = (meal.ingredients || []).filter(i => (i?.name || i)?.trim()).length > 0;
   const hasSteps = Array.isArray(meal.steps) && meal.steps.length > 0;
 
@@ -5473,7 +5481,7 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = 
   const avg = ratings.length ? (ratings.reduce((s, v) => s + v, 0) / ratings.length) : (typeof meal.rating === 'number' && meal.rating > 0 ? meal.rating : null);
   const starsHtml = (() => {
     if (avg == null) {
-      if (readonly) return '';
+      if (readonly || !hasRecipe) return '';
       const emptyStars = Array.from({ length: 5 }, () => `<span class="rd-star rd-star--empty">★</span>`).join('');
       return `<button class="rd-stars-btn rd-stars-btn--empty" id="mdStars" type="button" aria-label="Not rated — tap to rate"><span class="rd-stars-visual">${emptyStars}</span></button>`;
     }
@@ -5516,8 +5524,10 @@ export function renderMealDetailSheet(meal, planEntry, readonly = false, slot = 
   // opens the recipe edit form so the user can rename, re-tag, etc.
   const headerActions = [];
   if (meal.url) headerActions.push(`<a class="ef2-icon-btn" id="mdLink" href="${safeHref(meal.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open recipe">${MD_LINK_SVG}</a>`);
-  if (!readonly && !isSchool) {
+  if (!readonly && !isSchool && hasRecipe) {
     headerActions.push(`<button class="ef2-icon-btn" id="mdEdit" type="button" aria-label="Edit recipe">${MD_PENCIL_SVG}</button>`);
+  }
+  if (!readonly && !isSchool) {
     headerActions.push(`<button class="ef2-icon-btn" id="mdRemove" type="button" aria-label="Remove from plan">${MD_TRASH_SVG}</button>`);
   }
   headerActions.push(`<button class="ef2-icon-btn" id="mdClose" type="button" aria-label="Close">${MD_CLOSE_SVG}</button>`);
