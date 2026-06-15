@@ -1048,8 +1048,10 @@ async function loadAndRenderBankTab() {
     .sort((a, b) => (b[1].usedAt || 0) - (a[1].usedAt || 0));
 
   let html = '';
-  if (activeTokens.length === 0 && usedTokens.length === 0) {
-    html += renderEmptyState('🎒', 'No saved rewards', 'Redeem something from the Shop to save it here.');
+  if (activeTokens.length === 0) {
+    // RW2: explain what the Bank holds whenever nothing is actively saved —
+    // previously a bare "Show N used" link floated in dead space with no context.
+    html += renderEmptyState('🎒', 'No saved rewards', 'Rewards you redeem and save wait here until you use them.');
   } else {
     // Group active tokens by rewardId (custom) or rewardType (functional).
     // Each group becomes one row with a count chip; tap expands to instances.
@@ -1106,19 +1108,21 @@ async function loadAndRenderBankTab() {
         html += `</div>`;
       }
     }
+  }
 
-    if (usedTokens.length > 0) {
-      html += `<button class="rewards-show-more" id="bankUsedToggle" type="button">Show ${usedTokens.length} used</button>
-        <div id="bankUsedList" hidden>`;
-      usedTokens.forEach(([tokenId, token]) => {
-        const reward = rewardsObj?.[token.rewardId] || {};
-        html += renderBankTokenEl(tokenId, token, {
-          showUse: false,
-          description: reward?.description || ''
-        });
+  // RW2: used-history toggle renders whether or not anything is actively banked,
+  // so it sits under the empty-state explanation instead of floating alone.
+  if (usedTokens.length > 0) {
+    html += `<button class="rewards-show-more" id="bankUsedToggle" type="button">Show ${usedTokens.length} used</button>
+      <div id="bankUsedList" hidden>`;
+    usedTokens.forEach(([tokenId, token]) => {
+      const reward = rewardsObj?.[token.rewardId] || {};
+      html += renderBankTokenEl(tokenId, token, {
+        showUse: false,
+        description: reward?.description || ''
       });
-      html += '</div>';
-    }
+    });
+    html += '</div>';
   }
 
   // When a parent is viewing, append all kids' saved rewards below their own bank
