@@ -16,6 +16,15 @@
   animation: pageFadeIn 0.3s ease-out;
 }
 
+/* Dashboard wrapper (index.html + person.html). The dashboard rework swapped
+   <div class="page-content"> → <main class="app-shell"> but didn't carry over
+   the horizontal gutter, leaving dashboard cards flush to the screen edges.
+   Restore it. The header, bottom nav and FAB live OUTSIDE .app-shell, so this
+   pads only the dashboard content (no double-gutter on the header). */
+.app-shell {
+  padding-inline: var(--spacing-md);
+}
+
 /* ============ Header (v4 — frosted glass, refined hierarchy) ============ */
 .app-header {
   position: sticky;
