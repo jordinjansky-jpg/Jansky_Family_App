@@ -46,7 +46,7 @@
     import { todayKey, weekStart, weekStartForDay, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
-    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, gradeTier, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade, timeContributed, achievementProgress, streakAtRisk, dayOfWeekPattern, personalBest } from './shared/scoring.js';
+    import { basePoints, dailyScore, periodGrade, collectSnapshots, aggregateSnapshots, gradeDisplay, gradeTier, letterGrade, earnedPoints, mergeAchievementDefs, getActiveAchievements, calculateBalance, checkNewAchievements, familyGrade, timeContributed, achievementProgress, streakAtRisk, dayOfWeekPattern, personalBest } from './shared/scoring.js';
 
     // ── Cached theme (device override > family cache > default) ──
     applyTheme(resolveTheme());
@@ -825,7 +825,7 @@
       // ── Last 90 days heatmap (Pass 4) — replaces sparkline ──
       if (customPrefsForDD.drilldown.heatmap) {
         html += renderSectionHead('Last 90 days');
-        html += renderHeatmap(snapshots, personId, today, todayScore(personId), addDays, weekStartForDay, gradeTier);
+        html += renderHeatmap(snapshots, personId, today, todayScore(personId), addDays, weekStartForDay, gradeTier, letterGrade);
       }
 
       // Streak

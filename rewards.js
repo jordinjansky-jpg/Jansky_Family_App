@@ -9,7 +9,7 @@ import { initFirebase, readSettings, writeSettings, readPeople, readRewards, rea
 } from './shared/firebase.js';
 import { startLongPressTimer, recordTap, withButtonLock, bindEscapeToClose, validateStoredId } from './shared/dom-helpers.js';
 import { applyTheme, resolveTheme } from './shared/theme.js';
-import { calculateBalance } from './shared/scoring.js';
+import { calculateBalance, letterGrade } from './shared/scoring.js';
 import { renderNavBar, initNavMore, initBottomNav, renderHeader, initBell, initOfflineBanner,
   showConfirm, showToast, renderBottomSheet, applyDataColors,
   renderRewardCard, renderBankToken as renderBankTokenEl, renderHistoryRow, renderHistoryDetailSheet, renderApprovalRow,
@@ -174,7 +174,7 @@ function buildHistoryEntries(personId, allowedTypes, groupFilter) {
       id: `earned-${dateKey}`,
       personId,
       type: 'earned',
-      title: `Earned · ${snap.percentage}% ${snap.grade}`,
+      title: `Earned · ${snap.percentage}% ${letterGrade(snap.percentage)}`,
       amount: snap.earned,
       createdAt: ms,
     });

@@ -585,7 +585,13 @@
 //                     calendar + dashboard. Kitchen AI tools sheet swaps emoji for
 //                     SVG icons. Header gear relabeled Settings→Admin + preserves
 //                     ?env on nav.
-const CACHE_NAME = 'family-hub-v363';
+// v364 (2026-06-15) — SB4: softened grade curve. Retrospective letter grades
+//                     pass (C-) at ~46% and reserve F (red) for below 28%, so a
+//                     half-done week isn't an "F". GRADE_TABLE + gradeTier shifted
+//                     in scoring.js (single source); dashboard chip recolors by
+//                     tier; heatmap tooltip + rewards ledger recompute from % so
+//                     historical days follow the new curve (no stale stored grade).
+const CACHE_NAME = 'family-hub-v364';
 
 const APP_SHELL = [
   '/',

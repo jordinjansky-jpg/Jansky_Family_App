@@ -2902,9 +2902,12 @@ export function renderAchievementBadge(def, state) {
  * @param {function} addDaysFn
  * @param {function} weekStartForDayFn - util.weekStartForDay (passed 1 = Monday/app week start)
  * @param {function} gradeTierFn - scoring.gradeTier
+ * @param {function} [letterGradeFn] - scoring.letterGrade; when provided, the
+ *   cell tooltip recomputes its letter from the stored percentage so historical
+ *   days reflect the current (softened, SB4) curve instead of a stale stored grade.
  * @returns {string} HTML
  */
-export function renderHeatmap(snapshots, personId, todayKey, todayLive, addDaysFn, weekStartForDayFn, gradeTierFn) {
+export function renderHeatmap(snapshots, personId, todayKey, todayLive, addDaysFn, weekStartForDayFn, gradeTierFn, letterGradeFn) {
   const WEEKS = 13;
   const todayMon = weekStartForDayFn(todayKey, 1); // Monday of this week — app-wide week start
   const startMon = addDaysFn(todayMon, -7 * (WEEKS - 1));
@@ -2923,12 +2926,14 @@ export function renderHeatmap(snapshots, personId, todayKey, todayLive, addDaysF
       } else if (date === todayKey) {
         const pct = todayLive.possible > 0 ? todayLive.percentage : null;
         tier = pct !== null ? gradeTierFn(pct) : 'empty';
-        title = pct !== null ? `${date}: ${todayLive.grade} (${pct}%)` : `${date}: no tasks`;
+        const todayG = pct !== null ? (letterGradeFn ? letterGradeFn(pct) : todayLive.grade) : null;
+        title = pct !== null ? `${date}: ${todayG} (${pct}%)` : `${date}: no tasks`;
       } else {
         const snap = snapshots[date]?.[personId];
         if (snap?.percentage !== undefined && snap.possible > 0) {
           tier = gradeTierFn(snap.percentage);
-          title = `${date}: ${snap.grade} (${snap.percentage}%)`;
+          const g = letterGradeFn ? letterGradeFn(snap.percentage) : snap.grade;
+          title = `${date}: ${g} (${snap.percentage}%)`;
         } else {
           tier = 'empty';
           title = `${date}: no tasks`;

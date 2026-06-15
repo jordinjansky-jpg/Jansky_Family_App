@@ -547,7 +547,9 @@ async function render() {
       // Today leads with progress + points only — no live letter grade (tone).
       // Past (retrospective) days keep the grade for context.
       if (!isToday) {
-        const gradeColorClass = score.percentage >= 90 ? '' : score.percentage >= 70 ? ' grade--warn' : ' grade--bad';
+        // SB4: reserve red for genuinely low (tier 'f', <28%); amber for 'd';
+        // a passing retrospective day (C-/46%+) stays calm/neutral.
+        const gradeColorClass = gd.tier === 'f' ? ' grade--bad' : gd.tier === 'd' ? ' grade--warn' : '';
         metaPieces.push(`<span class="section__meta__grade${gradeColorClass}">${esc(gd.grade)}</span>`);
       }
     }

@@ -8,20 +8,26 @@ export const DEFAULT_DIFFICULTY_MULTIPLIERS = { easy: 1, medium: 2, hard: 3 };
 const MIN_EST_MIN = 5;
 
 // ── Grade table (descending order for lookup) ──
-
+//
+// SB4: softened from a standard academic curve for a family motivation product.
+// Grades are RETROSPECTIVE only (X1 removed live grades) — but a kid who did
+// half their chores last week shouldn't see a red "F" in the rear-view. So:
+// passing (C- or better) starts at ~46%, and F is reserved for genuinely low
+// effort (below 28%). gradeTier() below mirrors these bands so the red badge /
+// faintest heatmap cell only appear under 28%.
 const GRADE_TABLE = [
-  { min: 97, grade: 'A+' },
-  { min: 93, grade: 'A' },
-  { min: 90, grade: 'A-' },
-  { min: 87, grade: 'B+' },
-  { min: 83, grade: 'B' },
-  { min: 80, grade: 'B-' },
-  { min: 77, grade: 'C+' },
-  { min: 73, grade: 'C' },
-  { min: 70, grade: 'C-' },
-  { min: 67, grade: 'D+' },
-  { min: 63, grade: 'D' },
-  { min: 60, grade: 'D-' },
+  { min: 95, grade: 'A+' },
+  { min: 88, grade: 'A' },
+  { min: 82, grade: 'A-' },
+  { min: 76, grade: 'B+' },
+  { min: 70, grade: 'B' },
+  { min: 64, grade: 'B-' },
+  { min: 58, grade: 'C+' },
+  { min: 52, grade: 'C' },
+  { min: 46, grade: 'C-' },
+  { min: 40, grade: 'D+' },
+  { min: 34, grade: 'D' },
+  { min: 28, grade: 'D-' },
   { min: 0,  grade: 'F' }
 ];
 
@@ -59,11 +65,13 @@ export function letterGrade(pct) {
  * Returns 'a', 'b', 'c', 'd', or 'f'.
  */
 export function gradeTier(pct) {
+  // SB4: bands mirror the softened GRADE_TABLE above so color severity matches
+  // the letter. 'f' (red badge / faintest heatmap) is reserved for below 28%.
   const clamped = Math.round(pct);
-  if (clamped >= 90) return 'a';
-  if (clamped >= 80) return 'b';
-  if (clamped >= 70) return 'c';
-  if (clamped >= 60) return 'd';
+  if (clamped >= 82) return 'a';
+  if (clamped >= 64) return 'b';
+  if (clamped >= 46) return 'c';
+  if (clamped >= 28) return 'd';
   return 'f';
 }
 
