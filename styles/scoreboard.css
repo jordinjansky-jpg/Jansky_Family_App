@@ -292,12 +292,11 @@
   text-overflow: ellipsis;
 }
 .sb-cat-bar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
-.sb-cat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-.sb-cat-bar-fill--a-plus, .sb-cat-bar-fill--a, .sb-cat-bar-fill--a-minus { background: var(--grade-a); }
-.sb-cat-bar-fill--b-plus, .sb-cat-bar-fill--b, .sb-cat-bar-fill--b-minus { background: var(--grade-b); }
-.sb-cat-bar-fill--c-plus, .sb-cat-bar-fill--c, .sb-cat-bar-fill--c-minus { background: var(--grade-c); }
-.sb-cat-bar-fill--d-plus, .sb-cat-bar-fill--d, .sb-cat-bar-fill--d-minus,
-.sb-cat-bar-fill--f, .sb-cat-bar-fill--none { background: var(--grade-f); }
+/* SB2: a single calm accent fill. The bar WIDTH already conveys the value, so
+   the colour no longer encodes a grade — it used to turn red for any category
+   under 70%, even the person's leading one. (Tier classes kept in markup but
+   no longer drive colour.) */
+.sb-cat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; background: var(--accent); }
 .sb-cat-pct { font-size: var(--font-xs); color: var(--text-faint); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ── Hero card empty state ── */
@@ -584,11 +583,13 @@
   min-height: 0;
 }
 
+/* SB2: calm green-intensity scale (GitHub-style) instead of grade colours — a
+   low day fades toward the surface rather than turning red. More done = greener. */
 .sb-heatmap-cell--a-plus, .sb-heatmap-cell--a, .sb-heatmap-cell--a-minus { background: var(--grade-a); }
-.sb-heatmap-cell--b-plus, .sb-heatmap-cell--b, .sb-heatmap-cell--b-minus { background: var(--grade-b); }
-.sb-heatmap-cell--c-plus, .sb-heatmap-cell--c, .sb-heatmap-cell--c-minus { background: var(--grade-c); }
-.sb-heatmap-cell--d-plus, .sb-heatmap-cell--d, .sb-heatmap-cell--d-minus { background: var(--grade-d); }
-.sb-heatmap-cell--f { background: var(--grade-f); }
+.sb-heatmap-cell--b-plus, .sb-heatmap-cell--b, .sb-heatmap-cell--b-minus { background: color-mix(in srgb, var(--grade-a) 72%, var(--surface-2)); }
+.sb-heatmap-cell--c-plus, .sb-heatmap-cell--c, .sb-heatmap-cell--c-minus { background: color-mix(in srgb, var(--grade-a) 50%, var(--surface-2)); }
+.sb-heatmap-cell--d-plus, .sb-heatmap-cell--d, .sb-heatmap-cell--d-minus { background: color-mix(in srgb, var(--grade-a) 33%, var(--surface-2)); }
+.sb-heatmap-cell--f { background: color-mix(in srgb, var(--grade-a) 18%, var(--surface-2)); }
 .sb-heatmap-cell--empty { background: var(--surface-2); opacity: 0.5; }
 .sb-heatmap-cell--future { background: transparent; }
 

@@ -541,7 +541,7 @@
 // v348 (2026-06-14) — Recipe images: small thumbnail on the recipe record + full
 //                     image in kitchen/recipeImages (lazy). Recipe tree drops
 //                     ~90% (2.3MB→0.24MB); one-time background migration on load.
-const CACHE_NAME = 'family-hub-v351';
+const CACHE_NAME = 'family-hub-v352';
 
 const APP_SHELL = [
   '/',

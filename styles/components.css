@@ -1586,6 +1586,9 @@ button.is-loading {
 .grade-badge--d { background: color-mix(in srgb, var(--grade-d) 15%, transparent); color: var(--grade-d); }
 .grade-badge--f { background: color-mix(in srgb, var(--grade-f) 15%, transparent); color: var(--grade-f); }
 .grade-badge--none { color: var(--text-faint); }
+/* Neutral variant — same chip, calm color. Used for live "today" progress (%)
+   so the everyday view doesn't show a punitive letter grade / red F. */
+.grade-badge--neutral { background: color-mix(in srgb, var(--text-muted) 14%, transparent); color: var(--text); }
 
 /* ── Task completion animation ── */
 @keyframes cardPress {

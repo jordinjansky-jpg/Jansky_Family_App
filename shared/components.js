@@ -2293,7 +2293,7 @@ export function renderSectionHead(title, meta, options = {}) {
  * @param {number} liveBalance - Computed reward balance for this person
  * @param {string} badgeIcons - Concatenated emoji icons for earned achievements (up to 5)
  */
-export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hint, cardShow) {
+export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hint, cardShow, isToday = false) {
   const showRankChip    = !cardShow || cardShow.rankChip !== false;
   const showLeaderRing  = !cardShow || cardShow.leaderRing !== false;
   const showBadgeIcons  = !cardShow || cardShow.badgeIcons !== false;
@@ -2312,12 +2312,15 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hi
     : '';
 
   const isEmpty = active.possible === 0;
+  // Today is a live score — show a neutral % (no punitive letter grade / red F).
+  // Retrospective periods keep the letter grade + tier color.
+  const scoreChip = isToday
+    ? `<span class="grade-badge grade-badge--neutral">${esc(active.percentage)}%</span>`
+    : `<span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
+         <span class="card--score__pct">${esc(active.percentage)}%</span>`;
   const trailing = isEmpty
     ? `<span class="card--score__empty">No tasks today</span>`
-    : `<button class="card--score__badge-btn" type="button" data-action="cycle-period" aria-label="Cycle period">
-         <span class="grade-badge grade-badge--${esc(gd.tier)}">${esc(gd.grade)}</span>
-         <span class="card--score__pct">${esc(active.percentage)}%</span>
-       </button>`;
+    : `<button class="card--score__badge-btn" type="button" data-action="cycle-period" aria-label="Cycle period">${scoreChip}</button>`;
 
   const rankChip = (rank && showRankChip)
     ? `<span class="card--score__rank">#${esc(rank)}</span>`

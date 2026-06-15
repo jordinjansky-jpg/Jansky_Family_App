@@ -360,6 +360,16 @@
         }
       }
 
+      // SB1: if everyone with tasks is tied (e.g. nobody's started today), a
+      // board of all "#1" + gold rings reads as broken — suppress ranks until
+      // there's an actual leader.
+      {
+        const ranked = board.filter(b => b.rank != null);
+        if (ranked.length > 1 && ranked.every(b => b.rank === 1)) {
+          for (const b of ranked) b.rank = null;
+        }
+      }
+
       let html = '';
 
       // ── Family score banner ──
@@ -393,9 +403,14 @@
 
       const customPrefsForBanner = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
       if (familyGd && customPrefsForBanner.showFamilyBanner) {
+        // Tone: Today is live — show a neutral % instead of a punitive "Family F".
+        // Retrospective periods (week/month/year) keep the letter grade + color.
+        const bannerChip = selectedPeriod === 'today'
+          ? `<span class="sb-family-banner__grade grade-badge grade-badge--neutral grade-badge--sm">${esc(familyAgg.percentage)}%</span>`
+          : `<span class="sb-family-banner__grade grade-badge grade-badge--${esc(familyGd.tier)} grade-badge--sm">${esc(familyGd.grade)}</span>`;
         html += `<div class="sb-family-banner">
           <span class="sb-family-banner__label">Family</span>
-          <span class="sb-family-banner__grade grade-badge grade-badge--${esc(familyGd.tier)} grade-badge--sm">${esc(familyGd.grade)}</span>
+          ${bannerChip}
           <span class="sb-family-banner__period">${periodLabelMap[selectedPeriod]}</span>
           ${trendArrowFamily(familyTrendDir)}
         </div>`;
@@ -422,7 +437,7 @@
         const active = b[effectivePeriod];
         const gd = gradeDisplay(active.percentage);
         const hint = effectivePeriod === 'today' ? tasksToNextGrade(b.person.id) : null;
-        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank, hint, cardCustomPrefs.cardShow);
+        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank, hint, cardCustomPrefs.cardShow, effectivePeriod === 'today');
       }
       html += `</div>`;
 
@@ -698,9 +713,12 @@
       // ── Build sheet HTML ──
       let html = `<div class="sb-drilldown">`;
 
-      // Header — name with inline grade badge
+      // Header — name with inline grade badge. Today is live → neutral % (no
+      // punitive letter grade); retrospective periods keep the letter + colour.
       const inlineBadge = grade.possible > 0
-        ? `<span class="grade-badge grade-badge--${esc(gd.tier)} grade-badge--sm sb-drilldown__inline-grade">${esc(gd.grade)}</span>`
+        ? (selectedPeriod === 'today'
+            ? `<span class="grade-badge grade-badge--neutral grade-badge--sm sb-drilldown__inline-grade">${esc(grade.percentage)}%</span>`
+            : `<span class="grade-badge grade-badge--${esc(gd.tier)} grade-badge--sm sb-drilldown__inline-grade">${esc(gd.grade)}</span>`)
         : '';
       html += `<div class="sb-drilldown__header" style="--owner-color: ${esc(person.color)}">
         <div class="avatar" style="--person-color: ${esc(person.color)}">${esc((person.name || '?')[0].toUpperCase())}</div>
