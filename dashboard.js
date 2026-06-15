@@ -1,6 +1,6 @@
 // cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted)
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onCompletions, onEvents, onScheduleDay, onMultipliers, onSettings, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeedLastSync } from './shared/firebase.js';
-import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet } from './shared/components.js';
+import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, renderFamilyProgressStrip, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
@@ -373,18 +373,25 @@ async function render() {
 
     // Weather tile
     let weatherValue = '—° · Set location';
+    let weatherSub = '';
     let weatherGlyph = getWeatherGlyph('cloud');
     if (weatherData) {
       if (weatherData.isPast) weatherValue = 'Past day';
       else if (weatherData.isFuture) weatherValue = '—° · No forecast yet';
       else {
         weatherValue = `${esc(weatherData.conditionLabel)} · ${esc(weatherData.tempLabel)}`;
+        // Today's high/low (already fetched) as a muted secondary line — the
+        // current temp above stays the focal number.
+        if (weatherData.high && weatherData.low) {
+          weatherSub = `<span class="dashboard-tile__hl">H${esc(weatherData.high)} L${esc(weatherData.low)}</span>`;
+        }
         weatherGlyph = getWeatherGlyph(weatherData.glyph);
       }
     }
     const weatherTile = renderDashboardTile({
       label: 'Weather',
       value: weatherValue,
+      sub: weatherSub,
       icon: weatherGlyph,
       iconColor: 'var(--ambient-weather-fg)',
       action: 'weather',
@@ -535,8 +542,12 @@ async function render() {
                         ?? 1);
       const earnedPt = Math.round(score.percentage * todayMul);
       metaPieces.push(`${earnedPt} pt`);
-      const gradeColorClass = score.percentage >= 90 ? '' : score.percentage >= 70 ? ' grade--warn' : ' grade--bad';
-      metaPieces.push(`<span class="section__meta__grade${gradeColorClass}">${esc(gd.grade)}</span>`);
+      // Today leads with progress + points only — no live letter grade (tone).
+      // Past (retrospective) days keep the grade for context.
+      if (!isToday) {
+        const gradeColorClass = score.percentage >= 90 ? '' : score.percentage >= 70 ? ' grade--warn' : ' grade--bad';
+        metaPieces.push(`<span class="section__meta__grade${gradeColorClass}">${esc(gd.grade)}</span>`);
+      }
     }
 
     const metaHtmlPieces = metaPieces.map((p, i) => {
@@ -569,6 +580,16 @@ async function render() {
     for (const [ownerId, ownerEntries] of Object.entries(entriesByOwner)) {
       const { possible } = dailyPossible(ownerEntries, tasks, cats, settings?.difficultyMultipliers);
       ownerDailyPossible[ownerId] = possible || 1;
+    }
+
+    // Family progress strip — per-person rings for the all-family glance (D1).
+    // Only in the unfiltered view; needs ≥2 people who actually have tasks today.
+    if (!activePerson && people.length >= 2) {
+      const fpsItems = people
+        .map(p => ({ p, prog: dayProgress(entriesByOwner[p.id] || {}, completions) }))
+        .filter(x => x.prog.total > 0)
+        .map(x => ({ id: x.p.id, name: x.p.name, color: x.p.color, done: x.prog.done, total: x.prog.total }));
+      if (fpsItems.length >= 2) html += renderFamilyProgressStrip(fpsItems);
     }
 
     // Sort all entries together with the new sort rule (incomplete before complete,
@@ -887,18 +908,24 @@ function openPersonFilterSheet() {
   taskSheetMount.querySelector('.list-group')?.addEventListener('click', async (ev) => {
     const row = ev.target.closest('[data-person-id]');
     if (!row) return;
-    const personId = row.dataset.personId || null;
-    activePerson = personId;
-    if (linkedPerson) {
-      const prefs = { ...(linkedPerson.prefs || {}), dashboard: { personFilter: activePerson } };
-      linkedPerson.prefs = prefs;
-      linkedPerson.savedFilter = activePerson || null;
-      const { id, ...data } = linkedPerson;
-      await writePerson(id, data);
-    }
-    celebrationShown = false;
-    closeTaskSheet();
+    await applyPersonFilter(row.dataset.personId || null);
+    closeTaskSheet(); // re-renders via onClosed
   });
+}
+
+// Set the dashboard's person filter + persist it (shared by the filter sheet
+// and the family progress strip). Does NOT render — the caller decides how
+// (closeTaskSheet for the sheet; render() for the strip).
+async function applyPersonFilter(personId) {
+  activePerson = personId || null;
+  if (linkedPerson) {
+    const prefs = { ...(linkedPerson.prefs || {}), dashboard: { personFilter: activePerson } };
+    linkedPerson.prefs = prefs;
+    linkedPerson.savedFilter = activePerson || null;
+    const { id, ...data } = linkedPerson;
+    await writePerson(id, data);
+  }
+  celebrationShown = false;
 }
 
 function renderDebugPanel(filtered, score) {
@@ -2883,24 +2910,8 @@ function bindTaskSheetEvents(entryKey, dateKey) {
       const label = document.getElementById('sliderValueLabel');
       if (label) label.textContent = `${val}% (${earnedPts}pt)`;
 
-      // Track pending override
+      // Track pending override (saved on toggle-complete / sheet close)
       pendingSliderOverride = { entryKey, dateKey, value: val };
-
-      // Live grade preview — temporarily inject override into completions
-      const filtered = filterByPerson(viewEntries, activePerson);
-      const hadRecord = !!completions[entryKey];
-      const origRecord = completions[entryKey];
-      completions[entryKey] = {
-        ...(origRecord || { completedAt: Date.now(), completedBy: 'preview' }),
-        pointsOverride: val === 100 ? null : val
-      };
-      const previewScore = dailyScore(filtered, completions, tasks, cats, settings, viewDate, today);
-      const previewGd = gradeDisplay(previewScore.percentage);
-      const previewEl = document.getElementById('gradePreview');
-      if (previewEl) previewEl.textContent = `Grade: ${previewGd.grade} (${previewScore.percentage}%)`;
-      // Restore original state
-      if (hadRecord) completions[entryKey] = origRecord;
-      else delete completions[entryKey];
     });
 
     // Reset to 100% button
@@ -3607,8 +3618,11 @@ onMultipliers((val) => {
 });
 
 // Person filter chip tap (re-rendered every render; use delegation on body).
-document.body.addEventListener('click', (ev) => {
-  if (ev.target.closest('#openFilterSheet')) openPersonFilterSheet();
+document.body.addEventListener('click', async (ev) => {
+  if (ev.target.closest('#openFilterSheet')) { openPersonFilterSheet(); return; }
+  // Family progress strip — tap a person ring to filter the dashboard to them.
+  const fps = ev.target.closest('[data-fps-person]');
+  if (fps) { await applyPersonFilter(fps.dataset.fpsPerson || null); render(); }
 });
 
 // Schedule listener — resubscribed when viewDate changes

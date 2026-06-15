@@ -46,6 +46,7 @@
   /* Layout */
   --nav-height: 68px;
   --header-height: 64px;
+  --fab-size: 56px;
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
@@ -88,6 +89,10 @@
   --success-soft: #dcfce7;
   --warning: #9a6b0c;
   --warning-soft: #faecd0;
+  /* Solid-fill warning color (icon chips on warning-soft). --warning itself
+     is kept dark for text contrast on light surfaces; this is the crisp
+     orange used where warning is a BACKGROUND, e.g. the overdue banner icon. */
+  --warning-strong: #f57c00;
   --danger: #b4491c;
   --danger-soft: #fae5d6;
   --info: #1d4f7a;
@@ -272,6 +277,14 @@ body {
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* On pages with a floating action button, reserve extra bottom space so the
+   last card clears the FAB (which floats above the nav at
+   bottom: nav-height + spacing-md, height --fab-size). Auto-applies to every
+   FAB-bearing page via :has() — no per-page markup. */
+body:has(.fab) {
+  padding-bottom: calc(var(--nav-height) + var(--fab-size) + (2 * var(--spacing-md)) + env(safe-area-inset-bottom, 0px));
 }
 
 a {

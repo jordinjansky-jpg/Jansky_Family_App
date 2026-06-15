@@ -2124,20 +2124,6 @@
           const label = document.getElementById('sliderValueLabel');
           if (label) label.textContent = `${val}% (${earnedPts}pt)`;
           pendingSliderOverride = { entryKey, dateKey, value: val };
-
-          const filtered = filterByPerson(dayEntries, activePerson);
-          const hadRecord = !!completions[entryKey];
-          const origRecord = completions[entryKey];
-          completions[entryKey] = {
-            ...(origRecord || { completedAt: Date.now(), completedBy: 'preview' }),
-            pointsOverride: val === 100 ? null : val
-          };
-          const previewScore = dailyScore(filtered, completions, tasks, cats, settings, dateKey, today);
-          const previewGd = gradeDisplay(previewScore.percentage);
-          const previewEl = document.getElementById('gradePreview');
-          if (previewEl) previewEl.textContent = `Grade: ${previewGd.grade} (${previewScore.percentage}%)`;
-          if (hadRecord) completions[entryKey] = origRecord;
-          else delete completions[entryKey];
         });
 
         const resetBtn = document.getElementById('sliderReset');

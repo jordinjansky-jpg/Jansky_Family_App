@@ -273,7 +273,10 @@ button.is-loading {
 }
 
 .connection-dot--online {
-  background: var(--success);
+  /* Online is the expected state — don't surface an always-on indicator users
+     can't interpret. Connectivity problems still show via the offline banner
+     and the red pulsing --offline dot below. */
+  display: none;
 }
 
 .connection-dot--offline {
@@ -1191,7 +1194,7 @@ button.is-loading {
 }
 
 .task-card__name {
-  font-weight: 500;
+  font-weight: 600;
   font-size: var(--font-md);
   line-height: 1.4;
   word-break: break-word;
@@ -2349,16 +2352,16 @@ button.is-loading {
 .banner__message { font-size: var(--font-sm); color: var(--text-muted); margin-top: 2px; }
 .banner__action {
   flex-shrink: 0;
-  background: transparent; border: 0; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
   font-weight: 600; font-size: var(--font-sm);
   padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 .banner__action:hover { background: var(--bg-hover); }
 
 .banner--overdue    { background: var(--warning-soft); border-color: transparent; }
-.banner--overdue    .banner__icon { background: var(--warning); color: var(--on-accent); }
+.banner--overdue    .banner__icon { background: var(--warning-strong); color: var(--on-accent); }
 .banner--multiplier { background: var(--info-soft);    border-color: transparent; }
 .banner--multiplier .banner__icon { background: var(--info);    color: var(--on-accent); }
 .banner--vacation   { background: var(--accent-soft);  border-color: transparent; }
@@ -2431,7 +2434,7 @@ button.is-loading {
   position: fixed;
   right: var(--spacing-md);
   bottom: calc(var(--nav-height) + var(--spacing-md) + env(safe-area-inset-bottom));
-  width: 56px; height: 56px;
+  width: var(--fab-size); height: var(--fab-size);
   border-radius: var(--radius-full);
   background: var(--accent); color: var(--fab-ink, #ffffff);
   opacity: 0.88;
@@ -2780,6 +2783,57 @@ button.is-loading {
 }
 .dashboard-tile__content:has(.dashboard-tile__sub) .dashboard-tile__value {
   -webkit-line-clamp: 1;
+}
+/* Weather high/low: passive secondary info — mute it (the default sub color is
+   accent, which is right for the dinner-vote CTA but too loud for weather). */
+.dashboard-tile__hl { color: var(--text-muted); }
+
+/* ── Family progress strip — per-person rings, all-family glance (D1) ───── */
+.family-strip {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  padding: var(--spacing-sm) 0 var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+  scrollbar-width: none;
+}
+.family-strip::-webkit-scrollbar { display: none; }
+.fps-chip {
+  flex: 1 0 auto;
+  min-width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fps-chip:active { background: var(--bg-hover); }
+.fps-chip__ring-wrap { position: relative; width: 42px; height: 42px; }
+.fps-chip__ring { width: 42px; height: 42px; transform: rotate(-90deg); }
+.fps-chip__track { fill: none; stroke: var(--border); stroke-width: 3.2; }
+.fps-chip__arc {
+  fill: none;
+  stroke: var(--person-color, var(--accent));
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+.fps-chip__initial {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--font-sm); font-weight: 700;
+  color: var(--person-color, var(--accent));
+}
+.fps-chip__count { font-size: var(--font-xs); font-weight: 600; color: var(--text); }
+.fps-chip__name {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 64px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* Chevron after the value on empty + tappable tiles — signals the tile is an
    action, not just a status. Inline so it sits next to the text, not below it

@@ -3246,7 +3246,6 @@ export function renderTaskDetailSheet(options) {
         <input type="range" class="slider" id="pointsSlider" min="${min}" max="${max}" value="${sliderVal}" step="5" data-entry-key="${entryKey}" data-base-pts="${points.possible}">
         ${sliderVal !== 100 ? `<button class="btn btn--secondary btn--sm" id="sliderReset" type="button">Reset</button>` : ''}
       </div>
-      ${gradePreview ? `<div class="task-detail__grade-preview" id="gradePreview">Grade: ${gradePreview}</div>` : ''}
     </div>`;
   }
 
@@ -4331,6 +4330,31 @@ export function renderDashboardTile({ label = '', value = '', sub = '', icon = '
       ${sub ? `<div class="dashboard-tile__sub">${sub}</div>` : ''}
     </div>
   </div>`;
+}
+
+/**
+ * Family progress strip — a row of per-person progress rings for the all-family
+ * dashboard glance. Each chip is tappable (filters the dashboard to that person).
+ * items: [{ id, name, color, done, total }]
+ */
+export function renderFamilyProgressStrip(items = []) {
+  if (!items.length) return '';
+  const chips = items.map(it => {
+    const pct = it.total > 0 ? Math.round((it.done / it.total) * 100) : 0;
+    const initial = (it.name || '?').charAt(0).toUpperCase();
+    return `<button class="fps-chip" type="button" data-fps-person="${esc(it.id)}" style="--person-color: ${esc(it.color || 'var(--accent)')}" aria-label="${esc(it.name)}: ${it.done} of ${it.total} done">
+      <span class="fps-chip__ring-wrap">
+        <svg class="fps-chip__ring" viewBox="0 0 36 36" aria-hidden="true">
+          <circle class="fps-chip__track" cx="18" cy="18" r="15.5" pathLength="100"></circle>
+          <circle class="fps-chip__arc" cx="18" cy="18" r="15.5" pathLength="100" stroke-dasharray="${pct} 100"></circle>
+        </svg>
+        <span class="fps-chip__initial">${esc(initial)}</span>
+      </span>
+      <span class="fps-chip__count">${it.done}/${it.total}</span>
+      <span class="fps-chip__name">${esc(it.name)}</span>
+    </button>`;
+  }).join('');
+  return `<div class="family-strip" role="group" aria-label="Family progress">${chips}</div>`;
 }
 
 /**
