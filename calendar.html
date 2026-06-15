@@ -42,7 +42,8 @@
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onValue, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, renderFab, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet, openVoteSheet } from './shared/components.js';
     import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, bindEscapeToClose, safeLocalStorageSet, validateStoredId } from './shared/dom-helpers.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
+    import { renderCategoryIcon } from './shared/category-icons.js';
     import { todayKey, addDays, dayOfWeek, weekStartForDay, weekEndForDay, monthStart, monthEnd, dateRange, monthNumber, yearNumber, DAY_NAMES_SHORT, formatDateShort, formatDateLong, debounce, escapeHtml, normalizePlanSlot } from './shared/utils.js';
     import { isComplete, filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, dayProgress, getOverdueCooldownTaskIds, sortEntries, groupByFrequency } from './shared/state.js';
     import { basePoints, dailyScore, dailyPossible, gradeDisplay } from './shared/scoring.js';
@@ -76,6 +77,7 @@
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     if (settings?.textSize) applyTextSize(settings.textSize);
+    applyCategoryIconTone(settings?.categoryIconTone);
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -2367,7 +2369,7 @@
         } else if (field === 'tod') {
           inner = `<div class="tf-picker-cells">${[['am','Morning'],['anytime','Anytime'],['pm','Afternoon'],['both','Both']].map(([v,l]) => `<button class="tf-picker-cell${calTod===v?' tf-picker-cell--active':''}" data-pick-val="${v}" data-pick-label="${l}" type="button">${l}</button>`).join('')}</div>`;
         } else if (field === 'cat') {
-          inner = `<div class="tf-cat-list">${catsArr.map(c => `<button class="tf-cat-item${calCat===c.key?' tf-cat-item--active':''}" data-pick-val="${escapeHtml(c.key)}" data-pick-label="${escapeHtml((c.icon||'')+' '+c.label)}" type="button"><span class="tf-cat-icon">${c.icon||''}</span><span class="tf-cat-label">${escapeHtml(c.label)}</span></button>`).join('')}</div>`;
+          inner = `<div class="tf-cat-list">${catsArr.map(c => `<button class="tf-cat-item${calCat===c.key?' tf-cat-item--active':''}" data-pick-val="${escapeHtml(c.key)}" data-pick-label="${escapeHtml(c.label)}" type="button"><span class="tf-cat-icon">${renderCategoryIcon(c, { size: 20 })}</span><span class="tf-cat-label">${escapeHtml(c.label)}</span></button>`).join('')}</div>`;
         }
         const ov = document.createElement('div');
         ov.className = 'tf-picker-overlay'; ov.id = 'tf_pickerOverlay';

@@ -199,10 +199,19 @@ export async function pushPerson(data) {
 }
 
 /**
- * Read all categories.
+ * Read all categories. Each category object is tagged with its own `key` (the
+ * map key) so consumers — e.g. themed category-icon rendering — don't have to
+ * thread the key separately. The map key stays canonical; this field is a
+ * read-time convenience that always mirrors it.
  */
 export async function readCategories() {
-  return readOnce('categories');
+  const cats = await readOnce('categories');
+  if (cats && typeof cats === 'object') {
+    for (const k of Object.keys(cats)) {
+      if (cats[k] && typeof cats[k] === 'object') cats[k].key = k;
+    }
+  }
+  return cats;
 }
 
 /**

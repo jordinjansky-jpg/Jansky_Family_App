@@ -3,6 +3,7 @@
 
 import { addDays, dateRange, dayOfWeek, monthEnd, escapeHtml, DAY_NAMES_SHORT, formatDateShort, normalizePlanSlot } from './utils.js';
 import { renderEventPill, renderEventBubble } from './components.js';
+import { renderCategoryIcon } from './category-icons.js';
 import { filterByPerson, filterEventsByPerson, getEventsForDate, sortEvents, isComplete, sortEntries, groupByFrequency, getEventsForRange } from './state.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
@@ -422,12 +423,13 @@ export function renderDayView(opts) {
       const checkClass = done ? 'cal-day__task-check cal-day__task-check--done' : 'cal-day__task-check';
       const person = people.find(p => p.id === entry.ownerId);
       const personDot = person ? `<span class="cal-day__task-dot" data-bg-color="${person.color}"></span>` : '';
+      const catIcon = renderCategoryIcon(cat, { size: 14 });
       return `<div class="cal-day__task${doneClass}" data-entry-key="${entryKey}" data-date-key="${dateKey}">
         <button class="${checkClass}" data-entry-key="${entryKey}" data-date-key="${dateKey}" ${isPastDaily ? 'data-tap-blocked="true"' : ''} type="button"></button>
         ${personDot}
         ${todLabel ? `<span class="cal-day__task-tod">${todLabel}</span>` : ''}
         <span class="cal-day__task-name">${esc(task.name)}</span>
-        ${cat?.icon ? `<span class="cal-day__task-icon">${cat.icon}</span>` : ''}
+        ${catIcon ? `<span class="cal-day__task-icon">${catIcon}</span>` : ''}
       </div>`;
     }
 

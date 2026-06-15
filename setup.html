@@ -171,6 +171,7 @@
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { getPresets, getColorPalette, applyTheme, loadCachedTheme, defaultThemeConfig } from './shared/theme.js';
     import { applyDataColors, showConfirm, renderPersonAvatar, openAvatarEditor } from './shared/components.js';
+    import { renderCategoryIcon } from './shared/category-icons.js';
 
     // --- State ---
     let currentStep = 1;
@@ -178,11 +179,11 @@
 
     let people = [];
     let categories = [
-      { key: 'chores', icon: '🧹', label: 'Chores', pinProtected: false, weightPercent: null },
-      { key: 'wellness', icon: '💆', label: 'Wellness', pinProtected: false, weightPercent: null },
-      { key: 'fitness', icon: '💪', label: 'Fitness', pinProtected: false, weightPercent: null },
-      { key: 'education', icon: '📚', label: 'Education', pinProtected: false, weightPercent: null },
-      { key: 'behavior', icon: '⭐', label: 'Behavior', pinProtected: false, weightPercent: null }
+      { key: 'chores', iconKey: 'broom', icon: '🧹', label: 'Chores', pinProtected: false, weightPercent: null },
+      { key: 'wellness', iconKey: 'heart', icon: '💆', label: 'Wellness', pinProtected: false, weightPercent: null },
+      { key: 'fitness', iconKey: 'dumbbell', icon: '💪', label: 'Fitness', pinProtected: false, weightPercent: null },
+      { key: 'education', iconKey: 'book', icon: '📚', label: 'Education', pinProtected: false, weightPercent: null },
+      { key: 'behavior', iconKey: 'star', icon: '⭐', label: 'Behavior', pinProtected: false, weightPercent: null }
     ];
     let selectedColor = null;
     let selectedRole = 'adult';
@@ -397,7 +398,7 @@
       const list = document.getElementById('categoryList');
       list.innerHTML = categories.map((c, i) => `
         <div class="category-card">
-          <span class="category-card__icon">${esc(c.icon)}</span>
+          <span class="category-card__icon">${renderCategoryIcon(c, { size: 22 })}</span>
           <span class="category-card__label">${esc(c.label)}</span>
           <div class="category-card__actions">
             <button class="category-card__btn" onclick="removeCategory(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -551,6 +552,7 @@
         categories.forEach(c => {
           catObj[c.key] = {
             label: c.label,
+            iconKey: c.iconKey || null,
             icon: c.icon,
             pinProtected: c.pinProtected,
             weightPercent: c.weightPercent

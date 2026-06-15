@@ -325,6 +325,13 @@ export function initTextSize() {
   applyTextSize(getTextSize());
 }
 
+// Themed category icons (shared/category-icons.js) are muted by default; this
+// root class flips them to the accent color. Driven by settings.categoryIconTone
+// ('muted' | 'accent'). Call on boot (after settings load) and on toggle change.
+export function applyCategoryIconTone(tone) {
+  document.documentElement.classList.toggle('cat-icons-accent', tone === 'accent');
+}
+
 // Auto-apply text size on import (same pattern as applyTheme in page bootstraps)
 initTextSize();
 

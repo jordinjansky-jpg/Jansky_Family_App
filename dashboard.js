@@ -3,7 +3,8 @@ import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCate
 import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, renderFamilyProgressStrip, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
-import { applyTheme, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
+import { applyTheme, resolveTheme, applyTaskDisplayPrefs, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
+import { renderCategoryIcon } from './shared/category-icons.js';
 import { todayKey, addDays, formatDateLong, formatDateShort, DAY_NAMES, dayOfWeek, escapeHtml, debounce, normalizePlanSlot, pickWinner, scaleQty, dateToKey } from './shared/utils.js';
 const esc = (s) => escapeHtml(String(s ?? ''));
 const KITCHEN_WORKER_URL = 'https://kitchen-import.jordin-jansky.workers.dev';
@@ -55,6 +56,7 @@ try {
 // Apply family theme from Firebase only if no device override
 if (settings?.theme) applyTheme(resolveTheme(settings.theme));
 applyTaskDisplayPrefs(settings);
+applyCategoryIconTone(settings?.categoryIconTone);
 // Sync text size from Firebase (person override applied after linkedPerson is resolved below)
 if (settings?.textSize) applyTextSize(settings.textSize);
 // Cache app name for instant title on next load (used by inline script)
@@ -3269,8 +3271,8 @@ function openTaskForm(taskId = null, savedState = null) {
     } else if (field === 'cat') {
       inner = `<div class="tf-cat-list">
         ${catsArr.map(c =>
-          `<button class="tf-cat-item${tfCat === c.key ? ' tf-cat-item--active' : ''}" data-pick-val="${esc(c.key)}" data-pick-label="${esc((c.icon || '') + ' ' + c.label)}" type="button">
-            <span class="tf-cat-icon">${c.icon || ''}</span>
+          `<button class="tf-cat-item${tfCat === c.key ? ' tf-cat-item--active' : ''}" data-pick-val="${esc(c.key)}" data-pick-label="${esc(c.label)}" type="button">
+            <span class="tf-cat-icon">${renderCategoryIcon(c, { size: 20 })}</span>
             <span class="tf-cat-label">${esc(c.label)}</span>
           </button>`
         ).join('')}

@@ -54,7 +54,8 @@
     import { silentAutoResubscribe } from './shared/push-client.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet, openDeviceThemeSheet } from './shared/components.js';
     import { closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, bindEscapeToClose } from './shared/dom-helpers.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
+    import { renderCategoryIcon } from './shared/category-icons.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, groupByFrequency, dayProgress, getOverdueEntries, getOverdueCooldownTaskIds, isAllDone, sortEntries } from './shared/state.js';
@@ -74,6 +75,7 @@
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     if (settings?.textSize) applyTextSize(settings.textSize);
     applyTaskDisplayPrefs(settings);
+    applyCategoryIconTone(settings?.categoryIconTone);
 
     // ── Check for kid parameter ──
     const params = new URLSearchParams(window.location.search);
@@ -1824,7 +1826,7 @@
         }
 
         function renderKidTaskSheet({ entryKey, entry, task, cat, completed, pts, currentOverride, people }) {
-          const catIcon = cat?.icon || '';
+          const catIcon = renderCategoryIcon(cat, { size: 15 });
           const diffLabel = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[task.difficulty] || 'Medium';
           const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-Time' }[entry.rotationType] || '';
           const todLabel = { am: 'Morning', pm: 'Afternoon', anytime: 'Anytime' }[entry.timeOfDay] || '';
@@ -1836,7 +1838,7 @@
           html += `<div class="task-detail__info">
             <div class="task-detail__name" style="--owner-color:${kid.color}">
               <span class="task-card__avatar">${kid.name[0].toUpperCase()}</span>
-              <span>${catIcon ? esc(catIcon) + ' ' : ''}${taskNameWithEmoji(esc(task.name))}</span>
+              <span>${catIcon ? catIcon + ' ' : ''}${taskNameWithEmoji(esc(task.name))}</span>
             </div>
             <div class="task-detail__meta">
               <span class="chip">${rotLabel}</span>

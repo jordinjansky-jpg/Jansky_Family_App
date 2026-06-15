@@ -551,7 +551,11 @@
 //                     (typed-not-saved) planned meal showed "Meal not found" —
 //                     renderMealDetailSheet now synthesizes a minimal sheet from
 //                     the plan name and hides recipe-only controls.
-const CACHE_NAME = 'family-hub-v355';
+// v356 (2026-06-15) — X3: themed category icons. Category emoji replaced app-wide
+//                     with single-color SVGs (shared/category-icons.js); emoji
+//                     reserved for user-authored content. New "Category icons:
+//                     Muted/Tinted" appearance toggle (settings.categoryIconTone).
+const CACHE_NAME = 'family-hub-v356';
 
 const APP_SHELL = [
   '/',

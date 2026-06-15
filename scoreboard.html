@@ -41,7 +41,8 @@
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readCompletions, readAllSchedule, readAllSnapshots, readAllStreaks, readAllAchievements, onConnectionChange, writePerson, writeCompletion, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readAllBalanceAnchors, readAllMessages, readMultipliers, readRewards, readAchievementDefs, writeAchievement, readAllActivityEarnings } from './shared/firebase.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderErrorState, renderBottomSheet, openDeviceThemeSheet, initOfflineBanner, initBell, initBanner, applyDataColors, renderScoreCard, renderSectionHead, renderPersonAvatar, renderAchievementBadge, renderSendMessageSheet, bindSendMessageSheet, renderHeatmap, readScoreboardCustomize } from './shared/components.js';
-    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize } from './shared/theme.js';
+    import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
+    import { renderCategoryIcon } from './shared/category-icons.js';
     import { todayKey, weekStart, weekStartForDay, weekEnd, monthStart, monthEnd, addDays, formatDateShort, formatMinutes, formatDateLong, escapeHtml } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
     import { isComplete, filterByPerson, dayProgress } from './shared/state.js';
@@ -67,6 +68,7 @@
 
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     if (settings?.textSize) applyTextSize(settings.textSize);
+    applyCategoryIconTone(settings?.categoryIconTone);
 
     const tz = settings?.timezone || 'America/Chicago';
     const today = todayKey(tz);
@@ -178,7 +180,7 @@
           if (task.exempt) continue;
           const catKey = task.category || '_none';
           if (!catTotals[catKey]) {
-            catTotals[catKey] = { earned: 0, possible: 0, label: cat?.label || cat?.name || 'Uncategorized', icon: cat?.icon || '' };
+            catTotals[catKey] = { earned: 0, possible: 0, label: cat?.label || cat?.name || 'Uncategorized', iconHtml: cat ? renderCategoryIcon(cat, { size: 16 }) : '' };
           }
           const pts = basePoints(task, settings?.difficultyMultipliers);
           catTotals[catKey].possible += pts;
@@ -675,7 +677,7 @@
             status = 'Pending';
           }
           const cat = task.category ? cats[task.category] : null;
-          const catIcon = cat?.icon || '';
+          const catIcon = renderCategoryIcon(cat, { size: 14 });
           taskDetails.push({ entryKey: k, name: task.name, catIcon, date: cur, pts, earned, status, exempt: !!task.exempt, isEvent: !!cat?.isEvent });
         }
         cur = addDays(cur, 1);
@@ -758,7 +760,7 @@
           const pct = c.possible > 0 ? Math.round((c.earned / c.possible) * 100) : 0;
           const tier = pct > 0 ? gradeDisplay(pct).tier : 'none';
           html += `<div class="sb-cat-row">
-            <span class="sb-cat-label">${esc(c.icon)} ${esc(c.label)}</span>
+            <span class="sb-cat-label">${c.iconHtml || ''} ${esc(c.label)}</span>
             <div class="sb-cat-bar">
               <div class="sb-cat-bar-fill sb-cat-bar-fill--${esc(tier)}" style="width:${pct}%"></div>
             </div>
@@ -878,7 +880,7 @@
           <div class="sb-drilldown__group-label ${statusClass}">${status} (${items.length})</div>`;
         for (const item of items) {
           html += `<button class="sb-drilldown__task sb-drilldown__task--tappable" type="button" data-entry-key="${esc(item.entryKey || '')}" data-status="${esc(item.status)}">
-            <span class="sb-drilldown__task-name">${item.catIcon ? esc(item.catIcon) + ' ' : ''}${esc(item.name)}</span>
+            <span class="sb-drilldown__task-name">${item.catIcon ? item.catIcon + ' ' : ''}${esc(item.name)}</span>
             <span class="sb-drilldown__task-date">${formatDateShort(item.date)}</span>
           </button>`;
         }

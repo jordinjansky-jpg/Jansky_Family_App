@@ -6,6 +6,7 @@
 import { escapeHtml, formatDateShort, parseRecipeTimeToMinutes, formatRecipeTime, scaleQty, parseSteps, pickWinner } from './utils.js';
 import { getPresets, getColorPalette, loadDeviceTheme, saveDeviceTheme, applyTheme, defaultThemeConfig, applyTaskDisplayPrefs, applyTextSize } from './theme.js';
 import { normalizeTaskGrouping } from './state.js';
+import { renderCategoryIcon } from './category-icons.js';
 
 const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -2076,7 +2077,7 @@ export function renderTaskCard(options) {
   const overdueClass = overdue ? ' task-card--overdue' : '';
   const eventClass = isEvent ? ' card--event task-card--event' : '';
   const showIcon = category?.showIcon !== false;
-  const catIcon = showIcon ? (category?.icon || '') : '';
+  const catIcon = showIcon ? renderCategoryIcon(category, { size: 15 }) : '';
   const ownerColor = person?.color || 'var(--text-faint)';
   const ownerInitial = person?.initials || derivePersonInitials(person?.name || '') || (person?.name || '?')[0].toUpperCase();
   const ownerPhoto = person?.avatarUrl
@@ -2615,8 +2616,8 @@ export function renderTrackerFilterSheet(cats, activeCategory, activeStatus) {
   const catChips = [
     `<button class="chip chip--selectable${!activeCategory ? ' chip--active' : ''}" data-filter-cat="" type="button">All</button>`,
     ...catEntries.map(([key, cat]) => {
-      const label = ((cat.icon || '') + ' ' + (cat.label || cat.name || key)).trim();
-      return `<button class="chip chip--selectable${activeCategory === key ? ' chip--active' : ''}" data-filter-cat="${esc(key)}" type="button">${esc(label)}</button>`;
+      const label = (cat.label || cat.name || key).trim();
+      return `<button class="chip chip--selectable${activeCategory === key ? ' chip--active' : ''}" data-filter-cat="${esc(key)}" type="button">${renderCategoryIcon(cat, { size: 14 })} ${esc(label)}</button>`;
     }),
   ].join('');
 
@@ -3137,7 +3138,7 @@ export function renderTaskDetailSheet(options) {
   const DS_DELEGATE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
   const DS_CAL_SM   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
-  const catIcon    = category?.icon || '';
+  const catIcon    = renderCategoryIcon(category, { size: 17 });
   const ownerColor = person?.color || 'var(--text-faint)';
   const diffLabel  = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[task.difficulty] || 'Medium';
   const rotLabel   = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-Time' }[entry.rotationType] || '';

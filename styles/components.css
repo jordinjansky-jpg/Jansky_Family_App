@@ -5024,6 +5024,27 @@ label.ef2-icon-btn  { cursor: pointer; }
 .tf-cat-icon { font-size: 1.1em; }
 .tf-cat-label { font-size: var(--font-sm); color: var(--text); }
 
+/* Themed category icons (shared/category-icons.js) — single-color SVGs that
+   replace category emoji app-wide; emoji stays for user-authored content.
+   Tone is global: muted by default, accent when html.cat-icons-accent is set
+   (from settings.categoryIconTone via applyCategoryIconTone in theme.js). */
+.cat-ic { flex: none; vertical-align: -0.18em; color: var(--text-muted); }
+:root.cat-icons-accent .cat-ic { color: var(--accent); }
+
+/* Themed category-icon picker (category form). Tiles drive their own color so
+   the active state reads regardless of the global muted/accent tone. */
+.cat-icon-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--spacing-xs); }
+.cat-icon-tile {
+  display: grid; place-items: center; aspect-ratio: 1; padding: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface-2); color: var(--text-muted); cursor: pointer;
+}
+.cat-icon-tile .cat-ic { color: inherit; }
+.cat-icon-tile--active {
+  border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
 /* Options reveal */
 .tf-options-inner { padding: var(--spacing-xs) 0; }
 .tf-options-row {

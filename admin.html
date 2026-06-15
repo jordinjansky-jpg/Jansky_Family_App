@@ -81,7 +81,8 @@
     import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, openAvatarEditor, renderFormSheetHeader, renderChipPicker, bindChipPicker, renderSwitchToggle } from './shared/components.js';
 
-    import { applyTheme, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs } from './shared/theme.js';
+    import { applyTheme, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs, applyCategoryIconTone } from './shared/theme.js';
+    import { renderCategoryIcon, renderCategoryIconPicker, bindCategoryIconPicker, effectiveIconKey } from './shared/category-icons.js';
     import { normalizeTaskGrouping } from './shared/state.js';
     import { todayKey, addDays, formatDateShort, getTimezoneOptions, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
     const esc = (s) => escapeHtml(String(s ?? ''));
@@ -114,6 +115,7 @@
     let settings = await readSettings() || {};
     if (settings?.theme) applyTheme(resolveTheme(settings.theme));
     applyTextSize(settings?.textSize || 'default');
+    applyCategoryIconTone(settings?.categoryIconTone);
 
     // Replace settings contents in place — keeps the object reference stable for closures.
     function syncSettings(updated) {
@@ -572,7 +574,7 @@
         html += `<div class="admin-list" id="taskList">`;
         for (const [id, t] of filtered) {
           const cat = catsObj[t.category] || {};
-          const icon = renderEmojiTile(cat.icon || '📋');
+          const icon = `<span class="admin-icon-tile__emoji" aria-hidden="true">${renderCategoryIcon(cat, { size: 20 })}</span>`;
           const ownerNames = (t.owners || []).map(oid => peopleObj[oid]?.name || '?').join(', ');
           const rotLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', once: 'One-time' }[t.rotation] || t.rotation;
           const secondary = `${rotLabel}${ownerNames ? ' · ' + ownerNames : ''}`;
@@ -641,7 +643,7 @@
           <div class="fs-section__label">Category</div>
           <div class="chip-group" id="fs_category">
             <button class="chip chip--selectable${!taskFilter.category?' chip--active':''}" data-cat="" type="button">All</button>
-            ${ca.map(c => `<button class="chip chip--selectable${taskFilter.category===c.key?' chip--active':''}" data-cat="${esc(c.key)}" type="button">${esc(c.icon)} ${esc(c.label)}</button>`).join('')}
+            ${ca.map(c => `<button class="chip chip--selectable${taskFilter.category===c.key?' chip--active':''}" data-cat="${esc(c.key)}" type="button">${renderCategoryIcon(c, { size: 14 })} ${esc(c.label)}</button>`).join('')}
           </div>
         </div>
 
@@ -826,8 +828,8 @@
         } else if (field === 'cat') {
           inner = `<div class="tf-cat-list">
             ${catsArr.map(c =>
-              `<button class="tf-cat-item${tfCat === c.key ? ' tf-cat-item--active' : ''}" data-pick-val="${esc(c.key)}" data-pick-label="${esc((c.icon||'')+' '+c.label)}" type="button">
-                <span class="tf-cat-icon">${c.icon||''}</span>
+              `<button class="tf-cat-item${tfCat === c.key ? ' tf-cat-item--active' : ''}" data-pick-val="${esc(c.key)}" data-pick-label="${esc(c.label)}" type="button">
+                <span class="tf-cat-icon">${renderCategoryIcon(c, { size: 20 })}</span>
                 <span class="tf-cat-label">${esc(c.label)}</span>
               </button>`
             ).join('')}
@@ -2186,7 +2188,7 @@
         html += `<div class="admin-list" id="catList">`;
         for (const c of ca) {
           const taskCount = Object.values(tasksObj).filter(t => t.category === c.key).length;
-          const icon = renderEmojiTile(c.icon || '📁');
+          const icon = `<span class="admin-icon-tile__emoji" aria-hidden="true">${renderCategoryIcon(c, { size: 20 })}</span>`;
           const secondary = `${taskCount} task${taskCount !== 1 ? 's' : ''}${c.weightPercent ? ' · ' + c.weightPercent + '%' : ''}`;
           html += renderAdminRow({
             icon,
@@ -2275,11 +2277,10 @@
 
   <div class="cf-icon-section">
     <span class="ef2-section-label">Icon</span>
-    ${renderEmojiPicker({
+    ${renderCategoryIconPicker({
       pickerId: 'cf_iconPicker',
-      hiddenId: 'cf_icon',
-      value: cat.icon || '',
-      emojis: CATEGORY_EMOJIS,
+      hiddenId: 'cf_iconKey',
+      value: effectiveIconKey(cat),
     })}
   </div>
 
@@ -2355,7 +2356,7 @@
       });
 
       initColorButton(mount.querySelector('#cf_eventColor')?.closest('.cpick-wrap'), null);
-      bindEmojiPicker({ pickerId: 'cf_iconPicker', hiddenId: 'cf_icon' });
+      bindCategoryIconPicker({ pickerId: 'cf_iconPicker', hiddenId: 'cf_iconKey' });
 
       const eventCheckbox = mount.querySelector('#cf_isEvent');
       const eventColorRow = mount.querySelector('#eventColorRow');
@@ -2411,7 +2412,9 @@
       });
 
       mount.querySelector('#catFormSave')?.addEventListener('click', async () => {
-        const icon = mount.querySelector('#cf_icon')?.value.trim() || '📌';
+        const iconKey = mount.querySelector('#cf_iconKey')?.value || '';
+        // Preserve any legacy emoji as a fallback (themed iconKey takes priority).
+        const existingIcon = (!isNew && catsObj[catKey]) ? (catsObj[catKey].icon || null) : null;
         const label = mount.querySelector('#cf_label')?.value.trim();
         if (!label) { mount.querySelector('#cf_label')?.focus(); return; }
         const weight = mount.querySelector('#cf_weight')?.value;
@@ -2425,7 +2428,7 @@
           for (const [k, c] of Object.entries(catsObj)) { if (c.isDefault) c.isDefault = false; }
         }
         const catData = {
-          label, icon, showIcon, pinProtected, isDefault, isEvent,
+          label, iconKey, icon: existingIcon, showIcon, pinProtected, isDefault, isEvent,
           eventColor: isEvent ? (mount.querySelector('#cf_eventColor')?.value || '#5b7fd6') : null,
           weightPercent: isEvent ? null : (weight ? parseInt(weight, 10) : null),
           dailyLimitPerPerson: isEvent ? null : (limitPerson ? parseInt(limitPerson, 10) : null),
@@ -2516,6 +2519,14 @@
                 <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'default' ? ' segmented-btn--active' : ''}" data-size="default">Default</button>
                 <button type="button" class="segmented-btn${(settings?.textSize || 'default') === 'large' ? ' segmented-btn--active' : ''}" data-size="large">Large</button>
               </div>
+            </div>
+            <div class="form-group mt-xs">
+              <label class="form-label">Category icons</label>
+              <div class="segmented-control" id="sf_categoryIconTone">
+                <button type="button" class="segmented-btn${(settings?.categoryIconTone || 'muted') === 'muted' ? ' segmented-btn--active' : ''}" data-tone="muted">Muted</button>
+                <button type="button" class="segmented-btn${(settings?.categoryIconTone || 'muted') === 'accent' ? ' segmented-btn--active' : ''}" data-tone="accent">Tinted</button>
+              </div>
+              <p class="form-hint">Single-color task category icons. Tinted uses your accent color.</p>
             </div>
             <div class="admin-toggle-row mt-xs">
               <span class="admin-toggle-row__label">Show AM/PM icons on task cards</span>
@@ -4482,7 +4493,7 @@
       ).join('');
 
       const catOptions = ca.map(c =>
-        `<option value="${esc(c.key)}">${esc(c.icon)} ${esc(c.label)}</option>`
+        `<option value="${esc(c.key)}">${esc(c.label)}</option>`
       ).join('');
 
       const mount = document.getElementById('taskSheetMount');
@@ -5034,6 +5045,16 @@
         const btn = e.target.closest('.segmented-btn');
         if (!btn) return;
         const updated = buildSettingsUpdate({ textSize: btn.dataset.size || 'default' });
+        await writeSettings(updated); syncSettings(updated); flashSaved();
+      });
+      // Category icon tone (Muted/Tinted) — applies live via the root class.
+      main.querySelector('#sf_categoryIconTone')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.segmented-btn');
+        if (!btn) return;
+        main.querySelectorAll('#sf_categoryIconTone .segmented-btn').forEach(b => b.classList.toggle('segmented-btn--active', b === btn));
+        const tone = btn.dataset.tone || 'muted';
+        applyCategoryIconTone(tone);
+        const updated = buildSettingsUpdate({ categoryIconTone: tone });
         await writeSettings(updated); syncSettings(updated); flashSaved();
       });
 
