@@ -22,7 +22,7 @@ import { renderHeader, renderNavBar, initNavMore, initBottomNav, initBell,
   renderChipPicker, bindChipPicker,
   renderColorButton, initColorButton, applyDataColors,
   openCookMode, readKitchenCustomize,
-  renderMealDetailSheet, openVoteSheet
+  renderMealDetailSheet, openVoteSheet, openDatePicker
 } from './shared/components.js';
 import { todayKey, addDays, formatDateShort, escapeHtml, formatLastCooked, avgRating, parseSteps, normalizePlanSlot, pickWinner, formatRecipeTime, parseRecipeTimeToMinutes, recipeTotalTime, scaleQty } from './shared/utils.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet, urlToDataUrl, base64ToDataUrl, makeThumbnail } from './shared/ai-helpers.js';
@@ -1142,7 +1142,8 @@ function openPlanMealSheet(preDate, preSlot, preRecipeId = null, opts = {}) {
 
   document.getElementById('kp_datebtn')?.addEventListener('click', () => {
     const inp = document.getElementById('kp_day');
-    try { inp.showPicker(); } catch { inp.focus(); }
+    if (!inp) return;
+    openDatePicker({ value: inp.value || '', min: inp.min || '', onPick: (iso) => { inp.value = iso; inp.dispatchEvent(new Event('change', { bubbles: true })); } });
   });
   document.getElementById('kp_day')?.addEventListener('change', (e) => {
     if (e.target.value) document.getElementById('kp_datebtn').textContent = formatDateLabel(e.target.value);

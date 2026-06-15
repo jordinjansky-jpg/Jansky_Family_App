@@ -52,7 +52,7 @@
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, writeSnapshot, readAchievementDefs, readKitchenPlan, readKitchenRecipes, readAllActivityEarnings, readNotificationPrefs, writePushSubscription } from './shared/firebase.js';
     import { silentAutoResubscribe } from './shared/push-client.js';
-    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet, openDeviceThemeSheet } from './shared/components.js';
+    import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet, openDeviceThemeSheet, openDatePicker } from './shared/components.js';
     import { closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, bindEscapeToClose, bindTaskRowGesture } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
     import { renderCategoryIcon } from './shared/category-icons.js';
@@ -1973,7 +1973,7 @@
                   document.querySelectorAll('#delegatePanel .chip--selectable').forEach(c => c.classList.remove('chip--active'));
                   chip.classList.add('chip--active');
                   const picker = document.getElementById('delegateMoveDatePicker');
-                  if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+                  if (picker) openDatePicker({ value: picker.value || '', min: picker.min || '', onPick: (iso) => { picker.value = iso; picker.dispatchEvent(new Event('change', { bubbles: true })); } });
                   return;
                 }
 
@@ -2037,7 +2037,7 @@
           if (ks.canMoveTasks) {
             document.getElementById('sheetMove')?.addEventListener('click', () => {
               const picker = document.getElementById('moveDatePicker');
-              if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+              if (picker) openDatePicker({ value: picker.value || '', min: picker.min || '', onPick: (iso) => { picker.value = iso; picker.dispatchEvent(new Event('change', { bubbles: true })); } });
             });
 
             document.getElementById('moveDatePicker')?.addEventListener('change', async (e) => {

@@ -575,7 +575,11 @@
 //                     across all calendar date pills + the shared repeat end-date
 //                     + bindDateInput (fs-form date inputs). Themed sub-sheet,
 //                     month nav, min/max day disabling.
-const CACHE_NAME = 'family-hub-v361';
+// v362 (2026-06-15) — C3/C4 rollout: openDatePicker now also replaces the native
+//                     pickers on dashboard, admin, tracker, kid, kitchen (meal-plan
+//                     day) + the Bonus Day sheet. App-wide there are no remaining
+//                     .showPicker() native date inputs.
+const CACHE_NAME = 'family-hub-v362';
 
 const APP_SHELL = [
   '/',

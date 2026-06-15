@@ -4923,13 +4923,11 @@ export function initBell(getPeople, getRewards, onAllMessagesFn, { writeMessageF
           });
         }
 
-        // Date pill — tap opens OS picker via .showPicker(); change updates label.
+        // Date pill — tap opens custom Monday-first picker; change updates label.
         mount.querySelector('#bd_dateBtn')?.addEventListener('click', () => {
           const input = mount.querySelector('#bd_date');
-          if (typeof input?.showPicker === 'function') {
-            try { input.showPicker(); return; } catch (_) { /* fall through */ }
-          }
-          input?.focus();
+          if (!input) return;
+          openDatePicker({ value: input.value || '', min: input.min || '', onPick: (iso) => { input.value = iso; input.dispatchEvent(new Event('change', { bubbles: true })); } });
         });
         mount.querySelector('#bd_date')?.addEventListener('change', (e) => {
           const label = mount.querySelector('#bd_dateLabel');

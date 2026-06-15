@@ -1,6 +1,6 @@
 // cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted)
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onCompletions, onEvents, onScheduleDay, onMultipliers, onSettings, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeedLastSync } from './shared/firebase.js';
-import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, renderFamilyProgressStrip, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet } from './shared/components.js';
+import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, renderFamilyProgressStrip, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet, openDatePicker } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, resolveTheme, applyTaskDisplayPrefs, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
@@ -1901,7 +1901,8 @@ function openMealPlanSheet(preSlot = 'dinner', preDate = null, preRecipeId = nul
 
   document.getElementById('kp_datebtn')?.addEventListener('click', () => {
     const inp = document.getElementById('kp_day');
-    try { inp.showPicker(); } catch { inp.focus(); }
+    if (!inp) return;
+    openDatePicker({ value: inp.value || '', min: inp.min || '', onPick: (iso) => { inp.value = iso; inp.dispatchEvent(new Event('change', { bubbles: true })); } });
   });
   document.getElementById('kp_day')?.addEventListener('change', (e) => {
     if (e.target.value) document.getElementById('kp_datebtn').textContent = formatDateLabel(e.target.value);
@@ -2184,12 +2185,10 @@ function openEventForm(existingEventId = null, savedState = null) {
     return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
-  // Date picker — tap pill, OS picker opens via .showPicker(), label updates on change.
+  // Date picker — tap pill → custom Monday-first sub-sheet; label updates on change.
   dateBtn?.addEventListener('click', () => {
-    if (typeof dateInput?.showPicker === 'function') {
-      try { dateInput.showPicker(); return; } catch (_) { /* fall through */ }
-    }
-    dateInput?.focus();
+    if (!dateInput) return;
+    openDatePicker({ value: dateInput.value || '', min: dateInput.min || '', onPick: (iso) => { dateInput.value = iso; dateInput.dispatchEvent(new Event('change', { bubbles: true })); } });
   });
   dateInput?.addEventListener('change', () => {
     dateDisplay.textContent = dateInput.value ? formatDateShort(dateInput.value) : 'Set date';
@@ -2761,13 +2760,11 @@ function openRepeatSheet(currentRule, onDone, onCancel) {
     document.getElementById('rptEndCountWrap')?.classList.toggle('is-hidden', e.target.value !== 'after');
   });
 
-  // End-date pill — tap opens OS picker via .showPicker(); change updates label.
+  // End-date pill — tap → custom Monday-first sub-sheet; change updates label.
   document.getElementById('rptEndDateBtn')?.addEventListener('click', () => {
     const input = document.getElementById('rptEndDate');
-    if (typeof input?.showPicker === 'function') {
-      try { input.showPicker(); return; } catch (_) { /* fall through */ }
-    }
-    input?.focus();
+    if (!input) return;
+    openDatePicker({ value: input.value || '', min: input.min || '', onPick: (iso) => { input.value = iso; input.dispatchEvent(new Event('change', { bubbles: true })); } });
   });
   document.getElementById('rptEndDate')?.addEventListener('change', (e) => {
     const label = document.getElementById('rptEndDateLabel');
@@ -2947,7 +2944,7 @@ function bindTaskSheetEvents(entryKey, dateKey) {
         document.querySelectorAll('#delegatePanel .ef2-person-chip').forEach(c => c.removeAttribute('data-state'));
         chip.setAttribute('data-state', 'primary');
         const picker = document.getElementById('delegateMoveDatePicker');
-        if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+        if (picker) openDatePicker({ value: picker.value || '', min: picker.min || '', onPick: (iso) => { picker.value = iso; picker.dispatchEvent(new Event('change', { bubbles: true })); } });
         return;
       }
 
@@ -3019,10 +3016,10 @@ function bindTaskSheetEvents(entryKey, dateKey) {
     render();
   });
 
-  // Move — directly open date picker
+  // Move — custom Monday-first sub-sheet
   document.getElementById('sheetMove')?.addEventListener('click', () => {
     const picker = document.getElementById('moveDatePicker');
-    if (picker) { try { picker.showPicker(); } catch(e) { picker.click(); } }
+    if (picker) openDatePicker({ value: picker.value || '', min: picker.min || '', onPick: (iso) => { picker.value = iso; picker.dispatchEvent(new Event('change', { bubbles: true })); } });
   });
 
   document.getElementById('moveDatePicker')?.addEventListener('change', async (e) => {
@@ -3176,13 +3173,11 @@ function openTaskForm(taskId = null, savedState = null) {
     if (footerSave) footerSave.disabled = empty;
   });
 
-  // One-Time date pill — tap opens OS picker via .showPicker(); change updates label.
+  // One-Time date pill — tap → custom Monday-first sub-sheet; change updates label.
   document.getElementById('tf_onceBtn')?.addEventListener('click', () => {
     const input = document.getElementById('tf_onceDate');
-    if (typeof input?.showPicker === 'function') {
-      try { input.showPicker(); return; } catch (_) { /* fall through */ }
-    }
-    input?.focus();
+    if (!input) return;
+    openDatePicker({ value: input.value || '', min: input.min || '', onPick: (iso) => { input.value = iso; input.dispatchEvent(new Event('change', { bubbles: true })); } });
   });
   document.getElementById('tf_onceDate')?.addEventListener('change', (e) => {
     const label = document.getElementById('tf_onceDateLabel');
