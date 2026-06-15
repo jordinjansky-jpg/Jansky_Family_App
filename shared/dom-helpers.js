@@ -60,10 +60,12 @@ export function startLongPressTimer(onLongPress, opts = {}) {
  * Bind tap + long-press gesture to a task row element.
  * Used by dashboard's `.task-card` and calendar's `.cal-day__task`.
  *
- * - Tap: fires `onTap(entryKey, dateKey)`.
+ * - Tap that starts on the completion circle (`checkSelector`): fires
+ *   `onComplete(entryKey, dateKey)` — the deliberate complete target (X5).
+ * - Tap anywhere else on the row: fires `onTap(entryKey, dateKey)` (open detail).
  * - Long-press (>= longPressMs): fires `onLongPress(entryKey, dateKey)`.
- * - If `isTapBlocked(entryKey, dateKey)` returns true, a tap fires `onLongPress`
- *   instead (used for past-incomplete-daily where toggling is forbidden).
+ * - If `isTapBlocked(entryKey, dateKey)` returns true, a circle tap fires `onTap`
+ *   (open detail) instead of completing (used for past-incomplete-daily).
  * - Movement past `moveThreshold` px cancels the press timer (so scrolling
  *   doesn't trigger an accidental long-press).
  * - Rapid-tap suppression: if any task was tapped in the last `rapidTapWindowMs`,
@@ -78,17 +80,23 @@ export function bindTaskRowGesture(row, opts) {
     moveThreshold = 10,
     rapidTapWindowMs,
     onTap,
+    onComplete,
     onLongPress,
     isTapBlocked,
+    checkSelector = '.task-card__check, .cal-day__task-check, .cal-wstrip-panel__task-check',
   } = opts || {};
   const entryKey = row.dataset.entryKey;
   const dateKey = row.dataset.dateKey;
   let didLongPress = false;
   let pressTimer = null;
   let startX = 0, startY = 0;
+  let startedOnCheck = false;
 
   row.addEventListener('pointerdown', (e) => {
     didLongPress = false;
+    // X5: a press starting on the completion circle completes; anywhere else
+    // opens the detail sheet (onTap). Only when an onComplete handler is given.
+    startedOnCheck = !!(onComplete && checkSelector && e.target.closest(checkSelector));
     startX = e.clientX;
     startY = e.clientY;
     clearTimeout(pressTimer);
@@ -111,8 +119,8 @@ export function bindTaskRowGesture(row, opts) {
     pressTimer = null;
     if (didLongPress) return;
     recordTap();
-    if (isTapBlocked && isTapBlocked(entryKey, dateKey)) {
-      onLongPress?.(entryKey, dateKey);
+    if (startedOnCheck && !(isTapBlocked && isTapBlocked(entryKey, dateKey))) {
+      onComplete?.(entryKey, dateKey);
     } else {
       onTap?.(entryKey, dateKey);
     }

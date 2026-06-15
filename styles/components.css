@@ -1060,6 +1060,34 @@ button.is-loading {
 }
 .task-card::before { display: none; }
 
+/* X5: trailing completion circle — the deliberate complete target (tapping the
+   rest of the card opens the detail sheet). Mirrors the calendar's task check. */
+.task-card__check {
+  align-self: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-inline-end: var(--spacing-md);
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.task-card__check--done {
+  background: var(--success);
+  border-color: var(--success);
+}
+.task-card__check--done::after {
+  content: '✓';
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .task-card + .task-card {
   margin-top: var(--spacing-sm);
 }

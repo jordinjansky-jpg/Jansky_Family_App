@@ -866,7 +866,7 @@ function openOverdueSheet(items) {
     taskSheetMount.querySelectorAll('.task-card').forEach(card => {
       bindTaskRowGesture(card, {
         longPressMs: settings?.longPressMs ?? 800,
-        onTap: async (ek, dk) => {
+        onComplete: async (ek, dk) => {
           if (_overdueToggleInFlight.has(ek)) return; // rapid-tap guard
           _overdueToggleInFlight.add(ek);
           try {
@@ -875,6 +875,10 @@ function openOverdueSheet(items) {
           } finally {
             _overdueToggleInFlight.delete(ek);
           }
+        },
+        onTap: (ek, dk) => {
+          closeTaskSheet();
+          setTimeout(() => openTaskSheet(ek, dk), 320);
         },
         onLongPress: (ek, dk) => {
           closeTaskSheet();
@@ -971,12 +975,14 @@ function bindEvents() {
     await loadData();
   });
 
-  // Task card: tap to toggle (past tasks auto-apply late penalty in toggleTask),
-  // long-press to open detail sheet (where "Complete (full credit)" lives).
+  // Task card (X5): tap the completion circle to complete; tap the rest of the
+  // card (or long-press) to open the detail sheet (where "Complete (full
+  // credit)", move, delegate, etc. live).
   main.querySelectorAll('.task-card').forEach(btn => {
     bindTaskRowGesture(btn, {
       longPressMs: settings?.longPressMs ?? 800,
-      onTap: (ek, dk) => toggleTaskSafe(ek, dk || viewDate),
+      onComplete: (ek, dk) => toggleTaskSafe(ek, dk || viewDate),
+      onTap: (ek, dk) => openTaskSheet(ek, dk || viewDate),
       onLongPress: (ek, dk) => openTaskSheet(ek, dk || viewDate),
       // DB11: match the calendar's contract — a past incomplete daily opens
       // the detail sheet on tap instead of silently completing with penalty.

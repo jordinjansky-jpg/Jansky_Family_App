@@ -538,7 +538,8 @@
       main.querySelectorAll('.cal-wstrip-panel__task:not(.cal-wstrip-panel__task--grouped)').forEach(row => {
         bindTaskRowGesture(row, {
           longPressMs: settings?.longPressMs ?? 800,
-          onTap: toggleTask,
+          onComplete: toggleTask,
+          onTap: openTaskSheet,
           onLongPress: openTaskSheet,
           isTapBlocked: () => row.querySelector('.cal-wstrip-panel__task-check')?.dataset.tapBlocked === 'true',
         });
@@ -623,7 +624,8 @@
       main.querySelectorAll('.cal-day__task:not(.cal-day__task--grouped)').forEach(row => {
         bindTaskRowGesture(row, {
           longPressMs: settings?.longPressMs ?? 800,
-          onTap: toggleTask,
+          onComplete: toggleTask,
+          onTap: openTaskSheet,
           onLongPress: openTaskSheet,
           isTapBlocked: () => row.querySelector('.cal-day__task-check')?.dataset.tapBlocked === 'true',
         });

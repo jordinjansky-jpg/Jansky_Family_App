@@ -2176,6 +2176,11 @@ export function renderTaskCard(options) {
     ? `<div class="task-card__meta">${durItem}${ptsItem}${rotItem}</div>`
     : '';
 
+  // Trailing completion circle (X5) — the deliberate complete target. Tapping
+  // the rest of the card opens the detail sheet. Events don't complete, so no
+  // circle. The ✓ is drawn by CSS (.task-card__check--done::after).
+  const checkEl = isEvent ? '' : `<span class="task-card__check${completed ? ' task-card__check--done' : ''}" aria-hidden="true"></span>`;
+
   return `<article class="card task-card${doneClass}${overdueClass}${eventClass}" data-entry-key="${esc(entryKey)}" data-date-key="${esc(entry.dateKey || '')}" role="button" tabindex="0" aria-pressed="${completed}"${personColorAttr}${eventColorAttr}>
       ${leading}
       <div class="task-card__inner">
@@ -2186,6 +2191,7 @@ export function renderTaskCard(options) {
         </div>
         ${metaCol}
       </div>
+      ${checkEl}
     </article>`;
 }
 

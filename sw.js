@@ -555,7 +555,11 @@
 //                     with single-color SVGs (shared/category-icons.js); emoji
 //                     reserved for user-authored content. New "Category icons:
 //                     Muted/Tinted" appearance toggle (settings.categoryIconTone).
-const CACHE_NAME = 'family-hub-v356';
+// v357 (2026-06-15) — X5: deliberate completion. Task rows get a trailing check
+//                     circle that completes; tapping the rest of the row opens
+//                     the detail sheet (dashboard, kid, calendar). Prevents the
+//                     accidental tap-anywhere completions.
+const CACHE_NAME = 'family-hub-v357';
 
 const APP_SHELL = [
   '/',

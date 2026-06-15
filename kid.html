@@ -53,7 +53,7 @@
     import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, writeCompletion, removeCompletion, writeTask, writePerson, multiUpdate, onCompletions, onScheduleDay, readOnce, readStreaks, onConnectionChange, readRewards, readMessages, readBank, readWishlist, readAchievements, writeAchievement, markAchievementSeen, writeMessage, markMessageSeen, markBankTokenUsed, onMessages, onBank, readAllSnapshots, readAllBalanceAnchors, readMultipliers, updateData, readCompletions, removeData, writeBankToken, removeMessagesByEntryKey, removeLatestBankToken, writeSnapshot, readAchievementDefs, readKitchenPlan, readKitchenRecipes, readAllActivityEarnings, readNotificationPrefs, writePushSubscription } from './shared/firebase.js';
     import { silentAutoResubscribe } from './shared/push-client.js';
     import { renderProgressBar, renderTaskCard, renderTimeHeader, renderOverdueBanner, renderCelebration, renderUndoToast, renderGradeBadge, renderBottomSheet, renderEmptyState, initOfflineBanner, showConfirm, showToast, applyDataColors, renderMealDetailSheet, openDeviceThemeSheet } from './shared/components.js';
-    import { closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, bindEscapeToClose } from './shared/dom-helpers.js';
+    import { closeTaskSheet as closeTaskSheetShared, startLongPressTimer, recordTap, bindEscapeToClose, bindTaskRowGesture } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTaskDisplayPrefs, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
     import { renderCategoryIcon } from './shared/category-icons.js';
     import { todayKey, addDays, formatDateLong, DAY_NAMES, DAY_NAMES_SHORT, weekStart, weekEnd, monthStart, monthEnd, dateRange, escapeHtml, debounce } from './shared/utils.js';
@@ -1088,47 +1088,14 @@
           // Movement threshold (px) — cancel long-press if finger moves more than this (scroll detection)
           const PRESS_MOVE_THRESHOLD = 10;
           main.querySelectorAll('.task-card').forEach(btn => {
-            let pressTimer = null;
-            let didLongPress = false;
-            let startX = 0, startY = 0;
-
-            const startPress = (e) => {
-              didLongPress = false;
-              startX = e.clientX; startY = e.clientY;
-              pressTimer = startLongPressTimer(() => {
-                didLongPress = true;
-                pressTimer = null;
-                openTaskSheet(btn.dataset.entryKey, btn.dataset.dateKey);
-              }, { longPressMs: settings?.kidLongPressMs ?? 500 });
-            };
-
-            const movePress = (e) => {
-              if (pressTimer && (Math.abs(e.clientX - startX) > PRESS_MOVE_THRESHOLD || Math.abs(e.clientY - startY) > PRESS_MOVE_THRESHOLD)) {
-                clearTimeout(pressTimer); pressTimer = null;
-              }
-            };
-
-            const endPress = () => {
-              clearTimeout(pressTimer);
-              pressTimer = null;
-              if (!didLongPress) {
-                // Tap completes; for past tasks, toggleTask auto-applies the late penalty.
-                // Long-press opens the detail sheet where "Complete (full credit)" lives.
-                const ek = btn.dataset.entryKey;
-                const dk = btn.dataset.dateKey || viewDate;
-                recordTap();
-                toggleTask(ek, dk);
-              }
-            };
-
-            const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
-
-            btn.addEventListener('pointerdown', startPress);
-            btn.addEventListener('pointermove', movePress);
-            btn.addEventListener('pointerup', endPress);
-            btn.addEventListener('pointerleave', cancelPress);
-            btn.addEventListener('pointercancel', cancelPress);
-            btn.addEventListener('contextmenu', e => e.preventDefault());
+            // X5: tap the completion circle to complete; tap the card body or
+            // long-press to open the detail sheet (Complete full-credit lives there).
+            bindTaskRowGesture(btn, {
+              longPressMs: settings?.kidLongPressMs ?? 500,
+              onComplete: (ek, dk) => toggleTask(ek, dk || viewDate),
+              onTap: (ek, dk) => openTaskSheet(ek, dk || viewDate),
+              onLongPress: (ek, dk) => openTaskSheet(ek, dk || viewDate),
+            });
           });
 
           // Gear icon opens settings
