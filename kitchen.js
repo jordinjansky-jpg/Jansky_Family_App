@@ -2669,31 +2669,40 @@ async function openSchoolLunchIcalSheet() {
 
 function openKitchenAiToolsSheet() {
   const mount = document.getElementById('sheetMount');
+  // SVG icons replace the prior emoji (no emoji in chrome — X7/K5 design rule).
+  const ic = (p) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  const IC_CAM = '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>';
+  const IC_GAL = '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>';
+  const IC_FILE = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
+  const IC_LINK = '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>';
+  const IC_SEARCH = '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>';
+  const IC_IDEA = '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/>';
+  const IC_WAND = '<path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/>';
   mount.innerHTML = renderBottomSheet(`
     ${renderFormSheetHeader({ title: 'Kitchen AI tools', closeId: 'kait_close' })}
     <div class="kait-section">
       <div class="kait-section__label">SCHOOL LUNCH</div>
       <div class="kait-grid">
-        <button class="btn btn--secondary" id="kait_schoolPhoto" type="button">📷 Take photo</button>
-        <button class="btn btn--secondary" id="kait_schoolGallery" type="button">🖼 From gallery</button>
-        <button class="btn btn--secondary" id="kait_schoolFile" type="button">📄 Upload file</button>
-        <button class="btn btn--secondary" id="kait_schoolIcal" type="button">🔗 iCal feed</button>
+        <button class="btn btn--secondary" id="kait_schoolPhoto" type="button">${ic(IC_CAM)} Take photo</button>
+        <button class="btn btn--secondary" id="kait_schoolGallery" type="button">${ic(IC_GAL)} From gallery</button>
+        <button class="btn btn--secondary" id="kait_schoolFile" type="button">${ic(IC_FILE)} Upload file</button>
+        <button class="btn btn--secondary" id="kait_schoolIcal" type="button">${ic(IC_LINK)} iCal feed</button>
       </div>
     </div>
     <div class="kait-section">
       <div class="kait-section__label">RECIPES</div>
       <div class="kait-grid">
-        <button class="btn btn--secondary" id="kait_recipeUrl" type="button">🔗 Import from URL</button>
-        <button class="btn btn--secondary" id="kait_recipePhoto" type="button">📷 Import from photo</button>
-        <button class="btn btn--secondary" id="kait_recipeFind" type="button">🔎 Find ideas online</button>
-        <button class="btn btn--secondary" id="kait_recipeSuggest" type="button">💡 What can I make?</button>
+        <button class="btn btn--secondary" id="kait_recipeUrl" type="button">${ic(IC_LINK)} Import from URL</button>
+        <button class="btn btn--secondary" id="kait_recipePhoto" type="button">${ic(IC_CAM)} Import from photo</button>
+        <button class="btn btn--secondary" id="kait_recipeFind" type="button">${ic(IC_SEARCH)} Find ideas online</button>
+        <button class="btn btn--secondary" id="kait_recipeSuggest" type="button">${ic(IC_IDEA)} What can I make?</button>
       </div>
     </div>
     <div class="kait-section">
       <div class="kait-section__label">LISTS</div>
       <div class="kait-grid">
-        <button class="btn btn--secondary" id="kait_listClean" type="button"${!activeListId ? ' disabled' : ''}>🪄 Auto-categorize</button>
-        <button class="btn btn--secondary" id="kait_listPhoto" type="button"${!activeListId ? ' disabled' : ''}>📷 Photo → list</button>
+        <button class="btn btn--secondary" id="kait_listClean" type="button"${!activeListId ? ' disabled' : ''}>${ic(IC_WAND)} Auto-categorize</button>
+        <button class="btn btn--secondary" id="kait_listPhoto" type="button"${!activeListId ? ' disabled' : ''}>${ic(IC_CAM)} Photo → list</button>
       </div>
       ${!activeListId ? `<div class="kait-hint">Create a list first.</div>` : ''}
     </div>

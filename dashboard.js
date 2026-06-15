@@ -1,6 +1,6 @@
 // cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted)
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onCompletions, onEvents, onScheduleDay, onMultipliers, onSettings, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeedLastSync } from './shared/firebase.js';
-import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, renderFamilyProgressStrip, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openCookMode, openVoteSheet, openDatePicker } from './shared/components.js';
+import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, renderFamilyProgressStrip, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openEventQuickAddSheet, openCookMode, openVoteSheet, openDatePicker } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, resolveTheme, applyTaskDisplayPrefs, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
@@ -2447,8 +2447,15 @@ function openEventForm(existingEventId = null, savedState = null) {
   });
 
   // ── Import flows (wired in Task 4) ──────────────────────────
-  document.getElementById('ef2_wand')?.addEventListener('click', () => doWandParse());
-  document.getElementById('ef2_photoBtn')?.addEventListener('click', () => openPhotoSourceSheet());
+  // C12/X7: three cryptic icons collapsed into one labeled quick-add chooser.
+  document.getElementById('ef2_quickAdd')?.addEventListener('click', () => {
+    openEventQuickAddSheet({
+      canParse: !!document.getElementById('ef2_name')?.value.trim(),
+      onParse: () => doWandParse(),
+      onPhoto: () => openPhotoSourceSheet(),
+      onIcal:  () => openEfIcalSheet(),
+    });
+  });
   ['ef2_photoCamera', 'ef2_photoGallery', 'ef2_photoFiles'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
@@ -2456,7 +2463,6 @@ function openEventForm(existingEventId = null, savedState = null) {
       e.target.value = '';
     });
   });
-  document.getElementById('ef2_ical')?.addEventListener('click', () => openEfIcalSheet());
 
   let errDismissTimer = null;
   let photoContextNote = '';

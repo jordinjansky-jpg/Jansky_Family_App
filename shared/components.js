@@ -629,7 +629,11 @@ export function initNavMore(sheetMount, getTheme, personOpts, familyOpts, onAppl
   const headerAdmin = document.getElementById('headerAdmin');
   if (headerAdmin && !headerAdmin.dataset.navBound) {
     headerAdmin.dataset.navBound = '1';
-    headerAdmin.addEventListener('click', () => { location.href = 'admin.html'; });
+    headerAdmin.addEventListener('click', () => {
+      // Preserve dev env so the gear doesn't kick a dev session back to prod.
+      const env = new URLSearchParams(location.search).get('env');
+      location.href = env ? `admin.html?env=${encodeURIComponent(env)}` : 'admin.html';
+    });
   }
 }
 
@@ -1356,7 +1360,7 @@ function _renderHeaderV2({ title = '', subtitle = '', showBell = false, showSett
        </button>`
     : '';
   const settingsHtml = showSettings
-    ? `<button class="app-header__icon-btn" id="headerAdmin" aria-label="Settings" type="button">
+    ? `<button class="app-header__icon-btn" id="headerAdmin" aria-label="Admin" title="Admin" type="button">
          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="22" height="22">
            <circle cx="12" cy="12" r="3"/>
            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 10 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -2022,6 +2026,72 @@ export function openEventPhotoSourceSheet({ onSelect, defaultContext = '' }) {
       const ctx = overlay.querySelector('#ef2_photoCtx')?.value.trim() || '';
       onSelect(btn.dataset.source, ctx);
       close();
+    });
+  });
+
+  return { overlay, close };
+}
+
+/**
+ * Quick-add chooser for the event composer (C12/X7). Collapses the three
+ * cryptic title-row icons (AI title-parse / photo / calendar URL) into one
+ * labeled sheet so each action is self-describing. Caller wires the three
+ * callbacks to its existing handlers. Shared by calendar + dashboard composers.
+ *
+ * @param {object}   opts
+ * @param {boolean}  [opts.canParse=false] Whether the title has text to parse.
+ *                                         When false the parse row is disabled
+ *                                         with a "type a title first" hint.
+ * @param {function} opts.onParse  Run the AI title parse.
+ * @param {function} opts.onPhoto  Open the photo source chooser.
+ * @param {function} opts.onIcal   Open the calendar-URL importer.
+ */
+export function openEventQuickAddSheet({ canParse = false, onParse, onPhoto, onIcal } = {}) {
+  const WAND_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
+  const CAM_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+  const ICAL_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'ef2-subsheet-overlay';
+  overlay.innerHTML = `<div class="ef2-subsheet">
+    <div class="sheet__header">
+      <h2 class="sheet__title">Add faster</h2>
+    </div>
+    <div class="sheet__content">
+      <button class="ef2-source-btn" data-action="parse" type="button"${canParse ? '' : ' disabled'}>
+        <span class="ef2-source-icon">${WAND_SVG}</span>
+        <span class="ef2-source-text"><span class="ef2-source-title">Auto-fill from title</span><span class="ef2-source-sub">${canParse ? 'AI reads what you typed' : 'Type a title first'}</span></span>
+      </button>
+      <button class="ef2-source-btn" data-action="photo" type="button">
+        <span class="ef2-source-icon">${CAM_SVG}</span>
+        <span class="ef2-source-text"><span class="ef2-source-title">Scan a photo</span><span class="ef2-source-sub">Camera, gallery, or file</span></span>
+      </button>
+      <button class="ef2-source-btn" data-action="ical" type="button">
+        <span class="ef2-source-icon">${ICAL_SVG}</span>
+        <span class="ef2-source-text"><span class="ef2-source-title">Import calendar link</span><span class="ef2-source-sub">Paste a .ics URL</span></span>
+      </button>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--ghost" id="ef2_quickAddCancel">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('active'));
+
+  const close = () => {
+    overlay.classList.remove('active');
+    setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 320);
+  };
+
+  overlay.querySelector('#ef2_quickAddCancel')?.addEventListener('click', close);
+  overlay.querySelectorAll('.ef2-source-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      const action = btn.dataset.action;
+      close();
+      if (action === 'parse') onParse?.();
+      else if (action === 'photo') onPhoto?.();
+      else if (action === 'ical') onIcal?.();
     });
   });
 
@@ -3075,19 +3145,18 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   }).join('');
 
   const WAND_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2L11 5"/></svg>`;
-  const PHOTO_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
-  const ICAL_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
   const CLOSE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
   const SAVE_SVG   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
   const DELETE_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
 
+  // C12/X7: the three cryptic title-row icons (AI parse / photo / calendar URL)
+  // collapse into one sparkle that opens a labeled chooser (openEventQuickAddSheet).
+  // The hidden file inputs stay here — the photo source sheet triggers them.
   const importIcons = isEdit ? '' : `
-    <button class="ef2-icon-btn" id="ef2_wand" type="button" aria-label="Parse title with AI">${WAND_SVG}</button>
-    <button class="ef2-icon-btn" id="ef2_photoBtn" type="button" aria-label="Import from photo">${PHOTO_SVG}</button>
+    <button class="ef2-icon-btn" id="ef2_quickAdd" type="button" aria-label="Add faster — AI, photo, or calendar link" title="Add faster">${WAND_SVG}</button>
     <input type="file" accept="image/*" capture="environment" id="ef2_photoCamera" hidden>
     <input type="file" accept="image/*" id="ef2_photoGallery" hidden>
-    <input type="file" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" id="ef2_photoFiles" hidden>
-    <button class="ef2-icon-btn" id="ef2_ical" type="button" aria-label="Import from calendar URL">${ICAL_SVG}</button>`;
+    <input type="file" accept=".jpg,.jpeg,.png,.heic,.heif,.webp,.gif" id="ef2_photoFiles" hidden>`;
 
   const titleEmpty = !event.name;
   const headerSaveDisabledAttr = titleEmpty ? ' disabled' : '';

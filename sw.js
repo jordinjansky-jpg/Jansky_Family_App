@@ -579,7 +579,13 @@
 //                     pickers on dashboard, admin, tracker, kid, kitchen (meal-plan
 //                     day) + the Bonus Day sheet. App-wide there are no remaining
 //                     .showPicker() native date inputs.
-const CACHE_NAME = 'family-hub-v362';
+// v363 (2026-06-15) — X7 cryptic-icon pass + C13. Event composer's 3 unlabeled
+//                     icons (AI parse / photo / iCal) collapse into one sparkle →
+//                     labeled "Add faster" chooser (openEventQuickAddSheet), on
+//                     calendar + dashboard. Kitchen AI tools sheet swaps emoji for
+//                     SVG icons. Header gear relabeled Settings→Admin + preserves
+//                     ?env on nav.
+const CACHE_NAME = 'family-hub-v363';
 
 const APP_SHELL = [
   '/',

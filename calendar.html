@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initFirebase, isFirstRun, readSettings, writeSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, multiUpdate, onCompletions, onEvents, onValue, onConnectionChange, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, readBank, writeMultiplier, readRewards, readKitchenRecipes, readAllKitchenPlan, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe } from './shared/firebase.js';
-    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, renderFab, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openRepeatSubsheet, openVoteSheet, openDatePicker } from './shared/components.js';
+    import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderPersonFilter, renderTaskCard, renderTimeHeader, renderEmptyState, renderUndoToast, renderGradeBadge, renderTaskDetailSheet, renderBottomSheet, renderEventForm, renderEventDetailSheet, renderAddMenu, renderFab, openDeviceThemeSheet, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderMealDetailSheet, renderMealPlanSheet, initColorButton, renderTaskForm, renderRepeatSheet, openIcalUrlSubsheet, openEventPhotoSourceSheet, openEventQuickAddSheet, openRepeatSubsheet, openVoteSheet, openDatePicker } from './shared/components.js';
     import { bindTaskRowGesture, closeTaskSheet as closeTaskSheetShared, bindEscapeToClose, safeLocalStorageSet, validateStoredId } from './shared/dom-helpers.js';
     import { applyTheme, loadCachedTheme, defaultThemeConfig, resolveTheme, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
     import { renderCategoryIcon } from './shared/category-icons.js';
@@ -1472,8 +1472,14 @@
       });
 
       // ── AI import (create mode) ──
-      document.getElementById('ef2_wand')?.addEventListener('click', () => doCalWandParse());
-      document.getElementById('ef2_photoBtn')?.addEventListener('click', () => openCalPhotoSourceSheet());
+      document.getElementById('ef2_quickAdd')?.addEventListener('click', () => {
+        openEventQuickAddSheet({
+          canParse: !!document.getElementById('ef2_name')?.value.trim(),
+          onParse: () => doCalWandParse(),
+          onPhoto: () => openCalPhotoSourceSheet(),
+          onIcal:  () => openCalEfIcalSheet(),
+        });
+      });
       ['ef2_photoCamera', 'ef2_photoGallery', 'ef2_photoFiles'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', (e) => {
           const file = e.target.files?.[0];
@@ -1481,7 +1487,6 @@
           e.target.value = '';
         });
       });
-      document.getElementById('ef2_ical')?.addEventListener('click', () => openCalEfIcalSheet());
 
       let errDismissTimer = null;
       let photoContextNote = '';

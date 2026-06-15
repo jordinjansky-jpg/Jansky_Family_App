@@ -4682,6 +4682,18 @@ label.ef2-icon-btn  { cursor: pointer; }
   flex-shrink: 0;
 }
 
+/* Two-line label for quick-add chooser rows (C12/X7) */
+.ef2-source-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.ef2-source-title { font-size: var(--font-base); color: var(--text); }
+.ef2-source-sub { font-size: var(--font-sm); color: var(--text-muted); }
+.ef2-source-btn:disabled { opacity: 0.45; cursor: default; }
+.ef2-source-btn:disabled:hover { background: transparent; }
+
 /* Repeat sub-sheet header (back + title together) */
 .sheet__header.sheet__header--with-back {
   justify-content: flex-start;
