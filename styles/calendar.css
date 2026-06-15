@@ -313,6 +313,34 @@
   z-index: var(--z-header);
 }
 
+/* C1/C2: collapsible Tasks fold (events-first). Default collapsed; tap to open. */
+.cal-day__tasks-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  padding: var(--spacing-xs) 0;
+}
+.cal-day__tasks-summary::-webkit-details-marker { display: none; }
+.cal-day__tasks-summary::before {
+  content: '';
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s ease;
+}
+.cal-day__tasks-fold[open] .cal-day__tasks-summary::before { transform: rotate(90deg); }
+
 /* Event bubbles */
 /* Person groups in day view */
 .cal-day__person { margin-bottom: var(--spacing-md); }

@@ -563,7 +563,11 @@
 //                     active/linked person (C9); event detail sheet surfaces the
 //                     recurrence rule + "Everyone" attendees (C10); today-cell
 //                     event dots render white so they're visible on the fill (C11).
-const CACHE_NAME = 'family-hub-v358';
+// v359 (2026-06-15) — Calendar coherence (C1/C2): events-first. Day-view time
+//                     grid auto-ranges to actual event hours (no 6am-10pm wall);
+//                     Day + Week day-panel tasks fold into a collapsed "N tasks"
+//                     section so events lead, chores one tap away.
+const CACHE_NAME = 'family-hub-v359';
 
 const APP_SHELL = [
   '/',

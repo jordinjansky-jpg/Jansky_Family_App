@@ -44,8 +44,8 @@ function bucketEventsByDate(events, startKey, endKey) {
  * Build a time-axis grid for the day view: hour labels on the left, hour
  * dividers across, events absolutely positioned by their start/end times.
  *
- * Visible range adapts: clamps to [min(6am, earliest event), max(10pm, latest event)].
- * Returns '' when no timed events to render.
+ * Visible range = the actual event hours ± 1hr of context (C2), so the grid is
+ * tight rather than a fixed 6am–10pm wall. Returns '' when no timed events.
  *
  * @param {Array} timedEvents - [[id, event], ...]
  * @param {Array} people
@@ -62,16 +62,19 @@ function buildTimeAxisGrid(timedEvents, people, todayKey, dateKey) {
     return `${display} ${period}`;
   };
 
-  let minMin = 6 * 60;
-  let maxMin = 22 * 60;
+  // C2: range the grid to the hours that actually have events (with 1hr of
+  // context above/below), rather than a fixed 6am–10pm floor — so a single 9am
+  // event doesn't render a wall of empty hours that buries the day's tasks.
+  let minMin = 24 * 60;
+  let maxMin = 0;
   for (const [, evt] of timedEvents) {
     const s = toMin(evt.startTime);
     const e = evt.endTime ? toMin(evt.endTime) : s + 30;
-    if (s < minMin) minMin = Math.max(0, Math.floor(s / 60) * 60);
-    if (e > maxMin) maxMin = Math.min(24 * 60, Math.ceil(e / 60) * 60);
+    if (s < minMin) minMin = s;
+    if (e > maxMin) maxMin = e;
   }
-  const startHour = Math.floor(minMin / 60);
-  const endHour = Math.ceil(maxMin / 60);
+  const startHour = Math.max(0, Math.floor(minMin / 60) - 1);
+  const endHour = Math.min(24, Math.ceil(maxMin / 60) + 1);
   const totalMin = (endHour - startHour) * 60;
   const PX_PER_MIN = 0.9; // 54px per hour
   const gridHeight = totalMin * PX_PER_MIN;
@@ -344,6 +347,14 @@ function renderWeekDayPanel({ dateKey, today, dayEvents: rawDayEvents, allSchedu
     }
   }
 
+  // C1: events-first — fold the week day-panel's tasks into a collapsed section
+  // so events lead (matches the Day view).
+  if (tasksHtml) {
+    const _wpTaskN = Object.keys(filteredEntries).length;
+    tasksHtml = `<details class="cal-day__tasks-fold cal-wstrip-panel__tasks-fold">
+      <summary class="cal-day__tasks-summary cal-wstrip-panel__tasks-summary">${_wpTaskN} ${_wpTaskN === 1 ? 'task' : 'tasks'}</summary>${tasksHtml}</details>`;
+  }
+
   const hasContent = sortedEvents.length > 0 || Object.keys(filteredEntries).length > 0;
   const emptyHtml = !hasContent ? `<div class="cal-wstrip-panel__empty">No events on this day</div>` : '';
 
@@ -398,9 +409,12 @@ export function renderDayView(opts) {
   );
 
   let tasksHtml = '';
-  if (Object.keys(filteredEntries).length > 0) {
-    tasksHtml += `<div class="cal-day__section">
-      <div class="cal-day__section-header cal-day__section-header--sticky">Tasks</div>`;
+  const taskCount = Object.keys(filteredEntries).length;
+  if (taskCount > 0) {
+    // C1/C2: the calendar leads with events — the day's tasks fold into a
+    // collapsed section so they don't dominate; one tap expands them.
+    tasksHtml += `<details class="cal-day__section cal-day__tasks-fold">
+      <summary class="cal-day__section-header cal-day__tasks-summary">${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}</summary>`;
 
     // DESIGN.md §6.2: Events → Monthly → Weekly → One-Time → Daily.
     // Events are rendered in their own section above; here we render the 4
@@ -471,7 +485,7 @@ export function renderDayView(opts) {
       tasksHtml += `</div>`;
     }
 
-    tasksHtml += `</div>`;
+    tasksHtml += `</details>`;
   }
 
   // Meals section — only slots with an assigned meal render; empty slots are silent
