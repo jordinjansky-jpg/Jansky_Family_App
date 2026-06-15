@@ -1510,10 +1510,12 @@ export function renderFormSheetHeader({ title, closeId, saveId = null, deleteId 
   const SAVE_SVG   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
   const DELETE_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
   const deleteBtn = deleteId ? `<button class="ef2-icon-btn rf-delete-btn" id="${esc(deleteId)}" type="button" aria-label="${esc(deleteLabel)}" title="${esc(deleteLabel)}">${DELETE_SVG}</button>` : '';
-  const saveBtn   = saveId   ? `<button class="ef2-icon-btn rf-save-btn" id="${esc(saveId)}" type="button" aria-label="${esc(saveLabel)}" title="${esc(saveLabel)}">${SAVE_SVG}</button>` : '';
+  // No header save button — the footer's primary action is the single save (a
+  // header checkmark + a footer button was a confusing double-save). saveId /
+  // saveLabel are still accepted for back-compat but no longer rendered.
   const closeBtn  = `<button class="ef2-icon-btn" id="${esc(closeId)}" type="button" aria-label="Close">${CLOSE_SVG}</button>`;
-  const actionsHtml = (deleteBtn || saveBtn)
-    ? `<div class="rf-header-actions">${deleteBtn}${saveBtn}${closeBtn}</div>`
+  const actionsHtml = deleteBtn
+    ? `<div class="rf-header-actions">${deleteBtn}${closeBtn}</div>`
     : closeBtn;
   return `<div class="sheet__header">
     <h2 class="sheet__title">${esc(title)}</h2>
@@ -3008,7 +3010,6 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
     <h2 class="sheet__title">${isEdit ? 'Edit Event' : 'New Event'}</h2>
     <div class="rf-header-actions">
       ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="ef2_delete" type="button" aria-label="Delete event" title="Delete event">${DELETE_SVG}</button>` : ''}
-      <button class="ef2-icon-btn rf-save-btn" id="ef2_save" type="button" aria-label="${saveLabel}" title="${saveLabel}"${headerSaveDisabledAttr}>${SAVE_SVG}</button>
       <button class="ef2-icon-btn" id="ef2_close" type="button" aria-label="Close">${CLOSE_SVG}</button>
     </div>
   </div>
@@ -3354,7 +3355,6 @@ export function renderTaskForm({ task = {}, taskId = null, mode = 'create', cate
     <h2 class="sheet__title">${isEdit ? 'Edit Task' : 'New Task'}</h2>
     <div class="rf-header-actions">
       ${isEdit ? `<button class="ef2-icon-btn rf-delete-btn" id="tf_delete" type="button" aria-label="Delete task" title="Delete task">${DELETE_SVG_TF}</button>` : ''}
-      <button class="ef2-icon-btn rf-save-btn" id="tf_save" type="button"${taskId ? ` data-task-id="${taskId}"` : ''} aria-label="${esc(saveLabel)}" title="${esc(saveLabel)}"${headerSaveDisabledAttr}>${SAVE_SVG_TF}</button>
       <button class="ef2-icon-btn" id="tf_close" type="button" aria-label="Close">${CLOSE_SVG_TF}</button>
     </div>
   </div>

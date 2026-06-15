@@ -151,7 +151,7 @@
     document.getElementById('headerMount').innerHTML = renderHeader({
       variant: 'admin',
       title: 'Admin',
-      subtitle: settings?.appName || 'Daily Rundown',
+      subtitle: settings?.appName || 'Family Hub',
     });
     initBottomNav({
       navMount:     document.getElementById('navMount'),
@@ -2472,7 +2472,7 @@
           <div class="admin-settings-section">
             <div class="form-group">
               <label class="form-label">App name</label>
-              <input class="form-input" type="text" id="sf_appName" value="${esc(settings?.appName || 'Daily Rundown')}">
+              <input class="form-input" type="text" id="sf_appName" value="${esc(settings?.appName || 'Family Hub')}">
             </div>
             <div class="form-group mt-xs">
               <label class="form-label">Family name</label>
@@ -2494,7 +2494,7 @@
             </div>
           </div>
           <div class="admin-settings-section">
-            <p class="form-hint">${esc(settings?.appName || 'Daily Rundown')} — ${esc(settings?.familyName || 'Family Task Manager')}</p>
+            <p class="form-hint">${esc(settings?.appName || 'Family Hub')} — ${esc(settings?.familyName || 'Family Task Manager')}</p>
             <p class="form-hint mt-xs">Hosted on Cloudflare Pages · Firebase Realtime Database</p>
           </div>`;
           break;
@@ -4975,7 +4975,7 @@
       for (const id of ['#sf_appName', '#sf_familyName']) {
         main.querySelector(id)?.addEventListener('blur', async () => {
           const updated = buildSettingsUpdate({
-            appName:    main.querySelector('#sf_appName')?.value.trim() || 'Daily Rundown',
+            appName:    main.querySelector('#sf_appName')?.value.trim() || 'Family Hub',
             familyName: main.querySelector('#sf_familyName')?.value.trim() || '',
           });
           await writeSettings(updated); syncSettings(updated);
@@ -5186,7 +5186,7 @@
 
           // Validate it looks like a rundown export
           const hasKnownKeys = ['settings', 'people', 'tasks', 'categories', 'schedule'].some(k => k in data);
-          if (!hasKnownKeys) throw new Error('File does not appear to be a Daily Rundown export');
+          if (!hasKnownKeys) throw new Error('File does not appear to be a Family Hub export');
 
           if (!await showConfirm({ title: 'Overwrite all data?', message: 'This will replace everything with the imported backup.', confirmLabel: 'Overwrite', danger: true })) {
             statusEl.innerHTML = '';

@@ -23,7 +23,7 @@
   <div class="setup-container" id="app">
     <div class="setup-header">
       <div class="setup-header__emoji">📋</div>
-      <h1 class="setup-header__title">Daily Rundown</h1>
+      <h1 class="setup-header__title">Family Hub</h1>
       <p class="setup-header__subtitle">Let's set up your family task manager</p>
     </div>
 
@@ -32,11 +32,11 @@
     <!-- Step 1: App Name & Family -->
     <div class="setup-step" id="step-1" data-step="1">
       <h2 class="setup-step__title">Name your app</h2>
-      <p class="setup-step__desc">What should we call your daily rundown?</p>
+      <p class="setup-step__desc">What should we call your app?</p>
       <div class="setup-step__body">
         <div class="form-group">
           <label class="form-label" for="appName">App Name</label>
-          <input type="text" id="appName" value="Daily Rundown" placeholder="Daily Rundown">
+          <input type="text" id="appName" value="Family Hub" placeholder="Family Hub">
         </div>
         <div class="form-group">
           <label class="form-label" for="familyName">Family / Group Name</label>
@@ -57,7 +57,7 @@
     <!-- Step 2: People -->
     <div class="setup-step" id="step-2" data-step="2">
       <h2 class="setup-step__title">Add your family</h2>
-      <p class="setup-step__desc">Who will be using Daily Rundown?</p>
+      <p class="setup-step__desc">Who will be using Family Hub?</p>
       <div class="setup-step__body">
         <div class="people-list" id="peopleList"></div>
         <div class="add-person-form" id="addPersonForm">
@@ -154,7 +154,7 @@
         <div class="finish-screen__emoji">🎉</div>
         <h2 class="setup-step__title">You're all set!</h2>
         <div class="finish-screen__summary" id="finishSummary"></div>
-        <button class="btn btn--primary btn--full" onclick="finishSetup()" id="finishBtn">Launch Daily Rundown</button>
+        <button class="btn btn--primary btn--full" onclick="finishSetup()" id="finishBtn">Launch Family Hub</button>
       </div>
     </div>
   </div>
@@ -516,7 +516,7 @@
 
     // --- Finish ---
     function renderFinishSummary() {
-      const appName = document.getElementById('appName').value.trim() || 'Daily Rundown';
+      const appName = document.getElementById('appName').value.trim() || 'Family Hub';
       const familyName = document.getElementById('familyName').value.trim();
       const adults = people.filter(p => p.role === 'adult').length;
       const kids = people.filter(p => p.role === 'child').length;
@@ -535,7 +535,7 @@
       btn.textContent = 'Setting up...';
 
       try {
-        const appName = document.getElementById('appName').value.trim() || 'Daily Rundown';
+        const appName = document.getElementById('appName').value.trim() || 'Family Hub';
         const familyName = document.getElementById('familyName').value.trim();
         const timezone = document.getElementById('timezone').value;
 

@@ -1954,6 +1954,7 @@
       overlay?.addEventListener('click', (e) => {
         if (e.target === overlay) closeTaskSheet();
       });
+      bindEscapeToClose(overlay, closeTaskSheet); // C6: Escape closes it too (matches the form sheets)
 
       document.getElementById('eventEdit')?.addEventListener('click', () => {
         closeTaskSheet();

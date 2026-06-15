@@ -137,7 +137,7 @@ let renderPending = false; // set when render() is called while a prior render i
 let pendingApprovalCount = 0; // unseen redemption-request / use-request across all family inboxes; drives the "approvals" banner
 
 // ── Person link title (uses app name from Firebase settings) ──
-if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Daily Rundown'}`;
+if (linkedPerson) document.title = `${esc(linkedPerson.name)}'s ${settings?.appName || 'Family Hub'}`;
 
 // ── Header & Nav ──
 // Bottom nav (and its shared More/Customize sheet) is mounted by initBottomNav below.
