@@ -1570,14 +1570,98 @@ export function bindDateInput({ btnId, inputId, labelId, format, onChange }) {
   const label = document.getElementById(labelId);
   if (!btn || !input || !label) return;
   btn.addEventListener('click', () => {
-    if (typeof input.showPicker === 'function') {
-      try { input.showPicker(); return; } catch (_) { /* fall through */ }
-    }
-    input.focus();
+    // C3/C4: open the custom Monday-first sub-sheet instead of the native OS
+    // picker (which is top-anchored + locale-week-start). The hidden input is
+    // still the value source — set it + fire change so this handler's own
+    // change listener runs.
+    openDatePicker({
+      value: input.value,
+      min: input.min || '',
+      max: input.max || '',
+      onPick: (iso) => { input.value = iso; input.dispatchEvent(new Event('change', { bubbles: true })); },
+    });
   });
   input.addEventListener('change', () => {
     label.textContent = format(input.value);
     if (typeof onChange === 'function') onChange(input.value);
+  });
+}
+
+// ── Custom date picker (C3/C4) ────────────────────────────────────────────
+// A Monday-first calendar sub-sheet that replaces the native OS date pickers
+// (which are top-anchored and locale-week-start, violating "week = Monday").
+// Self-contained: an overlay appended to <body> that calls onPick(isoDate).
+const DP_DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const DP_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const dpPad = (n) => String(n).padStart(2, '0');
+function dpTodayIso() { const d = new Date(); return `${d.getFullYear()}-${dpPad(d.getMonth() + 1)}-${dpPad(d.getDate())}`; }
+
+function dpRenderCard({ year, month, selected, min, max, today, weekStartDay, title }) {
+  const headers = Array.from({ length: 7 }, (_, i) => DP_DOW[(weekStartDay + i) % 7]);
+  const first = new Date(year, month, 1);
+  const lead = (first.getDay() - weekStartDay + 7) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let cells = '';
+  for (let i = 0; i < lead; i++) cells += `<span class="dp-day dp-day--blank"></span>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${year}-${dpPad(month + 1)}-${dpPad(d)}`;
+    const disabled = (min && iso < min) || (max && iso > max);
+    const cls = ['dp-day'];
+    if (iso === selected) cls.push('dp-day--selected');
+    if (iso === today) cls.push('dp-day--today');
+    cells += `<button type="button" class="${cls.join(' ')}" data-dp-iso="${iso}"${disabled ? ' disabled' : ''}>${d}</button>`;
+  }
+  return `<div class="dp-card" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="dp-head">
+      <button type="button" class="dp-nav" data-dp-prev aria-label="Previous month">&lsaquo;</button>
+      <span class="dp-month">${DP_MONTHS[month]} ${year}</span>
+      <button type="button" class="dp-nav" data-dp-next aria-label="Next month">&rsaquo;</button>
+    </div>
+    <div class="dp-weekdays">${headers.map(h => `<span>${esc(h)}</span>`).join('')}</div>
+    <div class="dp-grid">${cells}</div>
+    <div class="dp-foot">
+      <button type="button" class="btn btn--ghost btn--sm" data-dp-cancel>Cancel</button>
+      <button type="button" class="btn btn--ghost btn--sm" data-dp-today>Today</button>
+    </div>
+  </div>`;
+}
+
+export function openDatePicker({ value = '', min = '', max = '', weekStartDay = 1, today = '', title = 'Select date', onPick } = {}) {
+  document.getElementById('dpOverlay')?.remove();
+  const todayIso = today || dpTodayIso();
+  const start = (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) ? value : todayIso;
+  const selected = (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) ? value : '';
+  let [year, m] = start.split('-').map(Number);
+  let month = m - 1;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'dpOverlay';
+  overlay.className = 'dp-overlay';
+
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  function close() {
+    overlay.classList.remove('active');
+    document.removeEventListener('keydown', onKey);
+    setTimeout(() => overlay.remove(), 180);
+  }
+  const draw = () => {
+    overlay.querySelector('.dp-card')?.remove();
+    overlay.insertAdjacentHTML('beforeend', dpRenderCard({ year, month, selected, min, max, today: todayIso, weekStartDay, title }));
+  };
+
+  draw();
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('active'));
+  document.addEventListener('keydown', onKey);
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { close(); return; }
+    if (e.target.closest('[data-dp-prev]')) { if (--month < 0) { month = 11; year--; } draw(); return; }
+    if (e.target.closest('[data-dp-next]')) { if (++month > 11) { month = 0; year++; } draw(); return; }
+    if (e.target.closest('[data-dp-cancel]')) { close(); return; }
+    if (e.target.closest('[data-dp-today]')) { onPick?.(todayIso); close(); return; }
+    const day = e.target.closest('[data-dp-iso]');
+    if (day && !day.disabled) { onPick?.(day.dataset.dpIso); close(); }
   });
 }
 
@@ -1839,8 +1923,10 @@ export function openRepeatSubsheet({ mount, currentRule, onDone, onCancel, close
   mount.querySelector('#rptEndDateBtn')?.addEventListener('click', () => {
     const input = mount.querySelector('#rptEndDate');
     if (!input) return;
-    if (typeof input.showPicker === 'function') input.showPicker();
-    else input.focus();
+    openDatePicker({
+      value: input.value || '', min: input.min || '', title: 'Repeat ends',
+      onPick: (iso) => { input.value = iso; input.dispatchEvent(new Event('change', { bubbles: true })); },
+    });
   });
   mount.querySelector('#rptEndDate')?.addEventListener('change', (e) => {
     const label = mount.querySelector('#rptEndDateLabel');

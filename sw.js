@@ -570,7 +570,12 @@
 // v360 (2026-06-15) — C14: Customize -> Calendar section (default view + "show
 //                     tasks on calendar" toggle). Show-tasks hides the task fold
 //                     on Day/Week live; default view opens the calendar to it.
-const CACHE_NAME = 'family-hub-v360';
+// v361 (2026-06-15) — C3/C4: custom Monday-first date picker (openDatePicker).
+//                     Replaces the native OS pickers (top-anchored + Sunday-first)
+//                     across all calendar date pills + the shared repeat end-date
+//                     + bindDateInput (fs-form date inputs). Themed sub-sheet,
+//                     month nav, min/max day disabling.
+const CACHE_NAME = 'family-hub-v361';
 
 const APP_SHELL = [
   '/',

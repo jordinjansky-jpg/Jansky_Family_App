@@ -5073,6 +5073,55 @@ label.ef2-icon-btn  { cursor: pointer; }
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
+/* C3/C4: custom Monday-first date picker (replaces native OS date pickers). */
+.dp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.dp-overlay.active { opacity: 1; }
+.dp-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg, 0 12px 40px rgba(0, 0, 0, 0.4));
+  padding: var(--spacing-md);
+}
+.dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--spacing-sm); }
+.dp-month { font-weight: 700; font-size: var(--font-md); color: var(--text); }
+.dp-nav {
+  width: 36px; height: 36px; flex: none;
+  border: none; border-radius: var(--radius-md);
+  background: var(--surface-2); color: var(--text);
+  font-size: 20px; line-height: 1; cursor: pointer;
+}
+.dp-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+.dp-weekdays span { text-align: center; font-size: 10.5px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-day {
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--text); font-size: var(--font-sm); cursor: pointer;
+}
+.dp-day--blank { visibility: hidden; pointer-events: none; }
+.dp-day:hover:not(:disabled) { background: var(--surface-2); }
+.dp-day--today { color: var(--accent); font-weight: 800; }
+.dp-day--selected { background: var(--accent); color: #fff; font-weight: 700; }
+.dp-day--selected.dp-day--today { color: #fff; }
+.dp-day:disabled { color: var(--text-faint); opacity: 0.35; cursor: default; }
+.dp-foot { display: flex; justify-content: space-between; margin-top: var(--spacing-sm); }
+
 /* Options reveal */
 .tf-options-inner { padding: var(--spacing-xs) 0; }
 .tf-options-row {
