@@ -100,7 +100,7 @@
     let weekStartDay = calPrefs.weekStartDay ?? calDefaults.weekStartDay ?? 0;
     let density = calPrefs.density || calDefaults.density || 'snug';
     let monthCompact = calPrefs.monthCompact ?? calDefaults.monthCompact ?? true;
-    const defaultView = calPrefs.lastView || calPrefs.defaultView || calDefaults.defaultView || 'agenda';
+    const defaultView = calPrefs.defaultView || calPrefs.lastView || calDefaults.defaultView || 'agenda';
 
     // ── Person link mode ──
     const personParam = new URLSearchParams(window.location.search).get('person');
@@ -267,11 +267,14 @@
       let html = renderCalendarNav({ currentView, viewLabel: navLabel, isCurrentPeriod, weekStartDay, controlsHtml, subtitle: navSubtitle, titleDateValue, navMode });
 
       html += `<div class="${enterCls} ${density === 'cozy' ? 'cal-density--cozy' : ''}">`;
+      // C14: "Show tasks on calendar" — re-read live so the Customize toggle
+      // applies on the next render (calPrefs is loaded once at boot).
+      const showTasks = (() => { try { return JSON.parse(localStorage.getItem('dr-cal-prefs') || '{}').showTasks !== false; } catch { return true; } })();
       if (currentView === 'day') {
         html += renderDayView({
           dateKey: viewDay, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings,
           dayMeals: allMeals[viewDay] || {},
-          recipes
+          recipes, showTasks
         });
       } else if (currentView === 'agenda') {
         html += renderAgendaView({ today, events, people, activePerson });
@@ -279,7 +282,7 @@
         html += renderWeekStripView({
           weekStartDate: viewWeekStart, today, selectedDate: weekSelectedDate,
           events, allSchedule, completions, tasks, cats, people, activePerson, settings,
-          dayMeals: allMeals, recipes
+          dayMeals: allMeals, recipes, showTasks
         });
       } else {
         html += renderMonthView({

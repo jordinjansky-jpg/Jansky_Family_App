@@ -164,7 +164,7 @@ function buildTimeAxisGrid(timedEvents, people, todayKey, dateKey) {
  * @param {object} opts.recipes
  */
 export function renderWeekStripView(opts) {
-  const { weekStartDate, today, selectedDate, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {} } = opts;
+  const { weekStartDate, today, selectedDate, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {}, showTasks = true } = opts;
   const days = dateRange(weekStartDate, addDays(weekStartDate, 6));
   const activeDay = selectedDate || today;
 
@@ -211,7 +211,7 @@ export function renderWeekStripView(opts) {
   const panelEvents = (activeDay >= days[0] && activeDay <= days[6])
     ? (eventsByDate.get(activeDay) || {})
     : getEventsForDate(events, activeDay, addDays);
-  const panel = renderWeekDayPanel({ dateKey: activeDay, today, dayEvents: panelEvents, allSchedule, completions, tasks, cats, people, activePerson });
+  const panel = renderWeekDayPanel({ dateKey: activeDay, today, dayEvents: panelEvents, allSchedule, completions, tasks, cats, people, activePerson, showTasks });
 
   return `<div class="cal-wstrip-view">
     ${strip}
@@ -224,7 +224,7 @@ export function renderWeekStripView(opts) {
  * Shows all-day events as pills, timed events in a time-axis grid, tasks grouped by type.
  * `dayEvents` is the pre-expanded `{ id: event }` bucket for this day.
  */
-function renderWeekDayPanel({ dateKey, today, dayEvents: rawDayEvents, allSchedule, completions, tasks, cats, people, activePerson }) {
+function renderWeekDayPanel({ dateKey, today, dayEvents: rawDayEvents, allSchedule, completions, tasks, cats, people, activePerson, showTasks = true }) {
   const d = new Date(`${dateKey}T00:00:00Z`);
   const dayName = DAY_NAMES_FULL[d.getUTCDay()];
   const monthName = MONTH_NAMES[d.getUTCMonth()];
@@ -290,7 +290,7 @@ function renderWeekDayPanel({ dateKey, today, dayEvents: rawDayEvents, allSchedu
   );
 
   let tasksHtml = '';
-  if (Object.keys(filteredEntries).length > 0) {
+  if (showTasks && Object.keys(filteredEntries).length > 0) {
     const groups = groupByFrequency(filteredEntries, tasks, cats);
     const groupOrder = [
       { key: 'monthly', label: 'Monthly' },
@@ -372,7 +372,7 @@ function renderWeekDayPanel({ dateKey, today, dayEvents: rawDayEvents, allSchedu
  * Render the day view.
  */
 export function renderDayView(opts) {
-  const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {} } = opts;
+  const { dateKey, today, events, allSchedule, completions, tasks, cats, people, activePerson, settings, dayMeals = {}, recipes = {}, showTasks = true } = opts;
 
   // Events section
   let dayEvents = getEventsForDate(events, dateKey, addDays);
@@ -410,7 +410,7 @@ export function renderDayView(opts) {
 
   let tasksHtml = '';
   const taskCount = Object.keys(filteredEntries).length;
-  if (taskCount > 0) {
+  if (showTasks && taskCount > 0) {
     // C1/C2: the calendar leads with events — the day's tasks fold into a
     // collapsed section so they don't dominate; one tap expands them.
     tasksHtml += `<details class="cal-day__section cal-day__tasks-fold">

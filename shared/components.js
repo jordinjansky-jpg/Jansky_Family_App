@@ -3461,6 +3461,51 @@ export function renderOfflineBanner(message) {
   </div>`;
 }
 
+// ── Calendar Customize section (C14) ──────────────────────────────────────
+// Device-local prefs, shared with calendar.html's `dr-cal-prefs` localStorage.
+// Shown when currentPage === 'calendar'. Bind via bindCalendarCustomizeSection.
+function readCalPrefsLS() {
+  try { return JSON.parse(localStorage.getItem('dr-cal-prefs') || '{}'); } catch { return {}; }
+}
+function writeCalPrefsLS(patch) {
+  try { localStorage.setItem('dr-cal-prefs', JSON.stringify({ ...readCalPrefsLS(), ...patch })); } catch { /* blocked */ }
+}
+function renderCalendarCustomizeSection() {
+  const prefs = readCalPrefsLS();
+  const showTasks = prefs.showTasks !== false; // default on
+  const defView = prefs.defaultView || '';
+  const views = [['', 'Last used'], ['agenda', 'Agenda'], ['week', 'Week'], ['month', 'Month'], ['day', 'Day']];
+  return `<div class="dt-section dt-section--page">
+    <label class="form-label">Calendar</label>
+    <p class="form-hint mt-xs">Settings that only apply to this page (this device).</p>
+    <div class="form-group mt-sm">
+      <label class="form-label form-label--sub">Default view</label>
+      <div class="dt-themes" id="dt_calDefaultView">
+        ${views.map(([v, l]) => `<button class="dt-theme-btn${defView === v ? ' dt-theme-btn--active' : ''}" data-cal-view="${esc(v)}" type="button">${esc(l)}</button>`).join('')}
+      </div>
+    </div>
+    <div class="dt-toggle-row mt-md">
+      <span class="dt-toggle-row__label">Show tasks on calendar</span>
+      <label class="form-toggle"><input type="checkbox" id="dt_calShowTasks"${showTasks ? ' checked' : ''}><span class="form-toggle__track"></span></label>
+    </div>
+    <p class="form-hint mt-xs">Off makes it a pure event calendar — tasks still live on the Dashboard.</p>
+  </div>`;
+}
+function bindCalendarCustomizeSection(mountEl, onApply) {
+  const refire = () => onApply?.();
+  mountEl.querySelector('#dt_calDefaultView')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.dt-theme-btn');
+    if (!btn) return;
+    mountEl.querySelectorAll('#dt_calDefaultView .dt-theme-btn').forEach(b => b.classList.toggle('dt-theme-btn--active', b === btn));
+    writeCalPrefsLS({ defaultView: btn.dataset.calView || '' });
+    refire();
+  });
+  mountEl.querySelector('#dt_calShowTasks')?.addEventListener('change', (e) => {
+    writeCalPrefsLS({ showTasks: e.target.checked });
+    refire();
+  });
+}
+
 // initOwnerChips / getSelectedOwners moved to ./dom-helpers.js
 // (components.js stays pure — no DOM access)
 
@@ -3622,6 +3667,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     ${!familyOpts && currentPage === 'kitchen' ? renderKitchenCustomizeSection(personOpts) : ''}
     ${!familyOpts && currentPage === 'rewards' ? renderRewardsCustomizeSection(personOpts) : ''}
     ${!familyOpts && currentPage === 'scoreboard' ? renderScoreboardCustomizeSection(personOpts) : ''}
+    ${!familyOpts && currentPage === 'calendar' ? renderCalendarCustomizeSection() : ''}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>
@@ -3635,6 +3681,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
   if (currentPage === 'kitchen') bindKitchenCustomizeSection(mountEl, personOpts, onApply);
   if (currentPage === 'rewards') bindRewardsCustomizeSection(mountEl, personOpts, onApply);
   if (currentPage === 'scoreboard') bindScoreboardCustomizeSection(mountEl, personOpts, onApply);
+  if (currentPage === 'calendar') bindCalendarCustomizeSection(mountEl, onApply);
 
   requestAnimationFrame(() => {
     const overlay = document.getElementById('bottomSheet');

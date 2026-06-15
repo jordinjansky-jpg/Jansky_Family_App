@@ -567,7 +567,10 @@
 //                     grid auto-ranges to actual event hours (no 6am-10pm wall);
 //                     Day + Week day-panel tasks fold into a collapsed "N tasks"
 //                     section so events lead, chores one tap away.
-const CACHE_NAME = 'family-hub-v359';
+// v360 (2026-06-15) — C14: Customize -> Calendar section (default view + "show
+//                     tasks on calendar" toggle). Show-tasks hides the task fold
+//                     on Day/Week live; default view opens the calendar to it.
+const CACHE_NAME = 'family-hub-v360';
 
 const APP_SHELL = [
   '/',
