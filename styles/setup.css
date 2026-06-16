@@ -22,6 +22,14 @@ body {
   font-size: 3rem;
   margin-bottom: var(--spacing-sm);
 }
+/* SU5: themed clipboard-check SVG hero (replaces the clipboard emoji). */
+.setup-header__emoji svg {
+  width: 3rem;
+  height: 3rem;
+  color: var(--accent);
+  display: inline-block;
+  vertical-align: middle;
+}
 
 .setup-header__title {
   font-size: var(--font-xl);

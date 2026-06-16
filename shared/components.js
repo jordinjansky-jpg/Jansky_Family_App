@@ -2574,9 +2574,15 @@ export function renderRewardCard(reward, balance, opts = {}) {
   const dimClass = canGet || !showGet ? '' : ' card--dim';
   const densityClass = density === 'compact' ? ' card--reward--compact' : '';
   const iconBg = reward.iconColor ? ` data-bg-color="${esc(reward.iconColor)}"` : '';
+  // RW3: built-in/system rewards get themed SVG icons to match the app chrome;
+  // user-created rewards keep their chosen emoji (that's user content).
+  const SKIP_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>`;
+  const SHIELD_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`;
+  const systemIcon = reward.rewardType === 'task-skip' ? SKIP_SVG
+    : reward.rewardType === 'penalty-removal' ? SHIELD_SVG : null;
   return `<div class="card card--reward${dimClass}${densityClass}" data-reward-id="${esc(reward.id)}">
     <div class="card__leading">
-      <span class="icon-tile"${iconBg}>${esc(reward.icon || '🎁')}</span>
+      <span class="icon-tile"${iconBg}>${systemIcon || esc(reward.icon || '🎁')}</span>
     </div>
     <div class="card__body">
       <div class="card__title">${esc(reward.name)}</div>

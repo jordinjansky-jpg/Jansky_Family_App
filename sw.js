@@ -610,7 +610,11 @@
 //                     AD4 (Admin keeps the device/person theme instead of flipping
 //                     to family-light); AD3 (PIN hint shows the real recovery PIN);
 //                     SU4 (setup PIN step mentions the recovery PIN).
-const CACHE_NAME = 'family-hub-v368';
+// v369 (2026-06-15) — Emoji-in-chrome (selective): SU5 setup hero clipboard emoji
+//                     → themed SVG; RW3 built-in reward icons (Task Skip, Remove
+//                     Penalty) → SVG. User-created reward emoji + celebratory
+//                     achievement/empty-state emoji are kept by design.
+const CACHE_NAME = 'family-hub-v369';
 
 const APP_SHELL = [
   '/',
