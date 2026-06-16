@@ -395,6 +395,11 @@
       }
 
       const periodLabelMap = { today: 'today', week: 'this week', month: 'this month', year: 'this year' };
+      // SB4 follow-up: Today/Week/Month are the *current, in-progress* period —
+      // a freshly-started week at 0% shouldn't read as a punitive "F" any more
+      // than Today does. Show progress (%) for these; keep the letter grade only
+      // for Year (a long, mostly-elapsed retrospective window).
+      const isLivePeriod = (p) => p === 'today' || p === 'week' || p === 'month';
       const trendArrowFamily = (dir) => {
         if (!dir) return '';
         const points = dir === 'up'
@@ -405,9 +410,9 @@
 
       const customPrefsForBanner = readScoreboardCustomize(linkedPerson ? { person: linkedPerson } : null);
       if (familyGd && customPrefsForBanner.showFamilyBanner) {
-        // Tone: Today is live — show a neutral % instead of a punitive "Family F".
-        // Retrospective periods (week/month/year) keep the letter grade + color.
-        const bannerChip = selectedPeriod === 'today'
+        // Tone: live in-progress periods (today/week/month) show a neutral % instead
+        // of a punitive "Family F"; Year keeps the letter grade + color.
+        const bannerChip = isLivePeriod(selectedPeriod)
           ? `<span class="sb-family-banner__grade grade-badge grade-badge--neutral grade-badge--sm">${esc(familyAgg.percentage)}%</span>`
           : `<span class="sb-family-banner__grade grade-badge grade-badge--${esc(familyGd.tier)} grade-badge--sm">${esc(familyGd.grade)}</span>`;
         html += `<div class="sb-family-banner">
@@ -439,7 +444,7 @@
         const active = b[effectivePeriod];
         const gd = gradeDisplay(active.percentage);
         const hint = effectivePeriod === 'today' ? tasksToNextGrade(b.person.id) : null;
-        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank, hint, cardCustomPrefs.cardShow, effectivePeriod === 'today');
+        html += renderScoreCard(b, active, gd, b.liveBalance, b.badgeIcons, b.rank, hint, cardCustomPrefs.cardShow, isLivePeriod(effectivePeriod));
       }
       html += `</div>`;
 

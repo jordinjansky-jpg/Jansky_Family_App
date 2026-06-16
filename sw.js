@@ -604,7 +604,13 @@
 //                     only while a reward is still out of reach. When affordable
 //                     the bar is hidden (the green cost chip already signals it),
 //                     instead of a meaningless full bar on every card.
-const CACHE_NAME = 'family-hub-v367';
+// v368 (2026-06-15) — Quick polish batch: SB4-followup (scoreboard today/week/month
+//                     show progress % not a punitive live "F"; Year keeps grades);
+//                     K4 (image-less recipe → warm accent-tinted initial tile);
+//                     AD4 (Admin keeps the device/person theme instead of flipping
+//                     to family-light); AD3 (PIN hint shows the real recovery PIN);
+//                     SU4 (setup PIN step mentions the recovery PIN).
+const CACHE_NAME = 'family-hub-v368';
 
 const APP_SHELL = [
   '/',

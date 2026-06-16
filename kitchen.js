@@ -562,14 +562,18 @@ async function renderMealsTab() {
 function renderRecipesTab() {
   function buildRecipeCardThumb(recipe, id) {
     const cardThumb = recipe?.thumbUrl || recipe?.imageUrl; // thumbUrl preferred; imageUrl = un-migrated fallback
+    // K4: a warm accent-tinted tile with the recipe's initial reads as "styled,"
+    // not "missing" — replaces the cold grey fork/knife placeholder. (First
+    // alphanumeric char only, so it's always safe inside the onerror string.)
+    const initial = ((recipe?.name || '').trim().match(/[a-z0-9]/i)?.[0] || '?').toUpperCase();
     if (cardThumb) {
-      // onerror: swap visual to placeholder + trigger background self-heal.
+      // onerror: swap visual to the initial placeholder + trigger background self-heal.
       // (window.__krImgError lives at module scope; defensive in case the
       // page somehow renders before the module evaluates.)
-      const onErr = `(window.__krImgError&&window.__krImgError('${esc(id)}'));this.outerHTML='&lt;span class=&quot;rl-card-thumb rl-card-thumb--placeholder&quot; aria-hidden=&quot;true&quot;&gt;\\ud83c\\udf74&lt;/span&gt;'`;
+      const onErr = `(window.__krImgError&&window.__krImgError('${esc(id)}'));this.outerHTML='&lt;span class=&quot;rl-card-thumb rl-card-thumb--placeholder&quot; aria-hidden=&quot;true&quot;&gt;${esc(initial)}&lt;/span&gt;'`;
       return `<img class="rl-card-thumb" src="${esc(cardThumb)}" alt="" loading="lazy" onerror="${onErr}">`;
     }
-    return `<span class="rl-card-thumb rl-card-thumb--placeholder" aria-hidden="true">🍴</span>`;
+    return `<span class="rl-card-thumb rl-card-thumb--placeholder" aria-hidden="true">${esc(initial)}</span>`;
   }
 
   function buildRecipeCardChips(recipe) {

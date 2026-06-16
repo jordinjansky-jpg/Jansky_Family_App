@@ -81,7 +81,7 @@
     import { parseIcs, mapEventsToPlan } from './shared/kitchen-ical.js';
     import { renderNavBar, initNavMore, initBottomNav, renderHeader, renderEmptyState, renderTaskForm, renderBottomSheet, initOfflineBanner, showConfirm, applyDataColors, showToast, renderColorButton, initColorButton, renderEventForm, renderEmojiPicker, bindEmojiPicker, renderFormFooter, openRepeatSubsheet, renderDateInput, bindDateInput, renderPersonAvatar, openAvatarEditor, renderFormSheetHeader, renderChipPicker, bindChipPicker, renderSwitchToggle, openDatePicker } from './shared/components.js';
 
-    import { applyTheme, getPresets, getColorPalette, resolveTheme, applyTextSize, applyTaskDisplayPrefs, applyCategoryIconTone } from './shared/theme.js';
+    import { applyTheme, getPresets, getColorPalette, resolveTheme, loadDeviceTheme, loadCachedTheme, applyTextSize, applyTaskDisplayPrefs, applyCategoryIconTone } from './shared/theme.js';
     import { renderCategoryIcon, renderCategoryIconPicker, bindCategoryIconPicker, effectiveIconKey } from './shared/category-icons.js';
     import { normalizeTaskGrouping } from './shared/state.js';
     import { todayKey, addDays, formatDateShort, getTimezoneOptions, dayOfWeek, escapeHtml, parseIntOr, parseFloatOr } from './shared/utils.js';
@@ -113,7 +113,11 @@
     // settings is mutated in place (via syncSettings) so closures like initNavMore
     // familyOpts always see the current values. Reassigning would orphan them.
     let settings = await readSettings() || {};
-    if (settings?.theme) applyTheme(resolveTheme(settings.theme));
+    // AD4: keep the theme already applied on this device (a device override, or the
+    // last-applied cache — e.g. the personal theme of the page the gear was tapped
+    // from). Only fall back to the family theme on a fresh device with no local
+    // preference, so opening Admin doesn't flip a themed person to family-light.
+    if (settings?.theme && !loadDeviceTheme() && !loadCachedTheme()) applyTheme(resolveTheme(settings.theme));
     applyTextSize(settings?.textSize || 'default');
     applyCategoryIconTone(settings?.categoryIconTone);
 
@@ -2474,7 +2478,7 @@
             <div class="form-group">
               <label class="form-label">Admin PIN</label>
               <input class="form-input admin-pin-input" type="tel" id="sf_newPin" maxlength="4" inputmode="numeric" placeholder="Enter new 4-digit PIN">
-              <p class="form-hint">Leave blank to keep current PIN. Recovery PIN is always 2522.</p>
+              <p class="form-hint">Leave blank to keep current PIN. Recovery PIN: ${settings?.recoveryPin || '2522'}.</p>
               <p id="sf_pinError" class="form-hint form-hint--error" hidden>PIN must be exactly 4 digits.</p>
             </div>
           </div>

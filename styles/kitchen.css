@@ -200,7 +200,12 @@
 }
 
 .rl-card-thumb--placeholder {
-  /* surface-2 + 🍴 centered — inherited from .rl-card-thumb */
+  /* K4: warm accent-tinted tile + the recipe's initial (reads as styled). */
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 22px;
+  text-transform: uppercase;
 }
 
 .rl-card-body {
