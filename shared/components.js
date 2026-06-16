@@ -965,7 +965,7 @@ function renderKitchenCustomizeSection(personOpts) {
     <label class="form-label">Kitchen</label>
     <p class="form-hint mt-xs">Settings that only apply to this page.</p>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Kitchen tabs</span>${chev}
       </summary>
@@ -977,7 +977,7 @@ function renderKitchenCustomizeSection(personOpts) {
       `).join('')}
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Meals tab</span>${chev}
       </summary>
@@ -998,7 +998,7 @@ function renderKitchenCustomizeSection(personOpts) {
       </div>
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Recipes tab</span>${chev}
       </summary>
@@ -1086,7 +1086,7 @@ function renderRewardsCustomizeSection(personOpts) {
     <label class="form-label">Rewards</label>
     <p class="form-hint mt-xs">Settings that only apply to this page.</p>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Rewards tabs</span>${chev}
       </summary>
@@ -1103,7 +1103,7 @@ function renderRewardsCustomizeSection(personOpts) {
       `).join('')}
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Shop tab</span>${chev}
       </summary>
@@ -1122,7 +1122,7 @@ function renderRewardsCustomizeSection(personOpts) {
       </div>
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Show on reward cards</span>${chev}
       </summary>
@@ -1139,7 +1139,7 @@ function renderRewardsCustomizeSection(personOpts) {
       `).join('')}
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Family banner</span>${chev}
       </summary>
@@ -1206,7 +1206,7 @@ function renderScoreboardCustomizeSection(personOpts) {
     <label class="form-label">Scoreboard</label>
     <p class="form-hint mt-xs">Settings that only apply to this page.</p>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Default period</span>${chev}
       </summary>
@@ -1216,7 +1216,7 @@ function renderScoreboardCustomizeSection(personOpts) {
       <p class="form-hint mt-xs">Which period the leaderboard opens with on page load.</p>
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Show on hero cards</span>${chev}
       </summary>
@@ -1232,7 +1232,7 @@ function renderScoreboardCustomizeSection(personOpts) {
       `).join('')}
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Page sections</span>${chev}
       </summary>
@@ -1246,7 +1246,7 @@ function renderScoreboardCustomizeSection(personOpts) {
       `).join('')}
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Drilldown</span>${chev}
       </summary>
@@ -1263,7 +1263,7 @@ function renderScoreboardCustomizeSection(personOpts) {
       `).join('')}
     </details>
 
-    <details class="dt-collapsible dt-collapsible--nested">
+    <details class="dt-collapsible dt-collapsible--nested" open>
       <summary class="dt-collapsible__summary">
         <span class="form-label form-label--sub">Family banner</span>${chev}
       </summary>
@@ -3788,22 +3788,12 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         </div>
       </div>` : ''}
     </div>
-    ${richExtras && personOpts ? `
-      <details class="dt-section dt-collapsible">
-        <summary class="dt-collapsible__summary">
-          <span class="form-label">Notifications</span>
-          <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-        </summary>
-        <div id="notifMount" data-person-id="${personOpts.person.id}"></div>
-      </details>
-    ` : ''}
-    ${!familyOpts ? renderNavTabsSection(personOpts) : ''}
     ${richExtras && currentPage === 'home' ? `
     <div class="dt-section dt-section--page">
       <label class="form-label">Home</label>
       <p class="form-hint mt-xs">Settings that only apply to this page.</p>
 
-      <details class="dt-collapsible dt-collapsible--nested">
+      <details class="dt-collapsible dt-collapsible--nested" open>
         <summary class="dt-collapsible__summary">
           <span class="form-label form-label--sub">Task cards</span>
           <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
@@ -3814,7 +3804,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         <p class="form-hint mt-xs" id="dt_sectionsNudge"${sectionsNudgeVisible ? '' : ' style="display:none"'}>Tip: Edge or Hidden works great with Grouped/Focus modes.</p>
       </details>
 
-      <details class="dt-collapsible dt-collapsible--nested">
+      <details class="dt-collapsible dt-collapsible--nested" open>
         <summary class="dt-collapsible__summary">
           <span class="form-label form-label--sub">Grouping</span>
           <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
@@ -3827,7 +3817,7 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
         <p class="form-hint mt-xs">Grouped = per-person, with each person's Completed at the end. Focus = per-person, with one shared Completed at the bottom.</p>
       </details>
 
-      <details class="dt-collapsible dt-collapsible--nested">
+      <details class="dt-collapsible dt-collapsible--nested" open>
         <summary class="dt-collapsible__summary">
           <span class="form-label form-label--sub">Show on task cards</span>
           <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
@@ -3850,6 +3840,16 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     ${!familyOpts && currentPage === 'rewards' ? renderRewardsCustomizeSection(personOpts) : ''}
     ${!familyOpts && currentPage === 'scoreboard' ? renderScoreboardCustomizeSection(personOpts) : ''}
     ${!familyOpts && currentPage === 'calendar' ? renderCalendarCustomizeSection() : ''}
+    ${richExtras && personOpts ? `
+      <details class="dt-section dt-collapsible">
+        <summary class="dt-collapsible__summary">
+          <span class="form-label">Notifications</span>
+          <svg class="dt-collapsible__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div id="notifMount" data-person-id="${personOpts.person.id}"></div>
+      </details>
+    ` : ''}
+    ${!familyOpts ? renderNavTabsSection(personOpts) : ''}
     <div class="admin-form__actions mt-md">
       <button class="btn btn--secondary" id="dtClose" type="button">Done</button>
     </div>

@@ -614,7 +614,12 @@
 //                     → themed SVG; RW3 built-in reward icons (Task Skip, Remove
 //                     Penalty) → SVG. User-created reward emoji + celebratory
 //                     achievement/empty-state emoji are kept by design.
-const CACHE_NAME = 'family-hub-v369';
+// v370 (2026-06-16) — D13: per-page Customize controls surfaced. The "This page"
+//                     group is raised to right under Theme (above Notifications/Nav)
+//                     and its accordions (Task cards / Grouping / Show-on-cards,
+//                     and the kitchen/scoreboard/rewards equivalents) are expanded
+//                     by default — no more "expand each." Collapse chevrons kept.
+const CACHE_NAME = 'family-hub-v370';
 
 const APP_SHELL = [
   '/',
