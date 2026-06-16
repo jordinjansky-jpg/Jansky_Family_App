@@ -3748,8 +3748,24 @@ export function openDeviceThemeSheet(mountEl, familyTheme, onApply, personOpts, 
     <div class="dt-section">
       <label class="form-label">Theme</label>
       <div class="dt-themes">
-        <button class="dt-theme-btn${!currentPreset ? ' dt-theme-btn--active' : ''}" data-preset="" type="button">Family Default</button>
-        ${presets.map(p => `<button class="dt-theme-btn${currentPreset === p.key ? ' dt-theme-btn--active' : ''}" data-preset="${p.key}" type="button">${esc(p.label)}</button>`).join('')}
+        <button class="dt-theme-btn dt-theme-btn--sw${!currentPreset ? ' dt-theme-btn--active' : ''}" data-preset="" type="button">
+          <span class="dt-theme-sw dt-theme-sw--auto"><span class="dt-theme-sw__dot" style="background:${esc(currentAccent)}"></span></span>
+          <span class="dt-theme-btn__lbl">Family Default</span>
+        </button>
+        ${presets.map(p => {
+          const sw = p.swatch;
+          // Vivid themes tint the task rows with the accent — show that in the preview (D2/D12).
+          const row = p.coloredCells ? `color-mix(in srgb, ${currentAccent} 32%, ${sw.surface})` : sw.surface2;
+          return `<button class="dt-theme-btn dt-theme-btn--sw${currentPreset === p.key ? ' dt-theme-btn--active' : ''}" data-preset="${esc(p.key)}" type="button">
+          <span class="dt-theme-sw" style="background:${esc(sw.bg)};border-color:${esc(sw.border)}">
+            <span class="dt-theme-sw__card" style="background:${esc(sw.surface)};border-color:${esc(sw.border)}">
+              <span class="dt-theme-sw__row" style="background:${row}"><span class="dt-theme-sw__dot" style="background:${esc(currentAccent)}"></span></span>
+              <span class="dt-theme-sw__row" style="background:${row}"></span>
+            </span>
+          </span>
+          <span class="dt-theme-btn__lbl">${esc(p.label)}</span>
+        </button>`;
+        }).join('')}
       </div>
       ${!richMode ? `
       <div class="form-group mt-sm">

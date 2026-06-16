@@ -595,7 +595,12 @@
 //                     explanation above "Show N used" instead of a floating link);
 //                     K2 (cook mode centers the active step + adds a "Next step"
 //                     peek card to fill the previously-blank lower area).
-const CACHE_NAME = 'family-hub-v365';
+// v366 (2026-06-15) — X4/K3/AD1: shared form-header delete demoted from red to
+//                     muted (danger only on hover/focus). D12/X2/D2: Customize
+//                     theme picker renders live mini-swatches (page bg + sample
+//                     card + accent dot; Vivid themes show tinted rows) instead of
+//                     bare text buttons — getPresets() now exposes swatch colors.
+const CACHE_NAME = 'family-hub-v366';
 
 const APP_SHELL = [
   '/',

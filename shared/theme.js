@@ -128,16 +128,34 @@ for (const _preset of Object.values(PRESETS)) {
 PRESET_VAR_KEYS.add('--fab-ink');
 PRESET_VAR_KEYS.add('--accent-bright');
 
+// Base (Family Default light) values from base.css :root — light presets don't
+// re-declare these in their vars, so swatch previews fall back to them. (D12)
+const SWATCH_LIGHT_DEFAULTS = {
+  '--bg': '#f7f6f2', '--surface': '#ffffff', '--surface-2': '#f2f1ec', '--border': '#e8e4de',
+};
+
 /**
- * Get all available theme presets.
+ * Get all available theme presets. Each entry includes a `swatch` of the
+ * representative colors (page bg, card surface, row, border) so the Customize
+ * theme picker can render a live mini-preview instead of a bare text button (D12).
  */
 export function getPresets() {
-  return Object.entries(PRESETS).map(([key, preset]) => ({
-    key,
-    label: preset.label,
-    mode: preset.mode,
-    coloredCells: !!preset.coloredCells
-  }));
+  return Object.entries(PRESETS).map(([key, preset]) => {
+    const v = preset.vars;
+    const pick = (name) => v[name] || SWATCH_LIGHT_DEFAULTS[name];
+    return {
+      key,
+      label: preset.label,
+      mode: preset.mode,
+      coloredCells: !!preset.coloredCells,
+      swatch: {
+        bg: pick('--bg'),
+        surface: pick('--surface'),
+        surface2: pick('--surface-2'),
+        border: pick('--border'),
+      },
+    };
+  });
 }
 
 function _getAccentInkColor(hex) {

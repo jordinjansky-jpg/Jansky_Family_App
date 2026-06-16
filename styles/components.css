@@ -163,6 +163,68 @@ button.is-loading {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
+
+/* D12: theme picker swatches — a live mini-preview (page bg + sample card +
+   accent dot, with tinted rows for Vivid) replaces the bare text button.
+   Colors are per-preset so they're applied inline (same pattern as cpick). */
+.dt-theme-btn--sw {
+  padding: 6px;
+  border: 2px solid transparent;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.dt-theme-btn--sw.dt-theme-btn--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.dt-theme-sw {
+  width: 100%;
+  aspect-ratio: 16 / 11;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 6px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.dt-theme-sw__card {
+  width: 100%;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dt-theme-sw__row {
+  height: 11px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 3px;
+}
+.dt-theme-sw__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+/* Family Default = follows device/family — show a light/dark split. */
+.dt-theme-sw--auto {
+  background: linear-gradient(135deg, #f7f6f2 0 50%, #1e1a17 50% 100%);
+  align-items: center;
+  justify-content: center;
+}
+.dt-theme-btn__lbl {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
 .dt-colors {
   display: flex;
   flex-wrap: wrap;
