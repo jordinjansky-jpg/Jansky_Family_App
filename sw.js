@@ -591,7 +591,11 @@
 //                     in scoring.js (single source); dashboard chip recolors by
 //                     tier; heatmap tooltip + rewards ledger recompute from % so
 //                     historical days follow the new curve (no stale stored grade).
-const CACHE_NAME = 'family-hub-v364';
+// v365 (2026-06-15) — Review polish batch: RW2 (Bank tab shows an empty-state
+//                     explanation above "Show N used" instead of a floating link);
+//                     K2 (cook mode centers the active step + adds a "Next step"
+//                     peek card to fill the previously-blank lower area).
+const CACHE_NAME = 'family-hub-v365';
 
 const APP_SHELL = [
   '/',

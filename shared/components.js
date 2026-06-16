@@ -5586,10 +5586,13 @@ export async function openCookMode(recipe, { mount, onComplete, onExit, showToas
           <button class="ef2-icon-btn" id="cook_close" type="button" aria-label="Close">✕</button>
         </div>
         <div class="cook-mode__body">
-          <div class="cook-mode__progress">Step ${current + 1} of ${stepList.length}</div>
-          <div class="cook-mode__step">${esc(stepList[current])}</div>
-          <button class="btn btn--ghost" id="cook_toggleIng" type="button">${ingredientsOpen ? 'Hide' : 'Show'} ingredients</button>
-          ${renderIngredientPanel()}
+          <div class="cook-mode__main">
+            <div class="cook-mode__progress">Step ${current + 1} of ${stepList.length}</div>
+            <div class="cook-mode__step">${esc(stepList[current])}</div>
+            <button class="btn btn--ghost" id="cook_toggleIng" type="button">${ingredientsOpen ? 'Hide' : 'Show'} ingredients</button>
+            ${renderIngredientPanel()}
+          </div>
+          ${!isLast ? `<div class="cook-mode__next"><span class="cook-mode__next-label">Next step</span><span class="cook-mode__next-text">${esc(stepList[current + 1])}</span></div>` : ''}
         </div>
         <div class="cook-mode__nav">
           <button class="btn btn--secondary" id="cook_prev" type="button"${isFirst ? ' disabled' : ''}>‹ Prev</button>
