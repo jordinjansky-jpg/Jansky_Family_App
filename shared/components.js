@@ -2464,9 +2464,11 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hi
   const showBadgeIcons  = !cardShow || cardShow.badgeIcons !== false;
   const showTimeToGrade = !cardShow || cardShow.timeToGrade !== false;
   const streakPart = b.streak.current > 0 ? `${b.streak.current}d streak` : null;
-  const balanceLabel = `${liveBalance.toLocaleString()} pts`;
-
-  const metaPrefix = streakPart ? `${esc(streakPart)} · ` : '';
+  // SB3: the spendable balance is a different story from this period's standing
+  // (rank + grade). Give it its own clearly-labeled chip instead of an unlabeled
+  // number in the meta that reads like a score and conflicts with the rank.
+  const COIN_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const balanceChip = `<span class="card--score__balance">${COIN_SVG}${liveBalance.toLocaleString()} to spend</span>`;
 
   const badgeRow = (badgeIcons && showBadgeIcons)
     ? `<div class="card--score__badges">${badgeIcons}</div>`
@@ -2500,7 +2502,8 @@ export function renderScoreCard(b, active, gd, liveBalance, badgeIcons, rank, hi
     </div>
     <div class="card__body">
       <div class="card__title">${esc(b.person.name)}</div>
-      <div class="card__meta">${metaPrefix}${esc(balanceLabel)}</div>
+      ${streakPart ? `<div class="card__meta">${esc(streakPart)}</div>` : ''}
+      ${balanceChip}
       ${badgeRow}
       ${hintRow}
     </div>

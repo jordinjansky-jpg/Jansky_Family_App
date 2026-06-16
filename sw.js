@@ -623,7 +623,12 @@
 //                     "colored rows" caption on the Vivid presets, so what "Vivid"
 //                     does is visible. (C7/AD2/SU3 confirmed already covered by X3;
 //                     no code change.)
-const CACHE_NAME = 'family-hub-v371';
+// v372 (2026-06-16) — SB3: scoreboard card no longer shows the lifetime spendable
+//                     balance as an unlabeled number competing with the period
+//                     rank/grade. It's now a muted, coin-labeled "N to spend" chip,
+//                     so rank + grade (this period) and balance (spendable) read as
+//                     distinct, non-conflicting stories.
+const CACHE_NAME = 'family-hub-v372';
 
 const APP_SHELL = [
   '/',

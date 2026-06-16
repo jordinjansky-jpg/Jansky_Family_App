@@ -375,6 +375,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* SB3: spendable-balance chip — a muted, labeled aside, clearly distinct from
+   the period rank/grade so the two numbers stop telling conflicting stories. */
+.card--score__balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.card--score__balance svg { opacity: 0.75; flex-shrink: 0; }
+
 /* ── Inner click zone on hero card — grade badge cycles period ── */
 .card--score__badge-btn {
   background: none;
