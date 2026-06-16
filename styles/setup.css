@@ -217,6 +217,7 @@ body {
 }
 
 .theme-option__preview {
+  position: relative;
   height: 48px;
   border-radius: var(--radius-sm);
   margin-bottom: var(--spacing-sm);
@@ -232,6 +233,21 @@ body {
 .theme-option__label {
   font-size: var(--font-sm);
   font-weight: 500;
+}
+
+/* SU2: Vivid preview row bar + caption (conveys "colored task rows"). */
+.theme-option__row {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 5px;
+  height: 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--theme-preview-accent, #5b7fd6) 45%, var(--theme-preview-bg, var(--surface)));
+}
+.theme-option__tag {
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 /* Add person form */

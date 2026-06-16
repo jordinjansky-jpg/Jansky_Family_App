@@ -619,7 +619,11 @@
 //                     and its accordions (Task cards / Grouping / Show-on-cards,
 //                     and the kitchen/scoreboard/rewards equivalents) are expanded
 //                     by default — no more "expand each." Collapse chevrons kept.
-const CACHE_NAME = 'family-hub-v370';
+// v371 (2026-06-16) — SU2: the setup theme picker now shows a tinted row bar +
+//                     "colored rows" caption on the Vivid presets, so what "Vivid"
+//                     does is visible. (C7/AD2/SU3 confirmed already covered by X3;
+//                     no code change.)
+const CACHE_NAME = 'family-hub-v371';
 
 const APP_SHELL = [
   '/',

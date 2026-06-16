@@ -454,17 +454,22 @@
         const sel = selectedPreset === p.key ? ' selected' : '';
         const bgColor = p.mode === 'dark' ? '#1a1a2e' : '#faf8f5';
         const fgColor = p.mode === 'dark' ? '#e8e8e8' : '#2c2c2c';
+        // SU2: Vivid presets tint the task rows — show that with a colored row bar
+        // in the preview + a one-word caption, so "Vivid" isn't a mystery.
+        const vividRow = p.coloredCells ? `<span class="theme-option__row"></span>` : '';
+        const vividTag = p.coloredCells ? ` · colored rows` : '';
         return `<div class="theme-option${sel}" onclick="selectTheme('${p.key}')">
-          <div class="theme-option__preview" data-theme-preview="${bgColor}|${fgColor}">${p.label}</div>
-          <div class="theme-option__label">${p.label}</div>
+          <div class="theme-option__preview" data-theme-preview="${bgColor}|${fgColor}|${selectedAccent}">${p.label}${vividRow}</div>
+          <div class="theme-option__label">${p.label}<span class="theme-option__tag">${vividTag}</span></div>
         </div>`;
       }).join('');
       // Apply theme-preview custom props — local (not shared applyDataColors) since this is setup-only.
       grid.querySelectorAll('[data-theme-preview]').forEach(el => {
-        const [bg, fg] = el.dataset.themePreview.split('|');
+        const [bg, fg, accent] = el.dataset.themePreview.split('|');
         el.style.setProperty('--theme-preview-bg', bg);
         el.style.setProperty('--theme-preview-fg', fg);
         el.style.setProperty('--theme-preview-border', `${fg}20`);
+        if (accent) el.style.setProperty('--theme-preview-accent', accent);
       });
 
       const accentColors = ['#5b7fd6', '#e85d75', '#43a047', '#ff9800', '#8e24aa', '#00acc1', '#ef5350', '#ffa726'];
