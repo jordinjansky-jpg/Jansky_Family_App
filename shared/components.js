@@ -2363,9 +2363,25 @@ export function renderTimeHeader(label) {
  * Render a person section header (used in sections grouping mode).
  * name: person display name, color: hex color string
  */
-export function renderPersonHeader(name, color) {
+export function renderPersonHeader(name, color, opts = {}) {
+  // D1 P2/P3: the per-person header is sticky and carries a progress ring +
+  // done/total, and acts as the collapse toggle (chevron). Falls back to the
+  // plain dot when no progress is passed (keeps old call shape working).
+  const { personId = '', done = null, total = null, collapsed = false } = opts;
   const colorAttr = color ? ` data-person-color="${esc(color)}"` : '';
-  return `<div class="person-section-header"${colorAttr}><div class="person-section-header__dot"></div><span class="person-section-header__name">${esc(name)}</span></div>`;
+  const hasProg = total != null && total > 0;
+  const pct = hasProg ? Math.round((done / total) * 100) : 0;
+  const lead = hasProg
+    ? `<span class="person-section-header__ring">
+        <svg viewBox="0 0 36 36" width="22" height="22" aria-hidden="true">
+          <circle class="psh-ring__bg" cx="18" cy="18" r="15.5" pathLength="100"></circle>
+          <circle class="psh-ring__arc" cx="18" cy="18" r="15.5" pathLength="100" stroke-dasharray="${pct} 100"></circle>
+        </svg>
+      </span>`
+    : `<span class="person-section-header__dot"></span>`;
+  const count = hasProg ? `<span class="person-section-header__count">${done}/${total}</span>` : '';
+  const chev = `<svg class="person-section-header__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+  return `<button class="person-section-header" type="button" data-action="toggle-person" data-person-block-id="${esc(personId)}" aria-expanded="${collapsed ? 'false' : 'true'}"${colorAttr}>${lead}<span class="person-section-header__name">${esc(name)}</span>${count}${chev}</button>`;
 }
 
 /**

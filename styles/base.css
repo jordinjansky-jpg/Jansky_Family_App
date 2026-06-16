@@ -275,7 +275,11 @@ body {
   line-height: 1.5;
   min-height: 100dvh;
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
-  overflow-x: hidden;
+  /* `clip` (not `hidden`) still contains horizontal overflow but does NOT make
+     <body> a scroll container — which `hidden` does, and that breaks
+     `position: sticky` for descendants (D1 P2 sticky person headers). The
+     viewport-level clip on <html> still guards against horizontal scrolling. */
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
 }
 

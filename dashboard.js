@@ -261,6 +261,24 @@ if (new URLSearchParams(window.location.search).get('openBell') === '1') {
 // Skeleton is replaced by render() below; no show/hide needed.
 const main = document.getElementById('mainContent');
 
+// D1 P3: collapsed person blocks — device-local, survives the dashboard's full
+// re-renders (render() reads this Set to set is-collapsed). Bound once on the
+// stable #mainContent; the toggle flips the class directly (no re-render needed).
+const collapsedPeople = new Set((() => {
+  try { return JSON.parse(localStorage.getItem('dr-dash-collapsed') || '[]'); } catch { return []; }
+})());
+main?.addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-action="toggle-person"]');
+  if (!toggle) return;
+  const block = toggle.closest('.dash-person');
+  if (!block) return;
+  const pid = toggle.dataset.personBlockId;
+  const nowCollapsed = block.classList.toggle('is-collapsed');
+  toggle.setAttribute('aria-expanded', String(!nowCollapsed));
+  if (nowCollapsed) collapsedPeople.add(pid); else collapsedPeople.delete(pid);
+  try { localStorage.setItem('dr-dash-collapsed', JSON.stringify([...collapsedPeople])); } catch { /* ignore */ }
+});
+
 // ── Celebration mount ──
 document.getElementById('celebrationMount').innerHTML = renderCelebration();
 applyDataColors(document.getElementById('celebrationMount'));
@@ -649,7 +667,14 @@ async function render() {
         if (taskGrouping === 'grouped' && !hasActive && !completed.length) {
           continue;
         }
-        html += renderPersonHeader(person?.name || '?', person?.color);
+        // D1 P2/P3: wrap each person in a collapsible block with a sticky header
+        // that carries their progress ring (done/total). Collapse state persists.
+        const personId = person?.id || 'unknown';
+        const prog = dayProgress(entriesByOwner[personId] || {}, completions);
+        const isCollapsed = collapsedPeople.has(personId);
+        html += `<section class="dash-person${isCollapsed ? ' is-collapsed' : ''}" data-person-block="${esc(personId)}">`;
+        html += renderPersonHeader(person?.name || '?', person?.color, { personId, done: prog.done, total: prog.total, collapsed: isCollapsed });
+        html += `<div class="dash-person__body">`;
         if (am.length)      { html += renderTimeHeader('Morning');   for (const [ek, en] of am)      html += renderCard(ek, en); }
         if (anytime.length) { html += renderTimeHeader('Anytime');   for (const [ek, en] of anytime) html += renderCard(ek, en); }
         if (pm.length)      { html += renderTimeHeader('Afternoon'); for (const [ek, en] of pm)      html += renderCard(ek, en); }
@@ -659,6 +684,7 @@ async function render() {
         } else if (taskGrouping === 'focus') {
           for (const pair of completed) pooledCompleted.push(pair);
         }
+        html += `</div></section>`;
       }
       if (taskGrouping === 'focus' && pooledCompleted.length) {
         html += renderTimeHeader(`Completed (${pooledCompleted.length})`);

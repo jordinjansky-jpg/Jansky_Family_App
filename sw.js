@@ -632,7 +632,12 @@
 //                     monthly task status") stating its niche, so it's clearly
 //                     distinct from Dashboard (today) and Calendar (events). Name
 //                     kept "Tracker" (TR2 accepted).
-const CACHE_NAME = 'family-hub-v373';
+// v374 (2026-06-16) — D1 P2/P3 (+D16): dashboard per-person blocks now have a
+//                     sticky header with a progress ring + done/total, and are
+//                     collapsible (tap the header; state persists per device).
+//                     Also base.css body overflow-x hidden→clip so position:sticky
+//                     works (hidden made <body> a non-scrolling sticky container).
+const CACHE_NAME = 'family-hub-v374';
 
 const APP_SHELL = [
   '/',
