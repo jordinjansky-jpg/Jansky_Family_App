@@ -30,8 +30,8 @@
 }
 
 /* ── Calendar Nav ── */
-.cal-nav { margin: 0; }
-@media (min-width: 601px) { .cal-nav { margin: var(--spacing-xs) 0; } }
+.cal-nav { margin: 0 0 var(--spacing-sm); }
+@media (min-width: 601px) { .cal-nav { margin: var(--spacing-xs) 0 var(--spacing-sm); } }
 .cal-nav__row {
   display: flex;
   align-items: center;
@@ -850,9 +850,9 @@
 .cal-nav__row--controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--spacing-sm);
-  margin-top: 2px;
+  /* Breathing room between the period title and the view switcher (was 2px). */
+  margin-top: var(--spacing-sm);
 }
 
 .cal-nav__controls {
@@ -1002,13 +1002,16 @@
 
 /* ── Cal nav segmented view switcher (Pass 2) ── */
 .cal-nav__view-seg {
-  flex-shrink: 0;
+  /* Fill the row so Agenda/Week/Month/Day use the open width instead of sitting
+     content-width on the left with a dead gap before the controls. */
+  flex: 1;
+  min-width: 0;
 }
 
 .cal-nav__view-seg .segmented-btn {
-  font-size: var(--font-xs);
-  padding: 4px 10px;
-  min-height: 28px;
+  font-size: var(--font-sm);
+  padding: 6px 8px;
+  min-height: 34px;
 }
 
 /* ── Event quick-actions menu (Pass 2) ── */

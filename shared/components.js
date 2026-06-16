@@ -515,6 +515,7 @@ export function renderNavBar(activePage, options = {}) {
   const mainPages = new Set(items.map(i => i.page));
   const moreActive = activePage && !mainPages.has(activePage);
   const personHome = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('dr-person-home') : null;
+  const navEnv = (typeof location !== 'undefined') ? new URLSearchParams(location.search).get('env') : null;
   const linkItems = items.map(it => {
     const isActive = it.page === activePage;
     let href = it.href;
@@ -523,6 +524,8 @@ export function renderNavBar(activePage, options = {}) {
         ? `person.html?person=${encodeURIComponent(personHome)}`
         : `${it.href}?person=${encodeURIComponent(personHome)}`;
     }
+    // Preserve the dev env so tapping a nav tab doesn't bounce a dev session to prod.
+    if (navEnv) href += (href.includes('?') ? '&' : '?') + `env=${encodeURIComponent(navEnv)}`;
     return `<a class="bottom-nav__item${isActive ? ' is-active' : ''}" href="${href}" data-page="${it.page}">
       <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <g class="nav-icon__base">${it.svg}</g>
@@ -618,7 +621,12 @@ export function initNavMore(sheetMount, getTheme, personOpts, familyOpts, onAppl
       sheetMount.innerHTML = '';
       const id = row.dataset.itemId;
       const page = ALL_PAGES[id];
-      if (page)               { location.href = page.href; return; }
+      if (page) {
+        // Preserve the dev env so the More menu doesn't bounce a dev session to prod.
+        const env = new URLSearchParams(location.search).get('env');
+        location.href = env ? `${page.href}${page.href.includes('?') ? '&' : '?'}env=${encodeURIComponent(env)}` : page.href;
+        return;
+      }
       if (id === 'customize') openDeviceThemeSheet(sheetMount, typeof getTheme === 'function' ? getTheme() : getTheme, onApply, personOpts, familyOpts, { currentPage });
     });
   }
@@ -2593,15 +2601,12 @@ export function renderRewardCard(reward, balance, opts = {}) {
   const dimClass = canGet || !showGet ? '' : ' card--dim';
   const densityClass = density === 'compact' ? ' card--reward--compact' : '';
   const iconBg = reward.iconColor ? ` data-bg-color="${esc(reward.iconColor)}"` : '';
-  // RW3: built-in/system rewards get themed SVG icons to match the app chrome;
-  // user-created rewards keep their chosen emoji (that's user content).
-  const SKIP_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>`;
-  const SHIELD_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`;
-  const systemIcon = reward.rewardType === 'task-skip' ? SKIP_SVG
-    : reward.rewardType === 'penalty-removal' ? SHIELD_SVG : null;
+  // Reward icons are emoji everywhere (shop, kid store, admin) for consistency —
+  // the prior system-reward SVGs (RW3) read as out of place amid the colorful
+  // user-chosen emoji and didn't match admin's emoji rendering.
   return `<div class="card card--reward${dimClass}${densityClass}" data-reward-id="${esc(reward.id)}">
     <div class="card__leading">
-      <span class="icon-tile"${iconBg}>${systemIcon || esc(reward.icon || '🎁')}</span>
+      <span class="icon-tile"${iconBg}>${esc(reward.icon || '🎁')}</span>
     </div>
     <div class="card__body">
       <div class="card__title">${esc(reward.name)}</div>

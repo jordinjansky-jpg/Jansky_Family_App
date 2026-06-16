@@ -243,12 +243,11 @@
             ${monthDensityIcon}
           </button>`;
       }
-      // Compute small subtitle under the period label
+      // Compute small subtitle under the period label.
+      // Week view intentionally has NO subtitle: the week strip right below
+      // already shows those exact dates, so a "Mon … – Sun …" range was redundant.
       let navSubtitle = '';
-      if (currentView === 'week') {
-        const weekEndKey = addDays(viewWeekStart, 6);
-        navSubtitle = `${formatDateShort(viewWeekStart)} – ${formatDateShort(weekEndKey)}`;
-      } else if (currentView === 'day') {
+      if (currentView === 'day') {
         // Show progress in subtitle: "3/5 done" for the day
         const prog = getDayProgress(viewDay);
         navSubtitle = prog.total > 0 ? `${prog.done}/${prog.total} done` : '';

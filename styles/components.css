@@ -146,6 +146,10 @@ button.is-loading {
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: var(--spacing-xs);
 }
+/* Calendar Customize "Default view": 5 options laid out tidily — "Last used"
+   spans the row, then the 4 specific views in a 2×2 (was an uneven 3+2). */
+#dt_calDefaultView { grid-template-columns: 1fr 1fr; }
+#dt_calDefaultView > button:first-child { grid-column: 1 / -1; }
 .dt-theme-btn {
   padding: 10px 8px;
   border-radius: var(--radius-md);

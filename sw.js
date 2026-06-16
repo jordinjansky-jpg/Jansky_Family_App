@@ -637,7 +637,14 @@
 //                     collapsible (tap the header; state persists per device).
 //                     Also base.css body overflow-x hidden→clip so position:sticky
 //                     works (hidden made <body> a non-scrolling sticky container).
-const CACHE_NAME = 'family-hub-v374';
+// v375 (2026-06-16) — Calendar top redesign + review-bundle fixes: the view
+//                     switcher fills the row (was content-width with a dead gap),
+//                     breathing room added, and the redundant Week range subtitle
+//                     dropped (the strip shows those dates). Reward system-reward
+//                     icons reverted SVG→emoji for consistency (matches admin +
+//                     user rewards). Calendar Customize "Default view" → "Last
+//                     used" full-width + 2×2. Bottom nav + More menu preserve ?env.
+const CACHE_NAME = 'family-hub-v375';
 
 const APP_SHELL = [
   '/',
