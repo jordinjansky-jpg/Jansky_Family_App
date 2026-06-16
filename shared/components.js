@@ -2582,7 +2582,7 @@ export function renderRewardCard(reward, balance, opts = {}) {
       <div class="card__title">${esc(reward.name)}</div>
       ${reward.description && showDescription ? `<div class="card--reward__desc">${esc(reward.description)}</div>` : ''}
       ${badges ? `<div class="card__badges">${badges}</div>` : ''}
-      ${showProgressBar ? `<div class="reward-progress"><div class="reward-progress__bar" data-progress="${progress}"></div></div>` : ''}
+      ${showProgressBar && !canAfford ? `<div class="reward-progress"><div class="reward-progress__bar" data-progress="${progress}"></div></div>` : ''}
       ${!canAfford && showGet ? `<div class="card__hint">Need ${(reward.pointCost - balance).toLocaleString()} more pts</div>` : ''}
     </div>
     ${(showGet || showWishlist) ? `<div class="card__trailing card__trailing--reward">

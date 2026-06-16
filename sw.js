@@ -600,7 +600,11 @@
 //                     theme picker renders live mini-swatches (page bg + sample
 //                     card + accent dot; Vivid themes show tinted rows) instead of
 //                     bare text buttons — getPresets() now exposes swatch colors.
-const CACHE_NAME = 'family-hub-v366';
+// v367 (2026-06-15) — X6/RW1/KD1/KD2: the reward affordability bar now renders
+//                     only while a reward is still out of reach. When affordable
+//                     the bar is hidden (the green cost chip already signals it),
+//                     instead of a meaningless full bar on every card.
+const CACHE_NAME = 'family-hub-v367';
 
 const APP_SHELL = [
   '/',
