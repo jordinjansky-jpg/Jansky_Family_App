@@ -6112,7 +6112,13 @@ label.ef2-icon-btn  { cursor: pointer; }
 /* ── Reward form (rf-*) — shared between admin and rewards pages ── */
 .rf-header-actions { display: flex; align-items: center; gap: 2px; }
 .rf-save-btn   { color: var(--accent); }
-.rf-delete-btn { color: var(--danger); }
+/* X4/K3/AD1: the header delete sits in an icon row with edit/close; an always-red
+   trash reads as a destructive action one mis-tap away. Demote it to muted by
+   default (it's already behind a showConfirm) and reveal the danger color only on
+   hover/focus — i.e. on intent. Shared by event/recipe/reward/admin form headers. */
+.rf-delete-btn { color: var(--text-muted); }
+.rf-delete-btn:hover,
+.rf-delete-btn:focus-visible { color: var(--danger); }
 .rf-title-row {
   display: flex;
   align-items: center;
