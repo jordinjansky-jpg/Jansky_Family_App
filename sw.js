@@ -628,7 +628,11 @@
 //                     rank/grade. It's now a muted, coin-labeled "N to spend" chip,
 //                     so rank + grade (this period) and balance (spendable) read as
 //                     distinct, non-conflicting stories.
-const CACHE_NAME = 'family-hub-v372';
+// v373 (2026-06-16) — TR1/X8: the Tracker header gains a subtitle ("Weekly &
+//                     monthly task status") stating its niche, so it's clearly
+//                     distinct from Dashboard (today) and Calendar (events). Name
+//                     kept "Tracker" (TR2 accepted).
+const CACHE_NAME = 'family-hub-v373';
 
 const APP_SHELL = [
   '/',

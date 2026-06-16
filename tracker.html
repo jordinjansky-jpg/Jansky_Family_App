@@ -138,6 +138,10 @@
     const debugActive = localStorage.getItem('dr-debug') === 'true';
     document.getElementById('headerMount').innerHTML = renderHeader({
       title: 'Tracker',
+      // TR1/X8: state the page's niche so it's clearly distinct from the
+      // Dashboard (today) and Calendar (events), not a redundant task list.
+      // Kept short so it doesn't truncate in the header.
+      subtitle: 'Weekly & monthly task status',
       showBell: true,
     });
     initBottomNav({
