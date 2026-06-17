@@ -9,6 +9,13 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v377 (2026-06-16) — Calendar event form: the "+ End date" chip is now
+//                     context-aware. With no repeat it sets a multi-day span
+//                     (event.endDate) as before; with a repeat active it bounds
+//                     the SERIES instead — labelled "Until …" and written to
+//                     repeat.end (the recurrence-until). Fixes "Weekly + end
+//                     date" rendering as a blanketing 14-day span repeated
+//                     weekly; now yields the expected bounded occurrences.
 // v376 (2026-06-16) — Dashboard: persistent family progress strip replaces the
 //                     filter chip (tap a person's ring to filter, tap again to
 //                     clear); tap anywhere on a task row completes it, long-press
@@ -650,7 +657,7 @@
 //                     icons reverted SVG→emoji for consistency (matches admin +
 //                     user rewards). Calendar Customize "Default view" → "Last
 //                     used" full-width + 2×2. Bottom nav + More menu preserve ?env.
-const CACHE_NAME = 'family-hub-v376';
+const CACHE_NAME = 'family-hub-v377';
 
 const APP_SHELL = [
   '/',

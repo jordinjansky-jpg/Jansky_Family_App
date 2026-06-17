@@ -1303,14 +1303,37 @@
         }
       });
 
-      // End-date chip — custom Monday-first sub-sheet, sets event.endDate
+      // Working repeat rule — declared here so the end-date chip below can read it.
+      let currentRepeat = event.repeat || null;
+
+      // End-date chip — custom Monday-first sub-sheet. Context-aware:
+      //   • non-repeating event → sets a multi-day SPAN (event.endDate)
+      //   • repeating event    → bounds the SERIES instead (currentRepeat.end,
+      //     the recurrence-until — the same field the Repeat sheet's "Ends"
+      //     control and the renderer use). This is why "Weekly + Until Jun 30"
+      //     yields occurrences on the 16th/23rd/30th rather than a blanketing
+      //     14-day span repeated weekly. A repeating event has no span.
       document.getElementById('ef2_endDateChip')?.addEventListener('click', () => {
         const startVal = document.getElementById('ef2_date')?.value || dateKey;
+        const repeating = !!(currentRepeat && currentRepeat.type && currentRepeat.type !== 'none');
+        const curUntil = repeating
+          ? (currentRepeat.end?.type === 'on' ? currentRepeat.end.date : null)
+          : (event.endDate || null);
         openDatePicker({
-          value: event.endDate || startVal, min: startVal, weekStartDay, today, title: 'End date',
+          value: curUntil || startVal, min: startVal, weekStartDay, today,
+          title: repeating ? 'Repeat ends' : 'End date',
           onPick: (newEnd) => {
             const chip = document.getElementById('ef2_endDateChip');
-            if (newEnd && newEnd >= startVal && newEnd !== startVal) {
+            const valid = newEnd && newEnd >= startVal && newEnd !== startVal;
+            if (repeating) {
+              if (valid) {
+                currentRepeat.end = { type: 'on', date: newEnd };
+                if (chip) { chip.textContent = '✓ Until ' + formatDateShort(newEnd); chip.classList.add('is-active'); }
+              } else {
+                if (currentRepeat.end) delete currentRepeat.end;
+                if (chip) { chip.textContent = '+ Repeat end'; chip.classList.remove('is-active'); }
+              }
+            } else if (valid) {
               event.endDate = newEnd;
               if (chip) { chip.textContent = '✓ Ends ' + formatDateShort(newEnd); chip.classList.add('is-active'); }
             } else {
@@ -1353,7 +1376,6 @@
         document.getElementById('ef2_urlChip')?.classList.remove('is-active');
       });
 
-      let currentRepeat = event.repeat || null;
       document.getElementById('ef2_repeatChip')?.addEventListener('click', () => {
         const formState = captureFormState();
         openRepeatSheet(currentRepeat, (newRule) => {
@@ -1410,7 +1432,12 @@
           notes: formState.notes || null,
           url: formState.url || null,
           repeat: formState.repeat || null,
-          endDate: event.endDate || null,
+          // A repeating event carries no multi-day span — its end lives in
+          // repeat.end (the recurrence-until set via the "Until" chip / Repeat
+          // sheet). Only a non-repeating event writes a span endDate.
+          endDate: (formState.repeat && formState.repeat.type && formState.repeat.type !== 'none')
+            ? null
+            : (event.endDate || null),
           createdDate: existingEventId
             ? (events[existingEventId]?.createdDate || today)
             : today,

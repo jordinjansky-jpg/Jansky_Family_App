@@ -3202,6 +3202,18 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
   const repeatLabel = ef2RepeatLabel(event.repeat);
   const repeatActive = (event.repeat && event.repeat.type && event.repeat.type !== 'none') ? ' is-active' : '';
 
+  // The end-date chip is context-aware (see calendar.html ef2_endDateChip):
+  //   • non-repeating → "Ends …" = a multi-day SPAN (event.endDate)
+  //   • repeating     → "Until …" = the recurrence-until (event.repeat.end.date)
+  // so its label/state must mirror the right field, not always event.endDate.
+  const _efRepeating = !!repeatActive;
+  const _efRepeatUntil = (_efRepeating && event.repeat.end?.type === 'on' && event.repeat.end.date)
+    ? event.repeat.end.date : null;
+  const _efEndActive = _efRepeating ? !!_efRepeatUntil : !!event.endDate;
+  const _efEndLabel = _efRepeating
+    ? (_efRepeatUntil ? '✓ Until ' + esc(formatDateShort(_efRepeatUntil)) : '+ Repeat end')
+    : (event.endDate ? '✓ Ends ' + esc(formatDateShort(event.endDate)) : '+ End date');
+
   return `<div class="ef2-form">
   <div class="sheet__header">
     <h2 class="sheet__title">${isEdit ? 'Edit Event' : 'New Event'}</h2>
@@ -3254,7 +3266,7 @@ export function renderEventForm({ event = {}, eventId = null, people = [], dateK
 
   <div class="ef2-secondary-row">
     <button class="ef2-add-chip${event.allDay ? ' is-active' : ''}" id="ef2_allDay" type="button">All day</button>
-    <button class="ef2-add-chip${event.endDate ? ' is-active' : ''}" id="ef2_endDateChip" type="button">${event.endDate ? '✓ Ends ' + esc(formatDateShort(event.endDate)) : '+ End date'}</button>
+    <button class="ef2-add-chip${_efEndActive ? ' is-active' : ''}" id="ef2_endDateChip" type="button">${_efEndLabel}</button>
     <button class="ef2-add-chip${notesOpen ? ' is-active' : ''}" id="ef2_notesChip" type="button">+ Notes</button>
     <button class="ef2-add-chip${locOpen ? ' is-active' : ''}" id="ef2_locChip" type="button">+ Location</button>
     <button class="ef2-add-chip${urlOpen ? ' is-active' : ''}" id="ef2_urlChip" type="button">+ Link</button>
