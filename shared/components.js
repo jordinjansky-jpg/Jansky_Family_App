@@ -4610,12 +4610,15 @@ export function renderDashboardTile({ label = '', value = '', sub = '', icon = '
  * dashboard glance. Each chip is tappable (filters the dashboard to that person).
  * items: [{ id, name, color, done, total }]
  */
-export function renderFamilyProgressStrip(items = []) {
+export function renderFamilyProgressStrip(items = [], activePersonId = null) {
   if (!items.length) return '';
+  const filtering = !!activePersonId;
   const chips = items.map(it => {
     const pct = it.total > 0 ? Math.round((it.done / it.total) * 100) : 0;
     const initial = (it.name || '?').charAt(0).toUpperCase();
-    return `<button class="fps-chip" type="button" data-fps-person="${esc(it.id)}" style="--person-color: ${esc(it.color || 'var(--accent)')}" aria-label="${esc(it.name)}: ${it.done} of ${it.total} done">
+    const isActive = it.id === activePersonId;
+    const cls = `fps-chip${isActive ? ' fps-chip--active' : ''}${filtering && !isActive ? ' fps-chip--dim' : ''}`;
+    return `<button class="${cls}" type="button" data-fps-person="${esc(it.id)}" aria-pressed="${isActive ? 'true' : 'false'}" style="--person-color: ${esc(it.color || 'var(--accent)')}" aria-label="${esc(it.name)}: ${it.done} of ${it.total} done${isActive ? ' — filtering, tap to show all' : ''}">
       <span class="fps-chip__ring-wrap">
         <svg class="fps-chip__ring" viewBox="0 0 36 36" aria-hidden="true">
           <circle class="fps-chip__track" cx="18" cy="18" r="15.5" pathLength="100"></circle>

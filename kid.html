@@ -1092,6 +1092,7 @@
             // long-press to open the detail sheet (Complete full-credit lives there).
             bindTaskRowGesture(btn, {
               longPressMs: settings?.kidLongPressMs ?? 500,
+              tapCompletes: true,
               onComplete: (ek, dk) => toggleTask(ek, dk || viewDate),
               onTap: (ek, dk) => openTaskSheet(ek, dk || viewDate),
               onLongPress: (ek, dk) => openTaskSheet(ek, dk || viewDate),

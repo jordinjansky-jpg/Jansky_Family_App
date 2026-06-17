@@ -541,6 +541,7 @@
       main.querySelectorAll('.cal-wstrip-panel__task:not(.cal-wstrip-panel__task--grouped)').forEach(row => {
         bindTaskRowGesture(row, {
           longPressMs: settings?.longPressMs ?? 800,
+          tapCompletes: true,
           onComplete: toggleTask,
           onTap: openTaskSheet,
           onLongPress: openTaskSheet,
@@ -627,6 +628,7 @@
       main.querySelectorAll('.cal-day__task:not(.cal-day__task--grouped)').forEach(row => {
         bindTaskRowGesture(row, {
           longPressMs: settings?.longPressMs ?? 800,
+          tapCompletes: true,
           onComplete: toggleTask,
           onTap: openTaskSheet,
           onLongPress: openTaskSheet,
@@ -1193,6 +1195,10 @@
       document.getElementById('bottomSheet')?.addEventListener('click', (e) => {
         if (e.target === document.getElementById('bottomSheet')) closeTaskSheet();
       });
+      // Escape closes the event form — and, since the repeat sub-sheet renders into
+      // this same mount and calls closeTaskSheet, it covers that too (matches the
+      // detail sheet + the other form sheets, which all bind Escape-to-close).
+      bindEscapeToClose(document.getElementById('bottomSheet'), closeTaskSheet);
 
       // Title input → disable the footer save button when empty.
       document.getElementById('ef2_name')?.addEventListener('input', (e) => {

@@ -9,6 +9,12 @@
 // Record every CACHE_NAME bump here so future readers can correlate cache
 // versions to phases/PRs.
 //
+// v376 (2026-06-16) — Dashboard: persistent family progress strip replaces the
+//                     filter chip (tap a person's ring to filter, tap again to
+//                     clear); tap anywhere on a task row completes it, long-press
+//                     opens the detail menu (dashboard, calendar week/day, kid).
+//                     Calendar: event form + repeat sub-sheet now close on Escape
+//                     (bindEscapeToClose was missing — matches the detail sheet).
 // v342 (2026-05-31) — Calendar polish bundle: sticky tabs in all views incl Day,
 //                     View-as chip (replaces avatar strip), grouped tasks by name
 //                     with avatar cluster, compact inline event time, filled accent
@@ -644,7 +650,7 @@
 //                     icons reverted SVG→emoji for consistency (matches admin +
 //                     user rewards). Calendar Customize "Default view" → "Last
 //                     used" full-width + 2×2. Bottom nav + More menu preserve ?env.
-const CACHE_NAME = 'family-hub-v375';
+const CACHE_NAME = 'family-hub-v376';
 
 const APP_SHELL = [
   '/',

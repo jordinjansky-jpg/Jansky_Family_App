@@ -2954,6 +2954,14 @@ button.is-loading {
   -webkit-tap-highlight-color: transparent;
 }
 .fps-chip:active { background: var(--bg-hover); }
+/* The strip doubles as the person filter: highlight the focused person, dim
+   the rest so the current filter is obvious. */
+.fps-chip--active {
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1.5px var(--person-color, var(--accent));
+}
+.fps-chip--dim { opacity: 0.45; }
+.fps-chip--dim:hover { opacity: 0.8; }
 .fps-chip__ring-wrap { position: relative; width: 42px; height: 42px; }
 .fps-chip__ring { width: 42px; height: 42px; transform: rotate(-90deg); }
 .fps-chip__track { fill: none; stroke: var(--border); stroke-width: 3.2; }

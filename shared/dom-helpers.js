@@ -83,6 +83,11 @@ export function bindTaskRowGesture(row, opts) {
     onComplete,
     onLongPress,
     isTapBlocked,
+    // When true, a tap ANYWHERE on the row completes it and long-press opens the
+    // menu (onLongPress). When false (legacy), only a tap on the check circle
+    // completes; tapping elsewhere opens (onTap). A blocked tap (isTapBlocked,
+    // e.g. a past overdue daily) always falls back to onTap regardless of mode.
+    tapCompletes = false,
     checkSelector = '.task-card__check, .cal-day__task-check, .cal-wstrip-panel__task-check',
   } = opts || {};
   const entryKey = row.dataset.entryKey;
@@ -119,7 +124,11 @@ export function bindTaskRowGesture(row, opts) {
     pressTimer = null;
     if (didLongPress) return;
     recordTap();
-    if (startedOnCheck && !(isTapBlocked && isTapBlocked(entryKey, dateKey))) {
+    const blocked = !!(isTapBlocked && isTapBlocked(entryKey, dateKey));
+    if (tapCompletes) {
+      if (blocked) onTap?.(entryKey, dateKey);
+      else onComplete?.(entryKey, dateKey);
+    } else if (startedOnCheck && !blocked) {
       onComplete?.(entryKey, dateKey);
     } else {
       onTap?.(entryKey, dateKey);

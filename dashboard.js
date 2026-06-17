@@ -1,6 +1,6 @@
 // cache-bust 2026-05-12: force fresh CF Pages content hash (prior upload corrupted)
 import { initFirebase, isFirstRun, readSettings, readPeople, readTasks, readCategories, readAllSchedule, readEvents, writeCompletion, removeCompletion, writeTask, pushTask, pushEvent, writeEvent, removeEvent, writePerson, onConnectionChange, onCompletions, onEvents, onScheduleDay, onMultipliers, onSettings, readOnce, multiUpdate, onAllMessages, writeMessage, markMessageSeen, removeMessage, writeBankToken, markBankTokenUsed, removeBankToken, readBank, readRewards, writeMultiplier, removeMessagesByEntryKey, removeLatestBankToken, readKitchenPlan, readKitchenRecipes, writeKitchenPlanSlot, removeKitchenPlanSlot, pushKitchenRecipe, writeKitchenRecipe, removeKitchenRecipe, readKitchenLists, pushKitchenItem, readIcalFeeds, writeIcalFeedLastSync } from './shared/firebase.js';
-import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderFilterChip, renderPersonFilterSheet, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, renderFamilyProgressStrip, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openEventQuickAddSheet, openCookMode, openVoteSheet, openDatePicker } from './shared/components.js';
+import { initBottomNav, renderHeader, renderEmptyState, renderTaskCard, renderTimeHeader, renderPersonHeader, renderCelebration, renderUndoToast, renderTaskDetailSheet, renderBottomSheet, renderEventBubble, renderEventDetailSheet, renderEventForm, renderAddMenu, initOfflineBanner, initBell, showConfirm, showToast, applyDataColors, renderBanner, renderFab, renderSectionHead, renderDashboardSkeleton, renderErrorState, renderComingUp, renderDashboardTile, renderFamilyProgressStrip, getWeatherGlyph, renderMealDetailSheet, renderWeatherSheet, renderRepeatSheet, renderTaskForm, renderChipPicker, bindChipPicker, openIcalUrlSubsheet, openEventPhotoSourceSheet, openEventQuickAddSheet, openCookMode, openVoteSheet, openDatePicker } from './shared/components.js';
 import { fetchWeather, fetchForecast } from './shared/weather.js';
 import { resizeImageForUpload, renderConfirmRow, openMonthClarificationSheet } from './shared/ai-helpers.js';
 import { applyTheme, resolveTheme, applyTaskDisplayPrefs, applyTextSize, applyCategoryIconTone } from './shared/theme.js';
@@ -170,16 +170,6 @@ function updateHeaderSubtitle() {
   const longText = formatDateLong(viewDate);
   const shortText = formatDateShort(viewDate);
   el.innerHTML = `<span class="app-header__subtitle-long">${esc(longText)}</span><span class="app-header__subtitle-short">${esc(shortText)}</span>`;
-}
-
-function getTodayFilterChipHtml() {
-  if (people.length < 2) return '';
-  const activePersonObj = activePerson ? people.find(p => p.id === activePerson) : null;
-  return renderFilterChip({
-    id: 'openFilterSheet',
-    activePersonName: activePersonObj?.name || '',
-    activePersonColor: activePersonObj?.color || '',
-  });
 }
 
 // 5-tab bottom nav — user-customizable, Customize sheet shared everywhere.
@@ -527,13 +517,29 @@ async function render() {
   const totalCount = prog.total;
   const doneCount = prog.done;
   const todaySectionCls = activePerson ? 'section section--filtered' : 'section';
+
+  // Family progress strip (D1) — per-person rings that double as the person
+  // filter. Always shown when ≥2 people have tasks today, sourced from the
+  // UNFILTERED displayEntries so every ring stays visible even when focused on
+  // one person. Tapping a ring filters to them; tapping the active one clears.
+  let familyStripHtml = '';
+  if (people.length >= 2) {
+    const allByOwner = {};
+    for (const [ek, en] of Object.entries(displayEntries)) {
+      if (!allByOwner[en.ownerId]) allByOwner[en.ownerId] = {};
+      allByOwner[en.ownerId][ek] = en;
+    }
+    const fpsItems = people
+      .map(p => ({ p, prog: dayProgress(allByOwner[p.id] || {}, completions) }))
+      .filter(x => x.prog.total > 0)
+      .map(x => ({ id: x.p.id, name: x.p.name, color: x.p.color, done: x.prog.done, total: x.prog.total }));
+    if (fpsItems.length >= 2) familyStripHtml = renderFamilyProgressStrip(fpsItems, activePerson);
+  }
   if (totalCount === 0 && sortedEvents.length === 0) {
     html += `<section class="${todaySectionCls}">`;
-    html += renderSectionHead('Today', null, {
-      divider: firstSectionRendered,
-      trailingHtml: getTodayFilterChipHtml(),
-    });
+    html += renderSectionHead('Today', null, { divider: firstSectionRendered });
     firstSectionRendered = true;
+    html += familyStripHtml;
     if (activePerson) {
       html += renderEmptyState('', '', '', { variant: 'no-match', personName: people.find(p => p.id === activePerson)?.name });
     } else {
@@ -582,7 +588,6 @@ async function render() {
     html += `<section class="${todaySectionCls}">`;
     html += renderSectionHead('Today', null, {
       divider: firstSectionRendered,
-      trailingHtml: getTodayFilterChipHtml(),
       metaHtml: metaHtmlStr,
     });
     firstSectionRendered = true;
@@ -590,6 +595,7 @@ async function render() {
       const progPct = prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0;
       html += `<div class="progress-bar progress-bar--slim" role="progressbar" aria-valuenow="${progPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${prog.done} of ${prog.total} tasks done"><div class="progress-bar__fill" data-progress="${progPct}"></div></div>`;
     }
+    html += familyStripHtml;
 
     // Per-person daily possible — needed to normalize task base pts into store pts.
     // Store pts = round(taskBasePoints / ownerDailyPossible × 100)
@@ -604,15 +610,6 @@ async function render() {
       ownerDailyPossible[ownerId] = possible || 1;
     }
 
-    // Family progress strip — per-person rings for the all-family glance (D1).
-    // Only in the unfiltered view; needs ≥2 people who actually have tasks today.
-    if (!activePerson && people.length >= 2) {
-      const fpsItems = people
-        .map(p => ({ p, prog: dayProgress(entriesByOwner[p.id] || {}, completions) }))
-        .filter(x => x.prog.total > 0)
-        .map(x => ({ id: x.p.id, name: x.p.name, color: x.p.color, done: x.prog.done, total: x.prog.total }));
-      if (fpsItems.length >= 2) html += renderFamilyProgressStrip(fpsItems);
-    }
 
     // Sort all entries together with the new sort rule (incomplete before complete,
     // owner -> late-today-first -> TOD -> name).
@@ -894,6 +891,7 @@ function openOverdueSheet(items) {
     taskSheetMount.querySelectorAll('.task-card').forEach(card => {
       bindTaskRowGesture(card, {
         longPressMs: settings?.longPressMs ?? 800,
+        tapCompletes: true,
         onComplete: async (ek, dk) => {
           if (_overdueToggleInFlight.has(ek)) return; // rapid-tap guard
           _overdueToggleInFlight.add(ek);
@@ -927,29 +925,8 @@ function openOverdueSheet(items) {
   });
 }
 
-function openPersonFilterSheet() {
-  const body = `<h3 class="sheet-section-title">Show tasks for</h3>${renderPersonFilterSheet(people, activePerson)}`;
-  taskSheetMount.innerHTML = renderBottomSheet(body);
-  applyDataColors(taskSheetMount);
-  requestAnimationFrame(() => {
-    document.getElementById('bottomSheet')?.classList.add('active');
-    _bindSheetEscape(closeTaskSheet);
-  });
-  const overlay = document.getElementById('bottomSheet');
-  overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) closeTaskSheet();
-  });
-  taskSheetMount.querySelector('.list-group')?.addEventListener('click', async (ev) => {
-    const row = ev.target.closest('[data-person-id]');
-    if (!row) return;
-    await applyPersonFilter(row.dataset.personId || null);
-    closeTaskSheet(); // re-renders via onClosed
-  });
-}
-
-// Set the dashboard's person filter + persist it (shared by the filter sheet
-// and the family progress strip). Does NOT render — the caller decides how
-// (closeTaskSheet for the sheet; render() for the strip).
+// Set the dashboard's person filter + persist it (driven by the family progress
+// strip). Does NOT render — the caller calls render() after.
 async function applyPersonFilter(personId) {
   activePerson = personId || null;
   if (linkedPerson) {
@@ -1003,12 +980,14 @@ function bindEvents() {
     await loadData();
   });
 
-  // Task card (X5): tap the completion circle to complete; tap the rest of the
-  // card (or long-press) to open the detail sheet (where "Complete (full
-  // credit)", move, delegate, etc. live).
+  // Task card: tap ANYWHERE on the card to complete; long-press opens the detail
+  // sheet (where "Complete (full credit)", move, delegate, etc. live). The check
+  // circle is the done/not-done indicator. (A past overdue daily opens the sheet
+  // on tap instead of silently completing with a penalty — see isTapBlocked.)
   main.querySelectorAll('.task-card').forEach(btn => {
     bindTaskRowGesture(btn, {
       longPressMs: settings?.longPressMs ?? 800,
+      tapCompletes: true,
       onComplete: (ek, dk) => toggleTaskSafe(ek, dk || viewDate),
       onTap: (ek, dk) => openTaskSheet(ek, dk || viewDate),
       onLongPress: (ek, dk) => openTaskSheet(ek, dk || viewDate),
@@ -3640,12 +3619,16 @@ onMultipliers((val) => {
   debouncedRender();
 });
 
-// Person filter chip tap (re-rendered every render; use delegation on body).
+// Family progress strip = the person filter (the chip was removed). Tap a
+// person's ring to focus the dashboard on them; tap the already-active ring to
+// clear back to everyone. Re-rendered every render, so delegate on body.
 document.body.addEventListener('click', async (ev) => {
-  if (ev.target.closest('#openFilterSheet')) { openPersonFilterSheet(); return; }
-  // Family progress strip — tap a person ring to filter the dashboard to them.
   const fps = ev.target.closest('[data-fps-person]');
-  if (fps) { await applyPersonFilter(fps.dataset.fpsPerson || null); render(); }
+  if (fps) {
+    const pid = fps.dataset.fpsPerson || null;
+    await applyPersonFilter(pid === activePerson ? null : pid);
+    render();
+  }
 });
 
 // Schedule listener — resubscribed when viewDate changes
